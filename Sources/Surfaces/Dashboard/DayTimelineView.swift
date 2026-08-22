@@ -18,11 +18,18 @@ struct DayTimelineView: View {
     var layoutOverride: TimelineLayout?
 
     private var bandHeight: CGFloat { compact ? 26 : 44 }
+    /// The menu bar's band. It draws today's segments and brackets, not the
+    /// dashboard's day-scoped ones: drawing the selected day's segments on
+    /// today's axis emptied the popover's strip whenever the dashboard was
+    /// browsing another date.
+    private var isGlance: Bool { layoutOverride != nil }
+    private var segments: [TimelineSegment] { isGlance ? store.glanceTimeline : store.timelineSegments }
+    private var brackets: [(start: Date, end: Date)] { isGlance ? store.glanceBrackets : store.focusBrackets }
     /// Space under the band for focus brackets — reserved only when there are
     /// brackets to draw. Reserving it unconditionally left a band of dead space
     /// beneath the timeline on every day with no sessions, which read as a
     /// rendering fault rather than as emptiness.
-    private var bracketRow: CGFloat { store.focusBrackets.isEmpty ? 0 : 10 }
+    private var bracketRow: CGFloat { brackets.isEmpty ? 0 : 10 }
 
     var body: some View {
         if let layout = layoutOverride ?? store.timelineLayout, !layout.isEmpty {
@@ -68,7 +75,13 @@ struct DayTimelineView: View {
                                    lineWidth: 0.5)
                 }
 
-                for segment in store.timelineSegments {
+                // A session under the pointer or selected frames its spans and
+                // dims the rest; an app row under the pointer dims every other
+                // app. Only on the dashboard's own day — the popover's glance
+                // band passes a layout override and stays plain.
+                let framed = isGlance ? nil : store.framedSession
+                let highlight = isGlance ? nil : store.highlightedBundleID
+                for segment in segments {
                     // An instant inside an elided gap has no position; drawing it
                     // at 0 would smear the segment across the band.
                     guard let startX = layout.fraction(for: segment.start),
@@ -78,16 +91,21 @@ struct DayTimelineView: View {
                     let rect = CGRect(x: left, y: 0, width: segmentWidth, height: bandHeight)
                     let isFocused = store.hoveredSegment?.id == segment.id
                         || store.selectedSegment?.id == segment.id
+                    let insideFrame = framed.map { session in
+                        session.spans.contains { $0.start < segment.end && $0.end > segment.start }
+                    } ?? true
+                    let matchesApp = highlight.map { $0 == segment.bundleID } ?? true
+                    let emphasis: Double = (insideFrame && matchesApp) ? (isFocused ? 1 : 0.92) : 0.22
                     context.fill(Path(roundedRect: rect, cornerRadius: Tokens.Radius.swatch),
                                  with: .color(TimelinePalette.color(segment.colorIndex)
-                                    .opacity(isFocused ? 1 : 0.92)))
+                                    .opacity(emphasis)))
                     if isFocused {
                         context.stroke(Path(roundedRect: rect, cornerRadius: Tokens.Radius.swatch),
                                        with: .color(.primary.opacity(0.6)), lineWidth: 1)
                     }
                 }
 
-                for session in store.focusBrackets {
+                for session in brackets {
                     guard let startX = layout.fraction(for: session.start),
                           let endX = layout.fraction(for: session.end) else { continue }
                     var path = Path()
@@ -97,24 +115,39 @@ struct DayTimelineView: View {
                     context.stroke(path, with: .color(.accentColor),
                                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 }
+
+                if let framed {
+                    for span in framed.spans {
+                        guard let startX = layout.fraction(for: span.start),
+                              let endX = layout.fraction(for: span.end) else { continue }
+                        let rect = CGRect(x: startX * size.width - 3, y: -3,
+                                          width: max(6, (endX - startX) * size.width + 6),
+                                          height: bandHeight + 6)
+                        context.stroke(Path(roundedRect: rect, cornerRadius: 7),
+                                       with: .color(.accentColor
+                                            .opacity(store.selectedSession != nil ? 1 : 0.6)),
+                                       lineWidth: 1.5)
+                    }
+                }
             }
             .contentShape(Rectangle())
             .onContinuousHover { phase in
                 switch phase {
                 case .active(let point):
-                    store.hoverTimeline(at: Double(point.x / width))
+                    store.hoverTimeline(at: Double(point.x / width), glance: isGlance)
                 case .ended:
                     store.hoverTimeline(at: nil)
                 }
             }
             .onTapGesture { location in
-                store.selectTimeline(at: Double(location.x / width))
+                // Selection opens the detail row, which the glance band has not.
+                if !isGlance { store.selectTimeline(at: Double(location.x / width)) }
             }
             .overlay(alignment: .topLeading) { gapLabels(layout, width: width) }
             .overlay(alignment: .topLeading) { hoverLabel(layout, width: width) }
         }
         .frame(height: bandHeight + bracketRow)
-        .accessibilityLabel("Day timeline, \(store.timelineSegments.count) app segments, "
+        .accessibilityLabel("Day timeline, \(segments.count) app segments, "
                             + "\(layout.gaps.count) inactive periods")
     }
 
@@ -122,10 +155,14 @@ struct DayTimelineView: View {
     /// separator is too narrow to hold a label.
     @ViewBuilder
     private func gapLabels(_ layout: TimelineLayout, width: CGFloat) -> some View {
+        // A gap the user named — "Dinner" — says so; the rest say what they are.
+        let breaks = store.breakRecords(on: layoutOverride != nil ? Date() : store.selectedDay)
         ForEach(layout.gaps) { gap in
             let separatorWidth = (gap.xEnd - gap.xStart) * width
+            let named = breaks.first { $0.start < gap.end && $0.end > gap.start }
+            let title = named.map { $0.name.isEmpty ? "Break" : $0.name } ?? "No activity"
             if separatorWidth >= 40 {
-                Text("No activity · " + Tokens.preciseDuration(gap.duration))
+                Text(title + " · " + Tokens.preciseDuration(gap.duration))
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
                     .fixedSize()

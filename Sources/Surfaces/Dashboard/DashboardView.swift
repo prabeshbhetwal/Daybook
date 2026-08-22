@@ -1,33 +1,28 @@
 import SwiftUI
 
-/// Two columns: the narrative on the left, live state on the right. The right
-/// column is fixed width so opening or quitting an app never reflows the left.
-///
-/// No stat-tile grid and no per-row cards — each figure sits beside the evidence
-/// for it, and lists use hairline separators.
+/// One column of cards on the ground, top to bottom: the title band, the hero
+/// (ring + session + today's headline figures), the apps running now as
+/// chips, four KPI cards with a week of shape under each number, the day's
+/// rhythm beside the goal ring, then app share · work type · insights, then
+/// the session log. No right rail — everything it held is a card or a chip.
 struct DashboardView: View {
     @ObservedObject var store: SessionStore
     @StateObject private var calendarShown = BoolBox()
 
     /// `ScrollView` has no intrinsic content under `ImageRenderer`, so the
-    /// snapshot harness renders the columns unscrolled. Same views either way.
+    /// snapshot harness renders the column unscrolled. Same views either way.
     var scrolls: Bool = true
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            wrap { leftColumn }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-            wrap { rightColumn }
-                .frame(width: 280, alignment: .topLeading)
-        }
-        .background(Tokens.Surface.ground)
-        .onAppear {
-            // Reopening the window is a fresh question, and the question is
-            // almost always about today. The selection outlived a window close
-            // before, so the dashboard reopened on whatever day was last browsed.
-            store.goToToday()
-            store.refresh()
-        }
+        wrap { column }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .background(Tokens.Surface.ground)
+            .onAppear {
+                // Reopening the window is a fresh question, and the question is
+                // almost always about today.
+                store.goToToday()
+                store.refresh()
+            }
     }
 
     @ViewBuilder private func wrap<Content: View>(
@@ -39,21 +34,53 @@ struct DashboardView: View {
         }
     }
 
-    private var leftColumn: some View {
+    private var column: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
             titleBand
-            if !store.isIdle { activeSession }
-            StatBand(figures: store.statFigures,
-                     goal: store.period == .day && store.isToday ? store.goal : nil)
+            DashboardHero(store: store)
+            // What is running now belongs to today; a past day shows only itself.
+            if store.isToday && !store.runningApps.isEmpty {
+                RunningNowChips(apps: store.runningApps)
+            }
+            if !store.summarySentences.isEmpty {
+                SummaryCard(sentences: store.summarySentences)
+            }
+            kpiRow
+            chartRow
+            HStack(alignment: .top, spacing: Tokens.Space.m) {
+                SessionsCard(entries: store.daySessions, selected: store.selectedSession,
+                             onHover: { store.hoverSession($0) },
+                             onSelect: { store.selectSession($0) })
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .card(padding: Tokens.Space.m)
+                if store.period == .day {
+                    VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                        SectionHeader(title: "Timeline",
+                                      trailing: store.framedSession == nil
+                                          ? "hover a session to light it up" : nil)
+                        DayTimelineView(store: store)
+                    }
+                    .frame(width: 420, alignment: .topLeading)
+                    .card()
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .top, spacing: Tokens.Space.m) {
+                appShareCard
+                workTypeCard
+                insightsCard
+            }
+            .fixedSize(horizontal: false, vertical: true)
             sessionLogSection
-            periodChart
-            FocusQualityBar(quality: store.focusQuality, dayScopeLabel: dayScopeLabel)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .card()
         }
         .padding(Tokens.Space.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onExitCommand { store.clearSession() }
+        .animation(.easeInOut(duration: 0.25), value: store.dayOffset)
+        .animation(.easeInOut(duration: 0.2), value: store.selectedSession?.id)
     }
+
+    // MARK: - Title band
 
     /// The day, the date, the streak and the goal in one line; the scope
     /// controls beside them because they govern everything beneath.
@@ -72,6 +99,7 @@ struct DashboardView: View {
     }
 
     private var subtitle: String {
+        if !store.isToday { return store.selectedDaySummary }
         var parts = [Tokens.longDate(store.selectedDay)]
         if store.streak > 0 {
             parts.append(store.streak == 1 ? "1-day streak" : "\(store.streak)-day streak")
@@ -85,6 +113,172 @@ struct DashboardView: View {
         return parts.joined(separator: " · ")
     }
 
+    // MARK: - KPI row and charts
+
+    private var kpiRow: some View {
+        HStack(alignment: .top, spacing: Tokens.Space.m) {
+            ForEach(store.statFigures) { figure in
+                StatCard(label: figure.label, value: figure.value,
+                         context: figure.detail, contextTint: figure.tint,
+                         spark: figure.spark, sparkTint: figure.sparkTint ?? .accentColor,
+                         symbol: figure.symbol, badge: figure.badge, badgeTint: figure.badgeTint)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var chartRow: some View {
+        HStack(alignment: .top, spacing: Tokens.Space.m) {
+            VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                if store.period == .day {
+                    SectionHeader(title: "Rhythm · minutes at the Mac per hour",
+                                  trailing: store.rhythmPeak.map { "peak \($0)" })
+                    RhythmChart(hours: store.rhythm, onHourTap: { store.selectHour($0) })
+                } else {
+                    SectionHeader(title: "By day")
+                    PeriodChart(days: store.periodDays,
+                                average: store.periodSummary.averagePerActiveDay,
+                                onPickDay: { day in
+                                    store.selectDate(day)
+                                    store.period = .day
+                                })
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .card()
+            if store.period == .day {
+                goalCard
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The goal as a ring on its own, with the figures spelled out beneath —
+    /// the selected day's goal, live on today.
+    private var goalCard: some View {
+        let goal = store.selectedDayGoal
+        return VStack(spacing: Tokens.Space.s) {
+            GoalRing(progress: goal.share, diameter: 104, lineWidth: 10,
+                     label: "\(Int((min(goal.share, 9.99) * 100).rounded()))%",
+                     isMet: goal.isMet,
+                     labelFont: Font.system(size: 20, weight: .semibold, design: .rounded)
+                         .monospacedDigit())
+            VStack(spacing: 2) {
+                HStack(spacing: Tokens.Space.xs) {
+                    Text(Tokens.duration(goal.achieved))
+                        .font(.callout.weight(.semibold).monospacedDigit())
+                    Text("of \(Tokens.duration(goal.goal))")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                Text(goalContext)
+                    .font(Tokens.Typography.detail)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(width: 228)
+        .frame(maxHeight: .infinity)
+        .card()
+        .accessibilityElement(children: .combine)
+    }
+
+    private var goalContext: String {
+        let goal = store.selectedDayGoal
+        if goal.isMet { return "Goal met" }
+        // "to go" is a promise about the rest of the day; a finished day fell short.
+        var text = "\(Tokens.duration(max(0, goal.goal - goal.achieved))) "
+            + (store.isToday ? "to go" : "short")
+        if let ahead = goal.aheadBy {
+            if ahead >= 60 { text += " · \(Tokens.duration(ahead)) ahead" }
+            else if ahead <= -60 { text += " · \(Tokens.duration(-ahead)) behind" }
+            else { text += " · on pace" }
+        }
+        return text
+    }
+
+    // MARK: - Row three
+
+    private var appShareCard: some View {
+        Group {
+            if store.appShareRanks.isEmpty {
+                VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                    SectionHeader(title: "App share")
+                    Text("Tracking starts when you switch apps.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                    if let session = store.selectedSession {
+                        HStack {
+                            Spacer()
+                            Button { store.clearSession() } label: {
+                                HStack(spacing: Tokens.Space.xs) {
+                                    Text("Session · \(Tokens.timeRange(session.start, session.end))")
+                                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                                }
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.tint)
+                                .padding(.horizontal, Tokens.Space.s).padding(.vertical, 3)
+                                .overlay(Capsule().strokeBorder(Color.accentColor.opacity(0.6)))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Show the whole day again (Esc)")
+                        }
+                    }
+                    TopAppsList(apps: Array(store.appShareRanks.prefix(6)),
+                                sessionsToday: store.sessionsToday,
+                                store: store.period == .day ? store : nil,
+                                compact: true,
+                                title: store.selectedSession == nil ? "App share" : "Apps in this session",
+                                trailingOverride: store.appShareRanks.count == 1
+                                    ? "1 app" : "\(store.appShareRanks.count) apps",
+                                expandedApps: store.expandedApps)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .card()
+    }
+
+    private var workTypeCard: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.m) {
+            SectionHeader(title: "Work type")
+            WorkTypeDonut(shares: store.workTypeShares)
+            if store.period == .day, store.focusQuality.sessionCount > 0 {
+                Text("\(Int((store.focusQuality.insideSessionShare * 100).rounded()))% of tracked "
+                     + "time in a session · "
+                     + String(format: "%.1f switches / stretch",
+                              store.focusQuality.switchesPerSession))
+                    .font(Tokens.Typography.detail)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .card()
+    }
+
+    private var insightsCard: some View {
+        Group {
+            if store.insights.isEmpty {
+                VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                    SectionHeader(title: "Insights")
+                    Text("Nothing to remark on yet.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                InsightsList(insights: store.insights)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .card()
+    }
+
+    // MARK: - Session log
+
     private var sessionLogSection: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             HStack {
@@ -95,6 +289,7 @@ struct DashboardView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                .quietFocus()
                 .frame(width: 160)
                 Spacer()
             }
@@ -112,79 +307,8 @@ struct DashboardView: View {
         .card()
     }
 
-    private var rightColumn: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            RunningNowList(apps: store.runningApps)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .card(padding: Tokens.Space.m)
-            if !store.earlierToday.isEmpty {
-                EarlierTodayList(apps: store.earlierToday, store: store,
-                                 title: store.isToday ? "Earlier today" : "Earlier that day",
-                                 expandedApps: store.expandedApps)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .card(padding: Tokens.Space.m)
-            }
-            if !store.insights.isEmpty {
-                InsightsList(insights: store.insights)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .card(padding: Tokens.Space.m)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(Tokens.Space.l)
-    }
+    // MARK: - Scope controls
 
-    // MARK: - Active session
-
-    /// The session in flight, as a slim card. Absent when idle — the popover
-    /// owns starting.
-    @ViewBuilder private var activeSession: some View {
-        HStack(alignment: .center, spacing: Tokens.Space.l) {
-            if let away = store.pendingAway {
-                ResolveCard(away: away,
-                            onMerge: { store.resolve(.mergeTime) },
-                            onBreak: { store.resolve(.continueSession) },
-                            onDiscard: { store.resolve(.resetTimer) },
-                            onRest: { store.resolve(.tookBreak) },
-                            framed: false)
-            } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Tokens.clock(store.elapsed))
-                        .font(Tokens.Typography.heroTimer)
-                        .contentTransition(.numericText())
-                        .foregroundStyle(store.isPaused ? AnyShapeStyle(.secondary)
-                                                        : AnyShapeStyle(.primary))
-                    Text(store.activeSessionSubtitle)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                HStack(spacing: Tokens.Space.s) {
-                    if store.isAway {
-                        Button("I'm back") { store.endAway() }
-                            .buttonStyle(.borderedProminent)
-                        Button("Stop") { store.stop() }
-                    } else {
-                        IconButton(systemImage: store.isPaused ? "play.fill" : "pause.fill",
-                                   help: store.isPaused ? "Resume" : "Pause") {
-                            store.togglePause()
-                        }
-                        IconButton(systemImage: "door.right.hand.open",
-                                   help: "Away — stop the session and recording until you return") {
-                            store.markAway()
-                        }
-                        Button("Stop") { store.stop() }.buttonStyle(.borderedProminent)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
-    }
-
-    // MARK: - Day
-
-    /// Scope for everything beneath it, so it stays above the log it governs.
     private var periodControls: some View {
         HStack(alignment: .center) {
             Picker("Period", selection: periodBinding) {
@@ -194,38 +318,14 @@ struct DashboardView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .quietFocus()
             .frame(width: 220)
-            Spacer()
             dayStepper
         }
     }
 
-    @ViewBuilder private var periodChart: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            SectionHeader(title: store.period == .day ? "Timeline" : "By day")
-            if store.period == .day {
-                DayTimelineView(store: store)
-            } else {
-                PeriodChart(days: store.periodDays,
-                            average: store.periodSummary.averagePerActiveDay)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card()
-    }
-
-    /// Nil on Day, where every section shares one scope and a label is noise.
-    private var dayScopeLabel: String? {
-        store.period == .day ? nil : store.dayLabel
-    }
-
     private var groupingBinding: Binding<LogGrouping> {
         Binding(get: { store.logGrouping }, set: { store.logGrouping = $0 })
-    }
-
-    private var dateBinding: Binding<Date> {
-        Binding(get: { store.selectedDay },
-                set: { store.selectDate($0); calendarShown.value = false })
     }
 
     private var periodBinding: Binding<TrackingPeriod> {
@@ -249,13 +349,13 @@ struct DashboardView: View {
             .help("Pick a date")
             .popover(isPresented: Binding(get: { calendarShown.value },
                                           set: { calendarShown.value = $0 })) {
-                DatePicker("", selection: dateBinding,
-                           in: (store.earliestSelectableDay ?? Date())...Date(),
-                           displayedComponents: .date)
-                    .datePickerStyle(.graphical)
-                    .labelsHidden()
-                    .padding(Tokens.Space.m)
-                    .frame(width: 260)
+                DayPickerCalendar(selected: store.selectedDay,
+                                  earliest: store.earliestSelectableDay,
+                                  goal: store.goal.goal,
+                                  facts: { store.dayFacts(inMonthOf: $0) }) { day in
+                    store.selectDate(day)
+                    calendarShown.value = false
+                }
             }
             Button { store.stepDay(by: 1) } label: { Image(systemName: "chevron.right") }
                 .disabled(!store.canStepForward)

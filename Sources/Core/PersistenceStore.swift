@@ -26,6 +26,7 @@ final class PersistenceStore {
         static let lastBreakNotice = "fc.lastBreakNotice"
         static let lastBreakTier = "fc.lastBreakTier"
         static let longAwayCap = "fc.longAwayCap"
+        static let fullPromptAfter = "fc.fullPromptAfter"
         static let period = "fc.period"
     }
 
@@ -154,6 +155,19 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.longAwayCap) }
     }
 
+    /// Past this an absence is asked about on a blurred screen; under it, from
+    /// the menu bar. Nil is Never — stored as 0 so it survives as a choice,
+    /// while a missing key reads as the default.
+    var fullPromptAfter: TimeInterval? {
+        get {
+            guard let stored = defaults.object(forKey: Key.fullPromptAfter) as? Double else {
+                return FocusConstants.defaultFullPromptAfter
+            }
+            return stored > 0 ? stored : nil
+        }
+        set { defaults.set(newValue ?? 0, forKey: Key.fullPromptAfter) }
+    }
+
     var sessionName: String {
         get { defaults.string(forKey: Key.name) ?? "" }
         set { defaults.set(newValue, forKey: Key.name) }
@@ -248,7 +262,7 @@ final class PersistenceStore {
                     Key.rewardsEnabled, Key.rewardLog, Key.learning, Key.logGrouping,
                     Key.remindersDisabled, Key.workInterval, Key.breakLength,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
-                    Key.period] {
+                    Key.fullPromptAfter, Key.period] {
             defaults.removeObject(forKey: key)
         }
     }

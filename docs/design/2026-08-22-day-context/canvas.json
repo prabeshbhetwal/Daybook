@@ -1,0 +1,53 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1020,
+      "h": 1080,
+      "title": "A past day selected"
+    },
+    {
+      "file": "SessionSelected.dc.html",
+      "x": 1100,
+      "y": 0,
+      "w": 1020,
+      "h": 1080,
+      "title": "A session selected"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "ctx",
+      "x": 0,
+      "y": -170,
+      "w": 480,
+      "text": "Date is the master context.\nPick a day (calendar, arrows, Week/Month chart bar) and EVERYTHING follows it \u2014 title, KPIs, sessions, timeline, apps, work type, insights \u2014 with a cross-fade and the numbers rolling.\nThe hero collapses to a one-line NOW strip on any day but today, so a past day can never be mistaken for now, and 'Back to today' is one click."
+    },
+    {
+      "id": "sess",
+      "x": 520,
+      "y": -170,
+      "w": 480,
+      "text": "Sessions card \u2014 new, and the thing that was missing.\nThe day's focus sessions as rows: time range, name, type, worked, stretches; the breaks between them inline with their names ('Dinner \u00b7 40m'). What used to be called 'Session log' becomes 'App usage'."
+    },
+    {
+      "id": "link",
+      "x": 1100,
+      "y": -170,
+      "w": 480,
+      "text": "Everything links.\nHover a session \u2192 its span frames on the timeline and its apps brighten in App share. Click it \u2192 Focused shows the session, the timeline frames it, App share filters to the apps used inside it, a chip names it; \u00d7 or Esc clears. Hover an app row \u2192 its blocks brighten on the timeline. Click a rhythm bar \u2192 that hour."
+    },
+    {
+      "id": "data",
+      "x": 1600,
+      "y": -170,
+      "w": 420,
+      "text": "Right data in the right place.\nThe calendar's figure under a date, the KPI Focused on that date, and the Sessions card's total are one number from one source. Records inflated by the pre-22-Aug idle bug can be repaired (capped to hands-on time inside their span) \u2014 your call."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

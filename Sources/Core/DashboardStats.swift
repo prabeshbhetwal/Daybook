@@ -207,6 +207,37 @@ struct DashboardStats {
         return cache.segments.reduce(0) { $0 + $1.seconds }
     }
 
+    /// Apps used inside the given spans of the day — what a session was worked
+    /// in. Same ranking rule as the day's, over the intersection only.
+    func rankedApps(for day: Date, within spans: [DateInterval]) -> [AppRank] {
+        ensure(day)
+        var totals: [String: (name: String, total: TimeInterval, longest: TimeInterval)] = [:]
+        var overall: TimeInterval = 0
+        for segment in cache.segments {
+            for span in spans {
+                let start = max(segment.start, span.start)
+                let end = min(segment.end, span.end)
+                guard end > start else { continue }
+                let seconds = end.timeIntervalSince(start)
+                overall += seconds
+                let existing = totals[segment.bundleID]
+                totals[segment.bundleID] = (segment.appName,
+                                            (existing?.total ?? 0) + seconds,
+                                            max(existing?.longest ?? 0, seconds))
+            }
+        }
+        return totals.map { bundleID, value in
+            AppRank(bundleID: bundleID, appName: value.name, total: value.total,
+                    share: overall > 0 ? value.total / overall : 0, longest: value.longest)
+        }
+        .sorted { $0.total == $1.total ? $0.bundleID < $1.bundleID : $0.total > $1.total }
+    }
+
+    /// Hands-on seconds inside the given spans of the day.
+    func trackedTotal(for day: Date, within spans: [DateInterval]) -> TimeInterval {
+        rankedApps(for: day, within: spans).reduce(0) { $0 + $1.total }
+    }
+
     func rankedApps(for day: Date) -> [AppRank] {
         ensure(day)
         return cache.ranks

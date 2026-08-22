@@ -502,11 +502,21 @@ going whether or not it is answered. Nothing ever steals focus.
 **Menu bar item** has four ambient states: glyph when idle, glyph plus elapsed while
 running, dimmed with ⏸ when paused, and a badge when an absence needs resolving.
 
-**Dashboard window** is two columns. Left is the narrative: the active session, a
-24-hour `Canvas` timeline of app usage with focus sessions bracketed beneath it, the
-ranked app list with real icons and proportional bars, and a focus-quality line. Right is
-live state at a fixed 260pt so opening an app never reflows the left: Running Now (each
-app's icon, launch time and how long it has been open) and Insights.
+**Dashboard window** is one column of cards on a flat ground, top to bottom: the title
+band (day, date, streak, goal; Day · Week · Month and a date stepper with a calendar),
+the **hero** (the goal ring, the running session's stretch clock and controls, and the
+day's Tracked · Focused · Sessions), the apps running now as chips, a **Summary** — the
+day in four or five sentences written from the same figures, every clause gated on its
+data, with a Copy button — four KPI cards each with a week of shape beneath the number,
+the hourly **Rhythm** beside the goal ring, the **Sessions** card beside the day
+**Timeline**, then App share · Work type · Insights and the App usage table.
+
+The date is the master context. On a past day every card, the hero included, shows that
+day and nothing that moves: the hero's clock becomes the day's focused total, the ring is
+that day's goal, and the running session stays in the menu bar and on today. A session
+is a *thread* — work that carried on across breaks — so `Sessions 1` and `1 session ·
+7 stretches` describe one thing; hovering a session lights its stretches on the
+timeline, clicking narrows the page to it, Esc clears.
 
 ### Day, Week, Month
 
@@ -535,10 +545,9 @@ pointer with its clock range and duration; clicking a segment expands that app's
 for the hour. Dates are reached with a `‹ Wed 13 Aug ›` stepper, bounded at your earliest
 record and at today.
 
-There are no stat tiles. Each figure sits beside the evidence for it — the streak with the
-session, the day's total with the timeline, the session count with Top apps. Insights are
-computed and gated: an insight with no data behind it does not appear rather than showing
-zero.
+Every figure carries its context — a delta, a share, a name — and the Summary and the
+Insights are computed and gated: a sentence or an insight with no data behind it does not
+appear rather than showing zero. No model is involved anywhere; the words are the figures.
 
 **⌃⌥Space** starts or stops a session from anywhere. macOS 13 exposes no API to open a
 `MenuBarExtra` programmatically, so the hotkey acts directly rather than opening the
@@ -570,6 +579,8 @@ Sources/
     FocusContinuityApp.swift        @main, argument gate, scenes
     AppCoordinator.swift            Lifecycle, ownership, monitor wiring
     SessionStore.swift              The one bridge: engine → @Published
+    SessionStore+Dashboard.swift    Dashboard figures, charts, the selected period
+    SessionStore+History.swift      Timeline inspection, per-app history, threads
     SettingsModel.swift             Settings window bridge to PersistenceStore
     EventMonitor.swift              Workspace + distributed notifications (AppKit)
     HotKeyMonitor.swift             Carbon global hotkey, no TCC grant
@@ -586,6 +597,8 @@ Sources/
     Dashboard/
       DashboardView.swift           Two-column dashboard shell
       DayTimelineView.swift         24-hour Canvas timeline
+      DashboardHero.swift           Goal ring, running session, today's headline figures
+      DashboardCharts.swift         Sparkline, rhythm bars, work-type donut, running-now chips
       DashboardSections.swift       Top apps, Running now, Insights, Focus quality
       PeriodViews.swift             Stat band, period chart, session log
     GalleryView.swift               --gallery state catalogue and fixtures

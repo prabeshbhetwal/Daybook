@@ -12,6 +12,12 @@ final class SessionEngine {
     var onStateChanged: ((SessionState) -> Void)?
     /// Raised when an extended break needs a user decision (D10/D11).
     var onNeedsDecision: ((TimeInterval, String) -> Void)?
+    /// "Is this app part of the running work?" — supplied by the store, which
+    /// knows the thread's apps from the usage archive; the engine knows only
+    /// the app in front. Consulted when the user comes back from an absence in
+    /// a different app than they left in. Nil keeps the thread, which is what
+    /// every caller without usage data should get.
+    var threadContextMatcher: ((String?) -> Bool)?
 
     // MARK: - Collaborators
 
@@ -38,6 +44,20 @@ final class SessionEngine {
     private var pendingDwell: DispatchWorkItem?
     /// When the extended-break alert was raised. Time spent deciding is never work.
     private var decisionStartDate: Date?
+    /// The app in front when the pending absence was noticed — before the user
+    /// did anything on return. Same app on return, or one of the work's apps,
+    /// means the same piece of work; a different one means new work, and the
+    /// old thread is kept for Continue rather than stretched over it.
+    private var departureApp: String?
+    /// A name for the break about to be recorded — "Dinner" — given with the
+    /// answer. Consumed by the next `.tookBreak` and cleared with every
+    /// decision, so a label never outlives the question it answered.
+    var pendingAwayLabel: String?
+    /// When the user actually came back from the pending absence — what the
+    /// card's range ends at. Usually the same instant as `decisionStartDate`,
+    /// but a restore re-stamps that one to keep the arithmetic honest, and the
+    /// absence did not move just because the app relaunched.
+    private var awayReturnedAt: Date?
 
     private let now: () -> Date
     private let ownBundleID: String?
@@ -106,13 +126,23 @@ final class SessionEngine {
 
     /// Counts the running session. Showing "42m focused" beside "0 sessions" is
     /// two truths on one screen.
+    /// Sessions today, a session being a thread. The running stretch is a new
+    /// session only when its thread has nothing in the archive today; after a
+    /// break it continues one that is already counted.
     var sessionsToday: Int {
-        archive.sessionsToday() + (state == .idle ? 0 : 1)
+        let today = now()
+        let archived = archive.threadCount(on: today)
+        guard state != .idle else { return archived }
+        return archived + (archive.threadWork(activeThreadID, on: today) > 0 ? 0 : 1)
     }
 
-    /// The longest session today, running one included.
+    /// The longest session today, the running thread's earlier stretches and
+    /// its live one added together.
     var longestToday: TimeInterval {
-        max(archive.longestToday(), elapsedToday())
+        let today = now()
+        let archived = archive.longestThread(on: today)?.seconds ?? 0
+        guard state != .idle else { return archived }
+        return max(archived, archive.threadWork(activeThreadID, on: today) + elapsedToday())
     }
 
     /// Today's completed work plus the part of the running session that happened
@@ -129,6 +159,25 @@ final class SessionEngine {
     /// else. Nil when idle.
     var runningSpan: (start: Date, end: Date)? {
         state == .idle ? nil : (start: sessionStartDate, end: now())
+    }
+
+    /// When the pending absence was, for the card and the prompts. Derived from
+    /// the return moment already stamped in `decisionStartDate` and the length
+    /// in the state, so it cannot disagree with the figure beside it.
+    /// Whether answering "break" or "away" continues the running thread, or
+    /// starts a new one because the user came back into different work. True
+    /// outside a pending question.
+    var returnKeepsThread: Bool {
+        guard case .awaitingUserDecision = state else { return true }
+        guard let returnedTo = currentAppBundleID, let left = departureApp,
+              returnedTo != left else { return true }
+        return threadContextMatcher?(returnedTo) ?? true
+    }
+
+    var pendingAwayRange: (start: Date, end: Date)? {
+        guard case .awaitingUserDecision(let away, _) = state,
+              let returnedAt = awayReturnedAt ?? decisionStartDate else { return nil }
+        return (start: returnedAt.addingTimeInterval(-away), end: returnedAt)
     }
 
     func elapsedToday(calendar: Calendar = .current) -> TimeInterval {
@@ -205,12 +254,54 @@ final class SessionEngine {
             if seconds >= FocusConstants.idlePauseThreshold {
                 enterPause(reason: .idle, at: now().addingTimeInterval(-seconds))
             }
+        case (.running, .watchingObserved(let seconds)):
+            // Quiet, but watched: something on screen is keeping the display
+            // awake. Nobody left, so this is never an absence to ask about. In
+            // a session whose work is attending — Meetings, Learning — it is
+            // the work; anywhere else the clock stops quietly, back-dated to
+            // the last input like an idle pause.
+            if seconds >= FocusConstants.idlePauseThreshold, !activeWorkType.countsWhileWatching {
+                enterPause(reason: .watching, at: now().addingTimeInterval(-seconds))
+            }
         case (.running, .resetSession):
             archiveCurrentSession()
             beginFreshSession()
             forceEmit = true
         case (.running, .launch), (.running, .manualResume), (.running, .decision):
             break // documented no-op: already running
+
+        // .paused(.watching) — presence without input; input ends it quietly
+        case (.paused(.watching), .appActivated(let bundleID, let name)):
+            if isSelf(bundleID) { break }
+            recordApp(bundleID: bundleID, name: name)
+            endWatchingPause()
+        case (.paused(.watching), .watchingObserved):
+            break // still watching
+        case (.paused(.watching), .idleObserved(let seconds)):
+            if seconds < FocusConstants.idlePauseThreshold {
+                // Input is back, or the watching has only just ended.
+                endWatchingPause()
+            } else {
+                // The watching ended a while ago and nobody has touched the
+                // machine since. From here it is an ordinary idle pause,
+                // measured from when the watching ended — not from the last
+                // keypress before the film, which would put the film into the
+                // question asked on return.
+                let ended = now().addingTimeInterval(-seconds)
+                endWatchingPause(endingAt: ended)
+                enterPause(reason: .idle, at: ended)
+            }
+        case (.paused(.watching), .awayBegan(let trigger)):
+            // A lock or sleep during the watching: the watched stretch closes
+            // here and the absence begins now, so the question on return is
+            // about the time away, not the film before it.
+            endWatchingPause()
+            recordAway(trigger)
+        case (.paused(.watching), .awayEnded):
+            // A display waking mid-film says the user was there all along.
+            endWatchingPause()
+        case (.paused(.watching), .manualResume):
+            endWatchingPause()
 
         // .paused
         case (.paused(let reason), .appActivated(let bundleID, let name)):
@@ -259,8 +350,16 @@ final class SessionEngine {
         case (.paused, .awayBegan(let trigger)):
             recordAway(trigger)
         case (.paused(let reason), .awayEnded):
-            // Already paused, so the away time is accounted for by the pause
-            // itself — drop the interval rather than double-counting it.
+            // Already paused, so the pause accounts for the away time — unless
+            // the absence began *before* the pause did. A lid closed at 15:50
+            // opens an away; the idle sampler, which cannot see through sleep
+            // (HID idle does not advance while the machine is off), may
+            // back-date its pause only to 17:19; the absence is still the
+            // earlier of the two. Dropping the interval here left 89 minutes
+            // of closed lid standing as work.
+            if let interval = awayInterval, let began = pauseStartDate, interval.start < began {
+                pauseStartDate = interval.start
+            }
             awayInterval = nil
             // Unless the pause is an unattended one that the lock has now run
             // past the cap. That is the ordinary overnight: input stops, the
@@ -307,7 +406,7 @@ final class SessionEngine {
                 endIdlePause()
             }
         case (.paused, .launch), (.paused, .manualPause),
-             (.paused, .dwellExpired), (.paused, .decision):
+             (.paused, .dwellExpired), (.paused, .decision), (.paused, .watchingObserved):
             break // documented no-op
 
         // .awaitingUserDecision — record, never transition (D10)
@@ -344,7 +443,7 @@ final class SessionEngine {
             apply(.continueSession)
         case (.awaitingUserDecision, .launch),
              (.awaitingUserDecision, .dwellExpired), (.awaitingUserDecision, .manualPause),
-             (.awaitingUserDecision, .idleObserved),
+             (.awaitingUserDecision, .idleObserved), (.awaitingUserDecision, .watchingObserved),
              (.awaitingUserDecision, .overrideApplied):
             break // documented no-op: the alert owns the next transition
         }
@@ -370,6 +469,7 @@ final class SessionEngine {
         awayInterval = nil
         shadowAway = 0
         decisionStartDate = nil
+        awayReturnedAt = nil
         state = .running
     }
 
@@ -386,6 +486,28 @@ final class SessionEngine {
     private func leavePause() {
         if let start = pauseStartDate {
             totalPausedDuration += interval(from: start)
+        }
+        pauseStartDate = nil
+        state = .running
+    }
+
+    /// Ends a watching pause. Quiet — nobody left, nothing to ask. The stretch
+    /// is banked like any pause and, when it lasted at least `breakThreshold`,
+    /// written down as a rest named "Watching", so the timeline and the
+    /// Sessions card can say where the evening went instead of showing a gap.
+    /// `endingAt` closes it earlier than now when the watching stopped a while
+    /// ago and the seconds since belong to whatever pause follows.
+    private func endWatchingPause(endingAt moment: Date? = nil) {
+        cancelDwell()
+        let end = min(moment ?? now(), now())
+        if let began = pauseStartDate {
+            let watched = max(0, end.timeIntervalSince(began))
+            totalPausedDuration += watched
+            if watched >= store.breakThreshold {
+                archive.append(SessionRecord(name: "Watching", workType: .breakTime,
+                                             start: began, end: end, workSeconds: watched,
+                                             threadID: UUID()))
+            }
         }
         pauseStartDate = nil
         state = .running
@@ -436,6 +558,7 @@ final class SessionEngine {
         awayInterval = nil
         shadowAway = 0
         decisionStartDate = nil
+        awayReturnedAt = nil
         activeIsAuto = false
         state = .idle
     }
@@ -495,17 +618,36 @@ final class SessionEngine {
             activeIsAuto = false
             pauseStartDate = nil
             decisionStartDate = nil
+            awayReturnedAt = nil
+        awayReturnedAt = nil
             state = .idle
             persist()
             return
         }
 
         decisionStartDate = now()
+        awayReturnedAt = decisionStartDate
+        departureApp = currentAppBundleID
         state = .awaitingUserDecision(away: away, lastApp: currentAppName)
+    }
+
+    /// Answers the pending question, optionally naming the break. The store's
+    /// one entry point for decisions; `transition(on: .decision)` remains for
+    /// tests and for answers without a name.
+    func decide(_ decision: UserDecision, label: String? = nil) {
+        pendingAwayLabel = label?.trimmingCharacters(in: .whitespacesAndNewlines)
+        transition(on: .decision(decision))
     }
 
     private func apply(_ decision: UserDecision) {
         guard case .awaitingUserDecision(let away, _) = state else { return }
+        // Capitalised for the record — the timeline shows it as a title — and
+        // consumed here whatever the answer, so it cannot leak into a later one.
+        let breakName: String = {
+            guard let label = pendingAwayLabel, !label.isEmpty else { return "Break" }
+            return label.prefix(1).uppercased() + label.dropFirst()
+        }()
+        pendingAwayLabel = nil
         // An absence still open when the answer lands is closed here: answering
         // is proof the user is back. Together with the banked shadow this is
         // every second of any *second* absence the card sat through.
@@ -519,6 +661,9 @@ final class SessionEngine {
         // when the user came back — and the away began exactly `away` before it.
         let returnedAt = decisionStartDate
         let awayStarted = returnedAt?.addingTimeInterval(-away)
+        // Judged before the state changes, because it reads the pending one.
+        let keepsThread = returnKeepsThread
+        departureApp = nil
         // Deliberately not subtracted from work. That rule was written for the
         // blocking alert this card replaced: with a modal in the way, time spent
         // deciding really was not work. The card blocks nothing, so the minutes
@@ -526,6 +671,7 @@ final class SessionEngine {
         // working, which is why the user reported the session "not starting"
         // until they answered.
         decisionStartDate = nil
+        awayReturnedAt = nil
 
         switch decision {
         case .mergeTime:
@@ -547,7 +693,7 @@ final class SessionEngine {
                 // where it would otherwise show a gap and the day would look
                 // abandoned. Its own thread: rest is not a segment of the work
                 // it interrupts.
-                archive.append(SessionRecord(name: "Break",
+                archive.append(SessionRecord(name: breakName,
                                              workType: .breakTime,
                                              start: awayStarted,
                                              end: awayStarted.addingTimeInterval(away),
@@ -563,10 +709,14 @@ final class SessionEngine {
             // drew a record straight through the gap on the day timeline.
             archiveCurrentSession(endingAt: awayStarted)
             beginFreshSession()
-            // Same work, resumed — unless they said it was something else.
-            // `Continue Today` groups by thread, so this is what keeps an
-            // afternoon split by lunch reading as one job.
-            activeThreadID = decision == .resetTimer ? UUID() : thread
+            // Same work, resumed — unless they said it was something else, or
+            // came back into a different app than the one they left in, which
+            // is new work. `Continue Today` groups by thread, so this is what
+            // keeps an afternoon split by lunch reading as one job, and what
+            // keeps the old job one click away when the afternoon moved on.
+            let continues = decision != .resetTimer && keepsThread
+            activeThreadID = continues ? thread : UUID()
+            if !continues { store.sessionName = "" }
             // Answering is not the start of the work — coming back was.
             if let returnedAt { sessionStartDate = returnedAt }
             // A second absence between coming back and answering belongs to
@@ -648,6 +798,7 @@ final class SessionEngine {
         awayInterval = nil
         shadowAway = 0
         decisionStartDate = nil
+        awayReturnedAt = nil
         state = .idle
         persist()
         onStateChanged?(state)
@@ -673,6 +824,7 @@ final class SessionEngine {
         awayInterval = nil
         shadowAway = 0
         decisionStartDate = nil
+        awayReturnedAt = nil
         totalPausedDuration = 0
         activeIsAuto = false
         state = .idle
@@ -735,7 +887,13 @@ final class SessionEngine {
 
     /// Restores a snapshot and resolves the gap since it was written through the
     /// same away path a live lock/wake would take (D14).
-    func restore(from snapshot: PersistedState) {
+    /// - Parameter screenLocked: whether the screen is locked *now*, at launch.
+    ///   Relaunched behind a lock — a crash, an update, a kill while the user
+    ///   is away — nobody has come back yet: the absence stays open from where
+    ///   the snapshot puts it and the unlock resolves all of it. Resolving the
+    ///   gap at launch measured only up to the launch and then forgot the lock,
+    ///   which is how a 40-minute absence was recorded as a 6-minute break.
+    func restore(from snapshot: PersistedState, screenLocked: Bool = false) {
         sessionStartDate = snapshot.sessionStart
         totalPausedDuration = snapshot.totalPaused
         pauseStartDate = snapshot.pauseStart
@@ -752,6 +910,9 @@ final class SessionEngine {
             state = .idle
             return
         case .paused:
+            if screenLocked, let began = snapshot.awayStart {
+                awayInterval = (start: began, trigger: snapshot.awayTrigger ?? .screenLock)
+            }
             state = .paused(reason: snapshot.restoredPauseReason)
             return
         case .awaiting:
@@ -773,12 +934,17 @@ final class SessionEngine {
             state = .awaitingUserDecision(away: snapshot.pendingAway ?? 0,
                                           lastApp: snapshot.lastApp)
             // Re-stamped so the gap just excluded is not excluded a second time
-            // when the decision lands.
+            // when the decision lands. The range keeps the real return moment.
+            awayReturnedAt = snapshot.decisionStarted ?? now()
             decisionStartDate = now()
         case .running:
             state = .running
-            let gap = interval(from: snapshot.awayStart ?? snapshot.savedAt)
-            resolve(away: gap)
+            let began = snapshot.awayStart ?? snapshot.savedAt
+            if screenLocked {
+                awayInterval = (start: began, trigger: snapshot.awayTrigger ?? .screenLock)
+            } else {
+                resolve(away: interval(from: began))
+            }
         }
 
         persist()

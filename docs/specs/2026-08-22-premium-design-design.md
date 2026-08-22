@@ -323,3 +323,99 @@ is not renderable headless.
 Live, with screenshots kept with the plan: popover at 13" and 14" in light and dark, with
 the away card up; dashboard on Today, Yesterday, Week; Settings from ⌘, and from the gear;
 the menu-bar glyph in all five states.
+
+## Addendum — day context (2026-08-22, later)
+
+Designed on the canvas `docs/superpowers/design/2026-08-22-day-context/`, approved in chat.
+The date is the master context: everything beneath the title follows the selected day.
+On any day but today the hero folds to a one-line **Now** strip (`DashboardHero.nowStrip`)
+with *Back to today*. A **Sessions** card (`SessionsCard`, rows from
+`SessionDigest.entries` — stretches folded by thread, named rests between them) sits beside
+the day **Timeline**. Hovering a session frames its spans on the timeline
+(`store.hoveredSession` / `framedSession`); clicking narrows the page to it
+(`store.selectSession`: Focused and Tracked become the session's, App share shows the apps
+inside its spans via `DashboardStats.rankedApps(for:within:)`, a chip names it; × or Esc
+clears). Hovering an app row brightens its blocks (`store.highlightedBundleID`). Rhythm bars
+click through to the hour (`store.selectHour`); the Week/Month chart names the day on hover
+and opens it on click. The app-usage table is titled **App usage**. Tests 91–92.
+
+## Addendum — past days, the Summary, sessions are threads (2026-08-22, night)
+
+- **A past day shows only itself.** The *Now* strip is gone: browsing Friday while a
+  session runs showed a clock that was not Friday's. The hero keeps its shape on every day
+  — ring · middle · three figures — and on a past day the middle is the day's focused total
+  in the clock's place (`3h 47m` / *focused in one session · 8:44 am – 3:56 pm* / *12m
+  short of the 4h goal*), the ring and the goal card are that day's
+  (`store.selectedDayGoal`: recorded session work against the goal, the measure the
+  calendar tints and the title band judge by; today's live ring keeps hands-on-inside-
+  session and the pace clause), and the three figures are the day's. Running-now chips
+  appear only on today. The *Today* button in the title band is the way back. Deltas on a
+  past day read *vs the day before*.
+- **Summary** (`SummaryText` in Core, `SummaryCard`) — the day, or the week or month, in
+  four or five sentences from the figures already on the page: time at the Mac and its
+  span; focus, sessions and the goal; the longest session with its stretches and the
+  recorded breaks between them (named ones by name); the top two apps and the busiest
+  hours; the inside-session share, switches per stretch and the work-type split; the day
+  before. Every clause is gated on its figure; a share above 100% is not written; today
+  speaks in the present ("So far today…", "to the goal", "still running"). `**` marks
+  figures for bold; *Copy* puts the plain text on the pasteboard. No model: the sentences
+  are the figures, joined — deterministic and always true of the data. Test 93.
+- **A session is a thread.** The KPI said `Sessions 7` beside a card saying `1 session ·
+  7 stretches`. `SessionArchive.threadCount(on:)`, `longestThread(on:)` and
+  `threadWork(_:on:)` count threads; the engine's `sessionsToday`/`longestToday` fold the
+  running stretch into its thread; the KPI, hero, calendar facts, sparklines and the
+  Sessions header all agree. `focusCount(on:)` remains the stretch count; "switches /
+  session" is now "switches / stretch", which is what it divides by. A session's break
+  count is the rests *recorded* inside it, not its gaps. Unnamed work is named by its type
+  everywhere a name is shown alone. Test 94.
+
+## Addendum — absences, relaunches, and the menu bar's band (2026-08-22, late)
+
+Found from one day's records against the power log (`pmset -g log`):
+
+- **An absence is measured from where it began.** Lid closed 15:50, opened 18:02; the
+  engine had the away from 15:50, but during the machine's dark wakes the idle sampler —
+  whose HID idle clock does not advance through sleep — back-dated an idle pause only to
+  17:19, and `(.paused, .awayEnded)` discarded the older away interval. 89 minutes of closed
+  lid stood as work; only 43 were asked about. Now the pause start becomes the earlier of
+  the two before the cap and the question are judged. Test 95.
+- **Relaunched behind a lock, the absence stays open.** `restore(from:screenLocked:)`: when
+  the screen is locked at launch (read from the session dictionary), the absence from the
+  snapshot's `awayStart` (or `savedAt`) is re-opened instead of resolved, so the unlock
+  measures all of it. Resolving at launch measured only up to the launch and forgot the
+  lock — that is how a 40-minute absence became a 6-minute break. Test 96.
+- **A wake behind a lock is the display, not the person.** The coordinator tracks lock
+  state; `screensDidWake`/`didWake` are ignored while locked — the unlock ends the absence
+  and restarts tracking. Launched behind a lock, the frontmost app is not seeded.
+- **Heartbeat snapshot.** The ticker persists the engine every minute while a session runs,
+  so a kill, crash or update loses at most a minute of `savedAt` — the restore path treats
+  everything since `savedAt` as an absence, and twelve restarts in one evening had quietly
+  excluded about eighteen minutes from a live stretch.
+- **The menu bar's band draws today.** `DayTimelineView` with a layout override used the
+  dashboard's day-scoped segments on today's axis, so browsing any other date emptied the
+  popover's Today strip. It now draws `glanceTimeline`/`glanceBrackets`, hovers with
+  `hoverTimeline(at:glance:)`, and does not select. Test 97.
+- **Aug 20 repaired.** Four records written before the idle fix (the 04:23–13:28 one had
+  9h 4m recorded on 20 minutes of hands-on time) were capped at hands-on time plus the
+  sub-ten-minute gaps between stretches — the gaps the app now excludes itself. 17h 36m →
+  8h 1m. Backup beside the archive: `sessions-backup-20260822-230541.json`.
+
+## Addendum — watching is presence (2026-08-22, late)
+
+The user was watching a film in the browser and was asked "where were you?". Ten quiet
+minutes had read as absence. Now the store tells idle and watched apart every second
+(`SessionStore.observeIdle`): `WatchDetector.isWatching()` reads powerd's assertion list
+and answers yes when a *regular* app holds a display-sleep assertion — a browser's "Video
+Wake Lock", a player, a call, a presentation (keep-awake utilities are menu bar apps and
+do not count). Read at most every five seconds and only after a minute of quiet.
+
+Engine: `.watchingObserved(seconds:)`. In Meetings and Learning (`WorkType.
+countsWhileWatching`) quiet behind a film is the work and counts. Elsewhere, at
+`idlePauseThreshold` it becomes `.paused(.watching)`, back-dated to the last input; input
+ends it quietly (`endWatchingPause`) — no question — banks the time and, past
+`breakThreshold`, writes a rest named **Watching** so the timeline and the Sessions card
+show it (a rest inside a single stretch unfolds too). When the film ends and nobody
+touches the machine, idle counts from the film's end (`watchingEndedAt`), the watching
+pause closes there and an idle pause begins, so the question on return is about the
+absence, not the film. A lock mid-film closes the watched stretch and starts the absence
+at the lock. Test 98. Settings explainer updated.

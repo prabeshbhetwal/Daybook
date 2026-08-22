@@ -64,6 +64,12 @@ final class SettingsModel: ObservableObject {
         set { write { store.longAwayCap = newValue } }
     }
 
+    /// 0 means Never, so the picker has a concrete tag to bind to.
+    var fullPromptAfter: TimeInterval {
+        get { store.fullPromptAfter ?? 0 }
+        set { write { store.fullPromptAfter = newValue > 0 ? newValue : nil } }
+    }
+
     var breakLength: TimeInterval {
         get { store.breakLength }
         set { write { store.breakLength = newValue } }

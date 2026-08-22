@@ -55,7 +55,7 @@ enum Snapshotter {
                 // and the day view with a session running is about 900pt.
                 let dash = DashboardView(store: store, scrolls: false)
                     .environment(\.colorScheme, scheme)
-                    .frame(width: 1020, height: 940, alignment: .top)
+                    .frame(width: 1020, height: 1240, alignment: .top)
                     .background(scheme == .light ? Color.white : Color.black)
                 _ = render(dash, to: directory.appendingPathComponent(dashName))
 
@@ -75,7 +75,7 @@ enum Snapshotter {
                         .environment(\.colorScheme, scheme)
                         // Taller than the dashboard frame: a period's log is long,
                         // and the harness cannot scroll.
-                        .frame(width: 1020, height: 1500)
+                        .frame(width: 1020, height: 1500, alignment: .top)
                         .background(scheme == .light ? Color.white : Color.black)
                     _ = render(periodView, to: directory.appendingPathComponent(periodName))
                 }
@@ -92,9 +92,25 @@ enum Snapshotter {
         for scheme in [ColorScheme.light, .dark] {
             let strip = ComponentStrip()
                 .environment(\.colorScheme, scheme)
-                .frame(width: 900)
+                .frame(width: 1700)
             _ = render(strip, to: directory.appendingPathComponent(
                 "components-\(scheme == .light ? "light" : "dark").png"))
+            let quick = AwayAnswerGrid(away: 22 * 60,
+                                       range: (Date().addingTimeInterval(-22 * 60), Date()),
+                                       compact: true, onAnswer: { _ in }, onReason: { _ in })
+                .padding(Tokens.Space.m).frame(width: 300)
+                .background(Tokens.Surface.card)
+                .environment(\.colorScheme, scheme)
+            _ = render(quick, to: directory.appendingPathComponent(
+                "awayPrompt-quick-\(scheme == .light ? "light" : "dark").png"))
+            let full = AwayAnswerGrid(away: 72 * 60,
+                                      range: (Date().addingTimeInterval(-72 * 60), Date()),
+                                      showsCaptions: true, onAnswer: { _ in }, onReason: { _ in })
+                .padding(Tokens.Space.xl).frame(width: 520)
+                .background(Tokens.Surface.card)
+                .environment(\.colorScheme, scheme)
+            _ = render(full, to: directory.appendingPathComponent(
+                "awayPrompt-full-\(scheme == .light ? "light" : "dark").png"))
         }
         print("\(wrote)/\(Fixture.allCases.count * 2) snapshots written to \(directory.path)")
         return wrote == Fixture.allCases.count * 2

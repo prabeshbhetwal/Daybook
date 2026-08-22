@@ -36,10 +36,45 @@ struct StatCard: View {
     let value: String
     var context: String?
     var contextTint: Color?
+    /// A per-day series drawn as a small bar strip under the context line,
+    /// the last day full strength. Empty draws nothing.
+    var spark: [Double] = []
+    var sparkTint: Color = .accentColor
+    /// Optional icon before the label and a small qualifier pill top-right.
+    var symbol: String?
+    var badge: String?
+    var badgeTint: Color?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            SectionHeader(title: label)
+            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
+                if let symbol {
+                    Image(systemName: symbol)
+                        .font(.system(size: 10, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                }
+                // The label never breaks; a long badge yields, scaling down
+                // before it truncates — "TRACKE / D" was the alternative.
+                Text(label.uppercased())
+                    .font(Tokens.Typography.sectionLabel)
+                    .kerning(0.7)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                    .layoutPriority(1)
+                Spacer(minLength: Tokens.Space.xs)
+                if let badge {
+                    Text(badge)
+                        .font(Tokens.Typography.detail.weight(.medium).monospacedDigit())
+                        .foregroundStyle(badgeTint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.secondary))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background((badgeTint ?? Color.primary).opacity(badgeTint == nil ? 0.06 : 0.14),
+                                    in: Capsule())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
             Text(value)
                 .font(Tokens.Typography.stat)
                 .contentTransition(.numericText())
@@ -51,6 +86,10 @@ struct StatCard: View {
                                  ?? AnyShapeStyle(.secondary))
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
+            if !spark.isEmpty {
+                Sparkline(values: spark, tint: sparkTint)
+                    .padding(.top, Tokens.Space.xs)
+            }
         }
         // Stretches to the tallest card in its row, so a two-line context on
         // one card does not leave its neighbours shorter.
@@ -135,5 +174,18 @@ struct IconButton: View {
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(help)
+    }
+}
+
+extension View {
+    /// No focus ring. The dashboard's segmented controls and the calendar are
+    /// clicked, never tabbed to, and the ring AppKit drew around whichever
+    /// became first responder read as a stray selection border.
+    @ViewBuilder func quietFocus() -> some View {
+        if #available(macOS 14.0, *) {
+            self.focusEffectDisabled()
+        } else {
+            self.focusable(false)
+        }
     }
 }

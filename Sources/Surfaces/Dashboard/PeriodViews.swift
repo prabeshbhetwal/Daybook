@@ -7,6 +7,15 @@ struct StatFigure: Identifiable, Equatable {
     let value: String
     var detail: String?
     var tint: Color?
+    /// One value per day for the card's sparkline; empty draws none.
+    var spark: [Double] = []
+    var sparkTint: Color?
+    /// An SF Symbol beside the label, and a short qualifier pinned top-right —
+    /// the card anatomy Mole's Status grid uses: label · badge / value / chart /
+    /// footer, so every card is read the same way.
+    var symbol: String?
+    var badge: String?
+    var badgeTint: Color?
     var id: String { label }
 }
 
@@ -41,10 +50,38 @@ struct StatBand: View {
 
 /// Stacked daily bars with a dashed average line. The average is what turns a
 /// bar chart into a judgement — without it, bars are just bars.
+/// The day under the pointer, for the period chart's hover label. `@State`
+/// is unavailable on this toolchain.
+private final class DayBox: ObservableObject {
+    @Published var day: Date?
+}
+
 struct PeriodChart: View {
     let days: [PeriodDay]
     let average: TimeInterval
     var height: CGFloat = 150
+    /// A bar clicked: that day, so the dashboard can jump to it.
+    var onPickDay: ((Date) -> Void)?
+    @StateObject private var hovered = DayBox()
+
+    /// The day nearest the pointer's x, in plot coordinates.
+    private func dayAt(_ point: CGPoint, _ proxy: ChartProxy, _ geo: GeometryProxy) -> Date? {
+        let x = point.x - geo[proxy.plotAreaFrame].origin.x
+        guard let date: Date = proxy.value(atX: x) else { return nil }
+        return days.min {
+            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+        }?.date
+    }
+
+    private var hoverLabel: String? {
+        guard let day = hovered.day,
+              let entry = days.first(where: { Calendar.current.isDate($0.date, inSameDayAs: day) })
+        else { return nil }
+        let focused = entry.byWorkType.filter { $0.workType.countsAsFocus }.reduce(0) { $0 + $1.seconds }
+        var text = "\(Tokens.dayLabel(day)) · \(Tokens.duration(entry.tracked)) at the Mac"
+        if focused > 0 { text += " · \(Tokens.duration(focused)) focused" }
+        return text + (onPickDay == nil ? "" : " · click to open")
+    }
 
     var body: some View {
         if days.allSatisfy({ $0.tracked == 0 }) {
@@ -87,6 +124,32 @@ struct PeriodChart: View {
             .chartXScale(domain: domain)
             .chartLegend(position: .bottom, alignment: .leading, spacing: 8)
             .chartYAxisLabel("minutes", position: .leading)
+            // Hover names the day under the pointer; a click opens it.
+            .chartOverlay { proxy in
+                GeometryReader { geo in
+                    Rectangle().fill(Color.clear).contentShape(Rectangle())
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active(let point): hovered.day = dayAt(point, proxy, geo)
+                            case .ended: hovered.day = nil
+                            }
+                        }
+                        .onTapGesture { location in
+                            if let day = dayAt(location, proxy, geo) { onPickDay?(day) }
+                        }
+                }
+            }
+            .overlay(alignment: .topLeading) {
+                if let label = hoverLabel {
+                    Text(label)
+                        .font(Tokens.Typography.detail)
+                        .padding(.horizontal, Tokens.Space.s)
+                        .padding(.vertical, 4)
+                        .background(.regularMaterial, in: Capsule())
+                        .padding(Tokens.Space.xs)
+                        .allowsHitTesting(false)
+                }
+            }
             .frame(height: height)
             .accessibilityLabel("Tracked minutes per day, \(days.count) days")
         }
@@ -175,7 +238,7 @@ struct SessionLogList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            SectionHeader(title: "Session log",
+            SectionHeader(title: "App usage",
                           trailing: entries.isEmpty ? nil
                               : grouping == .byApp
                                   ? (groups.count == 1 ? "1 app" : "\(groups.count) apps")
@@ -186,6 +249,23 @@ struct SessionLogList: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else if grouping == .byApp {
+                // Column headers, so the rows read as the table they are.
+                HStack(spacing: Tokens.Space.m) {
+                    Text("App")
+                        .frame(width: 182, alignment: .leading)
+                    Text("Share of tracked")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Time")
+                        .frame(width: 66, alignment: .trailing)
+                    Text("%")
+                        .frame(width: 38, alignment: .trailing)
+                }
+                .font(Tokens.Typography.sectionLabel)
+                .kerning(0.5)
+                .textCase(.uppercase)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, Tokens.Space.s)
+                .padding(.top, Tokens.Space.xs)
                 let split = PeriodStats.splitMinor(groups)
                 ForEach(Array(split.major.enumerated()), id: \.element.id) { index, group in
                     Divider()

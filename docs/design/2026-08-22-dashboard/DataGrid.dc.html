@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; background: #1C1C1E; color: #F2F2F4; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #0A84FF; } a:hover { color: #409CFF; }
+    .num { font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .label { font-size: 11px; font-weight: 600; letter-spacing: 0.7px; text-transform: uppercase; color: rgba(255,255,255,0.55); }
+    .card { background: #2A2A2D; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; }
+    .row { display: flex; align-items: center; gap: 12px; padding: 8px 8px; border-radius: 8px; transition: background 140ms ease; }
+    .row:hover { background: rgba(255,255,255,0.06); }
+    .sep { height: 1px; background: rgba(255,255,255,0.09); }
+    .bar { height: 6px; border-radius: 3px; background: #141416; overflow: hidden; flex: 1; }
+    .bar > i { display: block; height: 100%; border-radius: 3px; transform-origin: left; animation: grow 600ms cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes grow { from { transform: scaleX(0); } }
+    .ring { animation: ring 900ms cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes ring { from { stroke-dashoffset: 377; } }
+    .seg { border-radius: 5px; transition: filter 120ms ease, transform 120ms ease; }
+    .seg:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .tip { position: relative; }
+    .tip:hover::after { content: attr(data-tip); position: absolute; left: 0; top: calc(100% + 6px); background: #3A3A3E; color: #F2F2F4; font-size: 11px; padding: 5px 8px; border-radius: 6px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.12); z-index: 2; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 14px; background: #3A3A3E; color: rgba(255,255,255,0.7); transition: background 120ms ease; }
+    .btn:hover { background: #48484C; color: #fff; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); font-size: 12px; color: rgba(255,255,255,0.8); transition: background 120ms ease; }
+    .chip:hover { background: rgba(255,255,255,0.06); }
+    .fade { animation: fade 500ms ease both; }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+  </style>
+</helmet>
+<div class="fade" style="width:1020px;min-height:980px;box-sizing:border-box;padding:24px;display:flex;flex-direction:column;gap:16px;background:#1C1C1E;">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;">
+  <div style="display:flex;flex-direction:column;gap:2px;">
+    <div style="font-size:20px;font-weight:600;">Today</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.58);">Saturday 22 August · 7-day streak · 2h 50m of 4h</div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <div style="display:flex;background:#141416;border-radius:7px;padding:2px;">
+      <span style="padding:3px 12px;border-radius:5px;background:#3A3A3E;font-size:12px;font-weight:500;">Day</span>
+      <span style="padding:3px 12px;font-size:12px;color:rgba(255,255,255,0.58);">Week</span>
+      <span style="padding:3px 12px;font-size:12px;color:rgba(255,255,255,0.58);">Month</span>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;font-size:13px;"><span class="btn" style="width:22px;height:22px;">‹</span><span>Today</span><span class="btn" style="width:22px;height:22px;color:rgba(255,255,255,0.3);">›</span></div>
+  </div>
+</div>
+<div style="display:flex;gap:8px;align-items:center;"><span class="label" style="margin-right:4px;">Running now</span>
+  <span class="chip"><i style="width:8px;height:8px;border-radius:4px;background:#D97757;"></i>Claude</span><span class="chip"><i style="width:8px;height:8px;border-radius:4px;background:#4A7BE0;"></i>Dia</span><span class="chip"><i style="width:8px;height:8px;border-radius:4px;background:#2E9E86;"></i>Wispr Flow</span><span class="chip"><i style="width:8px;height:8px;border-radius:4px;background:#8A6CD4;"></i>ego lite</span><span class="chip"><i style="width:8px;height:8px;border-radius:4px;background:#25D366;"></i>WhatsApp</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:12px;">
+  <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:2px;"><span class="label">Tracked</span><span class="num" style="font-size:24px;">5h 10m</span><span style="font-size:11px;color:#5CC4AB;">+3h 5m vs yesterday</span><div style="display:flex;align-items:flex-end;gap:3px;height:28px;margin-top:6px;"><i class="tip" data-tip="95m" style="flex:1;height:8px;border-radius:2px;background:#7DA2F2;opacity:0.45;"></i><i class="tip" data-tip="145m" style="flex:1;height:13px;border-radius:2px;background:#7DA2F2;opacity:0.45;"></i><i class="tip" data-tip="205m" style="flex:1;height:18px;border-radius:2px;background:#7DA2F2;opacity:0.45;"></i><i class="tip" data-tip="165m" style="flex:1;height:14px;border-radius:2px;background:#7DA2F2;opacity:0.45;"></i><i class="tip" data-tip="120m" style="flex:1;height:10px;border-radius:2px;background:#7DA2F2;opacity:0.45;"></i><i class="tip" data-tip="60m" style="flex:1;height:5px;border-radius:2px;background:#7DA2F2;opacity:0.45;"></i><i class="tip" data-tip="310m" style="flex:1;height:28px;border-radius:2px;background:#7DA2F2;opacity:1;"></i></div></div>
+  <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:2px;"><span class="label">Focused</span><span class="num" style="font-size:24px;">2h 50m</span><span style="font-size:11px;color:rgba(255,255,255,0.58);">55% of tracked</span><div style="display:flex;align-items:flex-end;gap:3px;height:28px;margin-top:6px;"><i class="tip" data-tip="60m" style="flex:1;height:9px;border-radius:2px;background:{{accent}};opacity:0.45;"></i><i class="tip" data-tip="90m" style="flex:1;height:14px;border-radius:2px;background:{{accent}};opacity:0.45;"></i><i class="tip" data-tip="140m" style="flex:1;height:23px;border-radius:2px;background:{{accent}};opacity:0.45;"></i><i class="tip" data-tip="110m" style="flex:1;height:18px;border-radius:2px;background:{{accent}};opacity:0.45;"></i><i class="tip" data-tip="80m" style="flex:1;height:13px;border-radius:2px;background:{{accent}};opacity:0.45;"></i><i class="tip" data-tip="40m" style="flex:1;height:6px;border-radius:2px;background:{{accent}};opacity:0.45;"></i><i class="tip" data-tip="170m" style="flex:1;height:28px;border-radius:2px;background:{{accent}};opacity:1;"></i></div></div>
+  <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:2px;"><span class="label">Sessions</span><span class="num" style="font-size:24px;">3</span><span style="font-size:11px;color:rgba(255,255,255,0.58);">longest 1h 35m · Refactor</span><div style="display:flex;align-items:flex-end;gap:3px;height:28px;margin-top:6px;"><i class="tip" data-tip="2m" style="flex:1;height:14px;border-radius:2px;background:#E6AE5B;opacity:0.45;"></i><i class="tip" data-tip="3m" style="flex:1;height:21px;border-radius:2px;background:#E6AE5B;opacity:0.45;"></i><i class="tip" data-tip="4m" style="flex:1;height:28px;border-radius:2px;background:#E6AE5B;opacity:0.45;"></i><i class="tip" data-tip="3m" style="flex:1;height:21px;border-radius:2px;background:#E6AE5B;opacity:0.45;"></i><i class="tip" data-tip="2m" style="flex:1;height:14px;border-radius:2px;background:#E6AE5B;opacity:0.45;"></i><i class="tip" data-tip="1m" style="flex:1;height:7px;border-radius:2px;background:#E6AE5B;opacity:0.45;"></i><i class="tip" data-tip="3m" style="flex:1;height:21px;border-radius:2px;background:#E6AE5B;opacity:1;"></i></div></div>
+  <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:2px;"><span class="label">Quality</span><span class="num" style="font-size:24px;">100%</span><span style="font-size:11px;color:rgba(255,255,255,0.58);">Deep work · 0.0 switches / session</span><div style="display:flex;align-items:flex-end;gap:3px;height:28px;margin-top:6px;"><i class="tip" data-tip="70m" style="flex:1;height:19px;border-radius:2px;background:#AE97E8;opacity:0.45;"></i><i class="tip" data-tip="80m" style="flex:1;height:22px;border-radius:2px;background:#AE97E8;opacity:0.45;"></i><i class="tip" data-tip="90m" style="flex:1;height:25px;border-radius:2px;background:#AE97E8;opacity:0.45;"></i><i class="tip" data-tip="85m" style="flex:1;height:23px;border-radius:2px;background:#AE97E8;opacity:0.45;"></i><i class="tip" data-tip="100m" style="flex:1;height:28px;border-radius:2px;background:#AE97E8;opacity:0.45;"></i><i class="tip" data-tip="60m" style="flex:1;height:16px;border-radius:2px;background:#AE97E8;opacity:0.45;"></i><i class="tip" data-tip="100m" style="flex:1;height:28px;border-radius:2px;background:#AE97E8;opacity:1;"></i></div></div>
+</div>
+<div style="display:grid;grid-template-columns:minmax(0, 1fr) 260px;gap:12px;">
+  <div class="card" style="padding:16px;display:flex;flex-direction:column;gap:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span class="label">Rhythm · minutes at the Mac per hour</span></div><span style="font-size:11px;color:rgba(255,255,255,0.32);">peak 4–6am</span></div>
+    <div style="display:flex;align-items:flex-end;gap:10px;height:120px;padding:0 4px;border-bottom:1px solid rgba(255,255,255,0.09);"><div class="tip" data-tip="12am · 25m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:45px;background:#7DA2F2;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="1am · 0m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:2px;background:#141416;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="2am · 55m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:100px;background:#7DA2F2;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="3am · 20m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:36px;background:#AE97E8;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="4am · 60m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:110px;background:#7DA2F2;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="5am · 60m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:110px;background:#7DA2F2;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="6am · 35m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:64px;background:#E6AE5B;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="7am · 0m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:2px;background:#141416;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="8am · 40m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:73px;background:#5CC4AB;border-radius:4px 4px 2px 2px;"></i></div><div class="tip" data-tip="9am · 0m" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"><i class="seg" style="display:block;height:2px;background:#141416;border-radius:4px 4px 2px 2px;"></i></div></div><div style="display:flex;gap:10px;padding:6px 4px 0;"><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">12am</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">1</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">2</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">3am</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">4</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">5</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">6am</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">7</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">8</span><span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.32);">9am</span></div>
+  </div>
+  <div class="card" style="padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+    <div style="position:relative;width:112px;height:112px;">
+<svg width="112" height="112" viewBox="0 0 112 112" style="transform:rotate(-90deg);">
+  <circle cx="56.0" cy="56.0" r="51.0" fill="none" stroke="#141416" stroke-width="10"></circle>
+  <circle class="ring" cx="56.0" cy="56.0" r="51.0" fill="none" stroke="{{accent}}" stroke-width="10" stroke-linecap="round" stroke-dasharray="320.4" stroke-dashoffset="92.9"></circle>
+</svg>
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span class="num" style="font-size:20px;">71%</span></div>
+</div>
+    <div style="text-align:center;"><div class="num" style="font-size:15px;">2h 50m <span style="color:rgba(255,255,255,0.58);font-weight:500;">of 4h</span></div><div style="font-size:11px;color:rgba(255,255,255,0.58);">1h 10m to go · on your usual pace</div></div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:12px;">
+  <div class="card" style="padding:16px;display:flex;flex-direction:column;gap:8px;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span class="label">App share</span></div>
+    <div class="row tip" data-tip="Xcode · 3h 20m · 65% of tracked">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#7DA2F2;color:#fff;font-size:9px;font-weight:600;">X</span><span style="width:6px;height:6px;border-radius:3px;background:#7DA2F2;"></span></span>
+  <span style="width:110px;font-size:13px;">Xcode</span>
+  <span class="bar"><i style="width:65%;background:#7DA2F2;"></i></span>
+  <span class="num" style="width:62px;text-align:right;font-size:13px;font-weight:500;">3h 20m</span>
+  <span style="width:36px;text-align:right;font-size:11px;color:rgba(255,255,255,0.58);">65%</span>
+</div><div class="row tip" data-tip="Chrome · 55m · 18% of tracked">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#5CC4AB;color:#fff;font-size:9px;font-weight:600;">C</span><span style="width:6px;height:6px;border-radius:3px;background:#5CC4AB;"></span></span>
+  <span style="width:110px;font-size:13px;">Chrome</span>
+  <span class="bar"><i style="width:18%;background:#5CC4AB;"></i></span>
+  <span class="num" style="width:62px;text-align:right;font-size:13px;font-weight:500;">55m</span>
+  <span style="width:36px;text-align:right;font-size:11px;color:rgba(255,255,255,0.58);">18%</span>
+</div><div class="row tip" data-tip="Terminal · 35m · 11% of tracked">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#E6AE5B;color:#fff;font-size:9px;font-weight:600;">T</span><span style="width:6px;height:6px;border-radius:3px;background:#E6AE5B;"></span></span>
+  <span style="width:110px;font-size:13px;">Terminal</span>
+  <span class="bar"><i style="width:11%;background:#E6AE5B;"></i></span>
+  <span class="num" style="width:62px;text-align:right;font-size:13px;font-weight:500;">35m</span>
+  <span style="width:36px;text-align:right;font-size:11px;color:rgba(255,255,255,0.58);">11%</span>
+</div><div class="row tip" data-tip="Spotify · 20m · 6% of tracked">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#AE97E8;color:#fff;font-size:9px;font-weight:600;">S</span><span style="width:6px;height:6px;border-radius:3px;background:#AE97E8;"></span></span>
+  <span style="width:110px;font-size:13px;">Spotify</span>
+  <span class="bar"><i style="width:6%;background:#AE97E8;"></i></span>
+  <span class="num" style="width:62px;text-align:right;font-size:13px;font-weight:500;">20m</span>
+  <span style="width:36px;text-align:right;font-size:11px;color:rgba(255,255,255,0.58);">6%</span>
+</div>
+  </div>
+  <div class="card" style="padding:16px;display:flex;flex-direction:column;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span class="label">Work type</span></div>
+    <div style="display:flex;gap:14px;align-items:center;"><div style="position:relative;width:88px;height:88px;"><svg width="88" height="88" viewBox="0 0 88 88" style="transform:rotate(-90deg);"><circle cx="44.0" cy="44.0" r="36.0" fill="none" stroke="#141416" stroke-width="16"></circle><circle class="seg tip" data-tip="Deep work 74%" cx="44.0" cy="44.0" r="36.0" fill="none" stroke="{{accent}}" stroke-width="16" stroke-dasharray="165.4 60.8" stroke-dashoffset="-0.0"></circle><circle class="seg tip" data-tip="Meetings 16%" cx="44.0" cy="44.0" r="36.0" fill="none" stroke="#E6AE5B" stroke-width="16" stroke-dasharray="34.2 192.0" stroke-dashoffset="-167.4"></circle><circle class="seg tip" data-tip="Admin 10%" cx="44.0" cy="44.0" r="36.0" fill="none" stroke="#93A1BB" stroke-width="16" stroke-dasharray="20.6 205.6" stroke-dashoffset="-203.6"></circle></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span class="num" style="font-size:14px;">3</span></div></div>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;"><span style="display:flex;gap:6px;align-items:center;"><i style="width:8px;height:8px;border-radius:4px;background:{{accent}};"></i>Deep work <span style="color:rgba(255,255,255,0.58);">74%</span></span><span style="display:flex;gap:6px;align-items:center;"><i style="width:8px;height:8px;border-radius:4px;background:#E6AE5B;"></i>Meetings <span style="color:rgba(255,255,255,0.58);">16%</span></span><span style="display:flex;gap:6px;align-items:center;"><i style="width:8px;height:8px;border-radius:4px;background:#93A1BB;"></i>Admin <span style="color:rgba(255,255,255,0.58);">10%</span></span></div></div>
+  </div>
+  <div class="card" style="padding:16px;display:flex;flex-direction:column;gap:10px;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span class="label">Insights</span></div><div style="display:flex;flex-direction:column;gap:10px;">
+  <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:{{accent}};">↗</span><div><div style="font-size:13px;">Longest stretch in one app</div><div style="font-size:11px;color:rgba(255,255,255,0.58);">2h in Xcode, 4:00 am – 6:00 am</div></div></div>
+  <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:{{accent}};">◎</span><div><div style="font-size:13px;">55% of tracked time was in a focus session</div><div style="font-size:11px;color:rgba(255,255,255,0.58);">2h 50m of 5h 10m tracked</div></div></div>
+  <div style="display:flex;gap:8px;align-items:flex-start;"><span style="color:{{accent}};">↑</span><div><div style="font-size:13px;">3h 5m more than yesterday</div><div style="font-size:11px;color:rgba(255,255,255,0.58);">5h 10m today, 2h 5m yesterday</div></div></div>
+</div></div>
+</div>
+<div class="card" style="padding:16px;display:flex;flex-direction:column;gap:6px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span class="label">Session log</span><span style="font-size:11px;color:rgba(255,255,255,0.32);">4 apps · 7 sessions</span></div><div style="display:flex;background:#141416;border-radius:6px;padding:2px;font-size:11px;"><span style="padding:2px 10px;border-radius:4px;background:#3A3A3E;">By app</span><span style="padding:2px 10px;color:rgba(255,255,255,0.58);">By time</span></div></div>
+  <div class="row tip" data-tip="Xcode · 3h 20m · 65% of tracked">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#7DA2F2;color:#fff;font-size:9px;font-weight:600;">X</span><span style="width:6px;height:6px;border-radius:3px;background:#7DA2F2;"></span></span>
+  <span style="width:110px;font-size:13px;">Xcode</span>
+  <span class="bar"><i style="width:65%;background:#7DA2F2;"></i></span>
+  <span class="num" style="width:62px;text-align:right;font-size:13px;font-weight:500;">3h 20m</span>
+  <span style="width:36px;text-align:right;font-size:11px;color:rgba(255,255,255,0.58);">65%</span>
+</div><div style="font-size:11px;color:rgba(255,255,255,0.32);padding-left:44px;margin-top:-4px;margin-bottom:4px;">12:35 am – 6:00 am · 3 sessions</div><div class="row tip" data-tip="Chrome · 55m · 18% of tracked">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#5CC4AB;color:#fff;font-size:9px;font-weight:600;">C</span><span style="width:6px;height:6px;border-radius:3px;background:#5CC4AB;"></span></span>
+  <span style="width:110px;font-size:13px;">Chrome</span>
+  <span class="bar"><i style="width:18%;background:#5CC4AB;"></i></span>
+  <span class="num" style="width:62px;text-align:right;font-size:13px;font-weight:500;">55m</span>
+  <span style="width:36px;text-align:right;font-size:11px;color:rgba(255,255,255,0.58);">18%</span>
+</div><div style="font-size:11px;color:rgba(255,255,255,0.32);padding-left:44px;margin-top:-4px;margin-bottom:4px;">4:45 am – 9:00 am · 2 sessions</div><div class="row tip" data-tip="Terminal · 35m · 11% of tracked">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#E6AE5B;color:#fff;font-size:9px;font-weight:600;">T</span><span style="width:6px;height:6px;border-radius:3px;background:#E6AE5B;"></span></span>
+  <span style="width:110px;font-size:13px;">Terminal</span>
+  <span class="bar"><i style="width:11%;background:#E6AE5B;"></i></span>
+  <span class="num" style="width:62px;text-align:right;font-size:13px;font-weight:500;">35m</span>
+  <span style="width:36px;text-align:right;font-size:11px;color:rgba(255,255,255,0.58);">11%</span>
+</div><div style="font-size:11px;color:rgba(255,255,255,0.32);padding-left:44px;margin-top:-4px;margin-bottom:4px;">6:25 am – 7:00 am · 1 session</div><div class="row tip" data-tip="Spotify · 20m · 6% of tracked">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:5px;background:#AE97E8;color:#fff;font-size:9px;font-weight:600;">S</span><span style="width:6px;height:6px;border-radius:3px;background:#AE97E8;"></span></span>
+  <span style="width:110px;font-size:13px;">Spotify</span>
+  <span class="bar"><i style="width:6%;background:#AE97E8;"></i></span>
+  <span class="num" style="width:62px;text-align:right;font-size:13px;font-weight:500;">20m</span>
+  <span style="width:36px;text-align:right;font-size:11px;color:rgba(255,255,255,0.58);">6%</span>
+</div><div style="font-size:11px;color:rgba(255,255,255,0.32);padding-left:44px;margin-top:-4px;margin-bottom:4px;">3:40 am – 4:00 am · 1 session</div>
+</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#0A84FF","options":["#0A84FF","#30D158","#BF5AF2","#FF9F0A"],"section":"Theme"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#0A84FF' };
+  }
+}
+</script>
+</body>
+</html>

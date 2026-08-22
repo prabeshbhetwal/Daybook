@@ -79,7 +79,11 @@ struct ThreadStats {
         // still offering it.
         let cutoff = now().addingTimeInterval(-FocusConstants.continueWindow)
 
-        for record in sessions.records(on: day) where record.end >= cutoff {
+        // Rest is not resumable: a break record stays on the timeline and in
+        // the log, but offering to "continue" it would start the Break session
+        // the picker deliberately no longer offers.
+        for record in sessions.records(on: day)
+        where record.end >= cutoff && record.workType.countsAsFocus {
             if var existing = byThread[record.threadID] {
                 existing.worked += record.workSeconds
                 existing.segments += 1

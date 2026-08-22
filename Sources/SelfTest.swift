@@ -157,7 +157,32 @@ enum SelfTest {
             ("Previous-period total is the same rollup one period back",
              testPreviousPeriodTracked),
             ("The popover still fits a 13\" screen with the away card up",
-             testPopoverStillFits13Inch)
+             testPopoverStillFits13Inch),
+            ("Away prompt tier is a pure rule; Never means quick", testAwayPromptTier),
+            ("Pending away range spans the absence and ends at return", testPendingAwayRange),
+            ("The hero clock is the thread's, picking up after a break", testThreadClock),
+            ("Coming back in a different app starts new work; same app continues",
+             testAppAwareContinuity),
+            ("Rhythm: segments split across hours, dominant app per hour, peak run",
+             testRhythm),
+            ("A named break is recorded under that name; other answers ignore it",
+             testNamedBreak),
+            ("Day digest: stretches fold by thread, breaks sit between, running joins",
+             testSessionDigest),
+            ("Apps within a session's spans: intersected, ranked, shares of the inside",
+             testAppsWithinSpans),
+            ("Summary text: every clause gated on its figure; empty days say so",
+             testSummaryText),
+            ("Sessions are threads: stretches of one thread count once, running included",
+             testSessionsAreThreads),
+            ("An absence is measured from where it began, not from a late idle pause",
+             testAbsenceFromWhereItBegan),
+            ("Relaunched behind a lock, the absence stays open until the unlock",
+             testRestoreBehindLock),
+            ("The menu bar's band stays on today while the dashboard browses",
+             testGlanceStaysOnToday),
+            ("Watching is presence: quiet pause, written down, never asked about; meetings count",
+             testWatchingIsNotAbsence)
         ]
 
         print("FocusContinuity self-test")
@@ -2272,10 +2297,18 @@ enum SelfTest {
                                      end: today.addingTimeInterval(13 * 3_600 + 1_800),
                                      workSeconds: 1_800, threadID: thread))
 
+        // A recorded break is not a thread to continue.
+        archive.append(SessionRecord(name: "Break", workType: .breakTime,
+                                     start: today.addingTimeInterval(12 * 3_600),
+                                     end: today.addingTimeInterval(12 * 3_600 + 900),
+                                     workSeconds: 900))
+
         let stats = ThreadStats(sessions: archive, usage: usage, now: { clock.value })
         let threads = stats.threads(on: base, running: nil)
 
         expect(threads.count == 2, "two threads today, got \(threads.count)", &problems)
+        expect(!threads.contains { $0.workType == .breakTime },
+               "a break is never offered to continue", &problems)
         guard let refactor = threads.first(where: { $0.threadID == thread }) else {
             problems.append("the refactor thread must be present")
             return problems
@@ -4277,12 +4310,16 @@ enum SelfTest {
         expectClose(store.breakLength, 15 * 60, "auto-session gap writes through", &problems)
         model.menuSessionCount = 7
         expect(store.menuSessionCount == 7, "sessions per app writes through", &problems)
-        expect(changes == 8, "one change notification per write, got \(changes)", &problems)
+        model.fullPromptAfter = 3_600
+        expectClose(store.fullPromptAfter ?? -1, 3_600, "full-prompt threshold writes through", &problems)
+        model.fullPromptAfter = 0
+        expect(store.fullPromptAfter == nil, "zero means Never", &problems)
+        expect(changes == 10, "one change notification per write, got \(changes)", &problems)
 
         model.isTrackingEnabled = false
         expect(tracking == [false], "tracking goes to the tracker's owner", &problems)
         expect(model.isTrackingEnabled == false, "and the model remembers it", &problems)
-        expect(changes == 8, "tracking does not double-fire onChange", &problems)
+        expect(changes == 10, "tracking does not double-fire onChange", &problems)
         return problems
     }
 
@@ -4349,6 +4386,702 @@ enum SelfTest {
         expect(height <= metrics.maxHeight,
                "needs-resolution panel is \(Int(height))pt, budget \(Int(metrics.maxHeight))",
                &problems)
+        return problems
+    }
+
+    // MARK: - 85
+
+    /// Which prompt an absence gets is a pure rule, and "Never" must mean the
+    /// quick one rather than none — the question is still asked.
+    private static func testAwayPromptTier() -> [String] {
+        var problems: [String] = []
+        expect(AwayPromptTier.tier(forAbsence: 20 * 60, fullPromptAfter: 30 * 60) == .quick,
+               "under the threshold is quick", &problems)
+        expect(AwayPromptTier.tier(forAbsence: 30 * 60, fullPromptAfter: 30 * 60) == .full,
+               "at the threshold is full", &problems)
+        expect(AwayPromptTier.tier(forAbsence: 3 * 3_600, fullPromptAfter: 30 * 60) == .full,
+               "well over is full", &problems)
+        expect(AwayPromptTier.tier(forAbsence: 3 * 3_600, fullPromptAfter: nil) == .quick,
+               "Never means always quick", &problems)
+
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let store = PersistenceStore(defaults: defaults)
+        store.removeAll()
+        expectClose(store.fullPromptAfter ?? -1, FocusConstants.defaultFullPromptAfter,
+                    "missing key reads as the default", &problems)
+        store.fullPromptAfter = nil
+        expect(store.fullPromptAfter == nil, "Never round-trips as nil", &problems)
+        store.fullPromptAfter = 3_600
+        expectClose(store.fullPromptAfter ?? -1, 3_600, "a value round-trips", &problems)
+        return problems
+    }
+
+    // MARK: - 86
+
+    /// The card says when, not only how long. The range is derived from the
+    /// return moment the engine already stamps, so it cannot disagree with the
+    /// length beside it.
+    private static func testPendingAwayRange() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let engine = makeEngine(clock)
+        engine.start(workType: .deepWork, intent: "Range")
+        expect(engine.pendingAwayRange == nil, "nothing pending while running", &problems)
+        clock.advance(600)
+        engine.transition(on: .awayBegan(trigger: .screenLock))
+        clock.advance(22 * 60)
+        engine.transition(on: .awayEnded)
+        guard let range = engine.pendingAwayRange else {
+            return problems + ["a 22-minute lock should leave a pending range"]
+        }
+        expectClose(range.end.timeIntervalSince(range.start), 22 * 60,
+                    "the range spans the absence", &problems)
+        expectClose(range.end.timeIntervalSince(clock.value), 0,
+                    "and ends when the user came back", &problems)
+
+        // A relaunch three hours later must not move the absence: the card
+        // still says when it was, not when the app came back up.
+        let snapshot = engine.snapshot()
+        let returned = clock.value
+        clock.advance(3 * 3_600)
+        let revived = makeEngine(clock)
+        revived.restore(from: snapshot)
+        guard let kept = revived.pendingAwayRange else {
+            return problems + ["restored card should still carry its range"]
+        }
+        expectClose(kept.end.timeIntervalSince(returned), 0,
+                    "the range still ends at the real return", &problems)
+        expectClose(kept.end.timeIntervalSince(kept.start), 22 * 60,
+                    "and still spans the absence", &problems)
+
+        engine.transition(on: .decision(.continueSession))
+        expect(engine.pendingAwayRange == nil, "answered means no range", &problems)
+        return problems
+    }
+
+    // MARK: - 87
+
+    /// After a break the clock must pick up where it left off: the running
+    /// thread's earlier stretches today plus the live one, never a stretch
+    /// alone, and never another thread's work.
+    private static func testThreadClock() -> [String] {
+        var problems: [String] = []
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let prefs = PersistenceStore(defaults: defaults)
+        prefs.removeAll()
+        let archive = SessionArchive(directory: directory)
+        let engine = SessionEngine(store: prefs, archive: archive,
+                                   ownBundleID: "com.test", schedulesDwell: false)
+        let thread = UUID()
+        let now = Date()
+        archive.append(SessionRecord(name: "Deep work", workType: .deepWork,
+                                     start: now.addingTimeInterval(-3_000),
+                                     end: now.addingTimeInterval(-1_200),
+                                     workSeconds: 1_800, threadID: thread))
+        archive.append(SessionRecord(name: "Deep work", workType: .deepWork,
+                                     start: now.addingTimeInterval(-900),
+                                     end: now.addingTimeInterval(-300),
+                                     workSeconds: 600, threadID: thread))
+        archive.append(SessionRecord(name: "Email", workType: .admin,
+                                     start: now.addingTimeInterval(-2_400),
+                                     end: now.addingTimeInterval(-2_100),
+                                     workSeconds: 300))
+        engine.start(workType: .deepWork, intent: "Deep work", threadID: thread)
+
+        let store = SessionStore(engine: engine)
+        store.refresh()
+        expect(abs(store.threadElapsed - 2_400) < 5,
+               "thread clock carries both earlier stretches, got \(Int(store.threadElapsed))",
+               &problems)
+        expect(store.threadSegments == 3, "three stretches, got \(store.threadSegments)", &problems)
+        expect(store.continuationNote?.contains("Deep work continues") == true,
+               "the card says which work carries on", &problems)
+
+        engine.stop()
+        store.refresh()
+        expect(store.threadElapsed == 0 && store.threadSegments == 0,
+               "idle means no thread clock", &problems)
+        return problems
+    }
+
+    // MARK: - 88
+
+    /// Back from the kitchen into the same app: the same thread, clock and
+    /// all. Back into something unrelated: new work, and the old thread kept
+    /// for Continue rather than stretched over it. "I was working" and "Start
+    /// fresh" are unaffected — they already say what they mean.
+    private static func testAppAwareContinuity() -> [String] {
+        var problems: [String] = []
+        func scenario(returnTo app: String?, decision: UserDecision,
+                      matcher: ((String?) -> Bool)?) -> (same: Bool, name: String) {
+            let clock = Clock(base)
+            let engine = makeEngine(clock)
+            engine.threadContextMatcher = matcher
+            engine.transition(on: .appActivated(bundleID: "com.ide", name: "IDE"))
+            engine.start(workType: .deepWork, intent: "Refactor")
+            let thread = engine.activeThreadID
+            clock.advance(1_800)
+            engine.transition(on: .awayBegan(trigger: .screenLock))
+            clock.advance(22 * 60)
+            engine.transition(on: .awayEnded)
+            if let app {
+                engine.transition(on: .appActivated(bundleID: app, name: app))
+            }
+            engine.transition(on: .decision(decision))
+            return (engine.activeThreadID == thread, engine.sessionName)
+        }
+        let ideOnly: (String?) -> Bool = { $0 == "com.ide" }
+
+        expect(scenario(returnTo: nil, decision: .tookBreak, matcher: ideOnly).same,
+               "same app on return keeps the thread", &problems)
+        expect(scenario(returnTo: "com.ide", decision: .continueSession, matcher: ideOnly).same,
+               "re-activating the same app keeps it too", &problems)
+        let switched = scenario(returnTo: "com.browser", decision: .tookBreak, matcher: ideOnly)
+        expect(!switched.same, "a different app starts new work", &problems)
+        expect(switched.name.isEmpty, "and the new work does not inherit the old name", &problems)
+        expect(scenario(returnTo: "com.browser", decision: .tookBreak, matcher: nil).same,
+               "without a matcher the thread is kept — callers without usage data", &problems)
+        expect(scenario(returnTo: "com.browser", decision: .mergeTime, matcher: ideOnly).same,
+               "'I was working' never re-threads", &problems)
+        expect(!scenario(returnTo: nil, decision: .resetTimer, matcher: ideOnly).same,
+               "'Start fresh' always does", &problems)
+        return problems
+    }
+
+    // MARK: - 89
+
+    /// The rhythm chart sums tracked seconds per hour, splitting a stretch that
+    /// crosses the hour, colours the hour by the app that took most of it, and
+    /// names the busiest run.
+    private static func testRhythm() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: base)
+        func seg(_ fromMinutes: Double, _ toMinutes: Double, color: Int) -> TimelineSegment {
+            TimelineSegment(id: UUID(), bundleID: "b\(color)", appName: "A\(color)",
+                            start: day.addingTimeInterval(fromMinutes * 60),
+                            end: day.addingTimeInterval(toMinutes * 60), colorIndex: color)
+        }
+        // 9:00–10:30 app 0 (crosses 10:00), 10:20–10:40 app 1, 11:00–11:10 app 2.
+        let segments = [seg(9 * 60, 10 * 60 + 30, color: 0),
+                        seg(10 * 60 + 20, 10 * 60 + 40, color: 1),
+                        seg(11 * 60, 11 * 60 + 10, color: 2)]
+        let hours = Rhythm.hours(segments: segments,
+                                 window: (day.addingTimeInterval(9 * 3_600),
+                                          day.addingTimeInterval(12 * 3_600)),
+                                 calendar: calendar)
+        expect(hours.count == 3, "three hours in the window, got \(hours.count)", &problems)
+        guard hours.count == 3 else { return problems }
+        expectClose(hours[0].seconds, 3_600, "9am is a full hour of app 0", &problems)
+        expect(hours[0].colorIndex == 0, "and coloured by it", &problems)
+        expectClose(hours[1].seconds, 1_800 + 1_200, "10am sums both apps", &problems)
+        expect(hours[1].colorIndex == 0, "app 0's 30m beats app 1's 20m", &problems)
+        expectClose(hours[2].seconds, 600, "11am has ten minutes", &problems)
+        let label = Rhythm.peakLabel(hours) { date in
+            "\(calendar.component(.hour, from: date))h"
+        }
+        // The run covers the 9 and 10 o'clock hours, so it ends at 11 — the
+        // same convention as "4–6am" for the hours 4 and 5.
+        expect(label == "9h–11h", "peak run is 9–11, got \(label ?? "nil")", &problems)
+        expect(Rhythm.peakLabel([]) { _ in "" } == nil, "no hours, no peak", &problems)
+        return problems
+    }
+
+    // MARK: - 90
+
+    /// "Dinner" in the reason field becomes the break record's name — what the
+    /// timeline labels the gap — capitalised and trimmed; no name means
+    /// "Break"; and a label given with any other answer is consumed, not kept
+    /// for the next question.
+    private static func testNamedBreak() -> [String] {
+        var problems: [String] = []
+        func absence(_ engine: SessionEngine, _ clock: Clock) {
+            clock.advance(600)
+            engine.transition(on: .awayBegan(trigger: .screenLock))
+            clock.advance(22 * 60)
+            engine.transition(on: .awayEnded)
+        }
+        let clock = Clock(base)
+        let engine = makeEngine(clock)
+        engine.start(workType: .deepWork, intent: "Work")
+        absence(engine, clock)
+        engine.decide(.tookBreak, label: "  dinner ")
+        let named = engine.archive.records.last { $0.workType == .breakTime }
+        expect(named?.name == "Dinner", "the break is recorded as Dinner, got \(named?.name ?? "nil")",
+               &problems)
+        expectClose(named?.workSeconds ?? 0, 22 * 60, "for the absence's length", &problems)
+
+        absence(engine, clock)
+        engine.decide(.tookBreak)
+        let plain = engine.archive.records.last { $0.workType == .breakTime }
+        expect(plain?.name == "Break", "no name means Break", &problems)
+
+        absence(engine, clock)
+        engine.decide(.continueSession, label: "lunch")
+        let count = engine.archive.records.filter { $0.workType == .breakTime }.count
+        expect(count == 2, "'I was away' with a label records nothing", &problems)
+        absence(engine, clock)
+        engine.decide(.tookBreak)
+        expect(engine.archive.records.last { $0.workType == .breakTime }?.name == "Break",
+               "and the label did not leak into the next break", &problems)
+        return problems
+    }
+
+    // MARK: - 91
+
+    /// The Sessions card's rows: two stretches of one thread with a break
+    /// between them are one session with two stretches and a rest row; a
+    /// different thread is its own session; the running session joins its
+    /// thread and is marked.
+    private static func testSessionDigest() -> [String] {
+        var problems: [String] = []
+        let day = Calendar.current.startOfDay(for: base)
+        let thread = UUID()
+        func at(_ h: Double) -> Date { day.addingTimeInterval(h * 3_600) }
+        let records = [
+            SessionRecord(name: "Refactor", workType: .deepWork, start: at(9), end: at(10),
+                          workSeconds: 3_600, threadID: thread),
+            SessionRecord(name: "Dinner", workType: .breakTime, start: at(10), end: at(10.5),
+                          workSeconds: 1_800),
+            SessionRecord(name: "Refactor", workType: .deepWork, start: at(10.5), end: at(11),
+                          workSeconds: 1_800, threadID: thread),
+            SessionRecord(name: "Email", workType: .admin, start: at(13), end: at(13.5),
+                          workSeconds: 1_800)
+        ]
+        let running = RunningThread(threadID: thread, name: "Refactor", workType: .deepWork,
+                                    start: at(15), worked: 600)
+        let entries = SessionDigest.entries(records: records, running: running, now: at(15.2))
+        expect(entries.count == 4, "session, rest, session, running session → 4 rows, got \(entries.count)",
+               &problems)
+        guard entries.count == 4 else { return problems }
+        guard case .session(let first) = entries[0] else { return problems + ["first row is a session"] }
+        expect(first.stretches == 2, "two stretches fold into one session, got \(first.stretches)", &problems)
+        expectClose(first.worked, 5_400, "worked sums the stretches", &problems)
+        expect(first.spans.count == 2, "and keeps both spans", &problems)
+        guard case .rest(let rest) = entries[1] else { return problems + ["second row is the rest"] }
+        expect(rest.name == "Dinner", "the rest keeps its name", &problems)
+        guard case .session(let email) = entries[2] else { return problems + ["third row is Email"] }
+        expect(email.workType == .admin && email.stretches == 1, "another thread is its own row", &problems)
+        guard case .session(let live) = entries[3] else { return problems + ["fourth row is the running one"] }
+        expect(live.isRunning && live.threadID == thread, "the running session is marked", &problems)
+        expect(live.stretches == 1, "and, separated by another thread, starts its own row", &problems)
+        return problems
+    }
+
+    // MARK: - 92
+
+    /// "Apps used inside this session": usage intersected with the session's
+    /// spans, ranked, with shares out of the inside rather than the day.
+    private static func testAppsWithinSpans() -> [String] {
+        var problems: [String] = []
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let clock = Clock(base)
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let day = Calendar.current.startOfDay(for: base)
+        func at(_ h: Double) -> Date { day.addingTimeInterval(h * 3_600) }
+        usage.record(AppUsageSession(bundleID: "com.a", appName: "A", start: at(9), end: at(10)))   // 1h
+        usage.record(AppUsageSession(bundleID: "com.b", appName: "B", start: at(10), end: at(10.5))) // 30m
+        usage.record(AppUsageSession(bundleID: "com.c", appName: "C", start: at(14), end: at(16)))  // outside
+        let stats = DashboardStats(sessions: SessionArchive(directory: directory, now: { clock.value }),
+                                   usage: usage, now: { clock.value })
+        let inside = stats.rankedApps(for: day, within: [DateInterval(start: at(9.5), end: at(10.5))])
+        expect(inside.map(\.bundleID) == ["com.a", "com.b"], "A then B, C excluded, got \(inside.map(\.bundleID))",
+               &problems)
+        expectClose(inside.first?.total ?? 0, 1_800, "A counts only its 30m inside the span", &problems)
+        expectClose(inside.first?.share ?? 0, 0.5, "shares are of the inside (30m of 60m)", &problems)
+        expectClose(stats.trackedTotal(for: day, within: [DateInterval(start: at(9.5), end: at(10.5))]),
+                    3_600, "hands-on inside the span", &problems)
+        return problems
+    }
+
+    // MARK: - 93
+
+    /// The summary is the figures in words. A full day names its time, its
+    /// sessions, its apps and the day before; an empty day says it is empty;
+    /// a share over 100% is never written; today speaks in the present.
+    private static func testSummaryText() -> [String] {
+        var problems: [String] = []
+        let day = Calendar.current.startOfDay(for: base)
+        func at(_ h: Double) -> Date { day.addingTimeInterval(h * 3_600) }
+        let thread = UUID()
+        let deep = DaySession(id: UUID(), threadID: thread, name: "Refactor the parser",
+                              workType: .deepWork, start: at(8.75), end: at(15.9),
+                              worked: 3 * 3_600 + 47 * 60, stretches: 4,
+                              spans: [DateInterval(start: at(8.75), end: at(12)),
+                                      DateInterval(start: at(12.5), end: at(15.9))],
+                              isRunning: false)
+        let email = DaySession(id: UUID(), threadID: UUID(), name: "", workType: .admin,
+                               start: at(16), end: at(16.5), worked: 1_800, stretches: 1,
+                               spans: [DateInterval(start: at(16), end: at(16.5))], isRunning: false)
+        let lunch = RestEntry(id: UUID(), name: "Lunch", start: at(12), end: at(12.5))
+        var input = DaySummaryInput(
+            day: day, isToday: false,
+            tracked: 8 * 3_600 + 6 * 60, firstSeen: at(8.7), lastSeen: at(23.35),
+            focused: 4 * 3_600 + 17 * 60, goal: 4 * 3_600,
+            sessions: [deep, email], rests: [lunch],
+            apps: [AppRank(bundleID: "a", appName: "Dia", total: 3 * 3_600 + 4 * 60, share: 0.38, longest: 0),
+                   AppRank(bundleID: "b", appName: "Claude", total: 2 * 3_600 + 19 * 60, share: 0.29, longest: 0),
+                   AppRank(bundleID: "c", appName: "Finder", total: 600, share: 0.02, longest: 0)],
+            peak: "1pm–4pm", insideSessionShare: 0.45, switchesPerStretch: 57.3,
+            workTypes: [WorkTypeShare(workType: .deepWork, seconds: 3_000, share: 0.94),
+                        WorkTypeShare(workType: .breakTime, seconds: 200, share: 0.06)],
+            previousTracked: 9 * 3_600, previousFocused: 3 * 3_600 + 7 * 60)
+        let text = SummaryText.plain(SummaryText.day(input))
+        for needle in ["You were at the Mac for 8h 6m", "focused for 4h 17m in 2 sessions",
+                       "53% of that time", "goal met",
+                       "The longest, Deep work, Refactor the parser, ran", "for 3h 47m in 4 stretches with one break (Lunch 30m)",
+                       "Most of the time went to Dia (3h 4m, 38%) and Claude (2h 19m, 29%), across 3 apps in all",
+                       "the busiest hours were 1pm–4pm",
+                       "45% of the time at the Mac fell inside a session, with about 57 app switches per stretch",
+                       "by type, Deep work 94%, Break 6%",
+                       "54m less at the Mac and 1h 10m more focused"] {
+            expect(text.contains(needle), "summary says “\(needle)”, got: \(text)", &problems)
+        }
+        expect(!text.contains("**"), "plain text carries no bold marks", &problems)
+        expect(SummaryText.day(input).count == 5, "five sentences for a full day", &problems)
+
+        // Short of the goal, written as a shortfall on a past day.
+        input.focused = 3 * 3_600 + 47 * 60
+        expect(SummaryText.plain(SummaryText.day(input)).contains("13m short of the 4h goal"),
+               "a past day fell short", &problems)
+
+        // Today: present tense, "to the goal", and a running session is said to run.
+        input.isToday = true
+        input.sessions = [DaySession(id: deep.id, threadID: thread, name: deep.name, workType: .deepWork,
+                                     start: deep.start, end: deep.end, worked: deep.worked, stretches: 4,
+                                     spans: deep.spans, isRunning: true), email]
+        let today = SummaryText.plain(SummaryText.day(input))
+        expect(today.hasPrefix("So far today you've been at the Mac for 8h 6m, since"),
+               "today speaks in the present, got: \(today)", &problems)
+        expect(today.contains("13m to the 4h goal"), "today has a goal to reach", &problems)
+        expect(today.contains("and it's still running"), "the running session is named as running", &problems)
+        expect(today.contains("Against the whole of yesterday"), "today compares against all of yesterday", &problems)
+
+        // Focused above tracked: the share is not a share, so it is not said.
+        input.focused = 9 * 3_600
+        expect(!SummaryText.plain(SummaryText.day(input)).contains("% of that time"),
+               "no share above 100%", &problems)
+
+        // Nothing at all.
+        input = DaySummaryInput(day: day, isToday: false, tracked: 0, firstSeen: nil, lastSeen: nil,
+                                focused: 0, goal: 4 * 3_600, sessions: [], rests: [], apps: [], peak: nil,
+                                insideSessionShare: 0, switchesPerStretch: 0, workTypes: [],
+                                previousTracked: 0, previousFocused: 0)
+        expect(SummaryText.day(input) == ["Nothing was recorded on this day."],
+               "an empty day says so and nothing else", &problems)
+
+        // A week.
+        let week = SummaryText.plain(SummaryText.period(PeriodSummaryInput(
+            period: .week, containsToday: true, tracked: 31 * 3_600 + 20 * 60, activeDays: 5, totalDays: 7,
+            averagePerActiveDay: 6 * 3_600 + 16 * 60, previousTracked: 29 * 3_600 + 10 * 60,
+            focused: 14 * 3_600, sessions: 9, goal: 4 * 3_600, goalMetDays: 2,
+            busiestDay: day, busiestTracked: 8 * 3_600 + 6 * 60,
+            longestSitting: ("Dia", 95 * 60, day), apps: [("Dia", 12 * 3_600, 0.38)], appCount: 14,
+            workTypes: [])))
+        for needle in ["This week you were at the Mac for 31h 20m across 5 of 7 days — 6h 16m per active day, 2h 10m more than the week before.",
+                       "You focused for 14h in 9 sessions, meeting the 4h goal on 2 days.",
+                       "(8h 6m); the longest single sitting was 1h 35m in Dia on",
+                       "All of the time was in Dia, across 14 apps in all."] {
+            expect(week.contains(needle), "week summary says “\(needle)”, got: \(week)", &problems)
+        }
+        return problems
+    }
+
+    // MARK: - 94
+
+    /// A session is a thread. Two stretches of one thread are one session with
+    /// their work added; the running stretch joins its thread's count rather
+    /// than adding one; a different thread is another session.
+    private static func testSessionsAreThreads() -> [String] {
+        var problems: [String] = []
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let prefs = PersistenceStore(defaults: defaults)
+        prefs.removeAll()
+        let archive = SessionArchive(directory: directory)
+        let engine = SessionEngine(store: prefs, archive: archive,
+                                   ownBundleID: "com.test", schedulesDwell: false)
+        let thread = UUID()
+        let now = Date()
+        archive.append(SessionRecord(name: "Parser", workType: .deepWork,
+                                     start: now.addingTimeInterval(-7_200),
+                                     end: now.addingTimeInterval(-5_400),
+                                     workSeconds: 1_800, threadID: thread))
+        archive.append(SessionRecord(name: "Parser, tests", workType: .deepWork,
+                                     start: now.addingTimeInterval(-5_000),
+                                     end: now.addingTimeInterval(-2_300),
+                                     workSeconds: 2_700, threadID: thread))
+        archive.append(SessionRecord(name: "Email", workType: .admin,
+                                     start: now.addingTimeInterval(-2_000),
+                                     end: now.addingTimeInterval(-1_000),
+                                     workSeconds: 1_000))
+        archive.append(SessionRecord(name: "Lunch", workType: .breakTime,
+                                     start: now.addingTimeInterval(-5_400),
+                                     end: now.addingTimeInterval(-5_000),
+                                     workSeconds: 400))
+        expect(archive.focusCount(on: now) == 3, "three focus stretches", &problems)
+        expect(archive.threadCount(on: now) == 2,
+               "two sessions — the thread once, got \(archive.threadCount(on: now))", &problems)
+        let longest = archive.longestThread(on: now)
+        expectClose(longest?.seconds ?? 0, 4_500, "the thread's stretches add up", &problems)
+        expect(longest?.name == "Parser, tests", "named by its latest stretch, got \(longest?.name ?? "nil")",
+               &problems)
+        expectClose(archive.threadWork(thread, on: now), 4_500, "thread work on the day", &problems)
+        expect(archive.sessionsToday() == 2 && abs(archive.longestToday() - 4_500) < 1,
+               "today's figures count threads", &problems)
+
+        // Running on the same thread: still two sessions; the longest grows.
+        engine.start(workType: .deepWork, intent: "Parser", threadID: thread)
+        expect(engine.sessionsToday == 2, "the running stretch joins its thread, got \(engine.sessionsToday)",
+               &problems)
+        expect(engine.longestToday >= 4_500, "longest is the thread with its live stretch", &problems)
+        engine.stop()
+        // Running on a new thread: a third session.
+        engine.start(workType: .deepWork, intent: "Fresh")
+        expect(engine.sessionsToday == 3, "a new thread is a new session, got \(engine.sessionsToday)",
+               &problems)
+        engine.stop()
+        return problems
+    }
+
+    // MARK: - 95
+
+    /// The lid closes at T (away begins). The machine sleeps; during a dark
+    /// wake the idle sampler, whose clock did not run while asleep, back-dates
+    /// a pause only to T+86m. The wake at T+132m must measure the absence from
+    /// T: past the cap the session ends where the lid closed, and below the
+    /// cap the question is about the whole of it.
+    private static func testAbsenceFromWhereItBegan() -> [String] {
+        var problems: [String] = []
+        func scenario(capHours: Double) -> (engine: SessionEngine, archive: SessionArchive, clock: Clock) {
+            let directory = scratchDirectory()
+            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let prefs = PersistenceStore(defaults: defaults)
+            prefs.removeAll()
+            prefs.longAwayCap = capHours * 3_600
+            let clock = Clock(base)
+            let archive = SessionArchive(directory: directory, now: { clock.value })
+            let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
+                                       schedulesDwell: false, now: { clock.value })
+            engine.start(workType: .deepWork, intent: "Lid test")
+            clock.advance(30 * 60)                                     // 30m of work
+            engine.transition(on: .awayBegan(trigger: .systemSleep))    // T: lid closes
+            clock.advance(96 * 60)                                     // asleep, dark wakes
+            engine.transition(on: .idleObserved(seconds: 600))         // sampler: "idle 10m" → pause at T+86m
+            guard engine.state.isPaused else { problems.append("the sampler pauses"); return (engine, archive, clock) }
+            clock.advance(36 * 60)                                     // T+132m: lid opens
+            engine.transition(on: .awayEnded)
+            return (engine, archive, clock)
+        }
+
+        // Cap one hour: 132 minutes away ends the session where the lid closed.
+        let capped = scenario(capHours: 1)
+        expect(capped.engine.state == .idle, "past the cap the session is over, got \(capped.engine.state)", &problems)
+        let record = capped.archive.records.last
+        expectClose(record?.end.timeIntervalSince(base) ?? 0, 30 * 60,
+                    "the record ends where the lid closed, not at the late pause", &problems)
+        expectClose(record?.workSeconds ?? 0, 30 * 60, "and carries only the work before it", &problems)
+
+        // Cap four hours: the question is about 132 minutes, not the pause's 46.
+        let asked = scenario(capHours: 4)
+        if case .awaitingUserDecision(let away, _) = asked.engine.state {
+            expectClose(away, 132 * 60, "the whole absence is asked about, got \(Int(away / 60))m", &problems)
+        } else {
+            problems.append("below the cap the absence is asked about, got \(asked.engine.state)")
+        }
+        return problems
+    }
+
+    // MARK: - 96
+
+    /// The app comes back up while the screen is still locked. The snapshot
+    /// says the absence began at T; nobody has returned, so it must stay open
+    /// and the unlock must measure all of it — not the slice up to the launch.
+    private static func testRestoreBehindLock() -> [String] {
+        var problems: [String] = []
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let prefs = PersistenceStore(defaults: defaults)
+        prefs.removeAll()
+        prefs.longAwayCap = 4 * 3_600
+        let clock = Clock(base)
+        let archive = SessionArchive(directory: directory, now: { clock.value })
+        let first = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
+                                  schedulesDwell: false, now: { clock.value })
+        first.start(workType: .deepWork, intent: "Lock test")
+        clock.advance(20 * 60)
+        first.transition(on: .awayBegan(trigger: .screenLock))      // T: locked
+        let snapshot = first.snapshot()
+
+        // Relaunched 10 minutes later, still locked; unlocked 30 minutes after that.
+        clock.advance(10 * 60)
+        let relaunched = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
+                                       schedulesDwell: false, now: { clock.value })
+        relaunched.restore(from: snapshot, screenLocked: true)
+        expect(relaunched.state == .running, "still running, nothing resolved yet, got \(relaunched.state)", &problems)
+        clock.advance(30 * 60)
+        relaunched.transition(on: .awayEnded)
+        if case .awaitingUserDecision(let away, _) = relaunched.state {
+            expectClose(away, 40 * 60, "the unlock measures from the lock, got \(Int(away / 60))m", &problems)
+        } else {
+            problems.append("the unlock asks about the absence, got \(relaunched.state)")
+        }
+
+        // Not locked at launch: the gap since the snapshot is resolved at once, as before.
+        clock.advance(5 * 60)
+        let unlockedLaunch = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
+                                           schedulesDwell: false, now: { clock.value })
+        unlockedLaunch.restore(from: snapshot, screenLocked: false)
+        if case .awaitingUserDecision(let away, _) = unlockedLaunch.state {
+            expectClose(away, 45 * 60, "an unlocked launch resolves the gap since the lock", &problems)
+        } else {
+            problems.append("an unlocked launch resolves at once, got \(unlockedLaunch.state)")
+        }
+        return problems
+    }
+
+    // MARK: - 97
+
+    /// The popover's Today band is today's whatever day the dashboard shows:
+    /// stepping the dashboard to yesterday must leave the glance segments,
+    /// brackets and hover on today. It used to draw the selected day's
+    /// segments on today's axis, which emptied the band.
+    private static func testGlanceStaysOnToday() -> [String] {
+        var problems: [String] = []
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let prefs = PersistenceStore(defaults: defaults)
+        prefs.removeAll()
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else { return ["calendar"] }
+        let usage = AppUsageArchive(directory: directory)
+        usage.record(AppUsageSession(bundleID: "com.y", appName: "Y",
+                                     start: yesterday.addingTimeInterval(9 * 3_600),
+                                     end: yesterday.addingTimeInterval(10 * 3_600)))
+        usage.record(AppUsageSession(bundleID: "com.t", appName: "T",
+                                     start: today.addingTimeInterval(60),
+                                     end: today.addingTimeInterval(3_500)))
+        let archive = SessionArchive(directory: directory)
+        archive.append(SessionRecord(name: "Y work", workType: .deepWork,
+                                     start: yesterday.addingTimeInterval(9 * 3_600),
+                                     end: yesterday.addingTimeInterval(10 * 3_600), workSeconds: 3_600))
+        archive.append(SessionRecord(name: "T work", workType: .deepWork,
+                                     start: today.addingTimeInterval(60),
+                                     end: today.addingTimeInterval(3_500), workSeconds: 3_440))
+        let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
+                                   schedulesDwell: false)
+        let store = SessionStore(engine: engine)
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.test", idle: .disabled)
+        store.attach(tracker: tracker, usage: usage)
+        store.refresh()
+        expect(store.timelineSegments.map(\.bundleID) == ["com.t"],
+               "today's segments on today, got \(store.timelineSegments.map(\.bundleID))", &problems)
+        store.stepDay(by: -1)
+        expect(store.timelineSegments.map(\.bundleID) == ["com.y"],
+               "the dashboard browses yesterday, got \(store.timelineSegments.map(\.bundleID))", &problems)
+        expect(store.glanceTimeline.map(\.bundleID) == ["com.t"],
+               "the glance band stays on today, got \(store.glanceTimeline.map(\.bundleID))", &problems)
+        expect(store.glanceBrackets.count == 1 && store.focusBrackets.count == 1,
+               "brackets: today's for the glance, yesterday's for the page", &problems)
+        store.hoverTimeline(at: 0.5, glance: true)
+        expect(store.hoveredSegment?.bundleID == "com.t",
+               "hovering the glance band names today's app, got \(store.hoveredSegment?.bundleID ?? "nil")",
+               &problems)
+        store.hoverTimeline(at: 0.5)
+        expect(store.hoveredSegment?.bundleID == "com.y",
+               "hovering the page names yesterday's, got \(store.hoveredSegment?.bundleID ?? "nil")", &problems)
+        return problems
+    }
+
+    // MARK: - 98
+
+    /// Watching is presence, not absence: a Deep work session quietly pauses
+    /// behind a film and writes it down as "Watching"; a Meetings session keeps
+    /// counting; once the film ends, idle counts from then; a lock mid-film
+    /// begins the absence at the lock.
+    private static func testWatchingIsNotAbsence() -> [String] {
+        var problems: [String] = []
+        func make(_ type: WorkType) -> (engine: SessionEngine, archive: SessionArchive, clock: Clock) {
+            let directory = scratchDirectory()
+            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let prefs = PersistenceStore(defaults: defaults)
+            prefs.removeAll()
+            prefs.longAwayCap = 4 * 3_600
+            prefs.breakThreshold = 5 * 60
+            let clock = Clock(base)
+            let archive = SessionArchive(directory: directory, now: { clock.value })
+            let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
+                                       schedulesDwell: false, now: { clock.value })
+            engine.start(workType: type, intent: "Watch test")
+            clock.advance(20 * 60)                                   // 20m of work, then the film
+            return (engine, archive, clock)
+        }
+
+        // Deep work: ten quiet minutes behind a film → a quiet pause, back-dated.
+        let deep = make(.deepWork)
+        deep.clock.advance(10 * 60)
+        deep.engine.transition(on: .watchingObserved(seconds: 600))
+        expect(deep.engine.state == .paused(reason: .watching),
+               "watching pauses deep work quietly, got \(deep.engine.state)", &problems)
+        deep.clock.advance(35 * 60)                                  // the film runs on
+        deep.engine.transition(on: .watchingObserved(seconds: 45 * 60))
+        deep.engine.transition(on: .idleObserved(seconds: 2))        // a keypress
+        expect(deep.engine.state == .running, "input resumes without a question, got \(deep.engine.state)",
+               &problems)
+        expectClose(deep.engine.elapsed, 20 * 60, "the film is not work", &problems)
+        let watched = deep.archive.records.last
+        expect(watched?.workType == .breakTime && watched?.name == "Watching",
+               "a Watching rest is written down, got \(String(describing: watched?.name))", &problems)
+        expectClose(watched?.workSeconds ?? 0, 45 * 60, "for the time watched", &problems)
+
+        // Meetings: the same quiet is attendance.
+        let meeting = make(.meetings)
+        meeting.clock.advance(10 * 60)
+        meeting.engine.transition(on: .watchingObserved(seconds: 600))
+        expect(meeting.engine.state == .running, "a meeting keeps counting while watched", &problems)
+        expectClose(meeting.engine.elapsed, 30 * 60, "and the minutes are kept", &problems)
+
+        // The film ends at T+60 and nobody touches the machine: idle counts
+        // from the film's end, and the question on return is about that.
+        let left = make(.deepWork)
+        left.clock.advance(10 * 60)
+        left.engine.transition(on: .watchingObserved(seconds: 600))
+        left.clock.advance(42 * 60)                                  // T+72: 12m since the film ended
+        left.engine.transition(on: .idleObserved(seconds: 12 * 60))
+        expect(left.engine.state == .paused(reason: .idle),
+               "after the film, quiet is idle, got \(left.engine.state)", &problems)
+        expectClose(left.archive.records.last?.workSeconds ?? 0, 40 * 60,
+                    "the Watching rest ends where the film did", &problems)
+        left.clock.advance(3 * 60)                                   // T+75
+        left.engine.transition(on: .idleObserved(seconds: 1))        // back
+        if case .awaitingUserDecision(let away, _) = left.engine.state {
+            expectClose(away, 15 * 60, "asked about the 15m after the film, not the film, got \(Int(away / 60))m",
+                        &problems)
+        } else {
+            problems.append("asked about the absence after the film, got \(left.engine.state)")
+        }
+
+        // A lock mid-film: the absence begins at the lock.
+        let locked = make(.deepWork)
+        locked.clock.advance(10 * 60)
+        locked.engine.transition(on: .watchingObserved(seconds: 600))
+        locked.clock.advance(20 * 60)                                // T+50
+        locked.engine.transition(on: .awayBegan(trigger: .screenLock))
+        locked.clock.advance(8 * 60)                                 // T+58
+        locked.engine.transition(on: .awayEnded)
+        if case .awaitingUserDecision(let away, _) = locked.engine.state {
+            expectClose(away, 8 * 60, "the question is about the time away, not the film, got \(Int(away / 60))m",
+                        &problems)
+        } else {
+            problems.append("a lock mid-film asks about the lock, got \(locked.engine.state)")
+        }
         return problems
     }
 

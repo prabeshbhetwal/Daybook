@@ -27,6 +27,10 @@ enum Tokens {
         static let ground = Color(lightHex: 0xF4F4F6, darkHex: 0x1C1C1E)
         static let card = Color(lightHex: 0xFFFFFF, darkHex: 0x2A2A2D)
         static let well = Color(lightHex: 0xECECEF, darkHex: 0x141416)
+        /// A secondary control's fill. Lifted above the card in dark — a control
+        /// darker than its card reads as a hole, not a button — and a shade
+        /// below it in light.
+        static let control = Color(lightHex: 0xE6E6EA, darkHex: 0x3A3A3E)
         static let hairline = Color(light: NSColor.black.withAlphaComponent(0.08),
                                     dark: NSColor.white.withAlphaComponent(0.09))
         static let hover = Color(light: NSColor.black.withAlphaComponent(0.04),

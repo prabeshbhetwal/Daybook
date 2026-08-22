@@ -46,14 +46,30 @@ struct SettingsView: View {
                         Text(Tokens.duration($0)).tag($0)
                     }
                 }
+                Picker("Full-screen prompt after", selection: $model.fullPromptAfter) {
+                    ForEach(FocusConstants.fullPromptAfterOptions, id: \.self) {
+                        Text(Tokens.duration($0)).tag($0)
+                    }
+                    Text("Never").tag(0.0)
+                }
             } header: {
                 Text("Stepping away")
             } footer: {
-                Text("Under 5 seconds is ignored. Up to "
-                     + "\(Tokens.duration(model.breakThreshold)) is left out of the session "
-                     + "without interrupting you. Up to \(Tokens.duration(model.longAwayCap)) "
-                     + "you are asked what it was, whether the screen locked or you simply "
-                     + "stopped. Past that the session ends where you left.")
+                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                    Text("Under 5 seconds is ignored. Up to "
+                         + "\(Tokens.duration(model.breakThreshold)) is left out of the session "
+                         + "without interrupting you. Up to \(Tokens.duration(model.longAwayCap)) "
+                         + "you are asked what it was, whether the screen locked or you simply "
+                         + "stopped. Past that the session ends where you left.")
+                    Text(model.fullPromptAfter > 0
+                         ? "Shorter absences are asked about from the menu bar; from "
+                           + "\(Tokens.duration(model.fullPromptAfter)) the question fills the screen."
+                         : "Every absence is asked about from the menu bar.")
+                    Text("Quiet in front of something you are watching — a video, a call, a "
+                         + "presentation keeping the screen awake — is never an absence, so it is "
+                         + "never asked about. In a Meetings or Learning session it counts; in any "
+                         + "other it pauses the clock quietly and appears as Watching.")
+                }
             }
             Section {
                 Toggle("Remind me to take breaks", isOn: $model.remindersEnabled)

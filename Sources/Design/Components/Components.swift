@@ -187,71 +187,24 @@ struct StatTile: View {
     }
 }
 
-/// Non-blocking resolution of a long absence — the calm replacement for the
-/// focus-stealing modal the AppKit build used.
-/// The three answers used to read "Merge / Break / Discard", which said what the
-/// code did rather than what happened, and left the most destructive of them —
-/// it closes the old session and restarts the clock — sounding like the one that
-/// throws away only the gap. They now say what the user did.
-///
-/// The gap is already excluded by the time this appears, so ignoring the card
-/// leaves the honest answer standing rather than the flattering one, and the
-/// session keeps running underneath it either way.
+/// Non-blocking resolution of a long absence, as a card: the grid inside a
+/// frame, or bare when it already sits in another card.
 struct ResolveCard: View {
     let away: TimeInterval
-    let onMerge: () -> Void
-    let onBreak: () -> Void
-    let onDiscard: () -> Void
-    var onRest: (() -> Void)?
-    /// Off when the card already sits inside another card — the hero — where a
-    /// second frame reads as a box in a box.
+    var range: (start: Date, end: Date)?
     var framed: Bool = true
+    var note: String?
+    let onAnswer: (UserDecision) -> Void
+    var onReason: ((String) -> Void)?
 
     var body: some View {
-        let content = VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            Label("Away \(Tokens.duration(away))", systemImage: "moon.zzz.fill")
-                .font(.headline)
-                .symbolRenderingMode(.hierarchical)
-            Text("Not counted. Your session is still running.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-            // Two rows. The first holds the two answers to the question; the
-            // second holds the options that restructure instead. "I was
-            // working" must never truncate — it is the answer that changes the
-            // numbers.
-            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                HStack(spacing: Tokens.Space.s) {
-                    if let onRest {
-                        Button("It was a break", action: onRest)
-                            .buttonStyle(.borderedProminent)
-                            .help("Not counted, and written down as "
-                                  + "\(Tokens.duration(away)) of rest")
-                    }
-                    Button("I was working", action: onMerge)
-                        .help("Count the \(Tokens.duration(away)) as work on this session")
-                    Spacer(minLength: 0)
-                }
-                HStack(spacing: Tokens.Space.m) {
-                    Button("I was away", action: onBreak)
-                        .help("Not counted, and nothing recorded for it")
-                    Button("Start fresh instead", action: onDiscard)
-                        .help("End that session where you left off and begin a new one")
-                    Spacer(minLength: 0)
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
-            }
-            .lineLimit(1)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-
+        let grid = AwayAnswerGrid(away: away, range: range, compact: true, note: note,
+                                  onAnswer: onAnswer, onReason: onReason)
+            .frame(maxWidth: .infinity, alignment: .leading)
         if framed {
-            content.card(padding: Tokens.Space.m)
+            grid.card(padding: Tokens.Space.m)
         } else {
-            content
+            grid
         }
     }
 }

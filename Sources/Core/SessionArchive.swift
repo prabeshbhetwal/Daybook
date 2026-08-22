@@ -91,14 +91,54 @@ final class SessionArchive {
         workSeconds(on: now())
     }
 
-    func sessionsToday() -> Int { focusCount(on: now()) }
+    func sessionsToday() -> Int { threadCount(on: now()) }
 
-    func longestToday() -> TimeInterval { longestRecord(on: now())?.seconds ?? 0 }
+    func longestToday() -> TimeInterval { longestThread(on: now())?.seconds ?? 0 }
 
-    /// Focus sessions with work on a day. The same rule the day total uses, so
-    /// "3 sessions" and "2h 50m focused" on one screen describe one set.
+    /// Focus *stretches* with work on a day: one per record. Since work carries
+    /// on across a break, a session is a thread and several records can be one
+    /// session — so the figures that say "sessions" count `threadCount(on:)`.
+    /// This is the stretch count, kept for what is per stretch.
     func focusCount(on date: Date) -> Int {
         records(on: date).filter { $0.workType.countsAsFocus }.count
+    }
+
+    /// Sessions with work on a day, a session being a thread: work that was
+    /// resumed after breaks counts once, however many stretches it took. The
+    /// KPI, the hero, the calendar and the Sessions card all count this way,
+    /// so "7 sessions" and "1 session · 7 stretches" can no longer share a
+    /// screen.
+    func threadCount(on date: Date) -> Int {
+        Set(records(on: date).filter { $0.workType.countsAsFocus }.map(\.threadID)).count
+    }
+
+    /// The thread that contributed most work to a day, with the day's seconds
+    /// and the intent its last stretch carried. A thread split by midnight is
+    /// judged on its share of this day.
+    func longestThread(on date: Date)
+        -> (threadID: UUID, name: String, workType: WorkType, seconds: TimeInterval)? {
+        var totals: [UUID: (name: String, workType: WorkType, seconds: TimeInterval, first: Date)] = [:]
+        for record in records(on: date) where record.workType.countsAsFocus {
+            var entry = totals[record.threadID] ?? (record.name, record.workType, 0, record.start)
+            entry.seconds += record.workSeconds(on: date, calendar: calendar)
+            if !record.name.isEmpty, record.start >= entry.first { entry.name = record.name }
+            entry.first = min(entry.first, record.start)
+            totals[record.threadID] = entry
+        }
+        // Ties go to the earlier thread, so the answer cannot change between
+        // two refreshes of the same day.
+        guard let best = totals.max(by: {
+            ($0.value.seconds, $1.value.first) < ($1.value.seconds, $0.value.first)
+        }), best.value.seconds > 0 else { return nil }
+        return (best.key, best.value.name, best.value.workType, best.value.seconds)
+    }
+
+    /// One thread's archived work on a day — what its running stretch adds to.
+    func threadWork(_ threadID: UUID, on date: Date) -> TimeInterval {
+        records(on: date).reduce(0) { total, record in
+            guard record.threadID == threadID, record.workType.countsAsFocus else { return total }
+            return total + record.workSeconds(on: date, calendar: calendar)
+        }
     }
 
     /// The focus session that contributed most work to a day, with that

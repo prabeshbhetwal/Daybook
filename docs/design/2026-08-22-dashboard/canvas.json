@@ -1,0 +1,61 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1020,
+      "h": 1000,
+      "title": "Option A \u2014 Ring-led"
+    },
+    {
+      "file": "DataGrid.dc.html",
+      "x": 1100,
+      "y": 0,
+      "w": 1020,
+      "h": 980,
+      "title": "Option B \u2014 Data-first grid"
+    },
+    {
+      "file": "Narrative.dc.html",
+      "x": 2200,
+      "y": 0,
+      "w": 1020,
+      "h": 1040,
+      "title": "Option C \u2014 Timeline-led"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-a",
+      "x": 0,
+      "y": -150,
+      "w": 420,
+      "text": "Option A \u2014 Ring-led\nThe goal ring and the running session share one hero band; headline figures sit beside them, so the top of the page answers 'how is today going' in one glance. App share as a donut, work type as a split bar.\nTradeoff: the hero is tall \u2014 on a 13\" window the log starts lower."
+    },
+    {
+      "id": "note-b",
+      "x": 1100,
+      "y": -150,
+      "w": 420,
+      "text": "Option B \u2014 Data-first grid\nEverything is a chart: KPI cards with 7-day sparklines, an hour-by-hour rhythm bar chart, app share bars, a work-type donut. Running apps collapse to chips under the title so there is no right rail.\nTradeoff: denser and more 'analytics'; the timeline narrative is gone."
+    },
+    {
+      "id": "note-c",
+      "x": 2200,
+      "y": -150,
+      "w": 420,
+      "text": "Option C \u2014 Timeline-led\nClosest to today's structure, refined: more air, the timeline as the hero with focus brackets and a hover chip, the stat band with context lines, live cards on the right.\nTradeoff: fewest new visualisations; it leans on the timeline doing the explaining."
+    },
+    {
+      "id": "note-common",
+      "x": 0,
+      "y": 1080,
+      "w": 640,
+      "text": "Common to all three: your app's tokens exactly (ground/card/well surfaces, 7-colour palette by app rank, SF Rounded tabular numerals, 11pt tracked labels, 12pt radius, system accent \u2014 try the Accent tweak). Hover any row, block, bar or donut slice for its tooltip; bars and rings animate in. Dark shown; light uses the same tokens."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

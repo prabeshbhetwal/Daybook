@@ -31,6 +31,12 @@ enum PauseReason: Equatable {
     /// `.manual` because only this one resumes by itself — undoing a pause the
     /// user pressed would be the app overruling a deliberate act.
     case idle
+    /// Nobody has touched the machine, but something on screen is being
+    /// watched — a video, a call, a presentation is keeping the display awake.
+    /// Presence without input: never an absence, so never asked about; not
+    /// work either outside Meetings and Learning, so the clock stops quietly
+    /// and the stretch is written down as "Watching".
+    case watching
 
     var displayName: String {
         switch self {
@@ -40,6 +46,7 @@ enum PauseReason: Equatable {
         case .systemSleep: return "Paused (sleep)"
         case .away: return "Away"
         case .idle: return "Paused (idle)"
+        case .watching: return "Watching"
         }
     }
 }
@@ -92,6 +99,9 @@ enum SessionEvent: Equatable {
     /// engine is otherwise event-driven; this is the one signal that has to be
     /// observed rather than announced.
     case idleObserved(seconds: TimeInterval)
+    /// The same seconds, but something on screen is being watched meanwhile
+    /// (the store tells the two apart). Quiet in front of a film is presence.
+    case watchingObserved(seconds: TimeInterval)
     case decision(UserDecision)
     case resetSession
     case overrideApplied(bundleID: String)
@@ -138,6 +148,10 @@ enum WorkType: String, Codable, CaseIterable {
         case .breakTime: return "cup.and.saucer.fill"
         }
     }
+
+    /// Whether passive presence is the work itself: a meeting is attended, a
+    /// lecture is watched. Anywhere else, watching without input is a pause.
+    var countsWhileWatching: Bool { self == .meetings || self == .learning }
 
     /// Rest is not focus. A break belongs on the timeline, where it explains a
     /// gap, but never in the day's focused total — nothing else was stopping a
@@ -334,6 +348,7 @@ extension PersistedState {
             case .systemSleep: reason = "systemSleep"
             case .away: reason = "away"
             case .idle: reason = "idle"
+            case .watching: reason = "watching"
             case .distractionApp(let id):
                 reason = "distractionApp"
                 bundleID = id
@@ -371,6 +386,7 @@ extension PersistedState {
         case "systemSleep": return .systemSleep
         case "away": return .away
         case "idle": return .idle
+        case "watching": return .watching
         default: return .manual
         }
     }
@@ -389,6 +405,13 @@ enum FocusConstants {
     static let defaultLongAwayCap: TimeInterval = 4 * 3600
     static let longAwayCapOptions: [TimeInterval] = [
         3_600, 2 * 3_600, 3 * 3_600, 4 * 3_600, 6 * 3_600, 8 * 3_600
+    ]
+    /// Absences at least this long are asked about on a blurred screen rather
+    /// than from the menu bar. Half an hour: a coffee is a quick click, lunch is
+    /// long enough to have lost the thread. `nil` in the store means Never.
+    static let defaultFullPromptAfter: TimeInterval = 30 * 60
+    static let fullPromptAfterOptions: [TimeInterval] = [
+        20 * 60, 30 * 60, 45 * 60, 60 * 60, 90 * 60, 120 * 60
     ]
     /// How far back "Continue Today" looks. Recency rather than the calendar
     /// date: at ten past midnight the thing you want to resume is what you were

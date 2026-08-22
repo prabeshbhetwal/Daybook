@@ -21,12 +21,10 @@ struct HeroCard: View {
                 .explains("goal", "Focus time towards today's goal", goalDetail)
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 if let away = store.pendingAway {
-                    ResolveCard(away: away,
-                                onMerge: { store.resolve(.mergeTime) },
-                                onBreak: { store.resolve(.continueSession) },
-                                onDiscard: { store.resolve(.resetTimer) },
-                                onRest: { store.resolve(.tookBreak) },
-                                framed: false)
+                    ResolveCard(away: away, range: store.pendingAwayRange, framed: false,
+                                note: store.continuationNote,
+                                onAnswer: { store.resolve($0) },
+                                onReason: { store.resolve(.tookBreak, label: $0) })
                 } else if store.isIdle {
                     idleBody
                 } else {
@@ -68,16 +66,24 @@ struct HeroCard: View {
                 .foregroundStyle(store.isPaused ? AnyShapeStyle(.secondary)
                                                 : AnyShapeStyle(.primary))
                 .accessibilityLabel("Elapsed \(Tokens.duration(store.elapsed))")
-                .explains("timer", "This session, not today",
-                          "Time since this focus session began — one stretch of work, "
-                          + "not the day's total. It pauses itself after "
+                .explains("timer", "This stretch, not the day",
+                          "Time since this stretch of work began — since you pressed "
+                          + "Start, or since you came back and answered the card. It "
+                          + "pauses itself after "
                           + "\(Int(FocusConstants.idlePauseThreshold / 60)) minutes without "
-                          + "a keypress and asks what happened when you come back, so "
-                          + "thinking time counts and lunch does not.")
+                          + "a keypress, so thinking time counts and lunch does not. The "
+                          + "line beneath it is the same piece of work across every "
+                          + "stretch today; the ring beside it is the whole day.")
             Text(store.isPaused ? "Paused · \(store.activeIntent)" : store.activeIntent)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+            if let summary = store.threadSummaryLine {
+                Text(summary)
+                    .font(Tokens.Typography.detail)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
             goalCaption
             HStack(spacing: Tokens.Space.s) {
                 if store.isAway {

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// Lifecycle and the ownership graph. Owns the engine and every system monitor;
 /// the SwiftUI scenes read state through `SessionStore`.
@@ -35,6 +36,16 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// Lazy because `RewardHUD` is main-actor isolated and this delegate is
     /// not; every access below is already on the main thread.
     @MainActor private lazy var hud = RewardHUD()
+    /// Holds the `--preview-away card` window so it is not released.
+    @MainActor private var previewWindow: NSWindow?
+    /// Whether the screen is locked, as the notifications have told us. A
+    /// display waking behind a lock — a notification, a lid opened to a
+    /// password field, a dark wake — is not the user back; the unlock is.
+    private var screenLocked = false
+    /// Puts the away question where the user is. Lazy for the same reason as
+    /// the HUD: main-actor isolated, first touched on the main thread.
+    @MainActor private lazy var awayPrompter = AwayPrompter(
+        store: store, fullPromptAfter: { [weak self] in self?.engine.store.fullPromptAfter })
     /// When the focused-app-plus-music combination began, or nil when it is not
     /// currently holding. Reset the moment either half stops being true.
     private var musicPairingSince: Date?
@@ -263,25 +274,47 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // Restore before seeding the frontmost app: from `.idle`, a work-app
         // activation would start a fresh session and persist over the snapshot
         // we are about to read.
+        screenLocked = AppCoordinator.screenIsLockedNow()
         if let snapshot = engine.store.loadState() {
-            engine.restore(from: snapshot)
+            engine.restore(from: snapshot, screenLocked: screenLocked)
         }
-        if let frontmost = NSWorkspace.shared.frontmostApplication {
+        // Launched behind a lock, nothing is in front of anyone: seeding the
+        // frontmost app would record usage nobody is producing.
+        if !screenLocked, let frontmost = NSWorkspace.shared.frontmostApplication {
             engine.transition(on: .appActivated(bundleID: frontmost.bundleIdentifier,
                                                 name: frontmost.localizedName ?? "Unknown"))
             tracker.appActivated(bundleID: frontmost.bundleIdentifier,
                                  name: frontmost.localizedName ?? "Unknown")
         }
+        store.isWatching = WatchDetector.isWatching
         store.attach(tracker: tracker, usage: usage)
         store.refresh()
-
-        // Non-blocking away resolution: nothing steals focus. The notification is
-        // an extra affordance on top of the menu bar badge and the resolve card,
-        // so a denied authorisation costs nothing.
-        store.onAwayNeedsResolution = { [weak self] away in
-            self?.notifier.postAwayResolution(
-                title: "Away \(max(0, Int(away) / 60))m",
-                body: "Was that a break? Open FocusContinuity to decide.")
+        Task { @MainActor in
+            self.awayPrompter.start()
+            if let index = CommandLine.arguments.firstIndex(of: "--preview-away") {
+                let which = CommandLine.arguments.count > index + 1
+                    ? CommandLine.arguments[index + 1] : "quick"
+                if which == "card" || which == "past" {
+                    if which == "card" { self.store.previewPendingAway(6 * 60) }
+                    if which == "past" {
+                        // The view's onAppear returns to today; step after it.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.store.stepDay(by: -1) }
+                    }
+                    // The dashboard in a plain window, so its card can be put
+                    // on screen and looked at without a click.
+                    let window = NSWindow(contentRect: NSRect(x: 200, y: 120, width: 1020, height: 920),
+                                          styleMask: [.titled, .closable, .resizable],
+                                          backing: .buffered, defer: false)
+                    window.title = "Dashboard (preview)"
+                    window.contentView = NSHostingView(rootView: DashboardView(store: self.store))
+                    window.isReleasedWhenClosed = false
+                    self.previewWindow = window
+                    NSApp.activate(ignoringOtherApps: true)
+                    window.makeKeyAndOrderFront(nil)
+                } else {
+                    self.awayPrompter.preview(which == "full" ? .full : .quick)
+                }
+            }
         }
 
         // A nudge, never a block: it does not pause the session or take focus.
@@ -349,8 +382,17 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         store.refresh()
     }
 
+    /// The session dictionary says whether the screen is locked right now —
+    /// the one fact the notifications cannot tell a process that was not
+    /// running when the lock happened.
+    private static func screenIsLockedNow() -> Bool {
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        return (session["CGSSessionScreenIsLocked"] as? Bool) ?? false
+    }
+
     private func wireMonitor() {
         monitor.onScreenLocked = { [weak self] in
+            self?.screenLocked = true
             self?.engine.transition(on: .awayBegan(trigger: .screenLock))
             self?.tracker.suspend()
             self?.sampleInput(absent: true)
@@ -363,16 +405,20 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self?.scheduleAutomation()
         }
         monitor.onScreenUnlocked = { [weak self] in
+            self?.screenLocked = false
             self?.engine.transition(on: .awayEnded)
             self?.resumeTracking()
             self?.sampleInput()
             self?.scheduleAutomation()
         }
         monitor.onSystemDidWake = { [weak self] in
-            self?.engine.transition(on: .awayEnded)
-            self?.resumeTracking()
-            self?.sampleInput()
-            self?.scheduleAutomation()
+            // Behind a lock the wake is the display, not the person; the
+            // unlock that follows ends the absence and restarts tracking.
+            guard let self, !self.screenLocked else { return }
+            self.engine.transition(on: .awayEnded)
+            self.resumeTracking()
+            self.sampleInput()
+            self.scheduleAutomation()
         }
         monitor.onAppActivated = { [weak self] app in
             self?.engine.transition(on: .appActivated(bundleID: app.bundleIdentifier,

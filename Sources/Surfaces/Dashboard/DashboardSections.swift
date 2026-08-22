@@ -135,6 +135,10 @@ struct TopAppsList: View {
     /// This section is always the selected day, even when the log above it shows
     /// a week. Naming the day is what keeps the two from being read as one scope.
     var dayScopeLabel: String?
+    /// The dashboard's card calls this "App share" and trails the app count;
+    /// the popover keeps "Top apps" and the session count.
+    var title: String = "Top apps"
+    var trailingOverride: String?
     /// Passed as a VALUE, never read back through `store`. A plain stored
     /// reference does not subscribe to the object, and every other input here is
     /// unchanged when only the expansion set mutates — so SwiftUI's structural
@@ -145,9 +149,10 @@ struct TopAppsList: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            SectionHeader(title: dayScopeLabel.map { "Top apps · \($0)" } ?? "Top apps",
-                          trailing: sessionsToday == 1 ? "1 focus session today"
-                                                       : "\(sessionsToday) focus sessions today")
+            SectionHeader(title: dayScopeLabel.map { "\(title) · \($0)" } ?? title,
+                          trailing: trailingOverride
+                              ?? (sessionsToday == 1 ? "1 focus session today"
+                                                     : "\(sessionsToday) focus sessions today"))
             if apps.isEmpty {
                 Text("Tracking starts when you switch apps.")
                     .font(.callout)
@@ -192,7 +197,10 @@ struct TopAppsList: View {
         .contentShape(Rectangle())
         .background(hover.id == app.bundleID ? Tokens.Surface.hover : Color.clear,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
-        .onHover { hover.id = $0 ? app.bundleID : nil }
+        .onHover { inside in
+            hover.id = inside ? app.bundleID : nil
+            store?.highlightApp(inside ? app.bundleID : nil)
+        }
         .onTapGesture { store?.toggleExpanded(app.bundleID) }
     }
 

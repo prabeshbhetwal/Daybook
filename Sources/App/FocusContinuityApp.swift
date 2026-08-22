@@ -41,7 +41,7 @@ struct FocusContinuityApp: App {
         Window("Dashboard", id: "today") {
             DashboardView(store: coordinator.store)
         }
-        .defaultSize(width: 1020, height: 700)
+        .defaultSize(width: 1020, height: 920)
         .windowResizability(.contentMinSize)
 
         Settings {

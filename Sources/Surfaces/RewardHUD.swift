@@ -62,7 +62,7 @@ private struct RewardHUDView: View {
 /// right after the last regular window closes). Hardwiring both methods to
 /// `false` is the actual OS-level guarantee: this window can never become key
 /// or main, full stop, which is what "nothing ever steals focus" requires.
-private final class NonActivatingHUDPanel: NSPanel {
+final class NonActivatingHUDPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }
@@ -71,7 +71,7 @@ private final class NonActivatingHUDPanel: NSPanel {
 /// `NSView` refuses those by default. Without this the Undo button silently
 /// swallows its first click — and Undo is the only way to reject a session the
 /// app invented.
-private final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 

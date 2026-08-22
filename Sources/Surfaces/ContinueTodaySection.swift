@@ -33,15 +33,24 @@ private struct ThreadRow: View {
     let onContinue: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: Tokens.Space.s) {
+        VStack(alignment: .leading, spacing: 3) {
+            // Line one: what, and how long — with the segment count beside the
+            // figure it qualifies. Line two: where, and the one action. The
+            // count used to share line two with the pill, and on a narrow
+            // column the pill was what gave way, breaking "Continue" in half.
+            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(title)
                     .font(Tokens.Typography.row.weight(.medium))
                     .lineLimit(1)
                 Spacer(minLength: Tokens.Space.s)
                 Text(Tokens.preciseDuration(thread.totalWorked))
-                    .font(.callout.monospacedDigit())
+                    .font(Tokens.Typography.row.monospacedDigit())
                     .foregroundStyle(.secondary)
+                Text("· \(segmentLabel)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .fixedSize()
             }
             HStack(spacing: Tokens.Space.xs) {
                 if let primary = apps.primary {
@@ -57,18 +66,18 @@ private struct ThreadRow: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: Tokens.Space.s)
-                Text(segmentLabel)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
                 if thread.isRunning {
                     Text("running")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.tint)
+                        .fixedSize()
                 } else {
                     Button("Continue", action: onContinue)
                         .buttonStyle(.plain)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.tint)
+                        .lineLimit(1)
+                        .fixedSize()
                         .padding(.horizontal, Tokens.Space.s)
                         .padding(.vertical, 3)
                         .background(Color.accentColor.opacity(0.12), in: Capsule())

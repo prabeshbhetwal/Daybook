@@ -241,6 +241,51 @@ struct ComponentStrip: View {
                 IconButton(systemImage: "power", help: "Quit", prominent: true) {}
             }
             StartButton(fills: false) {}
+            AwayAnswerGrid(away: 22 * 60,
+                           range: (Date().addingTimeInterval(-22 * 60), Date()),
+                           showsCaptions: true) { _ in }
+                .frame(width: 420)
+            SessionsCard(entries: {
+                let now = Date()
+                let thread = UUID()
+                func at(_ h: Double) -> Date { now.addingTimeInterval(-h * 3_600) }
+                return SessionDigest.entries(records: [
+                    SessionRecord(name: "Refactor the parser", workType: .deepWork,
+                                  start: at(5), end: at(4), workSeconds: 3_600, threadID: thread),
+                    SessionRecord(name: "Dinner", workType: .breakTime,
+                                  start: at(4), end: at(3.5), workSeconds: 1_800),
+                    SessionRecord(name: "Refactor the parser", workType: .deepWork,
+                                  start: at(3.5), end: at(2), workSeconds: 5_400, threadID: thread),
+                    SessionRecord(name: "Email", workType: .admin,
+                                  start: at(1.5), end: at(1), workSeconds: 1_800)
+                ], running: nil, now: now)
+            }(), selected: nil, unfoldAll: true, onHover: { _ in }, onSelect: { _ in })
+                .frame(width: 520)
+                .card(padding: 12)
+            DayPickerCalendar(selected: Date(),
+                              earliest: Calendar.current.date(byAdding: .day, value: -40, to: Date()),
+                              goal: 4 * 3_600,
+                              facts: { month in
+                                  // A believable month: weekdays busy, weekends light.
+                                  let calendar = Calendar.current
+                                  guard let interval = calendar.dateInterval(of: .month, for: month) else { return [:] }
+                                  var facts: [Date: DayFacts] = [:]
+                                  var cursor = interval.start
+                                  while cursor < interval.end, cursor <= Date() {
+                                      let weekday = calendar.component(.weekday, from: cursor)
+                                      let dayOfMonth = calendar.component(.day, from: cursor)
+                                      let weekend = weekday == 1 || weekday == 7
+                                      let tracked: TimeInterval = weekend ? 40 * 60
+                                          : TimeInterval((dayOfMonth * 37) % 5 + 2) * 3_600
+                                      let focused: TimeInterval = weekend ? 0
+                                          : TimeInterval((dayOfMonth * 53) % 5) * 3_600 + 20 * 60
+                                      facts[cursor] = DayFacts(tracked: tracked, focused: focused,
+                                                               sessions: weekend ? 0 : (dayOfMonth % 3) + 1)
+                                      cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? interval.end
+                                  }
+                                  return facts
+                              }) { _ in }
+                .card(padding: 0)
         }
         .padding(Tokens.Space.l)
         .background(Tokens.Surface.ground)

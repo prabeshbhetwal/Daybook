@@ -9,6 +9,8 @@ struct GoalRing: View {
     var lineWidth: CGFloat = 7
     var label: String?
     var isMet: Bool = false
+    /// The hero's 120pt ring wants a 22pt label; the default suits 56–64pt.
+    var labelFont: Font = Tokens.Typography.ringLabel
 
     var body: some View {
         ZStack {
@@ -28,7 +30,7 @@ struct GoalRing: View {
                     .foregroundStyle(.tint)
             } else if let label {
                 Text(label)
-                    .font(Tokens.Typography.ringLabel)
+                    .font(labelFont)
                     .foregroundStyle(.primary)
                     .contentTransition(.numericText())
                     .lineLimit(1)
