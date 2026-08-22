@@ -35,6 +35,16 @@ enum SelfTest {
                              now: { clock.value })
     }
 
+    /// "Now", moved to noon when the real clock is within three hours of
+    /// midnight, so fixtures built as "two hours ago, today" stay inside today.
+    /// Tests 87 and 94 failed at 00:45 because their earlier stretches fell on
+    /// yesterday and only the after-midnight share counted.
+    private static func anchoredNow() -> Date {
+        let now = Date()
+        let dayStart = Calendar.current.startOfDay(for: now)
+        return now.timeIntervalSince(dayStart) < 3 * 3_600 ? dayStart.addingTimeInterval(12 * 3_600) : now
+    }
+
     private static func cleanUp() {
         UserDefaults.standard.removePersistentDomain(forName: suiteName)
     }
@@ -182,7 +192,9 @@ enum SelfTest {
             ("The menu bar's band stays on today while the dashboard browses",
              testGlanceStaysOnToday),
             ("Watching is presence: quiet pause, written down, never asked about; meetings count",
-             testWatchingIsNotAbsence)
+             testWatchingIsNotAbsence),
+            ("Quiet while a question is pending is an absence the card sat through",
+             testQuietWhileAwaiting)
         ]
 
         print("FocusContinuity self-test")
@@ -3271,10 +3283,32 @@ enum SelfTest {
         // half hour already spent away as work.
         engine.transition(on: .markedAway)
         clock.advance(600)
+        let thread = engine.activeThreadID
         engine.transition(on: .manualResume)
+        // Forty minutes away is a break, and a break ends a stretch: the work
+        // before it is archived where they left, the gap is written down as
+        // Away, and a new stretch begins now on the same thread.
         expect(engine.state == .running, "coming back resumes", &problems)
-        expectClose(engine.elapsed, 300, "none of the away time counts as work", &problems)
-        expectClose(engine.totalPausedDuration, 2_400, "the whole away is paused", &problems)
+        expectClose(engine.elapsed, 0, "a new stretch, clock from zero", &problems)
+        expect(engine.activeThreadID == thread, "on the same thread", &problems)
+        let records = engine.archive.records.suffix(2)
+        let away = records.first { $0.workType == .breakTime }
+        let stretch = records.first { $0.workType != .breakTime }
+        expectClose(away?.workSeconds ?? 0, 2_400, "the whole away is written down as one break", &problems)
+        expect(away?.name == "Away", "named Away, got \(away?.name ?? "nil")", &problems)
+        expectClose(stretch?.workSeconds ?? 0, 300, "the stretch carries only the work before it", &problems)
+        expectClose(stretch?.end.timeIntervalSince(base) ?? 0, 300, "and ends where they left", &problems)
+
+        // A short away stays a pause inside the stretch.
+        let short = makeEngine(Clock(base))
+        short.breakThreshold = 5 * 60
+        short.transition(on: .launch)
+        short.transition(on: .markedAway)
+        let shortClock = Clock(base)
+        _ = shortClock
+        short.transition(on: .manualResume)
+        expect(short.state == .running && short.archive.records.isEmpty,
+               "a short away resumes the same stretch, nothing written", &problems)
 
         // The reason survives a save/load cycle, or the menu bar forgets.
         let reloaded = try? JSONDecoder().decode(
@@ -4475,7 +4509,7 @@ enum SelfTest {
         let engine = SessionEngine(store: prefs, archive: archive,
                                    ownBundleID: "com.test", schedulesDwell: false)
         let thread = UUID()
-        let now = Date()
+        let now = anchoredNow()
         archive.append(SessionRecord(name: "Deep work", workType: .deepWork,
                                      start: now.addingTimeInterval(-3_000),
                                      end: now.addingTimeInterval(-1_200),
@@ -4806,7 +4840,7 @@ enum SelfTest {
         let engine = SessionEngine(store: prefs, archive: archive,
                                    ownBundleID: "com.test", schedulesDwell: false)
         let thread = UUID()
-        let now = Date()
+        let now = anchoredNow()
         archive.append(SessionRecord(name: "Parser", workType: .deepWork,
                                      start: now.addingTimeInterval(-7_200),
                                      end: now.addingTimeInterval(-5_400),
@@ -4922,7 +4956,7 @@ enum SelfTest {
         clock.advance(10 * 60)
         let relaunched = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
                                        schedulesDwell: false, now: { clock.value })
-        relaunched.restore(from: snapshot, screenLocked: true)
+        relaunched.restore(from: snapshot, awayAtLaunch: true)
         expect(relaunched.state == .running, "still running, nothing resolved yet, got \(relaunched.state)", &problems)
         clock.advance(30 * 60)
         relaunched.transition(on: .awayEnded)
@@ -4936,7 +4970,7 @@ enum SelfTest {
         clock.advance(5 * 60)
         let unlockedLaunch = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
                                            schedulesDwell: false, now: { clock.value })
-        unlockedLaunch.restore(from: snapshot, screenLocked: false)
+        unlockedLaunch.restore(from: snapshot, awayAtLaunch: false)
         if case .awaitingUserDecision(let away, _) = unlockedLaunch.state {
             expectClose(away, 45 * 60, "an unlocked launch resolves the gap since the lock", &problems)
         } else {
@@ -5082,6 +5116,53 @@ enum SelfTest {
         } else {
             problems.append("a lock mid-film asks about the lock, got \(locked.engine.state)")
         }
+        return problems
+    }
+
+    // MARK: - 99
+
+    /// A question is pending; the user walks off for forty minutes without
+    /// locking anything. That quiet is banked as a second absence, so neither
+    /// "I was working" nor "It was a break" can hand it to a session.
+    private static func testQuietWhileAwaiting() -> [String] {
+        var problems: [String] = []
+        func scenario(_ decision: UserDecision) -> SessionEngine {
+            let directory = scratchDirectory()
+            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let prefs = PersistenceStore(defaults: defaults)
+            prefs.removeAll()
+            prefs.longAwayCap = 4 * 3_600
+            prefs.breakThreshold = 5 * 60
+            let clock = Clock(base)
+            let archive = SessionArchive(directory: directory, now: { clock.value })
+            let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
+                                       schedulesDwell: false, now: { clock.value })
+            engine.start(workType: .deepWork, intent: "Pending test")
+            clock.advance(20 * 60)
+            engine.transition(on: .awayBegan(trigger: .screenLock))   // T+20
+            clock.advance(10 * 60)
+            engine.transition(on: .awayEnded)                          // T+30: asked about 10m
+            guard case .awaitingUserDecision = engine.state else {
+                problems.append("the ten minutes are asked about, got \(engine.state)"); return engine
+            }
+            clock.advance(2 * 60)                                      // T+32: two ordinary minutes
+            clock.advance(10 * 60)                                     // T+42: ten quiet minutes
+            engine.transition(on: .idleObserved(seconds: 600))         // opens the second absence at T+32
+            clock.advance(30 * 60)                                     // T+72: still gone
+            engine.transition(on: .idleObserved(seconds: 40 * 60))
+            engine.transition(on: .idleObserved(seconds: 1))           // T+72: back; 40m banked
+            clock.advance(60)                                          // T+73: answers
+            engine.transition(on: .decision(decision))
+            return engine
+        }
+        let merged = scenario(.mergeTime)
+        expectClose(merged.elapsed, 33 * 60,
+                    "I was working: 20 + the 10 merged + 3 ordinary, never the 40 quiet, got \(Int(merged.elapsed / 60))m",
+                    &problems)
+        let broke = scenario(.tookBreak)
+        expectClose(broke.elapsed, 3 * 60,
+                    "It was a break: the new stretch holds 3 ordinary minutes, not 43, got \(Int(broke.elapsed / 60))m",
+                    &problems)
         return problems
     }
 

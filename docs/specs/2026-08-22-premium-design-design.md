@@ -419,3 +419,17 @@ touches the machine, idle counts from the film's end (`watchingEndedAt`), the wa
 pause closes there and an idle pause begins, so the question on return is about the
 absence, not the film. A lock mid-film closes the watched stretch and starts the absence
 at the lock. Test 98. Settings explainer updated.
+
+## Addendum — a declared away is a break; quiet behind a pending card (2026-08-23)
+
+- **Away → I'm back.** A declared away was a pause inside the stretch, so coming back
+  after half an hour resumed a clock that read 45 minutes to someone back for four. A
+  declared absence of at least *Ask me after* is the most explicit break there is, and a
+  break ends a stretch: `endDeclaredAway()` archives the stretch where they left, writes
+  the gap as a rest named **Away**, and begins a new stretch on the same thread — what
+  answering "It was a break" does. Shorter aways remain pauses. Test 62 updated.
+- **Quiet while a question is pending.** `(.awaitingUserDecision, .idleObserved)` was a
+  no-op, so an errand taken with the card up was handed to whichever session the answer
+  continued. Quiet past the idle threshold now opens a second absence (`AwayTrigger.idle`,
+  back-dated to the last input) and input banks it into `shadowAway`, the same path a
+  lock takes; watching counts only in Meetings/Learning. Test 99.

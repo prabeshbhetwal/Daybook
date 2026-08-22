@@ -330,6 +330,8 @@ final class SessionEngine {
                     // would keep it.
                     endAbsentSession()
                     beginFreshSession()
+                } else if reason == .away {
+                    endDeclaredAway()
                 } else {
                     leavePause()
                 }
@@ -340,10 +342,12 @@ final class SessionEngine {
                categories.category(for: bundleID) == .work {
                 leavePause()
             }
-        case (.paused, .manualResume):
+        case (.paused(let reason), .manualResume):
             if absenceOutgrewCap() {
                 endAbsentSession()
                 beginFreshSession()
+            } else if reason == .away {
+                endDeclaredAway()
             } else {
                 leavePause()
             }
@@ -441,9 +445,12 @@ final class SessionEngine {
             // without an answer, the menu must still be able to free the session.
             // Resuming by hand is the conservative reading — the break is discarded.
             apply(.continueSession)
+        case (.awaitingUserDecision, .idleObserved(let seconds)):
+            noteQuietWhileAwaiting(seconds)
+        case (.awaitingUserDecision, .watchingObserved(let seconds)):
+            if !activeWorkType.countsWhileWatching { noteQuietWhileAwaiting(seconds) }
         case (.awaitingUserDecision, .launch),
              (.awaitingUserDecision, .dwellExpired), (.awaitingUserDecision, .manualPause),
-             (.awaitingUserDecision, .idleObserved), (.awaitingUserDecision, .watchingObserved),
              (.awaitingUserDecision, .overrideApplied):
             break // documented no-op: the alert owns the next transition
         }
@@ -489,6 +496,36 @@ final class SessionEngine {
         }
         pauseStartDate = nil
         state = .running
+    }
+
+    /// Ends a declared away. The user said they were leaving, so there is
+    /// nothing to ask — but an absence long enough to have been asked about is
+    /// a break, and a break ends a stretch: the stretch closes where they left,
+    /// the gap is written down as "Away", and the work resumes as a new stretch
+    /// on the same thread with its clock at zero — exactly what answering "It
+    /// was a break" does. Resuming the same stretch instead read "45 minutes"
+    /// to someone who had been back for four. A shorter away stays a pause.
+    private func endDeclaredAway() {
+        guard let began = pauseStartDate else {
+            state = .running
+            return
+        }
+        let absence = interval(from: began)
+        if absence < breakThreshold {
+            leavePause()
+            return
+        }
+        if absence >= FocusConstants.minimumRecordedSession {
+            archive.append(SessionRecord(name: "Away", workType: .breakTime,
+                                         start: began, end: now(), workSeconds: absence,
+                                         threadID: UUID()))
+        }
+        let thread = activeThreadID
+        // `elapsed` already subtracts the live pause, so the record carries
+        // exactly the work done before they left.
+        archiveCurrentSession(endingAt: began)
+        beginFreshSession()
+        activeThreadID = thread
     }
 
     /// Ends a watching pause. Quiet — nobody left, nothing to ask. The stretch
@@ -575,6 +612,25 @@ final class SessionEngine {
         // Neither field changes `state`, so the emit block will not persist for
         // us — write through here or the snapshot goes stale between transitions.
         persist()
+    }
+
+    /// The card blocks nothing, so the minutes it sits there are ordinary
+    /// minutes — unless nobody is here. Quiet past the idle threshold while a
+    /// question is pending is a second absence the card sat through, opened
+    /// back-dated to the last input and banked like a lock would be, so that
+    /// whichever session the answer continues cannot count it. Input closes
+    /// it. Without this, a question left up over a forty-minute errand handed
+    /// the errand to the session that started when the user came back.
+    private func noteQuietWhileAwaiting(_ seconds: TimeInterval) {
+        if seconds >= FocusConstants.idlePauseThreshold {
+            guard awayInterval == nil else { return }
+            awayInterval = (start: now().addingTimeInterval(-seconds), trigger: .idle)
+            persist()
+        } else if let interval = awayInterval, interval.trigger == .idle {
+            shadowAway += self.interval(from: interval.start)
+            awayInterval = nil
+            persist()
+        }
     }
 
     /// D8 — the first away event wins; later ones are ignored while one is open.
@@ -887,13 +943,14 @@ final class SessionEngine {
 
     /// Restores a snapshot and resolves the gap since it was written through the
     /// same away path a live lock/wake would take (D14).
-    /// - Parameter screenLocked: whether the screen is locked *now*, at launch.
-    ///   Relaunched behind a lock — a crash, an update, a kill while the user
-    ///   is away — nobody has come back yet: the absence stays open from where
-    ///   the snapshot puts it and the unlock resolves all of it. Resolving the
-    ///   gap at launch measured only up to the launch and then forgot the lock,
-    ///   which is how a 40-minute absence was recorded as a 6-minute break.
-    func restore(from snapshot: PersistedState, screenLocked: Bool = false) {
+    /// - Parameter awayAtLaunch: whether nobody is here *now*, at launch — the
+    ///   screen is locked or the display is asleep. Relaunched like that — a
+    ///   crash, an update, a kill while the user is away — nobody has come back
+    ///   yet: the absence stays open from where the snapshot puts it and the
+    ///   unlock or wake resolves all of it. Resolving the gap at launch measured
+    ///   only up to the launch and then forgot the lock, which is how a
+    ///   40-minute absence was recorded as a 6-minute break.
+    func restore(from snapshot: PersistedState, awayAtLaunch: Bool = false) {
         sessionStartDate = snapshot.sessionStart
         totalPausedDuration = snapshot.totalPaused
         pauseStartDate = snapshot.pauseStart
@@ -910,7 +967,7 @@ final class SessionEngine {
             state = .idle
             return
         case .paused:
-            if screenLocked, let began = snapshot.awayStart {
+            if awayAtLaunch, let began = snapshot.awayStart {
                 awayInterval = (start: began, trigger: snapshot.awayTrigger ?? .screenLock)
             }
             state = .paused(reason: snapshot.restoredPauseReason)
@@ -940,7 +997,7 @@ final class SessionEngine {
         case .running:
             state = .running
             let began = snapshot.awayStart ?? snapshot.savedAt
-            if screenLocked {
+            if awayAtLaunch {
                 awayInterval = (start: began, trigger: snapshot.awayTrigger ?? .screenLock)
             } else {
                 resolve(away: interval(from: began))

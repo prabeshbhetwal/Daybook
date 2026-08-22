@@ -65,6 +65,10 @@ struct SettingsView: View {
                          ? "Shorter absences are asked about from the menu bar; from "
                            + "\(Tokens.duration(model.fullPromptAfter)) the question fills the screen."
                          : "Every absence is asked about from the menu bar.")
+                    Text("Pressing Away is never asked about. Back within "
+                         + "\(Tokens.duration(model.breakThreshold)) the same stretch carries on; "
+                         + "back later, the stretch ended where you left, the gap is written "
+                         + "down as Away, and a new stretch starts when you return.")
                     Text("Quiet in front of something you are watching — a video, a call, a "
                          + "presentation keeping the screen awake — is never an absence, so it is "
                          + "never asked about. In a Meetings or Learning session it counts; in any "

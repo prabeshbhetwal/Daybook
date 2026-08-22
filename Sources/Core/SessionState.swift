@@ -54,6 +54,9 @@ enum PauseReason: Equatable {
 enum AwayTrigger: String, Codable, Equatable {
     case screenLock
     case systemSleep
+    /// Quiet past the idle threshold while a question is pending — an absence
+    /// the card sat through, banked like a lock would be.
+    case idle
 }
 
 enum SessionState: Equatable {

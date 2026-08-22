@@ -275,8 +275,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // activation would start a fresh session and persist over the snapshot
         // we are about to read.
         screenLocked = AppCoordinator.screenIsLockedNow()
+        // A dark display is nobody here as much as a lock is; the wake will
+        // end the absence, as the unlock does behind a lock.
+        let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
         if let snapshot = engine.store.loadState() {
-            engine.restore(from: snapshot, screenLocked: screenLocked)
+            engine.restore(from: snapshot, awayAtLaunch: screenLocked || displayAsleep)
         }
         // Launched behind a lock, nothing is in front of anyone: seeding the
         // frontmost app would record usage nobody is producing.
