@@ -1,0 +1,302 @@
+import SwiftUI
+import Charts
+
+// Small views over plain values — no store dependency — so the gallery can drive
+// them directly from fixtures.
+
+struct StreakBadge: View {
+    let days: Int
+
+    var body: some View {
+        Label(days == 1 ? "1 day" : "\(days) days", systemImage: "flame.fill")
+            .foregroundStyle(days > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            .accessibilityLabel(days == 1 ? "1 day streak" : "\(days) day streak")
+            // No `.help` here. The one caller wraps this in `.explains`, which
+            // appears instantly; a system tooltip underneath it would fade in a
+            // second later saying much the same thing.
+    }
+}
+
+struct StartButton: View {
+    var title: String = "Start Focus"
+    /// The caller decides how wide. It used to force `maxWidth: .infinity`,
+    /// which was right in a 320pt panel and absurd in a 560pt one.
+    var fills: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: "play.fill")
+                .font(.callout.weight(.semibold))
+                .frame(maxWidth: fills ? .infinity : nil)
+                .padding(.horizontal, Tokens.Space.m)
+                .padding(.vertical, 7)
+                .background(Color.accentColor,
+                            in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
+                                                 style: .continuous))
+                .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+}
+
+struct LiveTimer: View {
+    let seconds: TimeInterval
+    let paused: Bool
+    let intent: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            Text(Tokens.clock(seconds))
+                .font(Tokens.heroTimerFont)
+                .foregroundStyle(paused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                .accessibilityLabel("Elapsed \(Tokens.duration(seconds))")
+            Text(paused ? "Paused · \(intent)" : intent)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+}
+
+struct IntentField: View {
+    @Binding var text: String
+    let onSubmit: () -> Void
+
+    var body: some View {
+        TextField("What are you working on?", text: $text)
+            .textFieldStyle(.plain)
+            .font(.title3)
+            .onSubmit(onSubmit)
+            .accessibilityLabel("Session intent")
+    }
+}
+
+/// A pull-down, not a pop-up.
+///
+/// `Picker(.menu)` is a *pop-up*: AppKit positions the list so the selected row
+/// sits over the button. Pick the third of four and it needs two rows above the
+/// button — and this button lives a few points below the menu bar, so the list
+/// ran off the top of the screen and appeared scrolled, with "Deep work" hidden
+/// behind a chevron. A `Menu` always opens downward from its label, so the list
+/// is whole whichever item is selected and wherever the panel sits.
+struct WorkTypePicker: View {
+    @Binding var selection: WorkType
+
+    var body: some View {
+        Menu {
+            ForEach(WorkType.startable, id: \.self) { type in
+                Button { selection = type } label: {
+                    Label(type.displayName, systemImage: type.symbolName)
+                }
+            }
+        } label: {
+            Label(selection.displayName, systemImage: selection.symbolName)
+                .lineLimit(1)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel("Work type, \(selection.displayName)")
+    }
+}
+
+struct QuickStartRow: View {
+    let items: [QuickStart]
+    let onPick: (QuickStart) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            Text("Quick start")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Tokens.Space.s) {
+                    ForEach(items) { item in
+                        Button { onPick(item) } label: {
+                            Label(item.name, systemImage: item.workType.symbolName)
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("Start \(item.name), \(item.workType.displayName)")
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension DayBar {
+    /// All-zero bars draw nothing while the frame keeps its height — the
+    /// "150pt of dead space" defect. The caller shows an empty state instead.
+    static func hasData(_ bars: [DayBar]) -> Bool {
+        bars.contains { $0.minutes > 0 }
+    }
+}
+
+struct WeekChart: View {
+    let bars: [DayBar]
+    var height: CGFloat = 54
+
+    var body: some View {
+        if DayBar.hasData(bars) {
+            // The x value must be the date, not the weekday letter: two days in
+            // any seven share a first letter and Charts merges equal categorical
+            // values, silently collapsing the week into five bars.
+            Chart(bars) { bar in
+                BarMark(x: .value("Day", bar.id, unit: .day),
+                        y: .value("Minutes", bar.minutes))
+                    .foregroundStyle(bar.isToday ? AnyShapeStyle(.tint)
+                                                 : AnyShapeStyle(.quaternary))
+                    .cornerRadius(3)
+            }
+            .chartYScale(domain: 0...max(60, bars.map(\.minutes).max() ?? 60))
+            .chartYAxis(.hidden)
+            .chartXAxis {
+                AxisMarks(values: bars.map(\.id)) { _ in
+                    AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption2)
+                }
+            }
+            .frame(height: height)
+            .accessibilityLabel("Focused minutes for the last seven days")
+        } else {
+            Text("No sessions this week yet.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(height: height, alignment: .leading)
+        }
+    }
+}
+
+struct StatTile: View {
+    let title: String
+    let value: String
+    let symbol: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            Label(title, systemImage: symbol)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(Tokens.statNumberFont)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card(padding: Tokens.Space.m)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Non-blocking resolution of a long absence — the calm replacement for the
+/// focus-stealing modal the AppKit build used.
+/// The three answers used to read "Merge / Break / Discard", which said what the
+/// code did rather than what happened, and left the most destructive of them —
+/// it closes the old session and restarts the clock — sounding like the one that
+/// throws away only the gap. They now say what the user did.
+///
+/// The gap is already excluded by the time this appears, so ignoring the card
+/// leaves the honest answer standing rather than the flattering one, and the
+/// session keeps running underneath it either way.
+struct ResolveCard: View {
+    let away: TimeInterval
+    let onMerge: () -> Void
+    let onBreak: () -> Void
+    let onDiscard: () -> Void
+    var onRest: (() -> Void)?
+    /// Off when the card already sits inside another card — the hero — where a
+    /// second frame reads as a box in a box.
+    var framed: Bool = true
+
+    var body: some View {
+        let content = VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            Label("Away \(Tokens.duration(away))", systemImage: "moon.zzz.fill")
+                .font(.headline)
+                .symbolRenderingMode(.hierarchical)
+            Text("Not counted. Your session is still running.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            // Two rows. The first holds the two answers to the question; the
+            // second holds the options that restructure instead. "I was
+            // working" must never truncate — it is the answer that changes the
+            // numbers.
+            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                HStack(spacing: Tokens.Space.s) {
+                    if let onRest {
+                        Button("It was a break", action: onRest)
+                            .buttonStyle(.borderedProminent)
+                            .help("Not counted, and written down as "
+                                  + "\(Tokens.duration(away)) of rest")
+                    }
+                    Button("I was working", action: onMerge)
+                        .help("Count the \(Tokens.duration(away)) as work on this session")
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: Tokens.Space.m) {
+                    Button("I was away", action: onBreak)
+                        .help("Not counted, and nothing recorded for it")
+                    Button("Start fresh instead", action: onDiscard)
+                        .help("End that session where you left off and begin a new one")
+                    Spacer(minLength: 0)
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+            }
+            .lineLimit(1)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+
+        if framed {
+            content.card(padding: Tokens.Space.m)
+        } else {
+            content
+        }
+    }
+}
+
+/// Observing wrapper for the menu bar label. A `Scene` body does not observe
+/// an `ObservableObject`, so the label must be a `View` holding
+/// `@ObservedObject` or it renders once, at launch, and never again.
+struct MenuBarLabelView: View {
+    @ObservedObject var store: SessionStore
+
+    var body: some View {
+        MenuBarLabel(state: store.state,
+                     elapsed: store.elapsed,
+                     needsAttention: store.pendingAway != nil,
+                     goal: store.goal)
+            .accessibilityLabel(store.state == .idle
+                                ? "FocusContinuity, \(Int((store.goal.share * 100).rounded())) "
+                                  + "percent of today's goal, no session running"
+                                : "Current session \(Tokens.spent(store.elapsed))")
+    }
+}
+
+/// The menu bar's ambient state: a goal ring always, elapsed while a session
+/// runs, a pause mark when paused, a dot when a question is waiting.
+struct MenuBarLabel: View {
+    let state: SessionState
+    let elapsed: TimeInterval
+    let needsAttention: Bool
+    var goal = GoalProgress(goal: FocusConstants.defaultDailyGoal, achieved: 0, typical: nil)
+
+    var body: some View {
+        HStack(spacing: Tokens.Space.xs) {
+            if let glyph = MenuBarGlyph.image(progress: goal.share,
+                                              paused: state.isPaused,
+                                              attention: needsAttention,
+                                              isMet: goal.isMet) {
+                Image(nsImage: glyph)
+            } else {
+                Image(systemName: needsAttention ? "exclamationmark.circle.fill" : "infinity")
+            }
+            if state != .idle {
+                Text(Tokens.duration(elapsed))
+                    .font(Tokens.menuBarFont)
+            }
+        }
+        .foregroundStyle(state.isPaused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+    }
+}

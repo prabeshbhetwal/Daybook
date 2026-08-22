@@ -1,0 +1,391 @@
+import AppKit
+
+/// Lifecycle and the ownership graph. Owns the engine and every system monitor;
+/// the SwiftUI scenes read state through `SessionStore`.
+final class AppCoordinator: NSObject, NSApplicationDelegate {
+
+    let engine: SessionEngine
+    private let monitor = EventMonitor()
+    private let notifier = Notifier()
+    let usage = AppUsageArchive()
+    private(set) lazy var tracker = AppUsageTracker(
+        archive: usage,
+        isEnabled: engine.store.isUsageTrackingEnabled)
+    private let hotKey = HotKeyMonitor()
+    private(set) lazy var store = SessionStore(engine: engine)
+    /// The Settings window's model. Writes go to the same preferences the
+    /// engine reads; `onChange` refreshes every surface that shows them.
+    private(set) lazy var settings = SettingsModel(
+        store: engine.store,
+        isTrackingEnabled: engine.store.isUsageTrackingEnabled,
+        onChange: { [weak self] in self?.store.refresh() },
+        onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) })
+
+    /// Input density, fed only at event boundaries — app activation, lock,
+    /// unlock, wake — and never on a timer. A repeating timer would be the only
+    /// polling in the app and would hold the process off App Nap for a signal
+    /// that is consumed just once, when a stretch ends.
+    let density = InputDensity()
+    private let inputCounters = InputCounters()
+    private let densityIdle = IdleMonitor()
+
+    // MARK: - Automatic sessions and rewards
+
+    private var detector = AutoSessionDetector(breakLength: FocusConstants.defaultBreakLength)
+    /// Lazy because `RewardHUD` is main-actor isolated and this delegate is
+    /// not; every access below is already on the main thread.
+    @MainActor private lazy var hud = RewardHUD()
+    /// When the focused-app-plus-music combination began, or nil when it is not
+    /// currently holding. Reset the moment either half stops being true.
+    private var musicPairingSince: Date?
+    /// The app whose behaviour justified the running automatic session. Kept so
+    /// the outcome — kept or undone — can be credited to the right app.
+    private var autoStartedFor: String?
+    private var lastScoredApp: String?
+
+    /// Set from the players' own distributed notifications. Both are broadcast
+    /// publicly and need no permission; neither carries anything but playback
+    /// state, which is all this reads.
+    private var musicIsPlaying = false
+
+    private func observeMusicPlayback() {
+        let center = DistributedNotificationCenter.default()
+        for name in ["com.apple.Music.playerInfo", "com.spotify.client.PlaybackStateChanged"] {
+            center.addObserver(forName: Notification.Name(name), object: nil,
+                               queue: .main) { [weak self] note in
+                let state = note.userInfo?["Player State"] as? String
+                self?.musicIsPlaying = (state == "Playing")
+                if state != "Playing" { self?.musicPairingSince = nil }
+            }
+        }
+    }
+
+    /// Runs after every input sample, on the same event boundaries. No timer:
+    /// the app's only repeating timer remains the one-second session ticker.
+    /// The workspace notifications that drive this already arrive on the main
+    /// thread, but their closures are not actor-isolated, so the hop is what
+    /// tells the compiler what is already true.
+    private func scheduleAutomation() {
+        Task { @MainActor [weak self] in self?.evaluateAutomation() }
+    }
+
+    @MainActor private func evaluateAutomation() {
+        // While a decision is pending the app has asked the user a question, and
+        // must not answer it on their behalf by starting or ending sessions.
+        // Everything else still runs: returning here outright also skipped the
+        // flush below, so background recording stopped dead for as long as the
+        // card went unanswered — the app reported "at the Mac 0m" through five
+        // minutes of real use.
+        let decisionPending: Bool
+        if case .awaitingUserDecision = engine.state { decisionPending = true }
+        else { decisionPending = false }
+
+        tracker.flush()
+        let moment = Date()
+        let window = (start: moment.addingTimeInterval(-FocusConstants.focusWindow),
+                      end: moment)
+        let score = FocusScorer(purposeOverrides: engine.store.purposeOverrides)
+            .score(segments: usage.sessions, activity: density.activity, window: window)
+
+        // Rebuilt each pass so a break length changed in settings takes effect
+        // rather than being frozen at whatever it was on first use.
+        detector.breakLength = engine.store.breakLength
+        // Learned per app: sessions the user keeps make the app quicker to
+        // start for that app, sessions they undo make it slower.
+        detector.startThreshold = PurposeLearner(signals: engine.store.autoStartLearning)
+            .startThreshold(for: score.signals.dominantApp)
+
+        if engine.store.autoSessionsEnabled && !decisionPending {
+            // `state != .idle` rather than `state.isRunning`: a session the
+            // detector paused is still its session, and reporting it as gone
+            // would make the detector discard the pause it is timing.
+            lastScoredApp = score.signals.dominantApp
+            let decision = detector.evaluate(score: score, at: moment,
+                                             sessionRunning: engine.state != .idle,
+                                             sessionWasAutoStarted: engine.activeIsAuto,
+                                             enginePaused: engine.state.isPaused)
+            apply(decision)
+        } else {
+            // Nothing evaluates while disabled or while a decision is pending,
+            // so a qualifying run frozen at switch-off would fire the instant it
+            // is switched back on, backdated arbitrarily far — in the pending
+            // case, across the very gap the user is being asked about.
+            detector.reset()
+        }
+        evaluateRewards(score: score, at: moment)
+    }
+
+    @MainActor private func apply(_ decision: AutoDecision) {
+        switch decision {
+        case .none:
+            break
+        case .start(let workType, let backdatedTo, let because):
+            store.startAutomatically(workType: workType, backdatedTo: backdatedTo,
+                                     because: because)
+            autoStartedFor = lastScoredApp
+            // Deliberately not gated on `rewardsEnabled`: this is a notice about
+            // something the app did to the user's history, and the HUD carries
+            // the only Undo. Silently inventing sessions with no way back is
+            // worse than an unwanted congratulation.
+            hud.show(title: "Focus session started",
+                     detail: because,
+                     symbolName: "play.circle.fill",
+                     undo: { [weak self] in self?.store.undoAutoSession() })
+        case .pause(let because):
+            engine.transition(on: .manualPause)
+            Diagnostics.log("auto-paused: \(because)")
+        case .resume:
+            engine.transition(on: .manualResume)
+        case .end(let at, let because):
+            // Ending naturally is the user having let it stand.
+            engine.store.autoStartLearning = PurposeLearner(
+                signals: engine.store.autoStartLearning).recordingKept(autoStartedFor)
+            autoStartedFor = nil
+            engine.stop(endingAt: at)
+            detector.reset()
+            // `stop()` fires `onStateChanged`, which already refreshes; a second
+            // pass re-runs the month-long rollup for nothing.
+            Diagnostics.log("auto-ended: \(because)")
+        }
+    }
+
+    @MainActor private func evaluateRewards(score: FocusScore, at moment: Date) {
+        guard engine.store.rewardsEnabled else { return }
+
+        // Ask the cheap question first. Building the context below walks the
+        // whole archive twice and fourteen days of history besides; doing that
+        // on every app switch to discover a cooldown was already running cost
+        // real CPU in a menu-bar app that is supposed to be invisible.
+        let rewards = RewardEngine(log: engine.store.rewardLog)
+        guard !rewards.isRateLimited else { return }
+        // Enumerating every process on the machine is the most expensive thing
+        // here, so it happens after the gate, not before it.
+        updateMusicPairing(score: score, at: moment)
+
+        let context = RewardContext(
+            focusedToday: engine.todayTotal,
+            sameWeekdayLastWeek: engine.archive.focusedSameWeekdayLastWeek(),
+            streak: engine.archive.currentStreak(includingToday: engine.elapsedToday()),
+            bestStreak: engine.archive.bestStreak(),
+            // With no usage the goal's intersection is always zero, which kept
+            // `goalReached` and `goalPace` permanently dormant — the one goal
+            // computation in the app that was still fed no evidence.
+            goal: DailyGoal(archive: engine.archive, goal: engine.store.dailyGoal,
+                            usage: usage.sessions, running: engine.runningSpan,
+                            runningWork: engine.elapsedToday()).progress(),
+            endedMedia: recentlyEndedMedia(before: moment),
+            musicPairing: musicPairingSince.map { moment.timeIntervalSince($0) },
+            isSessionRunning: engine.state != .idle)
+
+        guard let reward = rewards.next(for: context) else { return }
+        engine.store.rewardLog = rewards.recording(reward)
+        hud.show(title: reward.title, detail: reward.detail,
+                 symbolName: reward.symbolName, undo: nil)
+    }
+
+    /// Music counts only while a focused app is actually frontmost — a playlist
+    /// running behind a film is not "focused work with music".
+    ///
+    /// `musicIsPlaying` is set by the players' own broadcast notifications, not
+    /// inferred from the app being open: Spotify launching at login and sitting
+    /// paused all day is not music playing, and claiming otherwise would be the
+    /// fabrication this app refuses everywhere else. With no notification ever
+    /// received the flag stays false and the reward simply never fires.
+    private func updateMusicPairing(score: FocusScore, at moment: Date) {
+        if musicIsPlaying && score.signals.dominantPurpose.isFocused {
+            if musicPairingSince == nil { musicPairingSince = moment }
+        } else {
+            musicPairingSince = nil
+        }
+    }
+
+    /// A media stretch that closed in the last minute. Anything older has
+    /// already been reported or missed; re-reporting it would be a lie about
+    /// when it happened.
+    private func recentlyEndedMedia(before moment: Date) -> (appName: String,
+                                                             seconds: TimeInterval)? {
+        let overrides = engine.store.purposeOverrides
+        // `endReason == .stillOpen` means the tracker split an ongoing stretch
+        // for bookkeeping, not that the user stopped watching. Without this the
+        // HUD says "hope you enjoyed it" while the film is still playing.
+        let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let recent = usage.sessions.last {
+            moment.timeIntervalSince($0.end) < 60 && moment >= $0.end
+                && $0.endReason != .stillOpen
+                && $0.bundleID != frontmost
+                && PurposeMap.purpose(for: $0.bundleID, activity: .passive,
+                                      overrides: overrides) == .media
+        }
+        guard let recent else { return nil }
+        return (recent.appName, recent.seconds)
+    }
+
+    /// Reads three integers. Called only from handlers that were going to run
+    /// anyway, so it adds no wakeups.
+    private func sampleInput(absent: Bool = false) {
+        density.record(InputSample(at: Date(),
+                                   keys: inputCounters.keys(),
+                                   clicks: inputCounters.clicks(),
+                                   scrolls: inputCounters.scrolls(),
+                                   // Whatever the counters do behind a locked
+                                   // screen, it was not this person working.
+                                   idleSeconds: absent ? .greatestFiniteMagnitude
+                                                       : densityIdle.idleSeconds()))
+    }
+
+    /// macOS 13 exposes no API to open a `MenuBarExtra` window programmatically,
+    /// so ⌃⌥Space does what Brief 1 actually asks for — "start/stop a session
+    /// from anywhere" — rather than opening the popover. Starting from the hotkey
+    /// uses the last work type and an empty intent, which is the zero-friction
+    /// path; the intent can be added later from the popover.
+    private func toggleSessionFromHotKey() {
+        if engine.state == .idle {
+            engine.start(workType: engine.activeWorkType, intent: "")
+        } else {
+            engine.stop()
+        }
+        store.refresh()
+    }
+
+    /// Set by the scene so the popover can open the Today window — `openWindow`
+    /// is a SwiftUI environment value and is not reachable from a delegate.
+    var openTodayWindow: (() -> Void)?
+
+    override init() {
+        self.engine = SessionEngine()
+        super.init()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        wireMonitor()
+        monitor.start()
+
+        // Restore before seeding the frontmost app: from `.idle`, a work-app
+        // activation would start a fresh session and persist over the snapshot
+        // we are about to read.
+        if let snapshot = engine.store.loadState() {
+            engine.restore(from: snapshot)
+        }
+        if let frontmost = NSWorkspace.shared.frontmostApplication {
+            engine.transition(on: .appActivated(bundleID: frontmost.bundleIdentifier,
+                                                name: frontmost.localizedName ?? "Unknown"))
+            tracker.appActivated(bundleID: frontmost.bundleIdentifier,
+                                 name: frontmost.localizedName ?? "Unknown")
+        }
+        store.attach(tracker: tracker, usage: usage)
+        store.refresh()
+
+        // Non-blocking away resolution: nothing steals focus. The notification is
+        // an extra affordance on top of the menu bar badge and the resolve card,
+        // so a denied authorisation costs nothing.
+        store.onAwayNeedsResolution = { [weak self] away in
+            self?.notifier.postAwayResolution(
+                title: "Away \(max(0, Int(away) / 60))m",
+                body: "Was that a break? Open FocusContinuity to decide.")
+        }
+
+        // A nudge, never a block: it does not pause the session or take focus.
+        observeMusicPlayback()
+        // A session the user rejected must not reappear a few minutes later:
+        // the conditions that justified it are still true.
+        store.onAutoSessionUndone = { [weak self] in
+            guard let self else { return }
+            self.engine.store.autoStartLearning = PurposeLearner(
+                signals: self.engine.store.autoStartLearning)
+                .recordingUndone(self.autoStartedFor)
+            self.autoStartedFor = nil
+            self.detector.suppressStarts(
+                until: Date().addingTimeInterval(FocusConstants.defaultWorkInterval))
+        }
+        // Declaring yourself away stops background recording too. Nothing should
+        // accrue while nobody is there, and saying so is more reliable than the
+        // idle trim, which only notices three minutes after the fact.
+        store.onAwayBegan = { [weak self] in self?.tracker.suspend() }
+        store.onAwayEnded = { [weak self] in self?.resumeTracking() }
+        // Two channels, deliberately. The HUD is for when you are at the screen
+        // — it is the one that can actually interrupt a stretch of work, and it
+        // never takes focus. The notification is for when you are not looking at
+        // this display, and it is the one that survives in Notification Centre.
+        store.onBreakDue = { [weak self] prompt in
+            guard let self else { return }
+            Task { @MainActor in
+                self.hud.show(title: prompt.title,
+                              detail: prompt.body + " " + prompt.tier.reason,
+                              symbolName: prompt.tier.symbolName,
+                              duration: FocusConstants.breakHUDSeconds,
+                              undo: nil)
+            }
+            self.notifier.postAwayResolution(title: prompt.title, body: prompt.body)
+        }
+
+        notifier.requestAuthorization()
+        hotKey.register { [weak self] in
+            self?.toggleSessionFromHotKey()
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        engine.persist()
+        tracker.suspend()
+        monitor.stop()
+        hotKey.unregister()
+    }
+
+    func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+        true
+    }
+
+    /// Waking and carrying on in the same app posts no activation notification,
+    /// so tracking has to be restarted explicitly or that work goes unrecorded.
+    private func resumeTracking() {
+        guard let frontmost = NSWorkspace.shared.frontmostApplication else { return }
+        tracker.resume(bundleID: frontmost.bundleIdentifier,
+                       name: frontmost.localizedName ?? "Unknown")
+        // Waking a paused session changes no state — `.awayEnded` on `.paused`
+        // deliberately drops the interval, because the pause already accounts
+        // for it — so nothing else refreshes here. Without this the one-second
+        // ticker, stopped when the machine slept, never restarts, and an
+        // idle-paused session stays paused forever with no way back.
+        store.refresh()
+    }
+
+    private func wireMonitor() {
+        monitor.onScreenLocked = { [weak self] in
+            self?.engine.transition(on: .awayBegan(trigger: .screenLock))
+            self?.tracker.suspend()
+            self?.sampleInput(absent: true)
+            self?.scheduleAutomation()
+        }
+        monitor.onSystemWillSleep = { [weak self] in
+            self?.engine.transition(on: .awayBegan(trigger: .systemSleep))
+            self?.tracker.suspend()
+            self?.sampleInput(absent: true)
+            self?.scheduleAutomation()
+        }
+        monitor.onScreenUnlocked = { [weak self] in
+            self?.engine.transition(on: .awayEnded)
+            self?.resumeTracking()
+            self?.sampleInput()
+            self?.scheduleAutomation()
+        }
+        monitor.onSystemDidWake = { [weak self] in
+            self?.engine.transition(on: .awayEnded)
+            self?.resumeTracking()
+            self?.sampleInput()
+            self?.scheduleAutomation()
+        }
+        monitor.onAppActivated = { [weak self] app in
+            self?.engine.transition(on: .appActivated(bundleID: app.bundleIdentifier,
+                                                      name: app.localizedName ?? "Unknown"))
+            self?.tracker.appActivated(bundleID: app.bundleIdentifier,
+                                       name: app.localizedName ?? "Unknown")
+            self?.sampleInput()
+            self?.scheduleAutomation()
+        }
+        monitor.onWillPowerOff = { [weak self] in
+            self?.engine.persist()
+            self?.tracker.suspend()
+        }
+
+    }
+}
