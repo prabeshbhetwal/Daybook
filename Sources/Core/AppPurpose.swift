@@ -119,9 +119,57 @@ enum PurposeMap {
         "company.thebrowser.dia": .ambiguous(active: .writingAI, passive: .media)
     ]
 
-    /// Precedence: user override → rule → `.utility`. An unmapped app is far
-    /// more often a utility than anything else, and a name describing the common
-    /// case reads better in the UI than one describing a lookup failure.
+    /// Set once by the App layer: bundle id → the category the app declares
+    /// about itself (`LSApplicationCategoryType`). Core cannot look inside app
+    /// bundles. The value is a hint of last resort — a rule or an override
+    /// always wins, it is self-reported, and many apps outside the App Store
+    /// declare nothing at all (Dia and Chrome among them).
+    static var declaredCategory: (String) -> String? = { _ in nil }
+
+    /// An app whose purpose is behaviour-decided — in practice, a browser or
+    /// an AI client. Named work in one of these is "Browsing", not the tool.
+    static func isAmbiguous(_ bundleID: String?) -> Bool {
+        guard let bundleID else { return false }
+        if case .ambiguous = rules[bundleID] { return true }
+        return false
+    }
+
+    /// What an App Store category says about purpose, for apps the rules do
+    /// not know. Deliberately partial: a category that says nothing useful
+    /// returns nil and the caller keeps `.utility` — never guess focus out of
+    /// a label like "productivity"... except that productivity tools are, in
+    /// fact, where unmapped writing apps live, so that one maps.
+    static func categoryFallback(_ category: String?) -> AppPurpose? {
+        guard let category else { return nil }
+        switch category {
+        case "public.app-category.developer-tools":
+            return .coding
+        case "public.app-category.graphics-design",
+             "public.app-category.photography":
+            return .design
+        case "public.app-category.productivity":
+            return .writingAI
+        case "public.app-category.education",
+             "public.app-category.reference",
+             "public.app-category.news":
+            return .research
+        case "public.app-category.social-networking",
+             "public.app-category.business":
+            return .communication
+        case "public.app-category.music",
+             "public.app-category.entertainment",
+             "public.app-category.video",
+             "public.app-category.games":
+            return .media
+        default:
+            return nil
+        }
+    }
+
+    /// Precedence: user override → rule → declared category → `.utility`. An
+    /// unmapped, unlabelled app is far more often a utility than anything
+    /// else, and a name describing the common case reads better in the UI
+    /// than one describing a lookup failure.
     static func purpose(for bundleID: String?,
                         activity: InputActivity,
                         overrides: [String: String] = [:]) -> AppPurpose {
@@ -136,7 +184,7 @@ enum PurposeMap {
             // An absent user is not doing research.
             return activity == .active ? active : passive
         case nil:
-            return .utility
+            return categoryFallback(declaredCategory(bundleID)) ?? .utility
         }
     }
 }

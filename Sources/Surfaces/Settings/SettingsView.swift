@@ -107,6 +107,10 @@ struct SettingsView: View {
                 Text("Sessions the app starts can be undone from the notice, and one it "
                      + "ends on its own ends where the work stopped. The gap is how long "
                      + "a pause must be before such a session is treated as over.")
+                Text("Started sessions are named by what you are doing — Browsing in a "
+                     + "browser, Coding, Writing & AI, Design elsewhere. Apps the app "
+                     + "does not know are read from the category they declare about "
+                     + "themselves, when they declare one.")
             }
         }
         .formStyle(.grouped)

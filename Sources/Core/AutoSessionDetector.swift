@@ -5,7 +5,7 @@ import Foundation
 /// the real `SessionEngine` transition and can always refuse.
 enum AutoDecision: Equatable {
     case none
-    case start(workType: WorkType, backdatedTo: Date, because: String)
+    case start(workType: WorkType, name: String, backdatedTo: Date, because: String)
     case pause(because: String)
     case resume
     case end(at: Date, because: String)
@@ -151,6 +151,8 @@ struct AutoSessionDetector {
         qualifyingRunStart = nil
         autoStartedAt = moment
         return .start(workType: Self.workType(for: score.signals.dominantPurpose),
+                      name: Self.sessionName(forApp: score.signals.dominantApp,
+                                             purpose: score.signals.dominantPurpose),
                       backdatedTo: runStart, because: score.explanation)
     }
 
@@ -206,6 +208,22 @@ struct AutoSessionDetector {
     /// they collapse to the same work type; everything else maps to its
     /// closest analogue, with deep work as the fallback for purposes that
     /// don't otherwise imply a session kind.
+    /// What an automatic session is called, from what the user is doing. In a
+    /// browser or an AI client the tool says nothing, so the act does:
+    /// "Browsing". Elsewhere the purpose names it; a purpose with nothing to
+    /// say leaves the name empty and the UI shows its usual placeholder.
+    static func sessionName(forApp bundleID: String?, purpose: AppPurpose) -> String {
+        if PurposeMap.isAmbiguous(bundleID) { return "Browsing" }
+        switch purpose {
+        case .coding: return "Coding"
+        case .writingAI: return "Writing & AI"
+        case .design: return "Design"
+        case .research: return "Reading"
+        case .communication: return "Catching up"
+        case .media, .utility: return ""
+        }
+    }
+
     private static func workType(for purpose: AppPurpose) -> WorkType {
         switch purpose {
         case .coding, .design, .writingAI: return .deepWork

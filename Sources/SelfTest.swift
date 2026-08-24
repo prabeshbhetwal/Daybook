@@ -194,7 +194,9 @@ enum SelfTest {
             ("Watching is presence: quiet pause, written down, never asked about; meetings count",
              testWatchingIsNotAbsence),
             ("Quiet while a question is pending is an absence the card sat through",
-             testQuietWhileAwaiting)
+             testQuietWhileAwaiting),
+            ("Declared categories are a last resort; automatic sessions are named",
+             testCategoryFallbackAndNames)
         ]
 
         print("FocusContinuity self-test")
@@ -2730,7 +2732,7 @@ enum SelfTest {
         d = detector.evaluate(score: highScore, at: t0.addingTimeInterval(300),
                               sessionRunning: false, sessionWasAutoStarted: false,
                           enginePaused: false)
-        if case .start(let workType, let backdatedTo, let because) = d {
+        if case .start(let workType, _, let backdatedTo, let because) = d {
             expect(workType == .deepWork, "coding purpose maps to deep work", &problems)
             expect(backdatedTo == t0,
                   "backdated to when the qualifying run began, not the decision moment", &problems)
@@ -3012,7 +3014,7 @@ enum SelfTest {
                                       at: restart.addingTimeInterval(FocusConstants.autoStartDwell),
                                       sessionRunning: false,
                                       sessionWasAutoStarted: false, enginePaused: false)
-        if case .start(_, let backdatedTo, _) = fired {
+        if case .start(_, _, let backdatedTo, _) = fired {
             expect(backdatedTo >= restart,
                    "backdating must not reach behind the manual session", &problems)
         } else {
@@ -5163,6 +5165,56 @@ enum SelfTest {
         expectClose(broke.elapsed, 3 * 60,
                     "It was a break: the new stretch holds 3 ordinary minutes, not 43, got \(Int(broke.elapsed / 60))m",
                     &problems)
+        return problems
+    }
+
+    // MARK: - 100
+
+    /// An app's self-declared App Store category names its purpose only when
+    /// neither a rule nor an override speaks — and automatic sessions carry a
+    /// name from what the user is doing, "Browsing" in anything ambiguous.
+    private static func testCategoryFallbackAndNames() -> [String] {
+        var problems: [String] = []
+        // The pure mapping.
+        expect(PurposeMap.categoryFallback("public.app-category.developer-tools") == .coding,
+               "developer-tools reads as coding", &problems)
+        expect(PurposeMap.categoryFallback("public.app-category.social-networking") == .communication,
+               "social-networking reads as communication", &problems)
+        expect(PurposeMap.categoryFallback("public.app-category.music") == .media,
+               "music reads as media", &problems)
+        expect(PurposeMap.categoryFallback("public.app-category.lifestyle") == nil
+                   && PurposeMap.categoryFallback(nil) == nil,
+               "a category with nothing to say stays silent", &problems)
+
+        // Precedence, with the injected lookup saved and restored: it is
+        // process-global and the other tests assume the default.
+        let saved = PurposeMap.declaredCategory
+        defer { PurposeMap.declaredCategory = saved }
+        PurposeMap.declaredCategory = { bundleID in
+            switch bundleID {
+            case "com.example.unmapped-ide": return "public.app-category.developer-tools"
+            case "com.apple.dt.Xcode": return "public.app-category.music"   // a lie a rule outranks
+            default: return nil
+            }
+        }
+        expect(PurposeMap.purpose(for: "com.example.unmapped-ide", activity: .active) == .coding,
+               "an unmapped app is read from its declared category", &problems)
+        expect(PurposeMap.purpose(for: "com.apple.dt.Xcode", activity: .active) == .coding,
+               "a rule outranks the declared category", &problems)
+        expect(PurposeMap.purpose(for: "com.example.mystery", activity: .active) == .utility,
+               "unmapped and unlabelled stays a utility", &problems)
+        expect(PurposeMap.purpose(for: "com.example.unmapped-ide", activity: .active,
+                                  overrides: ["com.example.unmapped-ide": "media"]) == .media,
+               "the user's override outranks everything", &problems)
+
+        // Names.
+        expect(AutoSessionDetector.sessionName(forApp: "company.thebrowser.dia", purpose: .writingAI)
+                   == "Browsing",
+               "an ambiguous app names the act, not the tool", &problems)
+        expect(AutoSessionDetector.sessionName(forApp: "com.apple.dt.Xcode", purpose: .coding)
+                   == "Coding", "coding names itself", &problems)
+        expect(AutoSessionDetector.sessionName(forApp: "com.example.mystery", purpose: .utility)
+                   == "", "a utility has no name to give", &problems)
         return problems
     }
 

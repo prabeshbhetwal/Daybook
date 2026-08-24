@@ -130,15 +130,16 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         switch decision {
         case .none:
             break
-        case .start(let workType, let backdatedTo, let because):
-            store.startAutomatically(workType: workType, backdatedTo: backdatedTo,
-                                     because: because)
+        case .start(let workType, let name, let backdatedTo, let because):
+            store.startAutomatically(workType: workType, name: name,
+                                     backdatedTo: backdatedTo, because: because)
             autoStartedFor = lastScoredApp
             // Deliberately not gated on `rewardsEnabled`: this is a notice about
             // something the app did to the user's history, and the HUD carries
             // the only Undo. Silently inventing sessions with no way back is
             // worse than an unwanted congratulation.
-            hud.show(title: "Focus session started",
+            hud.show(title: name.isEmpty ? "Focus session started"
+                                          : "\(name) session started",
                      detail: because,
                      symbolName: "play.circle.fill",
                      undo: { [weak self] in self?.store.undoAutoSession() })
@@ -290,6 +291,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                  name: frontmost.localizedName ?? "Unknown")
         }
         store.isWatching = WatchDetector.isWatching
+        // Apps the purpose rules do not know fall back to what they declare
+        // about themselves.
+        PurposeMap.declaredCategory = { AppCategoryReader.shared.category(for: $0) }
         store.attach(tracker: tracker, usage: usage)
         store.refresh()
         Task { @MainActor in

@@ -433,3 +433,15 @@ at the lock. Test 98. Settings explainer updated.
   continued. Quiet past the idle threshold now opens a second absence (`AwayTrigger.idle`,
   back-dated to the last input) and input banks it into `shadowAway`, the same path a
   lock takes; watching counts only in Meetings/Learning. Test 99.
+
+## Addendum — declared categories and named automatic sessions (2026-08-23)
+
+Verified live: `LSApplicationCategoryType` is real but optional and self-declared —
+Claude says developer-tools, Safari/Notion productivity, WhatsApp social-networking,
+Spotify music; **Dia and Chrome declare nothing**. So it cannot lead: precedence is user
+override → `PurposeMap` rule → declared category (`AppCategoryReader`, cached, wired into
+`PurposeMap.declaredCategory`) → `.utility`. Automatic sessions now carry a name from
+what the user is doing — "Browsing" in anything behaviour-decided (browsers, AI
+clients), else Coding / Writing & AI / Design / Reading / Catching up — through
+`AutoDecision.start(name:)` into the intent and the HUD title. The existing *Start
+sessions for me* toggle governs it; the Automatic settings footer says so. Test 100.

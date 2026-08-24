@@ -149,8 +149,9 @@ final class SessionStore: ObservableObject {
 
     /// Starts a session on the detector's behalf, backdated to when the
     /// qualifying stretch actually began.
-    func startAutomatically(workType: WorkType, backdatedTo: Date, because: String) {
-        engine.start(workType: workType, intent: "", isAuto: true)
+    func startAutomatically(workType: WorkType, name: String, backdatedTo: Date,
+                            because: String) {
+        engine.start(workType: workType, intent: name, isAuto: true)
         engine.backdate(to: backdatedTo)
         refresh()
     }
