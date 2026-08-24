@@ -38,6 +38,17 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
             titleBand
             DashboardHero(store: store)
+            // The timeline is the day's spine, so it comes first — full width,
+            // straight under the hero.
+            if store.period == .day {
+                VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                    SectionHeader(title: "Timeline",
+                                  trailing: store.framedSession == nil
+                                      ? "hover a session to light it up" : nil)
+                    DayTimelineView(store: store)
+                }
+                .card()
+            }
             // What is running now belongs to today; a past day shows only itself.
             if store.isToday && !store.runningApps.isEmpty {
                 RunningNowChips(apps: store.runningApps)
@@ -47,24 +58,11 @@ struct DashboardView: View {
             }
             kpiRow
             chartRow
-            HStack(alignment: .top, spacing: Tokens.Space.m) {
-                SessionsCard(entries: store.daySessions, selected: store.selectedSession,
-                             onHover: { store.hoverSession($0) },
-                             onSelect: { store.selectSession($0) })
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-                    .card(padding: Tokens.Space.m)
-                if store.period == .day {
-                    VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                        SectionHeader(title: "Timeline",
-                                      trailing: store.framedSession == nil
-                                          ? "hover a session to light it up" : nil)
-                        DayTimelineView(store: store)
-                    }
-                    .frame(width: 420, alignment: .topLeading)
-                    .card()
-                }
-            }
-            .fixedSize(horizontal: false, vertical: true)
+            SessionsCard(entries: store.daySessions, selected: store.selectedSession,
+                         onHover: { store.hoverSession($0) },
+                         onSelect: { store.selectSession($0) })
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .card(padding: Tokens.Space.m)
             HStack(alignment: .top, spacing: Tokens.Space.m) {
                 appShareCard
                 workTypeCard
