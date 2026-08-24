@@ -202,9 +202,18 @@ final class SessionStore: ObservableObject {
     /// call, a presentation keeping the display awake. Set by the coordinator
     /// from powerd's assertion list; the default never is.
     var isWatching: () -> Bool = { false }
+    /// Set by the coordinator from the lock notifications. While the screen is
+    /// locked, no HID reading counts as presence.
+    var screenLocked = false
     private var watchingCache: (at: Date, value: Bool)?
     private var lastSampleWatching = false
     private var watchingEndedAt: Date?
+    /// The last moment presence was *confirmed*: fresh input while the display
+    /// was awake and the screen unlocked. The raw HID counter cannot be
+    /// trusted alone — lid events, wakes and dark wakes all reset it, which is
+    /// how a closed-lid evening of maintenance wakes read as a person — so
+    /// absence is measured against this clock, which only a person can advance.
+    private var lastConfirmedActive: Date?
 
     // Internal for SessionStore+Dashboard.swift; views still never touch this.
     let engine: SessionEngine
@@ -391,12 +400,20 @@ final class SessionStore: ObservableObject {
     private func observeIdle() {
         let raw = idle.idleSeconds()
         let now = Date()
-        if raw < 60 {
+        let displayAwake = CGDisplayIsAsleep(CGMainDisplayID()) == 0
+        if raw < 5, displayAwake, !screenLocked {
+            lastConfirmedActive = now
+        }
+        // Never below the raw counter, never reset by anything but confirmed
+        // presence: quiet spans wakes and lid events instead of restarting at
+        // each one.
+        let quiet = lastConfirmedActive.map { max(raw, now.timeIntervalSince($0)) } ?? raw
+        if quiet < 60 {
             // Recent input: nothing to tell apart, and any watching is over.
             watchingCache = nil
             lastSampleWatching = false
             watchingEndedAt = nil
-            engine.transition(on: .idleObserved(seconds: raw))
+            engine.transition(on: .idleObserved(seconds: quiet))
             return
         }
         let watching: Bool
@@ -409,14 +426,14 @@ final class SessionStore: ObservableObject {
         if watching {
             lastSampleWatching = true
             watchingEndedAt = nil
-            engine.transition(on: .watchingObserved(seconds: raw))
+            engine.transition(on: .watchingObserved(seconds: quiet))
             return
         }
         if lastSampleWatching { watchingEndedAt = now }
         lastSampleWatching = false
         // Once the watching stops, idle counts from then — not from the last
         // keypress before the film, which would put the film into the absence.
-        let effective = watchingEndedAt.map { min(raw, now.timeIntervalSince($0)) } ?? raw
+        let effective = watchingEndedAt.map { min(quiet, now.timeIntervalSince($0)) } ?? quiet
         engine.transition(on: .idleObserved(seconds: effective))
     }
 

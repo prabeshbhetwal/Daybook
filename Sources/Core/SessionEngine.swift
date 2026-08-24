@@ -251,7 +251,12 @@ final class SessionEngine {
         case (.running, .markedAway):
             enterPause(reason: .away)
         case (.running, .idleObserved(let seconds)):
-            if seconds >= FocusConstants.idlePauseThreshold {
+            if seconds < FocusConstants.awayDebounce, awayInterval != nil {
+                // Confirmed input with an absence open: the person is back.
+                // This is the only trustworthy end an unlocked absence has —
+                // wakes are the machine's.
+                resolveAway()
+            } else if seconds >= FocusConstants.idlePauseThreshold {
                 enterPause(reason: .idle, at: now().addingTimeInterval(-seconds))
             }
         case (.running, .watchingObserved(let seconds)):
@@ -392,6 +397,15 @@ final class SessionEngine {
             cancelDwell()
             state = .paused(reason: .away)
         case (.paused(let reason), .idleObserved(let seconds)):
+            // An absence opened by a lock or a sleep and never closed by a
+            // wake folds in first, so the cap and the question measure from
+            // where it truly began.
+            if seconds < FocusConstants.awayDebounce, let interval = awayInterval {
+                if let began = pauseStartDate, interval.start < began {
+                    pauseStartDate = interval.start
+                }
+                awayInterval = nil
+            }
             // The cap is judged first, whatever this sample says. By the time
             // the first sample after a long absence arrives the user has
             // usually already touched the machine — that is often what woke
@@ -626,7 +640,9 @@ final class SessionEngine {
             guard awayInterval == nil else { return }
             awayInterval = (start: now().addingTimeInterval(-seconds), trigger: .idle)
             persist()
-        } else if let interval = awayInterval, interval.trigger == .idle {
+        } else if let interval = awayInterval {
+            // Confirmed input closes whatever absence the card sat through —
+            // idle-opened or a sleep whose wake was only ever the machine's.
             shadowAway += self.interval(from: interval.start)
             awayInterval = nil
             persist()
@@ -779,6 +795,11 @@ final class SessionEngine {
             // this new session's span, and it was not work.
             totalPausedDuration += shadow
         }
+        // Whatever the path, the books must balance: a session cannot have
+        // been paused for longer than it has existed. Without this, banked
+        // absence landing on a young session pinned its clock at zero for
+        // as long as the excess lasted.
+        totalPausedDuration = max(0, min(totalPausedDuration, interval(from: sessionStartDate)))
     }
 
     private func archiveCurrentSession(endingAt endMoment: Date? = nil) {

@@ -445,3 +445,25 @@ what the user is doing — "Browsing" in anything behaviour-decided (browsers, A
 clients), else Coding / Writing & AI / Design / Reading / Catching up — through
 `AutoDecision.start(name:)` into the intent and the HUD title. The existing *Start
 sessions for me* toggle governs it; the Automatic settings footer says so. Test 100.
+
+## Addendum — a wake is the machine's, not the person's (2026-08-24)
+
+One closed-lid evening: 16:22 lid close, ~25 maintenance dark wakes and notification
+flashes, real return 22:56. Each wake delivered `didWake`; unlocked, each "ended" the
+absence — 6½ hours chopped into slivers, a record archived with 402 phantom minutes, a
+17-minute question, and the banked remainder pinning the next session's clock at zero.
+
+- The coordinator no longer ends absences on `didWake` at all; it only restarts the
+  ticker (and resumes tracking when the display is awake and unlocked). An absence ends
+  at the **unlock**, or at the first **confirmed input** — the engine resolves an open
+  away when a sample under `awayDebounce` arrives, and a paused session folds an open
+  away into its pause start first, so cap and question measure from where the absence
+  truly began.
+- Presence is confirmed, not assumed: the store keeps `lastConfirmedActive` (raw HID
+  under 5 s *and* display awake *and* screen unlocked) and reports quiet as
+  `max(raw, now − lastConfirmedActive)` — wake tickles reset the HID counter, not this.
+- `apply` clamps `totalPausedDuration` into `[0, session span]`: the books must balance.
+- Quiet while a question is pending now banks *any* open interval on confirmed input.
+- Repaired: Mon 15:56→22:39 402m→26.3m, Sun "Browsing" 290.8m→70.6m, Sun 14:26 169.2m→
+  129.5m (hands-on + sub-ten-minute-gap rule); the live session's 6h34m residue cleared.
+  Test 101.

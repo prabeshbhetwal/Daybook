@@ -276,6 +276,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // activation would start a fresh session and persist over the snapshot
         // we are about to read.
         screenLocked = AppCoordinator.screenIsLockedNow()
+        store.screenLocked = screenLocked
         // A dark display is nobody here as much as a lock is; the wake will
         // end the absence, as the unlock does behind a lock.
         let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
@@ -400,6 +401,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private func wireMonitor() {
         monitor.onScreenLocked = { [weak self] in
             self?.screenLocked = true
+            self?.store.screenLocked = true
             self?.engine.transition(on: .awayBegan(trigger: .screenLock))
             self?.tracker.suspend()
             self?.sampleInput(absent: true)
@@ -413,17 +415,26 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
         monitor.onScreenUnlocked = { [weak self] in
             self?.screenLocked = false
+            self?.store.screenLocked = false
             self?.engine.transition(on: .awayEnded)
             self?.resumeTracking()
             self?.sampleInput()
             self?.scheduleAutomation()
         }
         monitor.onSystemDidWake = { [weak self] in
-            // Behind a lock the wake is the display, not the person; the
-            // unlock that follows ends the absence and restarts tracking.
-            guard let self, !self.screenLocked else { return }
-            self.engine.transition(on: .awayEnded)
-            self.resumeTracking()
+            // A wake is the machine's, not the person's. One closed-lid
+            // evening delivered this twenty-five times — maintenance dark
+            // wakes, notification flashes — and treating each as a return
+            // chopped a six-hour absence into silently excluded slivers. The
+            // absence ends at the unlock, or at the first input the ticker
+            // confirms; never here. The refresh restarts the ticker so that
+            // confirmation can happen.
+            guard let self else { return }
+            if !self.screenLocked, CGDisplayIsAsleep(CGMainDisplayID()) == 0 {
+                self.resumeTracking()
+            } else {
+                self.store.refresh()
+            }
             self.sampleInput()
             self.scheduleAutomation()
         }

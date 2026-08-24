@@ -196,7 +196,9 @@ enum SelfTest {
             ("Quiet while a question is pending is an absence the card sat through",
              testQuietWhileAwaiting),
             ("Declared categories are a last resort; automatic sessions are named",
-             testCategoryFallbackAndNames)
+             testCategoryFallbackAndNames),
+            ("A wake is the machine's: only input or an unlock ends an absence",
+             testWakeIsNotAReturn)
         ]
 
         print("FocusContinuity self-test")
@@ -5215,6 +5217,70 @@ enum SelfTest {
                    == "Coding", "coding names itself", &problems)
         expect(AutoSessionDetector.sessionName(forApp: "com.example.mystery", purpose: .utility)
                    == "", "a utility has no name to give", &problems)
+        return problems
+    }
+
+    // MARK: - 101
+
+    /// The lid closes; the machine dark-wakes all evening. No wake event ends
+    /// the absence any more — only confirmed input does — so the whole of it
+    /// is measured from the lid close: past the cap the session ends there,
+    /// and a late idle pause cannot shorten what is asked.
+    private static func testWakeIsNotAReturn() -> [String] {
+        var problems: [String] = []
+        func make(capHours: Double) -> (engine: SessionEngine, archive: SessionArchive, clock: Clock) {
+            let directory = scratchDirectory()
+            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let prefs = PersistenceStore(defaults: defaults)
+            prefs.removeAll()
+            prefs.longAwayCap = capHours * 3_600
+            prefs.breakThreshold = 5 * 60
+            let clock = Clock(base)
+            let archive = SessionArchive(directory: directory, now: { clock.value })
+            let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
+                                       schedulesDwell: false, now: { clock.value })
+            engine.start(workType: .deepWork, intent: "Lid test")
+            clock.advance(20 * 60)
+            engine.transition(on: .awayBegan(trigger: .systemSleep))    // T+20: lid closes
+            return (engine, archive, clock)
+        }
+
+        // Six hours of dark wakes, the ticker frozen throughout; the first
+        // confirmed input resolves the whole absence and ends the session
+        // where the lid closed.
+        let capped = make(capHours: 1)
+        capped.clock.advance(6 * 3_600)
+        capped.engine.transition(on: .idleObserved(seconds: 2))          // real input
+        expect(capped.engine.state == .idle, "past the cap the session is over, got \(capped.engine.state)",
+               &problems)
+        let record = capped.archive.records.last
+        expectClose(record?.end.timeIntervalSince(base) ?? 0, 20 * 60,
+                    "the record ends where the lid closed", &problems)
+        expectClose(record?.workSeconds ?? 0, 20 * 60, "and carries only the work before it", &problems)
+
+        // The same evening under a large cap: the question is about all six
+        // hours, not the sliver since the last wake.
+        let asked = make(capHours: 8)
+        asked.clock.advance(6 * 3_600)
+        asked.engine.transition(on: .idleObserved(seconds: 2))
+        if case .awaitingUserDecision(let away, _) = asked.engine.state {
+            expectClose(away, 6 * 3_600, "the whole absence is asked about, got \(Int(away / 60))m", &problems)
+        } else {
+            problems.append("below the cap the absence is asked about, got \(asked.engine.state)")
+        }
+
+        // A ticker that survived long enough to raise a late idle pause must
+        // not shorten the measure: the pause folds back to the lid close.
+        let folded = make(capHours: 1)
+        folded.clock.advance(2 * 3_600)
+        folded.engine.transition(on: .idleObserved(seconds: 7_200))      // pause back-dated to T+20
+        expect(folded.engine.state.isPaused, "quiet pauses the session", &problems)
+        folded.clock.advance(4 * 3_600)
+        folded.engine.transition(on: .idleObserved(seconds: 2))          // real input, six hours on
+        expect(folded.engine.state == .idle,
+               "the folded absence outgrew the cap, got \(folded.engine.state)", &problems)
+        expectClose(folded.archive.records.last?.end.timeIntervalSince(base) ?? 0, 20 * 60,
+                    "ended where the lid closed, not at the late pause", &problems)
         return problems
     }
 
