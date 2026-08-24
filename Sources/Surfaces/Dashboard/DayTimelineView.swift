@@ -228,29 +228,14 @@ struct DayTimelineView: View {
 
     @ViewBuilder private var detail: some View {
         if let selected = store.selectedSegment {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: Tokens.Space.s) {
-                    AppIcon(bundleID: selected.bundleID, size: 16, appName: selected.appName)
-                    Text(selected.appName).font(.callout.weight(.medium))
-                    Text(DayTimelineView.hourLabel(selected.start))
-                        .font(.caption).foregroundStyle(.tertiary)
-                    Spacer()
-                    Button("Close") { store.clearTimelineSelection() }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
-                ForEach(store.stretchesInSelectedHour) { stretch in
-                    Text("\(Tokens.timeRange(stretch.start, stretch.end))  ·  "
-                         + Tokens.preciseDuration(stretch.seconds))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(Tokens.Space.s)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.25),
-                        in: RoundedRectangle(cornerRadius: Tokens.cardCorner))
+            SegmentHourDetail(
+                bundleID: selected.bundleID,
+                appName: selected.appName,
+                hourStart: Calendar.current.dateInterval(of: .hour, for: selected.start)?.start
+                    ?? selected.start,
+                colorIndex: selected.colorIndex,
+                stretches: store.stretchesInSelectedHour,
+                onClose: { store.clearTimelineSelection() })
         }
     }
 
@@ -281,5 +266,119 @@ struct DayTimelineView: View {
 
     static func hourLabel(_ date: Date) -> String {
         hourFormatter.string(from: date).lowercased()
+    }
+}
+
+/// One app in one hour, told at a fixed size whatever the hour was like. A
+/// messaging hour is dozens of half-minute glances, and listing each one grew
+/// the card without limit while saying nothing. Now the summary line carries
+/// the totals, a strip of the hour shows its shape — one block or confetti —
+/// and only the longest visits are named; the rest are one line.
+struct SegmentHourDetail: View {
+    let bundleID: String
+    let appName: String
+    let hourStart: Date
+    let colorIndex: Int
+    let stretches: [TimelineSegment]
+    let onClose: () -> Void
+
+    private var hourEnd: Date { hourStart.addingTimeInterval(3_600) }
+
+    /// Attended seconds inside this hour only — a stretch that crosses the
+    /// hour's edge contributes its share, not its whole.
+    private var totalInHour: TimeInterval {
+        stretches.reduce(0) { total, stretch in
+            total + max(0, min(stretch.end, hourEnd).timeIntervalSince(max(stretch.start, hourStart)))
+        }
+    }
+
+    /// Chronological, at most five — the longest ones when there are more.
+    private var named: [TimelineSegment] {
+        guard stretches.count > 5 else { return stretches }
+        let longest = stretches.sorted { $0.seconds > $1.seconds }.prefix(5)
+        return longest.sorted { $0.start < $1.start }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            HStack(spacing: Tokens.Space.s) {
+                AppIcon(bundleID: bundleID, size: 16, appName: appName)
+                Text(appName).font(.callout.weight(.medium))
+                Text(DayTimelineView.hourLabel(hourStart))
+                    .font(.caption).foregroundStyle(.tertiary)
+                Text("\(stretches.count == 1 ? "1 visit" : "\(stretches.count) visits") · "
+                     + "\(Tokens.preciseDuration(totalInHour)) of the hour")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Close", action: onClose)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            hourStrip
+            rows
+        }
+        .padding(Tokens.Space.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quaternary.opacity(0.25),
+                    in: RoundedRectangle(cornerRadius: Tokens.cardCorner))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(appName), \(stretches.count) visits, "
+                            + "\(Tokens.preciseDuration(totalInHour)) in this hour")
+    }
+
+    /// The hour as a fixed-height band with the app's visits filled in: one
+    /// wide block reads as a sitting, confetti reads as checking. Quarter-hour
+    /// ticks give the eye a scale.
+    private var hourStrip: some View {
+        GeometryReader { geometry in
+            let width = geometry.size.width
+            Canvas { context, size in
+                context.fill(Path(roundedRect: CGRect(origin: .zero, size: size),
+                                  cornerRadius: 3),
+                             with: .color(Tokens.Surface.well))
+                for quarter in 1...3 {
+                    let x = size.width * CGFloat(quarter) / 4
+                    var line = Path()
+                    line.move(to: CGPoint(x: x, y: 0))
+                    line.addLine(to: CGPoint(x: x, y: size.height))
+                    context.stroke(line, with: .color(Tokens.Surface.hairline), lineWidth: 0.5)
+                }
+                for stretch in stretches {
+                    let from = max(0, stretch.start.timeIntervalSince(hourStart) / 3_600)
+                    let to = min(1, stretch.end.timeIntervalSince(hourStart) / 3_600)
+                    guard to > from else { continue }
+                    let rect = CGRect(x: from * size.width, y: 0,
+                                      width: max(1.5, (to - from) * size.width),
+                                      height: size.height)
+                    context.fill(Path(roundedRect: rect, cornerRadius: 2),
+                                 with: .color(TimelinePalette.color(colorIndex)))
+                }
+            }
+            .frame(width: width)
+        }
+        .frame(height: 10)
+    }
+
+    @ViewBuilder private var rows: some View {
+        ForEach(named) { stretch in
+            Text("\(Tokens.timeRange(stretch.start, stretch.end))  ·  "
+                 + Tokens.preciseDuration(stretch.seconds))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        if stretches.count > named.count {
+            let rest = stretches.count - named.count
+            let restSeconds = totalInHour - named.reduce(0) { total, stretch in
+                total + max(0, min(stretch.end, hourEnd)
+                    .timeIntervalSince(max(stretch.start, hourStart)))
+            }
+            Text("The \(named.count) longest are listed · \(rest) shorter "
+                 + "\(rest == 1 ? "visit" : "visits") make up the other "
+                 + Tokens.preciseDuration(max(0, restSeconds)))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
     }
 }

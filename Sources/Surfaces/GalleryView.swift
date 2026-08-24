@@ -262,6 +262,44 @@ struct ComponentStrip: View {
             }(), selected: nil, unfoldAll: true, onHover: { _ in }, onSelect: { _ in })
                 .frame(width: 520)
                 .card(padding: 12)
+            VStack(alignment: .leading, spacing: Tokens.Space.m) {
+                SegmentHourDetail(bundleID: "com.wa", appName: "WhatsApp",
+                                  hourStart: Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date(),
+                                  colorIndex: 2,
+                                  stretches: {
+                                      let hour = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
+                                      var seed: UInt64 = 9
+                                      func rand(_ range: ClosedRange<Double>) -> Double {
+                                          seed = seed &* 6_364_136_223_846_793_005 &+ 1
+                                          let unit = Double(seed >> 33) / Double(UInt32.max)
+                                          return range.lowerBound + unit * (range.upperBound - range.lowerBound)
+                                      }
+                                      var cursor: TimeInterval = 60
+                                      var result: [TimelineSegment] = []
+                                      while cursor < 3_300 && result.count < 30 {
+                                          let length = rand(8...110)
+                                          result.append(TimelineSegment(id: UUID(), bundleID: "com.wa",
+                                                                        appName: "WhatsApp",
+                                                                        start: hour.addingTimeInterval(cursor),
+                                                                        end: hour.addingTimeInterval(cursor + length),
+                                                                        colorIndex: 2))
+                                          cursor += length + rand(20...140)
+                                      }
+                                      return result
+                                  }(), onClose: {})
+                SegmentHourDetail(bundleID: "com.x", appName: "Xcode",
+                                  hourStart: Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date(),
+                                  colorIndex: 0,
+                                  stretches: {
+                                      let hour = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
+                                      return [(300.0, 1_500.0), (1_800.0, 2_400.0), (2_700.0, 3_500.0)].map {
+                                          TimelineSegment(id: UUID(), bundleID: "com.x", appName: "Xcode",
+                                                          start: hour.addingTimeInterval($0.0),
+                                                          end: hour.addingTimeInterval($0.1), colorIndex: 0)
+                                      }
+                                  }(), onClose: {})
+            }
+            .frame(width: 430)
             DayPickerCalendar(selected: Date(),
                               earliest: Calendar.current.date(byAdding: .day, value: -40, to: Date()),
                               goal: 4 * 3_600,

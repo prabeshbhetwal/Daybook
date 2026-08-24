@@ -92,7 +92,7 @@ enum Snapshotter {
         for scheme in [ColorScheme.light, .dark] {
             let strip = ComponentStrip()
                 .environment(\.colorScheme, scheme)
-                .frame(width: 1700)
+                .frame(width: 2200)
             _ = render(strip, to: directory.appendingPathComponent(
                 "components-\(scheme == .light ? "light" : "dark").png"))
             let quick = AwayAnswerGrid(away: 22 * 60,

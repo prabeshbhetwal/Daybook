@@ -467,3 +467,14 @@ absence — 6½ hours chopped into slivers, a record archived with 402 phantom m
 - Repaired: Mon 15:56→22:39 402m→26.3m, Sun "Browsing" 290.8m→70.6m, Sun 14:26 169.2m→
   129.5m (hands-on + sub-ten-minute-gap rule); the live session's 6h34m residue cleared.
   Test 101.
+
+## Addendum — the hour detail summarises, never enumerates (2026-08-24)
+
+Clicking a busy segment listed every stretch of that app in the hour: a messaging hour
+is dozens of half-minute glances, and the card grew a 35-row column of "1m"s. The panel
+(`SegmentHourDetail`) now has a fixed anatomy whatever the hour was like: a summary in
+the header (*30 visits · 17m of the hour*), a strip of the hour with the visits filled
+in — one block reads as a sitting, confetti as checking, quarter-hour ticks for scale —
+then at most the five longest visits as rows, and one line for the rest (*The 5 longest
+are listed · 25 shorter visits make up the other 12m*). Verified in the harness with a
+thirty-glance fixture beside a three-sitting one.
