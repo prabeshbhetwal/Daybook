@@ -337,7 +337,17 @@ struct DashboardStats {
 
     /// Records with work on this day, not merely those that ended on it.
     func focusSessions(for day: Date) -> [SessionRecord] {
-        sessions.records.filter { $0.workSeconds(on: day, calendar: calendar) > 0 }
+        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [] }
+        return sessions.records.compactMap { record in
+            guard record.workType.countsAsFocus else { return nil }
+            let work = record.workSeconds(in: bounds)
+            guard work > 0 else { return nil }
+            var clipped = record
+            clipped.start = max(record.start, bounds.start)
+            clipped.end = min(record.end, bounds.end)
+            clipped.workSeconds = work
+            return clipped
+        }
     }
 
     /// The parts of each session that fall inside the day, merged so overlapping
@@ -345,9 +355,8 @@ struct DashboardStats {
     /// against day-clipped usage was scoring a whole morning as "inside a
     /// session" whenever one record happened to span the previous night.
     private func focusRanges(for day: Date) -> [(start: Date, end: Date)] {
-        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [] }
         let clipped = focusSessions(for: day)
-            .map { (start: max($0.start, bounds.start), end: min($0.end, bounds.end)) }
+            .map { (start: $0.start, end: $0.end) }
             .filter { $0.end > $0.start }
             .sorted { $0.start < $1.start }
 
@@ -360,6 +369,13 @@ struct DashboardStats {
             }
         }
         return merged
+    }
+
+    /// Focus-only spans within the requested day, merged for timeline brackets.
+    /// Breaks remain available through `breakRecords(on:)`; they do not create
+    /// a focus bracket or take part in any focus calculation.
+    func focusSpans(for day: Date) -> [DateInterval] {
+        focusRanges(for: day).map { DateInterval(start: $0.start, end: $0.end) }
     }
 
     /// - Parameter runningSeconds: work banked by a session still in flight. Passing
@@ -389,7 +405,7 @@ struct DashboardStats {
             byType[record.workType, default: 0]
                 += record.workSeconds(on: day, calendar: calendar)
         }
-        if let runningSeconds, runningSeconds > 0 {
+        if let runningSeconds, runningSeconds > 0, activeWorkType.countsAsFocus {
             byType[activeWorkType, default: 0] += runningSeconds
         }
         let typeTotal = byType.values.reduce(0, +)
@@ -406,7 +422,8 @@ struct DashboardStats {
             focused.contains { $0.start <= entry.start && entry.start < $0.end }
         }.count
 
-        let count = records.count + (runningSeconds != nil ? 1 : 0)
+        let runningCount = runningSeconds != nil && activeWorkType.countsAsFocus ? 1 : 0
+        let count = records.count + runningCount
         return FocusQuality(
             byWorkType: shares,
             insideSessionShare: tracked > 0 ? min(1, inside / tracked) : 0,

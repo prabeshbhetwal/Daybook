@@ -190,6 +190,8 @@ enum SelfTest {
              testNamedBreak),
             ("Day digest: stretches fold by thread, breaks sit between, running joins",
              testSessionDigest),
+            ("Day digest and focus metrics stay clipped to the selected day",
+             testDayDigestAndFocusAreDayScoped),
             ("Apps within a session's spans: intersected, ranked, shares of the inside",
              testAppsWithinSpans),
             ("Summary text: every clause gated on its figure; empty days say so",
@@ -5421,6 +5423,100 @@ enum SelfTest {
         guard case .session(let live) = entries[3] else { return problems + ["fourth row is the running one"] }
         expect(live.isRunning && live.threadID == thread, "the running session is marked", &problems)
         expect(live.stretches == 1, "and, separated by another thread, starts its own row", &problems)
+        return problems
+    }
+
+    /// A record crossing midnight belongs to each day only for its overlap. A
+    /// named break remains evidence in the digest, but never becomes focus in
+    /// the dashboard's session, bracket, count, or work-type figures.
+    ///
+    /// This catches the old raw-record path: it rendered a 23:30–00:30 record
+    /// as a full hour on either day and let break records into focus quality.
+    private static func testDayDigestAndFocusAreDayScoped() -> [String] {
+        var problems: [String] = []
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let clock = Clock(base)
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: base)
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: day) else {
+            return ["could not make yesterday"]
+        }
+        let crossMidnight = SessionRecord(name: "Night shift", workType: .deepWork,
+                                          start: yesterday.addingTimeInterval(23.5 * 3_600),
+                                          end: day.addingTimeInterval(0.5 * 3_600),
+                                          workSeconds: 3_600)
+        let dinner = SessionRecord(name: "Dinner", workType: .breakTime,
+                                   start: day.addingTimeInterval(9 * 3_600),
+                                   end: day.addingTimeInterval(9.5 * 3_600),
+                                   workSeconds: 1_800)
+        let archive = SessionArchive(directory: directory, calendar: calendar, now: { clock.value })
+        archive.append(crossMidnight)
+        archive.append(dinner)
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        usage.record(AppUsageSession(bundleID: "com.night", appName: "Night",
+                                     start: day, end: day.addingTimeInterval(0.5 * 3_600)))
+        usage.record(AppUsageSession(bundleID: "com.dinner", appName: "Dinner",
+                                     start: day.addingTimeInterval(9 * 3_600),
+                                     end: day.addingTimeInterval(9.5 * 3_600)))
+
+        let digest = SessionDigest.entries(records: archive.records(on: day),
+                                           running: nil, now: day.addingTimeInterval(10 * 3_600),
+                                           day: day,
+                                           calendar: calendar)
+        let focusRows = digest.compactMap { entry -> DaySession? in
+            if case .session(let session) = entry { return session }
+            return nil
+        }
+        expect(focusRows.count == 1, "only the work record is a session row", &problems)
+        expectClose(focusRows.first?.start.timeIntervalSince(day) ?? -1, 0,
+                    "the selected-day row begins at midnight", &problems)
+        expectClose(focusRows.first?.end.timeIntervalSince(day) ?? -1, 1_800,
+                    "the selected-day row ends after its 30m overlap", &problems)
+        expectClose(focusRows.first?.worked ?? 0, 1_800,
+                    "the selected-day row receives 30m of work credit", &problems)
+        expect(digest.contains { entry in
+            if case .rest(let rest) = entry { return rest.name == "Dinner" }
+            return false
+        }, "the named break remains a rest row", &problems)
+
+        let live = RunningThread(threadID: UUID(), name: "Late deploy", workType: .deepWork,
+                                 start: yesterday.addingTimeInterval(23.75 * 3_600), worked: 1_800)
+        let runningDigest = SessionDigest.entries(records: [], running: live,
+                                                  now: day.addingTimeInterval(0.25 * 3_600),
+                                                  day: day, calendar: calendar)
+        let runningRows = runningDigest.compactMap { entry -> DaySession? in
+            if case .session(let session) = entry { return session }
+            return nil
+        }
+        expectClose(runningRows.first?.start.timeIntervalSince(day) ?? -1, 0,
+                    "a running span is clipped at today's midnight", &problems)
+        expectClose(runningRows.first?.end.timeIntervalSince(day) ?? -1, 900,
+                    "a running span ends at now inside the selected day", &problems)
+        expectClose(runningRows.first?.worked ?? 0, 900,
+                    "a running span receives only its 15m day credit", &problems)
+
+        let stats = DashboardStats(sessions: archive, usage: usage,
+                                   calendar: calendar, now: { clock.value })
+        let focus = stats.focusSessions(for: day)
+        expect(focus.count == 1, "break records are not focus sessions, got \(focus.count)", &problems)
+        expectClose(focus.first?.start.timeIntervalSince(day) ?? -1, 0,
+                    "focus session starts inside the selected day", &problems)
+        expectClose(focus.first?.end.timeIntervalSince(day) ?? -1, 1_800,
+                    "focus session ends inside the selected day", &problems)
+        expectClose(focus.first?.workSeconds ?? 0, 1_800,
+                    "focus session has only this day's work credit", &problems)
+        let spans = stats.focusSpans(for: day)
+        expect(spans.count == 1, "the break does not create a focus bracket", &problems)
+        expectClose(spans.first?.start.timeIntervalSince(day) ?? -1, 0,
+                    "the focus bracket begins inside the day", &problems)
+        expectClose(spans.first?.end.timeIntervalSince(day) ?? -1, 1_800,
+                    "the focus bracket ends inside the day", &problems)
+        let quality = stats.focusQuality(for: day)
+        expect(quality.sessionCount == 1,
+               "the break does not increase the focus session count, got \(quality.sessionCount)", &problems)
+        expect(quality.byWorkType.allSatisfy { $0.workType != WorkType.breakTime },
+               "the break is absent from focus work-type shares", &problems)
         return problems
     }
 

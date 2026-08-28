@@ -128,7 +128,7 @@ extension SessionStore {
         timelineSegments = stats.timeline(for: day)
         cachedWindow = stats.timelineWindow(for: day)
         timelineLayout = TimelineLayout(segments: timelineSegments)
-        focusBrackets = stats.focusSessions(for: day).map { ($0.start, $0.end) }
+        focusBrackets = stats.focusSpans(for: day).map { ($0.start, $0.end) }
         var qualityStats = stats
         qualityStats.activeWorkType = engine.activeWorkType
         focusQuality = qualityStats.focusQuality(
@@ -156,8 +156,8 @@ extension SessionStore {
                                       purposeOverrides: engine.store.purposeOverrides)
         threadsToday = threadStats.threads(on: Date(), running: runningThread())
         daySessions = SessionDigest.entries(records: engine.archive.records(on: day),
-                                            running: isToday ? runningThread() : nil,
-                                            now: Date())
+                                            running: isToday ? runningThread(on: day) : nil,
+                                            now: Date(), day: day)
         // A selection that no longer matches the day's rows is stale.
         if let selected = selectedSession,
            !daySessions.contains(where: { $0.id == selected.id }) {
@@ -295,6 +295,27 @@ extension SessionStore {
                              workType: engine.activeWorkType,
                              start: engine.sessionStartDate,
                              worked: engine.elapsed)
+    }
+
+    /// The live thread's literal overlap with a selected day. A session begun
+    /// before midnight must not render its earlier hours in today's card.
+    func runningThread(on day: Date,
+                       now: Date = Date(),
+                       calendar: Calendar = .current) -> RunningThread? {
+        guard let running = runningThread(),
+              let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return nil }
+        let end = min(now, bounds.end)
+        let start = max(running.start, bounds.start)
+        guard end >= start else { return nil }
+        let fullSpan = max(0, now.timeIntervalSince(running.start))
+        let worked: TimeInterval
+        if fullSpan > 0 {
+            worked = running.worked * (end.timeIntervalSince(start) / fullSpan)
+        } else {
+            worked = running.worked
+        }
+        return RunningThread(threadID: running.threadID, name: running.name,
+                             workType: running.workType, start: start, worked: worked)
     }
 
     /// The primary and side apps a thread was worked in.
