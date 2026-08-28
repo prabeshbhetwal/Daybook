@@ -31,19 +31,40 @@ done
 STAGE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/${APP_NAME}.XXXXXX")"
 PROMOTION_IN_PROGRESS=0
 PROMOTION_COMPLETE=0
-BACKUP_CREATED=0
+LOCAL_APP_WAS_PRESENT=0
 
 restore_previous_app() {
-  if [ "${BACKUP_CREATED}" -eq 1 ] && [ -e "${BACKUP_APP_DIR}" ]; then
-    rm -rf "${LOCAL_APP_DIR}"
+  if [ -e "${BACKUP_APP_DIR}" ]; then
+    if [ -e "${LOCAL_APP_DIR}" ]; then
+      rm -rf "${LOCAL_APP_DIR}"
+    fi
     if ! mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"; then
       echo "error: could not restore the previous local app from ${BACKUP_APP_DIR}" >&2
       return 1
     fi
-    BACKUP_CREATED=0
-  else
-    rm -rf "${LOCAL_APP_DIR}"
+    return 0
   fi
+
+  if [ "${LOCAL_APP_WAS_PRESENT}" -eq 0 ]; then
+    rm -rf "${LOCAL_APP_DIR}"
+    return 0
+  fi
+
+  if [ -e "${LOCAL_APP_DIR}" ]; then
+    echo "warning: backup is absent; preserving the existing local app" >&2
+    return 0
+  fi
+
+  echo "error: previous local app and backup are both absent; cannot roll back" >&2
+  return 1
+}
+
+rollback_failed_promotion() {
+  if restore_previous_app; then
+    PROMOTION_IN_PROGRESS=0
+    return 0
+  fi
+  return 1
 }
 
 cleanup_build() {
@@ -61,7 +82,19 @@ cleanup_build() {
   fi
   exit "${cleanup_status}"
 }
+
+handle_signal() {
+  signal_name="$1"
+  signal_status="$2"
+  trap - INT TERM HUP
+  echo "received ${signal_name}; rolling back any in-progress promotion" >&2
+  exit "${signal_status}"
+}
+
 trap cleanup_build EXIT
+trap 'handle_signal INT 130' INT
+trap 'handle_signal TERM 143' TERM
+trap 'handle_signal HUP 129' HUP
 
 APP_DIR="${STAGE_ROOT}/${APP_NAME}.app"
 MACOS_DIR="${APP_DIR}/Contents/MacOS"
@@ -223,14 +256,33 @@ prepare_promotion_directory() {
   mkdir -p "${PROMOTION_ROOT}"
   rm -rf "${CANDIDATE_APP_DIR}"
 
-  if [ -e "${BACKUP_APP_DIR}" ]; then
-    if [ -e "${LOCAL_APP_DIR}" ]; then
-      rm -rf "${BACKUP_APP_DIR}"
-    else
-      echo "Recovering previous local app from ${BACKUP_APP_DIR}." >&2
-      mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"
-    fi
+  if [ ! -e "${BACKUP_APP_DIR}" ]; then
+    return 0
   fi
+
+  if [ ! -e "${LOCAL_APP_DIR}" ]; then
+    if ! verify_ordinary_signature "${BACKUP_APP_DIR}" "stale local-app backup"; then
+      echo "error: local app is absent and the stale backup is not verifiable; preserving the backup" >&2
+      return 1
+    fi
+    echo "Recovering missing local app from ${BACKUP_APP_DIR}." >&2
+    mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"
+    return
+  fi
+
+  if verify_ordinary_signature "${LOCAL_APP_DIR}" "existing local app before stale-backup cleanup"; then
+    rm -rf "${BACKUP_APP_DIR}"
+    return
+  fi
+
+  if ! verify_ordinary_signature "${BACKUP_APP_DIR}" "stale local-app backup"; then
+    echo "error: existing local app and stale backup both failed ordinary verification; preserving both" >&2
+    return 1
+  fi
+
+  echo "Restoring verified stale backup over invalid local app." >&2
+  rm -rf "${LOCAL_APP_DIR}"
+  mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"
 }
 
 if ! prepare_promotion_directory; then
@@ -248,33 +300,32 @@ if ! verify_ordinary_signature "${CANDIDATE_APP_DIR}" "promotion candidate"; the
 fi
 
 if [ -e "${LOCAL_APP_DIR}" ]; then
-  if ! mv "${LOCAL_APP_DIR}" "${BACKUP_APP_DIR}"; then
-    echo "error: could not move the previous local app to ${BACKUP_APP_DIR}" >&2
-    exit 1
-  fi
-  BACKUP_CREATED=1
+  LOCAL_APP_WAS_PRESENT=1
 fi
 PROMOTION_IN_PROGRESS=1
 
+if [ "${LOCAL_APP_WAS_PRESENT}" -eq 1 ]; then
+  if ! mv "${LOCAL_APP_DIR}" "${BACKUP_APP_DIR}"; then
+    echo "error: could not move the previous local app to ${BACKUP_APP_DIR}" >&2
+    rollback_failed_promotion || true
+    exit 1
+  fi
+fi
+
 if ! mv "${CANDIDATE_APP_DIR}" "${LOCAL_APP_DIR}"; then
   echo "error: could not replace the local app with the verified candidate" >&2
-  if restore_previous_app; then
-    PROMOTION_IN_PROGRESS=0
-  fi
+  rollback_failed_promotion || true
   exit 1
 fi
 
 if ! verify_ordinary_signature "${LOCAL_APP_DIR}" "promoted local app"; then
-  if restore_previous_app; then
-    PROMOTION_IN_PROGRESS=0
-  fi
+  rollback_failed_promotion || true
   exit 1
 fi
 
 PROMOTION_COMPLETE=1
 PROMOTION_IN_PROGRESS=0
 rm -rf "${BACKUP_APP_DIR}"
-BACKUP_CREATED=0
 
 LOCAL_BINARY="${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}"
 SIZE="$(du -h "${LOCAL_BINARY}" | cut -f1 | tr -d ' ')"
