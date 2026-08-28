@@ -124,6 +124,12 @@ final class AppUsageTracker {
             closeActiveSegment(reason: .systemLock)
             return
         }
+        if case .waitingForPresence = state {
+            state = .waitingForPresence(ResumeCandidate(
+                bundleID: bundleID,
+                appName: name.isEmpty ? bundleID : name))
+            return
+        }
         if case .active(let segment) = state, segment.bundleID == bundleID { return }
 
         closeActiveSegment(reason: .appSwitch)

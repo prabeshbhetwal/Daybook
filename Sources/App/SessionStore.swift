@@ -403,6 +403,18 @@ final class SessionStore: ObservableObject {
     /// How often continuous use is re-checked against the break thresholds.
     private static let breakCheckSeconds = 5
 
+    /// Presence is categorical for the engine: once the gate confirms input,
+    /// its age must not be reinterpreted as continued quiet. The tracker still
+    /// receives the honest `since` date separately.
+    func applyPresenceObservation(_ observation: PresenceObservation) -> TimeInterval {
+        switch observation {
+        case .active(let since):
+            tracker?.confirmPresence(at: since)
+            return 0
+        case .quiet(let seconds): return seconds
+        }
+    }
+
     /// One sample a second: seconds since the last input, told apart into
     /// idle and watched. Quiet in front of a film, a call or a presentation is
     /// presence, and the engine must not read it as an absence. Watching is
@@ -416,14 +428,7 @@ final class SessionStore: ObservableObject {
                                                at: now,
                                                displayAwake: displayAwake,
                                                screenLocked: screenLocked)
-        let quiet: TimeInterval
-        switch observation {
-        case .active(let since):
-            tracker?.confirmPresence(at: since)
-            quiet = max(0, now.timeIntervalSince(since))
-        case .quiet(let seconds):
-            quiet = seconds
-        }
+        let quiet = applyPresenceObservation(observation)
         if quiet < 60 {
             // Recent input: nothing to tell apart, and any watching is over.
             watchingCache = nil

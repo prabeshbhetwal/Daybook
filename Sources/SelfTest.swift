@@ -81,6 +81,8 @@ enum SelfTest {
             ("Usage waiting state stays live and clears terminally", testUsageWaitingStateLifecycle),
             ("Wake HID resets require confirmed human presence", testWakePresenceGate),
             ("A wake candidate records only after confirmed presence", testWakeDoesNotCreateUsage),
+            ("An aged HID reset still resolves the engine absence", testAgedWakeResetEndsAbsence),
+            ("App activation updates a waiting usage candidate", testWaitingActivationUpdatesCandidate),
             ("Legacy app usage migration preserves history", testLegacyUsageMigrationPreservesHistory),
             ("Usage checkpoints replace records by identity", testUsageCheckpointReplacesByIdentity),
             ("Most-used apps ranked with recent sessions", testMostUsedApps),
@@ -1196,6 +1198,114 @@ enum SelfTest {
                     "usage starts at confirmed presence", &problems)
         expectClose(usage.sessions.first?.seconds ?? -1, 60.1,
                     "only post-confirmation usage is recorded", &problems)
+        return problems
+    }
+
+    /// A real input reset can already be several seconds old by the next tick.
+    /// `.active` is categorical proof of return, so its age must not be sent to
+    /// the engine as if it were still merely quiet.
+    private static func testAgedWakeResetEndsAbsence() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let engine = makeEngine(clock)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: FocusConstants.bundleIdentifier,
+                                      idle: .disabled,
+                                      now: { clock.value })
+        let store = SessionStore(engine: engine)
+        store.attach(tracker: tracker, usage: usage)
+        var gate = PresenceGate()
+
+        engine.transition(on: .launch)
+        tracker.prepareToResume(bundleID: "com.example.editor", name: "Editor")
+        gate.confirm(at: clock.value)
+        clock.advance(60)
+        engine.transition(on: .awayBegan(trigger: .systemSleep))
+        gate.noteMachineWake()
+
+        clock.advance(20)
+        let wakeReset = gate.observe(rawIdleSeconds: 20,
+                                     at: clock.value,
+                                     displayAwake: true,
+                                     screenLocked: false)
+        engine.transition(on: .idleObserved(
+            seconds: store.applyPresenceObservation(wakeReset)))
+        expectClose(engine.totalPausedDuration, 0,
+                    "the machine reset alone must leave the absence open", &problems)
+
+        clock.advance(10)
+        let humanReset = gate.observe(rawIdleSeconds: 10,
+                                      at: clock.value,
+                                      displayAwake: true,
+                                      screenLocked: false)
+        if case .active(let since) = humanReset {
+            expectClose(since.timeIntervalSince(clock.value), -10,
+                        "the confirmed return retains its honest input date", &problems)
+        } else {
+            problems.append("the aged downward reset should be confirmed active")
+        }
+        engine.transition(on: .idleObserved(
+            seconds: store.applyPresenceObservation(humanReset)))
+        expectClose(engine.totalPausedDuration, 30,
+                    "confirmed active must resolve the full engine absence", &problems)
+        expect(tracker.currentBundleID == "com.example.editor",
+               "the same confirmation must activate the waiting tracker", &problems)
+        tracker.flush()
+        expectClose(usage.sessions.first?.start.timeIntervalSince(clock.value) ?? -1, -10,
+                    "the tracker retains the gate's aged input date", &problems)
+        return problems
+    }
+
+    /// App notifications can arrive between wake and the confirming HID reset.
+    /// They update which app is waiting, but the notification itself is not
+    /// permission to record; ordinary stopped activation remains immediate.
+    private static func testWaitingActivationUpdatesCandidate() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: FocusConstants.bundleIdentifier,
+                                      idle: .disabled,
+                                      now: { clock.value })
+
+        tracker.prepareToResume(bundleID: "com.example.editor", name: "Editor")
+        clock.advance(10)
+        tracker.appActivated(bundleID: "com.example.browser", name: "Browser")
+        clock.advance(30)
+        tracker.flush()
+        expect(tracker.currentBundleID == nil && tracker.isObserving,
+               "activation while waiting must remain non-recording", &problems)
+        expect(usage.sessions.isEmpty,
+               "a waiting activation must not create an app-usage record", &problems)
+
+        let confirmedAt = clock.value
+        tracker.confirmPresence(at: confirmedAt)
+        expect(tracker.currentBundleID == "com.example.browser",
+               "confirmation starts the updated candidate app", &problems)
+        clock.advance(60)
+        tracker.flush()
+        expect(usage.sessions.count == 1
+                   && usage.sessions.first?.bundleID == "com.example.browser"
+                   && usage.sessions.first?.appName == "Browser",
+               "only the updated candidate is recorded after confirmation", &problems)
+        expectClose(usage.sessions.first?.start.timeIntervalSince(confirmedAt) ?? -1, 0,
+                    "the updated candidate starts at confirmation", &problems)
+
+        let ordinaryDirectory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: ordinaryDirectory) }
+        let ordinary = AppUsageTracker(
+            archive: AppUsageArchive(directory: ordinaryDirectory, now: { clock.value }),
+            ownBundleID: FocusConstants.bundleIdentifier,
+            idle: .disabled,
+            now: { clock.value })
+        ordinary.appActivated(bundleID: "com.example.terminal", name: "Terminal")
+        expect(ordinary.currentBundleID == "com.example.terminal",
+               "ordinary stopped activation must still begin immediately", &problems)
         return problems
     }
 
