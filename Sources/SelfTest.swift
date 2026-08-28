@@ -79,6 +79,8 @@ enum SelfTest {
             ("App usage tracker segments and merges correctly", testUsageTracker),
             ("Periodic usage checkpoints roll back an idle tail", testPeriodicCheckpointRollsBackIdleTail),
             ("Usage waiting state stays live and clears terminally", testUsageWaitingStateLifecycle),
+            ("Wake HID resets require confirmed human presence", testWakePresenceGate),
+            ("A wake candidate records only after confirmed presence", testWakeDoesNotCreateUsage),
             ("Legacy app usage migration preserves history", testLegacyUsageMigrationPreservesHistory),
             ("Usage checkpoints replace records by identity", testUsageCheckpointReplacesByIdentity),
             ("Most-used apps ranked with recent sessions", testMostUsedApps),
@@ -1079,6 +1081,121 @@ enum SelfTest {
         tracker.confirmPresence(at: clock.value)
         expect(tracker.currentBundleID == nil && !tracker.isObserving,
                "a stale confirmation after disable must not reopen tracking", &problems)
+        return problems
+    }
+
+    /// A wake resets macOS's HID idle counter even when nobody touched the
+    /// machine. The reset itself and its increasing tail must stay quiet; only
+    /// an unlock or a second, downward reset is evidence of a person.
+    private static func testWakePresenceGate() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        var gate = PresenceGate()
+        gate.confirm(at: clock.value)
+
+        clock.advance(600)
+        gate.noteMachineWake()
+        for raw in [0.5, 1.5, 2.5] {
+            let observation = gate.observe(rawIdleSeconds: raw,
+                                           at: clock.value,
+                                           displayAwake: true,
+                                           screenLocked: false)
+            if case .quiet(let seconds) = observation {
+                expect(seconds >= 600,
+                       "an increasing post-wake counter stays quiet, got \(seconds)s",
+                       &problems)
+            } else {
+                problems.append("an increasing post-wake counter must not confirm presence")
+            }
+            clock.advance(1)
+        }
+
+        let resetAt = clock.value
+        let reset = gate.observe(rawIdleSeconds: 0.25,
+                                 at: resetAt,
+                                 displayAwake: true,
+                                 screenLocked: false)
+        if case .active(let since) = reset {
+            expectClose(since.timeIntervalSince(resetAt), -0.25,
+                        "a downward reset confirms from the last input", &problems)
+        } else {
+            problems.append("a later downward reset should confirm presence")
+        }
+
+        var unlockGate = PresenceGate()
+        unlockGate.noteMachineWake()
+        clock.advance(60)
+        let unlockedAt = clock.value
+        unlockGate.confirm(at: unlockedAt)
+        clock.advance(1)
+        let afterUnlock = unlockGate.observe(rawIdleSeconds: 1,
+                                             at: clock.value,
+                                             displayAwake: true,
+                                             screenLocked: false)
+        if case .active(let since) = afterUnlock {
+            expectClose(since.timeIntervalSince(unlockedAt), 0,
+                        "unlock confirms presence immediately", &problems)
+        } else {
+            problems.append("an explicit unlock should clear wake suppression")
+        }
+        return problems
+    }
+
+    /// Preparing the frontmost app after wake is deliberately non-recording.
+    /// The first real HID reset confirms the candidate and starts a new UUID at
+    /// that confirmed return, never at the machine wake.
+    private static func testWakeDoesNotCreateUsage() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: FocusConstants.bundleIdentifier,
+                                      idle: .disabled,
+                                      now: { clock.value })
+        var gate = PresenceGate()
+
+        tracker.prepareToResume(bundleID: "com.example.editor", name: "Editor")
+        gate.noteMachineWake()
+        for raw in [0.25, 1.25, 2.25] {
+            clock.advance(1)
+            if case .quiet(let seconds) = gate.observe(rawIdleSeconds: raw,
+                                                       at: clock.value,
+                                                       displayAwake: true,
+                                                       screenLocked: false) {
+                tracker.observeIdle(seconds: seconds)
+            } else {
+                problems.append("machine-wake idle must remain non-recording")
+            }
+        }
+        tracker.flush()
+        expect(usage.sessions.isEmpty && tracker.currentBundleID == nil,
+               "a prepared wake candidate must record nothing before confirmation",
+               &problems)
+
+        clock.advance(1)
+        let confirmedAt = clock.value.addingTimeInterval(-0.1)
+        let presence = gate.observe(rawIdleSeconds: 0.1,
+                                    at: clock.value,
+                                    displayAwake: true,
+                                    screenLocked: false)
+        if case .active(let since) = presence {
+            tracker.confirmPresence(at: since)
+            expectClose(since.timeIntervalSince(confirmedAt), 0,
+                        "the return is the genuine idle reset", &problems)
+        } else {
+            problems.append("genuine post-wake input should confirm the candidate")
+        }
+        clock.advance(60)
+        tracker.flush()
+
+        expect(usage.sessions.count == 1,
+               "confirmation starts exactly one app-usage UUID", &problems)
+        expectClose(usage.sessions.first?.start.timeIntervalSince(confirmedAt) ?? -1, 0,
+                    "usage starts at confirmed presence", &problems)
+        expectClose(usage.sessions.first?.seconds ?? -1, 60.1,
+                    "only post-confirmation usage is recorded", &problems)
         return problems
     }
 

@@ -376,13 +376,20 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         true
     }
 
-    /// Waking and carrying on in the same app posts no activation notification,
-    /// so tracking has to be restarted explicitly or that work goes unrecorded.
-    private func resumeTracking() {
+    /// Captures the frontmost app without recording it. The candidate becomes
+    /// active only when the presence gate confirms a return.
+    private func prepareTrackingResume() {
         guard let frontmost = NSWorkspace.shared.frontmostApplication else { return }
-        tracker.resume(bundleID: frontmost.bundleIdentifier,
-                       name: frontmost.localizedName ?? "Unknown")
-        // Waking a paused session changes no state — `.awayEnded` on `.paused`
+        tracker.prepareToResume(bundleID: frontmost.bundleIdentifier,
+                                name: frontmost.localizedName ?? "Unknown")
+    }
+
+    /// Unlock and explicit return are human actions, so they can activate the
+    /// prepared app immediately rather than waiting for a HID sample.
+    private func resumeTracking(at moment: Date = Date()) {
+        prepareTrackingResume()
+        store.confirmPresence(at: moment)
+        // Returning to a paused session changes no state — `.awayEnded` on `.paused`
         // deliberately drops the interval, because the pause already accounts
         // for it — so nothing else refreshes here. Without this the one-second
         // ticker, stopped when the machine slept, never restarts, and an
@@ -414,10 +421,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self?.scheduleAutomation()
         }
         monitor.onScreenUnlocked = { [weak self] in
+            let moment = Date()
             self?.screenLocked = false
             self?.store.screenLocked = false
             self?.engine.transition(on: .awayEnded)
-            self?.resumeTracking()
+            self?.resumeTracking(at: moment)
             self?.sampleInput()
             self?.scheduleAutomation()
         }
@@ -430,11 +438,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // confirms; never here. The refresh restarts the ticker so that
             // confirmation can happen.
             guard let self else { return }
-            if !self.screenLocked, CGDisplayIsAsleep(CGMainDisplayID()) == 0 {
-                self.resumeTracking()
-            } else {
-                self.store.refresh()
-            }
+            self.store.noteMachineWake()
+            self.prepareTrackingResume()
+            self.store.refresh()
             self.sampleInput()
             self.scheduleAutomation()
         }

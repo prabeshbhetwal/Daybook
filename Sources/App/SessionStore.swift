@@ -208,12 +208,10 @@ final class SessionStore: ObservableObject {
     private var watchingCache: (at: Date, value: Bool)?
     private var lastSampleWatching = false
     private var watchingEndedAt: Date?
-    /// The last moment presence was *confirmed*: fresh input while the display
-    /// was awake and the screen unlocked. The raw HID counter cannot be
-    /// trusted alone — lid events, wakes and dark wakes all reset it, which is
-    /// how a closed-lid evening of maintenance wakes read as a person — so
-    /// absence is measured against this clock, which only a person can advance.
-    private var lastConfirmedActive: Date?
+    /// Owns confirmed-active time and suppresses the HID reset caused by wake.
+    /// Kept pure so wake versus human input can be exercised with an injected
+    /// clock and no CoreGraphics permissions.
+    private var presenceGate = PresenceGate()
 
     // Internal for SessionStore+Dashboard.swift; views still never touch this.
     let engine: SessionEngine
@@ -280,6 +278,19 @@ final class SessionStore: ObservableObject {
         self.usage = usage
         self.isTrackingEnabled = tracker.isEnabled
         refresh()
+    }
+
+    /// Wakes are machine events. Keep sampling on the existing ticker, but do
+    /// not let the HID reset count as a return.
+    func noteMachineWake() {
+        presenceGate.noteMachineWake()
+    }
+
+    /// Unlock and explicit returns are direct proof of presence. A waiting app
+    /// candidate begins at this instant; an already-active tracker is unchanged.
+    func confirmPresence(at moment: Date) {
+        presenceGate.confirm(at: moment)
+        tracker?.confirmPresence(at: moment)
     }
 
     /// Recomputes everything the surfaces display. One pass over each archive.
@@ -401,13 +412,18 @@ final class SessionStore: ObservableObject {
         let raw = idle.idleSeconds()
         let now = Date()
         let displayAwake = CGDisplayIsAsleep(CGMainDisplayID()) == 0
-        if raw < 5, displayAwake, !screenLocked {
-            lastConfirmedActive = now
+        let observation = presenceGate.observe(rawIdleSeconds: raw,
+                                               at: now,
+                                               displayAwake: displayAwake,
+                                               screenLocked: screenLocked)
+        let quiet: TimeInterval
+        switch observation {
+        case .active(let since):
+            tracker?.confirmPresence(at: since)
+            quiet = max(0, now.timeIntervalSince(since))
+        case .quiet(let seconds):
+            quiet = seconds
         }
-        // Never below the raw counter, never reset by anything but confirmed
-        // presence: quiet spans wakes and lid events instead of restarting at
-        // each one.
-        let quiet = lastConfirmedActive.map { max(raw, now.timeIntervalSince($0)) } ?? raw
         if quiet < 60 {
             // Recent input: nothing to tell apart, and any watching is over.
             watchingCache = nil
