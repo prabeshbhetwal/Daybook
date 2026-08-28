@@ -21,8 +21,8 @@ struct DashboardView: View {
                 // Reopening the window is a fresh question, and the question is
                 // almost always about today.
                 store.goToToday()
-                store.setDashboardVisible(true)
                 store.refresh()
+                store.setDashboardVisible(true)
             }
             .onDisappear { store.setDashboardVisible(false) }
     }

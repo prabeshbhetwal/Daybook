@@ -192,6 +192,19 @@ final class AppUsageArchive {
 
     // MARK: - Queries
 
+    /// Whether any ordinary app usage intersects `interval` before `cutoff`.
+    /// `contains` stops at the first match and reads the backing cache directly,
+    /// avoiding the full filtered-array allocation used by `sessions`.
+    func containsUsage(in interval: DateInterval, before cutoff: Date) -> Bool {
+        let upperBound = min(interval.end, cutoff)
+        guard upperBound > interval.start else { return false }
+        return cache.contains { session in
+            !AppUsageArchive.systemProcesses.contains(session.bundleID)
+                && session.end > interval.start
+                && session.start < upperBound
+        }
+    }
+
     /// Reads `sessions`, not `cache`. This was the one query in the app that
     /// skipped the system-process filter, and it is the one behind the popover
     /// header: on a day with six hours of `loginwindow` the menu bar said

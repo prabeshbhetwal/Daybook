@@ -118,10 +118,71 @@ extension SessionStore {
             .span(for: selectedDay, bundleID: bundleID)
     }
 
-    /// Rebuilds every dashboard figure from the two archives in one pass.
+    // MARK: - Surface refresh transactions
+
+    /// Archive callbacks are synchronous. Nest them inside the caller's refresh
+    /// and publish each surface at most once when the outer transaction ends.
+    func withRefreshTransaction(_ body: () -> Void) {
+        refreshTransactionDepth += 1
+        body()
+        refreshTransactionDepth -= 1
+        if refreshTransactionDepth == 0 { consumePendingSurfaceRefreshes() }
+    }
+
+    func archiveUsageDidChange() {
+        withRefreshTransaction {
+            glanceArchiveRefreshPending = true
+            dashboardArchiveRefreshPending = true
+        }
+    }
+
+    /// Requests a selected-day/period rebuild. When the window is hidden the
+    /// request remains pending until appearance; callers never bypass the gate.
     func refreshDashboard() {
+        withRefreshTransaction { dashboardArchiveRefreshPending = true }
+    }
+
+    private func consumePendingSurfaceRefreshes() {
+        guard refreshTransactionDepth == 0 else { return }
+        refreshTransactionDepth = 1
+        if glanceArchiveRefreshPending {
+            glanceArchiveRefreshPending = false
+            rebuildGlance()
+        }
+        if dashboardVisible, dashboardArchiveRefreshPending {
+            dashboardArchiveRefreshPending = false
+            rebuildDashboard()
+        }
+        refreshTransactionDepth = 0
+        // A synchronous observer may have requested another pass while values
+        // were publishing. Coalesce that work into the next single pass.
+        if glanceArchiveRefreshPending
+            || (dashboardVisible && dashboardArchiveRefreshPending) {
+            consumePendingSurfaceRefreshes()
+        }
+    }
+
+    /// The popover's archive-derived slice: today only, with the continuation
+    /// rows it presents. It remains live without touching selected-day/period
+    /// dashboard state while that window is hidden.
+    private func rebuildGlance() {
         guard let usage else { return }
-        dashboardArchiveRefreshPending = false
+        let today = Date()
+        let stats = DashboardStats(sessions: engine.archive, usage: usage)
+        glanceApps = stats.rankedApps(for: today)
+        glanceInsights = stats.insights(for: today)
+        glanceTimeline = stats.timeline(for: today)
+        glanceBrackets = stats.focusSpans(for: today).map { ($0.start, $0.end) }
+        glanceLayout = TimelineLayout(segments: glanceTimeline)
+        threadsToday = ThreadStats(sessions: engine.archive, usage: usage,
+                                   purposeOverrides: engine.store.purposeOverrides)
+            .threads(on: today, running: runningThread())
+    }
+
+    /// Rebuilds every full dashboard figure from the two archives in one pass.
+    /// Called only by the visibility gate above.
+    private func rebuildDashboard() {
+        guard let usage else { return }
         let stats = DashboardStats(sessions: engine.archive, usage: usage)
         let day = selectedDay
 
@@ -149,13 +210,19 @@ extension SessionStore {
         // summary name it.
         longestNameForSelectedDay = longest.map { $0.name.isEmpty ? $0.workType.displayName : $0.name }
         earliestDay = stats.earliestRecordedDay()
+        if let bounds = SessionRecord.dayBounds(day, calendar: .current),
+           usage.containsUsage(in: DateInterval(start: bounds.start, end: bounds.end),
+                               before: usage.metadata.accurateFrom) {
+            selectedDayIntegrityNote = "App usage from before "
+                + "\(Tokens.longDate(usage.metadata.accurateFrom)) was preserved "
+                + "and may include unattended time."
+        } else {
+            selectedDayIntegrityNote = nil
+        }
 
         // A month is 31 day-slices, each one pass over the usage array. One
         // rollup call walks them once; asking for the pieces separately walked
         // them three times and cost 16 MB of churn.
-        let threadStats = ThreadStats(sessions: engine.archive, usage: usage,
-                                      purposeOverrides: engine.store.purposeOverrides)
-        threadsToday = threadStats.threads(on: Date(), running: runningThread())
         daySessions = SessionDigest.entries(records: engine.archive.records(on: day),
                                             running: isToday ? runningThread(on: day) : nil,
                                             now: Date(), day: day)
@@ -235,31 +302,16 @@ extension SessionStore {
                                   .sorted { $0.start > $1.start })
             }
 
-        // On today these are the same computation, so the second pass only runs
-        // while the dashboard is browsing history.
-        if dayOffset == 0 {
-            glanceApps = rankedApps
-            glanceInsights = insights
-            glanceTimeline = timelineSegments
-            glanceBrackets = focusBrackets
-            glanceLayout = timelineLayout
-        } else {
-            let today = Date()
-            glanceApps = stats.rankedApps(for: today)
-            glanceInsights = stats.insights(for: today)
-            glanceTimeline = stats.timeline(for: today)
-            glanceBrackets = stats.focusSpans(for: today).map { ($0.start, $0.end) }
-            glanceLayout = TimelineLayout(segments: glanceTimeline)
-        }
     }
 
     /// Window lifecycle gate for archive-driven refreshes. A hidden dashboard
     /// retains its last rendered state until it appears, then consumes at most
     /// one pending refresh however many checkpoints changed underneath it.
     func setDashboardVisible(_ visible: Bool) {
-        dashboardVisible = visible
-        guard visible, dashboardArchiveRefreshPending else { return }
-        refreshDashboard()
+        withRefreshTransaction {
+            dashboardVisible = visible
+            if visible { dashboardArchiveRefreshPending = true }
+        }
     }
 
     /// The first day with anything recorded — the calendar cannot reach behind

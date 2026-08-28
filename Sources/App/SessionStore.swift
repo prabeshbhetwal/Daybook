@@ -69,6 +69,9 @@ final class SessionStore: ObservableObject {
                                                             switchesPerSession: 0,
                                                             sessionCount: 0)
     @Published var trackedForSelectedDay: TimeInterval = 0
+    /// Cached with the selected-day rebuild; views read this without walking
+    /// or allocating the usage archive during body evaluation.
+    @Published var selectedDayIntegrityNote: String?
     /// Baselines for the stat band's context lines: the day before the selected
     /// day, and the period before the selected period.
     @Published var trackedYesterday: TimeInterval = 0
@@ -189,6 +192,10 @@ final class SessionStore: ObservableObject {
     /// screen. Hidden changes are coalesced until the next appearance.
     var dashboardVisible = false
     var dashboardArchiveRefreshPending = false
+    var glanceArchiveRefreshPending = false
+    /// Nested archive callbacks join the outer refresh and are consumed once
+    /// when its final frame exits.
+    var refreshTransactionDepth = 0
     /// The "usual pace" median. Recomputed on refresh rather than every tick:
     /// it walks fourteen days of history and only moves as the hour does.
     private var cachedTypical: TimeInterval?
@@ -282,12 +289,7 @@ final class SessionStore: ObservableObject {
         self.tracker = tracker
         self.usage = usage
         usage.onDidChange = { [weak self] in
-            guard let self else { return }
-            if self.dashboardVisible {
-                self.refreshDashboard()
-            } else {
-                self.dashboardArchiveRefreshPending = true
-            }
+            self?.archiveUsageDidChange()
         }
         self.isTrackingEnabled = tracker.isEnabled
         refresh()
@@ -308,27 +310,30 @@ final class SessionStore: ObservableObject {
 
     /// Recomputes everything the surfaces display. One pass over each archive.
     func refresh() {
-        // Fold the in-flight stretch in first, or the frontmost app always looks
-        // idle in its own menu.
-        tracker?.flush()
-        // The fourteen-day walk behind "usual pace" only changes as the clock
-        // hour moves, so it is computed here and reused by the ticker.
-        cachedTypical = DailyGoal(archive: engine.archive,
-                                  goal: engine.store.dailyGoal,
-                                  usage: usage?.sessions ?? [],
-                                  usageAccurateFrom: usage?.metadata.accurateFrom,
-                                  running: engine.runningSpan).typical()
-        refreshThread()
-        refreshLiveFigures()
+        withRefreshTransaction {
+            // Fold the in-flight stretch in first, or the frontmost app always looks
+            // idle in its own menu.
+            tracker?.flush()
+            // The fourteen-day walk behind "usual pace" only changes as the clock
+            // hour moves, so it is computed here and reused by the ticker.
+            cachedTypical = DailyGoal(archive: engine.archive,
+                                      goal: engine.store.dailyGoal,
+                                      usage: usage?.sessions ?? [],
+                                      usageAccurateFrom: usage?.metadata.accurateFrom,
+                                      running: engine.runningSpan).typical()
+            refreshThread()
+            refreshLiveFigures()
 
-        weekBars = engine.archive.weekBars()
-        quickStarts = engine.archive.quickStarts(limit: 7)
-        workType = engine.activeWorkType
-        previousSession = engine.archive.records.last
-        isTrackingEnabled = tracker?.isEnabled ?? false
-        refreshDashboard()
-        refreshBreak()
-        updateTicker()
+            weekBars = engine.archive.weekBars()
+            quickStarts = engine.archive.quickStarts(limit: 7)
+            workType = engine.activeWorkType
+            previousSession = engine.archive.records.last
+            isTrackingEnabled = tracker?.isEnabled ?? false
+            glanceArchiveRefreshPending = true
+            dashboardArchiveRefreshPending = true
+            refreshBreak()
+            updateTicker()
+        }
     }
 
     /// Every figure that moves second by second, in one place.

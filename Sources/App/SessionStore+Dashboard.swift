@@ -50,25 +50,6 @@ extension SessionStore {
         return parts.joined(separator: " · ")
     }
 
-    /// Legacy records remain visible rather than being rewritten. Qualify only
-    /// a selected day that actually contains usage before the authoritative
-    /// epoch; a newly created archive later in the same day must not warn.
-    var selectedDayIntegrityNote: String? {
-        guard let usage,
-              let bounds = SessionRecord.dayBounds(selectedDay, calendar: .current) else {
-            return nil
-        }
-        let accurateFrom = usage.metadata.accurateFrom
-        let affected = usage.sessions.contains { session in
-            let start = max(session.start, bounds.start)
-            let end = min(session.end, min(bounds.end, accurateFrom))
-            return end > start
-        }
-        guard affected else { return nil }
-        return "App usage from before \(Tokens.longDate(accurateFrom)) was preserved "
-            + "and may include unattended time."
-    }
-
     /// `6h 55m on this today · 6 stretches since 9:10 am`, or nil for a first
     /// stretch. The thread's total lives here, under the clock, so it can
     /// never be mistaken for the timer — which is the current stretch.

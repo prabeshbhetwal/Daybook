@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 /// Headless logic tests (§7). Pure state-machine and time arithmetic with an
 /// injected clock — no UI, no notifications, no run loop.
@@ -85,6 +86,8 @@ enum SelfTest {
             ("App activation updates a waiting usage candidate", testWaitingActivationUpdatesCandidate),
             ("Legacy app usage migration preserves history", testLegacyUsageMigrationPreservesHistory),
             ("Usage checkpoints replace records by identity", testUsageCheckpointReplacesByIdentity),
+            ("Integrity usage query filters system processes and respects bounds",
+             testIntegrityUsageQuery),
             ("Most-used apps ranked with recent sessions", testMostUsedApps),
             ("History formatters: ago, range, spent", testHistoryFormatters),
             ("Dashboard: timeline order, colour index, rankings", testDashboardTimeline),
@@ -110,6 +113,8 @@ enum SelfTest {
              testDashboardDaySliceInvalidatesOnRevision),
             ("Dashboard refreshes archive changes only while visible",
              testDashboardArchiveVisibility),
+            ("A checkpoint callback coalesces into one full dashboard rebuild",
+             testDashboardRefreshCoalescesCheckpointCallback),
             ("Pre-accuracy usage is qualified on the selected day",
              testSelectedDayIntegrityNote),
             ("Period log: grouped, reverse chronological, day-scoped", testPeriodLog),
@@ -183,6 +188,8 @@ enum SelfTest {
              testPalette),
             ("Menu-bar glyph renders a template ring for every state", testMenuBarGlyph),
             ("Settings model writes through and notifies once per change", testSettingsModel),
+            ("Reveal data folder creates pristine storage and reports failures",
+             testRevealDataFolderWorkflow),
             ("Previous-period total is the same rollup one period back",
              testPreviousPeriodTracked),
             ("The popover still fits a 13\" screen with the away card up",
@@ -1479,6 +1486,39 @@ enum SelfTest {
         return problems
     }
 
+    /// Integrity qualification needs a yes/no answer, not an allocated copy of
+    /// the whole filtered archive. System processes remain excluded and both
+    /// the selected interval and accuracy cutoff are respected.
+    private static func testIntegrityUsageQuery() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let interval = DateInterval(start: base.addingTimeInterval(-4 * 3_600),
+                                    end: base.addingTimeInterval(2 * 3_600))
+
+        usage.record(AppUsageSession(bundleID: "com.apple.loginwindow", appName: "Login Window",
+                                     start: base.addingTimeInterval(-3 * 3_600),
+                                     end: base.addingTimeInterval(-2 * 3_600)))
+        usage.record(AppUsageSession(bundleID: "com.example.after", appName: "After",
+                                     start: base.addingTimeInterval(600),
+                                     end: base.addingTimeInterval(1_200)))
+        expect(!usage.containsUsage(in: interval, before: base),
+               "system usage and ordinary usage after the cutoff do not qualify", &problems)
+
+        usage.record(AppUsageSession(bundleID: "com.example.before", appName: "Before",
+                                     start: base.addingTimeInterval(-1_200),
+                                     end: base.addingTimeInterval(-600)))
+        expect(usage.containsUsage(in: interval, before: base),
+               "ordinary usage inside the interval before the cutoff qualifies", &problems)
+        let later = DateInterval(start: base.addingTimeInterval(3_600),
+                                 end: base.addingTimeInterval(7_200))
+        expect(!usage.containsUsage(in: later, before: base.addingTimeInterval(7_200)),
+               "usage outside the selected interval does not qualify", &problems)
+        return problems
+    }
+
     // MARK: - 23
 
     private static func testMostUsedApps() -> [String] {
@@ -2532,6 +2572,11 @@ enum SelfTest {
         checkpoint(minutes: 10)
         expectClose(store.trackedForSelectedDay, 0,
                     "a hidden dashboard does not refresh immediately", &problems)
+        store.refresh()
+        expectClose(store.trackedForSelectedDay, 0,
+                    "an ordinary hidden refresh does not consume the full dashboard", &problems)
+        expectClose(store.glanceApps.first?.total ?? -1, 10 * 60,
+                    "the hidden-dashboard refresh still updates today's popover glance", &problems)
         store.setDashboardVisible(true)
         expectClose(store.trackedForSelectedDay, 10 * 60,
                     "appearing consumes the pending archive refresh", &problems)
@@ -2547,6 +2592,47 @@ enum SelfTest {
         store.setDashboardVisible(true)
         expectClose(store.trackedForSelectedDay, 30 * 60,
                     "the next appearance refreshes hidden archive changes", &problems)
+        return problems
+    }
+
+    /// A normal refresh flushes the open stretch. Its synchronous archive
+    /// callback must join that transaction rather than re-entering the full
+    /// selected-day/period rebuild and publishing every figure twice.
+    private static func testDashboardRefreshCoalescesCheckpointCallback() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(anchoredNow())
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let persistence = PersistenceStore(defaults: defaults)
+        persistence.removeAll()
+        let engine = SessionEngine(store: persistence,
+                                   archive: SessionArchive(directory: directory,
+                                                           now: { clock.value }),
+                                   ownBundleID: "com.example.self", schedulesDwell: false,
+                                   now: { clock.value })
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                      idle: .disabled, now: { clock.value })
+        let store = SessionStore(engine: engine)
+        store.attach(tracker: tracker, usage: usage)
+        store.setDashboardVisible(true)
+        tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+        clock.advance(10 * 60)
+
+        var fullTrackedPublications = 0
+        let observation = store.$trackedForSelectedDay.dropFirst().sink { _ in
+            fullTrackedPublications += 1
+        }
+        store.refresh()
+
+        expect(usage.sessions.count == 1, "refresh flushes one stable checkpoint", &problems)
+        expectClose(store.trackedForSelectedDay, 10 * 60,
+                    "the one full rebuild sees the flushed checkpoint", &problems)
+        expect(fullTrackedPublications == 1,
+               "one refresh transaction publishes the full tracked figure once, got "
+               + "\(fullTrackedPublications)", &problems)
+        withExtendedLifetime(observation) {}
         return problems
     }
 
@@ -2578,6 +2664,7 @@ enum SelfTest {
                                       idle: .disabled, now: { clock.value })
         let store = SessionStore(engine: engine)
         store.attach(tracker: tracker, usage: usage)
+        store.setDashboardVisible(true)
         store.selectDay(offset: 1)
 
         let expected = "App usage from before \(Tokens.longDate(clock.value)) was preserved "
@@ -2587,6 +2674,20 @@ enum SelfTest {
         store.selectDay(offset: 2)
         expect(store.selectedDayIntegrityNote == nil,
                "a pre-accuracy day without usage has no warning", &problems)
+        store.setDashboardVisible(false)
+        guard let twoDaysAgo = calendar.date(byAdding: .day, value: -2,
+                                             to: calendar.startOfDay(for: clock.value)) else {
+            return problems + ["could not make the second pre-accuracy day"]
+        }
+        usage.record(AppUsageSession(bundleID: "com.example.browser", appName: "Browser",
+                                     start: twoDaysAgo.addingTimeInterval(11 * 3_600),
+                                     end: twoDaysAgo.addingTimeInterval(11.25 * 3_600)))
+        store.refresh()
+        expect(store.selectedDayIntegrityNote == nil,
+               "the cached warning stays frozen while the dashboard is hidden", &problems)
+        store.setDashboardVisible(true)
+        expect(store.selectedDayIntegrityNote == expected,
+               "dashboard appearance rebuilds the cached warning", &problems)
         store.selectDay(offset: 0)
         expect(store.selectedDayIntegrityNote == nil,
                "an authoritative selected day has no warning", &problems)
@@ -5269,6 +5370,52 @@ enum SelfTest {
         return problems
     }
 
+    /// A pristine install has no Application Support directory yet. Reveal
+    /// creates it before asking Finder, while both creation and Finder refusal
+    /// produce deterministic, concrete diagnostics.
+    private static func testRevealDataFolderWorkflow() -> [String] {
+        var problems: [String] = []
+        let root = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let pristine = root.appendingPathComponent("pristine/data", isDirectory: true)
+        var opened: [URL] = []
+        var logs: [String] = []
+
+        let revealed = SettingsModel.revealDataFolder(
+            at: pristine,
+            open: { opened.append($0); return true },
+            log: { logs.append($0) })
+        expect(revealed, "a pristine data folder is created and revealed", &problems)
+        expect(FileManager.default.fileExists(atPath: pristine.path),
+               "the pristine data directory now exists", &problems)
+        expect(opened == [pristine] && logs.isEmpty,
+               "Finder receives the exact directory without a failure log", &problems)
+
+        logs = []
+        let refused = SettingsModel.revealDataFolder(
+            at: pristine, open: { _ in false }, log: { logs.append($0) })
+        expect(!refused, "Finder refusal is returned as failure", &problems)
+        expect(logs.count == 1 && logs[0].contains(pristine.path)
+               && logs[0].contains("could not reveal data folder"),
+               "Finder refusal logs the concrete directory", &problems)
+
+        let blocker = root.appendingPathComponent("not-a-directory")
+        try? Data("blocked".utf8).write(to: blocker)
+        let impossible = blocker.appendingPathComponent("child", isDirectory: true)
+        logs = []
+        var attemptedOpen = false
+        let created = SettingsModel.revealDataFolder(
+            at: impossible,
+            open: { _ in attemptedOpen = true; return true },
+            log: { logs.append($0) })
+        expect(!created && !attemptedOpen,
+               "a creation failure never asks Finder to open a missing path", &problems)
+        expect(logs.count == 1 && logs[0].contains(impossible.path)
+               && logs[0].contains("could not create data folder"),
+               "creation failure logs the concrete directory", &problems)
+        return problems
+    }
+
     // MARK: - 83
 
     /// "vs last week" needs last week. The figure is the same rollup the chart
@@ -6036,6 +6183,7 @@ enum SelfTest {
         let store = SessionStore(engine: engine)
         let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.test", idle: .disabled)
         store.attach(tracker: tracker, usage: usage)
+        store.setDashboardVisible(true)
         store.refresh()
         expect(store.timelineSegments.map(\.bundleID) == ["com.t"],
                "today's segments on today, got \(store.timelineSegments.map(\.bundleID))", &problems)

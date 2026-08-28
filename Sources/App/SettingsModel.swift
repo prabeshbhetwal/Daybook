@@ -14,7 +14,7 @@ final class SettingsModel: ObservableObject {
     private let store: PersistenceStore
     private let onChange: () -> Void
     private let onTrackingChanged: (Bool) -> Void
-    private let onRevealDataFolder: () -> Void
+    private let onRevealDataFolder: (() -> Void)?
     /// Mirrored here because the tracker — not the preference — is the truth
     /// about whether recording is on, and the tracker lives with the store.
     private var trackingEnabled: Bool
@@ -23,10 +23,7 @@ final class SettingsModel: ObservableObject {
          isTrackingEnabled: Bool,
          onChange: @escaping () -> Void,
          onTrackingChanged: @escaping (Bool) -> Void,
-         revealDataFolder: @escaping () -> Void = {
-             NSWorkspace.shared.selectFile(
-                 nil, inFileViewerRootedAtPath: SessionArchive.defaultDirectory.path)
-         }) {
+         revealDataFolder: (() -> Void)? = nil) {
         self.store = store
         self.trackingEnabled = isTrackingEnabled
         self.onChange = onChange
@@ -98,7 +95,35 @@ final class SettingsModel: ObservableObject {
     /// Read-only: reveals local history without mutating a preference or
     /// asking Finder for any additional permission.
     func revealDataFolder() {
-        onRevealDataFolder()
+        if let onRevealDataFolder {
+            onRevealDataFolder()
+        } else {
+            Self.revealDataFolder(at: SessionArchive.defaultDirectory)
+        }
+    }
+
+    /// Ensures a pristine install has something Finder can reveal. Returning a
+    /// Bool and injecting open/log keeps both failure branches deterministic in
+    /// the headless suite while the default path uses the real local services.
+    @discardableResult
+    static func revealDataFolder(
+        at directory: URL,
+        fileManager: FileManager = .default,
+        open: (URL) -> Bool = { NSWorkspace.shared.open($0) },
+        log: (String) -> Void = Diagnostics.log
+    ) -> Bool {
+        do {
+            try fileManager.createDirectory(at: directory,
+                                            withIntermediateDirectories: true)
+        } catch {
+            log("could not create data folder at \(directory.path): \(error)")
+            return false
+        }
+        guard open(directory) else {
+            log("could not reveal data folder at \(directory.path): Finder refused to open it")
+            return false
+        }
+        return true
     }
 
     /// Opens the Settings scene. `SettingsLink` is macOS 14; on 13 the scene is
