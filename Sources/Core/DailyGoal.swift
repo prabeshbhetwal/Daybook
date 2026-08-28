@@ -91,7 +91,6 @@ struct DailyGoal {
     /// epoch; a historical raw session is not evidence for this comparison.
     private func typicalByNow() -> TimeInterval? {
         let current = now()
-        let cutoffSeconds = secondsSinceMidnight(current)
         var reached: [TimeInterval] = []
         guard let firstAccurateDay = firstCompleteAccurateDay() else { return nil }
 
@@ -104,21 +103,24 @@ struct DailyGoal {
             // `accurateFrom`, so the next complete calendar day is the first
             // fair historical comparator.
             guard dayStart >= firstAccurateDay else { continue }
-            let cutoff = dayStart.addingTimeInterval(cutoffSeconds)
-            let focusedActive = FocusedActiveTime.seconds(
-                in: DateInterval(start: dayStart, end: cutoff),
+            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+                continue
+            }
+            let fullDay = FocusedActiveTime.seconds(
+                in: DateInterval(start: dayStart, end: dayEnd),
                 records: archive.records, usage: usage, running: nil)
-            guard focusedActive > 0 else { continue }
-            reached.append(focusedActive)
+            guard fullDay > 0 else { continue }
+
+            // Eligibility is full-day focused activity; the stored sample is
+            // the same local clock-time interval and may validly be zero.
+            let cutoff = historicalCutoff(on: dayStart, ending: dayEnd, matching: current)
+            reached.append(FocusedActiveTime.seconds(
+                in: DateInterval(start: dayStart, end: cutoff),
+                records: archive.records, usage: usage, running: nil))
         }
 
         guard reached.count >= FocusConstants.goalMedianMinimumDays else { return nil }
-        let value = median(of: reached)
-        // A zero median is an artefact, not a fact about the user: someone who
-        // works one long session a day has nothing *ended* before the cutoff on
-        // most days. Reporting it would say "2h 30m ahead of usual" to somebody
-        // having an ordinary morning.
-        return value > 0 ? value : nil
+        return median(of: reached)
     }
 
     /// `accurateFrom` is a point within the migration calendar day, not a
@@ -130,10 +132,20 @@ struct DailyGoal {
                              to: calendar.startOfDay(for: usageAccurateFrom))
     }
 
-    /// Elapsed seconds since local midnight — the cutoff applied to every day
-    /// in the comparison, so "by this hour" means the same clock time on each.
-    private func secondsSinceMidnight(_ date: Date) -> TimeInterval {
-        date.timeIntervalSince(calendar.startOfDay(for: date))
+    /// The historical interval ends at today's local wall-clock time. `nextTime`
+    /// resolves a missing spring-forward time, `.first` chooses the first
+    /// repeated fall-back time, and clamping prevents a short DST day spilling
+    /// into its successor.
+    private func historicalCutoff(on dayStart: Date, ending dayEnd: Date,
+                                  matching current: Date) -> Date {
+        var time = calendar.dateComponents([.hour, .minute, .second], from: current)
+        time.calendar = calendar
+        time.timeZone = calendar.timeZone
+        let candidate = calendar.nextDate(
+            after: dayStart.addingTimeInterval(-1), matching: time,
+            matchingPolicy: .nextTime, repeatedTimePolicy: .first,
+            direction: .forward) ?? dayEnd
+        return min(max(candidate, dayStart), dayEnd)
     }
 
     private func median(of values: [TimeInterval]) -> TimeInterval {
