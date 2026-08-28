@@ -20,6 +20,20 @@ struct PeriodDay: Identifiable, Equatable {
     var id: Date { date }
 }
 
+/// The only measure a period bar carries. Work-type composition is presented
+/// separately by the donut and must never be stacked into this value.
+struct PeriodChartPoint: Identifiable, Equatable {
+    let date: Date
+    let seconds: TimeInterval
+    var id: Date { date }
+}
+
+enum PeriodChartData {
+    static func tracked(_ days: [PeriodDay]) -> [PeriodChartPoint] {
+        days.map { PeriodChartPoint(date: $0.date, seconds: $0.tracked) }
+    }
+}
+
 struct PeriodSummary: Equatable {
     let tracked: TimeInterval
     let activeDays: Int

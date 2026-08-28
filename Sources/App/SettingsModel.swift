@@ -14,6 +14,7 @@ final class SettingsModel: ObservableObject {
     private let store: PersistenceStore
     private let onChange: () -> Void
     private let onTrackingChanged: (Bool) -> Void
+    private let onRevealDataFolder: () -> Void
     /// Mirrored here because the tracker — not the preference — is the truth
     /// about whether recording is on, and the tracker lives with the store.
     private var trackingEnabled: Bool
@@ -21,11 +22,16 @@ final class SettingsModel: ObservableObject {
     init(store: PersistenceStore,
          isTrackingEnabled: Bool,
          onChange: @escaping () -> Void,
-         onTrackingChanged: @escaping (Bool) -> Void) {
+         onTrackingChanged: @escaping (Bool) -> Void,
+         revealDataFolder: @escaping () -> Void = {
+             NSWorkspace.shared.selectFile(
+                 nil, inFileViewerRootedAtPath: SessionArchive.defaultDirectory.path)
+         }) {
         self.store = store
         self.trackingEnabled = isTrackingEnabled
         self.onChange = onChange
         self.onTrackingChanged = onTrackingChanged
+        self.onRevealDataFolder = revealDataFolder
     }
 
     private func write(_ body: () -> Void) {
@@ -87,6 +93,12 @@ final class SettingsModel: ObservableObject {
             trackingEnabled = newValue
             onTrackingChanged(newValue)
         }
+    }
+
+    /// Read-only: reveals local history without mutating a preference or
+    /// asking Finder for any additional permission.
+    func revealDataFolder() {
+        onRevealDataFolder()
     }
 
     /// Opens the Settings scene. `SettingsLink` is macOS 14; on 13 the scene is

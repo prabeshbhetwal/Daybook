@@ -48,7 +48,7 @@ struct StatBand: View {
     }
 }
 
-/// Stacked daily bars with a dashed average line. The average is what turns a
+/// Daily tracked-time bars with a dashed average line. The average is what turns a
 /// bar chart into a judgement — without it, bars are just bars.
 /// The day under the pointer, for the period chart's hover label. `@State`
 /// is unavailable on this toolchain.
@@ -91,21 +91,11 @@ struct PeriodChart: View {
                 .frame(height: height, alignment: .leading)
         } else {
             Chart {
-                ForEach(days) { day in
-                    ForEach(day.byWorkType) { share in
-                        BarMark(x: .value("Day", day.date, unit: .day),
-                                y: .value("Minutes", share.seconds / 60))
-                            .foregroundStyle(by: .value("Type", share.workType.displayName))
-                            .cornerRadius(Tokens.Radius.bar)
-                    }
-                    // A day with tracked usage but no focus session still needs
-                    // a bar, or the chart silently under-reports.
-                    if day.byWorkType.isEmpty && day.tracked > 0 {
-                        BarMark(x: .value("Day", day.date, unit: .day),
-                                y: .value("Minutes", day.tracked / 60))
-                            .foregroundStyle(by: .value("Type", TimelinePalette.untrackedLabel))
-                            .cornerRadius(Tokens.Radius.bar)
-                    }
+                ForEach(PeriodChartData.tracked(days)) { point in
+                    BarMark(x: .value("Day", point.date, unit: .day),
+                            y: .value("Minutes", point.seconds / 60))
+                        .foregroundStyle(Tokens.Palette.app(rank: 0))
+                        .cornerRadius(Tokens.Radius.bar)
                 }
                 if average > 0 {
                     RuleMark(y: .value("Average", average / 60))
@@ -118,11 +108,10 @@ struct PeriodChart: View {
                         }
                 }
             }
-            .chartForegroundStyleScale(domain: legend.map(\.0), range: legend.map(\.1))
             // Without an explicit domain the axis spans only the days that have
             // bars, so a month with one busy week reads as a busy month.
             .chartXScale(domain: domain)
-            .chartLegend(position: .bottom, alignment: .leading, spacing: 8)
+            .chartLegend(.hidden)
             .chartYAxisLabel("minutes", position: .leading)
             // Hover names the day under the pointer; a click opens it.
             .chartOverlay { proxy in
@@ -153,19 +142,6 @@ struct PeriodChart: View {
             .frame(height: height)
             .accessibilityLabel("Tracked minutes per day, \(days.count) days")
         }
-    }
-
-    /// Only the types actually present, in a fixed order with fixed colours.
-    private var legend: [(String, Color)] {
-        var present: [(String, Color)] = []
-        for type in WorkType.allCases
-        where days.contains(where: { day in day.byWorkType.contains { $0.workType == type } }) {
-            present.append((type.displayName, TimelinePalette.color(for: type)))
-        }
-        if days.contains(where: { $0.byWorkType.isEmpty && $0.tracked > 0 }) {
-            present.append((TimelinePalette.untrackedLabel, TimelinePalette.untracked))
-        }
-        return present
     }
 
     private var domain: ClosedRange<Date> {

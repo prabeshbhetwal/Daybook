@@ -121,6 +121,7 @@ extension SessionStore {
     /// Rebuilds every dashboard figure from the two archives in one pass.
     func refreshDashboard() {
         guard let usage else { return }
+        dashboardArchiveRefreshPending = false
         let stats = DashboardStats(sessions: engine.archive, usage: usage)
         let day = selectedDay
 
@@ -250,6 +251,15 @@ extension SessionStore {
             glanceBrackets = stats.focusSpans(for: today).map { ($0.start, $0.end) }
             glanceLayout = TimelineLayout(segments: glanceTimeline)
         }
+    }
+
+    /// Window lifecycle gate for archive-driven refreshes. A hidden dashboard
+    /// retains its last rendered state until it appears, then consumes at most
+    /// one pending refresh however many checkpoints changed underneath it.
+    func setDashboardVisible(_ visible: Bool) {
+        dashboardVisible = visible
+        guard visible, dashboardArchiveRefreshPending else { return }
+        refreshDashboard()
     }
 
     /// The first day with anything recorded — the calendar cannot reach behind

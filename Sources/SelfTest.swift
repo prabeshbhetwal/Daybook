@@ -104,6 +104,14 @@ enum SelfTest {
             ("Insight copy names the measure; Finder is not listed", testInsightCopyAndRunningFilter),
             ("Sleep and wake: labels are honest, no work is lost", testSleepWakeTracking),
             ("Period rollups: bounds, active-day average, empty period", testPeriodStats),
+            ("Period chart bars use tracked time, not focus composition",
+             testPeriodChartUsesTrackedTime),
+            ("Dashboard day slices invalidate on archive revision",
+             testDashboardDaySliceInvalidatesOnRevision),
+            ("Dashboard refreshes archive changes only while visible",
+             testDashboardArchiveVisibility),
+            ("Pre-accuracy usage is qualified on the selected day",
+             testSelectedDayIntegrityNote),
             ("Period log: grouped, reverse chronological, day-scoped", testPeriodLog),
             ("App purpose: static map, ambiguity, overrides", testAppPurpose),
             ("App purpose: focused set and session kind", testSessionKind),
@@ -1419,6 +1427,19 @@ enum SelfTest {
         expect(archive.revision == 3 && notifications == 3,
                "discarding an absent short checkpoint must be a no-op", &problems)
 
+        let appended = AppUsageSession(bundleID: "com.example.browser", appName: "Browser",
+                                       start: base.addingTimeInterval(180),
+                                       end: base.addingTimeInterval(240))
+        expect(archive.record(appended), "a real segment is recorded", &problems)
+        expect(archive.revision == 4 && notifications == 4,
+               "recording a segment must revise and notify once", &problems)
+        let rejected = AppUsageSession(bundleID: "com.example.short", appName: "Short",
+                                       start: base.addingTimeInterval(300),
+                                       end: base.addingTimeInterval(304))
+        expect(!archive.record(rejected), "a sub-floor segment is rejected", &problems)
+        expect(archive.revision == 4 && notifications == 4,
+               "rejecting a segment must not revise or notify", &problems)
+
         // A correction at capacity is a replacement, never an insertion: it
         // must leave every other stored record intact. A genuinely new UUID,
         // on the other hand, uses the archive's ordinary oldest-first bound.
@@ -2406,6 +2427,169 @@ enum SelfTest {
 
         try? FileManager.default.removeItem(at: usageDir)
         try? FileManager.default.removeItem(at: sessionDir)
+        return problems
+    }
+
+    /// A period bar is one tracked-time fact. Focus composition belongs to the
+    /// separate Work type donut and must not determine the bar's height.
+    private static func testPeriodChartUsesTrackedTime() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: base)
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let sessions = SessionArchive(directory: directory, now: { clock.value })
+
+        usage.record(AppUsageSession(bundleID: "com.example.editor", appName: "Editor",
+                                     start: day.addingTimeInterval(9 * 3_600),
+                                     end: day.addingTimeInterval(11 * 3_600)))
+        sessions.append(SessionRecord(name: "Focused edit", workType: .deepWork,
+                                      start: day.addingTimeInterval(9 * 3_600),
+                                      end: day.addingTimeInterval(9.75 * 3_600),
+                                      workSeconds: 45 * 60))
+
+        let rollup = PeriodStats(sessions: sessions, usage: usage,
+                                 calendar: calendar, now: { clock.value })
+            .rollup(for: .day, containing: day)
+        guard !rollup.days.isEmpty else {
+            return ["the day rollup must contain one chart day"]
+        }
+
+        let points = PeriodChartData.tracked(rollup.days)
+        expect(points.count == 1, "one selected day produces one period bar", &problems)
+        expectClose(points.first?.seconds ?? -1, 2 * 3_600,
+                    "the period chart point is exactly two tracked hours", &problems)
+        expectClose(rollup.summary.averagePerActiveDay, 2 * 3_600,
+                    "the tracked average is exactly two hours", &problems)
+        return problems
+    }
+
+    /// Correcting an open checkpoint keeps the archive count unchanged. The
+    /// cache must therefore key on revision, or it serves the old duration.
+    private static func testDashboardDaySliceInvalidatesOnRevision() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let day = Calendar.current.startOfDay(for: base)
+        let identity = UUID()
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let sessions = SessionArchive(directory: directory, now: { clock.value })
+        let original = AppUsageSession(id: identity, bundleID: "com.example.editor",
+                                       appName: "Editor", start: day.addingTimeInterval(9 * 3_600),
+                                       end: day.addingTimeInterval(10 * 3_600),
+                                       endReason: .stillOpen)
+        usage.checkpoint(original)
+        let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   now: { clock.value })
+        expectClose(stats.trackedTotal(for: day), 3_600,
+                    "the initial day slice is one hour", &problems)
+
+        let corrected = AppUsageSession(id: identity, bundleID: original.bundleID,
+                                        appName: original.appName, start: original.start,
+                                        end: day.addingTimeInterval(10.5 * 3_600),
+                                        endReason: .stillOpen)
+        usage.checkpoint(corrected)
+        expect(usage.sessions.count == 1,
+               "the corrected checkpoint keeps the archive count at one", &problems)
+        expectClose(stats.trackedTotal(for: day), 1.5 * 3_600,
+                    "the revised day slice is rebuilt to ninety minutes", &problems)
+        return problems
+    }
+
+    /// Archive callbacks update the dashboard immediately only while it is on
+    /// screen. Hidden mutations are coalesced until the next appearance.
+    private static func testDashboardArchiveVisibility() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(anchoredNow())
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let persistence = PersistenceStore(defaults: defaults)
+        persistence.removeAll()
+        let sessions = SessionArchive(directory: directory, now: { clock.value })
+        let engine = SessionEngine(store: persistence, archive: sessions,
+                                   ownBundleID: "com.example.self", schedulesDwell: false,
+                                   now: { clock.value })
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                      idle: .disabled, now: { clock.value })
+        let store = SessionStore(engine: engine)
+        store.attach(tracker: tracker, usage: usage)
+        let day = Calendar.current.startOfDay(for: clock.value)
+        let identity = UUID()
+
+        func checkpoint(minutes: Double) {
+            usage.checkpoint(AppUsageSession(id: identity, bundleID: "com.example.editor",
+                                             appName: "Editor",
+                                             start: day.addingTimeInterval(9 * 3_600),
+                                             end: day.addingTimeInterval(9 * 3_600 + minutes * 60),
+                                             endReason: .stillOpen))
+        }
+
+        checkpoint(minutes: 10)
+        expectClose(store.trackedForSelectedDay, 0,
+                    "a hidden dashboard does not refresh immediately", &problems)
+        store.setDashboardVisible(true)
+        expectClose(store.trackedForSelectedDay, 10 * 60,
+                    "appearing consumes the pending archive refresh", &problems)
+
+        checkpoint(minutes: 20)
+        expectClose(store.trackedForSelectedDay, 20 * 60,
+                    "a visible dashboard refreshes a same-count correction immediately", &problems)
+
+        store.setDashboardVisible(false)
+        checkpoint(minutes: 30)
+        expectClose(store.trackedForSelectedDay, 20 * 60,
+                    "a hidden dashboard keeps its last rendered value", &problems)
+        store.setDashboardVisible(true)
+        expectClose(store.trackedForSelectedDay, 30 * 60,
+                    "the next appearance refreshes hidden archive changes", &problems)
+        return problems
+    }
+
+    /// Preserved usage before the authoritative recording epoch remains
+    /// visible, but the selected day carries the approved qualification.
+    private static func testSelectedDayIntegrityNote() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(anchoredNow())
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let calendar = Calendar.current
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let persistence = PersistenceStore(defaults: defaults)
+        persistence.removeAll()
+        let engine = SessionEngine(store: persistence,
+                                   archive: SessionArchive(directory: directory,
+                                                           now: { clock.value }),
+                                   ownBundleID: "com.example.self", schedulesDwell: false,
+                                   now: { clock.value })
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        guard let yesterday = calendar.date(byAdding: .day, value: -1,
+                                            to: calendar.startOfDay(for: clock.value)) else {
+            return ["could not make the pre-accuracy day"]
+        }
+        usage.record(AppUsageSession(bundleID: "com.example.editor", appName: "Editor",
+                                     start: yesterday.addingTimeInterval(10 * 3_600),
+                                     end: yesterday.addingTimeInterval(10.5 * 3_600)))
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                      idle: .disabled, now: { clock.value })
+        let store = SessionStore(engine: engine)
+        store.attach(tracker: tracker, usage: usage)
+        store.selectDay(offset: 1)
+
+        let expected = "App usage from before \(Tokens.longDate(clock.value)) was preserved "
+            + "and may include unattended time."
+        expect(store.selectedDayIntegrityNote == expected,
+               "the selected pre-accuracy day shows the approved warning", &problems)
+        store.selectDay(offset: 2)
+        expect(store.selectedDayIntegrityNote == nil,
+               "a pre-accuracy day without usage has no warning", &problems)
+        store.selectDay(offset: 0)
+        expect(store.selectedDayIntegrityNote == nil,
+               "an authoritative selected day has no warning", &problems)
         return problems
     }
 
@@ -5046,9 +5230,11 @@ enum SelfTest {
         store.removeAll()
         var changes = 0
         var tracking: [Bool] = []
+        var revealCount = 0
         let model = SettingsModel(store: store, isTrackingEnabled: true,
                                   onChange: { changes += 1 },
-                                  onTrackingChanged: { tracking.append($0) })
+                                  onTrackingChanged: { tracking.append($0) },
+                                  revealDataFolder: { revealCount += 1 })
 
         model.dailyGoal = 2 * 3_600
         expectClose(store.dailyGoal, 2 * 3_600, "daily goal writes through", &problems)
@@ -5076,6 +5262,10 @@ enum SelfTest {
         expect(tracking == [false], "tracking goes to the tracker's owner", &problems)
         expect(model.isTrackingEnabled == false, "and the model remembers it", &problems)
         expect(changes == 10, "tracking does not double-fire onChange", &problems)
+        model.revealDataFolder()
+        expect(revealCount == 1, "Reveal data folder invokes its read-only action", &problems)
+        expect(changes == 10 && tracking == [false],
+               "revealing data changes no setting and sends no preference callback", &problems)
         return problems
     }
 

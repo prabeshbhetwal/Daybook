@@ -21,8 +21,10 @@ struct DashboardView: View {
                 // Reopening the window is a fresh question, and the question is
                 // almost always about today.
                 store.goToToday()
+                store.setDashboardVisible(true)
                 store.refresh()
             }
+            .onDisappear { store.setDashboardVisible(false) }
     }
 
     @ViewBuilder private func wrap<Content: View>(
@@ -37,6 +39,17 @@ struct DashboardView: View {
     private var column: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
             titleBand
+            if let note = store.selectedDayIntegrityNote {
+                Label(note, systemImage: "exclamationmark.triangle.fill")
+                    .font(Tokens.Typography.detail)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, Tokens.Space.m)
+                    .padding(.vertical, Tokens.Space.s)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Tokens.Surface.card,
+                                in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
+                                                     style: .continuous))
+            }
             DashboardHero(store: store)
             // The timeline is the day's spine, so it comes first — full width,
             // straight under the hero.
@@ -133,7 +146,7 @@ struct DashboardView: View {
                                   trailing: store.rhythmPeak.map { "peak \($0)" })
                     RhythmChart(hours: store.rhythm, onHourTap: { store.selectHour($0) })
                 } else {
-                    SectionHeader(title: "By day")
+                    SectionHeader(title: "Tracked by day")
                     PeriodChart(days: store.periodDays,
                                 average: store.periodSummary.averagePerActiveDay,
                                 onPickDay: { day in

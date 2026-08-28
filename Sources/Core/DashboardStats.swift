@@ -86,10 +86,9 @@ struct DashboardStats {
     /// array per refresh, each allocating its own tuples.
     private final class DaySliceCache {
         var day: Date?
-        /// Archive size when the slice was built. Without this the cache serves
-        /// stale data after the tracker records a new stretch — a trap, since
-        /// nothing would fail loudly.
-        var sourceCount = -1
+        /// Archive revision when the slice was built. Count is insufficient:
+        /// an open checkpoint is corrected in place under its stable UUID.
+        var sourceRevision = -1
         var segments: [TimelineSegment] = []
         var ranks: [AppRank] = []
     }
@@ -188,13 +187,13 @@ struct DashboardStats {
             }
             .sorted { $0.start < $1.start }
         cache.day = day
-        cache.sourceCount = usage.sessions.count
+        cache.sourceRevision = usage.revision
     }
 
     private func ensure(_ day: Date) {
         if let cached = cache.day,
            calendar.isDate(cached, inSameDayAs: day),
-           cache.sourceCount == usage.sessions.count {
+           cache.sourceRevision == usage.revision {
             return
         }
         build(for: day)

@@ -185,6 +185,10 @@ final class SessionStore: ObservableObject {
     // Internal for SessionStore+Dashboard.swift.
     var cachedWindow: (start: Date, end: Date)?
     var earliestDay: Date?
+    /// Archive callbacks rebuild the dashboard only while its window is on
+    /// screen. Hidden changes are coalesced until the next appearance.
+    var dashboardVisible = false
+    var dashboardArchiveRefreshPending = false
     /// The "usual pace" median. Recomputed on refresh rather than every tick:
     /// it walks fourteen days of history and only moves as the hour does.
     private var cachedTypical: TimeInterval?
@@ -274,8 +278,17 @@ final class SessionStore: ObservableObject {
     /// Attaches the background usage tracker. Optional: the focus loop works
     /// fully without it, and the gallery drives the store without one.
     func attach(tracker: AppUsageTracker, usage: AppUsageArchive) {
+        self.usage?.onDidChange = nil
         self.tracker = tracker
         self.usage = usage
+        usage.onDidChange = { [weak self] in
+            guard let self else { return }
+            if self.dashboardVisible {
+                self.refreshDashboard()
+            } else {
+                self.dashboardArchiveRefreshPending = true
+            }
+        }
         self.isTrackingEnabled = tracker.isEnabled
         refresh()
     }

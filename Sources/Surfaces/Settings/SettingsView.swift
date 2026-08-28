@@ -123,6 +123,9 @@ struct SettingsView: View {
                     ForEach([3, 5, 7, 10], id: \.self) { Text("\($0)").tag($0) }
                 }
                 Toggle("Record app usage", isOn: $model.isTrackingEnabled)
+                Button("Reveal data folder") {
+                    model.revealDataFolder()
+                }
             } footer: {
                 Text("Recording is local and keeps app names and bundle identifiers only — "
                      + "never window titles, addresses, or anything you type.")
