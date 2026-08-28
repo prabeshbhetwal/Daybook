@@ -77,6 +77,8 @@ enum SelfTest {
             ("Away inside a session is excluded from its record", testAwayInsideSession),
             ("Engine publishes state changes to observers", testEngineNotifiesObservers),
             ("App usage tracker segments and merges correctly", testUsageTracker),
+            ("Legacy app usage migration preserves history", testLegacyUsageMigrationPreservesHistory),
+            ("Usage checkpoints replace records by identity", testUsageCheckpointReplacesByIdentity),
             ("Most-used apps ranked with recent sessions", testMostUsedApps),
             ("History formatters: ago, range, spent", testHistoryFormatters),
             ("Dashboard: timeline order, colour index, rankings", testDashboardTimeline),
@@ -980,6 +982,113 @@ enum SelfTest {
                &problems)
 
         try? FileManager.default.removeItem(at: dir)
+        return problems
+    }
+
+    // MARK: - Usage storage persistence
+
+    /// A migration must change only the outer JSON container. The original
+    /// bytes remain available for recovery, and every historical session field
+    /// survives exactly as recorded.
+    private static func testLegacyUsageMigrationPreservesHistory() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base.addingTimeInterval(12_345))
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let firstID = UUID()
+        let secondID = UUID()
+        let legacy = "[\n"
+            + "  {\"id\":\"\(firstID.uuidString)\",\"bundleID\":\"com.example.editor\","
+            + "\"appName\":\"Editor\",\"start\":\(base.timeIntervalSinceReferenceDate),"
+            + "\"end\":\(base.addingTimeInterval(600).timeIntervalSinceReferenceDate),"
+            + "\"endReason\":\"idle\"},\n"
+            + "  {\"id\":\"\(secondID.uuidString)\",\"bundleID\":\"com.example.browser\","
+            + "\"appName\":\"Browser\",\"start\":\(base.addingTimeInterval(900).timeIntervalSinceReferenceDate),"
+            + "\"end\":\(base.addingTimeInterval(1_500).timeIntervalSinceReferenceDate),"
+            + "\"endReason\":\"appSwitch\"}\n"
+            + "]\n"
+        let originalBytes = Data(legacy.utf8)
+        let usageURL = directory.appendingPathComponent("app-usage.json")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? originalBytes.write(to: usageURL)
+
+        let migrated = AppUsageArchive(directory: directory, now: { clock.value })
+        let expected = [
+            AppUsageSession(id: firstID, bundleID: "com.example.editor", appName: "Editor",
+                            start: base, end: base.addingTimeInterval(600), endReason: .idle),
+            AppUsageSession(id: secondID, bundleID: "com.example.browser", appName: "Browser",
+                            start: base.addingTimeInterval(900), end: base.addingTimeInterval(1_500),
+                            endReason: .appSwitch)
+        ]
+
+        expect(migrated.sessions == expected,
+               "migration must preserve every historical session field", &problems)
+        expect(migrated.metadata.schemaVersion == 2,
+               "migrated storage must identify itself as schema v2", &problems)
+        expect(migrated.metadata.accurateFrom == clock.value,
+               "migration must record when corrected usage becomes authoritative", &problems)
+        guard let backupURL = migrated.legacyBackupURL else {
+            problems.append("migration must retain a discoverable v1 backup URL")
+            return problems
+        }
+        expect((try? Data(contentsOf: backupURL)) == originalBytes,
+               "v1 backup must preserve the original bytes exactly", &problems)
+        let migratedObject = try? JSONSerialization.jsonObject(with: Data(contentsOf: usageURL)) as? [String: Any]
+        expect(migratedObject?["metadata"] != nil && migratedObject?["sessions"] != nil,
+               "app-usage.json must be rewritten as a v2 envelope", &problems)
+
+        let reloaded = AppUsageArchive(directory: directory, now: { clock.value.addingTimeInterval(60) })
+        expect(reloaded.sessions == expected,
+               "the v2 envelope must reload without changing history", &problems)
+        expect(reloaded.metadata == migrated.metadata,
+               "the authoritative date must persist in the v2 envelope", &problems)
+        return problems
+    }
+
+    /// A checkpoint corrects its stable stretch rather than appending a fragment;
+    /// meaningful mutations notify exactly once, while no-op corrections do not.
+    private static func testUsageCheckpointReplacesByIdentity() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let archive = AppUsageArchive(directory: directory, now: { clock.value })
+        var notifications = 0
+        archive.onDidChange = { notifications += 1 }
+        let identity = UUID()
+        let original = AppUsageSession(id: identity, bundleID: "com.example.editor", appName: "Editor",
+                                       start: base, end: base.addingTimeInterval(60), endReason: .stillOpen)
+
+        archive.checkpoint(original)
+        expect(archive.sessions == [original], "the first checkpoint must create one record", &problems)
+        expect(archive.revision == 1 && notifications == 1,
+               "creating a checkpoint must revise and notify once", &problems)
+
+        let corrected = AppUsageSession(id: identity, bundleID: "com.example.editor", appName: "Editor",
+                                        start: base, end: base.addingTimeInterval(120), endReason: .stillOpen)
+        archive.checkpoint(corrected)
+        expect(archive.sessions == [corrected],
+               "a checkpoint with the same UUID must replace, not append", &problems)
+        expect(archive.revision == 2 && notifications == 2,
+               "a corrected checkpoint must revise and notify once", &problems)
+
+        archive.checkpoint(corrected)
+        expect(archive.revision == 2 && notifications == 2,
+               "an unchanged checkpoint must not revise or notify", &problems)
+
+        let trimmedBelowMinimum = AppUsageSession(id: identity, bundleID: "com.example.editor",
+                                                  appName: "Editor", start: base,
+                                                  end: base.addingTimeInterval(4), endReason: .idle)
+        archive.checkpoint(trimmedBelowMinimum)
+        expect(archive.sessions.isEmpty,
+               "a corrected checkpoint below five seconds must remove its record", &problems)
+        expect(archive.revision == 3 && notifications == 3,
+               "removing a corrected record must revise and notify once", &problems)
+
+        archive.checkpoint(trimmedBelowMinimum)
+        expect(archive.revision == 3 && notifications == 3,
+               "discarding an absent short checkpoint must be a no-op", &problems)
         return problems
     }
 

@@ -46,6 +46,19 @@ struct AppUsageSession: Codable, Equatable, Identifiable {
     }
 }
 
+/// Identifies the app-usage file format and when corrected usage recording
+/// became authoritative. Earlier records remain visible as history, but are not
+/// silently represented as having the later recording guarantees.
+struct AppUsageMetadata: Codable, Equatable {
+    let schemaVersion: Int
+    let accurateFrom: Date
+
+    init(schemaVersion: Int = 2, accurateFrom: Date) {
+        self.schemaVersion = schemaVersion
+        self.accurateFrom = accurateFrom
+    }
+}
+
 /// A per-app rollup for the menu bar.
 struct AppUsageSummary: Identifiable, Equatable {
     let bundleID: String
@@ -76,11 +89,23 @@ enum AppUsageConstants {
 /// Codable file, atomic writes, corrupt files moved aside rather than lost.
 final class AppUsageArchive {
 
+    /// The on-disk v2 shape. Keeping this private lets the archive evolve its
+    /// container without exposing a persistence detail to the rest of the app.
+    private struct Envelope: Codable {
+        let metadata: AppUsageMetadata
+        let sessions: [AppUsageSession]
+    }
+
     private let directory: URL
     private let fileURL: URL
     private let now: () -> Date
     private let calendar: Calendar
     private var cache: [AppUsageSession]
+
+    private(set) var revision = 0
+    private(set) var metadata: AppUsageMetadata
+    private(set) var legacyBackupURL: URL?
+    var onDidChange: (() -> Void)?
 
     init(directory: URL = SessionArchive.defaultDirectory,
          calendar: Calendar = .current,
@@ -90,6 +115,7 @@ final class AppUsageArchive {
         self.now = now
         self.calendar = calendar
         self.cache = []
+        self.metadata = AppUsageMetadata(accurateFrom: now())
         self.cache = load()
     }
 
@@ -136,8 +162,32 @@ final class AppUsageArchive {
         if cache.count > AppUsageConstants.capacity {
             cache.removeFirst(cache.count - AppUsageConstants.capacity)
         }
-        save()
+        persistMutation()
         return true
+    }
+
+    /// Inserts a newly observed stretch or corrects the existing stretch with
+    /// the same stable UUID. A late idle observation can therefore shorten (or
+    /// remove) a previously saved checkpoint without leaving a duplicate tail.
+    func checkpoint(_ session: AppUsageSession) {
+        if let index = cache.firstIndex(where: { $0.id == session.id }) {
+            guard session.seconds >= AppUsageConstants.minimumSegment else {
+                cache.remove(at: index)
+                persistMutation()
+                return
+            }
+            guard cache[index] != session else { return }
+            cache[index] = session
+            persistMutation()
+            return
+        }
+
+        guard session.seconds >= AppUsageConstants.minimumSegment else { return }
+        cache.append(session)
+        if cache.count > AppUsageConstants.capacity {
+            cache.removeFirst(cache.count - AppUsageConstants.capacity)
+        }
+        persistMutation()
     }
 
     // MARK: - Queries
@@ -196,8 +246,19 @@ final class AppUsageArchive {
     private func load() -> [AppUsageSession] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
         do {
-            return try JSONDecoder().decode([AppUsageSession].self,
-                                            from: Data(contentsOf: fileURL))
+            let data = try Data(contentsOf: fileURL)
+            if let envelope = try? JSONDecoder().decode(Envelope.self, from: data) {
+                metadata = envelope.metadata
+                return envelope.sessions
+            }
+
+            let legacy = try JSONDecoder().decode([AppUsageSession].self, from: data)
+            let stamp = Int(now().timeIntervalSince1970)
+            let backup = directory.appendingPathComponent("app-usage-v1-backup-\(stamp).json")
+            try data.write(to: backup, options: .atomic)
+            legacyBackupURL = backup
+            save(sessions: legacy)
+            return legacy
         } catch {
             let stamp = Int(now().timeIntervalSince1970)
             let aside = directory.appendingPathComponent("app-usage-corrupt-\(stamp).json")
@@ -208,12 +269,23 @@ final class AppUsageArchive {
     }
 
     private func save() {
+        save(sessions: cache)
+    }
+
+    private func save(sessions: [AppUsageSession]) {
         do {
             try FileManager.default.createDirectory(at: directory,
                                                     withIntermediateDirectories: true)
-            try JSONEncoder().encode(cache).write(to: fileURL, options: .atomic)
+            let envelope = Envelope(metadata: metadata, sessions: sessions)
+            try JSONEncoder().encode(envelope).write(to: fileURL, options: .atomic)
         } catch {
             Diagnostics.log("failed to write app usage: \(error)")
         }
+    }
+
+    private func persistMutation() {
+        revision += 1
+        save()
+        onDidChange?()
     }
 }
