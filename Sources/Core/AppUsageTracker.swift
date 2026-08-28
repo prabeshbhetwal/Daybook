@@ -8,17 +8,30 @@ import Foundation
 /// Tracking can be switched off; when off, nothing is recorded at all.
 final class AppUsageTracker {
 
-    private struct OpenSegment {
+    private struct ActiveSegment {
+        let id: UUID
         let bundleID: String
         let appName: String
         let start: Date
+        var lastPersistedEnd: Date
+    }
+
+    private struct ResumeCandidate {
+        let bundleID: String
+        let appName: String
+    }
+
+    private enum TrackingState {
+        case stopped
+        case active(ActiveSegment)
+        case waitingForPresence(ResumeCandidate)
     }
 
     private let archive: AppUsageArchive
     private let now: () -> Date
     private let ownBundleID: String?
     private let idle: IdleMonitor
-    private var open: OpenSegment?
+    private var state: TrackingState = .stopped
 
     private(set) var isEnabled: Bool
 
@@ -54,7 +67,18 @@ final class AppUsageTracker {
     }
 
     /// The app that is frontmost right now, if tracking is running.
-    var currentBundleID: String? { open?.bundleID }
+    var currentBundleID: String? {
+        guard case .active(let segment) = state else { return nil }
+        return segment.bundleID
+    }
+
+    /// Whether the tracker has an active stretch that should keep the store's
+    /// cosmetic ticker alive. Waiting for a confirmed return is deliberately
+    /// not observing: idle and away time must not restart a timer by itself.
+    var isObserving: Bool {
+        if case .active = state { return true }
+        return false
+    }
 
     /// How long the in-flight stretch has run, idle-trimmed exactly as a real
     /// close would trim it. Lets the menu bar show a live "at the Mac" figure
@@ -62,14 +86,26 @@ final class AppUsageTracker {
     /// open stretch when something forces a flush, and between flushes the total
     /// stood visibly still — five minutes of "0m" after a boot, in one measured
     /// case, because nothing had happened yet to trigger a write.
-    func openSeconds() -> TimeInterval {
-        guard let segment = open else { return 0 }
+    func currentStretchSeconds() -> TimeInterval {
+        guard case .active(let segment) = state else { return 0 }
         return max(0, effectiveEnd().end.timeIntervalSince(segment.start))
     }
 
+    /// The portion of the active stretch not already represented by its stable
+    /// archive checkpoint. Combining this with `usage.totalToday()` therefore
+    /// never counts a saved prefix twice.
+    func unpersistedSeconds() -> TimeInterval {
+        guard case .active(let segment) = state else { return 0 }
+        return max(0, effectiveEnd().end.timeIntervalSince(segment.lastPersistedEnd))
+    }
+
+    /// Compatibility for existing callers while they migrate to the two
+    /// deliberate measures above. `openSeconds` remains the whole live stretch.
+    func openSeconds() -> TimeInterval { currentStretchSeconds() }
+
     func setEnabled(_ enabled: Bool) {
         guard enabled != isEnabled else { return }
-        if !enabled { closeOpenSegment(reason: .systemLock) }
+        if !enabled { closeActiveSegment(reason: .systemLock) }
         isEnabled = enabled
     }
 
@@ -83,73 +119,113 @@ final class AppUsageTracker {
         // stretch but opening none means the absence records as a gap, which is
         // what it was.
         if AppUsageArchive.systemProcesses.contains(bundleID) {
-            closeOpenSegment(reason: .systemLock)
+            closeActiveSegment(reason: .systemLock)
             return
         }
-        if open?.bundleID == bundleID { return }
+        if case .active(let segment) = state, segment.bundleID == bundleID { return }
 
-        closeOpenSegment(reason: .appSwitch)
-        open = OpenSegment(bundleID: bundleID,
-                           appName: name.isEmpty ? bundleID : name,
-                           start: now())
+        closeActiveSegment(reason: .appSwitch)
+        begin(bundleID: bundleID, name: name, at: now())
     }
 
     /// The user went away — lock, sleep or power off. Time spent away is not
     /// usage, so the stretch ends here rather than running until they return.
     func suspend() {
-        closeOpenSegment(reason: .systemLock)
+        closeActiveSegment(reason: .systemLock)
     }
 
-    private func closeOpenSegment(reason: UsageEndReason) {
-        guard let segment = open else { return }
-        open = nil
+    private func closeActiveSegment(reason: UsageEndReason) {
+        guard case .active(let segment) = state else { return }
+        state = .stopped
         let (candidate, wasTrimmed) = effectiveEnd()
         // Idle trimming outranks the nominal reason: the stretch really ended
         // when input stopped, not when the app changed.
-        archive.record(AppUsageSession(bundleID: segment.bundleID,
-                                       appName: segment.appName,
-                                       start: segment.start,
-                                       end: max(segment.start, candidate),
-                                       endReason: wasTrimmed ? .idle : reason))
+        archive.checkpoint(AppUsageSession(id: segment.id,
+                                           bundleID: segment.bundleID,
+                                           appName: segment.appName,
+                                           start: segment.start,
+                                           end: max(segment.start, candidate),
+                                           endReason: wasTrimmed ? .idle : reason))
     }
 
     /// Flushes the in-flight stretch so queries include it. Called before the
     /// menu bar reads its data, and on terminate.
     func flush() {
-        guard let segment = open else { return }
+        guard case .active(var segment) = state else { return }
         let (candidate, wasTrimmed) = effectiveEnd()
         let end = max(segment.start, candidate)
-        let written = archive.record(AppUsageSession(bundleID: segment.bundleID,
-                                                     appName: segment.appName,
-                                                     start: segment.start,
-                                                     end: end,
-                                                     endReason: wasTrimmed ? .idle : .stillOpen))
-        // Only advance when the write actually landed. The archive refuses
-        // anything under `minimumSegment`, and flushes fire on every app switch,
-        // lock and wake — so moving the start regardless quietly deleted the
-        // seconds between two rapid flushes, always downward, without limit.
-        guard written else { return }
-        // Continue from where the flushed portion ended, so the same seconds are
-        // never written twice.
-        open = OpenSegment(bundleID: segment.bundleID,
-                           appName: segment.appName,
-                           start: end)
+        archive.checkpoint(AppUsageSession(id: segment.id,
+                                           bundleID: segment.bundleID,
+                                           appName: segment.appName,
+                                           start: segment.start,
+                                           end: end,
+                                           endReason: wasTrimmed ? .idle : .stillOpen))
+        if wasTrimmed {
+            state = .waitingForPresence(ResumeCandidate(bundleID: segment.bundleID,
+                                                         appName: segment.appName))
+            return
+        }
+        // A rejected sub-five-second checkpoint has not been saved, so retain
+        // the old boundary and present the whole live tail as unpersisted.
+        if end.timeIntervalSince(segment.start) >= AppUsageConstants.minimumSegment {
+            segment.lastPersistedEnd = end
+        }
+        state = .active(segment)
     }
 
     /// True when the open stretch has been accruing long enough that losing it
     /// to a crash would matter. Drives the periodic flush.
     func openSeconds(exceeds limit: TimeInterval) -> Bool {
-        openSeconds() >= limit
+        unpersistedSeconds() >= limit
+    }
+
+    /// Handles an idle sample from the store without creating a wake policy.
+    /// Once the cutoff is crossed, correct the active checkpoint back to the
+    /// final input moment and retain only a candidate for a later confirmation.
+    func observeIdle(seconds: TimeInterval) {
+        guard seconds >= AppUsageTracker.idleCutoff,
+              case .active(let segment) = state else { return }
+        let end = max(segment.start, now().addingTimeInterval(-seconds))
+        archive.checkpoint(AppUsageSession(id: segment.id,
+                                           bundleID: segment.bundleID,
+                                           appName: segment.appName,
+                                           start: segment.start,
+                                           end: end,
+                                           endReason: .idle))
+        state = .waitingForPresence(ResumeCandidate(bundleID: segment.bundleID,
+                                                     appName: segment.appName))
+    }
+
+    /// Records the app waiting behind a wake or idle boundary. The caller must
+    /// separately prove user presence before `confirmPresence(at:)` begins a
+    /// new UUID; this method intentionally does not make that policy decision.
+    func prepareToResume(bundleID: String?, name: String) {
+        guard isEnabled, !isObserving, let bundleID, bundleID != ownBundleID,
+              !AppUsageArchive.systemProcesses.contains(bundleID) else { return }
+        state = .waitingForPresence(ResumeCandidate(bundleID: bundleID,
+                                                     appName: name.isEmpty ? bundleID : name))
+    }
+
+    /// Starts a fresh, independently correctable stretch after a caller has
+    /// established that a person is actually back at the Mac.
+    func confirmPresence(at moment: Date) {
+        guard isEnabled, case .waitingForPresence(let candidate) = state else { return }
+        begin(bundleID: candidate.bundleID, name: candidate.appName, at: moment)
+    }
+
+    private func begin(bundleID: String, name: String, at moment: Date) {
+        let appName = name.isEmpty ? bundleID : name
+        state = .active(ActiveSegment(id: UUID(), bundleID: bundleID,
+                                      appName: appName, start: moment,
+                                      lastPersistedEnd: moment))
     }
 
     /// The machine came back. Reopens tracking for whatever is frontmost, because
     /// waking and carrying on in the *same* app posts no activation notification —
     /// that work was simply never recorded.
     func resume(bundleID: String?, name: String) {
-        guard isEnabled, open == nil, let bundleID, bundleID != ownBundleID,
+        guard isEnabled, !isObserving, let bundleID, bundleID != ownBundleID,
               !AppUsageArchive.systemProcesses.contains(bundleID) else { return }
-        open = OpenSegment(bundleID: bundleID,
-                           appName: name.isEmpty ? bundleID : name,
-                           start: now())
+        begin(bundleID: bundleID, name: name, at: now())
     }
 }

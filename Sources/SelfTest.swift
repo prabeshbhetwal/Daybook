@@ -77,6 +77,7 @@ enum SelfTest {
             ("Away inside a session is excluded from its record", testAwayInsideSession),
             ("Engine publishes state changes to observers", testEngineNotifiesObservers),
             ("App usage tracker segments and merges correctly", testUsageTracker),
+            ("Periodic usage checkpoints roll back an idle tail", testPeriodicCheckpointRollsBackIdleTail),
             ("Legacy app usage migration preserves history", testLegacyUsageMigrationPreservesHistory),
             ("Usage checkpoints replace records by identity", testUsageCheckpointReplacesByIdentity),
             ("Most-used apps ranked with recent sessions", testMostUsedApps),
@@ -985,6 +986,65 @@ enum SelfTest {
         return problems
     }
 
+    /// A periodic checkpoint is a provisional view of one stretch, not an
+    /// immutable fragment. An idle observation must be able to shorten that
+    /// saved view before a later active stretch begins.
+    private static func testPeriodicCheckpointRollsBackIdleTail() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        var idle: TimeInterval = 0
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: FocusConstants.bundleIdentifier,
+                                      idle: IdleMonitor(idleSeconds: { idle }),
+                                      now: { clock.value })
+
+        tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+        clock.advance(60)
+        tracker.flush()
+        let firstCheckpointID = usage.sessions.first?.id
+        clock.advance(60)
+        tracker.flush()
+
+        expect(usage.sessions.count == 1,
+               "repeated checkpoints must retain one UUID, got \(usage.sessions.count)",
+               &problems)
+        expect(usage.sessions.first?.id == firstCheckpointID,
+               "a periodic checkpoint must correct the original UUID", &problems)
+        expect(usage.sessions.first?.endReason == .stillOpen,
+               "an active checkpoint must remain provisional", &problems)
+        expectClose(usage.totalToday() + tracker.unpersistedSeconds(), 120,
+                    "saved checkpoints plus the live tail must not double-count", &problems)
+
+        clock.advance(20 * 60)
+        idle = 20 * 60
+        tracker.flush()
+        expect(usage.sessions.count == 1 && usage.sessions.first?.endReason == .idle,
+               "idle must finalise the provisional checkpoint", &problems)
+        expectClose(usage.totalToday(), 120,
+                    "an idle tail must be removed from today total", &problems)
+        expectClose(usage.totalToday() + tracker.unpersistedSeconds(), 120,
+                    "a finalised checkpoint has no duplicated live tail", &problems)
+
+        idle = 0
+        tracker.confirmPresence(at: clock.value)
+        clock.advance(60)
+        tracker.flush()
+
+        let ids = Set(usage.sessions.map(\.id))
+        expect(ids.count == 2,
+               "returning after idle must create exactly one new UUID, got \(ids.count)",
+               &problems)
+        expectClose(usage.totalToday(), 180,
+                    "two active minutes, twenty idle minutes, then one active minute is 180s",
+                    &problems)
+        expectClose(usage.totalToday() + tracker.unpersistedSeconds(), 180,
+                    "the returned stretch remains singly counted after checkpointing", &problems)
+        return problems
+    }
+
     // MARK: - Usage storage persistence
 
     /// A migration must change only the outer JSON container. The original
@@ -1089,6 +1149,43 @@ enum SelfTest {
         archive.checkpoint(trimmedBelowMinimum)
         expect(archive.revision == 3 && notifications == 3,
                "discarding an absent short checkpoint must be a no-op", &problems)
+
+        // A correction at capacity is a replacement, never an insertion: it
+        // must leave every other stored record intact. A genuinely new UUID,
+        // on the other hand, uses the archive's ordinary oldest-first bound.
+        let capacityDirectory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: capacityDirectory) }
+        try? FileManager.default.createDirectory(at: capacityDirectory,
+                                                 withIntermediateDirectories: true)
+        let capacity = AppUsageConstants.capacity
+        let stored = (0..<capacity).map { offset in
+            AppUsageSession(id: UUID(), bundleID: "com.example.\(offset)",
+                            appName: "App \(offset)",
+                            start: base.addingTimeInterval(Double(offset) * 10),
+                            end: base.addingTimeInterval(Double(offset) * 10 + 5))
+        }
+        let legacyURL = capacityDirectory.appendingPathComponent("app-usage.json")
+        try? JSONEncoder().encode(stored).write(to: legacyURL)
+        let bounded = AppUsageArchive(directory: capacityDirectory, now: { clock.value })
+        let correctedOldest = AppUsageSession(id: stored[0].id,
+                                              bundleID: stored[0].bundleID,
+                                              appName: stored[0].appName,
+                                              start: stored[0].start,
+                                              end: stored[0].end.addingTimeInterval(60),
+                                              endReason: .stillOpen)
+        bounded.checkpoint(correctedOldest)
+        expect(bounded.sessions.count == capacity && bounded.sessions.contains(correctedOldest)
+               && bounded.sessions.contains(where: { $0.id == stored[1].id }),
+               "correcting an existing UUID at capacity must not evict another record", &problems)
+
+        let newIdentity = AppUsageSession(bundleID: "com.example.new", appName: "New",
+                                          start: base.addingTimeInterval(999_999),
+                                          end: base.addingTimeInterval(1_000_004))
+        bounded.checkpoint(newIdentity)
+        expect(bounded.sessions.count == capacity && bounded.sessions.contains(newIdentity)
+               && !bounded.sessions.contains(where: { $0.id == correctedOldest.id })
+               && bounded.sessions.contains(where: { $0.id == stored[1].id }),
+               "a new UUID at capacity must evict only the oldest record", &problems)
         return problems
     }
 

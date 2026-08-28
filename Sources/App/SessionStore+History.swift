@@ -215,7 +215,7 @@ extension SessionStore {
                                        appName: app.localizedName ?? bundleID,
                                        launched: app.launchDate,
                                        stretchSeconds: bundleID == frontmost
-                                           ? tracker?.openSeconds() : nil)
+                                           ? tracker?.currentStretchSeconds() : nil)
             })
 
         // Earlier today: apps with usage that are not running now, so the two

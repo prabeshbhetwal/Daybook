@@ -265,7 +265,7 @@ final class SessionStore: ObservableObject {
     /// so an open stretch is reason enough to keep counting. Both go quiet on
     /// lock and sleep, which is when `suspend()` closes the stretch.
     private var ticks: Bool {
-        if tracker?.currentBundleID != nil { return true }
+        if tracker?.isObserving == true { return true }
         return engine.state != .idle && !engine.state.isPaused
     }
 
@@ -338,7 +338,7 @@ final class SessionStore: ObservableObject {
         // cached version missed every segment that opened *and closed* between
         // refreshes, so the figure went backwards on each app switch.
         if let usage {
-            trackedToday = usage.totalToday() + (tracker?.openSeconds() ?? 0)
+            trackedToday = usage.totalToday() + (tracker?.unpersistedSeconds() ?? 0)
         }
     }
 
@@ -413,6 +413,7 @@ final class SessionStore: ObservableObject {
             watchingCache = nil
             lastSampleWatching = false
             watchingEndedAt = nil
+            tracker?.observeIdle(seconds: quiet)
             engine.transition(on: .idleObserved(seconds: quiet))
             return
         }
@@ -426,6 +427,7 @@ final class SessionStore: ObservableObject {
         if watching {
             lastSampleWatching = true
             watchingEndedAt = nil
+            tracker?.observeIdle(seconds: quiet)
             engine.transition(on: .watchingObserved(seconds: quiet))
             return
         }
@@ -434,6 +436,7 @@ final class SessionStore: ObservableObject {
         // Once the watching stops, idle counts from then — not from the last
         // keypress before the film, which would put the film into the absence.
         let effective = watchingEndedAt.map { min(quiet, now.timeIntervalSince($0)) } ?? quiet
+        tracker?.observeIdle(seconds: effective)
         engine.transition(on: .idleObserved(seconds: effective))
     }
 
@@ -450,8 +453,8 @@ final class SessionStore: ObservableObject {
             // switch with it — `applicationWillTerminate` does not run for any
             // of those. Bounded to a minute now, instead of unbounded.
             if self.tick % SessionStore.flushEverySeconds == 0 {
-                if self.tracker?.openSeconds(exceeds:
-                        TimeInterval(SessionStore.flushEverySeconds)) == true {
+                if (self.tracker?.unpersistedSeconds() ?? 0) >=
+                        TimeInterval(SessionStore.flushEverySeconds) {
                     self.tracker?.flush()
                 }
                 // The engine's snapshot has the same problem: `savedAt` is the
