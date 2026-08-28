@@ -183,7 +183,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // `goalReached` and `goalPace` permanently dormant — the one goal
             // computation in the app that was still fed no evidence.
             goal: DailyGoal(archive: engine.archive, goal: engine.store.dailyGoal,
-                            usage: usage.sessions, running: engine.runningSpan,
+                            usage: usage.sessions,
+                            usageAccurateFrom: usage.metadata.accurateFrom,
+                            running: engine.runningSpan,
                             runningWork: engine.elapsedToday()).progress(),
             endedMedia: recentlyEndedMedia(before: moment),
             musicPairing: musicPairingSince.map { moment.timeIntervalSince($0) },

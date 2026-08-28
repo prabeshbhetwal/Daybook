@@ -303,6 +303,7 @@ final class SessionStore: ObservableObject {
         cachedTypical = DailyGoal(archive: engine.archive,
                                   goal: engine.store.dailyGoal,
                                   usage: usage?.sessions ?? [],
+                                  usageAccurateFrom: usage?.metadata.accurateFrom,
                                   running: engine.runningSpan).typical()
         refreshThread()
         refreshLiveFigures()
@@ -341,6 +342,7 @@ final class SessionStore: ObservableObject {
                             achieved: DailyGoal(archive: engine.archive,
                                                 goal: engine.store.dailyGoal,
                                                 usage: usage?.sessions ?? [],
+                                                usageAccurateFrom: usage?.metadata.accurateFrom,
                                                 running: engine.runningSpan,
                                                 runningWork: inFlight)
                                 .achievedToday(),
