@@ -454,8 +454,8 @@ struct DashboardStats {
     // MARK: Insights — each gated, never fabricated
 
     func insights(for day: Date) -> [Insight] {
-        // `deepWorkShare` is deliberately absent: the Focus quality section already
-        // states it, and repeating a figure makes the reader distrust both copies.
+        // Focus quality already states the work-type split, and repeating a figure
+        // makes the reader distrust both copies.
         [longestStretch(day), insideSession(day), versusYesterday(day)]
             .compactMap { $0 }
     }
@@ -485,16 +485,6 @@ struct DashboardStats {
                        detail: "\(durationPhrase(tracked * quality.insideSessionShare)) "
                              + "of \(durationPhrase(tracked)) tracked",
                        symbolName: "target")
-    }
-
-    private func deepWorkShare(_ day: Date) -> Insight? {
-        let quality = focusQuality(for: day)
-        guard let deep = quality.byWorkType.first(where: { $0.workType == .deepWork }),
-              deep.share > 0 else { return nil }
-        return Insight(id: "deep-work-share",
-                       headline: "Deep work \(Int((deep.share * 100).rounded()))%",
-                       detail: "of your session time today",
-                       symbolName: "brain.head.profile")
     }
 
     private func versusYesterday(_ day: Date) -> Insight? {

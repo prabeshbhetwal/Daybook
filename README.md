@@ -6,7 +6,8 @@ one-click start, live timer, streak and weekly rhythm — plus a Today window fo
 No dock icon.
 
 It distinguishes a **micro-break** (step away for coffee — the session continues
-silently) from an **extended break** (the session stops and you decide what happened).
+silently) from an **extended break** (a resolve card records what happened); an absence
+past the configured long-away cap ends the session where it began.
 It also auto-pauses when a distraction app stays frontmost, and auto-resumes when you
 return to a work app.
 
@@ -25,13 +26,18 @@ and `@AppStorage` work normally.
 ./build.sh
 ```
 
-Produces an ad-hoc signed `FocusContinuity.app` in the repo root, compiled for the host
-architecture with a macOS 13.0 deployment target. Warnings are errors.
+Produces a generated, locally ad-hoc-signed `FocusContinuity.app` in the repository root,
+compiled for the host architecture with a macOS 13.0 deployment target. Warnings are
+errors. The bundle is neither notarised nor distributable.
 
 ```bash
 ./build.sh --run     # build, then open the app
 ./build.sh --test    # build, then run the headless self-test
+./build.sh --check   # stage, strictly verify and self-test without replacing the root app
 ```
+
+Git tracks source, tests and documentation only. Generated app bundles, snapshots,
+`.build`, worktrees and Finder metadata are ignored; do not force-add them.
 
 Two extra launch modes, for design review:
 
@@ -52,8 +58,8 @@ artefact. `TextField` and material backgrounds do not render under `ImageRendere
 ./build.sh --test
 ```
 
-Sixty-six headless logic tests run against an injected clock — no UI, no notifications, no
-run loop. They cover elapsed arithmetic across pause cycles, the 5 s debounce, micro-break
+The headless logic self-test runs against an injected clock — no UI, no notifications, no
+run loop. It covers elapsed arithmetic across pause cycles, the 5 s debounce, micro-break
 accumulation, extended-break escalation, an unanswered away card (the gap stays excluded,
 the clock keeps running, a quit weekend does not become work), a night-long absence ending
 the session where the user left, cross-midnight work splitting between its days so both
@@ -169,11 +175,13 @@ that ended when you walked away.
 
 ### Events
 
-State is driven only by `NSWorkspace.shared.notificationCenter`
+State is driven by `NSWorkspace.shared.notificationCenter`
 (sleep/wake/activate/power-off/session switch) and `DistributedNotificationCenter`
-(`com.apple.screenIsLocked` / `com.apple.screenIsUnlocked`). Nothing polls. The one
-repeating `Timer` ticks the displayed clock once a second while a session runs; it reads
-no state-machine input and drives no transition.
+(`com.apple.screenIsLocked` / `com.apple.screenIsUnlocked`). The sole repeating ticker is
+the one-second `SessionStore` ticker. It samples idle presence (and reports that evidence
+to the engine), flushes app-usage checkpoints, refreshes live figures and evaluates break
+reminders. Presence still requires an unlock or confirmed human input after wake, so a
+wake alone cannot create usage.
 
 ### App purpose
 
@@ -198,12 +206,10 @@ advance for synthetically posted events while the idle timer does not, so a samp
 while nobody is present clears the window outright rather than being stored — a delta
 measured across an absence would be a lie.
 
-Density is sampled **at event boundaries only** — app activation, lock, unlock, wake — and
-never on a timer. A repeating timer would be the only polling in the app and would hold the
-process off App Nap for a signal that is read once, when a stretch ends. Sampling on
-activation also measures each app's stretch on its own terms, so a browser's purpose is
-decided by the input that happened while it was frontmost rather than by typing that
-happened in an editor minutes earlier.
+Density is sampled **at event boundaries only** — app activation, lock, unlock, wake —
+and never independently on a timer. Sampling on activation also measures each app's
+stretch on its own terms, so a browser's purpose is decided by the input that happened
+while it was frontmost rather than by typing that happened in an editor minutes earlier.
 
 ### Categories
 
@@ -260,6 +266,15 @@ in `~/Library/Application Support/FocusContinuity/sessions.json` — a plain Cod
 written atomically, capped at 5000 records. A corrupt file is renamed aside with a
 timestamp rather than discarded, so a parse failure can neither wedge launch nor destroy
 history silently.
+
+App usage lives beside it in `app-usage.json` as a version-2 envelope containing its
+metadata (`schemaVersion: 2`, `accurateFrom`) and unchanged usage sessions. The
+`accurateFrom` date marks where corrected usage recording is authoritative; earlier usage
+is retained but qualified in historical views. Loading a legacy raw array preserves every
+session field, copies its original bytes to
+`app-usage-v1-backup-<unix timestamp>.json`, then writes the v2 envelope. Open stretches
+use one stable identity: periodic checkpoints replace that record rather than appending
+fragments, and later idle evidence can shorten or remove its provisional tail.
 
 Everything is local. Nothing is transmitted, and no Accessibility, Automation, Screen
 Recording or Input Monitoring permission is requested — the global hotkey uses Carbon's
@@ -521,11 +536,10 @@ timeline, clicking narrows the page to it, Esc clears.
 ### Day, Week, Month
 
 One segmented control above the chart switches the period. **Day** shows the 24-hour
-timeline; **Week** and **Month** replace it with daily bars stacked by work type, over an
+timeline; **Week** and **Month** replace it with daily bars of exact tracked time, over an
 axis spanning the whole period — so a month with one busy week reads as one busy week, not
-as a busy month. Work-type colours are fixed (deep work blue, meetings orange, admin green,
-learning purple); Swift Charts would otherwise assign them in first-seen order and the
-legend would have to be re-learned on every switch. A dashed rule marks the average.
+as a busy month. Work-type composition stays in the separate donut rather than changing
+bar height. A dashed rule marks the average.
 
 The stat row above it reads **Tracked · Active days · Average/day · Longest session**. The
 average divides by **active** days, not calendar days: averaging a five-day week over seven
@@ -612,7 +626,7 @@ Sources/
     Components/GoalRing.swift       The signature ring
     Components/InfoTip.swift        Plain-English explanations on hover
     Components/AppIcon.swift        Cached app icons; palette forwarder
-  SelfTest.swift                    Eighty-four headless logic tests
+  SelfTest.swift                    Headless logic self-test
 docs/superpowers/
   specs/                            Design specs
   plans/                            Implementation plans

@@ -9,15 +9,18 @@ final class SessionArchive {
     private let fileURL: URL
     private let now: () -> Date
     private let calendar: Calendar
+    private let capacity: Int
     private var cache: [SessionRecord]
 
     init(directory: URL = SessionArchive.defaultDirectory,
          calendar: Calendar = .current,
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         capacity: Int = FocusConstants.archiveCapacity) {
         self.directory = directory
         self.fileURL = directory.appendingPathComponent("sessions.json")
         self.now = now
         self.calendar = calendar
+        self.capacity = capacity
         self.cache = []
         self.cache = load()
     }
@@ -35,8 +38,8 @@ final class SessionArchive {
 
     func append(_ record: SessionRecord) {
         cache.append(record)
-        if cache.count > FocusConstants.archiveCapacity {
-            cache.removeFirst(cache.count - FocusConstants.archiveCapacity)
+        if cache.count > capacity {
+            cache.removeFirst(cache.count - capacity)
         }
         save()
     }

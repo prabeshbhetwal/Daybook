@@ -691,7 +691,6 @@ final class SessionEngine {
             pauseStartDate = nil
             decisionStartDate = nil
             awayReturnedAt = nil
-        awayReturnedAt = nil
             state = .idle
             persist()
             return

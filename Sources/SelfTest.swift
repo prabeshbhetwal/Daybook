@@ -14,11 +14,14 @@ enum SelfTest {
 
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
     private static let suiteName = "com.prabesh.focuscontinuity.selftest"
+    private static var scratchDirectories: [URL] = []
 
     /// A scratch directory per archive so tests never touch real history.
     private static func scratchDirectory() -> URL {
-        FileManager.default.temporaryDirectory
+        let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-selftest-\(UUID().uuidString)", isDirectory: true)
+        scratchDirectories.append(directory)
+        return directory
     }
 
     private static func makeArchive(_ clock: Clock) -> SessionArchive {
@@ -47,6 +50,10 @@ enum SelfTest {
     }
 
     private static func cleanUp() {
+        for directory in scratchDirectories {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        scratchDirectories.removeAll()
         UserDefaults.standard.removePersistentDomain(forName: suiteName)
     }
 
@@ -69,6 +76,7 @@ enum SelfTest {
             ("Restore across a 22m gap escalates to a decision", testRestoreWithGap),
             ("Dwell guard: leaving the break app cancels the pause", testDwellCancellation),
             ("Pure helpers: title format, archive ring, defaults", testPureHelpers),
+            ("Self-test scratch directories are removed during cleanup", testScratchDirectoryCleanup),
             ("Decision accounting: deliberation and Reset are honest", testDecisionAccounting),
             ("Archive queries: today, sessions, longest, week bars", testArchiveQueries),
             ("Streak rule: 25m minimum, yesterday still counts", testStreakRule),
@@ -602,19 +610,19 @@ enum SelfTest {
         // The archive ring caps at capacity, dropping the oldest entries.
         let clock = Clock(base.addingTimeInterval(60))
         let dir = scratchDirectory()
-        let ring = SessionArchive(directory: dir, now: { clock.value })
-        let overflow = FocusConstants.archiveCapacity + 10
+        let ring = SessionArchive(directory: dir, now: { clock.value }, capacity: 3)
+        let overflow = 5
         for index in 0..<overflow {
             ring.append(SessionRecord(name: "s\(index)", workType: .deepWork,
                                       start: base, end: base.addingTimeInterval(60),
                                       workSeconds: Double(index)))
         }
-        expect(ring.records.count == FocusConstants.archiveCapacity,
-               "ring should cap at \(FocusConstants.archiveCapacity), got \(ring.records.count)",
+        expect(ring.records.count == 3,
+               "ring should cap at 3, got \(ring.records.count)",
                &problems)
-        expect(ring.records.first?.name == "s10",
+        expect(ring.records.first?.name == "s2",
                "ring should drop the oldest, got \(ring.records.first?.name ?? "nil")", &problems)
-        expect(ring.sessionsToday() == FocusConstants.archiveCapacity,
+        expect(ring.sessionsToday() == 3,
                "all surviving records end on the same day", &problems)
         clock.value = base.addingTimeInterval(86_400 * 5)
         expect(ring.sessionsToday() == 0, "no records end five days later", &problems)
@@ -627,6 +635,18 @@ enum SelfTest {
                "corrupt state should be cleared from defaults", &problems)
 
         store.removeAll()
+        return problems
+    }
+
+    private static func testScratchDirectoryCleanup() -> [String] {
+        var problems: [String] = []
+        let directory = scratchDirectory()
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        expect(FileManager.default.fileExists(atPath: directory.path),
+               "scratch directory should exist before cleanup", &problems)
+        cleanUp()
+        expect(!FileManager.default.fileExists(atPath: directory.path),
+               "cleanup should remove every tracked scratch directory", &problems)
         return problems
     }
 
@@ -4376,8 +4396,7 @@ enum SelfTest {
                     "and on no other", &problems)
 
         // Through the archive: the streak must not break on the earlier day.
-        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("fc-attribution-\(UUID().uuidString)")
+        let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let clock = Clock(day2.addingTimeInterval(12 * 3_600))
         let archive = SessionArchive(directory: directory, now: { clock.value })
@@ -4407,8 +4426,7 @@ enum SelfTest {
     /// pushed it downward.
     private static func testFlushAndTotalToday() -> [String] {
         var problems: [String] = []
-        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("fc-flush-\(UUID().uuidString)")
+        let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let clock = Clock(base)
@@ -4759,8 +4777,7 @@ enum SelfTest {
     private static func testRunningStretch() -> [String] {
         var problems: [String] = []
         let clock = Clock(base)
-        let directory = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("fc-stretch-\(UUID().uuidString)")
+        let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let stats = DashboardStats(
             sessions: SessionArchive(directory: directory, now: { clock.value }),

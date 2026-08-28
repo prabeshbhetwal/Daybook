@@ -261,10 +261,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         store.refresh()
     }
 
-    /// Set by the scene so the popover can open the Today window — `openWindow`
-    /// is a SwiftUI environment value and is not reachable from a delegate.
-    var openTodayWindow: (() -> Void)?
-
     override init() {
         self.engine = SessionEngine()
         super.init()

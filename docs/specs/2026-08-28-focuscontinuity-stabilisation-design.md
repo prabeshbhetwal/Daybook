@@ -70,6 +70,24 @@ build. `--check` performs the staged build, strict verification and self-test
 without replacing the local app. The local app is ad-hoc signed and is not
 represented as notarised or distributable.
 
+## Implementation and verification notes (2026-08-29)
+
+- `SessionArchive` accepts an internal capacity argument that defaults to the
+  production archive capacity. The self-test injects a capacity of three and
+  verifies eviction, retained ordering and count without repeatedly writing a
+  production-sized ring.
+- `SelfTest` records each scratch directory made through its helper and removes
+  every recorded path in its private cleanup utility. The test utility remains
+  outside production code.
+- The duplicate long-absence reset and the unused dashboard and coordinator
+  symbols were removed. The README now records the single ticker’s presence,
+  checkpoint, live-figure and break duties; v2 usage provenance; source-only
+  Git; non-promoting `--check`; generated root app; and local ad-hoc signing.
+- A comparable full self-test measured 91.71 seconds with the former
+  production-sized ring exercise and 41.03 seconds with capacity three, a 55.3%
+  reduction. The detailed RED/GREEN, command and visual-snapshot evidence is
+  recorded in the task report.
+
 ## Acceptance
 
 1. Periodic persistence cannot retain idle tails or checkpoint fragments.
@@ -83,4 +101,3 @@ represented as notarised or distributable.
 9. Pre-fix usage is qualified and its data folder is revealable.
 10. A fresh staged build, strict verification, full self-test and visual snapshot
     pass succeed without reintroducing generated files to Git.
-
