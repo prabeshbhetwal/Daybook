@@ -210,8 +210,10 @@ extension SessionStore {
         // summary name it.
         longestNameForSelectedDay = longest.map { $0.name.isEmpty ? $0.workType.displayName : $0.name }
         earliestDay = stats.earliestRecordedDay()
-        if let bounds = SessionRecord.dayBounds(day, calendar: .current),
-           usage.containsUsage(in: DateInterval(start: bounds.start, end: bounds.end),
+        let selectedBounds = PeriodStats(sessions: engine.archive, usage: usage)
+            .bounds(for: period, containing: day)
+        if usage.containsUsage(in: DateInterval(start: selectedBounds.start,
+                                                end: selectedBounds.end),
                                before: usage.metadata.accurateFrom) {
             selectedDayIntegrityNote = "App usage from before "
                 + "\(Tokens.longDate(usage.metadata.accurateFrom)) was preserved "

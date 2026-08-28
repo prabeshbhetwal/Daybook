@@ -100,4 +100,3 @@ a pure `PresenceGate` distinguishes wake resets from actual input.
   `AppUsageTracker.observeIdle`.
 - [ ] Rebuild and run the full suite; commit as
   `fix: require presence after a machine wake`.
-

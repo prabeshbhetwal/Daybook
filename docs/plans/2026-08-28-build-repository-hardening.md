@@ -62,4 +62,3 @@ self-cleaning.
 - [ ] Run `./build.sh --check`, `./build.sh --test`, normal code-signature
   verification, `git diff --check`, and temporary visual snapshots.
 - [ ] Commit as `test: harden FocusContinuity verification`.
-

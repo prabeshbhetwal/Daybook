@@ -174,6 +174,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // here, so it happens after the gate, not before it.
         updateMusicPairing(score: score, at: moment)
 
+        var goalUsage = usage.sessions
+        if let live = tracker.unpersistedSession() { goalUsage.append(live) }
+
         let context = RewardContext(
             focusedToday: engine.todayTotal,
             sameWeekdayLastWeek: engine.archive.focusedSameWeekdayLastWeek(),
@@ -183,7 +186,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // `goalReached` and `goalPace` permanently dormant — the one goal
             // computation in the app that was still fed no evidence.
             goal: DailyGoal(archive: engine.archive, goal: engine.store.dailyGoal,
-                            usage: usage.sessions,
+                            usage: goalUsage,
                             usageAccurateFrom: usage.metadata.accurateFrom,
                             running: engine.runningSpan,
                             runningWork: engine.elapsedToday()).progress(),
@@ -294,6 +297,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // about themselves.
         PurposeMap.declaredCategory = { AppCategoryReader.shared.category(for: $0) }
         store.attach(tracker: tracker, usage: usage)
+        store.onDeferredAutomationReady = { [weak self] in self?.scheduleAutomation() }
         store.refresh()
         Task { @MainActor in
             self.awayPrompter.start()
@@ -378,21 +382,23 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// active only when the presence gate confirms a return.
     private func prepareTrackingResume() {
         guard let frontmost = NSWorkspace.shared.frontmostApplication else { return }
-        tracker.prepareToResume(bundleID: frontmost.bundleIdentifier,
-                                name: frontmost.localizedName ?? "Unknown")
+        store.prepareTrackingResume(bundleID: frontmost.bundleIdentifier,
+                                    name: frontmost.localizedName ?? "Unknown")
     }
 
     /// Unlock and explicit return are human actions, so they can activate the
     /// prepared app immediately rather than waiting for a HID sample.
-    private func resumeTracking(at moment: Date = Date()) {
+    @discardableResult
+    private func resumeTracking(at moment: Date = Date()) -> Bool {
         prepareTrackingResume()
-        store.confirmPresence(at: moment)
+        let releasedDeferredAutomation = store.confirmPresence(at: moment)
         // Returning to a paused session changes no state — `.awayEnded` on `.paused`
         // deliberately drops the interval, because the pause already accounts
         // for it — so nothing else refreshes here. Without this the one-second
         // ticker, stopped when the machine slept, never restarts, and an
         // idle-paused session stays paused forever with no way back.
         store.refresh()
+        return releasedDeferredAutomation
     }
 
     /// The session dictionary says whether the screen is locked right now —
@@ -423,9 +429,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self?.screenLocked = false
             self?.store.screenLocked = false
             self?.engine.transition(on: .awayEnded)
-            self?.resumeTracking(at: moment)
+            let releasedDeferredAutomation = self?.resumeTracking(at: moment) ?? false
             self?.sampleInput()
-            self?.scheduleAutomation()
+            if !releasedDeferredAutomation { self?.scheduleAutomation() }
         }
         monitor.onSystemDidWake = { [weak self] in
             // A wake is the machine's, not the person's. One closed-lid
@@ -440,15 +446,14 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self.prepareTrackingResume()
             self.store.refresh()
             self.sampleInput()
-            self.scheduleAutomation()
         }
         monitor.onAppActivated = { [weak self] app in
-            self?.engine.transition(on: .appActivated(bundleID: app.bundleIdentifier,
-                                                      name: app.localizedName ?? "Unknown"))
-            self?.tracker.appActivated(bundleID: app.bundleIdentifier,
-                                       name: app.localizedName ?? "Unknown")
-            self?.sampleInput()
-            self?.scheduleAutomation()
+            guard let self else { return }
+            let delivered = self.store.handleApplicationActivation(
+                bundleID: app.bundleIdentifier,
+                name: app.localizedName ?? "Unknown")
+            self.sampleInput()
+            if delivered { self.scheduleAutomation() }
         }
         monitor.onWillPowerOff = { [weak self] in
             self?.engine.persist()

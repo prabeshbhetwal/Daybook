@@ -8,8 +8,13 @@ APP_NAME="FocusContinuity"
 BUNDLE_ID="com.prabesh.focuscontinuity"
 LOCAL_APP_DIR="${PROJECT_DIR}/${APP_NAME}.app"
 PROMOTION_ROOT="${PROJECT_DIR}/.build"
-CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate"
-BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup"
+RUN_ID="$$-$(date +%s)-${RANDOM}"
+CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${RUN_ID}"
+BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${RUN_ID}"
+OWNER_MARKER="${PROMOTION_ROOT}/promotion-owner.${RUN_ID}"
+PROMOTION_LOCK="${PROMOTION_ROOT}/promotion.lock"
+LEGACY_CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate"
+LEGACY_BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup"
 DEPLOYMENT_TARGET="13.0"
 HOST_ARCH="$(uname -m)"
 TARGET_TRIPLE="${HOST_ARCH}-apple-macos${DEPLOYMENT_TARGET}"
@@ -32,6 +37,23 @@ STAGE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/${APP_NAME}.XXXXXX")"
 PROMOTION_IN_PROGRESS=0
 PROMOTION_COMPLETE=0
 LOCAL_APP_WAS_PRESENT=0
+PROMOTION_LOCK_HELD=0
+PROMOTION_PATHS_TOUCHED=0
+PRESERVE_PROMOTION_LOCK=0
+
+release_promotion_lock() {
+  if [ "${PROMOTION_LOCK_HELD}" -eq 1 ]; then
+    if [ "${PRESERVE_PROMOTION_LOCK}" -eq 0 ] \
+        && [ -e "${OWNER_MARKER}" ] && [ -e "${PROMOTION_LOCK}" ] \
+        && [ "${OWNER_MARKER}" -ef "${PROMOTION_LOCK}" ]; then
+      rm -f "${PROMOTION_LOCK}"
+    fi
+    PROMOTION_LOCK_HELD=0
+  fi
+  if [ "${PROMOTION_PATHS_TOUCHED}" -eq 1 ]; then
+    rm -f "${OWNER_MARKER}"
+  fi
+}
 
 restore_previous_app() {
   if [ -e "${BACKUP_APP_DIR}" ]; then
@@ -72,14 +94,23 @@ cleanup_build() {
   trap - EXIT
 
   if [ "${PROMOTION_IN_PROGRESS}" -eq 1 ] && [ "${PROMOTION_COMPLETE}" -ne 1 ]; then
-    restore_previous_app || cleanup_status=1
+    if ! restore_previous_app; then
+      cleanup_status=1
+      # Keep the ownership record and per-run backup/candidate so the next
+      # promoter can retry recovery instead of losing the rollback source.
+      PRESERVE_PROMOTION_LOCK=1
+    fi
   fi
 
   rm -rf "${STAGE_ROOT}"
-  rm -rf "${CANDIDATE_APP_DIR}"
-  if [ "${PROMOTION_COMPLETE}" -eq 1 ]; then
-    rm -rf "${BACKUP_APP_DIR}"
+  if [ "${PROMOTION_PATHS_TOUCHED}" -eq 1 ] \
+      && [ "${PRESERVE_PROMOTION_LOCK}" -eq 0 ]; then
+    rm -rf "${CANDIDATE_APP_DIR}"
+    if [ "${PROMOTION_COMPLETE}" -eq 1 ]; then
+      rm -rf "${BACKUP_APP_DIR}"
+    fi
   fi
+  release_promotion_lock
   exit "${cleanup_status}"
 }
 
@@ -252,40 +283,135 @@ verify_ordinary_signature() {
   fi
 }
 
-prepare_promotion_directory() {
-  mkdir -p "${PROMOTION_ROOT}"
-  rm -rf "${CANDIDATE_APP_DIR}"
+recover_transaction_paths() {
+  stale_candidate="$1"
+  stale_backup="$2"
+  stale_label="$3"
 
-  if [ ! -e "${BACKUP_APP_DIR}" ]; then
+  if [ -e "${stale_backup}" ]; then
+    if [ ! -e "${LOCAL_APP_DIR}" ]; then
+      if ! verify_ordinary_signature "${stale_backup}" "${stale_label} backup"; then
+        echo "error: local app is absent and the ${stale_label} backup is not verifiable; preserving recovery files" >&2
+        return 1
+      fi
+      echo "Recovering missing local app from ${stale_backup}." >&2
+      mv "${stale_backup}" "${LOCAL_APP_DIR}"
+    elif verify_ordinary_signature "${LOCAL_APP_DIR}" \
+        "existing local app before ${stale_label} cleanup"; then
+      rm -rf "${stale_backup}"
+    else
+      if ! verify_ordinary_signature "${stale_backup}" "${stale_label} backup"; then
+        echo "error: existing local app and ${stale_label} backup both failed ordinary verification; preserving recovery files" >&2
+        return 1
+      fi
+      echo "Restoring verified ${stale_label} backup over invalid local app." >&2
+      rm -rf "${LOCAL_APP_DIR}"
+      mv "${stale_backup}" "${LOCAL_APP_DIR}"
+    fi
+    rm -rf "${stale_candidate}"
     return 0
   fi
 
-  if [ ! -e "${LOCAL_APP_DIR}" ]; then
-    if ! verify_ordinary_signature "${BACKUP_APP_DIR}" "stale local-app backup"; then
-      echo "error: local app is absent and the stale backup is not verifiable; preserving the backup" >&2
-      return 1
-    fi
-    echo "Recovering missing local app from ${BACKUP_APP_DIR}." >&2
-    mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"
-    return
+  if [ ! -e "${stale_candidate}" ]; then
+    return 0
   fi
-
-  if verify_ordinary_signature "${LOCAL_APP_DIR}" "existing local app before stale-backup cleanup"; then
-    rm -rf "${BACKUP_APP_DIR}"
-    return
-  fi
-
-  if ! verify_ordinary_signature "${BACKUP_APP_DIR}" "stale local-app backup"; then
-    echo "error: existing local app and stale backup both failed ordinary verification; preserving both" >&2
+  if ! verify_ordinary_signature "${stale_candidate}" "${stale_label} candidate"; then
+    echo "error: ${stale_label} candidate is not verifiable; preserving it" >&2
     return 1
   fi
-
-  echo "Restoring verified stale backup over invalid local app." >&2
+  if [ ! -e "${LOCAL_APP_DIR}" ]; then
+    echo "Recovering verified ${stale_label} candidate as the local app." >&2
+    mv "${stale_candidate}" "${LOCAL_APP_DIR}"
+    return 0
+  fi
+  if verify_ordinary_signature "${LOCAL_APP_DIR}" \
+      "existing local app before ${stale_label} candidate cleanup"; then
+    rm -rf "${stale_candidate}"
+    return 0
+  fi
+  echo "Replacing invalid local app with verified ${stale_label} candidate." >&2
   rm -rf "${LOCAL_APP_DIR}"
-  mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"
+  mv "${stale_candidate}" "${LOCAL_APP_DIR}"
 }
 
-if ! prepare_promotion_directory; then
+valid_run_id() {
+  case "$1" in
+    ""|*[!A-Za-z0-9._-]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+owner_field() {
+  field_name="$1"
+  owner_file="$2"
+  sed -n "s/^${field_name}=//p" "${owner_file}" | head -n 1
+}
+
+acquire_promotion_lock() {
+  mkdir -p "${PROMOTION_ROOT}"
+  PROMOTION_PATHS_TOUCHED=1
+  printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
+    "$$" "${RUN_ID}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${OWNER_MARKER}"
+
+  while true; do
+    if ln "${OWNER_MARKER}" "${PROMOTION_LOCK}" 2>/dev/null; then
+      PROMOTION_LOCK_HELD=1
+      return 0
+    fi
+    if [ ! -f "${PROMOTION_LOCK}" ]; then
+      echo "error: promotion lock exists without a readable ownership marker; preserving it" >&2
+      return 1
+    fi
+
+    lock_pid="$(owner_field pid "${PROMOTION_LOCK}")"
+    lock_run_id="$(owner_field run_id "${PROMOTION_LOCK}")"
+    lock_started="$(owner_field started "${PROMOTION_LOCK}")"
+    case "${lock_pid}" in
+      ""|*[!0-9]*)
+        echo "error: promotion lock has an invalid owner PID; preserving it" >&2
+        return 1
+        ;;
+    esac
+    if kill -0 "${lock_pid}" 2>/dev/null; then
+      echo "error: promotion lock is held by live process ${lock_pid} (run ${lock_run_id:-unknown}, started ${lock_started:-unknown})" >&2
+      return 1
+    fi
+    if ! valid_run_id "${lock_run_id}"; then
+      echo "error: stale promotion lock has an invalid run id; preserving it" >&2
+      return 1
+    fi
+
+    echo "Recovering stale promotion lock owned by process ${lock_pid} (run ${lock_run_id})." >&2
+    rm -f "${PROMOTION_LOCK}"
+    if ! ln "${OWNER_MARKER}" "${PROMOTION_LOCK}" 2>/dev/null; then
+      continue
+    fi
+    PROMOTION_LOCK_HELD=1
+    stale_candidate="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${lock_run_id}"
+    stale_backup="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${lock_run_id}"
+    if ! recover_transaction_paths "${stale_candidate}" "${stale_backup}" \
+        "stale promotion"; then
+      # The lock and marker are hard links. Re-stamp their shared contents with
+      # the failed run so a later promoter retries the same preserved evidence.
+      printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
+        "$$" "${lock_run_id}" "${lock_started:-unknown}" > "${OWNER_MARKER}"
+      PRESERVE_PROMOTION_LOCK=1
+      return 1
+    fi
+    rm -f "${PROMOTION_ROOT}/promotion-owner.${lock_run_id}"
+    return 0
+  done
+}
+
+if ! acquire_promotion_lock; then
+  echo "error: could not acquire the local promotion lock" >&2
+  exit 1
+fi
+
+# Recover transaction paths from builds predating per-run ownership while the
+# new repository-local lock excludes every other promoter.
+if ! recover_transaction_paths "${LEGACY_CANDIDATE_APP_DIR}" \
+    "${LEGACY_BACKUP_APP_DIR}" "legacy promotion"; then
   echo "error: could not prepare the local promotion directory" >&2
   exit 1
 fi
@@ -326,6 +452,7 @@ fi
 PROMOTION_COMPLETE=1
 PROMOTION_IN_PROGRESS=0
 rm -rf "${BACKUP_APP_DIR}"
+release_promotion_lock
 
 LOCAL_BINARY="${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}"
 SIZE="$(du -h "${LOCAL_BINARY}" | cut -f1 | tr -d ' ')"

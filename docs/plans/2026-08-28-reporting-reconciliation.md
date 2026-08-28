@@ -104,4 +104,3 @@ tracked seconds. Archive revision and change callbacks keep visible data fresh.
   `Reveal data folder` action in Display settings.
 - [ ] Run the full suite and temporary Day/Week/Month snapshots; commit as
   `fix: reconcile period charts and live usage`.
-

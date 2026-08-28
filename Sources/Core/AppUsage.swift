@@ -105,6 +105,10 @@ final class AppUsageArchive {
     private(set) var revision = 0
     private(set) var metadata: AppUsageMetadata
     private(set) var legacyBackupURL: URL?
+    /// Unsupported schema or failed evidence preservation makes the archive a
+    /// display-only view for this process. Existing bytes are never downgraded
+    /// or overwritten after either condition.
+    private(set) var isReadOnly = false
     var onDidChange: (() -> Void)?
 
     init(directory: URL = SessionArchive.defaultDirectory,
@@ -156,38 +160,45 @@ final class AppUsageArchive {
     /// seconds between them.
     @discardableResult
     func record(_ session: AppUsageSession) -> Bool {
-        guard session.seconds >= AppUsageConstants.minimumSegment else { return false }
-        cache.append(session)
+        guard !isReadOnly,
+              session.seconds >= AppUsageConstants.minimumSegment else { return false }
+        var candidate = cache
+        candidate.append(session)
 
-        if cache.count > AppUsageConstants.capacity {
-            cache.removeFirst(cache.count - AppUsageConstants.capacity)
+        if candidate.count > AppUsageConstants.capacity {
+            candidate.removeFirst(candidate.count - AppUsageConstants.capacity)
         }
-        persistMutation()
-        return true
+        return persistMutation(candidate)
     }
 
     /// Inserts a newly observed stretch or corrects the existing stretch with
     /// the same stable UUID. A late idle observation can therefore shorten (or
     /// remove) a previously saved checkpoint without leaving a duplicate tail.
-    func checkpoint(_ session: AppUsageSession) {
+    @discardableResult
+    func checkpoint(_ session: AppUsageSession) -> Bool {
+        guard !isReadOnly else { return false }
         if let index = cache.firstIndex(where: { $0.id == session.id }) {
             guard session.seconds >= AppUsageConstants.minimumSegment else {
-                cache.remove(at: index)
-                persistMutation()
-                return
+                var candidate = cache
+                candidate.remove(at: index)
+                return persistMutation(candidate)
             }
-            guard cache[index] != session else { return }
-            cache[index] = session
-            persistMutation()
-            return
+            guard cache[index] != session else { return true }
+            var candidate = cache
+            candidate[index] = session
+            return persistMutation(candidate)
         }
 
-        guard session.seconds >= AppUsageConstants.minimumSegment else { return }
-        cache.append(session)
-        if cache.count > AppUsageConstants.capacity {
-            cache.removeFirst(cache.count - AppUsageConstants.capacity)
+        // There is nothing to persist or roll back for an unsaved stretch below
+        // the noise floor; treating that as success lets the tracker complete an
+        // explicit idle/suspend transition without inventing a file mutation.
+        guard session.seconds >= AppUsageConstants.minimumSegment else { return true }
+        var candidate = cache
+        candidate.append(session)
+        if candidate.count > AppUsageConstants.capacity {
+            candidate.removeFirst(candidate.count - AppUsageConstants.capacity)
         }
-        persistMutation()
+        return persistMutation(candidate)
     }
 
     // MARK: - Queries
@@ -258,47 +269,82 @@ final class AppUsageArchive {
 
     private func load() -> [AppUsageSession] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+        let data: Data
         do {
-            let data = try Data(contentsOf: fileURL)
-            if let envelope = try? JSONDecoder().decode(Envelope.self, from: data) {
-                metadata = envelope.metadata
+            data = try Data(contentsOf: fileURL)
+        } catch {
+            return preserveCorruptFile(after: error)
+        }
+
+        if let envelope = try? JSONDecoder().decode(Envelope.self, from: data) {
+            metadata = envelope.metadata
+            guard envelope.metadata.schemaVersion == 2 else {
+                isReadOnly = true
+                Diagnostics.log("app usage schema \(envelope.metadata.schemaVersion) is unsupported; opened read-only")
                 return envelope.sessions
             }
+            return envelope.sessions
+        }
 
-            let legacy = try JSONDecoder().decode([AppUsageSession].self, from: data)
-            let stamp = Int(now().timeIntervalSince1970)
-            let backup = directory.appendingPathComponent("app-usage-v1-backup-\(stamp).json")
+        let legacy: [AppUsageSession]
+        do {
+            legacy = try JSONDecoder().decode([AppUsageSession].self, from: data)
+        } catch {
+            return preserveCorruptFile(after: error)
+        }
+
+        let stamp = Int(now().timeIntervalSince1970)
+        let backup = directory.appendingPathComponent("app-usage-v1-backup-\(stamp).json")
+        do {
             try data.write(to: backup, options: .atomic)
             legacyBackupURL = backup
-            save(sessions: legacy)
-            return legacy
         } catch {
-            let stamp = Int(now().timeIntervalSince1970)
-            let aside = directory.appendingPathComponent("app-usage-corrupt-\(stamp).json")
-            try? FileManager.default.moveItem(at: fileURL, to: aside)
-            Diagnostics.log("app usage unreadable, moved to \(aside.lastPathComponent): \(error)")
-            return []
+            isReadOnly = true
+            Diagnostics.log("failed to preserve legacy app usage; source kept read-only: \(error)")
+            return legacy
         }
+
+        guard save(sessions: legacy) else {
+            isReadOnly = true
+            Diagnostics.log("failed to migrate app usage after backup; source kept read-only")
+            return legacy
+        }
+        return legacy
     }
 
-    private func save() {
-        save(sessions: cache)
+    private func preserveCorruptFile(after decodeError: Error) -> [AppUsageSession] {
+        let stamp = Int(now().timeIntervalSince1970)
+        let aside = directory.appendingPathComponent("app-usage-corrupt-\(stamp).json")
+        do {
+            try FileManager.default.moveItem(at: fileURL, to: aside)
+            Diagnostics.log("app usage unreadable, moved to \(aside.lastPathComponent): \(decodeError)")
+        } catch {
+            isReadOnly = true
+            Diagnostics.log("app usage unreadable and could not be preserved elsewhere; source kept read-only: \(error)")
+        }
+        return []
     }
 
-    private func save(sessions: [AppUsageSession]) {
+    @discardableResult
+    private func save(sessions: [AppUsageSession]) -> Bool {
         do {
             try FileManager.default.createDirectory(at: directory,
                                                     withIntermediateDirectories: true)
             let envelope = Envelope(metadata: metadata, sessions: sessions)
             try JSONEncoder().encode(envelope).write(to: fileURL, options: .atomic)
+            return true
         } catch {
             Diagnostics.log("failed to write app usage: \(error)")
+            return false
         }
     }
 
-    private func persistMutation() {
+    @discardableResult
+    private func persistMutation(_ candidate: [AppUsageSession]) -> Bool {
+        guard !isReadOnly, save(sessions: candidate) else { return false }
+        cache = candidate
         revision += 1
-        save()
         onDidChange?()
+        return true
     }
 }

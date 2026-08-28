@@ -197,8 +197,9 @@ final class SessionStore: ObservableObject {
     /// when its final frame exits.
     var refreshTransactionDepth = 0
     /// The "usual pace" median. Recomputed on refresh rather than every tick:
-    /// it walks fourteen days of history and only moves as the hour does.
+    /// it walks fourteen days of history and moves at local minute boundaries.
     private var cachedTypical: TimeInterval?
+    private var cachedTypicalMinute: Date?
     /// Worked seconds of the running thread's earlier stretches today. Rebuilt
     /// on refresh; the ticker adds the live stretch each second.
     // Internal for SessionStore+Dashboard.swift, which rebuilds it.
@@ -223,15 +224,25 @@ final class SessionStore: ObservableObject {
     /// Kept pure so wake versus human input can be exercised with an injected
     /// clock and no CoreGraphics permissions.
     private var presenceGate = PresenceGate()
+    private var pendingWakeActivation: (bundleID: String?, name: String)?
+    private var deferredAutomationPending = false
+    /// The coordinator evaluates automation through this callback only after a
+    /// wake has been matched to genuine presence.
+    var onDeferredAutomationReady: (() -> Void)?
 
     // Internal for SessionStore+Dashboard.swift; views still never touch this.
     let engine: SessionEngine
+    /// Shared clock for live figures and calendar navigation. Production uses
+    /// wall time; self-tests advance it without a run loop.
+    let now: () -> Date
     var tracker: AppUsageTracker?
     var usage: AppUsageArchive?
     private var ticker: Timer?
 
-    init(engine: SessionEngine) {
+    init(engine: SessionEngine,
+         now: @escaping () -> Date = Date.init) {
         self.engine = engine
+        self.now = now
         engine.threadContextMatcher = { [weak self] app in
             self?.runningThreadUses(app) ?? true
         }
@@ -286,26 +297,92 @@ final class SessionStore: ObservableObject {
     /// fully without it, and the gallery drives the store without one.
     func attach(tracker: AppUsageTracker, usage: AppUsageArchive) {
         self.usage?.onDidChange = nil
+        self.tracker?.onDidTransition = nil
         self.tracker = tracker
         self.usage = usage
-        usage.onDidChange = { [weak self] in
-            self?.archiveUsageDidChange()
+        usage.onDidChange = { [weak self, weak tracker] in
+            guard let self else { return }
+            if tracker?.isTransitioning == true {
+                self.glanceArchiveRefreshPending = true
+                self.dashboardArchiveRefreshPending = true
+            } else {
+                self.archiveUsageDidChange()
+            }
         }
+        tracker.onDidTransition = { [weak self] in self?.trackerDidTransition() }
         self.isTrackingEnabled = tracker.isEnabled
         refresh()
+    }
+
+    /// Consume synchronous archive callbacks only after the tracker has reached
+    /// its final lifecycle state. This keeps Running Now, the live figures and
+    /// the ticker on one post-transition frame.
+    private func trackerDidTransition() {
+        withRefreshTransaction {
+            updateTimeDrivenFigures()
+            updateTicker()
+            glanceArchiveRefreshPending = true
+            dashboardArchiveRefreshPending = true
+        }
     }
 
     /// Wakes are machine events. Keep sampling on the existing ticker, but do
     /// not let the HID reset count as a return.
     func noteMachineWake() {
         presenceGate.noteMachineWake()
+        deferredAutomationPending = true
+    }
+
+    /// Captures the current frontmost app without delivering an activation. A
+    /// later unlock may reveal a newer app than an earlier workspace notice, so
+    /// both pending candidates are updated together before confirmation.
+    func prepareTrackingResume(bundleID: String?, name: String) {
+        withRefreshTransaction {
+            tracker?.prepareToResume(bundleID: bundleID, name: name)
+            if presenceGate.isAwaitingConfirmation {
+                pendingWakeActivation = (bundleID, name)
+            }
+        }
     }
 
     /// Unlock and explicit returns are direct proof of presence. A waiting app
     /// candidate begins at this instant; an already-active tracker is unchanged.
-    func confirmPresence(at moment: Date) {
-        presenceGate.confirm(at: moment)
-        tracker?.confirmPresence(at: moment)
+    @discardableResult
+    func confirmPresence(at moment: Date) -> Bool {
+        var releasesAutomation = false
+        withRefreshTransaction {
+            presenceGate.confirm(at: moment)
+            tracker?.confirmPresence(at: moment)
+            if let pendingWakeActivation {
+                engine.transition(on: .appActivated(bundleID: pendingWakeActivation.bundleID,
+                                                    name: pendingWakeActivation.name))
+                self.pendingWakeActivation = nil
+            }
+            if deferredAutomationPending {
+                deferredAutomationPending = false
+                releasesAutomation = true
+            }
+        }
+        if releasesAutomation { onDeferredAutomationReady?() }
+        return releasesAutomation
+    }
+
+    /// Workspace activation is not proof of presence after wake. The tracker and
+    /// coordinator candidates still follow the latest app, while engine state
+    /// and automation remain untouched until the gate is confirmed.
+    @discardableResult
+    func handleApplicationActivation(bundleID: String?, name: String) -> Bool {
+        var delivered = false
+        withRefreshTransaction {
+            tracker?.appActivated(bundleID: bundleID, name: name)
+            if presenceGate.isAwaitingConfirmation {
+                pendingWakeActivation = (bundleID, name)
+            } else {
+                engine.transition(on: .appActivated(bundleID: bundleID, name: name))
+                delivered = true
+            }
+        }
+        return delivered
     }
 
     /// Recomputes everything the surfaces display. One pass over each archive.
@@ -314,15 +391,10 @@ final class SessionStore: ObservableObject {
             // Fold the in-flight stretch in first, or the frontmost app always looks
             // idle in its own menu.
             tracker?.flush()
-            // The fourteen-day walk behind "usual pace" only changes as the clock
-            // hour moves, so it is computed here and reused by the ticker.
-            cachedTypical = DailyGoal(archive: engine.archive,
-                                      goal: engine.store.dailyGoal,
-                                      usage: usage?.sessions ?? [],
-                                      usageAccurateFrom: usage?.metadata.accurateFrom,
-                                      running: engine.runningSpan).typical()
+            let moment = now()
+            refreshTypical(at: moment)
             refreshThread()
-            refreshLiveFigures()
+            refreshLiveFigures(at: moment)
 
             weekBars = engine.archive.weekBars()
             quickStarts = engine.archive.quickStarts(limit: 7)
@@ -343,7 +415,8 @@ final class SessionStore: ObservableObject {
     /// popover open — exactly when someone is comparing them — the goal bar sat
     /// frozen at whatever it read when the panel opened while the timer directly
     /// beneath it counted on, so the two disagreed by however long you looked.
-    private func refreshLiveFigures() {
+    private func refreshLiveFigures(at moment: Date? = nil) {
+        let moment = moment ?? now()
         // `engine.state`, not the published mirror: `state` is updated on an
         // async hop, and several callers refresh synchronously right after
         // mutating the engine, when the mirror still says `.idle`.
@@ -359,18 +432,50 @@ final class SessionStore: ObservableObject {
         goal = GoalProgress(goal: engine.store.dailyGoal,
                             achieved: DailyGoal(archive: engine.archive,
                                                 goal: engine.store.dailyGoal,
-                                                usage: usage?.sessions ?? [],
+                                                usage: focusedActiveUsage,
                                                 usageAccurateFrom: usage?.metadata.accurateFrom,
                                                 running: engine.runningSpan,
-                                                runningWork: inFlight)
+                                                runningWork: inFlight,
+                                                now: { moment })
                                 .achievedToday(),
                             typical: cachedTypical)
         // Re-read rather than adding the open stretch to a cached total. The
         // cached version missed every segment that opened *and closed* between
         // refreshes, so the figure went backwards on each app switch.
         if let usage {
-            trackedToday = usage.totalToday() + (tracker?.unpersistedSeconds() ?? 0)
+            trackedToday = usage.totalToday()
+                + (tracker?.unpersistedSeconds(on: moment, calendar: .current) ?? 0)
         }
+    }
+
+    /// Usage already committed to the archive plus only the unsaved live tail.
+    /// `FocusedActiveTime` merges overlaps, so a checkpoint boundary can never
+    /// double-count the same second.
+    private var focusedActiveUsage: [AppUsageSession] {
+        var sessions = usage?.sessions ?? []
+        if let live = tracker?.unpersistedSession() { sessions.append(live) }
+        return sessions
+    }
+
+    private func refreshTypical(at moment: Date) {
+        cachedTypical = DailyGoal(archive: engine.archive,
+                                  goal: engine.store.dailyGoal,
+                                  usage: focusedActiveUsage,
+                                  usageAccurateFrom: usage?.metadata.accurateFrom,
+                                  running: engine.runningSpan,
+                                  now: { moment }).typical()
+        cachedTypicalMinute = Calendar.current.dateInterval(of: .minute,
+                                                            for: moment)?.start
+    }
+
+    /// The time-driven part of the one existing ticker. Historical pace is
+    /// recalculated once on each local minute boundary; the inexpensive live
+    /// figures continue to move every second.
+    func updateTimeDrivenFigures() {
+        let moment = now()
+        let minute = Calendar.current.dateInterval(of: .minute, for: moment)?.start
+        if minute != cachedTypicalMinute { refreshTypical(at: moment) }
+        refreshLiveFigures(at: moment)
     }
 
     // MARK: - Break reminders
@@ -429,7 +534,7 @@ final class SessionStore: ObservableObject {
     func applyPresenceObservation(_ observation: PresenceObservation) -> TimeInterval {
         switch observation {
         case .active(let since):
-            tracker?.confirmPresence(at: since)
+            confirmPresence(at: since)
             return 0
         case .quiet(let seconds): return seconds
         }
@@ -481,8 +586,9 @@ final class SessionStore: ObservableObject {
         engine.transition(on: .idleObserved(seconds: effective))
     }
 
-    /// Cosmetic only, exactly like the AppKit build's title timer: it reads
-    /// nothing the state machine consumes and drives no transition.
+    /// The app's one repeating timer: it observes presence, drives engine
+    /// transitions, persists checkpoints, updates live figures and evaluates
+    /// breaks. It is operational state machinery, not a cosmetic title timer.
     private func startTicker() {
         guard ticker == nil else { return }
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
@@ -509,7 +615,7 @@ final class SessionStore: ObservableObject {
             // this feature exists for. Every few seconds is enough for a
             // countdown shown in minutes, and keeps the archive walk off 1 Hz.
             if self.tick % SessionStore.breakCheckSeconds == 0 { self.refreshBreak() }
-            self.refreshLiveFigures()
+            self.updateTimeDrivenFigures()
         }
         timer.tolerance = 0.25
         RunLoop.main.add(timer, forMode: .common)

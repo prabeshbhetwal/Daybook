@@ -15,6 +15,11 @@ struct PresenceGate {
     private var suppressingWakeReset = false
     private var lastPostWakeIdle: TimeInterval?
 
+    /// True between a machine wake and independent evidence that a person
+    /// returned. Workspace activation notifications obey the same gate as HID
+    /// resets; macOS may activate an app while nobody is present.
+    var isAwaitingConfirmation: Bool { suppressingWakeReset }
+
     mutating func noteMachineWake() {
         suppressingWakeReset = true
         lastPostWakeIdle = nil

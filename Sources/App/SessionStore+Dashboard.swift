@@ -288,7 +288,8 @@ extension SessionStore {
     /// year that are 23 or 25 hours long, subtracting seconds lands the label
     /// on the wrong day for anyone browsing near midnight.
     var selectedDay: Date {
-        Calendar.current.date(byAdding: .day, value: -dayOffset, to: Date()) ?? Date()
+        let moment = now()
+        return Calendar.current.date(byAdding: .day, value: -dayOffset, to: moment) ?? moment
     }
     var dayLabel: String { Tokens.dayLabel(selectedDay) }
     var isToday: Bool { dayOffset == 0 }
