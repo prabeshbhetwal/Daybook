@@ -72,12 +72,14 @@ final class AppUsageTracker {
         return segment.bundleID
     }
 
-    /// Whether the tracker has an active stretch that should keep the store's
-    /// cosmetic ticker alive. Waiting for a confirmed return is deliberately
-    /// not observing: idle and away time must not restart a timer by itself.
+    /// Whether the tracker needs the store's cosmetic ticker to keep sampling.
+    /// Waiting for a confirmed return remains observable so same-app input can
+    /// reach the presence gate; it still accrues no usage on its own.
     var isObserving: Bool {
-        if case .active = state { return true }
-        return false
+        switch state {
+        case .active, .waitingForPresence: return true
+        case .stopped: return false
+        }
     }
 
     /// How long the in-flight stretch has run, idle-trimmed exactly as a real
@@ -105,7 +107,7 @@ final class AppUsageTracker {
 
     func setEnabled(_ enabled: Bool) {
         guard enabled != isEnabled else { return }
-        if !enabled { closeActiveSegment(reason: .systemLock) }
+        if !enabled { stopTracking(reason: .systemLock) }
         isEnabled = enabled
     }
 
@@ -131,7 +133,15 @@ final class AppUsageTracker {
     /// The user went away — lock, sleep or power off. Time spent away is not
     /// usage, so the stretch ends here rather than running until they return.
     func suspend() {
-        closeActiveSegment(reason: .systemLock)
+        stopTracking(reason: .systemLock)
+    }
+
+    private func stopTracking(reason: UsageEndReason) {
+        if case .active = state {
+            closeActiveSegment(reason: reason)
+        } else {
+            state = .stopped
+        }
     }
 
     private func closeActiveSegment(reason: UsageEndReason) {

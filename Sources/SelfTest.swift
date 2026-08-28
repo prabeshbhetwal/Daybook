@@ -78,6 +78,7 @@ enum SelfTest {
             ("Engine publishes state changes to observers", testEngineNotifiesObservers),
             ("App usage tracker segments and merges correctly", testUsageTracker),
             ("Periodic usage checkpoints roll back an idle tail", testPeriodicCheckpointRollsBackIdleTail),
+            ("Usage waiting state stays live and clears terminally", testUsageWaitingStateLifecycle),
             ("Legacy app usage migration preserves history", testLegacyUsageMigrationPreservesHistory),
             ("Usage checkpoints replace records by identity", testUsageCheckpointReplacesByIdentity),
             ("Most-used apps ranked with recent sessions", testMostUsedApps),
@@ -1042,6 +1043,42 @@ enum SelfTest {
                     &problems)
         expectClose(usage.totalToday() + tracker.unpersistedSeconds(), 180,
                     "the returned stretch remains singly counted after checkpointing", &problems)
+        return problems
+    }
+
+    /// Waiting is an observation state, not a stopped tracker: the ticker must
+    /// keep sampling until real presence is known. Suspension and disabling are
+    /// terminal for that candidate, so an old confirmation cannot reopen it.
+    private static func testUsageWaitingStateLifecycle() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let tracker = AppUsageTracker(archive: AppUsageArchive(directory: directory,
+                                                                 now: { clock.value }),
+                                      ownBundleID: FocusConstants.bundleIdentifier,
+                                      idle: .disabled, now: { clock.value })
+
+        tracker.prepareToResume(bundleID: "com.example.editor", name: "Editor")
+        expect(tracker.isObserving,
+               "waiting for presence must keep the ticker observing", &problems)
+        tracker.suspend()
+        expect(!tracker.isObserving,
+               "suspending a waiting tracker must stop observation", &problems)
+        tracker.confirmPresence(at: clock.value)
+        expect(tracker.currentBundleID == nil && !tracker.isObserving,
+               "a stale confirmation after suspend must not reopen tracking", &problems)
+
+        tracker.prepareToResume(bundleID: "com.example.editor", name: "Editor")
+        expect(tracker.isObserving,
+               "a second waiting candidate must also keep the ticker alive", &problems)
+        tracker.setEnabled(false)
+        expect(!tracker.isObserving,
+               "disabling a waiting tracker must stop observation", &problems)
+        tracker.setEnabled(true)
+        tracker.confirmPresence(at: clock.value)
+        expect(tracker.currentBundleID == nil && !tracker.isObserving,
+               "a stale confirmation after disable must not reopen tracking", &problems)
         return problems
     }
 
