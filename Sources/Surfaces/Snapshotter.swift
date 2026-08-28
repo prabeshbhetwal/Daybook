@@ -59,6 +59,21 @@ enum Snapshotter {
                     .background(scheme == .light ? Color.white : Color.black)
                 _ = render(dash, to: directory.appendingPathComponent(dashName))
 
+                // The ordinary dashboard view returns to today on appearance.
+                // Preserve yesterday only for this historical snapshot, so the
+                // harness proves the past-day surface without changing app use.
+                if fixture == .idleWithHistory {
+                    store.stepDay(by: -1)
+                    let pastDay = DashboardView(store: store, scrolls: false,
+                                                returnsToTodayOnAppear: false)
+                        .environment(\.colorScheme, scheme)
+                        .frame(width: 1020, height: 1240, alignment: .top)
+                        .background(scheme == .light ? Color.white : Color.black)
+                    _ = render(pastDay, to: directory.appendingPathComponent(
+                        "dashboard-past-idleWithHistory-\(scheme == .light ? "light" : "dark").png"))
+                    store.goToToday()
+                }
+
                 // Week and Month share a code path, so one fixture with history
                 // covers both; the empty state needs a fixture with none.
                 let periods: [TrackingPeriod]

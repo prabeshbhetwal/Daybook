@@ -12,6 +12,9 @@ struct DashboardView: View {
     /// `ScrollView` has no intrinsic content under `ImageRenderer`, so the
     /// snapshot harness renders the column unscrolled. Same views either way.
     var scrolls: Bool = true
+    /// Production windows return to today when they appear. The past-day
+    /// snapshot intentionally preserves its preselected historical day.
+    var returnsToTodayOnAppear: Bool = true
 
     var body: some View {
         wrap { column }
@@ -20,7 +23,7 @@ struct DashboardView: View {
             .onAppear {
                 // Reopening the window is a fresh question, and the question is
                 // almost always about today.
-                store.goToToday()
+                if returnsToTodayOnAppear { store.goToToday() }
                 store.refresh()
                 store.setDashboardVisible(true)
             }

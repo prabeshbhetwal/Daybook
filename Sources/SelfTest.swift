@@ -620,8 +620,9 @@ enum SelfTest {
         expect(ring.records.count == 3,
                "ring should cap at 3, got \(ring.records.count)",
                &problems)
-        expect(ring.records.first?.name == "s2",
-               "ring should drop the oldest, got \(ring.records.first?.name ?? "nil")", &problems)
+        expect(ring.records.map(\.name) == ["s2", "s3", "s4"],
+               "ring should retain the newest entries in order, got \(ring.records.map(\.name))",
+               &problems)
         expect(ring.sessionsToday() == 3,
                "all surviving records end on the same day", &problems)
         clock.value = base.addingTimeInterval(86_400 * 5)

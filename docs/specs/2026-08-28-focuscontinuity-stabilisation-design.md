@@ -83,10 +83,11 @@ represented as notarised or distributable.
   symbols were removed. The README now records the single ticker’s presence,
   checkpoint, live-figure and break duties; v2 usage provenance; source-only
   Git; non-promoting `--check`; generated root app; and local ad-hoc signing.
-- A comparable full self-test measured 91.71 seconds with the former
-  production-sized ring exercise and 41.03 seconds with capacity three, a 55.3%
-  reduction. The detailed RED/GREEN, command and visual-snapshot evidence is
-  recorded in the task report.
+- One observed comparable end-to-end self-test run took 91.71 seconds with the
+  former production-sized ring exercise and 41.03 seconds with capacity three.
+  That single observed run was 55.3% faster; it is not a benchmark estimate.
+  The detailed RED/GREEN, command and visual-snapshot evidence is recorded in
+  the task report.
 
 ## Acceptance
 
