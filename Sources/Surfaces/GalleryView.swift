@@ -247,6 +247,7 @@ struct ComponentStrip: View {
                 .frame(width: 420)
             SessionsCard(entries: {
                 let now = Date()
+                let day = Calendar.current.startOfDay(for: now)
                 let thread = UUID()
                 func at(_ h: Double) -> Date { now.addingTimeInterval(-h * 3_600) }
                 return SessionDigest.entries(records: [
@@ -258,7 +259,7 @@ struct ComponentStrip: View {
                                   start: at(3.5), end: at(2), workSeconds: 5_400, threadID: thread),
                     SessionRecord(name: "Email", workType: .admin,
                                   start: at(1.5), end: at(1), workSeconds: 1_800)
-                ], running: nil, now: now)
+                ], running: nil, now: now, day: day)
             }(), selected: nil, unfoldAll: true, onHover: { _ in }, onSelect: { _ in })
                 .frame(width: 520)
                 .card(padding: 12)

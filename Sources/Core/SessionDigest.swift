@@ -56,15 +56,14 @@ enum SessionDigest {
     static func entries(records: [SessionRecord],
                         running: RunningThread?,
                         now: Date,
-                        day: Date? = nil,
+                        day: Date,
                         calendar: Calendar = .current) -> [DayEntry] {
-        let bounds = day.flatMap { SessionRecord.dayBounds($0, calendar: calendar) }
+        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [] }
         func clip(start: Date, end: Date, worked: TimeInterval) -> (start: Date, end: Date,
                                                                       worked: TimeInterval)? {
-            let clippedStart = bounds.map { max(start, $0.start) } ?? start
-            let clippedEnd = bounds.map { min(end, $0.end) } ?? end
+            let clippedStart = max(start, bounds.start)
+            let clippedEnd = min(end, bounds.end)
             guard clippedEnd >= clippedStart else { return nil }
-            guard let bounds else { return (clippedStart, clippedEnd, worked) }
             let fullSpan = max(0, end.timeIntervalSince(start))
             let credit: TimeInterval
             if fullSpan > 0 {

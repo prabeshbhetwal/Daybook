@@ -247,7 +247,7 @@ extension SessionStore {
             glanceApps = stats.rankedApps(for: today)
             glanceInsights = stats.insights(for: today)
             glanceTimeline = stats.timeline(for: today)
-            glanceBrackets = stats.focusSessions(for: today).map { ($0.start, $0.end) }
+            glanceBrackets = stats.focusSpans(for: today).map { ($0.start, $0.end) }
             glanceLayout = TimelineLayout(segments: glanceTimeline)
         }
     }

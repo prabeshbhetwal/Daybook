@@ -5408,7 +5408,7 @@ enum SelfTest {
         ]
         let running = RunningThread(threadID: thread, name: "Refactor", workType: .deepWork,
                                     start: at(15), worked: 600)
-        let entries = SessionDigest.entries(records: records, running: running, now: at(15.2))
+        let entries = SessionDigest.entries(records: records, running: running, now: at(15.2), day: day)
         expect(entries.count == 4, "session, rest, session, running session → 4 rows, got \(entries.count)",
                &problems)
         guard entries.count == 4 else { return problems }
@@ -5459,6 +5459,19 @@ enum SelfTest {
         usage.record(AppUsageSession(bundleID: "com.dinner", appName: "Dinner",
                                      start: day.addingTimeInterval(9 * 3_600),
                                      end: day.addingTimeInterval(9.5 * 3_600)))
+
+        let previousDigest = SessionDigest.entries(records: [crossMidnight], running: nil,
+                                                   now: day, day: yesterday, calendar: calendar)
+        let previousRows = previousDigest.compactMap { entry -> DaySession? in
+            if case .session(let session) = entry { return session }
+            return nil
+        }
+        expectClose(previousRows.first?.start.timeIntervalSince(yesterday) ?? -1, 23.5 * 3_600,
+                    "the previous-day row begins at 23:30", &problems)
+        expectClose(previousRows.first?.end.timeIntervalSince(yesterday) ?? -1, 24 * 3_600,
+                    "the previous-day row ends at midnight", &problems)
+        expectClose(previousRows.first?.worked ?? 0, 1_800,
+                    "the previous-day row receives 30m of work credit", &problems)
 
         let digest = SessionDigest.entries(records: archive.records(on: day),
                                            running: nil, now: day.addingTimeInterval(10 * 3_600),
@@ -5825,6 +5838,9 @@ enum SelfTest {
         archive.append(SessionRecord(name: "T work", workType: .deepWork,
                                      start: today.addingTimeInterval(60),
                                      end: today.addingTimeInterval(3_500), workSeconds: 3_440))
+        archive.append(SessionRecord(name: "T overlap", workType: .admin,
+                                     start: today.addingTimeInterval(120),
+                                     end: today.addingTimeInterval(3_400), workSeconds: 3_280))
         let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
                                    schedulesDwell: false)
         let store = SessionStore(engine: engine)
@@ -5839,7 +5855,7 @@ enum SelfTest {
         expect(store.glanceTimeline.map(\.bundleID) == ["com.t"],
                "the glance band stays on today, got \(store.glanceTimeline.map(\.bundleID))", &problems)
         expect(store.glanceBrackets.count == 1 && store.focusBrackets.count == 1,
-               "brackets: today's for the glance, yesterday's for the page", &problems)
+               "brackets merge today's overlap for the glance and preserve yesterday's page bracket", &problems)
         store.hoverTimeline(at: 0.5, glance: true)
         expect(store.hoveredSegment?.bundleID == "com.t",
                "hovering the glance band names today's app, got \(store.hoveredSegment?.bundleID ?? "nil")",
