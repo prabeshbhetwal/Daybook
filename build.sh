@@ -7,6 +7,9 @@ cd "${PROJECT_DIR}"
 APP_NAME="FocusContinuity"
 BUNDLE_ID="com.prabesh.focuscontinuity"
 LOCAL_APP_DIR="${PROJECT_DIR}/${APP_NAME}.app"
+PROMOTION_ROOT="${PROJECT_DIR}/.build"
+CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate"
+BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup"
 DEPLOYMENT_TARGET="13.0"
 HOST_ARCH="$(uname -m)"
 TARGET_TRIPLE="${HOST_ARCH}-apple-macos${DEPLOYMENT_TARGET}"
@@ -26,10 +29,39 @@ done
 # Build only in an isolated directory. The local bundle remains untouched until
 # compilation, signing, strict verification, and any requested self-test pass.
 STAGE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/${APP_NAME}.XXXXXX")"
-cleanup_stage() {
-  rm -rf "${STAGE_ROOT}"
+PROMOTION_IN_PROGRESS=0
+PROMOTION_COMPLETE=0
+BACKUP_CREATED=0
+
+restore_previous_app() {
+  if [ "${BACKUP_CREATED}" -eq 1 ] && [ -e "${BACKUP_APP_DIR}" ]; then
+    rm -rf "${LOCAL_APP_DIR}"
+    if ! mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"; then
+      echo "error: could not restore the previous local app from ${BACKUP_APP_DIR}" >&2
+      return 1
+    fi
+    BACKUP_CREATED=0
+  else
+    rm -rf "${LOCAL_APP_DIR}"
+  fi
 }
-trap cleanup_stage EXIT
+
+cleanup_build() {
+  cleanup_status=$?
+  trap - EXIT
+
+  if [ "${PROMOTION_IN_PROGRESS}" -eq 1 ] && [ "${PROMOTION_COMPLETE}" -ne 1 ]; then
+    restore_previous_app || cleanup_status=1
+  fi
+
+  rm -rf "${STAGE_ROOT}"
+  rm -rf "${CANDIDATE_APP_DIR}"
+  if [ "${PROMOTION_COMPLETE}" -eq 1 ]; then
+    rm -rf "${BACKUP_APP_DIR}"
+  fi
+  exit "${cleanup_status}"
+}
+trap cleanup_build EXIT
 
 APP_DIR="${STAGE_ROOT}/${APP_NAME}.app"
 MACOS_DIR="${APP_DIR}/Contents/MacOS"
@@ -39,6 +71,16 @@ BINARY="${MACOS_DIR}/${APP_NAME}"
 mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
 
 echo "Compiling for ${TARGET_TRIPLE}…"
+SOURCE_FILES=()
+while IFS= read -r source_file; do
+  SOURCE_FILES+=("${source_file}")
+done < <(find Sources -name '*.swift' -print | LC_ALL=C sort)
+
+if [ "${#SOURCE_FILES[@]}" -eq 0 ]; then
+  echo "error: no Swift source files found under Sources" >&2
+  exit 1
+fi
+
 swiftc \
   -O \
   -whole-module-optimization \
@@ -48,7 +90,7 @@ swiftc \
   -target "${TARGET_TRIPLE}" \
   -framework Cocoa \
   -o "${BINARY}" \
-  $(find Sources -name '*.swift' | sort)
+  "${SOURCE_FILES[@]}"
 
 # Optional app icon. The app is LSUIElement, so it never appears in the Dock.
 ICON_SOURCE="Assets/AppIcon.png"
@@ -120,21 +162,33 @@ printf 'APPL????' > "${APP_DIR}/Contents/PkgInfo"
 # Filesystem metadata can be re-applied by a file provider. Clear it both
 # immediately before signing and immediately before strict verification.
 signed=0
+SIGNING_LOG="${STAGE_ROOT}/codesign-attempt.log"
+SIGNING_FAILURE=""
 for attempt in 1 2 3 4 5 6; do
+  : > "${SIGNING_LOG}"
   xattr -cr "${APP_DIR}"
-  if codesign --force --deep --sign - "${APP_DIR}" 2>/dev/null; then
+  if codesign --force --deep --sign - "${APP_DIR}" 2>"${SIGNING_LOG}"; then
     xattr -cr "${APP_DIR}"
-    if codesign --verify --deep --strict "${APP_DIR}" 2>/dev/null; then
+    if codesign --verify --deep --strict "${APP_DIR}" 2>>"${SIGNING_LOG}"; then
       signed=1
       break
+    else
+      SIGNING_FAILURE="strict staged signature verification"
     fi
+  else
+    SIGNING_FAILURE="ad-hoc signing"
   fi
-  echo "codesign attempt ${attempt} failed (extended attributes re-applied); retrying…" >&2
+  echo "${SIGNING_FAILURE} failed on attempt ${attempt}; retrying…" >&2
   sleep 0.3
 done
 
 if [ "${signed}" -ne 1 ]; then
-  echo "error: could not produce a strictly verifiable staged signature" >&2
+  echo "error: ${SIGNING_FAILURE:-staged signing} failed after 6 attempts" >&2
+  if [ -s "${SIGNING_LOG}" ]; then
+    sed 's/^/codesign: /' "${SIGNING_LOG}" >&2
+  else
+    echo "codesign: no diagnostic output" >&2
+  fi
   exit 1
 fi
 
@@ -149,13 +203,78 @@ if [ "${CHECK}" -eq 1 ]; then
   exit 0
 fi
 
-rm -rf "${LOCAL_APP_DIR}"
-mv "${APP_DIR}" "${LOCAL_APP_DIR}"
+ORDINARY_VERIFY_LOG="${STAGE_ROOT}/ordinary-verify.log"
+verify_ordinary_signature() {
+  bundle_path="$1"
+  bundle_label="$2"
+  : > "${ORDINARY_VERIFY_LOG}"
+  if ! codesign --verify "${bundle_path}" 2>"${ORDINARY_VERIFY_LOG}"; then
+    echo "error: ${bundle_label} did not pass ordinary signature verification" >&2
+    if [ -s "${ORDINARY_VERIFY_LOG}" ]; then
+      sed 's/^/codesign: /' "${ORDINARY_VERIFY_LOG}" >&2
+    else
+      echo "codesign: no diagnostic output" >&2
+    fi
+    return 1
+  fi
+}
 
-if ! codesign --verify "${LOCAL_APP_DIR}" 2>/dev/null; then
-  echo "error: promoted app did not pass ordinary signature verification" >&2
+prepare_promotion_directory() {
+  mkdir -p "${PROMOTION_ROOT}"
+  rm -rf "${CANDIDATE_APP_DIR}"
+
+  if [ -e "${BACKUP_APP_DIR}" ]; then
+    if [ -e "${LOCAL_APP_DIR}" ]; then
+      rm -rf "${BACKUP_APP_DIR}"
+    else
+      echo "Recovering previous local app from ${BACKUP_APP_DIR}." >&2
+      mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"
+    fi
+  fi
+}
+
+if ! prepare_promotion_directory; then
+  echo "error: could not prepare the local promotion directory" >&2
   exit 1
 fi
+
+if ! mv "${APP_DIR}" "${CANDIDATE_APP_DIR}"; then
+  echo "error: could not move the staged app to ${CANDIDATE_APP_DIR}" >&2
+  exit 1
+fi
+
+if ! verify_ordinary_signature "${CANDIDATE_APP_DIR}" "promotion candidate"; then
+  exit 1
+fi
+
+if [ -e "${LOCAL_APP_DIR}" ]; then
+  if ! mv "${LOCAL_APP_DIR}" "${BACKUP_APP_DIR}"; then
+    echo "error: could not move the previous local app to ${BACKUP_APP_DIR}" >&2
+    exit 1
+  fi
+  BACKUP_CREATED=1
+fi
+PROMOTION_IN_PROGRESS=1
+
+if ! mv "${CANDIDATE_APP_DIR}" "${LOCAL_APP_DIR}"; then
+  echo "error: could not replace the local app with the verified candidate" >&2
+  if restore_previous_app; then
+    PROMOTION_IN_PROGRESS=0
+  fi
+  exit 1
+fi
+
+if ! verify_ordinary_signature "${LOCAL_APP_DIR}" "promoted local app"; then
+  if restore_previous_app; then
+    PROMOTION_IN_PROGRESS=0
+  fi
+  exit 1
+fi
+
+PROMOTION_COMPLETE=1
+PROMOTION_IN_PROGRESS=0
+rm -rf "${BACKUP_APP_DIR}"
+BACKUP_CREATED=0
 
 LOCAL_BINARY="${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}"
 SIZE="$(du -h "${LOCAL_BINARY}" | cut -f1 | tr -d ' ')"
