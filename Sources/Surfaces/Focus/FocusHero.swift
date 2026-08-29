@@ -290,7 +290,7 @@ struct FocusHero: View {
     }
 
     private var automaticIntentField: some View {
-        IntentField(text: $store.intent) { store.start() }
+        IntentField(text: $store.intent) { store.applyAutomaticSessionCorrection() }
             .focused(intentFocused)
             .padding(.horizontal, Tokens.Space.s)
             .frame(maxWidth: Tokens.formMeasure, minHeight: 30)
@@ -303,13 +303,13 @@ struct FocusHero: View {
         FocusActionButton(title: store.startWouldContinue ? "Adopt session" : "Start new",
                           symbol: store.startWouldContinue
                               ? "checkmark" : "arrow.triangle.branch") {
-            store.start()
+            store.applyAutomaticSessionCorrection()
         }
     }
 
     private var automaticUndoButton: some View {
         Button(compact ? "Undo automatic session" : "Undo") {
-            store.undoAutoSession()
+            store.undoAutomaticSessionCorrection()
         }
         .buttonStyle(.plain)
         .font(Tokens.Typography.metadata)

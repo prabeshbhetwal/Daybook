@@ -175,6 +175,34 @@ final class SessionStore: ObservableObject {
         refresh()
     }
 
+    /// The Focus correction controls sit at the App boundary because declared
+    /// Away owns a coordinator side effect as well as an engine transition.
+    /// Resume tracking first, exactly as `I'm back` does, then preserve the
+    /// existing adopt/reclassify semantics of `start()`.
+    func applyAutomaticSessionCorrection() {
+        guard isAutoSession else { return }
+        if isAway {
+            // `endAway()` refreshes `workType` from the still-active session.
+            // Preserve the user's pending correction across that required
+            // tracking-resume path before asking `start()` to apply it.
+            let requestedIntent = intent
+            let requestedWorkType = workType
+            endAway()
+            intent = requestedIntent
+            workType = requestedWorkType
+        }
+        start()
+    }
+
+    /// The Undo counterpart must also leave declared Away through `endAway()`
+    /// before discarding, otherwise Core becomes idle while usage tracking
+    /// remains suspended in the coordinator.
+    func undoAutomaticSessionCorrection() {
+        guard isAutoSession else { return }
+        if isAway { endAway() }
+        undoAutoSession()
+    }
+
     /// Time until the next break nudge, and whether one is overdue.
     @Published private(set) var breakCountdown: TimeInterval = 0
     @Published private(set) var isBreakDue = false

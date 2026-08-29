@@ -280,7 +280,9 @@ enum SelfTest {
             ("Focus states keep one honest action and continuations stop at three",
              testFocusSurfaceStateAndContinuationLimit),
             ("Focus composition guards decisions and keeps automatic corrections available",
-             testFocusSurfaceCompositionGuards)
+             testFocusSurfaceCompositionGuards),
+            ("Declared-Away automatic corrections resume tracking exactly once",
+             testDeclaredAwayAutomaticCorrectionRoutes)
         ]
 
         print("FocusContinuity self-test")
@@ -6762,6 +6764,118 @@ enum SelfTest {
             isAutomatic: true)
         expect(!idle.showsAutomaticSessionControls,
                "idle never exposes automatic-session controls", &problems)
+        return problems
+    }
+
+    /// Automatic correction is an App-boundary operation: Core knows how to
+    /// resume/adopt/discard a session, while only SessionStore can also notify
+    /// the coordinator to resume background usage tracking after declared Away.
+    private static func testDeclaredAwayAutomaticCorrectionRoutes() -> [String] {
+        var problems: [String] = []
+
+        func makeAutomatic(_ pause: PauseReason?)
+            -> (store: SessionStore, engine: SessionEngine,
+                archive: SessionArchive, clock: Clock) {
+            let clock = Clock(base)
+            let archive = SessionArchive(directory: scratchDirectory(), now: { clock.value })
+            let engine = SessionEngine(
+                store: PersistenceStore(defaults: UserDefaults(suiteName: suiteName) ?? .standard),
+                archive: archive,
+                ownBundleID: "com.test",
+                schedulesDwell: false,
+                now: { clock.value })
+            engine.start(workType: .deepWork, intent: "Detected coding", isAuto: true)
+            clock.advance(12 * 60)
+            if let pause {
+                switch pause {
+                case .away:
+                    engine.transition(on: .markedAway)
+                case .watching:
+                    engine.transition(on: .watchingObserved(
+                        seconds: FocusConstants.idlePauseThreshold))
+                default:
+                    engine.transition(on: .manualPause)
+                }
+            }
+            // Exercise the real persisted automatic ownership that can survive
+            // into every paused state without adding a test-only engine setter.
+            var snapshot = engine.snapshot()
+            snapshot.isAuto = true
+            engine.restore(from: snapshot)
+            return (SessionStore(engine: engine, now: { clock.value }),
+                    engine, archive, clock)
+        }
+
+        let adopted = makeAutomatic(.away)
+        let adoptedThread = adopted.engine.activeThreadID
+        var adoptTrackingResumes = 0
+        var adoptResumedBeforeCorrection = false
+        adopted.store.onAwayEnded = {
+            adoptTrackingResumes += 1
+            adoptResumedBeforeCorrection = adopted.engine.state == .running
+                && adopted.store.isAutoSession
+        }
+        adopted.store.intent = "Owned coding"
+        adopted.store.applyAutomaticSessionCorrection()
+        expect(adoptTrackingResumes == 1 && adoptResumedBeforeCorrection,
+               "declared-Away adoption resumes usage tracking exactly once, before correction",
+               &problems)
+        expect(adopted.engine.state == .running && !adopted.store.isAutoSession,
+               "adoption resumes as a user-owned running session", &problems)
+        expect(adopted.store.activeIntent == "Owned coding"
+                   && adopted.engine.activeThreadID == adoptedThread,
+               "same-type adoption retains the session thread and requested intent", &problems)
+        expect(adopted.archive.records.isEmpty,
+               "adoption does not create an artificial archive seam", &problems)
+
+        let reclassified = makeAutomatic(.away)
+        let oldThread = reclassified.engine.activeThreadID
+        var reclassifyTrackingResumes = 0
+        var reclassifyResumedBeforeCorrection = false
+        reclassified.store.onAwayEnded = {
+            reclassifyTrackingResumes += 1
+            reclassifyResumedBeforeCorrection = reclassified.engine.state == .running
+                && reclassified.store.isAutoSession
+        }
+        reclassified.store.intent = "Admin follow-up"
+        reclassified.store.workType = .admin
+        reclassified.store.applyAutomaticSessionCorrection()
+        expect(reclassifyTrackingResumes == 1 && reclassifyResumedBeforeCorrection,
+               "declared-Away reclassification resumes tracking once, before correction",
+               &problems)
+        expect(reclassified.engine.state == .running
+                   && reclassified.engine.activeWorkType == .admin
+                   && reclassified.store.activeIntent == "Admin follow-up"
+                   && !reclassified.store.isAutoSession,
+               "reclassification starts the requested user-owned work", &problems)
+        expect(reclassified.engine.activeThreadID != oldThread
+                   && reclassified.archive.records.last?.isAuto == true,
+               "reclassification closes the detected work and starts a fresh thread", &problems)
+
+        let undone = makeAutomatic(.away)
+        var undoEvents: [String] = []
+        undone.store.onAwayEnded = { undoEvents.append("tracking resumed") }
+        undone.store.onAutoSessionUndone = { undoEvents.append("automatic session undone") }
+        undone.store.undoAutomaticSessionCorrection()
+        expect(undoEvents == ["tracking resumed", "automatic session undone"],
+               "declared-Away Undo resumes tracking exactly once before discard", &problems)
+        expect(undone.engine.state == .idle
+                   && undone.archive.records.isEmpty,
+               "Undo retains discard and detector-suppression semantics", &problems)
+
+        for pause in [Optional<PauseReason>.none, .some(.manual), .some(.watching)] {
+            let ordinary = makeAutomatic(pause)
+            var trackingResumes = 0
+            ordinary.store.onAwayEnded = { trackingResumes += 1 }
+            ordinary.store.intent = "Ordinary correction"
+            ordinary.store.applyAutomaticSessionCorrection()
+            expect(trackingResumes == 0,
+                   "\(String(describing: pause)) correction does not fake an away end",
+                   &problems)
+            expect(ordinary.engine.state == .running && !ordinary.store.isAutoSession,
+                   "\(String(describing: pause)) keeps its existing adoption semantics",
+                   &problems)
+        }
         return problems
     }
 
