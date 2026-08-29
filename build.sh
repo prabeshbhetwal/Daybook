@@ -493,11 +493,84 @@ acquire_promotion_lock() {
       echo "error: could not remove the admitted stale promotion lock; preserving the recovery guard" >&2
       return 1
     fi
-    if ! ln "${OWNER_MARKER}" "${PROMOTION_LOCK}" 2>/dev/null; then
-      echo "error: could not replace the admitted stale promotion lock; preserving the recovery guard" >&2
+
+    # A promoter that passed its pre-link guard check before our mkdir can
+    # transiently occupy the empty primary path. Never remove that inode: its
+    # post-link check will observe our guard and release its own hard link.
+    # Re-evaluate ownership until the path clears, with a bound only to avoid
+    # waiting forever on a live process that does not honour the protocol.
+    replacement_checks=0
+    while true; do
+      if ! recovery_guard_owned_by_current_run; then
+        PRESERVE_RECOVERY_GUARD=1
+        echo "error: promotion recovery guard ownership changed during primary replacement; preserving recovery evidence" >&2
+        return 1
+      fi
+      if [ ! -f "${OWNER_MARKER}" ]; then
+        echo "error: recovery owner marker disappeared during primary replacement; preserving recovery evidence" >&2
+        return 1
+      fi
+      if ln "${OWNER_MARKER}" "${PROMOTION_LOCK}" 2>/dev/null; then
+        break
+      fi
+      if [ -e "${PROMOTION_LOCK}" ] \
+          && [ "${OWNER_MARKER}" -ef "${PROMOTION_LOCK}" ]; then
+        break
+      fi
+
+      replacement_checks=$((replacement_checks + 1))
+      if [ -e "${PROMOTION_LOCK}" ] || [ -L "${PROMOTION_LOCK}" ]; then
+        competing_snapshot_read=0
+        if [ -f "${PROMOTION_LOCK}" ] \
+            && read_lock_snapshot "${PROMOTION_LOCK}"; then
+          competing_snapshot_read=1
+        elif [ -e "${PROMOTION_LOCK}" ] || [ -L "${PROMOTION_LOCK}" ]; then
+          echo "error: competing promotion lock is unverifiable; preserving recovery evidence" >&2
+          return 1
+        fi
+      else
+        competing_snapshot_read=0
+      fi
+      if [ "${competing_snapshot_read}" -eq 1 ]; then
+        competing_pid="${SNAPSHOT_PID}"
+        competing_run_id="${SNAPSHOT_RUN_ID}"
+        competing_started="${SNAPSHOT_STARTED}"
+        case "${competing_pid}" in
+          ""|*[!0-9]*)
+            echo "error: competing promotion lock has an invalid owner PID; preserving recovery evidence" >&2
+            return 1
+            ;;
+        esac
+        if ! valid_run_id "${competing_run_id}" \
+            || [ -z "${competing_started}" ]; then
+          echo "error: competing promotion lock ownership is incomplete; preserving recovery evidence" >&2
+          return 1
+        fi
+        if ! kill -0 "${competing_pid}" 2>/dev/null; then
+          if [ -e "${PROMOTION_LOCK}" ] || [ -L "${PROMOTION_LOCK}" ]; then
+            current_competing_identity="$(lock_identity "${PROMOTION_LOCK}")" || {
+              echo "error: competing promotion lock became unverifiable; preserving recovery evidence" >&2
+              return 1
+            }
+            if [ "${current_competing_identity}" = "${SNAPSHOT_IDENTITY}" ]; then
+              echo "error: competing promotion lock owner is not live; preserving recovery evidence" >&2
+              return 1
+            fi
+          fi
+        fi
+      fi
+      if [ "${replacement_checks}" -ge 200 ]; then
+        echo "error: live competing promoter did not release the primary lock; preserving recovery evidence" >&2
+        return 1
+      fi
+      sleep 0.05
+    done
+    PROMOTION_LOCK_HELD=1
+    if ! recovery_guard_owned_by_current_run; then
+      PRESERVE_RECOVERY_GUARD=1
+      echo "error: promotion recovery guard ownership changed after primary replacement; preserving recovery evidence" >&2
       return 1
     fi
-    PROMOTION_LOCK_HELD=1
     PRESERVE_RECOVERY_GUARD=0
     release_recovery_guard
     stale_candidate="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${lock_run_id}"
