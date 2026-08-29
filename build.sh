@@ -933,7 +933,10 @@ acquire_promotion_lock() {
       return 1
     fi
     PRESERVE_RECOVERY_GUARD=0
-    release_recovery_guard
+    if ! release_recovery_guard; then
+      echo "error: could not release the proven stale-recovery guard" >&2
+      return 1
+    fi
     stale_candidate="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${lock_run_id}"
     stale_backup="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${lock_run_id}"
     if ! recover_transaction_paths "${stale_candidate}" "${stale_backup}" \

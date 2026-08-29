@@ -20,6 +20,7 @@ SYMLINK_STALE_RUN_ID="harness-symlink-stale-$$"
 INITIAL_SYMLINK_STALE_RUN_ID="harness-initial-symlink-stale-$$"
 PREUNLINK_SYMLINK_STALE_RUN_ID="harness-preunlink-symlink-stale-$$"
 GUARD_OWNER_SYMLINK_STALE_RUN_ID="harness-guard-owner-symlink-stale-$$"
+RELEASE_GUARD_FAILURE_STALE_RUN_ID="harness-release-guard-failure-stale-$$"
 LIVE_OWNER="${PROMOTION_ROOT}/promotion-owner.${LIVE_RUN_ID}"
 STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${STALE_RUN_ID}"
 DUAL_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${DUAL_STALE_RUN_ID}"
@@ -32,6 +33,7 @@ SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${SYMLINK_STALE_RUN_ID}"
 INITIAL_SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${INITIAL_SYMLINK_STALE_RUN_ID}"
 PREUNLINK_SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${PREUNLINK_SYMLINK_STALE_RUN_ID}"
 GUARD_OWNER_SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${GUARD_OWNER_SYMLINK_STALE_RUN_ID}"
+RELEASE_GUARD_FAILURE_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${RELEASE_GUARD_FAILURE_STALE_RUN_ID}"
 LEGACY_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate"
 LEGACY_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup"
 LIVE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${LIVE_RUN_ID}"
@@ -52,6 +54,8 @@ DEAD_STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${DEAD_STALE_R
 DEAD_STALE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${DEAD_STALE_RUN_ID}"
 SYMLINK_STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${SYMLINK_STALE_RUN_ID}"
 SYMLINK_STALE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${SYMLINK_STALE_RUN_ID}"
+RELEASE_GUARD_FAILURE_STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${RELEASE_GUARD_FAILURE_STALE_RUN_ID}"
+RELEASE_GUARD_FAILURE_STALE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${RELEASE_GUARD_FAILURE_STALE_RUN_ID}"
 CLEANUP_PID_RECORD="${PROMOTION_ROOT}/harness-cleanup-probe.pid"
 CLEANUP_RUN_RECORD="${PROMOTION_ROOT}/harness-cleanup-probe.run-id"
 HARNESS_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/focuscontinuity-concurrency.XXXXXX")"
@@ -481,6 +485,16 @@ if [ "${is_primary_lock}" -eq 1 ] \
   printf '%s\n' "$1" > "${HARNESS_CONTROL_ROOT}/symlink-primary-target"
   : > "${HARNESS_CONTROL_ROOT}/symlink-primary-installed"
   exit 1
+fi
+if [ "${is_primary_lock}" -eq 1 ] \
+    && [ "${HARNESS_RECOVERER:-}" = "release-guard-failure" ] \
+    && [ -f "${HARNESS_RECOVERY_GUARD}/owner" ]; then
+  /bin/cp "${HARNESS_RECOVERY_GUARD}/owner" "${HARNESS_GUARD_OWNER_TARGET}"
+  /usr/bin/shasum -a 256 "${HARNESS_GUARD_OWNER_TARGET}" \
+    > "${HARNESS_CONTROL_ROOT}/release-guard-owner-hash"
+  /bin/rm "${HARNESS_RECOVERY_GUARD}/owner"
+  /bin/ln -s "${HARNESS_GUARD_OWNER_TARGET}" "${HARNESS_RECOVERY_GUARD}/owner"
+  : > "${HARNESS_CONTROL_ROOT}/release-guard-owner-corrupted"
 fi
 if [ "${is_primary_lock}" -eq 1 ] \
     && { [ "${HARNESS_RECOVERER:-}" = "prechecked" ] \
@@ -1216,6 +1230,37 @@ if [ -f "${expected_release_target}" ] \
 fi
 codesign --verify "${APP_NAME}.app" \
   || fail "release-site symlink regression left an invalid local app"
+
+# Corrupt the guard owner immediately after replacement admission. Recovery
+# must fail closed and preserve every stale transaction artefact.
+mv "${APP_NAME}.app" "${RELEASE_GUARD_FAILURE_STALE_BACKUP}"
+cp -R "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}"
+printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
+  "${DEAD_PID}" "${RELEASE_GUARD_FAILURE_STALE_RUN_ID}" > "${RELEASE_GUARD_FAILURE_STALE_OWNER}"
+ln "${RELEASE_GUARD_FAILURE_STALE_OWNER}" "${LOCK_FILE}"
+GUARD_HASH="$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_OWNER}" | awk '{print $1}')"
+set +e
+PATH="${WRAPPER_DIR}:${PATH}" HARNESS_RECOVERER=release-guard-failure \
+HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" HARNESS_LOCK_FILE="${LOCK_FILE}" \
+HARNESS_PROMOTION_ROOT="${PROMOTION_ROOT}" HARNESS_RECOVERY_GUARD="${RECOVERY_GUARD}" \
+HARNESS_GUARD_OWNER_TARGET="${HARNESS_ROOT}/release-guard-owner-target" \
+  ./build.sh > "${HARNESS_ROOT}/release-guard-failure-build.log" 2>&1
+BUILD_STATUS=$?
+set -e
+test -e "${HARNESS_ROOT}/release-guard-owner-corrupted" \
+  || fail "release-boundary regression did not corrupt the guard owner"
+test "${BUILD_STATUS}" -ne 0 || fail "recovery continued after guard release failed"
+test -e "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}" \
+  -a -e "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" \
+  || fail "failed guard release discarded recovery evidence"
+test "$(shasum -a 256 "${RECOVERY_GUARD}/owner" | awk '{print $1}')" = "${GUARD_HASH}" \
+  || fail "failed guard release rewrote foreign ownership evidence"
+rm -f "${LOCK_FILE}" "${RECOVERY_GUARD}/owner" "${RELEASE_GUARD_FAILURE_STALE_OWNER}"
+rmdir "${RECOVERY_GUARD}"
+rm -rf "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}"
+mv "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" "${APP_NAME}.app"
+rm -rf "${HARNESS_ROOT}/release-guard-owner-target"
+codesign --verify "${APP_NAME}.app" || fail "release-boundary regression left an invalid local app"
 
 # Exercise this harness's actual EXIT cleanup in a subshell while a tracked
 # recoverer is paused after unlink. The parent then observes whether cleanup
