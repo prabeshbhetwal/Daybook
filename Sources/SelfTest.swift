@@ -102,6 +102,8 @@ enum SelfTest {
              testUsageClockRegressionSafety),
             ("Usage mutations publish only after durable filesystem writes",
              testUsageWriteFailureRollsBack),
+            ("Failed terminal usage checkpoints retain their original boundary",
+             testFailedTerminalCheckpointRetainsOriginalBoundary),
             ("Failed usage preservation keeps source evidence read-only",
              testUsagePreservationFailureFailsClosed),
             ("Future usage schema stays byte-identical and read-only",
@@ -1775,8 +1777,10 @@ enum SelfTest {
         try? FileManager.default.moveItem(at: blocked, to: savedDirectory)
         try? Data("blocked again".utf8).write(to: blocked)
         tracker.suspend()
-        expect(tracker.currentBundleID == "com.apple.dt.Xcode" && tracker.isObserving,
-               "a failed terminal checkpoint leaves the active state retryable", &problems)
+        expect(tracker.currentBundleID == nil && tracker.isObserving,
+               "a failed terminal checkpoint freezes closed while remaining retryable", &problems)
+        expectClose(tracker.unpersistedSeconds(), 60,
+                    "a failed terminal checkpoint exposes only its frozen tail", &problems)
         expectClose(usage.sessions.first?.seconds ?? -1, 10 * 60,
                     "failed finalisation rolls the cache back to its durable record", &problems)
         expect(usage.revision == 1 && callbacks == 1,
@@ -1789,6 +1793,92 @@ enum SelfTest {
                "repair lets the identical finalisation persist and stop", &problems)
         expectClose(usage.sessions.first?.seconds ?? -1, 11 * 60,
                     "the retried close retains the whole active stretch", &problems)
+        return problems
+    }
+
+    /// A failed terminal checkpoint is an immutable event, not permission to
+    /// keep accruing until storage recovers. Its unsaved tail stays visible,
+    /// while a confirmed return waits behind that exact close as a new UUID.
+    private static func testFailedTerminalCheckpointRetainsOriginalBoundary() -> [String] {
+        var problems: [String] = []
+
+        do {
+            let clock = Clock(base)
+            let root = scratchDirectory()
+            let directory = root.appendingPathComponent("usage")
+            let savedDirectory = root.appendingPathComponent("saved-usage")
+            let usage = AppUsageArchive(directory: directory, now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+
+            tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+            clock.advance(10 * 60)
+            tracker.flush()
+            let originalID = usage.sessions.first?.id
+
+            clock.advance(60)
+            try? FileManager.default.moveItem(at: directory, to: savedDirectory)
+            try? Data("blocked".utf8).write(to: directory)
+            tracker.suspend()
+
+            expectClose(usage.totalToday() + tracker.unpersistedSeconds(), 11 * 60,
+                        "the failed close tail remains visible without accruing", &problems)
+
+            clock.advance(20 * 60)
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.moveItem(at: savedDirectory, to: directory)
+            tracker.flush()
+
+            expect(usage.sessions.first?.id == originalID,
+                   "a delayed retry must retain the original usage UUID", &problems)
+            expectClose(usage.sessions.first?.seconds ?? -1, 11 * 60,
+                        "a delayed retry must retain the original suspend boundary", &problems)
+            expect(usage.sessions.first?.endReason == .systemLock,
+                   "the delayed retry must retain the original terminal reason", &problems)
+        }
+
+        do {
+            let clock = Clock(base)
+            let root = scratchDirectory()
+            let directory = root.appendingPathComponent("usage")
+            let savedDirectory = root.appendingPathComponent("saved-usage")
+            let usage = AppUsageArchive(directory: directory, now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+
+            tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+            clock.advance(10 * 60)
+            tracker.flush()
+            let originalID = usage.sessions.first?.id
+
+            clock.advance(60)
+            try? FileManager.default.moveItem(at: directory, to: savedDirectory)
+            try? Data("blocked".utf8).write(to: directory)
+            tracker.suspend()
+
+            clock.advance(4 * 60)
+            let confirmedReturn = base.addingTimeInterval(15 * 60)
+            tracker.prepareToResume(bundleID: "com.example.browser", name: "Browser")
+            tracker.confirmPresence(at: confirmedReturn)
+
+            clock.advance(20 * 60)
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.moveItem(at: savedDirectory, to: directory)
+            tracker.flush()
+            tracker.flush()
+
+            let oldSession = usage.sessions.first { $0.id == originalID }
+            let returnedSession = usage.sessions.first { $0.id != originalID }
+            expectClose(oldSession?.seconds ?? -1, 11 * 60,
+                        "a queued return must not extend the failed close", &problems)
+            expect(oldSession?.endReason == .systemLock,
+                   "a queued return must not replace the failed close reason", &problems)
+            expect(returnedSession?.bundleID == "com.example.browser",
+                   "the queued return must retain its candidate app", &problems)
+            expectClose(returnedSession?.start.timeIntervalSince(base) ?? -1, 15 * 60,
+                        "the new UUID must begin at the confirmed return", &problems)
+        }
+
         return problems
     }
 

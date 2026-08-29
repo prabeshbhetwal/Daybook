@@ -21,9 +21,22 @@ final class AppUsageTracker {
         let appName: String
     }
 
+    private enum PendingContinuation {
+        case stopped
+        case waitingForPresence(ResumeCandidate)
+        case begin(ResumeCandidate, at: Date)
+    }
+
+    private struct PendingClose {
+        let session: AppUsageSession
+        let lastPersistedEnd: Date
+        var continuation: PendingContinuation
+    }
+
     private enum TrackingState {
         case stopped
         case active(ActiveSegment)
+        case pendingPersistence(PendingClose)
         case waitingForPresence(ResumeCandidate)
     }
 
@@ -65,11 +78,14 @@ final class AppUsageTracker {
     /// sampled `now()` was always true by microseconds, which labelled every
     /// stretch `.idle` and made grouping apply the 15-minute away bridge where
     /// the 5-minute gap belonged.
-    private func effectiveEnd() -> (end: Date, trimmed: Bool) {
-        let moment = now()
+    private func effectiveEnd(at moment: Date) -> (end: Date, trimmed: Bool) {
         let idleFor = idle.idleSeconds()
         guard idleFor >= AppUsageTracker.idleCutoff else { return (moment, false) }
         return (moment.addingTimeInterval(-idleFor), true)
+    }
+
+    private func effectiveEnd() -> (end: Date, trimmed: Bool) {
+        effectiveEnd(at: now())
     }
 
     /// The app that is frontmost right now, if tracking is running.
@@ -83,7 +99,7 @@ final class AppUsageTracker {
     /// reach the presence gate; it still accrues no usage on its own.
     var isObserving: Bool {
         switch state {
-        case .active, .waitingForPresence: return true
+        case .active, .pendingPersistence, .waitingForPresence: return true
         case .stopped: return false
         }
     }
@@ -113,15 +129,27 @@ final class AppUsageTracker {
     /// the interval, rather than only its scalar, lets focused-active reporting
     /// intersect it and lets day totals clip it at local midnight.
     func unpersistedSession() -> AppUsageSession? {
-        guard case .active(let segment) = state else { return nil }
-        let candidate = effectiveEnd()
-        let end = safeEnd(for: segment, candidate: candidate.end,
-                          permitsRollback: candidate.trimmed)
-        let start = max(segment.start, segment.lastPersistedEnd)
-        guard end > start else { return nil }
-        return AppUsageSession(id: segment.id, bundleID: segment.bundleID,
-                               appName: segment.appName, start: start, end: end,
-                               endReason: candidate.trimmed ? .idle : .stillOpen)
+        switch state {
+        case .active(let segment):
+            let candidate = effectiveEnd()
+            let end = safeEnd(for: segment, candidate: candidate.end,
+                              permitsRollback: candidate.trimmed)
+            let start = max(segment.start, segment.lastPersistedEnd)
+            guard end > start else { return nil }
+            return AppUsageSession(id: segment.id, bundleID: segment.bundleID,
+                                   appName: segment.appName, start: start, end: end,
+                                   endReason: candidate.trimmed ? .idle : .stillOpen)
+        case .pendingPersistence(let pending):
+            let start = max(pending.session.start, pending.lastPersistedEnd)
+            guard pending.session.end > start else { return nil }
+            return AppUsageSession(id: pending.session.id,
+                                   bundleID: pending.session.bundleID,
+                                   appName: pending.session.appName,
+                                   start: start, end: pending.session.end,
+                                   endReason: pending.session.endReason)
+        case .stopped, .waitingForPresence:
+            return nil
+        }
     }
 
     /// The unpersisted tail's literal overlap with one local day.
@@ -163,19 +191,49 @@ final class AppUsageTracker {
         // stretch but opening none means the absence records as a gap, which is
         // what it was.
         if AppUsageArchive.systemProcesses.contains(bundleID) {
-            _ = closeActiveSegment(reason: .systemLock)
+            switch state {
+            case .active:
+                _ = finaliseActiveSegment(reason: .systemLock, at: now(),
+                                          continuation: .stopped)
+            case .pendingPersistence(let pending):
+                if case .waitingForPresence = pending.continuation {
+                    _ = retryPendingClose()
+                } else {
+                    updatePendingContinuation(.stopped)
+                    _ = retryPendingClose()
+                }
+            case .stopped, .waitingForPresence:
+                break
+            }
+            return
+        }
+        let candidate = ResumeCandidate(bundleID: bundleID,
+                                        appName: name.isEmpty ? bundleID : name)
+        if case .pendingPersistence(let pending) = state {
+            switch pending.continuation {
+            case .waitingForPresence:
+                updatePendingContinuation(.waitingForPresence(candidate))
+            case .begin(let queued, let startedAt) where queued.bundleID == bundleID:
+                updatePendingContinuation(.begin(candidate, at: startedAt))
+            case .stopped, .begin:
+                updatePendingContinuation(.begin(candidate, at: now()))
+            }
+            _ = retryPendingClose()
             return
         }
         if case .waitingForPresence = state {
-            setState(.waitingForPresence(ResumeCandidate(
-                bundleID: bundleID,
-                appName: name.isEmpty ? bundleID : name)))
+            setState(.waitingForPresence(candidate))
             return
         }
         if case .active(let segment) = state, segment.bundleID == bundleID { return }
 
-        guard closeActiveSegment(reason: .appSwitch) else { return }
-        begin(bundleID: bundleID, name: name, at: now())
+        if case .active = state {
+            let moment = now()
+            _ = finaliseActiveSegment(reason: .appSwitch, at: moment,
+                                      continuation: .begin(candidate, at: moment))
+        } else {
+            begin(bundleID: bundleID, name: name, at: now())
+        }
     }
 
     /// The user went away — lock, sleep or power off. Time spent away is not
@@ -185,31 +243,71 @@ final class AppUsageTracker {
     }
 
     private func stopTracking(reason: UsageEndReason) {
-        if case .active = state {
-            _ = closeActiveSegment(reason: reason)
-        } else {
+        switch state {
+        case .active:
+            _ = finaliseActiveSegment(reason: reason, at: now(),
+                                      continuation: .stopped)
+        case .pendingPersistence:
+            updatePendingContinuation(.stopped)
+            _ = retryPendingClose()
+        case .stopped, .waitingForPresence:
             setState(.stopped)
         }
     }
 
     @discardableResult
-    private func closeActiveSegment(reason: UsageEndReason) -> Bool {
+    private func finaliseActiveSegment(reason: UsageEndReason,
+                                       at moment: Date,
+                                       continuation: PendingContinuation) -> Bool {
         guard case .active(let segment) = state else { return true }
-        let (candidate, wasTrimmed) = effectiveEnd()
+        let (candidate, wasTrimmed) = effectiveEnd(at: moment)
         let end = safeEnd(for: segment, candidate: candidate,
                           permitsRollback: wasTrimmed)
         // Idle trimming outranks the nominal reason: the stretch really ended
         // when input stopped, not when the app changed.
-        guard archive.checkpoint(AppUsageSession(id: segment.id,
-                                                 bundleID: segment.bundleID,
-                                                 appName: segment.appName,
-                                                 start: segment.start,
-                                                 end: end,
-                                                 endReason: wasTrimmed ? .idle : reason)) else {
+        let session = AppUsageSession(id: segment.id,
+                                      bundleID: segment.bundleID,
+                                      appName: segment.appName,
+                                      start: segment.start,
+                                      end: end,
+                                      endReason: wasTrimmed ? .idle : reason)
+        guard archive.checkpoint(session) else {
+            setState(.pendingPersistence(PendingClose(
+                session: session, lastPersistedEnd: segment.lastPersistedEnd,
+                continuation: continuation)))
             return false
         }
-        setState(.stopped)
+        resolve(continuation)
         return true
+    }
+
+    private func updatePendingContinuation(_ continuation: PendingContinuation) {
+        guard case .pendingPersistence(var pending) = state else { return }
+        pending.continuation = continuation
+        setState(.pendingPersistence(pending))
+    }
+
+    @discardableResult
+    private func retryPendingClose() -> Bool {
+        guard case .pendingPersistence(let pending) = state else { return true }
+        guard archive.checkpoint(pending.session) else { return false }
+        resolve(pending.continuation)
+        return true
+    }
+
+    private func resolve(_ continuation: PendingContinuation) {
+        guard isEnabled else {
+            setState(.stopped)
+            return
+        }
+        switch continuation {
+        case .stopped:
+            setState(.stopped)
+        case .waitingForPresence(let candidate):
+            setState(.waitingForPresence(candidate))
+        case .begin(let candidate, let moment):
+            begin(bundleID: candidate.bundleID, name: candidate.appName, at: moment)
+        }
     }
 
     /// Flushes the in-flight stretch so queries include it. Called before the
@@ -219,16 +317,27 @@ final class AppUsageTracker {
     }
 
     private func flushNow() {
+        if case .pendingPersistence = state {
+            _ = retryPendingClose()
+            return
+        }
         guard case .active(var segment) = state else { return }
         let (candidate, wasTrimmed) = effectiveEnd()
         let end = safeEnd(for: segment, candidate: candidate,
                           permitsRollback: wasTrimmed)
-        guard archive.checkpoint(AppUsageSession(id: segment.id,
-                                                 bundleID: segment.bundleID,
-                                                 appName: segment.appName,
-                                                 start: segment.start,
-                                                 end: end,
-                                                 endReason: wasTrimmed ? .idle : .stillOpen)) else {
+        let session = AppUsageSession(id: segment.id,
+                                      bundleID: segment.bundleID,
+                                      appName: segment.appName,
+                                      start: segment.start,
+                                      end: end,
+                                      endReason: wasTrimmed ? .idle : .stillOpen)
+        guard archive.checkpoint(session) else {
+            if wasTrimmed {
+                setState(.pendingPersistence(PendingClose(
+                    session: session, lastPersistedEnd: segment.lastPersistedEnd,
+                    continuation: .waitingForPresence(ResumeCandidate(
+                        bundleID: segment.bundleID, appName: segment.appName)))))
+            }
             return
         }
         if wasTrimmed {
@@ -261,14 +370,21 @@ final class AppUsageTracker {
         guard seconds >= AppUsageTracker.idleCutoff,
               case .active(let segment) = state else { return }
         let end = max(segment.start, now().addingTimeInterval(-seconds))
-        guard archive.checkpoint(AppUsageSession(id: segment.id,
-                                                 bundleID: segment.bundleID,
-                                                 appName: segment.appName,
-                                                 start: segment.start,
-                                                 end: end,
-                                                 endReason: .idle)) else { return }
-        setState(.waitingForPresence(ResumeCandidate(bundleID: segment.bundleID,
-                                                     appName: segment.appName)))
+        let session = AppUsageSession(id: segment.id,
+                                      bundleID: segment.bundleID,
+                                      appName: segment.appName,
+                                      start: segment.start,
+                                      end: end,
+                                      endReason: .idle)
+        let candidate = ResumeCandidate(bundleID: segment.bundleID,
+                                        appName: segment.appName)
+        guard archive.checkpoint(session) else {
+            setState(.pendingPersistence(PendingClose(
+                session: session, lastPersistedEnd: segment.lastPersistedEnd,
+                continuation: .waitingForPresence(candidate))))
+            return
+        }
+        setState(.waitingForPresence(candidate))
     }
 
     /// Records the app waiting behind a wake or idle boundary. The caller must
@@ -281,22 +397,36 @@ final class AppUsageTracker {
     private func prepareToResumeNow(bundleID: String?, name: String) {
         guard isEnabled, let bundleID, bundleID != ownBundleID,
               !AppUsageArchive.systemProcesses.contains(bundleID) else { return }
+        let candidate = ResumeCandidate(bundleID: bundleID,
+                                        appName: name.isEmpty ? bundleID : name)
+        if case .pendingPersistence = state {
+            updatePendingContinuation(.waitingForPresence(candidate))
+            _ = retryPendingClose()
+            return
+        }
         if case .waitingForPresence = state {
-            setState(.waitingForPresence(ResumeCandidate(
-                bundleID: bundleID, appName: name.isEmpty ? bundleID : name)))
+            setState(.waitingForPresence(candidate))
             return
         }
         guard !isObserving else { return }
-        setState(.waitingForPresence(ResumeCandidate(bundleID: bundleID,
-                                                     appName: name.isEmpty ? bundleID : name)))
+        setState(.waitingForPresence(candidate))
     }
 
     /// Starts a fresh, independently correctable stretch after a caller has
     /// established that a person is actually back at the Mac.
     func confirmPresence(at moment: Date) {
         withTransition {
-            guard isEnabled, case .waitingForPresence(let candidate) = state else { return }
-            begin(bundleID: candidate.bundleID, name: candidate.appName, at: moment)
+            guard isEnabled else { return }
+            switch state {
+            case .waitingForPresence(let candidate):
+                begin(bundleID: candidate.bundleID, name: candidate.appName, at: moment)
+            case .pendingPersistence(let pending):
+                guard case .waitingForPresence(let candidate) = pending.continuation else { return }
+                updatePendingContinuation(.begin(candidate, at: moment))
+                _ = retryPendingClose()
+            case .stopped, .active:
+                return
+            }
         }
     }
 
@@ -312,8 +442,16 @@ final class AppUsageTracker {
     /// that work was simply never recorded.
     func resume(bundleID: String?, name: String) {
         withTransition {
-            guard isEnabled, !isObserving, let bundleID, bundleID != ownBundleID,
+            guard isEnabled, let bundleID, bundleID != ownBundleID,
                   !AppUsageArchive.systemProcesses.contains(bundleID) else { return }
+            if case .pendingPersistence = state {
+                let candidate = ResumeCandidate(bundleID: bundleID,
+                                                appName: name.isEmpty ? bundleID : name)
+                updatePendingContinuation(.begin(candidate, at: now()))
+                _ = retryPendingClose()
+                return
+            }
+            guard !isObserving else { return }
             begin(bundleID: bundleID, name: name, at: now())
         }
     }
