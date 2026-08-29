@@ -13,6 +13,8 @@ CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${RUN_ID}"
 BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${RUN_ID}"
 OWNER_MARKER="${PROMOTION_ROOT}/promotion-owner.${RUN_ID}"
 PROMOTION_LOCK="${PROMOTION_ROOT}/promotion.lock"
+RECOVERY_GUARD="${PROMOTION_ROOT}/promotion-recovery.lock"
+RECOVERY_GUARD_OWNER="${RECOVERY_GUARD}/owner"
 LEGACY_CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate"
 LEGACY_BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup"
 DEPLOYMENT_TARGET="13.0"
@@ -40,6 +42,36 @@ LOCAL_APP_WAS_PRESENT=0
 PROMOTION_LOCK_HELD=0
 PROMOTION_PATHS_TOUCHED=0
 PRESERVE_PROMOTION_LOCK=0
+RECOVERY_GUARD_HELD=0
+PRESERVE_RECOVERY_GUARD=0
+
+recovery_guard_owned_by_current_run() {
+  if [ ! -f "${RECOVERY_GUARD_OWNER}" ]; then
+    return 1
+  fi
+  guard_pid="$(sed -n 's/^pid=//p' "${RECOVERY_GUARD_OWNER}" | head -n 1)"
+  guard_run_id="$(sed -n 's/^run_id=//p' "${RECOVERY_GUARD_OWNER}" | head -n 1)"
+  [ "${guard_pid}" = "$$" ] && [ "${guard_run_id}" = "${RUN_ID}" ]
+}
+
+release_recovery_guard() {
+  if [ "${RECOVERY_GUARD_HELD}" -ne 1 ]; then
+    return 0
+  fi
+
+  if [ "${PRESERVE_RECOVERY_GUARD}" -eq 0 ] \
+      && recovery_guard_owned_by_current_run; then
+    rm -f "${RECOVERY_GUARD_OWNER}"
+    if ! rmdir "${RECOVERY_GUARD}" 2>/dev/null; then
+      if [ -d "${RECOVERY_GUARD}" ]; then
+        printf 'pid=%s\nrun_id=%s\n' "$$" "${RUN_ID}" \
+          > "${RECOVERY_GUARD_OWNER}" || true
+      fi
+      echo "warning: could not release the owned promotion recovery guard; preserving it" >&2
+    fi
+  fi
+  RECOVERY_GUARD_HELD=0
+}
 
 release_promotion_lock() {
   if [ "${PROMOTION_LOCK_HELD}" -eq 1 ]; then
@@ -110,6 +142,7 @@ cleanup_build() {
       rm -rf "${BACKUP_APP_DIR}"
     fi
   fi
+  release_recovery_guard
   release_promotion_lock
   exit "${cleanup_status}"
 }
@@ -347,6 +380,37 @@ owner_field() {
   sed -n "s/^${field_name}=//p" "${owner_file}" | head -n 1
 }
 
+lock_identity() {
+  stat -f '%d:%i' "$1" 2>/dev/null
+}
+
+read_lock_snapshot() {
+  snapshot_file="$1"
+  snapshot_identity_before="$(lock_identity "${snapshot_file}")" || return 1
+  SNAPSHOT_PID="$(owner_field pid "${snapshot_file}")"
+  SNAPSHOT_RUN_ID="$(owner_field run_id "${snapshot_file}")"
+  SNAPSHOT_STARTED="$(owner_field started "${snapshot_file}")"
+  snapshot_identity_after="$(lock_identity "${snapshot_file}")" || return 1
+  if [ "${snapshot_identity_before}" != "${snapshot_identity_after}" ]; then
+    return 1
+  fi
+  SNAPSHOT_IDENTITY="${snapshot_identity_before}"
+}
+
+acquire_recovery_guard() {
+  if ! mkdir "${RECOVERY_GUARD}" 2>/dev/null; then
+    echo "error: another process is recovering a stale promotion lock" >&2
+    return 1
+  fi
+  RECOVERY_GUARD_HELD=1
+  if ! printf 'pid=%s\nrun_id=%s\n' "$$" "${RUN_ID}" \
+      > "${RECOVERY_GUARD_OWNER}"; then
+    PRESERVE_RECOVERY_GUARD=1
+    echo "error: could not record promotion recovery guard ownership; preserving the guard" >&2
+    return 1
+  fi
+}
+
 acquire_promotion_lock() {
   mkdir -p "${PROMOTION_ROOT}"
   PROMOTION_PATHS_TOUCHED=1
@@ -363,9 +427,14 @@ acquire_promotion_lock() {
       return 1
     fi
 
-    lock_pid="$(owner_field pid "${PROMOTION_LOCK}")"
-    lock_run_id="$(owner_field run_id "${PROMOTION_LOCK}")"
-    lock_started="$(owner_field started "${PROMOTION_LOCK}")"
+    if ! read_lock_snapshot "${PROMOTION_LOCK}"; then
+      echo "error: promotion lock changed while its ownership was read; preserving it" >&2
+      return 1
+    fi
+    lock_pid="${SNAPSHOT_PID}"
+    lock_run_id="${SNAPSHOT_RUN_ID}"
+    lock_started="${SNAPSHOT_STARTED}"
+    lock_snapshot_identity="${SNAPSHOT_IDENTITY}"
     case "${lock_pid}" in
       ""|*[!0-9]*)
         echo "error: promotion lock has an invalid owner PID; preserving it" >&2
@@ -382,23 +451,54 @@ acquire_promotion_lock() {
     fi
 
     echo "Recovering stale promotion lock owned by process ${lock_pid} (run ${lock_run_id})." >&2
-    rm -f "${PROMOTION_LOCK}"
+    if ! acquire_recovery_guard; then
+      return 1
+    fi
+    if ! read_lock_snapshot "${PROMOTION_LOCK}" \
+        || [ "${SNAPSHOT_PID}" != "${lock_pid}" ] \
+        || [ "${SNAPSHOT_RUN_ID}" != "${lock_run_id}" ] \
+        || [ "${SNAPSHOT_STARTED}" != "${lock_started}" ] \
+        || [ "${SNAPSHOT_IDENTITY}" != "${lock_snapshot_identity}" ]; then
+      echo "error: stale promotion lock changed before recovery admission; preserving it" >&2
+      return 1
+    fi
+    if ! recovery_guard_owned_by_current_run; then
+      PRESERVE_RECOVERY_GUARD=1
+      echo "error: promotion recovery guard ownership is unverifiable; preserving recovery evidence" >&2
+      return 1
+    fi
+
+    # Preserve the guard across the unlink/link crash point. Stamp the
+    # replacement with the stale run until recovery completes, so signal
+    # cleanup leaves the rollback paths discoverable by the next promoter.
+    replacement_started="$(owner_field started "${OWNER_MARKER}")"
+    printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
+      "$$" "${lock_run_id}" "${lock_started:-unknown}" > "${OWNER_MARKER}"
+    PRESERVE_RECOVERY_GUARD=1
+    PRESERVE_PROMOTION_LOCK=1
+    if ! rm -f "${PROMOTION_LOCK}"; then
+      echo "error: could not remove the admitted stale promotion lock; preserving the recovery guard" >&2
+      return 1
+    fi
     if ! ln "${OWNER_MARKER}" "${PROMOTION_LOCK}" 2>/dev/null; then
-      continue
+      echo "error: could not replace the admitted stale promotion lock; preserving the recovery guard" >&2
+      return 1
     fi
     PROMOTION_LOCK_HELD=1
+    PRESERVE_RECOVERY_GUARD=0
+    release_recovery_guard
     stale_candidate="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${lock_run_id}"
     stale_backup="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${lock_run_id}"
     if ! recover_transaction_paths "${stale_candidate}" "${stale_backup}" \
         "stale promotion"; then
-      # The lock and marker are hard links. Re-stamp their shared contents with
-      # the failed run so a later promoter retries the same preserved evidence.
-      printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
-        "$$" "${lock_run_id}" "${lock_started:-unknown}" > "${OWNER_MARKER}"
-      PRESERVE_PROMOTION_LOCK=1
+      # The replacement primary already names the failed run, so a later
+      # promoter retries the same preserved evidence.
       return 1
     fi
     rm -f "${PROMOTION_ROOT}/promotion-owner.${lock_run_id}"
+    printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
+      "$$" "${RUN_ID}" "${replacement_started}" > "${OWNER_MARKER}"
+    PRESERVE_PROMOTION_LOCK=0
     return 0
   done
 }
