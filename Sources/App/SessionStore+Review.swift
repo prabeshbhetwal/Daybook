@@ -16,6 +16,8 @@ struct ReviewFocusEntry: Identifiable, Equatable {
 /// helpers and publishes presentation-ready values; no archive mutation or
 /// historical repair is possible from this surface.
 extension SessionStore {
+    private static let maximumReviewFocusRows = 500
+
     func setReviewVisible(_ visible: Bool) {
         reviewVisible = visible
         if visible && reviewRefreshPending { refreshReview() }
@@ -181,6 +183,22 @@ extension SessionStore {
 
     var reviewFocusSessionCount: Int {
         Set(reviewFocusSessions.map(\.threadID)).count
+    }
+
+    /// Only the row presentation is bounded. Summary, longest-focus, work-type
+    /// and session-count evidence continue to consume `reviewFocusSessions` in
+    /// full. The source array is already newest first and deterministically tied.
+    var reviewFocusSessionRows: [ReviewFocusEntry] {
+        Array(reviewFocusSessions.prefix(Self.maximumReviewFocusRows))
+    }
+
+    var reviewFocusRowsOmitted: Int {
+        max(0, reviewFocusSessions.count - Self.maximumReviewFocusRows)
+    }
+
+    var reviewFocusRowsQualification: String {
+        "Showing newest \(reviewFocusSessionRows.count) of "
+            + "\(reviewFocusSessions.count) stretches"
     }
 
     var filteredHistoryDays: [HistoryDay] {

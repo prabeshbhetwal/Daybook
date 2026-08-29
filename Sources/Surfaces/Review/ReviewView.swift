@@ -174,26 +174,36 @@ struct ReviewView: View {
         SurfacePanel(showsHeader: false) {
             SectionHeader(title: "Focus sessions",
                           trailing: focusSessionCountLabel)
-            ForEach(Array(store.reviewFocusSessions.enumerated()), id: \.element.id) { index, entry in
-                if index > 0 { Divider() }
-                HStack(spacing: Tokens.Space.m) {
-                    Image(systemName: entry.workType.symbolName)
-                        .foregroundStyle(Tokens.Palette.workType(entry.workType))
-                        .frame(width: 20)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(entry.name)
-                            .font(Tokens.Typography.rowTitle)
-                        Text(entry.workType.displayName + " · "
-                             + Tokens.timeRange(entry.start, entry.end))
-                            .font(Tokens.Typography.metadata)
-                            .foregroundStyle(.secondary)
+            if store.reviewFocusRowsOmitted > 0 {
+                Label(store.reviewFocusRowsQualification,
+                      systemImage: "line.3.horizontal.decrease")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(store.reviewFocusRowsQualification)
+            }
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(store.reviewFocusSessionRows.enumerated()),
+                        id: \.element.id) { index, entry in
+                    if index > 0 { Divider() }
+                    HStack(spacing: Tokens.Space.m) {
+                        Image(systemName: entry.workType.symbolName)
+                            .foregroundStyle(Tokens.Palette.workType(entry.workType))
+                            .frame(width: 20)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.name)
+                                .font(Tokens.Typography.rowTitle)
+                            Text(entry.workType.displayName + " · "
+                                 + Tokens.timeRange(entry.start, entry.end))
+                                .font(Tokens.Typography.metadata)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(Tokens.preciseDuration(entry.seconds))
+                            .font(.callout.monospacedDigit())
                     }
-                    Spacer()
-                    Text(Tokens.preciseDuration(entry.seconds))
-                        .font(.callout.monospacedDigit())
+                    .padding(.vertical, Tokens.Space.xs)
+                    .accessibilityElement(children: .combine)
                 }
-                .padding(.vertical, Tokens.Space.xs)
-                .accessibilityElement(children: .combine)
             }
         }
     }

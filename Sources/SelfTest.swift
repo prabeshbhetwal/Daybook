@@ -33,6 +33,20 @@ enum SelfTest {
         SessionArchive(directory: scratchDirectory(), now: { clock.value })
     }
 
+    private static func makeArchive(_ clock: Clock,
+                                    records: [SessionRecord],
+                                    calendar: Calendar = .current) -> SessionArchive {
+        let directory = scratchDirectory()
+        try? FileManager.default.createDirectory(at: directory,
+                                                 withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(records) {
+            try? data.write(to: directory.appendingPathComponent("sessions.json"),
+                            options: .atomic)
+        }
+        return SessionArchive(directory: directory, calendar: calendar,
+                              now: { clock.value })
+    }
+
     private static func makeEngine(_ clock: Clock) -> SessionEngine {
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
@@ -306,6 +320,8 @@ enum SelfTest {
              testPeriodLogRetainsNewestLimit),
             ("Review keeps focus-only periods out of the empty state",
              testReviewFocusOnlyPeriodEvidence),
+            ("Dense focus Review shows the newest 500 rows without capping evidence",
+             testReviewFocusRowsAreBoundedAndQualified),
             ("History query matches the displayed app name",
              testHistorySearchesDisplayedAppName),
             ("History bounds malformed spans but keeps ordinary midnight clipping",
@@ -7063,6 +7079,71 @@ enum SelfTest {
             expect(store.reviewSummaryLine.contains("No tracked time")
                        && store.reviewSummaryLine.contains("1 focus session"),
                    "focus-only summary counts the shared thread once", &problems)
+            return problems
+        }
+    }
+
+    /// The archive may hold 5,000 records, but Review must not eagerly compose
+    /// them all. The row cap prefers newest stretches while full-period totals,
+    /// longest focus, work types and thread counts remain uncapped.
+    private static func testReviewFocusRowsAreBoundedAndQualified() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(anchoredNow())
+            let calendar = Calendar.current
+            guard let bounds = calendar.dateInterval(of: .weekOfYear,
+                                                      for: clock.value) else {
+                return ["could not build dense focus Review bounds"]
+            }
+            var records: [SessionRecord] = []
+            for index in 0..<510 {
+                let start = bounds.start.addingTimeInterval(3_600 + Double(index * 60))
+                let seconds: TimeInterval = index == 0 ? 120 : 60
+                records.append(SessionRecord(
+                    name: "Focus \(index)",
+                    workType: index == 0 ? .learning : .deepWork,
+                    start: start, end: start.addingTimeInterval(seconds),
+                    workSeconds: seconds))
+            }
+            let archive = makeArchive(clock, records: records, calendar: calendar)
+            let usage = makeUsageArchive(clock, sessions: [],
+                                         accurateFrom: bounds.start)
+            let persistence = PersistenceStore(
+                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            persistence.removeAll()
+            let engine = SessionEngine(store: persistence, archive: archive,
+                                       ownBundleID: "com.example.self", schedulesDwell: false,
+                                       now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.refreshReview(period: .week)
+
+            expect(store.reviewFocusSessions.count == 510,
+                   "full focus evidence remains available to summaries", &problems)
+            expect(store.reviewFocusSessionRows.count == 500,
+                   "focus presentation is capped at 500 rows", &problems)
+            expect(store.reviewFocusSessionRows.first?.name == "Focus 509"
+                       && store.reviewFocusSessionRows.last?.name == "Focus 10",
+                   "bounded rows retain the deterministic newest 500", &problems)
+            expect(store.reviewFocusRowsOmitted == 10,
+                   "the omitted row count is exact", &problems)
+            expect(store.reviewFocusRowsQualification
+                       == "Showing newest 500 of 510 stretches",
+                   "the row cap is stated plainly", &problems)
+
+            expect(store.reviewFocusSessionCount == 510
+                       && store.reviewSummaryLine.contains("510 focus sessions"),
+                   "session summary remains uncapped", &problems)
+            expectClose(store.reviewFocusSessions.reduce(0) { $0 + $1.seconds },
+                        511 * 60, "full focused total", &problems)
+            expect(store.reviewLongestFocusName == "Focus 0"
+                       && store.reviewLongestFocusSeconds == 120,
+                   "the omitted oldest row can still be the true longest", &problems)
+            expect(store.reviewWorkTypeShares.contains {
+                $0.workType == .learning && $0.seconds == 120
+            }, "work-type evidence includes an omitted row", &problems)
             return problems
         }
     }

@@ -273,6 +273,20 @@ enum Snapshotter {
                 workSeconds: 15 * 60, threadID: focusThread))
             focusOnlyReview.refreshReview(period: .week)
 
+            let denseFocusReview = FixtureFactory.store(for: .firstRun)
+            let denseBounds = Calendar.current.dateInterval(of: .weekOfYear, for: Date())
+            let denseStart = (denseBounds?.start ?? Date()).addingTimeInterval(3_600)
+            for index in 0..<510 {
+                let start = denseStart.addingTimeInterval(Double(index * 60))
+                let seconds: TimeInterval = index == 0 ? 120 : 60
+                denseFocusReview.engine.archive.append(SessionRecord(
+                    name: "Focus \(index)",
+                    workType: index == 0 ? .learning : .deepWork,
+                    start: start, end: start.addingTimeInterval(seconds),
+                    workSeconds: seconds))
+            }
+            denseFocusReview.refreshReview(period: .week)
+
             let filteredHistory = FixtureFactory.store(for: .idleWithHistory)
             filteredHistory.refreshReview()
             filteredHistory.setHistoryQuery("xcode")
@@ -293,6 +307,7 @@ enum Snapshotter {
                 ("month", monthReview, .month),
                 ("empty", emptyReview, .week),
                 ("focus-only", focusOnlyReview, .week),
+                ("focus-dense-bounded", denseFocusReview, .week),
                 ("legacy-qualified", legacyReview, .week),
                 ("history-filtered", filteredHistory, .history),
                 ("history-name-search", nameSearchHistory, .history)
