@@ -3,28 +3,6 @@ import SwiftUI
 // Rows with hairline separators, never per-row cards: the native list idiom, and
 // it lets icon, bar and number align on a real grid.
 
-/// Small uppercase section label with an optional trailing figure — the number
-/// sits beside its own evidence rather than in a detached tile.
-struct SectionHeader: View {
-    let title: String
-    var trailing: String?
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title.uppercased())
-                .font(Tokens.Typography.sectionLabel)
-                .kerning(0.7)
-                .foregroundStyle(.secondary)
-            Spacer()
-            if let trailing {
-                Text(trailing)
-                    .font(Tokens.Typography.detail)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
-}
-
 /// One line per session, precomputed so the type checker stays inside budget.
 private func sessionLine(_ session: AppSession) -> String {
     let range = Tokens.timeRange(session.start, session.end)

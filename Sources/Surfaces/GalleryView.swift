@@ -220,113 +220,70 @@ struct GalleryApp: App {
 /// The vocabulary in one row, so a token change can be judged in isolation.
 struct ComponentStrip: View {
     var body: some View {
-        HStack(alignment: .top, spacing: Tokens.Space.l) {
-            GoalRing(progress: 0.63, label: "63%")
-            GoalRing(progress: 1.0, isMet: true)
-            StatCard(label: "Tracked", value: "5h 10m", context: "+3h 5m vs yesterday",
-                     contextTint: Tokens.Palette.app(rank: 1))
-                .frame(width: 150)
-            VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                ForEach(0..<7, id: \.self) { rank in
-                    HStack(spacing: Tokens.Space.s) {
-                        AppSwatch(rank: rank, bundleID: nil, appName: "App \(rank)")
-                        DataBar(share: 1 - Double(rank) / 8, tint: Tokens.Palette.app(rank: rank))
-                            .frame(width: 120)
+        VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            HStack(alignment: .top, spacing: Tokens.Space.l) {
+                SurfacePanel(title: "Primary shell", layout: InterfaceDensity.compact.layout) {
+                    VStack(alignment: .leading, spacing: Tokens.Space.m) {
+                        Text("Icon and label")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                        TabRail(selectedTab: .constant(.focus)) { _ in }
+                        Text("Label only at compact width")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                        TabRail(selectedTab: .constant(.today)) { _ in }
+                            .frame(width: 360)
+                    }
+                }
+                .frame(width: 680)
+            }
+            HStack(alignment: .top, spacing: Tokens.Space.l) {
+                SurfacePanel(title: "Metric line", layout: InterfaceDensity.comfortable.layout) {
+                    VStack(spacing: Tokens.Space.s) {
+                        MetricLine(label: "Tracked", value: "5h 10m",
+                                   note: "3h 5m vs yesterday")
+                        MetricLine(label: "Focus", value: "3h 02m",
+                                   note: "2h 12m in deep work", tint: Tokens.Colour.focus)
+                        GoalRing(progress: 0.63, label: "63%")
+                        GoalRing(progress: 1.0, isMet: true)
+                    }
+                }
+                SurfacePanel(title: "Usage rows", layout: InterfaceDensity.compact.layout) {
+                    VStack(spacing: Tokens.Space.s) {
+                        AppUsageRow(appName: "Xcode", bundleID: "com.apple.dt.Xcode",
+                                    rank: 0, seconds: 4_200, share: 0.62,
+                                    layout: InterfaceDensity.compact.layout)
+                        AppUsageRow(appName: "Chrome", bundleID: "com.google.Chrome",
+                                    rank: 1, seconds: 1_950, share: 0.29,
+                                    layout: InterfaceDensity.compact.layout)
+                        AppUsageRow(appName: "Slack", bundleID: "com.tinyspeck.slackmacgap", rank: 2,
+                                    seconds: 900, share: 0.09,
+                                    layout: InterfaceDensity.compact.layout)
+                        EmptyState("No running sessions",
+                                   detail: "Start focus and your first session appears here.")
                     }
                 }
             }
-            HStack(spacing: Tokens.Space.s) {
-                IconButton(systemImage: "pause.fill", help: "Pause") {}
-                IconButton(systemImage: "gearshape", help: "Settings…") {}
-                IconButton(systemImage: "power", help: "Quit", prominent: true) {}
+            HStack(alignment: .top, spacing: Tokens.Space.l) {
+                SurfacePanel(title: "Settings and warnings", layout: InterfaceDensity.comfortable.layout) {
+                    SettingsRow("Appearance", value: "Dark",
+                                layout: InterfaceDensity.comfortable.layout)
+                    Divider()
+                    SettingsRow("Show timeline labels", value: "On",
+                                layout: InterfaceDensity.comfortable.layout)
+                    Divider()
+                    IntegrityNotice("App usage from before 13 August may include unattended time.")
+                }
+                SurfacePanel(title: "Density compare", layout: InterfaceDensity.compact.layout) {
+                    MetricLine(label: "Compact", value: "44 pt",
+                               layout: InterfaceDensity.compact.layout)
+                    Divider()
+                    MetricLine(label: "Comfortable", value: "52 pt",
+                               layout: InterfaceDensity.comfortable.layout)
+                }
             }
-            StartButton(fills: false) {}
-            AwayAnswerGrid(away: 22 * 60,
-                           range: (Date().addingTimeInterval(-22 * 60), Date()),
-                           showsCaptions: true) { _ in }
-                .frame(width: 420)
-            SessionsCard(entries: {
-                let now = Date()
-                let day = Calendar.current.startOfDay(for: now)
-                let thread = UUID()
-                func at(_ h: Double) -> Date { now.addingTimeInterval(-h * 3_600) }
-                return SessionDigest.entries(records: [
-                    SessionRecord(name: "Refactor the parser", workType: .deepWork,
-                                  start: at(5), end: at(4), workSeconds: 3_600, threadID: thread),
-                    SessionRecord(name: "Dinner", workType: .breakTime,
-                                  start: at(4), end: at(3.5), workSeconds: 1_800),
-                    SessionRecord(name: "Refactor the parser", workType: .deepWork,
-                                  start: at(3.5), end: at(2), workSeconds: 5_400, threadID: thread),
-                    SessionRecord(name: "Email", workType: .admin,
-                                  start: at(1.5), end: at(1), workSeconds: 1_800)
-                ], running: nil, now: now, day: day)
-            }(), selected: nil, unfoldAll: true, onHover: { _ in }, onSelect: { _ in })
-                .frame(width: 520)
-                .card(padding: 12)
-            VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                SegmentHourDetail(bundleID: "com.wa", appName: "WhatsApp",
-                                  hourStart: Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date(),
-                                  colorIndex: 2,
-                                  stretches: {
-                                      let hour = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-                                      var seed: UInt64 = 9
-                                      func rand(_ range: ClosedRange<Double>) -> Double {
-                                          seed = seed &* 6_364_136_223_846_793_005 &+ 1
-                                          let unit = Double(seed >> 33) / Double(UInt32.max)
-                                          return range.lowerBound + unit * (range.upperBound - range.lowerBound)
-                                      }
-                                      var cursor: TimeInterval = 60
-                                      var result: [TimelineSegment] = []
-                                      while cursor < 3_300 && result.count < 30 {
-                                          let length = rand(8...110)
-                                          result.append(TimelineSegment(id: UUID(), bundleID: "com.wa",
-                                                                        appName: "WhatsApp",
-                                                                        start: hour.addingTimeInterval(cursor),
-                                                                        end: hour.addingTimeInterval(cursor + length),
-                                                                        colorIndex: 2))
-                                          cursor += length + rand(20...140)
-                                      }
-                                      return result
-                                  }(), onClose: {})
-                SegmentHourDetail(bundleID: "com.x", appName: "Xcode",
-                                  hourStart: Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date(),
-                                  colorIndex: 0,
-                                  stretches: {
-                                      let hour = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-                                      return [(300.0, 1_500.0), (1_800.0, 2_400.0), (2_700.0, 3_500.0)].map {
-                                          TimelineSegment(id: UUID(), bundleID: "com.x", appName: "Xcode",
-                                                          start: hour.addingTimeInterval($0.0),
-                                                          end: hour.addingTimeInterval($0.1), colorIndex: 0)
-                                      }
-                                  }(), onClose: {})
-            }
-            .frame(width: 430)
-            DayPickerCalendar(selected: Date(),
-                              earliest: Calendar.current.date(byAdding: .day, value: -40, to: Date()),
-                              goal: 4 * 3_600,
-                              facts: { month in
-                                  // A believable month: weekdays busy, weekends light.
-                                  let calendar = Calendar.current
-                                  guard let interval = calendar.dateInterval(of: .month, for: month) else { return [:] }
-                                  var facts: [Date: DayFacts] = [:]
-                                  var cursor = interval.start
-                                  while cursor < interval.end, cursor <= Date() {
-                                      let weekday = calendar.component(.weekday, from: cursor)
-                                      let dayOfMonth = calendar.component(.day, from: cursor)
-                                      let weekend = weekday == 1 || weekday == 7
-                                      let tracked: TimeInterval = weekend ? 40 * 60
-                                          : TimeInterval((dayOfMonth * 37) % 5 + 2) * 3_600
-                                      let focused: TimeInterval = weekend ? 0
-                                          : TimeInterval((dayOfMonth * 53) % 5) * 3_600 + 20 * 60
-                                      facts[cursor] = DayFacts(tracked: tracked, focused: focused,
-                                                               sessions: weekend ? 0 : (dayOfMonth % 3) + 1)
-                                      cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? interval.end
-                                  }
-                                  return facts
-                              }) { _ in }
-                .card(padding: 0)
         }
         .padding(Tokens.Space.l)
-        .background(Tokens.Surface.ground)
+        .background(Tokens.Colour.ground)
     }
 }

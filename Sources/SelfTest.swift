@@ -272,7 +272,9 @@ enum SelfTest {
             ("A wake is the machine's: only input or an unlock ends an absence",
              testWakeIsNotAReturn),
             ("Main navigation and interface preferences persist across reload",
-             testMainNavigationAndInterfacePreferences)
+             testMainNavigationAndInterfacePreferences),
+            ("Mole design tokens preserve practical density and semantic signals",
+             testMoleDesignTokensAndDensity)
         ]
 
         print("FocusContinuity self-test")
@@ -6567,6 +6569,21 @@ enum SelfTest {
                "invalid density falls back to Comfortable", &problems)
         expect(fallbackSettings.appearancePreference == .system,
                "invalid appearance falls back to System", &problems)
+        return problems
+    }
+
+    /// The visual foundation keeps Compact practical rather than cramped and
+    /// resolves semantic signals independently of the current system appearance.
+    private static func testMoleDesignTokensAndDensity() -> [String] {
+        var problems: [String] = []
+        expect(InterfaceDensity.compact.layout.rowHeight >= 28,
+               "compact targets remain practical", &problems)
+        expect(InterfaceDensity.compact.layout.rowHeight < InterfaceDensity.comfortable.layout.rowHeight,
+               "compact density is observably denser", &problems)
+        expect(Tokens.Colour.resolved(.focus, dark: false).hex == 0x3478F6,
+               "light focus token matches the approved signal", &problems)
+        expect(Tokens.Colour.resolved(.attention, dark: true).hex == 0xE3A34F,
+               "dark attention token remains semantic amber", &problems)
         return problems
     }
 

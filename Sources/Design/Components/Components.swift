@@ -4,12 +4,35 @@ import Charts
 // Small views over plain values — no store dependency — so the gallery can drive
 // them directly from fixtures.
 
+/// A sentence-case section title with an optional contextual value. Uppercase
+/// micro-labels remain reserved for charts and compact metric context.
+struct SectionHeader: View {
+    let title: String
+    var trailing: String?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
+            Text(title)
+                .font(Tokens.Typography.sectionTitle)
+            Spacer(minLength: Tokens.Space.s)
+            if let trailing {
+                Text(trailing)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct StreakBadge: View {
     let days: Int
 
     var body: some View {
         Label(days == 1 ? "1 day" : "\(days) days", systemImage: "flame.fill")
-            .foregroundStyle(days > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            .foregroundStyle(days > 0
+                             ? AnyShapeStyle(Tokens.Colour.progress)
+                             : AnyShapeStyle(.secondary))
             .accessibilityLabel(days == 1 ? "1 day streak" : "\(days) day streak")
             // No `.help` here. The one caller wraps this in `.explains`, which
             // appears instantly; a system tooltip underneath it would fade in a
@@ -31,10 +54,10 @@ struct StartButton: View {
                 .frame(maxWidth: fills ? .infinity : nil)
                 .padding(.horizontal, Tokens.Space.m)
                 .padding(.vertical, 7)
-                .background(Color.accentColor,
+                .background(Tokens.Colour.focus,
                             in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
                                                  style: .continuous))
-                .foregroundStyle(.white)
+                .foregroundStyle(Tokens.Colour.ground)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
@@ -146,7 +169,7 @@ struct WeekChart: View {
             Chart(bars) { bar in
                 BarMark(x: .value("Day", bar.id, unit: .day),
                         y: .value("Minutes", bar.minutes))
-                    .foregroundStyle(bar.isToday ? AnyShapeStyle(.tint)
+                    .foregroundStyle(bar.isToday ? AnyShapeStyle(Tokens.Colour.focus)
                                                  : AnyShapeStyle(.quaternary))
                     .cornerRadius(3)
             }

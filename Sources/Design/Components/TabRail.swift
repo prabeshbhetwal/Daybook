@@ -1,0 +1,100 @@
+import SwiftUI
+
+struct TabRail: View {
+    let tabs: [AppTab]
+    @Binding var selectedTab: AppTab
+    let onSelect: (AppTab) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(
+        tabs: [AppTab] = AppTab.allCases,
+        selectedTab: Binding<AppTab>,
+        onSelect: @escaping (AppTab) -> Void
+    ) {
+        self.tabs = tabs
+        self._selectedTab = selectedTab
+        self.onSelect = onSelect
+    }
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            pills(showsIcons: true)
+            pills(showsIcons: false)
+        }
+        .padding(Tokens.Space.xs)
+        .background(Tokens.Colour.elevated, in: Capsule())
+        .overlay(Capsule().stroke(Tokens.Colour.line, lineWidth: 1))
+        .focusable()
+        .onMoveCommand { direction in
+            switch direction {
+            case .left: move(by: -1)
+            case .right: move(by: 1)
+            default: break
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Application tabs")
+    }
+
+    private func pills(showsIcons: Bool) -> some View {
+        HStack(spacing: Tokens.Space.xs) {
+            ForEach(tabs) { tab in
+                let isSelected = tab == selectedTab
+                Button { select(tab) } label: {
+                    tabPill(tab, selected: isSelected, showsIcon: showsIcons)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(KeyEquivalent(Character(String(tab.commandNumber))),
+                                  modifiers: [.command])
+                .help(tab.title)
+                .accessibilityLabel("\(tab.title), \(isSelected ? "selected" : "not selected"), "
+                                    + "Command \(tab.commandNumber)")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+        }
+    }
+
+    private func move(by offset: Int) {
+        guard !tabs.isEmpty else { return }
+        let index = tabs.firstIndex(of: selectedTab) ?? 0
+        let nextIndex = ((index + (offset % tabs.count)) + tabs.count) % tabs.count
+        select(tabs[nextIndex])
+    }
+
+    private func select(_ tab: AppTab) {
+        if reduceMotion {
+            selectedTab = tab
+        } else {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                selectedTab = tab
+            }
+        }
+        onSelect(tab)
+    }
+
+    private func tabPill(_ tab: AppTab, selected: Bool, showsIcon: Bool) -> some View {
+        HStack(spacing: Tokens.Space.xs) {
+            if showsIcon {
+                Image(systemName: tab.symbol)
+                    .font(.system(size: 11, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+            }
+            Text(tab.title)
+                .font(Tokens.Typography.tabLabel)
+                .lineLimit(1)
+        }
+        .fixedSize()
+        .padding(.horizontal, Tokens.Space.m)
+        .frame(minHeight: 28)
+        .background(selected ? Tokens.Colour.focus : Color.clear, in: Capsule())
+        .foregroundStyle(selected
+                         ? AnyShapeStyle(Tokens.Colour.ground)
+                         : AnyShapeStyle(Color.primary))
+        .overlay(
+            Capsule().strokeBorder(selected ? Color.clear : Tokens.Colour.line,
+                                   lineWidth: 1)
+        )
+        .contentShape(Capsule())
+    }
+}
