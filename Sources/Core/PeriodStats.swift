@@ -126,6 +126,8 @@ struct PeriodRollup: Equatable {
 /// and the period totals can never drift from the day view.
 struct PeriodStats {
 
+    private static let maximumLogEntries = 500
+
     private let sessions: SessionArchive
     private let usage: AppUsageArchive
     private let usageSnapshot: AppUsageSnapshot?
@@ -212,24 +214,18 @@ struct PeriodStats {
                                    calendar: calendar, now: now)
         var allDays: [PeriodDay] = []
         var entries: [LogEntry] = []
-        var totals: [Date: TimeInterval] = [:]
         var cursor = start
         while cursor < end && allDays.count < 40 {
             allDays.append(PeriodDay(date: cursor,
                                      tracked: stats.trackedTotal(for: cursor),
                                      byWorkType: stats.focusQuality(for: cursor).byWorkType))
-            if entries.count < 500 {
-                for rank in stats.rankedApps(for: cursor) {
-                    for session in stats.sessions(for: cursor, bundleID: rank.bundleID) {
-                        entries.append(LogEntry(session: session, day: cursor))
-                        totals[cursor, default: 0] += session.attended
-                    }
-                }
-            }
+            Self.retainNewest(Self.logEntries(on: cursor, stats: stats), in: &entries)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             cursor = next
         }
         entries.sort { $0.session.start > $1.session.start }
+        var totals: [Date: TimeInterval] = [:]
+        for entry in entries { totals[entry.day, default: 0] += entry.session.attended }
         return PeriodRollup(days: allDays,
                             log: entries,
                             dayTotals: totals,
@@ -266,16 +262,44 @@ struct PeriodStats {
                                    calendar: calendar, now: now)
         var entries: [LogEntry] = []
         var cursor = start
-        while cursor < end && entries.count < 500 {
-            for rank in stats.rankedApps(for: cursor) {
-                for session in stats.sessions(for: cursor, bundleID: rank.bundleID) {
-                    entries.append(LogEntry(session: session, day: cursor))
-                }
-            }
+        var visited = 0
+        while cursor < end && visited < 40 {
+            visited += 1
+            Self.retainNewest(Self.logEntries(on: cursor, stats: stats), in: &entries)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             cursor = next
         }
         return entries.sorted { $0.session.start > $1.session.start }
+    }
+
+    /// All grouped app sessions on one day. Sorting here makes same-day overflow
+    /// deterministic before `retainNewest` drops the oldest prefix.
+    private static func logEntries(on day: Date, stats: DashboardStats) -> [LogEntry] {
+        var result: [LogEntry] = []
+        for rank in stats.rankedApps(for: day) {
+            for session in stats.sessions(for: day, bundleID: rank.bundleID) {
+                result.append(LogEntry(session: session, day: day))
+            }
+        }
+        return result.sorted { left, right in
+            if left.session.start != right.session.start {
+                return left.session.start < right.session.start
+            }
+            if left.session.end != right.session.end {
+                return left.session.end < right.session.end
+            }
+            return left.session.id < right.session.id
+        }
+    }
+
+    /// Days are visited oldest first. Append a chronologically ordered day, then
+    /// remove only the oldest overflow so the newest 500 survive. Every rollup
+    /// consumer is derived after this retention step from the identical array.
+    private static func retainNewest(_ newEntries: [LogEntry],
+                                     in retained: inout [LogEntry]) {
+        retained.append(contentsOf: newEntries)
+        let overflow = retained.count - maximumLogEntries
+        if overflow > 0 { retained.removeFirst(overflow) }
     }
 
     /// Collapses a period's log into one row per app, largest first. Ties break

@@ -1,5 +1,19 @@
 import SwiftUI
 
+/// The exact callback supplied to period bars and History day rows. Keeping the
+/// selection and navigation together prevents a route from opening one date
+/// while Today still displays another.
+@MainActor
+enum ReviewDayRoute {
+    static func callback(store: SessionStore,
+                         navigation: MainWindowModel) -> (Date) -> Void {
+        { date in
+            store.selectDate(date)
+            navigation.openToday(date: date)
+        }
+    }
+}
+
 /// Period comparison and searchable History. Week and Month share one exact
 /// tracked-time read model; History is a separate chronological record rather
 /// than a third chart.
@@ -70,7 +84,7 @@ struct ReviewView: View {
             IntegrityNotice(note)
         }
 
-        if store.reviewSummary.activeDays == 0 {
+        if !store.reviewHasRelevantEvidence {
             SurfacePanel(showsHeader: false) {
                 EmptyState("No comparable days yet",
                            detail: "Week and month history builds locally as app usage is recorded.",
@@ -83,10 +97,15 @@ struct ReviewView: View {
                 PeriodChart(days: store.reviewDays,
                             average: store.reviewSummary.averagePerActiveDay,
                             height: 190,
-                            onPickDay: openDay)
+                            onPickDay: ReviewDayRoute.callback(
+                                store: store, navigation: navigation))
             }
 
             periodSummary
+
+            if !store.reviewFocusSessions.isEmpty {
+                focusSessions
+            }
 
             HStack(alignment: .top, spacing: Tokens.Space.l) {
                 topApps
@@ -94,10 +113,12 @@ struct ReviewView: View {
             }
             .fixedSize(horizontal: false, vertical: true)
 
-            SurfacePanel(showsHeader: false) {
-                SessionLogList(entries: store.reviewLog,
-                               dayTotals: store.reviewDayTotals,
-                               grouping: .byTime)
+            if !store.reviewLog.isEmpty {
+                SurfacePanel(showsHeader: false) {
+                    SessionLogList(entries: store.reviewLog,
+                                   dayTotals: store.reviewDayTotals,
+                                   grouping: .byTime)
+                }
             }
         }
     }
@@ -130,20 +151,60 @@ struct ReviewView: View {
         SurfacePanel(title: "Period summary", layout: .compact) {
             HStack(alignment: .top, spacing: Tokens.Space.l) {
                 ReviewMetric(label: "Tracked", value: Tokens.duration(store.reviewSummary.tracked),
-                             note: "exact app usage")
+                             note: store.reviewSummary.tracked > 0
+                                ? "exact app usage" : "No tracked time recorded")
                 ReviewMetric(label: "Active days",
                              value: "\(store.reviewSummary.activeDays) of "
                                 + "\(store.reviewSummary.totalDays)",
                              note: "days with tracked time")
                 ReviewMetric(label: "Average / active day",
-                             value: Tokens.duration(store.reviewSummary.averagePerActiveDay),
-                             note: "same tracked series")
+                             value: store.reviewSummary.activeDays > 0
+                                ? Tokens.duration(store.reviewSummary.averagePerActiveDay) : "—",
+                             note: store.reviewSummary.activeDays > 0
+                                ? "same tracked series" : "No tracked-day average")
                 ReviewMetric(label: "Longest focus stretch",
                              value: store.reviewLongestFocusSeconds > 0
                                 ? Tokens.preciseDuration(store.reviewLongestFocusSeconds) : "—",
                              note: store.reviewLongestFocusName)
             }
         }
+    }
+
+    private var focusSessions: some View {
+        SurfacePanel(showsHeader: false) {
+            SectionHeader(title: "Focus sessions",
+                          trailing: focusSessionCountLabel)
+            ForEach(Array(store.reviewFocusSessions.enumerated()), id: \.element.id) { index, entry in
+                if index > 0 { Divider() }
+                HStack(spacing: Tokens.Space.m) {
+                    Image(systemName: entry.workType.symbolName)
+                        .foregroundStyle(Tokens.Palette.workType(entry.workType))
+                        .frame(width: 20)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.name)
+                            .font(Tokens.Typography.rowTitle)
+                        Text(entry.workType.displayName + " · "
+                             + Tokens.timeRange(entry.start, entry.end))
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Text(Tokens.preciseDuration(entry.seconds))
+                        .font(.callout.monospacedDigit())
+                }
+                .padding(.vertical, Tokens.Space.xs)
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
+    private var focusSessionCountLabel: String {
+        let sessions = store.reviewFocusSessionCount == 1
+            ? "1 session" : "\(store.reviewFocusSessionCount) sessions"
+        let stretches = store.reviewFocusSessions.count == 1
+            ? "1 stretch" : "\(store.reviewFocusSessions.count) stretches"
+        return sessions + (store.reviewFocusSessionCount == store.reviewFocusSessions.count
+                           ? "" : " · \(stretches)")
     }
 
     private var topApps: some View {
@@ -183,12 +244,6 @@ struct ReviewView: View {
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
-    private func openDay(_ date: Date) {
-        // Select the exact day before the tab changes. Today owns this route;
-        // Review never mutates its day for ordinary period navigation.
-        store.selectDate(date)
-        navigation.openToday(date: date)
-    }
 }
 
 private struct ReviewSectionPills: View {

@@ -1,5 +1,17 @@
 import Foundation
 
+/// One archive focus stretch clipped to the selected Review period. This is a
+/// read model only; its source `SessionRecord` is never edited or repaired.
+struct ReviewFocusEntry: Identifiable, Equatable {
+    let id: UUID
+    let threadID: UUID
+    let name: String
+    let workType: WorkType
+    let start: Date
+    let end: Date
+    let seconds: TimeInterval
+}
+
 /// The Review read model. It composes existing canonical period/accounting
 /// helpers and publishes presentation-ready values; no archive mutation or
 /// historical repair is possible from this surface.
@@ -62,21 +74,29 @@ extension SessionStore {
         reviewWorkTypeShares = Self.reviewWorkTypes(from: rollup.days)
 
         let bounds = periodStats.bounds(for: reviewPeriod, containing: anchor)
-        var longestFocusRecord: SessionRecord?
-        var longestFocusSeconds: TimeInterval = 0
-        for record in engine.archive.records where record.workType.countsAsFocus {
+        reviewFocusSessions = engine.archive.records.compactMap { record in
+            guard record.workType.countsAsFocus else { return nil }
             let seconds = record.workSeconds(in: (start: bounds.start, end: bounds.end))
-            if seconds > 0 && (seconds > longestFocusSeconds
-                || (seconds == longestFocusSeconds
-                    && record.start < (longestFocusRecord?.start ?? .distantFuture))) {
-                longestFocusRecord = record
-                longestFocusSeconds = seconds
-            }
+            guard seconds > 0 else { return nil }
+            return ReviewFocusEntry(
+                id: record.id,
+                threadID: record.threadID,
+                name: record.name.isEmpty ? record.workType.displayName : record.name,
+                workType: record.workType,
+                start: max(record.start, bounds.start),
+                end: min(record.end, bounds.end),
+                seconds: seconds)
         }
-        reviewLongestFocusSeconds = longestFocusSeconds
-        reviewLongestFocusName = longestFocusRecord.map {
-            $0.name.isEmpty ? $0.workType.displayName : $0.name
+        .sorted { left, right in
+            left.start == right.start ? left.id.uuidString > right.id.uuidString
+                                      : left.start > right.start
         }
+        let longestFocus = reviewFocusSessions.max { left, right in
+            left.seconds == right.seconds ? left.start > right.start
+                                          : left.seconds < right.seconds
+        }
+        reviewLongestFocusSeconds = longestFocus?.seconds ?? 0
+        reviewLongestFocusName = longestFocus?.name
         let legacyEnd = min(bounds.end, snapshot.accurateFrom)
         let containsLegacy = legacyEnd > bounds.start && snapshot.sessions.contains {
             $0.end > bounds.start && $0.start < legacyEnd
@@ -140,8 +160,14 @@ extension SessionStore {
     }
 
     var reviewSummaryLine: String {
-        guard reviewSummary.activeDays > 0 else {
+        guard reviewHasRelevantEvidence else {
             return "No comparable days yet; period history builds locally."
+        }
+        if reviewSummary.activeDays == 0 {
+            let count = reviewFocusSessionCount
+            let sessions = count == 1 ? "1 focus session" : "\(count) focus sessions"
+            let focused = reviewFocusSessions.reduce(0) { $0 + $1.seconds }
+            return "No tracked time · \(sessions) · \(Tokens.duration(focused)) recorded focus"
         }
         let dayWord = reviewSummary.activeDays == 1 ? "active day" : "active days"
         return "\(Tokens.duration(reviewSummary.tracked)) tracked · "
@@ -149,9 +175,18 @@ extension SessionStore {
             + "\(Tokens.duration(reviewSummary.averagePerActiveDay)) average"
     }
 
+    var reviewHasRelevantEvidence: Bool {
+        reviewSummary.tracked > 0 || !reviewFocusSessions.isEmpty || !reviewLog.isEmpty
+    }
+
+    var reviewFocusSessionCount: Int {
+        Set(reviewFocusSessions.map(\.threadID)).count
+    }
+
     var filteredHistoryDays: [HistoryDay] {
         let calendar = Calendar.current
-        let filtered = historyFilter.apply(to: historyDays)
+        let filtered = historyFilter.apply(to: historyDays,
+                                           appNamesByBundleID: historyAppNames)
         guard let rawStart = historyRangeStart, let rawEnd = historyRangeEnd else {
             return filtered
         }
@@ -232,6 +267,7 @@ extension SessionStore {
         reviewSummary = PeriodRollup.empty.summary
         reviewLongestFocusSeconds = 0
         reviewLongestFocusName = nil
+        reviewFocusSessions = []
         reviewWorkTypeShares = []
         reviewIntegrityNote = nil
         historyDays = []

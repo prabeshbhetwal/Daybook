@@ -16,6 +16,11 @@ enum SelfTest {
     private static let suiteName = "com.prabesh.focuscontinuity.selftest"
     private static var scratchDirectories: [URL] = []
 
+    private struct UsageEnvelopeFixture: Codable {
+        let metadata: AppUsageMetadata
+        let sessions: [AppUsageSession]
+    }
+
     /// A scratch directory per archive so tests never touch real history.
     private static func scratchDirectory() -> URL {
         let directory = FileManager.default.temporaryDirectory
@@ -37,6 +42,22 @@ enum SelfTest {
                              ownBundleID: FocusConstants.bundleIdentifier,
                              schedulesDwell: false,
                              now: { clock.value })
+    }
+
+    private static func makeUsageArchive(_ clock: Clock,
+                                         sessions: [AppUsageSession],
+                                         accurateFrom: Date? = nil) -> AppUsageArchive {
+        let directory = scratchDirectory()
+        try? FileManager.default.createDirectory(at: directory,
+                                                 withIntermediateDirectories: true)
+        let envelope = UsageEnvelopeFixture(
+            metadata: AppUsageMetadata(accurateFrom: accurateFrom ?? clock.value),
+            sessions: sessions)
+        if let data = try? JSONEncoder().encode(envelope) {
+            try? data.write(to: directory.appendingPathComponent("app-usage.json"),
+                            options: .atomic)
+        }
+        return AppUsageArchive(directory: directory, now: { clock.value })
     }
 
     /// "Now", moved to noon when the real clock is within three hours of
@@ -281,6 +302,16 @@ enum SelfTest {
              testTodaySurfaceScopeAndInspector),
             ("Review keeps tracked bars canonical and History filters by intersection",
              testReviewHistoryFiltersAndDayRouting),
+            ("Period logs retain the newest 500 sessions consistently",
+             testPeriodLogRetainsNewestLimit),
+            ("Review keeps focus-only periods out of the empty state",
+             testReviewFocusOnlyPeriodEvidence),
+            ("History query matches the displayed app name",
+             testHistorySearchesDisplayedAppName),
+            ("History bounds malformed spans but keeps ordinary midnight clipping",
+             testHistoryBoundsMalformedSpans),
+            ("Review longest focus clips period boundaries and excludes breaks",
+             testReviewLongestFocusClipsBoundsAndExcludesBreaks),
             ("Timeline rests stay clipped inside otherwise unknown gaps",
              testTimelineRestEvidenceStaysCanonical),
             ("Focus states keep one honest action and continuations stop at three",
@@ -6784,7 +6815,7 @@ enum SelfTest {
     private static func testReviewHistoryFiltersAndDayRouting() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(base)
+            let clock = Clock(anchoredNow())
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: clock.value)
             guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
@@ -6901,10 +6932,276 @@ enum SelfTest {
                 return problems + ["Week chart did not contain yesterday's literal date"]
             }
             let navigation = MainWindowModel(selectedTab: .review)
-            navigation.openToday(date: routedDate)
+            let openReviewDay = ReviewDayRoute.callback(store: store,
+                                                        navigation: navigation)
+            openReviewDay(routedDate)
             expect(navigation.selectedTab == .today
                        && navigation.requestedDate == yesterday,
                    "a selected Review bar routes its literal date into Today", &problems)
+            expect(calendar.isDate(store.selectedDay, inSameDayAs: yesterday),
+                   "the Review callback selects that same literal Today day", &problems)
+            return problems
+        }
+    }
+
+    /// A bounded period read model must discard the oldest overflow, not stop
+    /// before it reaches the newest days. Log, day totals, summary and app groups
+    /// must all describe the same retained 500 entries.
+    private static func testPeriodLogRetainsNewestLimit() -> [String] {
+        var problems: [String] = []
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        guard let monthStart = calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone, year: 2023, month: 11, day: 1)),
+              let recentDay = calendar.date(byAdding: .day, value: 28, to: monthStart),
+              let anchor = calendar.date(byAdding: .hour, value: 12, to: recentDay) else {
+            return ["could not build the bounded period fixture"]
+        }
+        let clock = Clock(anchor)
+        var stretches: [AppUsageSession] = []
+        for index in 0..<500 {
+            let dayOffset = index / 18
+            let slot = index % 18
+            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: monthStart),
+                  let start = calendar.date(byAdding: .minute, value: slot * 10, to: day) else {
+                return ["could not build old period usage"]
+            }
+            stretches.append(AppUsageSession(
+                bundleID: "org.example.archive", appName: "Archive",
+                start: start, end: start.addingTimeInterval(60)))
+        }
+        for slot in 0..<10 {
+            guard let start = calendar.date(byAdding: .minute, value: slot * 10,
+                                            to: recentDay) else {
+                return ["could not build recent period usage"]
+            }
+            stretches.append(AppUsageSession(
+                bundleID: "org.example.current", appName: "Current",
+                start: start, end: start.addingTimeInterval(60)))
+        }
+
+        let usage = makeUsageArchive(clock, sessions: stretches, accurateFrom: monthStart)
+        let archive = SessionArchive(directory: scratchDirectory(), calendar: calendar,
+                                     now: { clock.value })
+        let stats = PeriodStats(sessions: archive, usage: usage,
+                                calendar: calendar, now: { clock.value })
+        let rollup = stats.rollup(for: .month, containing: anchor)
+        let separateLog = stats.log(for: .month, containing: anchor)
+
+        expect(rollup.log.count == 500,
+               "period rollup retains exactly 500 entries, got \(rollup.log.count)", &problems)
+        expect(Array(rollup.log.prefix(10)).allSatisfy {
+            $0.session.bundleID == "org.example.current"
+        }, "the newest ten sessions survive the cap", &problems)
+        expect(separateLog == rollup.log,
+               "standalone log and rollup retain the identical set", &problems)
+        expectClose(rollup.dayTotals.values.reduce(0, +),
+                    rollup.log.reduce(0) { $0 + $1.session.attended },
+                    "retained day totals", &problems)
+        let groups = PeriodStats.appGroups(from: rollup.log)
+        expectClose(groups.first(where: { $0.bundleID == "org.example.current" })?.total ?? -1,
+                    10 * 60, "recent app retained total", &problems)
+        expectClose(groups.first(where: { $0.bundleID == "org.example.archive" })?.total ?? -1,
+                    490 * 60, "old app retained remainder", &problems)
+        return problems
+    }
+
+    /// Tracked time can legitimately be absent while the archive still contains
+    /// focus records. Review must keep that evidence visible and label the
+    /// missing tracked series rather than replacing the whole period with empty.
+    private static func testReviewFocusOnlyPeriodEvidence() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(base)
+            let calendar = Calendar.current
+            guard let bounds = calendar.dateInterval(of: .weekOfYear,
+                                                      for: clock.value) else {
+                return ["could not build focus-only Review bounds"]
+            }
+            let archive = makeArchive(clock)
+            let focusThread = UUID()
+            archive.append(SessionRecord(
+                name: "Write proposal", workType: .deepWork,
+                start: bounds.start.addingTimeInterval(2 * 3_600),
+                end: bounds.start.addingTimeInterval(2 * 3_600 + 45 * 60),
+                workSeconds: 45 * 60, threadID: focusThread))
+            archive.append(SessionRecord(
+                name: "Write proposal", workType: .deepWork,
+                start: bounds.start.addingTimeInterval(6 * 3_600),
+                end: bounds.start.addingTimeInterval(6 * 3_600 + 15 * 60),
+                workSeconds: 15 * 60, threadID: focusThread))
+            archive.append(SessionRecord(
+                name: "Lunch", workType: .breakTime,
+                start: bounds.start.addingTimeInterval(4 * 3_600),
+                end: bounds.start.addingTimeInterval(5 * 3_600),
+                workSeconds: 60 * 60))
+            let usage = makeUsageArchive(clock, sessions: [], accurateFrom: bounds.start)
+            let persistence = PersistenceStore(
+                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            persistence.removeAll()
+            let engine = SessionEngine(store: persistence, archive: archive,
+                                       ownBundleID: "com.example.self", schedulesDwell: false,
+                                       now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.refreshReview(period: .week)
+
+            expect(store.reviewSummary.tracked == 0
+                       && store.reviewSummary.activeDays == 0,
+                   "focus-only fixture has no tracked series", &problems)
+            expect(store.reviewHasRelevantEvidence,
+                   "focus-only archive evidence defeats Review empty", &problems)
+            expect(store.reviewFocusSessions.count == 2,
+                   "both focus stretches remain available to Review", &problems)
+            expect(store.reviewFocusSessions.allSatisfy {
+                $0.name == "Write proposal" && $0.workType == .deepWork
+            }, "focus-only stretches keep their name and type", &problems)
+            expectClose(store.reviewFocusSessions.reduce(0) { $0 + $1.seconds },
+                        60 * 60, "focus-only session duration", &problems)
+            expect(store.reviewSummaryLine.contains("No tracked time")
+                       && store.reviewSummaryLine.contains("1 focus session"),
+                   "focus-only summary counts the shared thread once", &problems)
+            return problems
+        }
+    }
+
+    /// Search copy promises app names. The displayed name can be unrelated to
+    /// the bundle ID, so matching only the identifier breaks that promise.
+    private static func testHistorySearchesDisplayedAppName() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(base)
+            let day = Calendar.current.startOfDay(for: clock.value)
+            let usage = makeUsageArchive(clock, sessions: [
+                AppUsageSession(bundleID: "org.example.product", appName: "Quill Writer",
+                                start: day.addingTimeInterval(600),
+                                end: day.addingTimeInterval(1_200))
+            ], accurateFrom: day)
+            let persistence = PersistenceStore(
+                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            persistence.removeAll()
+            let engine = SessionEngine(
+                store: persistence, archive: makeArchive(clock),
+                ownBundleID: "com.example.self", schedulesDwell: false,
+                now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.refreshReview()
+            store.setHistoryQuery("quill writer")
+
+            expect(!"org.example.product".contains("quill"),
+                   "fixture name remains independent of its bundle ID", &problems)
+            expect(store.filteredHistoryDays.map(\.date) == [day],
+                   "History query matches the stable displayed app name", &problems)
+            return problems
+        }
+    }
+
+    /// One malformed decoded record must not allocate hundreds of derived day
+    /// rows. Ordinary cross-midnight evidence still clips exactly to both days.
+    private static func testHistoryBoundsMalformedSpans() -> [String] {
+        var problems: [String] = []
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        guard let firstDay = calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone, year: 2024, month: 1, day: 1)),
+              let secondDay = calendar.date(byAdding: .day, value: 1, to: firstDay),
+              let malformedStart = calendar.date(byAdding: .day, value: -500,
+                                                  to: firstDay) else {
+            return ["could not build malformed History fixture"]
+        }
+        let crossingStart = firstDay.addingTimeInterval(23 * 3_600 + 50 * 60)
+        let crossingEnd = secondDay.addingTimeInterval(10 * 60)
+        let usage = [
+            AppUsageSession(bundleID: "org.example.normal", appName: "Normal",
+                            start: crossingStart, end: crossingEnd),
+            AppUsageSession(bundleID: "org.example.malformed", appName: "Malformed",
+                            start: malformedStart, end: secondDay.addingTimeInterval(12 * 3_600))
+        ]
+        let records = [
+            SessionRecord(name: "Normal focus", workType: .deepWork,
+                          start: crossingStart, end: crossingEnd,
+                          workSeconds: 20 * 60),
+            SessionRecord(name: "Malformed focus", workType: .admin,
+                          start: malformedStart,
+                          end: secondDay.addingTimeInterval(12 * 3_600),
+                          workSeconds: 501 * 86_400)
+        ]
+
+        let days = HistoryStats.days(sessionRecords: records, usage: usage,
+                                     calendar: calendar)
+        expect(days.map(\.date) == [secondDay, firstDay],
+               "malformed distant records add no derived days", &problems)
+        if days.count == 2 {
+            expectClose(days[0].tracked, 10 * 60,
+                        "midnight usage after boundary", &problems)
+            expectClose(days[1].tracked, 10 * 60,
+                        "midnight usage before boundary", &problems)
+            expectClose(days[0].focused, 10 * 60,
+                        "midnight focus after boundary", &problems)
+            expectClose(days[1].focused, 10 * 60,
+                        "midnight focus before boundary", &problems)
+        }
+        expect(usage.count == 2 && records.count == 2,
+               "derived bounding never mutates source records", &problems)
+        return problems
+    }
+
+    /// The period's winning focus stretch is its clipped contribution. A large
+    /// break and a larger out-of-period tail are never eligible to win.
+    private static func testReviewLongestFocusClipsBoundsAndExcludesBreaks() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(base)
+            let calendar = Calendar.current
+            guard let bounds = calendar.dateInterval(of: .weekOfYear, for: clock.value) else {
+                return ["could not build Review week bounds"]
+            }
+            let archive = makeArchive(clock)
+            archive.append(SessionRecord(
+                name: "Starts outside", workType: .deepWork,
+                start: bounds.start.addingTimeInterval(-30 * 60),
+                end: bounds.start.addingTimeInterval(30 * 60),
+                workSeconds: 60 * 60))
+            archive.append(SessionRecord(
+                name: "Inside", workType: .learning,
+                start: bounds.start.addingTimeInterval(2 * 3_600),
+                end: bounds.start.addingTimeInterval(2 * 3_600 + 40 * 60),
+                workSeconds: 40 * 60))
+            archive.append(SessionRecord(
+                name: "Long break", workType: .breakTime,
+                start: bounds.start.addingTimeInterval(3 * 3_600),
+                end: bounds.start.addingTimeInterval(5 * 3_600),
+                workSeconds: 2 * 3_600))
+            archive.append(SessionRecord(
+                name: "Ends outside", workType: .admin,
+                start: bounds.end.addingTimeInterval(-20 * 60),
+                end: bounds.end.addingTimeInterval(40 * 60),
+                workSeconds: 60 * 60))
+
+            let usage = makeUsageArchive(clock, sessions: [], accurateFrom: bounds.start)
+            let persistence = PersistenceStore(
+                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            persistence.removeAll()
+            let engine = SessionEngine(store: persistence, archive: archive,
+                                       ownBundleID: "com.example.self", schedulesDwell: false,
+                                       now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.refreshReview(period: .week)
+
+            expectClose(store.reviewLongestFocusSeconds, 40 * 60,
+                        "period-clipped longest focus", &problems)
+            expect(store.reviewLongestFocusName == "Inside",
+                   "the in-period focus stretch wins", &problems)
+            expect(store.reviewWorkTypeShares.allSatisfy { $0.workType != .breakTime },
+                   "breaks remain excluded from Review work type", &problems)
             return problems
         }
     }

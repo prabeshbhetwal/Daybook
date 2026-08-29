@@ -127,8 +127,7 @@ struct HistoryView: View {
 
     private func dayRow(_ day: HistoryDay) -> some View {
         Button {
-            store.selectDate(day.date)
-            navigation.openToday(date: day.date)
+            ReviewDayRoute.callback(store: store, navigation: navigation)(day.date)
         } label: {
             HStack(alignment: .center, spacing: Tokens.Space.l) {
                 VStack(alignment: .leading, spacing: 2) {

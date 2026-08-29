@@ -241,8 +241,9 @@ enum Snapshotter {
             }
 
             // Task 7: Week/Month comparison and calendar-driven History. The
-            // fixtures include exact tracked bars, the empty state, a preserved
-            // legacy qualification and an intersected History filter.
+            // fixtures include exact tracked bars, the empty state, focus-only
+            // evidence, a preserved legacy qualification, an intersected filter
+            // and display-name search whose bundle ID contains neither word.
             let weekReview = FixtureFactory.store(for: .idleWithHistory,
                                                   accurateUsage: true)
             weekReview.refreshReview(period: .week)
@@ -257,18 +258,44 @@ enum Snapshotter {
             let legacyReview = FixtureFactory.store(for: .idleWithHistory)
             legacyReview.refreshReview(period: .week)
 
+            let focusOnlyReview = FixtureFactory.store(for: .firstRun)
+            let focusBounds = Calendar.current.dateInterval(of: .weekOfYear, for: Date())
+            let focusStart = (focusBounds?.start ?? Date()).addingTimeInterval(2 * 3_600)
+            let focusThread = UUID()
+            focusOnlyReview.engine.archive.append(SessionRecord(
+                name: "Write proposal", workType: .deepWork,
+                start: focusStart, end: focusStart.addingTimeInterval(45 * 60),
+                workSeconds: 45 * 60, threadID: focusThread))
+            focusOnlyReview.engine.archive.append(SessionRecord(
+                name: "Write proposal", workType: .deepWork,
+                start: focusStart.addingTimeInterval(4 * 3_600),
+                end: focusStart.addingTimeInterval(4 * 3_600 + 15 * 60),
+                workSeconds: 15 * 60, threadID: focusThread))
+            focusOnlyReview.refreshReview(period: .week)
+
             let filteredHistory = FixtureFactory.store(for: .idleWithHistory)
             filteredHistory.refreshReview()
             filteredHistory.setHistoryQuery("xcode")
             filteredHistory.setHistoryApp("com.apple.dt.Xcode")
             filteredHistory.setHistoryWorkType(.deepWork)
 
+            let nameSearchHistory = FixtureFactory.store(for: .firstRun)
+            let searchDay = Calendar.current.startOfDay(for: Date())
+            nameSearchHistory.usage?.record(AppUsageSession(
+                bundleID: "org.example.product", appName: "Quill Writer",
+                start: searchDay.addingTimeInterval(60 * 60),
+                end: searchDay.addingTimeInterval(70 * 60)))
+            nameSearchHistory.refreshReview()
+            nameSearchHistory.setHistoryQuery("quill writer")
+
             let reviewStates: [(name: String, store: SessionStore, section: ReviewSection)] = [
                 ("week", weekReview, .week),
                 ("month", monthReview, .month),
                 ("empty", emptyReview, .week),
+                ("focus-only", focusOnlyReview, .week),
                 ("legacy-qualified", legacyReview, .week),
-                ("history-filtered", filteredHistory, .history)
+                ("history-filtered", filteredHistory, .history),
+                ("history-name-search", nameSearchHistory, .history)
             ]
             for state in reviewStates {
                 // The local section is owned by the navigation model; select it

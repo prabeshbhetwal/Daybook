@@ -152,6 +152,7 @@ final class SessionStore: ObservableObject {
                                                   longest: nil)
     @Published var reviewLongestFocusSeconds: TimeInterval = 0
     @Published var reviewLongestFocusName: String?
+    @Published var reviewFocusSessions: [ReviewFocusEntry] = []
     @Published var reviewWorkTypeShares: [WorkTypeShare] = []
     @Published var reviewIntegrityNote: String?
 
