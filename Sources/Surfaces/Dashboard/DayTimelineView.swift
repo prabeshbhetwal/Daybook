@@ -16,8 +16,14 @@ struct DayTimelineView: View {
     /// menu bar passes today's explicitly, because the dashboard may be browsing
     /// history and a "right now" panel must never follow it there.
     var layoutOverride: TimelineLayout?
+    /// Today grants the ribbon the screen's dominant visual weight. Legacy and
+    /// compact consumers retain their existing measures.
+    var dominant: Bool = false
+    /// The purpose-built Today surface presents detail in its inspector below
+    /// the ribbon; legacy Dashboard keeps the inline hour detail.
+    var showsDetail: Bool = true
 
-    private var bandHeight: CGFloat { compact ? 26 : 44 }
+    private var bandHeight: CGFloat { compact ? 26 : dominant ? 64 : 44 }
     /// The menu bar's band. It draws today's segments and brackets, not the
     /// dashboard's day-scoped ones: drawing the selected day's segments on
     /// today's axis emptied the popover's strip whenever the dashboard was
@@ -38,7 +44,8 @@ struct DayTimelineView: View {
                 // Same rule as the bracket row: an axis with no labels on it is
                 // fourteen points of nothing.
                 if !layout.hourTicks().isEmpty { axis(layout) }
-                if !compact { detail }
+                if !compact { watchingStatus }
+                if !compact && showsDetail { detail }
             }
         } else {
             // Never an empty frame: dead space that renders nothing is the
@@ -53,7 +60,9 @@ struct DayTimelineView: View {
     // MARK: - Band
 
     private func band(_ layout: TimelineLayout) -> some View {
-        GeometryReader { geometry in
+        let recordedBreaks = store.breakRecords(
+            on: layoutOverride != nil ? Date() : store.selectedDay)
+        return GeometryReader { geometry in
             let width = max(1, geometry.size.width)
             Canvas { context, size in
                 // Elided gaps first, so activity draws over them.
@@ -61,8 +70,14 @@ struct DayTimelineView: View {
                     let rect = CGRect(x: gap.xStart * size.width, y: 0,
                                       width: (gap.xEnd - gap.xStart) * size.width,
                                       height: bandHeight)
+                    let namedRest = recordedBreaks.contains {
+                        $0.start < gap.end && $0.end > gap.start
+                    }
+                    let fill = namedRest
+                        ? Tokens.Palette.workType(.breakTime).opacity(0.18)
+                        : Tokens.Colour.elevated
                     context.fill(Path(roundedRect: rect, cornerRadius: Tokens.Radius.swatch),
-                                 with: .color(Tokens.Surface.well))
+                                 with: .color(fill))
                 }
 
                 // Hour columns inside clusters only.
@@ -225,6 +240,20 @@ struct DayTimelineView: View {
     }
 
     // MARK: - Detail row
+
+    @ViewBuilder private var watchingStatus: some View {
+        if !isGlance, store.isToday,
+           FocusSurfaceMode(state: store.state) == .watching {
+            Label("Watching now · focus is paused; app activity remains At the Mac evidence.",
+                  systemImage: "play.rectangle")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(Tokens.Colour.attention)
+                .padding(.horizontal, Tokens.Space.s)
+                .padding(.vertical, Tokens.Space.xs)
+                .background(Tokens.Colour.attention.opacity(0.07), in: Capsule())
+                .accessibilityLabel("Watching now. Focus is paused. App activity is At the Mac time.")
+        }
+    }
 
     @ViewBuilder private var detail: some View {
         if let selected = store.selectedSegment {

@@ -277,6 +277,8 @@ enum SelfTest {
              testMoleDesignTokensAndDensity),
             ("Main-window deep links and commands select their exact routes",
              testMainWindowRoutesAndCommands),
+            ("Today preserves day scope and clears only its inspector selection",
+             testTodaySurfaceScopeAndInspector),
             ("Focus states keep one honest action and continuations stop at three",
              testFocusSurfaceStateAndContinuationLimit),
             ("Focus composition guards decisions and keeps automatic corrections available",
@@ -6649,6 +6651,113 @@ enum SelfTest {
             navigation.openSettings()
             expect(navigation.selectedTab == .settings,
                    "command-comma routes to Settings", &problems)
+            return problems
+        }
+    }
+
+    /// Today owns one canonical calendar day independently of global tab
+    /// navigation. Its inspector is presentation over the existing selection
+    /// APIs: clearing that transient evidence must never move the selected day.
+    private static func testTodaySurfaceScopeAndInspector() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(base)
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: clock.value)
+            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else {
+                return ["could not build a past-day Today fixture"]
+            }
+
+            let archive = makeArchive(clock)
+            archive.append(SessionRecord(name: "Parser", workType: .deepWork,
+                                         start: yesterday.addingTimeInterval(9 * 3_600),
+                                         end: yesterday.addingTimeInterval(10.5 * 3_600),
+                                         workSeconds: 90 * 60))
+            archive.append(SessionRecord(name: "Review", workType: .meetings,
+                                         start: yesterday.addingTimeInterval(14 * 3_600),
+                                         end: yesterday.addingTimeInterval(14 * 3_600 + 55 * 60),
+                                         workSeconds: 55 * 60))
+
+            let usage = AppUsageArchive(directory: scratchDirectory(), now: { clock.value })
+            usage.record(AppUsageSession(bundleID: "com.example.editor", appName: "Editor",
+                                         start: yesterday.addingTimeInterval(9 * 3_600),
+                                         end: yesterday.addingTimeInterval(10.5 * 3_600)))
+            usage.record(AppUsageSession(bundleID: "com.example.browser", appName: "Browser",
+                                         start: yesterday.addingTimeInterval(14 * 3_600),
+                                         end: yesterday.addingTimeInterval(14 * 3_600 + 55 * 60)))
+
+            let persistence = PersistenceStore(
+                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            persistence.removeAll()
+            let engine = SessionEngine(store: persistence, archive: archive,
+                                       ownBundleID: "com.example.self", schedulesDwell: false,
+                                       now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.setDashboardVisible(true)
+            store.selectDay(offset: 1)
+
+            let navigation = MainWindowModel(selectedTab: .today)
+            navigation.select(.review)
+            navigation.select(.today)
+            expect(store.dayOffset == 1,
+                   "global tab changes preserve the historical day", &problems)
+
+            let presentation = TodayPresentation(
+                day: store.selectedDay,
+                focused: store.focusedForSelectedDay,
+                sessions: store.sessionsForSelectedDay,
+                dayOffset: store.dayOffset)
+            expect(presentation.title == "Yesterday",
+                   "the past-day title remains day-scoped", &problems)
+            expect(presentation.subtitle == "Tuesday 14 November · 2h 25m focused · 2 sessions",
+                   "the subtitle uses canonical focused and session figures; got "
+                    + "'\(presentation.subtitle)'", &problems)
+            expect(presentation.showsTodayReset,
+                   "history exposes an explicit Today reset", &problems)
+
+            guard let first = store.timelineSegments.first,
+                  let layout = store.timelineLayout,
+                  let fraction = layout.fraction(for: first.start.addingTimeInterval(1)) else {
+                return problems + ["past-day timeline did not provide a selectable segment"]
+            }
+            store.selectTimeline(at: fraction)
+            let appInspector = store.todayInspector
+            expect(appInspector?.kind == .app,
+                   "timeline selection opens an app inspector", &problems)
+            expect(appInspector?.title == first.appName
+                       && appInspector?.tracked == first.seconds,
+                   "the app inspector uses the selected canonical segment", &problems)
+
+            if case .session(let session)? = store.daySessions.first(where: {
+                if case .session = $0 { return true }
+                return false
+            }) {
+                store.selectTodaySession(session)
+                expect(store.todayInspector?.kind == .session,
+                       "session selection opens a session inspector", &problems)
+                expect(store.selectedSegment == nil,
+                       "session inspection replaces the prior app inspection", &problems)
+            } else {
+                problems.append("past-day fixture did not provide a selectable session")
+            }
+
+            store.clearTodaySelection()
+            expect(store.todayInspector == nil && store.selectedSegment == nil,
+                   "Escape-style clearing empties timeline inspector data", &problems)
+            expect(store.dayOffset == 1,
+                   "clearing inspector selection preserves the historical day", &problems)
+
+            store.goToToday()
+            expect(store.dayOffset == 0,
+                   "the explicit Today action resets the day", &problems)
+            expect(!TodayPresentation(day: store.selectedDay,
+                                      focused: store.todayTotal,
+                                      sessions: store.sessionsToday,
+                                      dayOffset: store.dayOffset).showsTodayReset,
+                   "the reset action is hidden on the real current day", &problems)
             return problems
         }
     }

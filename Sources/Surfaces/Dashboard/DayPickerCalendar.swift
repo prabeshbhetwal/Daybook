@@ -82,10 +82,10 @@ struct DayPickerCalendar: View {
                 Button("Today") { shown.month = calendar.startOfDay(for: Date()) }
                     .buttonStyle(.plain)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(Tokens.Colour.focus)
                     .padding(.horizontal, Tokens.Space.s)
                     .padding(.vertical, 3)
-                    .background(Color.accentColor.opacity(0.12), in: Capsule())
+                    .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
             }
             IconButton(systemImage: "chevron.left", help: "Previous month") { step(-1) }
                 .opacity(canStep(-1) ? 1 : 0.35)
@@ -199,24 +199,24 @@ struct DayPickerCalendar: View {
                 Text("\(calendar.component(.day, from: day))")
                     .font(.system(size: 13, weight: isToday || isSelected ? .semibold : .regular)
                         .monospacedDigit())
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.white)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)
                                      : !pickable ? AnyShapeStyle(.quaternary)
-                                     : isToday ? AnyShapeStyle(.tint)
+                                     : isToday ? AnyShapeStyle(Tokens.Colour.focus)
                                      : AnyShapeStyle(.primary))
                 // The fare: focused time, or a quiet dash for a day at the Mac
                 // with no session, or nothing at all.
                 Text(facts.focused > 0 ? Tokens.duration(facts.focused)
                      : facts.tracked > 0 ? "·" : " ")
                     .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.white.opacity(0.9))
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
                                      : facts.focused > 0 ? AnyShapeStyle(.secondary)
                                      : AnyShapeStyle(.tertiary))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
             .frame(width: cellWidth, height: cellHeight)
-            .background(isSelected ? AnyShapeStyle(Color.accentColor)
-                        : AnyShapeStyle(Color.accentColor.opacity(pickable ? tint(share) : 0)),
+            .background(isSelected ? AnyShapeStyle(Tokens.Colour.focus)
+                        : AnyShapeStyle(Tokens.Colour.focus.opacity(pickable ? tint(share) : 0)),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
@@ -224,14 +224,14 @@ struct DayPickerCalendar: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
-                    .strokeBorder(Color.accentColor.opacity(isToday && !isSelected ? 0.7 : 0),
+                    .strokeBorder(Tokens.Colour.focus.opacity(isToday && !isSelected ? 0.7 : 0),
                                   lineWidth: 1)
             )
             .overlay(alignment: .topTrailing) {
                 if share >= 1 && !isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 6, weight: .heavy))
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(Tokens.Colour.focus)
                         .padding(4)
                 }
             }
@@ -273,7 +273,7 @@ struct DayPickerCalendar: View {
             HStack(spacing: 3) {
                 ForEach([0.10, 0.20, 0.32], id: \.self) { opacity in
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.accentColor.opacity(opacity))
+                        .fill(Tokens.Colour.focus.opacity(opacity))
                         .frame(width: 10, height: 10)
                 }
             }

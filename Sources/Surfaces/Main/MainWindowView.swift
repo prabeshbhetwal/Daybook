@@ -7,6 +7,7 @@ struct MainWindowView: View {
     @ObservedObject var settings: SettingsModel
     @ObservedObject var navigation: MainWindowModel
     var focusScrolls = true
+    var todayScrolls = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -38,7 +39,7 @@ struct MainWindowView: View {
         case .focus:
             FocusView(store: store, scrolls: focusScrolls)
         case .today:
-            DashboardView(store: store)
+            TodayView(store: store, scrolls: todayScrolls)
         case .review:
             interimCanvas(
                 title: "Review",

@@ -6,6 +6,9 @@ import SwiftUI
 struct SessionsCard: View {
     let entries: [DayEntry]
     var selected: DaySession?
+    /// The live session whose clock is paused for Watching. It remains a focus
+    /// session row, but its status must not resemble productive running time.
+    var watchingSessionID: UUID?
     let onHover: (DaySession?) -> Void
     let onSelect: (DaySession) -> Void
     @StateObject private var hover = HoverBox()
@@ -14,10 +17,12 @@ struct SessionsCard: View {
 
     /// `unfoldAll` opens every multi-stretch session at once — for the harness,
     /// which cannot click the disclosure.
-    init(entries: [DayEntry], selected: DaySession?, unfoldAll: Bool = false,
+    init(entries: [DayEntry], selected: DaySession?, watchingSessionID: UUID? = nil,
+         unfoldAll: Bool = false,
          onHover: @escaping (DaySession?) -> Void, onSelect: @escaping (DaySession) -> Void) {
         self.entries = entries
         self.selected = selected
+        self.watchingSessionID = watchingSessionID
         self.onHover = onHover
         self.onSelect = onSelect
         let open = unfoldAll
@@ -158,10 +163,14 @@ struct SessionsCard: View {
                         Text(session.name.isEmpty ? session.workType.displayName : session.name)
                             .font(Tokens.Typography.row.weight(.medium))
                             .lineLimit(1)
-                        if session.isRunning {
-                            Text("running")
+                        if watchingSessionID == session.id {
+                            Text("Watching · focus paused")
                                 .font(.caption2.weight(.medium))
-                                .foregroundStyle(.tint)
+                                .foregroundStyle(Tokens.Colour.attention)
+                        } else if session.isRunning {
+                            Text("active")
+                                .font(.caption2.weight(.medium))
+                                .foregroundStyle(Tokens.Colour.focus)
                         }
                     }
                     Text(session.workType.displayName)
@@ -225,10 +234,11 @@ struct SessionsCard: View {
                 .font(Tokens.Typography.detail.monospacedDigit())
                 .foregroundStyle(.tertiary)
                 .frame(width: 150, alignment: .leading)
-            Rectangle().fill(Tokens.Surface.hairline).frame(height: 1)
-            Text("\(rest.name) · \(Tokens.preciseDuration(rest.length))")
-                .font(Tokens.Typography.detail)
-                .foregroundStyle(.tertiary)
+            Rectangle().fill(Tokens.Colour.line).frame(height: 1)
+            Label("\(rest.name) · \(Tokens.preciseDuration(rest.length))",
+                  systemImage: "pause.fill")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(Tokens.Palette.workType(.breakTime))
                 .fixedSize()
             Rectangle().fill(Tokens.Surface.hairline).frame(height: 1)
         }

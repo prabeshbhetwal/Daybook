@@ -183,6 +183,63 @@ enum Snapshotter {
                 }
             }
 
+            // Task 6: the purpose-built one-day canvas. These are rendered
+            // unscrolled at a tall review measure so the ribbon, inspector,
+            // supporting groups and recap are visible in one artefact.
+            let emptyToday = FixtureFactory.store(for: .firstRun)
+            emptyToday.setDashboardVisible(true)
+
+            let liveToday = FixtureFactory.store(for: .running)
+            liveToday.setDashboardVisible(true)
+
+            let historyToday = FixtureFactory.store(for: .idleWithHistory)
+            historyToday.setDashboardVisible(true)
+            let todayStart = Calendar.current.startOfDay(for: Date())
+            historyToday.engine.archive.append(SessionRecord(
+                name: "Tea break", workType: .breakTime,
+                start: todayStart.addingTimeInterval(185 * 60),
+                end: todayStart.addingTimeInterval(215 * 60),
+                workSeconds: 30 * 60))
+            historyToday.refreshDashboard()
+
+            let selectedToday = FixtureFactory.store(for: .running)
+            selectedToday.setDashboardVisible(true)
+            if let segment = selectedToday.timelineSegments.first,
+               let layout = selectedToday.timelineLayout,
+               let fraction = layout.fraction(for: segment.start.addingTimeInterval(1)) {
+                selectedToday.selectTimeline(at: fraction)
+            }
+
+            let pastToday = FixtureFactory.store(for: .idleWithHistory)
+            pastToday.setDashboardVisible(true)
+            pastToday.stepDay(by: -1)
+
+            let watchingToday = FixtureFactory.store(for: .watching)
+            watchingToday.setDashboardVisible(true)
+
+            let todayStates: [(name: String, store: SessionStore)] = [
+                ("empty", emptyToday),
+                ("live", liveToday),
+                ("history-with-break", historyToday),
+                ("selected-inspector", selectedToday),
+                ("past-integrity", pastToday),
+                ("watching", watchingToday)
+            ]
+            for state in todayStates {
+                let todayView = TodayView(store: state.store, scrolls: false)
+                    .environment(\.colorScheme, scheme)
+                    .frame(width: 1_100, height: 1_050, alignment: .topLeading)
+                    .background(Tokens.Colour.ground)
+                let todayName = "today-\(state.name)-"
+                    + "\(scheme == .light ? "light" : "dark").png"
+                if render(todayView, to: directory.appendingPathComponent(todayName)) {
+                    print("  wrote \(todayName)")
+                } else {
+                    supplementalFailed = true
+                    print("  FAILED \(todayName)")
+                }
+            }
+
             let strip = ComponentStrip()
                 .environment(\.colorScheme, scheme)
                 .frame(width: 2200)
