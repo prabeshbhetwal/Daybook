@@ -242,8 +242,12 @@ struct PeriodStats {
     }
 
     private func summarise(days allDays: [PeriodDay], entries: [LogEntry]) -> PeriodSummary {
-        let active = allDays.filter { $0.tracked > 0 }
-        let tracked = allDays.reduce(0) { $0 + $1.tracked }
+        // The summary and the chart consume the exact same canonical series.
+        // Work-type composition remains on `PeriodDay.byWorkType` and cannot
+        // leak into either the bars or their average.
+        let trackedSeries = PeriodChartData.tracked(allDays)
+        let active = trackedSeries.filter { $0.seconds > 0 }
+        let tracked = trackedSeries.reduce(0) { $0 + $1.seconds }
         return PeriodSummary(
             tracked: tracked,
             activeDays: active.count,

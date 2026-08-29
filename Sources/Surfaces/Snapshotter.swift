@@ -240,6 +240,57 @@ enum Snapshotter {
                 }
             }
 
+            // Task 7: Week/Month comparison and calendar-driven History. The
+            // fixtures include exact tracked bars, the empty state, a preserved
+            // legacy qualification and an intersected History filter.
+            let weekReview = FixtureFactory.store(for: .idleWithHistory,
+                                                  accurateUsage: true)
+            weekReview.refreshReview(period: .week)
+
+            let monthReview = FixtureFactory.store(for: .idleWithHistory,
+                                                   accurateUsage: true)
+            monthReview.refreshReview(period: .month)
+
+            let emptyReview = FixtureFactory.store(for: .firstRun)
+            emptyReview.refreshReview(period: .week)
+
+            let legacyReview = FixtureFactory.store(for: .idleWithHistory)
+            legacyReview.refreshReview(period: .week)
+
+            let filteredHistory = FixtureFactory.store(for: .idleWithHistory)
+            filteredHistory.refreshReview()
+            filteredHistory.setHistoryQuery("xcode")
+            filteredHistory.setHistoryApp("com.apple.dt.Xcode")
+            filteredHistory.setHistoryWorkType(.deepWork)
+
+            let reviewStates: [(name: String, store: SessionStore, section: ReviewSection)] = [
+                ("week", weekReview, .week),
+                ("month", monthReview, .month),
+                ("empty", emptyReview, .week),
+                ("legacy-qualified", legacyReview, .week),
+                ("history-filtered", filteredHistory, .history)
+            ]
+            for state in reviewStates {
+                // The local section is owned by the navigation model; select it
+                // before composition so the rendered surface is deterministic.
+                let navigation = MainWindowModel(selectedTab: .review)
+                navigation.reviewSection = state.section
+                let selectedReview = ReviewView(store: state.store,
+                                                navigation: navigation,
+                                                scrolls: false)
+                    .environment(\.colorScheme, scheme)
+                    .frame(width: 1_100, height: 1_500, alignment: .topLeading)
+                    .background(Tokens.Colour.ground)
+                let reviewName = "review-\(state.name)-"
+                    + "\(scheme == .light ? "light" : "dark").png"
+                if render(selectedReview, to: directory.appendingPathComponent(reviewName)) {
+                    print("  wrote \(reviewName)")
+                } else {
+                    supplementalFailed = true
+                    print("  FAILED \(reviewName)")
+                }
+            }
+
             let strip = ComponentStrip()
                 .environment(\.colorScheme, scheme)
                 .frame(width: 2200)

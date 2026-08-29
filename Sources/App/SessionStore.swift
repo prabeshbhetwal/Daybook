@@ -137,6 +137,33 @@ final class SessionStore: ObservableObject {
                                                               averagePerActiveDay: 0,
                                                               longest: nil)
 
+    // MARK: Review
+    // Review owns an independent period anchor. Browsing a previous week or
+    // month must not quietly move Today away from its selected calendar day.
+    @Published var reviewAnchor: Date?
+    @Published var reviewPeriod: TrackingPeriod = .week
+    @Published var reviewDays: [PeriodDay] = []
+    @Published var reviewLog: [LogEntry] = []
+    @Published var reviewAppGroups: [LogAppGroup] = []
+    @Published var reviewDayTotals: [Date: TimeInterval] = [:]
+    @Published var reviewSummary = PeriodSummary(tracked: 0, activeDays: 0,
+                                                  totalDays: 0,
+                                                  averagePerActiveDay: 0,
+                                                  longest: nil)
+    @Published var reviewLongestFocusSeconds: TimeInterval = 0
+    @Published var reviewLongestFocusName: String?
+    @Published var reviewWorkTypeShares: [WorkTypeShare] = []
+    @Published var reviewIntegrityNote: String?
+
+    /// Canonical History is derived from the authoritative usage snapshot and
+    /// the archive. Filter/range state lives beside it because this toolchain
+    /// cannot use SwiftUI's macro-backed local state.
+    @Published var historyDays: [HistoryDay] = []
+    @Published var historyFilter = HistoryFilter()
+    @Published var historyRangeStart: Date?
+    @Published var historyRangeEnd: Date?
+    @Published var historyAppNames: [String: String] = [:]
+
     var logGrouping: LogGrouping {
         get { engine.store.logGrouping }
         set {
@@ -227,6 +254,8 @@ final class SessionStore: ObservableObject {
     /// screen. Hidden changes are coalesced until the next appearance.
     var dashboardVisible = false
     var dashboardArchiveRefreshPending = false
+    var reviewVisible = false
+    var reviewRefreshPending = true
     var glanceArchiveRefreshPending = false
     /// Nested archive callbacks join the outer refresh and are consumed once
     /// when its final frame exits.
@@ -379,6 +408,7 @@ final class SessionStore: ObservableObject {
             updateTicker()
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
+            if reviewVisible { refreshReview() } else { reviewRefreshPending = true }
         }
     }
 
@@ -460,6 +490,7 @@ final class SessionStore: ObservableObject {
             isTrackingEnabled = tracker?.isEnabled ?? false
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
+            if reviewVisible { refreshReview() } else { reviewRefreshPending = true }
             refreshBreak()
             updateTicker()
         }

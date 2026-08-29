@@ -64,11 +64,18 @@ struct PeriodChart: View {
     var onPickDay: ((Date) -> Void)?
     @StateObject private var hovered = DayBox()
 
+    /// The bars and their hit targets share this exact canonical tracked
+    /// series. A selected chart value therefore routes the literal date that
+    /// produced the visible bar rather than rebuilding a parallel date list.
+    private var trackedPoints: [PeriodChartPoint] {
+        PeriodChartData.tracked(days)
+    }
+
     /// The day nearest the pointer's x, in plot coordinates.
     private func dayAt(_ point: CGPoint, _ proxy: ChartProxy, _ geo: GeometryProxy) -> Date? {
         let x = point.x - geo[proxy.plotAreaFrame].origin.x
         guard let date: Date = proxy.value(atX: x) else { return nil }
-        return days.min {
+        return trackedPoints.min {
             abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
         }?.date
     }
@@ -91,7 +98,7 @@ struct PeriodChart: View {
                 .frame(height: height, alignment: .leading)
         } else {
             Chart {
-                ForEach(PeriodChartData.tracked(days)) { point in
+                ForEach(trackedPoints) { point in
                     BarMark(x: .value("Day", point.date, unit: .day),
                             y: .value("Minutes", point.seconds / 60))
                         .foregroundStyle(Tokens.Palette.app(rank: 0))
@@ -145,7 +152,7 @@ struct PeriodChart: View {
     }
 
     private var domain: ClosedRange<Date> {
-        guard let first = days.first?.date, let last = days.last?.date else {
+        guard let first = trackedPoints.first?.date, let last = trackedPoints.last?.date else {
             let now = Date()
             return now...now
         }

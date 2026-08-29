@@ -41,11 +41,7 @@ struct MainWindowView: View {
         case .today:
             TodayView(store: store, scrolls: todayScrolls)
         case .review:
-            interimCanvas(
-                title: "Review",
-                detail: "Weekly, monthly and session-history review will appear here.",
-                symbol: "chart.bar"
-            )
+            ReviewView(store: store, navigation: navigation)
         case .insights:
             interimCanvas(
                 title: "Insights",

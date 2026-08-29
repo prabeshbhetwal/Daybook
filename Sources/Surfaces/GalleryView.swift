@@ -37,6 +37,11 @@ enum Fixture: String, CaseIterable, Identifiable {
 
 enum FixtureFactory {
 
+    private struct UsageFixtureEnvelope: Codable {
+        let metadata: AppUsageMetadata
+        let sessions: [AppUsageSession]
+    }
+
     private final class Clock {
         var value: Date
         init(_ start: Date) { value = start }
@@ -47,7 +52,7 @@ enum FixtureFactory {
             .appendingPathComponent("fc-gallery-\(UUID().uuidString)", isDirectory: true)
     }
 
-    static func store(for fixture: Fixture) -> SessionStore {
+    static func store(for fixture: Fixture, accurateUsage: Bool = false) -> SessionStore {
         // Anchor at 10:00 today, not "now": seeding from a late-evening anchor
         // pushes a session's end past midnight, so it lands on the wrong day and
         // the totals lie. Sessions are attributed to the day they end.
@@ -163,7 +168,20 @@ enum FixtureFactory {
         // Background app usage, so the per-app history renders with real shapes.
         // First run gets the archive too, just empty: the empty state is only a
         // real check if it goes through the same code path.
-        let usageArchive = AppUsageArchive(directory: scratchDirectory(),
+        let usageDirectory = scratchDirectory()
+        if accurateUsage {
+            try? FileManager.default.createDirectory(at: usageDirectory,
+                                                     withIntermediateDirectories: true)
+            let envelope = UsageFixtureEnvelope(
+                metadata: AppUsageMetadata(accurateFrom:
+                    anchor.addingTimeInterval(-30 * 86_400)),
+                sessions: [])
+            if let data = try? JSONEncoder().encode(envelope) {
+                try? data.write(to: usageDirectory.appendingPathComponent("app-usage.json"),
+                                options: .atomic)
+            }
+        }
+        let usageArchive = AppUsageArchive(directory: usageDirectory,
                                            now: { clock.value })
         if fixture != .firstRun {
             func use(_ bundleID: String, _ name: String,
