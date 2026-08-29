@@ -489,12 +489,14 @@ fi
 if [ "${is_primary_lock}" -eq 1 ] \
     && [ "${HARNESS_RECOVERER:-}" = "release-guard-failure" ] \
     && [ -f "${HARNESS_RECOVERY_GUARD}/owner" ]; then
+  /bin/ln "$@"
   /bin/cp "${HARNESS_RECOVERY_GUARD}/owner" "${HARNESS_GUARD_OWNER_TARGET}"
   /usr/bin/shasum -a 256 "${HARNESS_GUARD_OWNER_TARGET}" \
     > "${HARNESS_CONTROL_ROOT}/release-guard-owner-hash"
   /bin/rm "${HARNESS_RECOVERY_GUARD}/owner"
   /bin/ln -s "${HARNESS_GUARD_OWNER_TARGET}" "${HARNESS_RECOVERY_GUARD}/owner"
   : > "${HARNESS_CONTROL_ROOT}/release-guard-owner-corrupted"
+  exit 0
 fi
 if [ "${is_primary_lock}" -eq 1 ] \
     && { [ "${HARNESS_RECOVERER:-}" = "prechecked" ] \
@@ -1233,12 +1235,14 @@ codesign --verify "${APP_NAME}.app" \
 
 # Corrupt the guard owner immediately after replacement admission. Recovery
 # must fail closed and preserve every stale transaction artefact.
+LOCAL_APP_HASH="$(shasum -a 256 "${APP_NAME}.app/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
 mv "${APP_NAME}.app" "${RELEASE_GUARD_FAILURE_STALE_BACKUP}"
 cp -R "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}"
 printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
   "${DEAD_PID}" "${RELEASE_GUARD_FAILURE_STALE_RUN_ID}" > "${RELEASE_GUARD_FAILURE_STALE_OWNER}"
 ln "${RELEASE_GUARD_FAILURE_STALE_OWNER}" "${LOCK_FILE}"
-GUARD_HASH="$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_OWNER}" | awk '{print $1}')"
+STALE_CANDIDATE_HASH="$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
+STALE_BACKUP_HASH="$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_BACKUP}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
 set +e
 PATH="${WRAPPER_DIR}:${PATH}" HARNESS_RECOVERER=release-guard-failure \
 HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" HARNESS_LOCK_FILE="${LOCK_FILE}" \
@@ -1249,18 +1253,27 @@ BUILD_STATUS=$?
 set -e
 test -e "${HARNESS_ROOT}/release-guard-owner-corrupted" \
   || fail "release-boundary regression did not corrupt the guard owner"
+GUARD_HASH="$(awk '{print $1}' "${HARNESS_ROOT}/release-guard-owner-hash")"
 test "${BUILD_STATUS}" -ne 0 || fail "recovery continued after guard release failed"
 test -e "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}" \
   -a -e "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" \
   || fail "failed guard release discarded recovery evidence"
 test "$(shasum -a 256 "${RECOVERY_GUARD}/owner" | awk '{print $1}')" = "${GUARD_HASH}" \
   || fail "failed guard release rewrote foreign ownership evidence"
+test "$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = "${STALE_CANDIDATE_HASH}" \
+  || fail "failed guard release changed stale candidate bytes"
+test "$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_BACKUP}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = "${STALE_BACKUP_HASH}" \
+  || fail "failed guard release changed stale backup bytes"
+test ! -e "${APP_NAME}.app" \
+  || fail "failed guard release changed the local app path"
 rm -f "${LOCK_FILE}" "${RECOVERY_GUARD}/owner" "${RELEASE_GUARD_FAILURE_STALE_OWNER}"
 rmdir "${RECOVERY_GUARD}"
 rm -rf "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}"
 mv "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" "${APP_NAME}.app"
 rm -rf "${HARNESS_ROOT}/release-guard-owner-target"
 codesign --verify "${APP_NAME}.app" || fail "release-boundary regression left an invalid local app"
+test "$(shasum -a 256 "${APP_NAME}.app/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = "${LOCAL_APP_HASH}" \
+  || fail "failed guard release changed the local app bytes"
 
 # Exercise this harness's actual EXIT cleanup in a subshell while a tracked
 # recoverer is paused after unlink. The parent then observes whether cleanup
