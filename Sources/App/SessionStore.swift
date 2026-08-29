@@ -399,6 +399,7 @@ final class SessionStore: ObservableObject {
             if tracker?.isTransitioning == true {
                 self.glanceArchiveRefreshPending = true
                 self.dashboardArchiveRefreshPending = true
+                self.insightsRefreshPending = true
             } else {
                 self.archiveUsageDidChange()
             }
@@ -413,6 +414,10 @@ final class SessionStore: ObservableObject {
     /// the ticker on one post-transition frame.
     private func trackerDidTransition() {
         withRefreshTransaction {
+            // Set before the minute refresh: if that path rebuilds visible
+            // Insights it clears this flag, avoiding a second rebuild when the
+            // transaction is consumed. Same-minute mutations remain pending.
+            insightsRefreshPending = true
             updateTimeDrivenFigures()
             updateTicker()
             glanceArchiveRefreshPending = true

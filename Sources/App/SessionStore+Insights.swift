@@ -99,26 +99,37 @@ struct InsightSurface: Equatable {
               let leading = quality.byWorkType.first,
               leading.seconds > 0,
               leading.share > 0 else { return nil }
-        let percent = Int((leading.share * 100).rounded())
+        let percent = percentageText(leading.share)
         let sessionWord = quality.sessionCount == 1 ? "focus session" : "focus sessions"
+        let supplies = quality.sessionCount == 1 ? "supplies" : "supply"
         var details = [
-            "\(quality.sessionCount) recorded \(sessionWord) supply the work-type composition"
+            "\(quality.sessionCount) recorded \(sessionWord) \(supplies) the work-type composition"
         ]
         if quality.insideSessionShare > 0 {
             details.append(
-                "\(Int((quality.insideSessionShare * 100).rounded()))% of tracked time "
+                "\(percentageText(quality.insideSessionShare)) of tracked time "
                     + "fell inside a focus session")
         }
         if quality.switchesPerSession > 0 {
             details.append(
-                String(format: "%.1f app switches per recorded focus session",
-                       quality.switchesPerSession))
+                "\(rateText(quality.switchesPerSession)) app switches per recorded focus session")
         }
         return Insight(
             id: "quality",
-            headline: "\(leading.workType.displayName) was \(percent)% of focused time",
+            headline: "\(leading.workType.displayName) was \(percent) of focused time",
             detail: details.joined(separator: "; ") + ".",
             symbolName: "scope")
+    }
+
+    private static func percentageText(_ share: Double) -> String {
+        let percentage = share * 100
+        if percentage > 0 && percentage < 1 { return "<1%" }
+        return "\(Int(percentage.rounded()))%"
+    }
+
+    private static func rateText(_ value: Double) -> String {
+        if value > 0 && value < 0.1 { return "<0.1" }
+        return String(format: "%.1f", value)
     }
 
     private static func continuityInsight(range: InsightRange,
@@ -130,9 +141,13 @@ struct InsightSurface: Equatable {
         guard activeDays > 0 || streak > 0 else { return nil }
         let headline: String
         if activeDays > 0 {
-            let dayWord = activeDays == 1 ? "day had" : "days had"
-            let denominator = totalDays > 0 ? " of \(totalDays)" : ""
-            headline = "\(activeDays)\(denominator) \(dayWord) tracked time \(range.periodPhrase)"
+            let dayCount: String
+            if totalDays > 0 {
+                dayCount = "\(activeDays) of \(totalDays) " + (totalDays == 1 ? "day" : "days")
+            } else {
+                dayCount = "\(activeDays) " + (activeDays == 1 ? "day" : "days")
+            }
+            headline = "\(dayCount) had tracked time \(range.periodPhrase)"
         } else {
             headline = streak == 1 ? "1-day current focus streak"
                                    : "\(streak)-day current focus streak"
@@ -140,7 +155,8 @@ struct InsightSurface: Equatable {
 
         var details: [String] = []
         if activeDays > 0 {
-            details.append("An active day here has non-zero canonical tracked time")
+            details.append("An active day here is a complete post-accuracy day with "
+                           + "non-zero canonical tracked time")
         }
         if streak > 0 {
             let streakText = streak == 1 ? "the current focus streak is 1 day"
@@ -233,8 +249,16 @@ extension SessionStore {
         let rollup = periodStats.rollup(for: period, containing: moment)
         let today = calendar.startOfDay(for: moment)
         let elapsedDays = rollup.days.filter { $0.date <= today }
-        let activeDays = elapsedDays.filter { $0.tracked > 0 }.count
-        let rhythm = insightRhythm(stats: stats, days: elapsedDays, calendar: calendar)
+        let firstCompleteAccurateDay = calendar.date(
+            byAdding: .day, value: 1,
+            to: calendar.startOfDay(for: snapshot.accurateFrom))
+        let authoritativeDays = elapsedDays.filter { day in
+            guard let firstCompleteAccurateDay else { return false }
+            return day.date >= firstCompleteAccurateDay
+        }
+        let activeDays = authoritativeDays.filter { $0.tracked > 0 }.count
+        let rhythm = insightRhythm(stats: stats, days: authoritativeDays,
+                                   calendar: calendar)
         let quality = insightQuality(stats: stats, days: elapsedDays,
                                      moment: moment, calendar: calendar)
         let comparable = comparablePreviousTracked(
@@ -248,8 +272,8 @@ extension SessionStore {
             quality: quality,
             streak: streak,
             activeDays: activeDays,
-            totalDays: elapsedDays.count,
-            tracked: elapsedDays.reduce(0) { $0 + $1.tracked },
+            totalDays: authoritativeDays.count,
+            tracked: authoritativeDays.reduce(0) { $0 + $1.tracked },
             comparableTracked: comparable)
     }
 

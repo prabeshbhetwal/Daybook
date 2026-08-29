@@ -338,9 +338,27 @@ enum Snapshotter {
             // composition; no view-only fixture values bypass evidence gates.
             let richInsights = FixtureFactory.insightsStore(withEvidence: true)
             let emptyInsights = FixtureFactory.insightsStore(withEvidence: false)
+            let tinyQualityInsights = FixtureFactory.insightsStore(withEvidence: false)
+            tinyQualityInsights.insightWeekSurface = InsightSurface.make(
+                range: .week,
+                goal: GoalProgress(goal: 4 * 3_600, achieved: 0, typical: nil),
+                rhythm: [],
+                rhythmPeak: nil,
+                quality: FocusQuality(
+                    byWorkType: [WorkTypeShare(workType: .deepWork,
+                                               seconds: 30, share: 0.004)],
+                    insideSessionShare: 0.004,
+                    switchesPerSession: 0.04,
+                    sessionCount: 1),
+                streak: 0,
+                activeDays: 0,
+                totalDays: 7,
+                tracked: 0,
+                comparableTracked: nil)
             let insightStates: [(name: String, store: SessionStore)] = [
                 ("evidence-rich", richInsights),
-                ("insufficient-data", emptyInsights)
+                ("insufficient-data", emptyInsights),
+                ("tiny-quality", tinyQualityInsights)
             ]
             for state in insightStates {
                 let navigation = MainWindowModel(selectedTab: .insights)
