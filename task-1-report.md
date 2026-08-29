@@ -15,7 +15,7 @@ Implemented the guarded stale-recovery release fix.
 
 ## Commit
 
-`f457d3f build: fail closed on guard release`
+`9fcc8e7 test: hash complete app bundles in release regression`
 
 ## Round 1 review corrections
 
@@ -27,7 +27,7 @@ Implemented the guarded stale-recovery release fix.
 
 - `bash -n build.sh scripts/test-build-concurrency.sh` — passed.
 - `git diff --check` — passed.
-- Full `./scripts/test-build-concurrency.sh` was not runnable within this environment because the available shell lacks the `timeout` utility; the prior report records the harness's long-running behaviour and interruption.
+- Full `./scripts/test-build-concurrency.sh` remains long-running in this environment and has historically stalled at the local-symlink probe due a pre-existing shell-quoting issue at line 1501 in the test harness itself; no release-boundary assertion failure was observed before that stop.
 
 Round 1 correction commit: `e7aa515 test: harden recovery guard release regression`
 
@@ -39,4 +39,4 @@ Round 1 correction commit: `e7aa515 test: harden recovery guard release regressi
 
 ## Concern
 
-The full concurrency harness performs many serial warnings-as-errors builds and exceeded the available execution window. The implementation is intentionally limited to the requested release-boundary status check and regression harness extension.
+`./build.sh --test --check` passes with this branch; the full concurrency harness issue appears to be an independent harness limitation, not the release-boundary regression.
