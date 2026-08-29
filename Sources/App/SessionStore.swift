@@ -194,13 +194,16 @@ final class SessionStore: ObservableObject {
         start()
     }
 
-    /// The Undo counterpart must also leave declared Away through `endAway()`
-    /// before discarding, otherwise Core becomes idle while usage tracking
-    /// remains suspended in the coordinator.
+    /// Undo rejects the app's detected session wholesale. Applying
+    /// `endAway()` first would legitimately archive long work/Away stretches
+    /// and clear automatic ownership before discard can act. Remember only
+    /// whether tracking was suspended, discard while ownership is intact, then
+    /// resume the App-level tracker exactly once.
     func undoAutomaticSessionCorrection() {
         guard isAutoSession else { return }
-        if isAway { endAway() }
+        let resumesTracking = isAway
         undoAutoSession()
+        if resumesTracking { onAwayEnded?() }
     }
 
     /// Time until the next break nudge, and whether one is overdue.

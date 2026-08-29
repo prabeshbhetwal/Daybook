@@ -6773,13 +6773,18 @@ enum SelfTest {
     private static func testDeclaredAwayAutomaticCorrectionRoutes() -> [String] {
         var problems: [String] = []
 
-        func makeAutomatic(_ pause: PauseReason?)
+        func makeAutomatic(_ pause: PauseReason?, declaredAwayFor: TimeInterval = 0)
             -> (store: SessionStore, engine: SessionEngine,
                 archive: SessionArchive, clock: Clock) {
             let clock = Clock(base)
             let archive = SessionArchive(directory: scratchDirectory(), now: { clock.value })
+            let persistence = PersistenceStore(
+                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            persistence.removeAll()
+            persistence.breakThreshold = FocusConstants.defaultThreshold
+            persistence.longAwayCap = FocusConstants.defaultLongAwayCap
             let engine = SessionEngine(
-                store: PersistenceStore(defaults: UserDefaults(suiteName: suiteName) ?? .standard),
+                store: persistence,
                 archive: archive,
                 ownBundleID: "com.test",
                 schedulesDwell: false,
@@ -6790,6 +6795,7 @@ enum SelfTest {
                 switch pause {
                 case .away:
                     engine.transition(on: .markedAway)
+                    clock.advance(declaredAwayFor)
                 case .watching:
                     engine.transition(on: .watchingObserved(
                         seconds: FocusConstants.idlePauseThreshold))
@@ -6857,8 +6863,8 @@ enum SelfTest {
         undone.store.onAwayEnded = { undoEvents.append("tracking resumed") }
         undone.store.onAutoSessionUndone = { undoEvents.append("automatic session undone") }
         undone.store.undoAutomaticSessionCorrection()
-        expect(undoEvents == ["tracking resumed", "automatic session undone"],
-               "declared-Away Undo resumes tracking exactly once before discard", &problems)
+        expect(undoEvents == ["automatic session undone", "tracking resumed"],
+               "declared-Away Undo discards before resuming tracking exactly once", &problems)
         expect(undone.engine.state == .idle
                    && undone.archive.records.isEmpty,
                "Undo retains discard and detector-suppression semantics", &problems)
@@ -6874,6 +6880,31 @@ enum SelfTest {
                    &problems)
             expect(ordinary.engine.state == .running && !ordinary.store.isAutoSession,
                    "\(String(describing: pause)) keeps its existing adoption semantics",
+                   &problems)
+        }
+
+        let undoBoundaries: [(label: String, seconds: TimeInterval)] = [
+            ("just below break threshold", FocusConstants.defaultThreshold - 1),
+            ("at break threshold", FocusConstants.defaultThreshold),
+            ("above break threshold", FocusConstants.defaultThreshold + 1),
+            ("beyond long-away cap", FocusConstants.defaultLongAwayCap + 1)
+        ]
+        for boundary in undoBoundaries {
+            let scenario = makeAutomatic(.away, declaredAwayFor: boundary.seconds)
+            var events: [String] = []
+            scenario.store.onAutoSessionUndone = {
+                events.append("automatic session undone")
+            }
+            scenario.store.onAwayEnded = { events.append("tracking resumed") }
+            scenario.store.undoAutomaticSessionCorrection()
+            expect(events == ["automatic session undone", "tracking resumed"],
+                   "\(boundary.label) Undo emits discard then one tracking resume; got \(events)",
+                   &problems)
+            expect(scenario.engine.state == .idle && !scenario.store.isAutoSession,
+                   "\(boundary.label) Undo ends idle without automatic ownership",
+                   &problems)
+            expect(scenario.archive.records.isEmpty,
+                   "\(boundary.label) Undo retains no detected work or Away record",
                    &problems)
         }
         return problems
