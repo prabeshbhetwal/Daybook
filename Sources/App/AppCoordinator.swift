@@ -21,6 +21,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         isTrackingEnabled: engine.store.isUsageTrackingEnabled,
         onChange: { [weak self] in self?.store.refresh() },
         onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) })
+    /// One route object for the window, menu popover, commands and deep links.
+    /// Its first tab comes from the persisted preference exactly once at launch.
+    @MainActor private(set) lazy var mainWindow = MainWindowModel(
+        selectedTab: settings.defaultAppTab)
 
     /// Input density, fed only at event boundaries — app activation, lock,
     /// unlock, wake — and never on a timer. A repeating timer would be the only
@@ -313,13 +317,21 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                         // The view's onAppear returns to today; step after it.
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.store.stepDay(by: -1) }
                     }
-                    // The dashboard in a plain window, so its card can be put
-                    // on screen and looked at without a click.
-                    let window = NSWindow(contentRect: NSRect(x: 200, y: 120, width: 1020, height: 920),
+                    // The real main shell in a plain preview window, so the
+                    // requested card or historical day can be inspected without
+                    // first clicking through the menu-bar extra.
+                    self.mainWindow.open(tab: .today)
+                    let window = NSWindow(contentRect: NSRect(x: 200, y: 120,
+                                                              width: 1_160, height: 780),
                                           styleMask: [.titled, .closable, .resizable],
                                           backing: .buffered, defer: false)
-                    window.title = "Dashboard (preview)"
-                    window.contentView = NSHostingView(rootView: DashboardView(store: self.store))
+                    window.title = "FocusContinuity (preview)"
+                    window.contentMinSize = NSSize(width: 980, height: 680)
+                    window.contentView = NSHostingView(rootView: MainWindowView(
+                        store: self.store,
+                        settings: self.settings,
+                        navigation: self.mainWindow
+                    ))
                     window.isReleasedWhenClosed = false
                     self.previewWindow = window
                     NSApp.activate(ignoringOtherApps: true)

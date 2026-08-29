@@ -146,11 +146,4 @@ final class SettingsModel: ObservableObject {
         return true
     }
 
-    /// Opens the Settings scene. `SettingsLink` is macOS 14; on 13 the scene is
-    /// reached through the responder chain, and the app must be frontmost first
-    /// or the window opens behind whatever was.
-    static func openWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-    }
 }

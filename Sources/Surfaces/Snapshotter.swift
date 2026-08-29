@@ -33,6 +33,7 @@ enum Snapshotter {
         }
 
         var wrote = 0
+        var supplementalFailed = false
         for fixture in Fixture.allCases {
             for scheme in [ColorScheme.light, .dark] {
                 let store = FixtureFactory.store(for: fixture)
@@ -105,6 +106,28 @@ enum Snapshotter {
             }
         }
         for scheme in [ColorScheme.light, .dark] {
+            for variant in [(name: "wide", size: CGSize(width: 1_160, height: 780)),
+                            (name: "narrow", size: CGSize(width: 980, height: 680))] {
+                let store = FixtureFactory.store(for: .running)
+                let settings = snapshotSettings()
+                let navigation = MainWindowModel(selectedTab: .focus)
+                let shell = MainWindowView(store: store,
+                                           settings: settings,
+                                           navigation: navigation)
+                    .environment(\.colorScheme, scheme)
+                    .frame(width: variant.size.width, height: variant.size.height,
+                           alignment: .topLeading)
+                    .background(Tokens.Colour.ground)
+                let shellName = "main-shell-\(variant.name)-"
+                    + "\(scheme == .light ? "light" : "dark").png"
+                if render(shell, to: directory.appendingPathComponent(shellName)) {
+                    print("  wrote \(shellName)")
+                } else {
+                    supplementalFailed = true
+                    print("  FAILED \(shellName)")
+                }
+            }
+
             let strip = ComponentStrip()
                 .environment(\.colorScheme, scheme)
                 .frame(width: 2200)
@@ -128,7 +151,19 @@ enum Snapshotter {
                 "awayPrompt-full-\(scheme == .light ? "light" : "dark").png"))
         }
         print("\(wrote)/\(Fixture.allCases.count * 2) snapshots written to \(directory.path)")
-        return wrote == Fixture.allCases.count * 2
+        return wrote == Fixture.allCases.count * 2 && !supplementalFailed
+    }
+
+    private static func snapshotSettings() -> SettingsModel {
+        let defaults = UserDefaults(
+            suiteName: "com.prabesh.focuscontinuity.snapshot.shell"
+        ) ?? .standard
+        let persistence = PersistenceStore(defaults: defaults)
+        persistence.removeAll()
+        return SettingsModel(store: persistence,
+                             isTrackingEnabled: true,
+                             onChange: {},
+                             onTrackingChanged: { _ in })
     }
 
     @MainActor

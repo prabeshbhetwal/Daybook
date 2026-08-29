@@ -274,7 +274,9 @@ enum SelfTest {
             ("Main navigation and interface preferences persist across reload",
              testMainNavigationAndInterfacePreferences),
             ("Mole design tokens preserve practical density and semantic signals",
-             testMoleDesignTokensAndDensity)
+             testMoleDesignTokensAndDensity),
+            ("Main-window deep links and commands select their exact routes",
+             testMainWindowRoutesAndCommands)
         ]
 
         print("FocusContinuity self-test")
@@ -6622,6 +6624,27 @@ enum SelfTest {
                "on-focus foreground has at least 4.5:1 contrast on light focus; got "
                + String(format: "%.2f:1", lightContrast), &problems)
         return problems
+    }
+
+    /// Deep links and commands share one navigation model. A wrong branch here
+    /// would leave the selected tab and the requested day disagreeing.
+    private static func testMainWindowRoutesAndCommands() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let navigation = MainWindowModel()
+            let yesterday = base.addingTimeInterval(-24 * 3_600)
+
+            navigation.open(tab: .review)
+            expect(navigation.selectedTab == .review,
+                   "review route selects Review", &problems)
+            navigation.openToday(date: yesterday)
+            expect(navigation.selectedTab == .today && navigation.requestedDate == yesterday,
+                   "day links route into Today", &problems)
+            navigation.openSettings()
+            expect(navigation.selectedTab == .settings,
+                   "command-comma routes to Settings", &problems)
+            return problems
+        }
     }
 
     /// A pristine install has no Application Support directory yet. Reveal

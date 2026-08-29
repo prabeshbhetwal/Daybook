@@ -85,16 +85,31 @@ enum AppearancePreference: String, CaseIterable {
 
 @MainActor final class MainWindowModel: ObservableObject {
     @Published var selectedTab: AppTab
+    @Published private(set) var requestedDate: Date?
     @Published var reviewSection: ReviewSection = .week
     @Published var insightRange: InsightRange = .week
     @Published var settingsSection: SettingsSection = .general
 
-    init(selectedTab: AppTab = .focus) {
+    init(selectedTab: AppTab = .focus, requestedDate: Date? = nil) {
         self.selectedTab = selectedTab
+        self.requestedDate = requestedDate
     }
 
     func select(_ tab: AppTab) {
         selectedTab = tab
+    }
+
+    func open(tab: AppTab) {
+        selectedTab = tab
+    }
+
+    func openToday(date: Date) {
+        requestedDate = date
+        selectedTab = .today
+    }
+
+    func openSettings() {
+        selectedTab = .settings
     }
 
     func moveTab(by delta: Int) {
