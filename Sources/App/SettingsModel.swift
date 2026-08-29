@@ -78,6 +78,26 @@ final class SettingsModel: ObservableObject {
         set { write { store.breakLength = newValue } }
     }
 
+    var defaultAppTab: AppTab {
+        get { AppTab(rawValue: store.defaultAppTabRawValue) ?? .focus }
+        set { write { store.defaultAppTabRawValue = newValue.rawValue } }
+    }
+
+    var interfaceDensity: InterfaceDensity {
+        get { InterfaceDensity(rawValue: store.interfaceDensityRawValue) ?? .comfortable }
+        set { write { store.interfaceDensityRawValue = newValue.rawValue } }
+    }
+
+    var appearancePreference: AppearancePreference {
+        get { AppearancePreference(rawValue: store.appearanceRawValue) ?? .system }
+        set { write { store.appearanceRawValue = newValue.rawValue } }
+    }
+
+    var showsTimelineLabels: Bool {
+        get { store.showsTimelineLabels }
+        set { write { store.showsTimelineLabels = newValue } }
+    }
+
     var menuSessionCount: Int {
         get { store.menuSessionCount }
         set { write { store.menuSessionCount = newValue } }

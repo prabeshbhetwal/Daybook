@@ -28,6 +28,10 @@ final class PersistenceStore {
         static let longAwayCap = "fc.longAwayCap"
         static let fullPromptAfter = "fc.fullPromptAfter"
         static let period = "fc.period"
+        static let defaultAppTabRawValue = "fc.defaultAppTab"
+        static let interfaceDensityRawValue = "fc.interfaceDensity"
+        static let appearanceRawValue = "fc.appearancePreference"
+        static let showsTimelineLabels = "fc.showsTimelineLabels"
     }
 
     private let defaults: UserDefaults
@@ -254,6 +258,32 @@ final class PersistenceStore {
         set { defaults.set(newValue.rawValue, forKey: Key.period) }
     }
 
+    // MARK: - Window and UI preferences
+
+    /// Stored as raw values so Core does not depend on navigation enums.
+    var defaultAppTabRawValue: String {
+        get { defaults.string(forKey: Key.defaultAppTabRawValue) ?? "focus" }
+        set { defaults.set(newValue, forKey: Key.defaultAppTabRawValue) }
+    }
+
+    /// Stored as raw values so Core does not depend on UI density enums.
+    var interfaceDensityRawValue: String {
+        get { defaults.string(forKey: Key.interfaceDensityRawValue) ?? "comfortable" }
+        set { defaults.set(newValue, forKey: Key.interfaceDensityRawValue) }
+    }
+
+    /// Stored as raw values so Core does not depend on appearance enums.
+    var appearanceRawValue: String {
+        get { defaults.string(forKey: Key.appearanceRawValue) ?? "system" }
+        set { defaults.set(newValue, forKey: Key.appearanceRawValue) }
+    }
+
+    /// Whether day ribbons show per-app time ranges.
+    var showsTimelineLabels: Bool {
+        get { defaults.object(forKey: Key.showsTimelineLabels) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.showsTimelineLabels) }
+    }
+
     /// Used by the self-test harness to leave no residue behind.
     func removeAll() {
         for key in [Key.state, Key.overrides, Key.threshold, Key.name,
@@ -262,7 +292,9 @@ final class PersistenceStore {
                     Key.rewardsEnabled, Key.rewardLog, Key.learning, Key.logGrouping,
                     Key.remindersDisabled, Key.workInterval, Key.breakLength,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
-                    Key.fullPromptAfter, Key.period] {
+                    Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
+                    Key.interfaceDensityRawValue, Key.appearanceRawValue,
+                    Key.showsTimelineLabels] {
             defaults.removeObject(forKey: key)
         }
     }

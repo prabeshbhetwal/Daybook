@@ -270,7 +270,9 @@ enum SelfTest {
             ("Declared categories are a last resort; automatic sessions are named",
              testCategoryFallbackAndNames),
             ("A wake is the machine's: only input or an unlock ends an absence",
-             testWakeIsNotAReturn)
+             testWakeIsNotAReturn),
+            ("Main navigation and interface preferences persist across reload",
+             testMainNavigationAndInterfacePreferences)
         ]
 
         print("FocusContinuity self-test")
@@ -6516,6 +6518,55 @@ enum SelfTest {
         expect(revealCount == 1, "Reveal data folder invokes its read-only action", &problems)
         expect(changes == 10 && tracking == [false],
                "revealing data changes no setting and sends no preference callback", &problems)
+        return problems
+    }
+
+    // MARK: - 83
+
+    /// Navigation defaults are user-facing preferences and therefore first-class
+    /// persisted settings; corrupted values should never crash the app.
+    private static func testMainNavigationAndInterfacePreferences() -> [String] {
+        var problems: [String] = []
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let store = PersistenceStore(defaults: defaults)
+        store.removeAll()
+
+        let settings = SettingsModel(store: store, isTrackingEnabled: true,
+                                    onChange: { },
+                                    onTrackingChanged: { _ in })
+
+        expect(settings.defaultAppTab == .focus, "Focus is the default tab", &problems)
+        expect(settings.interfaceDensity == .comfortable, "Comfortable is the default density", &problems)
+        expect(settings.appearancePreference == .system, "System is the default appearance preference", &problems)
+        expect(settings.showsTimelineLabels == true, "Timeline labels are visible by default", &problems)
+
+        expect(AppTab.focus.moved(by: -1) == .settings, "left wrap works", &problems)
+        expect(AppTab.settings.moved(by: 1) == .focus, "right wrap works", &problems)
+
+        settings.defaultAppTab = .today
+        settings.interfaceDensity = .compact
+        settings.appearancePreference = .dark
+        settings.showsTimelineLabels = false
+
+        let reloadedSettings = SettingsModel(store: store, isTrackingEnabled: true,
+                                            onChange: { },
+                                            onTrackingChanged: { _ in })
+        expect(reloadedSettings.defaultAppTab == .today, "default tab persists", &problems)
+        expect(reloadedSettings.interfaceDensity == .compact, "density persists", &problems)
+        expect(reloadedSettings.appearancePreference == .dark, "appearance preference persists", &problems)
+        expect(reloadedSettings.showsTimelineLabels == false, "timeline labels preference persists", &problems)
+
+        store.defaultAppTabRawValue = "invalid-tab"
+        store.interfaceDensityRawValue = "invalid-density"
+        store.appearanceRawValue = "invalid-appearance"
+        let fallbackSettings = SettingsModel(store: store, isTrackingEnabled: true,
+                                           onChange: { },
+                                           onTrackingChanged: { _ in })
+        expect(fallbackSettings.defaultAppTab == .focus, "invalid tab falls back to Focus", &problems)
+        expect(fallbackSettings.interfaceDensity == .comfortable,
+               "invalid density falls back to Comfortable", &problems)
+        expect(fallbackSettings.appearancePreference == .system,
+               "invalid appearance falls back to System", &problems)
         return problems
     }
 
