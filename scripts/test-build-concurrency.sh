@@ -82,6 +82,65 @@ fail() {
   exit 1
 }
 
+bundle_hash() {
+  bundle_path="$1"
+  python3 - "${bundle_path}" <<'PY'
+import hashlib
+import os
+import sys
+
+
+def main() -> None:
+    root = os.path.abspath(sys.argv[1])
+    hasher = hashlib.sha256()
+    for current_path in sorted(_walk_all_entries(root)):
+        relative_path = os.path.relpath(current_path, root)
+        if relative_path == ".":
+            continue
+        try:
+            st = os.lstat(current_path)
+        except FileNotFoundError:
+            continue
+        hasher.update(relative_path.encode("utf-8", errors="surrogatepass"))
+        hasher.update(b"\0")
+        hasher.update(str(st.st_mode).encode("utf-8"))
+        hasher.update(b"\0")
+        if os.path.islink(current_path):
+            hasher.update(b"symlink")
+            hasher.update(b"\0")
+            target = os.readlink(current_path)
+            hasher.update(target.encode("utf-8", errors="surrogatepass"))
+            hasher.update(b"\0")
+        elif os.path.isfile(current_path):
+            hasher.update(b"file")
+            hasher.update(b"\0")
+            with open(current_path, "rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    hasher.update(chunk)
+            hasher.update(b"\0")
+        elif os.path.isdir(current_path):
+            hasher.update(b"directory")
+            hasher.update(b"\0")
+        else:
+            hasher.update(b"other")
+            hasher.update(b"\0")
+    print(hasher.hexdigest())
+
+
+def _walk_all_entries(root: str):
+    for current_dir, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        filenames.sort()
+        yield current_dir
+        for filename in filenames:
+            yield os.path.join(current_dir, filename)
+
+
+if __name__ == "__main__":
+    main()
+PY
+}
+
 wait_for_file() {
   awaited_file="$1"
   timeout_seconds="$2"
@@ -1235,14 +1294,14 @@ codesign --verify "${APP_NAME}.app" \
 
 # Corrupt the guard owner immediately after replacement admission. Recovery
 # must fail closed and preserve every stale transaction artefact.
-LOCAL_APP_HASH="$(shasum -a 256 "${APP_NAME}.app/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
+LOCAL_APP_HASH="$(bundle_hash "${APP_NAME}.app")"
 mv "${APP_NAME}.app" "${RELEASE_GUARD_FAILURE_STALE_BACKUP}"
 cp -R "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}"
 printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
   "${DEAD_PID}" "${RELEASE_GUARD_FAILURE_STALE_RUN_ID}" > "${RELEASE_GUARD_FAILURE_STALE_OWNER}"
 ln "${RELEASE_GUARD_FAILURE_STALE_OWNER}" "${LOCK_FILE}"
-STALE_CANDIDATE_HASH="$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
-STALE_BACKUP_HASH="$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_BACKUP}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
+STALE_CANDIDATE_HASH="$(bundle_hash "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}")"
+STALE_BACKUP_HASH="$(bundle_hash "${RELEASE_GUARD_FAILURE_STALE_BACKUP}")"
 set +e
 PATH="${WRAPPER_DIR}:${PATH}" HARNESS_RECOVERER=release-guard-failure \
 HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" HARNESS_LOCK_FILE="${LOCK_FILE}" \
@@ -1260,9 +1319,9 @@ test -e "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}" \
   || fail "failed guard release discarded recovery evidence"
 test "$(shasum -a 256 "${RECOVERY_GUARD}/owner" | awk '{print $1}')" = "${GUARD_HASH}" \
   || fail "failed guard release rewrote foreign ownership evidence"
-test "$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = "${STALE_CANDIDATE_HASH}" \
+test "$(bundle_hash "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}")" = "${STALE_CANDIDATE_HASH}" \
   || fail "failed guard release changed stale candidate bytes"
-test "$(shasum -a 256 "${RELEASE_GUARD_FAILURE_STALE_BACKUP}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = "${STALE_BACKUP_HASH}" \
+test "$(bundle_hash "${RELEASE_GUARD_FAILURE_STALE_BACKUP}")" = "${STALE_BACKUP_HASH}" \
   || fail "failed guard release changed stale backup bytes"
 test ! -e "${APP_NAME}.app" \
   || fail "failed guard release changed the local app path"
@@ -1272,7 +1331,7 @@ rm -rf "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}"
 mv "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" "${APP_NAME}.app"
 rm -rf "${HARNESS_ROOT}/release-guard-owner-target"
 codesign --verify "${APP_NAME}.app" || fail "release-boundary regression left an invalid local app"
-test "$(shasum -a 256 "${APP_NAME}.app/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = "${LOCAL_APP_HASH}" \
+test "$(bundle_hash "${APP_NAME}.app")" = "${LOCAL_APP_HASH}" \
   || fail "failed guard release changed the local app bytes"
 
 # Exercise this harness's actual EXIT cleanup in a subshell while a tracked
