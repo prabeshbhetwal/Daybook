@@ -276,7 +276,9 @@ enum SelfTest {
             ("Mole design tokens preserve practical density and semantic signals",
              testMoleDesignTokensAndDensity),
             ("Main-window deep links and commands select their exact routes",
-             testMainWindowRoutesAndCommands)
+             testMainWindowRoutesAndCommands),
+            ("Focus states keep one honest action and continuations stop at three",
+             testFocusSurfaceStateAndContinuationLimit)
         ]
 
         print("FocusContinuity self-test")
@@ -6645,6 +6647,61 @@ enum SelfTest {
                    "command-comma routes to Settings", &problems)
             return problems
         }
+    }
+
+    /// Focus is an operational surface, so every engine state needs one clear
+    /// presentation contract. Awaiting a decision is deliberately exceptional:
+    /// the honest answers replace ordinary session controls. Continuations are
+    /// equally bounded — a compact action panel must not grow into history.
+    private static func testFocusSurfaceStateAndContinuationLimit() -> [String] {
+        var problems: [String] = []
+        let cases: [(SessionState, FocusSurfaceMode, String, FocusPrimaryAction?)] = [
+            (.idle, .idle, "What are you working on?", .start),
+            (.running, .running, "Focus in progress", .pause),
+            (.paused(reason: .manual), .paused, "Ready to continue?", .resume),
+            (.paused(reason: .watching), .watching, "Watching quietly", .resume),
+            (.awaitingUserDecision(away: 20 * 60, lastApp: "Xcode"),
+             .awaitingDecision, "What happened while you were away?", nil)
+        ]
+
+        for (state, expectedMode, expectedPrompt, expectedAction) in cases {
+            let mode = FocusSurfaceMode(state: state)
+            expect(mode == expectedMode,
+                   "\(state) maps to \(expectedMode), got \(mode)", &problems)
+            expect(mode.primaryPrompt == expectedPrompt,
+                   "\(expectedMode) keeps its primary prompt", &problems)
+            expect(mode.primaryAction == expectedAction,
+                   "\(expectedMode) keeps one appropriate primary action", &problems)
+        }
+        expect(!FocusSurfaceMode.awaitingDecision.showsOrdinaryControls,
+               "awaiting a decision replaces ordinary session controls", &problems)
+        expect(FocusSurfaceMode.running.showsOrdinaryControls,
+               "running retains its ordinary controls", &problems)
+
+        let now = base
+        let threads = (0..<4).map { index in
+            ThreadSummary(threadID: UUID(), name: "Thread \(index)", workType: .deepWork,
+                          totalWorked: Double(index + 1) * 600, segments: index + 1,
+                          firstStart: now.addingTimeInterval(Double(-index) * 900),
+                          lastEnd: now.addingTimeInterval(Double(-index) * 300),
+                          isRunning: false)
+        }
+        let quickStarts = (0..<4).map {
+            QuickStart(id: "quick-\($0)", name: "Quick \($0)", workType: .admin)
+        }
+        let threadRows = FocusContinuationSource.rows(
+            threads: threads, quickStarts: quickStarts, limit: 9)
+        expect(threadRows == threads.prefix(3).map { .thread($0) },
+               "threads are preferred and capped at three", &problems)
+
+        let quickRows = FocusContinuationSource.rows(
+            threads: [], quickStarts: quickStarts, limit: 9)
+        expect(quickRows == quickStarts.prefix(3).map { .quickStart($0) },
+               "quick starts fill the empty thread source and stop at three", &problems)
+        expect(FocusContinuationSource.rows(
+            threads: threads, quickStarts: quickStarts, limit: 0).isEmpty,
+               "a zero continuation limit yields no rows", &problems)
+        return problems
     }
 
     /// A pristine install has no Application Support directory yet. Reveal

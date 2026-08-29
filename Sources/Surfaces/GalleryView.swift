@@ -8,6 +8,7 @@ enum Fixture: String, CaseIterable, Identifiable {
     case idleWithHistory
     case running
     case paused
+    case watching
     case needsResolution
     case brokenStreak
 
@@ -19,6 +20,7 @@ enum Fixture: String, CaseIterable, Identifiable {
         case .idleWithHistory: return "Idle — with history"
         case .running: return "Running"
         case .paused: return "Paused"
+        case .watching: return "Watching"
         case .needsResolution: return "Needs resolution"
         case .brokenStreak: return "Broken streak"
         }
@@ -99,6 +101,11 @@ enum FixtureFactory {
             engine.start(workType: .deepWork, intent: "Refactor the parser")
             clock.value = anchor.addingTimeInterval(1_500)
             engine.transition(on: .manualPause)
+        case .watching:
+            seedWeek()
+            engine.start(workType: .deepWork, intent: "Review the product demo")
+            clock.value = anchor.addingTimeInterval(1_500)
+            engine.transition(on: .watchingObserved(seconds: 10 * 60))
         case .needsResolution:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")

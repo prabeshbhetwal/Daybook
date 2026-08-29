@@ -106,8 +106,13 @@ enum Snapshotter {
             }
         }
         for scheme in [ColorScheme.light, .dark] {
-            for variant in [(name: "wide", size: CGSize(width: 1_160, height: 780)),
-                            (name: "narrow", size: CGSize(width: 980, height: 680))] {
+            let variants = [
+                (name: "wide", size: CGSize(width: 1_160, height: 780),
+                 screen: CGSize(width: 1_440, height: 845)),
+                (name: "narrow", size: CGSize(width: 980, height: 680),
+                 screen: CGSize(width: 1_000, height: 680))
+            ]
+            for variant in variants {
                 let store = FixtureFactory.store(for: .running)
                 let settings = snapshotSettings()
                 let navigation = MainWindowModel(selectedTab: .focus)
@@ -125,6 +130,52 @@ enum Snapshotter {
                 } else {
                     supplementalFailed = true
                     print("  FAILED \(shellName)")
+                }
+
+                let focusStates: [(name: String, fixture: Fixture)] = [
+                    ("first-run", .firstRun),
+                    ("running", .running),
+                    ("paused", .paused),
+                    ("watching", .watching),
+                    ("awaiting-decision", .needsResolution)
+                ]
+                for state in focusStates {
+                    let focusStore = FixtureFactory.store(for: state.fixture)
+                    let focusShell = MainWindowView(
+                        store: focusStore,
+                        settings: snapshotSettings(),
+                        navigation: MainWindowModel(selectedTab: .focus),
+                        focusScrolls: false
+                    )
+                    .environment(\.colorScheme, scheme)
+                    .frame(width: variant.size.width, height: variant.size.height,
+                           alignment: .topLeading)
+                    .background(Tokens.Colour.ground)
+                    let focusName = "focus-\(state.name)-\(variant.name)-"
+                        + "\(scheme == .light ? "light" : "dark").png"
+                    if render(focusShell, to: directory.appendingPathComponent(focusName)) {
+                        print("  wrote \(focusName)")
+                    } else {
+                        supplementalFailed = true
+                        print("  FAILED \(focusName)")
+                    }
+
+                    let popoverStore = FixtureFactory.store(for: state.fixture)
+                    let popoverMetrics = PopoverMetrics.fitting(variant.screen)
+                    let popover = PopoverView(store: popoverStore,
+                                              metricsOverride: popoverMetrics,
+                                              scrolls: false)
+                        .environment(\.colorScheme, scheme)
+                        .frame(width: popoverMetrics.width)
+                        .background(scheme == .light ? Color.white : Color.black)
+                    let popoverName = "focus-popover-\(state.name)-\(variant.name)-"
+                        + "\(scheme == .light ? "light" : "dark").png"
+                    if render(popover, to: directory.appendingPathComponent(popoverName)) {
+                        print("  wrote \(popoverName)")
+                    } else {
+                        supplementalFailed = true
+                        print("  FAILED \(popoverName)")
+                    }
                 }
             }
 

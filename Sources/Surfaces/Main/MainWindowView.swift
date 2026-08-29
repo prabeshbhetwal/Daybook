@@ -6,6 +6,7 @@ struct MainWindowView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var settings: SettingsModel
     @ObservedObject var navigation: MainWindowModel
+    var focusScrolls = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,11 +36,7 @@ struct MainWindowView: View {
     @ViewBuilder private var selectedCanvas: some View {
         switch navigation.selectedTab {
         case .focus:
-            interimCanvas(
-                title: "Focus",
-                detail: "Start or manage a focus session from the menu-bar control.",
-                symbol: "target"
-            )
+            FocusView(store: store, scrolls: focusScrolls)
         case .today:
             DashboardView(store: store)
         case .review:
