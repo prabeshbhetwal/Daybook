@@ -80,7 +80,8 @@ release_recovery_guard() {
 release_promotion_lock() {
   if [ "${PROMOTION_LOCK_HELD}" -eq 1 ]; then
     if [ "${PRESERVE_PROMOTION_LOCK}" -eq 0 ] \
-        && [ -e "${OWNER_MARKER}" ] && [ -e "${PROMOTION_LOCK}" ] \
+        && [ -e "${OWNER_MARKER}" ] \
+        && [ -f "${PROMOTION_LOCK}" ] && [ ! -L "${PROMOTION_LOCK}" ] \
         && [ "${OWNER_MARKER}" -ef "${PROMOTION_LOCK}" ]; then
       rm -f "${PROMOTION_LOCK}"
     fi
@@ -514,12 +515,18 @@ acquire_promotion_lock() {
         break
       fi
       if [ -e "${PROMOTION_LOCK}" ] \
+          && [ -f "${PROMOTION_LOCK}" ] \
+          && [ ! -L "${PROMOTION_LOCK}" ] \
           && [ "${OWNER_MARKER}" -ef "${PROMOTION_LOCK}" ]; then
         break
       fi
 
       replacement_checks=$((replacement_checks + 1))
       if [ -e "${PROMOTION_LOCK}" ] || [ -L "${PROMOTION_LOCK}" ]; then
+        if [ -L "${PROMOTION_LOCK}" ]; then
+          echo "error: competing promotion lock is unverifiable; preserving recovery evidence" >&2
+          return 1
+        fi
         competing_snapshot_read=0
         if [ -f "${PROMOTION_LOCK}" ] \
             && read_lock_snapshot "${PROMOTION_LOCK}"; then
