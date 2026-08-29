@@ -17,6 +17,8 @@ CLEANUP_STALE_RUN_ID="harness-cleanup-stale-$$"
 RETRY_STALE_RUN_ID="harness-retry-stale-$$"
 DEAD_STALE_RUN_ID="harness-dead-stale-$$"
 SYMLINK_STALE_RUN_ID="harness-symlink-stale-$$"
+INITIAL_SYMLINK_STALE_RUN_ID="harness-initial-symlink-stale-$$"
+PREUNLINK_SYMLINK_STALE_RUN_ID="harness-preunlink-symlink-stale-$$"
 LIVE_OWNER="${PROMOTION_ROOT}/promotion-owner.${LIVE_RUN_ID}"
 STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${STALE_RUN_ID}"
 DUAL_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${DUAL_STALE_RUN_ID}"
@@ -26,6 +28,8 @@ CLEANUP_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${CLEANUP_STALE_RUN_ID}"
 RETRY_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${RETRY_STALE_RUN_ID}"
 DEAD_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${DEAD_STALE_RUN_ID}"
 SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${SYMLINK_STALE_RUN_ID}"
+INITIAL_SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${INITIAL_SYMLINK_STALE_RUN_ID}"
+PREUNLINK_SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${PREUNLINK_SYMLINK_STALE_RUN_ID}"
 LIVE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${LIVE_RUN_ID}"
 LIVE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${LIVE_RUN_ID}"
 STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${STALE_RUN_ID}"
@@ -58,6 +62,7 @@ RETRY_RECOVERER_PID=""
 DEAD_CONTENDER_PID=""
 DEAD_RECOVERER_PID=""
 SYMLINK_RECOVERER_PID=""
+PREUNLINK_SYMLINK_RECOVERER_PID=""
 RED_FAILURES=0
 
 fail() {
@@ -112,7 +117,8 @@ cleanup() {
                 "${SIGNAL_RECOVERER_PID}" "${GAP_RECOVERER_PID}" \
                 "${CLEANUP_RECOVERER_PID}" "${PRECHECK_CONTENDER_PID}" \
                 "${RETRY_RECOVERER_PID}" "${DEAD_CONTENDER_PID}" \
-                "${DEAD_RECOVERER_PID}" "${SYMLINK_RECOVERER_PID}"; do
+                "${DEAD_RECOVERER_PID}" "${SYMLINK_RECOVERER_PID}" \
+                "${PREUNLINK_SYMLINK_RECOVERER_PID}"; do
               if [ -n "${recoverer_pid}" ] \
                   && [ "${observed_guard_pid}" = "${recoverer_pid}" ]; then
                 tracked_guard_pid="${observed_guard_pid}"
@@ -147,7 +153,7 @@ cleanup() {
       "${GAP_RECOVERER_PID}" "${CLEANUP_RECOVERER_PID}" \
       "${PRECHECK_CONTENDER_PID}" "${RETRY_RECOVERER_PID}" \
       "${DEAD_CONTENDER_PID}" "${DEAD_RECOVERER_PID}" \
-      "${SYMLINK_RECOVERER_PID}"; do
+      "${SYMLINK_RECOVERER_PID}" "${PREUNLINK_SYMLINK_RECOVERER_PID}"; do
     if [ -n "${recoverer_pid}" ]; then
       kill "${recoverer_pid}" 2>/dev/null || true
     fi
@@ -157,7 +163,7 @@ cleanup() {
       "${GAP_RECOVERER_PID}" "${CLEANUP_RECOVERER_PID}" \
       "${PRECHECK_CONTENDER_PID}" "${RETRY_RECOVERER_PID}" \
       "${DEAD_CONTENDER_PID}" "${DEAD_RECOVERER_PID}" \
-      "${SYMLINK_RECOVERER_PID}"; do
+      "${SYMLINK_RECOVERER_PID}" "${PREUNLINK_SYMLINK_RECOVERER_PID}"; do
     if [ -n "${recoverer_pid}" ]; then
       wait "${recoverer_pid}" 2>/dev/null || true
     fi
@@ -178,8 +184,22 @@ cleanup() {
       fi
     fi
   fi
-  if [ -f "${LOCK_FILE}" ] && grep -Eq \
-      "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID})$" \
+  if [ -L "${LOCK_FILE}" ]; then
+    cleanup_lock_target="$(readlink "${LOCK_FILE}")"
+    cleanup_known_symlink=0
+    if [ "${cleanup_lock_target}" = "${INITIAL_SYMLINK_STALE_OWNER}" ] \
+        || [ "${cleanup_lock_target}" = "${PREUNLINK_SYMLINK_STALE_OWNER}" ]; then
+      cleanup_known_symlink=1
+    elif [ -f "${LOCK_FILE}" ] && grep -Eq \
+        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID})$" \
+        "${LOCK_FILE}"; then
+      cleanup_known_symlink=1
+    fi
+    if [ "${cleanup_known_symlink}" -eq 1 ]; then
+      rm -f "${LOCK_FILE}"
+    fi
+  elif [ -f "${LOCK_FILE}" ] && grep -Eq \
+      "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID})$" \
       "${LOCK_FILE}"; then
     rm -f "${LOCK_FILE}"
   fi
@@ -202,9 +222,10 @@ cleanup() {
     "${GAP_STALE_OWNER}" "${CLEANUP_STALE_OWNER}" "${RETRY_STALE_OWNER}"
   rm -f "${DEAD_STALE_OWNER}"
   rm -f "${SYMLINK_STALE_OWNER}"
+  rm -f "${INITIAL_SYMLINK_STALE_OWNER}" "${PREUNLINK_SYMLINK_STALE_OWNER}"
   for owner_marker in "${PROMOTION_ROOT}"/promotion-owner.*; do
     if [ -f "${owner_marker}" ] && grep -Eq \
-        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID})$" \
+        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID})$" \
         "${owner_marker}"; then
       rm -f "${owner_marker}"
     fi
@@ -283,11 +304,51 @@ HOLDER_PID=""
 rm -f "${LOCK_FILE}" "${LIVE_OWNER}"
 rm -rf "${LIVE_CANDIDATE}" "${LIVE_BACKUP}"
 
+DEAD_PID=999999
+while kill -0 "${DEAD_PID}" 2>/dev/null; do DEAD_PID=$((DEAD_PID + 1)); done
+
+# A resolving primary symlink present before acquisition must be rejected as a
+# foreign directory entry. Valid dead-owner fields in its target must not make
+# the symlink eligible for stale recovery or removal.
+printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
+  "${DEAD_PID}" "${INITIAL_SYMLINK_STALE_RUN_ID}" \
+  > "${INITIAL_SYMLINK_STALE_OWNER}"
+INITIAL_SYMLINK_OWNER_HASH="$(shasum -a 256 "${INITIAL_SYMLINK_STALE_OWNER}" | awk '{print $1}')"
+ln -s "${INITIAL_SYMLINK_STALE_OWNER}" "${LOCK_FILE}"
+
+set +e
+./build.sh > "${HARNESS_ROOT}/initial-symlink-build.log" 2>&1
+INITIAL_SYMLINK_STATUS=$?
+set -e
+if [ "${INITIAL_SYMLINK_STATUS}" -eq 0 ] \
+    || [ ! -L "${LOCK_FILE}" ] \
+    || [ ! -f "${INITIAL_SYMLINK_STALE_OWNER}" ]; then
+  echo "FAIL: initial stale-lock acquisition accepted or removed a resolving primary symlink" >&2
+  RED_FAILURES=1
+else
+  test "$(readlink "${LOCK_FILE}")" = "${INITIAL_SYMLINK_STALE_OWNER}" \
+    || fail "initial stale-lock rejection changed the primary symlink target"
+  test "$(shasum -a 256 "${INITIAL_SYMLINK_STALE_OWNER}" | awk '{print $1}')" = \
+    "${INITIAL_SYMLINK_OWNER_HASH}" \
+    || fail "initial stale-lock rejection changed the symlink target owner"
+  grep -F "promotion lock is a symlink; preserving it" \
+    "${HARNESS_ROOT}/initial-symlink-build.log" >/dev/null \
+    || fail "initial stale-lock rejection did not diagnose the primary symlink"
+  test ! -e "${RECOVERY_GUARD}" \
+    || fail "initial stale-lock rejection unexpectedly acquired a recovery guard"
+fi
+if [ -L "${LOCK_FILE}" ]; then
+  test "$(readlink "${LOCK_FILE}")" = "${INITIAL_SYMLINK_STALE_OWNER}" \
+    || fail "initial stale-lock teardown encountered an unknown primary symlink"
+  rm -f "${LOCK_FILE}"
+fi
+rm -f "${INITIAL_SYMLINK_STALE_OWNER}"
+codesign --verify "${APP_NAME}.app" \
+  || fail "initial primary-symlink regression left an invalid local app"
+
 # A dead owner is recovered under the replacement lock. This is the dangerous
 # interruption point: the prior app has already moved to the per-run backup and
 # the candidate has not yet reached the local path.
-DEAD_PID=999999
-while kill -0 "${DEAD_PID}" 2>/dev/null; do DEAD_PID=$((DEAD_PID + 1)); done
 mv "${APP_NAME}.app" "${STALE_BACKUP}"
 cp -R "${STALE_BACKUP}" "${STALE_CANDIDATE}"
 printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
@@ -327,6 +388,7 @@ if [ "${is_primary_lock}" -eq 1 ] && [ -n "${HARNESS_RECOVERER:-}" ] \
     && [ "${HARNESS_RECOVERER}" != "prechecked" ] \
     && [ "${HARNESS_RECOVERER}" != "dead-prechecked" ] \
     && [ "${HARNESS_RECOVERER}" != "symlink" ] \
+    && [ "${HARNESS_RECOVERER}" != "preunlink-symlink" ] \
     && [ "${HARNESS_RECOVERER}" != "release-symlink" ]; then
   : > "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-before-lock-remove"
   while [ ! -e "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-release-lock-remove" ]; do
@@ -424,6 +486,26 @@ for target in "$@"; do
   fi
 done
 if [ "${is_primary_lock}" -eq 1 ] \
+    && [ "${HARNESS_RECOVERER:-}" = "preunlink-symlink" ] \
+    && [ -f "${HARNESS_LOCK_FILE}" ] \
+    && [ ! -L "${HARNESS_LOCK_FILE}" ]; then
+  stat_count=0
+  if [ -f "${HARNESS_CONTROL_ROOT}/preunlink-symlink-stat-count" ]; then
+    stat_count="$(<"${HARNESS_CONTROL_ROOT}/preunlink-symlink-stat-count")"
+  fi
+  stat_count=$((stat_count + 1))
+  printf '%s\n' "${stat_count}" \
+    > "${HARNESS_CONTROL_ROOT}/preunlink-symlink-stat-count"
+  if [ "${stat_count}" -eq 4 ]; then
+    stat_output="$(/usr/bin/stat "$@")" || exit $?
+    /bin/rm "${HARNESS_LOCK_FILE}"
+    /bin/ln -s "${HARNESS_PREUNLINK_SYMLINK_TARGET}" "${HARNESS_LOCK_FILE}"
+    : > "${HARNESS_CONTROL_ROOT}/preunlink-primary-symlink-installed"
+    printf '%s\n' "${stat_output}"
+    exit 0
+  fi
+fi
+if [ "${is_primary_lock}" -eq 1 ] \
     && { [ "${HARNESS_RECOVERER:-}" = "retry" ] \
       || [ "${HARNESS_RECOVERER:-}" = "dead-retry" ]; } \
     && [ -e "${HARNESS_RECOVERY_GUARD}" ] \
@@ -494,6 +576,71 @@ WRAPPER
 chmod +x \
   "${WRAPPER_DIR}/rm" "${WRAPPER_DIR}/ln" \
   "${WRAPPER_DIR}/stat" "${WRAPPER_DIR}/codesign"
+
+# Revalidate the primary entry type at the final stale-unlink boundary. This
+# wrapper swaps the regular admitted entry for a resolving symlink only after
+# the second coherent snapshot has obtained its final real stat result.
+printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
+  "${DEAD_PID}" "${PREUNLINK_SYMLINK_STALE_RUN_ID}" \
+  > "${PREUNLINK_SYMLINK_STALE_OWNER}"
+PREUNLINK_SYMLINK_OWNER_HASH="$(shasum -a 256 "${PREUNLINK_SYMLINK_STALE_OWNER}" | awk '{print $1}')"
+ln "${PREUNLINK_SYMLINK_STALE_OWNER}" "${LOCK_FILE}"
+
+PATH="${WRAPPER_DIR}:${PATH}" \
+HARNESS_RECOVERER=preunlink-symlink \
+HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" \
+HARNESS_LOCK_FILE="${LOCK_FILE}" \
+HARNESS_PREUNLINK_SYMLINK_TARGET="${PREUNLINK_SYMLINK_STALE_OWNER}" \
+  ./build.sh > "${HARNESS_ROOT}/preunlink-symlink-build.log" 2>&1 &
+PREUNLINK_SYMLINK_RECOVERER_PID=$!
+set +e
+wait "${PREUNLINK_SYMLINK_RECOVERER_PID}"
+PREUNLINK_SYMLINK_STATUS=$?
+set -e
+test -e "${HARNESS_ROOT}/preunlink-primary-symlink-installed" \
+  || fail "the pre-unlink regression did not install the primary symlink"
+if [ "${PREUNLINK_SYMLINK_STATUS}" -eq 0 ] \
+    || [ ! -L "${LOCK_FILE}" ] \
+    || [ ! -f "${PREUNLINK_SYMLINK_STALE_OWNER}" ]; then
+  echo "FAIL: stale unlink removed a primary entry swapped from regular file to symlink" >&2
+  RED_FAILURES=1
+else
+  test "$(readlink "${LOCK_FILE}")" = "${PREUNLINK_SYMLINK_STALE_OWNER}" \
+    || fail "pre-unlink rejection changed the primary symlink target"
+  test "$(shasum -a 256 "${PREUNLINK_SYMLINK_STALE_OWNER}" | awk '{print $1}')" = \
+    "${PREUNLINK_SYMLINK_OWNER_HASH}" \
+    || fail "pre-unlink rejection changed the symlink target owner"
+  grep -F "stale promotion lock became a symlink before removal; preserving it" \
+    "${HARNESS_ROOT}/preunlink-symlink-build.log" >/dev/null \
+    || fail "pre-unlink rejection did not diagnose the primary symlink"
+  test -f "${RECOVERY_GUARD}/owner" \
+    || fail "pre-unlink rejection did not preserve its owned recovery guard"
+fi
+if [ -e "${RECOVERY_GUARD}" ]; then
+  preunlink_guard_pid="$(sed -n 's/^pid=//p' "${RECOVERY_GUARD}/owner" | head -n 1)"
+  test "${preunlink_guard_pid}" = "${PREUNLINK_SYMLINK_RECOVERER_PID}" \
+    || fail "pre-unlink symlink regression left an unknown recovery guard"
+  if kill -0 "${preunlink_guard_pid}" 2>/dev/null; then
+    fail "pre-unlink symlink regression left a live recovery guard owner"
+  fi
+  rm -f "${RECOVERY_GUARD}/owner"
+  rmdir "${RECOVERY_GUARD}"
+fi
+if [ -L "${LOCK_FILE}" ]; then
+  test "$(readlink "${LOCK_FILE}")" = "${PREUNLINK_SYMLINK_STALE_OWNER}" \
+    || fail "pre-unlink teardown encountered an unknown primary symlink"
+  rm -f "${LOCK_FILE}"
+fi
+rm -f "${PREUNLINK_SYMLINK_STALE_OWNER}"
+for owner_marker in "${PROMOTION_ROOT}"/promotion-owner.*; do
+  if [ -f "${owner_marker}" ] \
+      && grep -F "run_id=${PREUNLINK_SYMLINK_STALE_RUN_ID}" "${owner_marker}" >/dev/null; then
+    rm -f "${owner_marker}"
+  fi
+done
+PREUNLINK_SYMLINK_RECOVERER_PID=""
+codesign --verify "${APP_NAME}.app" \
+  || fail "pre-unlink primary-symlink regression left an invalid local app"
 
 mv "${APP_NAME}.app" "${DUAL_STALE_BACKUP}"
 cp -R "${DUAL_STALE_BACKUP}" "${DUAL_STALE_CANDIDATE}"

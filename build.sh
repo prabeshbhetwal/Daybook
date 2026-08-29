@@ -436,6 +436,10 @@ acquire_promotion_lock() {
       fi
       return 0
     fi
+    if [ -L "${PROMOTION_LOCK}" ]; then
+      echo "error: promotion lock is a symlink; preserving it" >&2
+      return 1
+    fi
     if [ ! -f "${PROMOTION_LOCK}" ]; then
       echo "error: promotion lock exists without a readable ownership marker; preserving it" >&2
       return 1
@@ -490,6 +494,14 @@ acquire_promotion_lock() {
       "$$" "${lock_run_id}" "${lock_started:-unknown}" > "${OWNER_MARKER}"
     PRESERVE_RECOVERY_GUARD=1
     PRESERVE_PROMOTION_LOCK=1
+    if [ -L "${PROMOTION_LOCK}" ]; then
+      echo "error: stale promotion lock became a symlink before removal; preserving it" >&2
+      return 1
+    fi
+    if [ ! -f "${PROMOTION_LOCK}" ]; then
+      echo "error: stale promotion lock became non-regular before removal; preserving it" >&2
+      return 1
+    fi
     if ! rm -f "${PROMOTION_LOCK}"; then
       echo "error: could not remove the admitted stale promotion lock; preserving the recovery guard" >&2
       return 1
