@@ -33,8 +33,10 @@ struct FocusView: View {
                           compact: false,
                           wide: true)
             }
-            SurfacePanel(showsHeader: false) {
-                FocusContinuations(store: store, limit: 3)
+            if store.focusSurfaceComposition.showsContinuationSection {
+                SurfacePanel(showsHeader: false) {
+                    FocusContinuations(store: store, limit: 3)
+                }
             }
             FocusBreakLine(store: store)
                 .frame(maxWidth: .infinity, alignment: .leading)

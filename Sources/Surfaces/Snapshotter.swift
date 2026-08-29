@@ -135,8 +135,12 @@ enum Snapshotter {
                 let focusStates: [(name: String, fixture: Fixture)] = [
                     ("first-run", .firstRun),
                     ("running", .running),
+                    ("automatic-running", .automaticRunning),
                     ("paused", .paused),
                     ("watching", .watching),
+                    ("automatic-paused", .automaticPaused),
+                    ("automatic-watching", .automaticWatching),
+                    ("automatic-away", .automaticAway),
                     ("awaiting-decision", .needsResolution)
                 ]
                 for state in focusStates {

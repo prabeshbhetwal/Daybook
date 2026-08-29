@@ -8,9 +8,11 @@ struct GlanceCards: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: metrics.stackSpacing) {
-            ContinueTodaySection(store: store, limit: 3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .card(padding: metrics.dense ? Tokens.Space.m : Tokens.Space.l)
+            if store.focusSurfaceComposition.showsContinuationSection {
+                ContinueTodaySection(store: store, limit: 3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card(padding: metrics.dense ? Tokens.Space.m : Tokens.Space.l)
+            }
             FocusBreakLine(store: store)
                 .padding(.horizontal, Tokens.Space.xs)
         }

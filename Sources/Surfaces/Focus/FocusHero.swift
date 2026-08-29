@@ -37,7 +37,7 @@ enum FocusSurfaceMode: Equatable {
 
     var primaryPrompt: String {
         switch self {
-        case .idle: return "What are you working on?"
+        case .idle: return "Ready to focus"
         case .running: return "Focus in progress"
         case .paused: return "Ready to continue?"
         case .watching: return "Watching quietly"
@@ -57,6 +57,35 @@ enum FocusSurfaceMode: Equatable {
     var showsOrdinaryControls: Bool { self != .awaitingDecision }
 }
 
+/// One composition decision for every Focus consumer. This guards the content
+/// outside the hero as well as the hero itself, so an unresolved away question
+/// cannot be bypassed through a continuation or automatic-session correction.
+struct FocusSurfaceComposition: Equatable {
+    let mode: FocusSurfaceMode
+    let showsContinuationSection: Bool
+    let showsAutomaticSessionControls: Bool
+
+    init(state: SessionState,
+         hasPendingDecision: Bool,
+         isAutomatic: Bool) {
+        mode = hasPendingDecision ? .awaitingDecision : FocusSurfaceMode(state: state)
+        showsContinuationSection = mode.showsOrdinaryControls
+        showsAutomaticSessionControls = isAutomatic
+            && mode != .idle
+            && mode.showsOrdinaryControls
+    }
+}
+
+extension SessionStore {
+    /// Every Focus surface reads this same presentation boundary. `pendingAway`
+    /// also covers the preview path whose engine state remains running.
+    var focusSurfaceComposition: FocusSurfaceComposition {
+        FocusSurfaceComposition(state: state,
+                                hasPendingDecision: pendingAway != nil,
+                                isAutomatic: isAutoSession)
+    }
+}
+
 /// The shared operational hero. Desktop and menu-bar surfaces use the same
 /// state branches and actions; `compact` changes measure and spacing only.
 struct FocusHero: View {
@@ -65,9 +94,8 @@ struct FocusHero: View {
     var compact = false
     var wide = true
 
-    private var mode: FocusSurfaceMode {
-        store.pendingAway == nil ? FocusSurfaceMode(state: store.state) : .awaitingDecision
-    }
+    private var composition: FocusSurfaceComposition { store.focusSurfaceComposition }
+    private var mode: FocusSurfaceMode { composition.mode }
 
     var body: some View {
         Group {
@@ -229,7 +257,7 @@ struct FocusHero: View {
                 controls()
             }
             goalSupport
-            if store.isAutoSession && mode == .running {
+            if composition.showsAutomaticSessionControls {
                 automaticControls
             }
         }
@@ -241,18 +269,52 @@ struct FocusHero: View {
             Text("Name or reclassify this automatic session, or discard it.")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
-            HStack(spacing: Tokens.Space.s) {
-                IntentField(text: $store.intent) { store.start() }
-                    .focused(intentFocused)
-                    .frame(maxWidth: Tokens.formMeasure)
-                WorkTypePicker(selection: $store.workType)
-                StartButton(title: store.startWouldContinue ? "Continue this" : "Start new",
-                            fills: false) { store.start() }
-                Button("Undo") { store.undoAutoSession() }
-                    .buttonStyle(.borderless)
+            if compact {
+                automaticIntentField
+                HStack(spacing: Tokens.Space.s) {
+                    WorkTypePicker(selection: $store.workType)
+                    Spacer(minLength: Tokens.Space.xs)
+                    automaticAdoptButton
+                }
+                automaticUndoButton
+            } else {
+                HStack(spacing: Tokens.Space.s) {
+                    automaticIntentField
+                    WorkTypePicker(selection: $store.workType)
+                    automaticAdoptButton
+                    automaticUndoButton
+                }
             }
         }
         .frame(maxWidth: compact ? .infinity : 620, alignment: .leading)
+    }
+
+    private var automaticIntentField: some View {
+        IntentField(text: $store.intent) { store.start() }
+            .focused(intentFocused)
+            .padding(.horizontal, Tokens.Space.s)
+            .frame(maxWidth: Tokens.formMeasure, minHeight: 30)
+            .background(Tokens.Colour.elevated,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                             style: .continuous))
+    }
+
+    private var automaticAdoptButton: some View {
+        FocusActionButton(title: store.startWouldContinue ? "Adopt session" : "Start new",
+                          symbol: store.startWouldContinue
+                              ? "checkmark" : "arrow.triangle.branch") {
+            store.start()
+        }
+    }
+
+    private var automaticUndoButton: some View {
+        Button(compact ? "Undo automatic session" : "Undo") {
+            store.undoAutoSession()
+        }
+        .buttonStyle(.plain)
+        .font(Tokens.Typography.metadata)
+        .foregroundStyle(.secondary)
+        .frame(minHeight: 28)
     }
 
     // MARK: - Awaiting decision
@@ -339,6 +401,8 @@ private struct FocusActionButton: View {
         Button(action: action) {
             Label(title, systemImage: symbol)
                 .font(.callout.weight(prominent ? .semibold : .regular))
+                .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: 30)
                 .background(prominent ? AnyShapeStyle(Tokens.Colour.focus)

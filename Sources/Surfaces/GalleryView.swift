@@ -7,8 +7,12 @@ enum Fixture: String, CaseIterable, Identifiable {
     case firstRun
     case idleWithHistory
     case running
+    case automaticRunning
     case paused
     case watching
+    case automaticPaused
+    case automaticWatching
+    case automaticAway
     case needsResolution
     case brokenStreak
 
@@ -19,8 +23,12 @@ enum Fixture: String, CaseIterable, Identifiable {
         case .firstRun: return "First run — no history"
         case .idleWithHistory: return "Idle — with history"
         case .running: return "Running"
+        case .automaticRunning: return "Automatic — running"
         case .paused: return "Paused"
         case .watching: return "Watching"
+        case .automaticPaused: return "Automatic — paused"
+        case .automaticWatching: return "Automatic — Watching"
+        case .automaticAway: return "Automatic — declared Away"
         case .needsResolution: return "Needs resolution"
         case .brokenStreak: return "Broken streak"
         }
@@ -87,6 +95,15 @@ enum FixtureFactory {
                                          threadID: todayThread))
         }
 
+        /// Automatic ownership is part of the persisted engine contract. Mark
+        /// the fixture through that real restore path so paused/Watching/Away
+        /// snapshots exercise the same presentation state a relaunch can hold.
+        func restoreAutomaticOwnership() {
+            var snapshot = engine.snapshot()
+            snapshot.isAuto = true
+            engine.restore(from: snapshot)
+        }
+
         switch fixture {
         case .firstRun:
             break
@@ -96,6 +113,11 @@ enum FixtureFactory {
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")
             clock.value = anchor.addingTimeInterval(2_712)
+        case .automaticRunning:
+            seedWeek()
+            engine.start(workType: .deepWork, intent: "Detected coding", isAuto: true)
+            clock.value = anchor.addingTimeInterval(2_712)
+            restoreAutomaticOwnership()
         case .paused:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")
@@ -106,6 +128,24 @@ enum FixtureFactory {
             engine.start(workType: .deepWork, intent: "Review the product demo")
             clock.value = anchor.addingTimeInterval(1_500)
             engine.transition(on: .watchingObserved(seconds: 10 * 60))
+        case .automaticPaused:
+            seedWeek()
+            engine.start(workType: .deepWork, intent: "Detected coding", isAuto: true)
+            clock.value = anchor.addingTimeInterval(1_500)
+            engine.transition(on: .manualPause)
+            restoreAutomaticOwnership()
+        case .automaticWatching:
+            seedWeek()
+            engine.start(workType: .deepWork, intent: "Detected review", isAuto: true)
+            clock.value = anchor.addingTimeInterval(1_500)
+            engine.transition(on: .watchingObserved(seconds: 10 * 60))
+            restoreAutomaticOwnership()
+        case .automaticAway:
+            seedWeek()
+            engine.start(workType: .deepWork, intent: "Detected coding", isAuto: true)
+            clock.value = anchor.addingTimeInterval(1_500)
+            engine.transition(on: .markedAway)
+            restoreAutomaticOwnership()
         case .needsResolution:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")

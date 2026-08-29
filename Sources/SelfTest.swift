@@ -278,7 +278,9 @@ enum SelfTest {
             ("Main-window deep links and commands select their exact routes",
              testMainWindowRoutesAndCommands),
             ("Focus states keep one honest action and continuations stop at three",
-             testFocusSurfaceStateAndContinuationLimit)
+             testFocusSurfaceStateAndContinuationLimit),
+            ("Focus composition guards decisions and keeps automatic corrections available",
+             testFocusSurfaceCompositionGuards)
         ]
 
         print("FocusContinuity self-test")
@@ -6656,7 +6658,7 @@ enum SelfTest {
     private static func testFocusSurfaceStateAndContinuationLimit() -> [String] {
         var problems: [String] = []
         let cases: [(SessionState, FocusSurfaceMode, String, FocusPrimaryAction?)] = [
-            (.idle, .idle, "What are you working on?", .start),
+            (.idle, .idle, "Ready to focus", .start),
             (.running, .running, "Focus in progress", .pause),
             (.paused(reason: .manual), .paused, "Ready to continue?", .resume),
             (.paused(reason: .watching), .watching, "Watching quietly", .resume),
@@ -6701,6 +6703,65 @@ enum SelfTest {
         expect(FocusContinuationSource.rows(
             threads: threads, quickStarts: quickStarts, limit: 0).isEmpty,
                "a zero continuation limit yields no rows", &problems)
+        return problems
+    }
+
+    /// The composition guard owns everything around the hero as well as the
+    /// hero itself. An unresolved away question must have exactly one exit: an
+    /// answer from its four-choice grid. Automatic-session correction remains
+    /// available in every other live state, including quiet and declared pauses.
+    private static func testFocusSurfaceCompositionGuards() -> [String] {
+        var problems: [String] = []
+
+        let awaiting = FocusSurfaceComposition(
+            state: .awaitingUserDecision(away: 20 * 60, lastApp: "Xcode"),
+            hasPendingDecision: false,
+            isAutomatic: true)
+        expect(awaiting.mode == .awaitingDecision,
+               "engine decision state composes as awaiting decision", &problems)
+        expect(!awaiting.showsContinuationSection,
+               "awaiting decision suppresses every continuation action", &problems)
+        expect(!awaiting.showsAutomaticSessionControls,
+               "awaiting decision suppresses automatic correction controls", &problems)
+
+        let previewPending = FocusSurfaceComposition(
+            state: .running,
+            hasPendingDecision: true,
+            isAutomatic: true)
+        expect(previewPending.mode == .awaitingDecision
+                   && !previewPending.showsContinuationSection
+                   && !previewPending.showsAutomaticSessionControls,
+               "a preview/live pending flag applies the same whole-surface guard", &problems)
+
+        let automaticStates: [SessionState] = [
+            .running,
+            .paused(reason: .manual),
+            .paused(reason: .watching),
+            .paused(reason: .away)
+        ]
+        for state in automaticStates {
+            let composition = FocusSurfaceComposition(
+                state: state,
+                hasPendingDecision: false,
+                isAutomatic: true)
+            expect(composition.showsContinuationSection,
+                   "\(state) keeps safe continuation composition", &problems)
+            expect(composition.showsAutomaticSessionControls,
+                   "\(state) keeps automatic correction and Undo available", &problems)
+        }
+
+        let manual = FocusSurfaceComposition(
+            state: .paused(reason: .manual),
+            hasPendingDecision: false,
+            isAutomatic: false)
+        expect(!manual.showsAutomaticSessionControls,
+               "manual sessions do not show automatic correction controls", &problems)
+        let idle = FocusSurfaceComposition(
+            state: .idle,
+            hasPendingDecision: false,
+            isAutomatic: true)
+        expect(!idle.showsAutomaticSessionControls,
+               "idle never exposes automatic-session controls", &problems)
         return problems
     }
 
