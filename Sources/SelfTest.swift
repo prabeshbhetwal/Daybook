@@ -6533,8 +6533,9 @@ enum SelfTest {
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
 
+        var preferenceChanges = 0
         let settings = SettingsModel(store: store, isTrackingEnabled: true,
-                                    onChange: { },
+                                    onChange: { preferenceChanges += 1 },
                                     onTrackingChanged: { _ in })
 
         expect(settings.defaultAppTab == .focus, "Focus is the default tab", &problems)
@@ -6546,9 +6547,13 @@ enum SelfTest {
         expect(AppTab.settings.moved(by: 1) == .focus, "right wrap works", &problems)
 
         settings.defaultAppTab = .today
+        expect(preferenceChanges == 1, "default tab notifies exactly once", &problems)
         settings.interfaceDensity = .compact
+        expect(preferenceChanges == 2, "density notifies exactly once", &problems)
         settings.appearancePreference = .dark
+        expect(preferenceChanges == 3, "appearance preference notifies exactly once", &problems)
         settings.showsTimelineLabels = false
+        expect(preferenceChanges == 4, "timeline labels preference notifies exactly once", &problems)
 
         let reloadedSettings = SettingsModel(store: store, isTrackingEnabled: true,
                                             onChange: { },
@@ -6569,6 +6574,14 @@ enum SelfTest {
                "invalid density falls back to Comfortable", &problems)
         expect(fallbackSettings.appearancePreference == .system,
                "invalid appearance falls back to System", &problems)
+
+        defaults.removeObject(forKey: "fc.showsTimelineLabels")
+        defaults.set(NSNumber(value: 0), forKey: "fc.showsTimelineLabels")
+        let malformedBooleanSettings = SettingsModel(store: store, isTrackingEnabled: true,
+                                                     onChange: { },
+                                                     onTrackingChanged: { _ in })
+        expect(malformedBooleanSettings.showsTimelineLabels,
+               "a non-Boolean timeline-label value falls back to visible", &problems)
         return problems
     }
 

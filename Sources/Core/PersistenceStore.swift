@@ -280,7 +280,11 @@ final class PersistenceStore {
 
     /// Whether day ribbons show per-app time ranges.
     var showsTimelineLabels: Bool {
-        get { defaults.object(forKey: Key.showsTimelineLabels) as? Bool ?? true }
+        get {
+            guard let value = defaults.object(forKey: Key.showsTimelineLabels) as? NSNumber,
+                  CFGetTypeID(value) == CFBooleanGetTypeID() else { return true }
+            return value.boolValue
+        }
         set { defaults.set(newValue, forKey: Key.showsTimelineLabels) }
     }
 
