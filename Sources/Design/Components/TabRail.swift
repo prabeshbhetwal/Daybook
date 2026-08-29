@@ -89,7 +89,7 @@ struct TabRail: View {
         .frame(minHeight: 28)
         .background(selected ? Tokens.Colour.focus : Color.clear, in: Capsule())
         .foregroundStyle(selected
-                         ? AnyShapeStyle(Tokens.Colour.ground)
+                         ? AnyShapeStyle(Tokens.Colour.onFocus)
                          : AnyShapeStyle(Color.primary))
         .overlay(
             Capsule().strokeBorder(selected ? Color.clear : Tokens.Colour.line,

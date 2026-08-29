@@ -12,6 +12,7 @@ enum Tokens {
             case line
             case hover
             case focus
+            case onFocus
             case progress
             case attention
             case danger
@@ -24,6 +25,7 @@ enum Tokens {
                 case .line: return (0x000000, 0xFFFFFF)
                 case .hover: return (0x000000, 0xFFFFFF)
                 case .focus: return (0x3478F6, 0x82AEFF)
+                case .onFocus: return (0x0F1115, 0x0F1115)
                 case .progress: return (0x238D7A, 0x52C3AC)
                 case .attention: return (0xB9721F, 0xE3A34F)
                 case .danger: return (0xFF3B30, 0xFF453A)
@@ -63,6 +65,7 @@ enum Tokens {
         static let line = resolved(.line, dark: false).color
         static let hover = resolved(.hover, dark: false).color
         static let focus = resolved(.focus, dark: false).color
+        static let onFocus = resolved(.onFocus, dark: false).color
         static let progress = resolved(.progress, dark: false).color
         static let attention = resolved(.attention, dark: false).color
         static let danger = resolved(.danger, dark: false).color

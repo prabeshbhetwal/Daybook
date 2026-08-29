@@ -312,6 +312,22 @@ enum SelfTest {
         }
     }
 
+    /// WCAG 2.x contrast from literal sRGB values. Test-only and independent
+    /// of the production colour provider under test.
+    private static func contrastRatio(_ first: UInt32, _ second: UInt32) -> Double {
+        func luminance(_ hex: UInt32) -> Double {
+            let channels = [16, 8, 0].map { shift -> Double in
+                let component = Double((hex >> UInt32(shift)) & 0xFF) / 255
+                return component <= 0.04045
+                    ? component / 12.92
+                    : pow((component + 0.055) / 1.055, 2.4)
+            }
+            return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+        }
+        let values = [luminance(first), luminance(second)]
+        return ((values.max() ?? 0) + 0.05) / ((values.min() ?? 0) + 0.05)
+    }
+
     // MARK: - 1
 
     private static func testElapsedWithPauseCycles() -> [String] {
@@ -6597,6 +6613,14 @@ enum SelfTest {
                "light focus token matches the approved signal", &problems)
         expect(Tokens.Colour.resolved(.attention, dark: true).hex == 0xE3A34F,
                "dark attention token remains semantic amber", &problems)
+        let lightOnFocus = Tokens.Colour.resolved(.onFocus, dark: false).hex
+        let darkOnFocus = Tokens.Colour.resolved(.onFocus, dark: true).hex
+        expect(lightOnFocus == 0x0F1115 && darkOnFocus == 0x0F1115,
+               "on-focus foreground remains near-black in both appearances", &problems)
+        let lightContrast = contrastRatio(lightOnFocus, 0x3478F6)
+        expect(lightContrast >= 4.5,
+               "on-focus foreground has at least 4.5:1 contrast on light focus; got "
+               + String(format: "%.2f:1", lightContrast), &problems)
         return problems
     }
 

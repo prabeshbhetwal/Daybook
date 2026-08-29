@@ -57,7 +57,7 @@ struct StartButton: View {
                 .background(Tokens.Colour.focus,
                             in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
                                                  style: .continuous))
-                .foregroundStyle(Tokens.Colour.ground)
+                .foregroundStyle(Tokens.Colour.onFocus)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
