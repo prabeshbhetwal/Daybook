@@ -43,30 +43,11 @@ struct MainWindowView: View {
         case .review:
             ReviewView(store: store, navigation: navigation)
         case .insights:
-            interimCanvas(
-                title: "Insights",
-                detail: "Evidence-backed patterns will appear when enough history exists.",
-                symbol: "sparkles"
-            )
+            InsightsView(store: store, navigation: navigation)
         case .settings:
             SettingsView(model: settings)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
 
-    /// Temporary route destination only. Later tab tasks replace these with
-    /// their purpose-built canvases; keeping it here avoids building their UI
-    /// inside the shell task.
-    private func interimCanvas(title: String, detail: String, symbol: String) -> some View {
-        VStack {
-            Spacer(minLength: Tokens.Space.xl)
-            SurfacePanel(title: nil, showsHeader: false) {
-                EmptyState(title, detail: detail, icon: symbol)
-            }
-            .frame(maxWidth: 520)
-            Spacer(minLength: Tokens.Space.xl)
-        }
-        .padding(Tokens.Space.xl)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 }

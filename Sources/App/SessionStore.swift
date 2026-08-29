@@ -156,6 +156,12 @@ final class SessionStore: ObservableObject {
     @Published var reviewWorkTypeShares: [WorkTypeShare] = []
     @Published var reviewIntegrityNote: String?
 
+    // MARK: Insights
+    // Week and Month remain separate read models so local range selection never
+    // mutates Review's independently selected period.
+    @Published var insightWeekSurface = InsightSurface.empty(range: .week)
+    @Published var insightMonthSurface = InsightSurface.empty(range: .month)
+
     /// Canonical History is derived from the authoritative usage snapshot and
     /// the archive. Filter/range state lives beside it because this toolchain
     /// cannot use SwiftUI's macro-backed local state.
@@ -257,6 +263,8 @@ final class SessionStore: ObservableObject {
     var dashboardArchiveRefreshPending = false
     var reviewVisible = false
     var reviewRefreshPending = true
+    var insightsVisible = false
+    var insightsRefreshPending = true
     var glanceArchiveRefreshPending = false
     /// Nested archive callbacks join the outer refresh and are consumed once
     /// when its final frame exits.
@@ -492,6 +500,7 @@ final class SessionStore: ObservableObject {
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
             if reviewVisible { refreshReview() } else { reviewRefreshPending = true }
+            if insightsVisible { refreshInsights() } else { insightsRefreshPending = true }
             refreshBreak()
             updateTicker()
         }
@@ -555,8 +564,10 @@ final class SessionStore: ObservableObject {
     func updateTimeDrivenFigures() {
         let moment = now()
         let minute = Calendar.current.dateInterval(of: .minute, for: moment)?.start
-        if minute != cachedTypicalMinute { refreshTypical(at: moment) }
+        let minuteChanged = minute != cachedTypicalMinute
+        if minuteChanged { refreshTypical(at: moment) }
         refreshLiveFigures(at: moment)
+        if minuteChanged && insightsVisible { refreshInsights() }
     }
 
     // MARK: - Break reminders

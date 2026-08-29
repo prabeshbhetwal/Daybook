@@ -219,6 +219,79 @@ enum FixtureFactory {
         store.refresh()
         return store
     }
+
+    /// Task 8's visual pair needs a stable noon cutoff and non-zero historical
+    /// pace samples. The general gallery intentionally keeps its older 10:00
+    /// fixtures; this isolated record avoids changing accepted surfaces while
+    /// exercising every production Insights gate with canonical archives.
+    static func insightsStore(withEvidence: Bool) -> SessionStore {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let anchor = today.addingTimeInterval(12 * 3_600)
+        let clock = Clock(anchor)
+        let defaults = UserDefaults(
+            suiteName: "com.prabesh.focuscontinuity.gallery.insights.\(withEvidence)"
+        ) ?? .standard
+        let prefs = PersistenceStore(defaults: defaults)
+        prefs.removeAll()
+        let archive = SessionArchive(directory: scratchDirectory(),
+                                     calendar: calendar, now: { clock.value })
+        let engine = SessionEngine(store: prefs,
+                                   archive: archive,
+                                   ownBundleID: FocusConstants.bundleIdentifier,
+                                   schedulesDwell: false,
+                                   now: { clock.value })
+
+        let usageDirectory = scratchDirectory()
+        try? FileManager.default.createDirectory(at: usageDirectory,
+                                                 withIntermediateDirectories: true)
+        let accurateFrom = calendar.date(byAdding: .day, value: -40, to: today) ?? today
+        let envelope = UsageFixtureEnvelope(
+            metadata: AppUsageMetadata(accurateFrom: accurateFrom),
+            sessions: [])
+        if let data = try? JSONEncoder().encode(envelope) {
+            try? data.write(to: usageDirectory.appendingPathComponent("app-usage.json"),
+                            options: .atomic)
+        }
+        let usage = AppUsageArchive(directory: usageDirectory,
+                                    calendar: calendar, now: { clock.value })
+
+        if withEvidence {
+            let types: [WorkType] = [.deepWork, .learning, .admin, .meetings]
+            for daysAgo in 0..<14 {
+                guard let day = calendar.date(byAdding: .day, value: -daysAgo,
+                                              to: today) else { continue }
+                let focusStart = day.addingTimeInterval(9 * 3_600)
+                let minutes = 75 + (daysAgo % 4) * 10
+                let focusEnd = focusStart.addingTimeInterval(Double(minutes * 60))
+                archive.append(SessionRecord(
+                    name: daysAgo.isMultiple(of: 2) ? "Build the interface" : "Review evidence",
+                    workType: types[daysAgo % types.count],
+                    start: focusStart,
+                    end: focusEnd,
+                    workSeconds: Double(minutes * 60)))
+                let appSwitch = min(focusEnd,
+                                    focusStart.addingTimeInterval(55 * 60))
+                usage.record(AppUsageSession(
+                    bundleID: "com.apple.dt.Xcode", appName: "Xcode",
+                    start: focusStart, end: appSwitch))
+                if focusEnd > appSwitch {
+                    usage.record(AppUsageSession(
+                        bundleID: "com.apple.Terminal", appName: "Terminal",
+                        start: appSwitch, end: focusEnd))
+                }
+            }
+        }
+
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: FocusConstants.bundleIdentifier,
+                                      idle: .disabled,
+                                      now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+        store.refreshInsights()
+        return store
+    }
 }
 
 struct GalleryView: View {

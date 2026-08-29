@@ -333,6 +333,35 @@ enum Snapshotter {
                 }
             }
 
+            // Task 8: evidence-rich and genuinely insufficient Insights. The
+            // stores are rebuilt through the production read-model path before
+            // composition; no view-only fixture values bypass evidence gates.
+            let richInsights = FixtureFactory.insightsStore(withEvidence: true)
+            let emptyInsights = FixtureFactory.insightsStore(withEvidence: false)
+            let insightStates: [(name: String, store: SessionStore)] = [
+                ("evidence-rich", richInsights),
+                ("insufficient-data", emptyInsights)
+            ]
+            for state in insightStates {
+                let navigation = MainWindowModel(selectedTab: .insights)
+                navigation.insightRange = .week
+                let selectedInsights = InsightsView(store: state.store,
+                                                     navigation: navigation,
+                                                     scrolls: false)
+                    .environment(\.colorScheme, scheme)
+                    .frame(width: 1_100, height: 780, alignment: .topLeading)
+                    .background(Tokens.Colour.ground)
+                let insightName = "insights-\(state.name)-"
+                    + "\(scheme == .light ? "light" : "dark").png"
+                if render(selectedInsights,
+                          to: directory.appendingPathComponent(insightName)) {
+                    print("  wrote \(insightName)")
+                } else {
+                    supplementalFailed = true
+                    print("  FAILED \(insightName)")
+                }
+            }
+
             let strip = ComponentStrip()
                 .environment(\.colorScheme, scheme)
                 .frame(width: 2200)

@@ -139,6 +139,7 @@ extension SessionStore {
         withRefreshTransaction {
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
+            insightsRefreshPending = true
         }
     }
 
@@ -159,11 +160,16 @@ extension SessionStore {
             dashboardArchiveRefreshPending = false
             rebuildDashboard()
         }
+        if insightsVisible, insightsRefreshPending {
+            insightsRefreshPending = false
+            refreshInsights()
+        }
         refreshTransactionDepth = 0
         // A synchronous observer may have requested another pass while values
         // were publishing. Coalesce that work into the next single pass.
         if glanceArchiveRefreshPending
-            || (dashboardVisible && dashboardArchiveRefreshPending) {
+            || (dashboardVisible && dashboardArchiveRefreshPending)
+            || (insightsVisible && insightsRefreshPending) {
             consumePendingSurfaceRefreshes()
         }
     }
