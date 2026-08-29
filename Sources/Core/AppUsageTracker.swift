@@ -50,6 +50,7 @@ final class AppUsageTracker {
     private let idle: IdleMonitor
     private var state: TrackingState = .stopped
     private var transitionChanged = false
+    private(set) var overlayRevision = 0
 
     private(set) var isEnabled: Bool
     /// True while a public lifecycle operation is still settling. Archive
@@ -169,6 +170,35 @@ final class AppUsageTracker {
         case .stopped, .waitingForPresence:
             return []
         }
+    }
+
+    /// Full authoritative records for stable UUID overlay. Unlike
+    /// `unpersistedSessions`, these are not additive tails: a pending idle close
+    /// can replace a longer durable checkpoint or remove it entirely.
+    func usageOverlaySessions() -> [AppUsageSession] {
+        switch state {
+        case .active(let segment):
+            return liveSession(for: segment).map { [$0] } ?? []
+        case .pendingPersistence(let pending):
+            var sessions = pending.closes.map(\.session)
+            if case .active(let segment) = pending.continuation,
+               let live = liveSession(for: segment) {
+                sessions.append(live)
+            }
+            return sessions
+        case .stopped, .waitingForPresence:
+            return []
+        }
+    }
+
+    private func liveSession(for segment: ActiveSegment) -> AppUsageSession? {
+        let candidate = effectiveEnd()
+        let end = safeEnd(for: segment, candidate: candidate.end,
+                          permitsRollback: candidate.trimmed)
+        guard end > segment.start else { return nil }
+        return AppUsageSession(id: segment.id, bundleID: segment.bundleID,
+                               appName: segment.appName, start: segment.start, end: end,
+                               endReason: candidate.trimmed ? .idle : .stillOpen)
     }
 
     private func liveTail(for segment: ActiveSegment) -> AppUsageSession? {
@@ -438,10 +468,12 @@ final class AppUsageTracker {
         setState(.active(segment))
     }
 
-    /// True when the open stretch has been accruing long enough that losing it
-    /// to a crash would matter. Drives the periodic flush.
+    /// Drives the existing persistence cadence. A failed frozen mutation is
+    /// retried regardless of its additive size: a short close and a backward
+    /// idle correction cannot grow while they wait for storage to recover.
     func openSeconds(exceeds limit: TimeInterval) -> Bool {
-        unpersistedSeconds() >= limit
+        if case .pendingPersistence = state { return true }
+        return unpersistedSeconds() >= limit
     }
 
     /// Handles an idle sample from the store without creating a wake policy.
@@ -586,6 +618,7 @@ final class AppUsageTracker {
 
     private func setState(_ next: TrackingState) {
         state = next
+        overlayRevision &+= 1
         markTransition()
     }
 

@@ -19,6 +19,7 @@ DEAD_STALE_RUN_ID="harness-dead-stale-$$"
 SYMLINK_STALE_RUN_ID="harness-symlink-stale-$$"
 INITIAL_SYMLINK_STALE_RUN_ID="harness-initial-symlink-stale-$$"
 PREUNLINK_SYMLINK_STALE_RUN_ID="harness-preunlink-symlink-stale-$$"
+GUARD_OWNER_SYMLINK_STALE_RUN_ID="harness-guard-owner-symlink-stale-$$"
 LIVE_OWNER="${PROMOTION_ROOT}/promotion-owner.${LIVE_RUN_ID}"
 STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${STALE_RUN_ID}"
 DUAL_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${DUAL_STALE_RUN_ID}"
@@ -30,6 +31,9 @@ DEAD_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${DEAD_STALE_RUN_ID}"
 SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${SYMLINK_STALE_RUN_ID}"
 INITIAL_SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${INITIAL_SYMLINK_STALE_RUN_ID}"
 PREUNLINK_SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${PREUNLINK_SYMLINK_STALE_RUN_ID}"
+GUARD_OWNER_SYMLINK_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${GUARD_OWNER_SYMLINK_STALE_RUN_ID}"
+LEGACY_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate"
+LEGACY_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup"
 LIVE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${LIVE_RUN_ID}"
 LIVE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${LIVE_RUN_ID}"
 STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${STALE_RUN_ID}"
@@ -51,6 +55,9 @@ SYMLINK_STALE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${SYMLINK_STALE_R
 CLEANUP_PID_RECORD="${PROMOTION_ROOT}/harness-cleanup-probe.pid"
 CLEANUP_RUN_RECORD="${PROMOTION_ROOT}/harness-cleanup-probe.run-id"
 HARNESS_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/focuscontinuity-concurrency.XXXXXX")"
+GUARD_OWNER_SYMLINK_TARGET="${HARNESS_ROOT}/guard-owner-target"
+SIGNED_LOCAL_TARGET="${HARNESS_ROOT}/signed-local-target.app"
+BROKEN_LOCAL_BACKUP="${HARNESS_ROOT}/broken-local-backup.app"
 HOLDER_PID=""
 FIRST_RECOVERER_PID=""
 SECOND_RECOVERER_PID=""
@@ -63,6 +70,7 @@ DEAD_CONTENDER_PID=""
 DEAD_RECOVERER_PID=""
 SYMLINK_RECOVERER_PID=""
 PREUNLINK_SYMLINK_RECOVERER_PID=""
+GUARD_OWNER_SYMLINK_RECOVERER_PID=""
 RED_FAILURES=0
 
 fail() {
@@ -118,7 +126,8 @@ cleanup() {
                 "${CLEANUP_RECOVERER_PID}" "${PRECHECK_CONTENDER_PID}" \
                 "${RETRY_RECOVERER_PID}" "${DEAD_CONTENDER_PID}" \
                 "${DEAD_RECOVERER_PID}" "${SYMLINK_RECOVERER_PID}" \
-                "${PREUNLINK_SYMLINK_RECOVERER_PID}"; do
+                "${PREUNLINK_SYMLINK_RECOVERER_PID}" \
+                "${GUARD_OWNER_SYMLINK_RECOVERER_PID}"; do
               if [ -n "${recoverer_pid}" ] \
                   && [ "${observed_guard_pid}" = "${recoverer_pid}" ]; then
                 tracked_guard_pid="${observed_guard_pid}"
@@ -153,7 +162,8 @@ cleanup() {
       "${GAP_RECOVERER_PID}" "${CLEANUP_RECOVERER_PID}" \
       "${PRECHECK_CONTENDER_PID}" "${RETRY_RECOVERER_PID}" \
       "${DEAD_CONTENDER_PID}" "${DEAD_RECOVERER_PID}" \
-      "${SYMLINK_RECOVERER_PID}" "${PREUNLINK_SYMLINK_RECOVERER_PID}"; do
+      "${SYMLINK_RECOVERER_PID}" "${PREUNLINK_SYMLINK_RECOVERER_PID}" \
+      "${GUARD_OWNER_SYMLINK_RECOVERER_PID}"; do
     if [ -n "${recoverer_pid}" ]; then
       kill "${recoverer_pid}" 2>/dev/null || true
     fi
@@ -163,7 +173,8 @@ cleanup() {
       "${GAP_RECOVERER_PID}" "${CLEANUP_RECOVERER_PID}" \
       "${PRECHECK_CONTENDER_PID}" "${RETRY_RECOVERER_PID}" \
       "${DEAD_CONTENDER_PID}" "${DEAD_RECOVERER_PID}" \
-      "${SYMLINK_RECOVERER_PID}" "${PREUNLINK_SYMLINK_RECOVERER_PID}"; do
+      "${SYMLINK_RECOVERER_PID}" "${PREUNLINK_SYMLINK_RECOVERER_PID}" \
+      "${GUARD_OWNER_SYMLINK_RECOVERER_PID}"; do
     if [ -n "${recoverer_pid}" ]; then
       wait "${recoverer_pid}" 2>/dev/null || true
     fi
@@ -191,7 +202,7 @@ cleanup() {
         || [ "${cleanup_lock_target}" = "${PREUNLINK_SYMLINK_STALE_OWNER}" ]; then
       cleanup_known_symlink=1
     elif [ -f "${LOCK_FILE}" ] && grep -Eq \
-        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID})$" \
+        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID})$" \
         "${LOCK_FILE}"; then
       cleanup_known_symlink=1
     fi
@@ -199,7 +210,7 @@ cleanup() {
       rm -f "${LOCK_FILE}"
     fi
   elif [ -f "${LOCK_FILE}" ] && grep -Eq \
-      "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID})$" \
+      "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID})$" \
       "${LOCK_FILE}"; then
     rm -f "${LOCK_FILE}"
   fi
@@ -223,9 +234,10 @@ cleanup() {
   rm -f "${DEAD_STALE_OWNER}"
   rm -f "${SYMLINK_STALE_OWNER}"
   rm -f "${INITIAL_SYMLINK_STALE_OWNER}" "${PREUNLINK_SYMLINK_STALE_OWNER}"
+  rm -f "${GUARD_OWNER_SYMLINK_STALE_OWNER}"
   for owner_marker in "${PROMOTION_ROOT}"/promotion-owner.*; do
     if [ -f "${owner_marker}" ] && grep -Eq \
-        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID})$" \
+        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID})$" \
         "${owner_marker}"; then
       rm -f "${owner_marker}"
     fi
@@ -239,6 +251,22 @@ cleanup() {
   rm -rf "${RETRY_STALE_CANDIDATE}" "${RETRY_STALE_BACKUP}"
   rm -rf "${DEAD_STALE_CANDIDATE}" "${DEAD_STALE_BACKUP}"
   rm -rf "${SYMLINK_STALE_CANDIDATE}" "${SYMLINK_STALE_BACKUP}"
+  if [ -L "${LEGACY_CANDIDATE}" ]; then rm -f "${LEGACY_CANDIDATE}"; fi
+  if [ -L "${LEGACY_BACKUP}" ]; then rm -f "${LEGACY_BACKUP}"; fi
+  if [ -L "${APP_NAME}.app" ]; then
+    rm -f "${APP_NAME}.app"
+    if [ -d "${SIGNED_LOCAL_TARGET}" ]; then
+      mv "${SIGNED_LOCAL_TARGET}" "${APP_NAME}.app"
+    elif [ -d "${BROKEN_LOCAL_BACKUP}" ]; then
+      mv "${BROKEN_LOCAL_BACKUP}" "${APP_NAME}.app"
+    fi
+  elif [ ! -d "${APP_NAME}.app" ]; then
+    if [ -d "${SIGNED_LOCAL_TARGET}" ]; then
+      mv "${SIGNED_LOCAL_TARGET}" "${APP_NAME}.app"
+    elif [ -d "${BROKEN_LOCAL_BACKUP}" ]; then
+      mv "${BROKEN_LOCAL_BACKUP}" "${APP_NAME}.app"
+    fi
+  fi
   rm -rf "${HARNESS_ROOT}"
   exit "${cleanup_status}"
 }
@@ -389,6 +417,7 @@ if [ "${is_primary_lock}" -eq 1 ] && [ -n "${HARNESS_RECOVERER:-}" ] \
     && [ "${HARNESS_RECOVERER}" != "dead-prechecked" ] \
     && [ "${HARNESS_RECOVERER}" != "symlink" ] \
     && [ "${HARNESS_RECOVERER}" != "preunlink-symlink" ] \
+    && [ "${HARNESS_RECOVERER}" != "guard-owner-symlink" ] \
     && [ "${HARNESS_RECOVERER}" != "release-symlink" ]; then
   : > "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-before-lock-remove"
   while [ ! -e "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-release-lock-remove" ]; do
@@ -431,6 +460,18 @@ for target in "$@"; do
     is_primary_lock=1
   fi
 done
+if [ "${is_primary_lock}" -eq 1 ] \
+    && [ "${HARNESS_RECOVERER:-}" = "guard-owner-symlink" ] \
+    && [ -d "${HARNESS_RECOVERY_GUARD}" ] \
+    && [ -f "${HARNESS_GUARD_OWNER}" ] \
+    && [ ! -L "${HARNESS_GUARD_OWNER}" ]; then
+  /bin/cp "${HARNESS_GUARD_OWNER}" "${HARNESS_GUARD_OWNER_TARGET}"
+  /usr/bin/shasum -a 256 "${HARNESS_GUARD_OWNER_TARGET}" \
+    > "${HARNESS_CONTROL_ROOT}/guard-owner-target-hash"
+  /bin/rm "${HARNESS_GUARD_OWNER}"
+  /bin/ln -s "${HARNESS_GUARD_OWNER_TARGET}" "${HARNESS_GUARD_OWNER}"
+  : > "${HARNESS_CONTROL_ROOT}/guard-owner-symlink-installed"
+fi
 if [ "${is_primary_lock}" -eq 1 ] \
     && [ "${HARNESS_RECOVERER:-}" = "symlink" ] \
     && [ -e "${HARNESS_RECOVERY_GUARD}" ] \
@@ -543,6 +584,8 @@ if [ "${HARNESS_RECOVERER:-}" = "release-symlink" ] \
   release_owner="${HARNESS_PROMOTION_ROOT}/promotion-owner.${release_run_id}"
   if [ -f "${release_owner}" ] \
       && [ "${release_owner}" -ef "${HARNESS_LOCK_FILE}" ]; then
+    /usr/bin/shasum -a 256 "${release_owner}" \
+      > "${HARNESS_CONTROL_ROOT}/release-symlink-owner-hash"
     /bin/rm "${HARNESS_LOCK_FILE}"
     /bin/ln -s "${release_owner}" "${HARNESS_LOCK_FILE}"
     printf '%s\n' "${release_owner}" \
@@ -1070,26 +1113,106 @@ SYMLINK_RECOVERER_PID=""
 codesign --verify "${APP_NAME}.app" \
   || fail "symlink regression teardown restored an invalid local app"
 
+# The recovery guard's owner is a managed regular file, not merely readable
+# bytes. Swap the admitted owner's real file for a resolving symlink during the
+# primary replacement. Recovery must fail closed, retain both entries and leave
+# the external target byte-identical.
+printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
+  "${DEAD_PID}" "${GUARD_OWNER_SYMLINK_STALE_RUN_ID}" \
+  > "${GUARD_OWNER_SYMLINK_STALE_OWNER}"
+ln "${GUARD_OWNER_SYMLINK_STALE_OWNER}" "${LOCK_FILE}"
+
+PATH="${WRAPPER_DIR}:${PATH}" \
+HARNESS_RECOVERER=guard-owner-symlink \
+HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" \
+HARNESS_LOCK_FILE="${LOCK_FILE}" \
+HARNESS_RECOVERY_GUARD="${RECOVERY_GUARD}" \
+HARNESS_GUARD_OWNER="${RECOVERY_GUARD}/owner" \
+HARNESS_GUARD_OWNER_TARGET="${GUARD_OWNER_SYMLINK_TARGET}" \
+  ./build.sh > "${HARNESS_ROOT}/guard-owner-symlink-build.log" 2>&1 &
+GUARD_OWNER_SYMLINK_RECOVERER_PID=$!
+set +e
+wait "${GUARD_OWNER_SYMLINK_RECOVERER_PID}"
+GUARD_OWNER_SYMLINK_STATUS=$?
+set -e
+test -e "${HARNESS_ROOT}/guard-owner-symlink-installed" \
+  || fail "the guard-owner regression did not install its symlink"
+if [ "${GUARD_OWNER_SYMLINK_STATUS}" -eq 0 ] \
+    || [ ! -L "${RECOVERY_GUARD}/owner" ]; then
+  echo "FAIL: stale recovery accepted or removed a symlinked guard owner" >&2
+  RED_FAILURES=1
+else
+  test "$(readlink "${RECOVERY_GUARD}/owner")" = "${GUARD_OWNER_SYMLINK_TARGET}" \
+    || fail "guard-owner rejection changed the symlink target"
+fi
+test -f "${GUARD_OWNER_SYMLINK_TARGET}" \
+  || fail "guard-owner recovery removed the external target"
+GUARD_OWNER_TARGET_HASH="$(awk '{print $1}' \
+  "${HARNESS_ROOT}/guard-owner-target-hash")"
+if [ -L "${RECOVERY_GUARD}/owner" ]; then
+  test "$(shasum -a 256 "${GUARD_OWNER_SYMLINK_TARGET}" | awk '{print $1}')" = \
+    "${GUARD_OWNER_TARGET_HASH}" || fail "guard-owner rejection changed its target"
+  rm -f "${RECOVERY_GUARD}/owner"
+  rmdir "${RECOVERY_GUARD}"
+fi
+rm -f "${GUARD_OWNER_SYMLINK_TARGET}"
+if [ -e "${LOCK_FILE}" ]; then
+  test -f "${LOCK_FILE}" -a ! -L "${LOCK_FILE}" \
+    || fail "guard-owner teardown found an unknown primary entry"
+  grep -F "run_id=${GUARD_OWNER_SYMLINK_STALE_RUN_ID}" "${LOCK_FILE}" >/dev/null \
+    || fail "guard-owner rejection lost the recoverable transaction run id"
+  GUARD_OWNER_PRIMARY_OWNER=""
+  GUARD_OWNER_PRIMARY_MATCHES=0
+  for owner_marker in "${PROMOTION_ROOT}"/promotion-owner.*; do
+    if [ -f "${owner_marker}" ] && [ ! -L "${owner_marker}" ] \
+        && [ "${owner_marker}" -ef "${LOCK_FILE}" ]; then
+      GUARD_OWNER_PRIMARY_OWNER="${owner_marker}"
+      GUARD_OWNER_PRIMARY_MATCHES=$((GUARD_OWNER_PRIMARY_MATCHES + 1))
+    fi
+  done
+  test "${GUARD_OWNER_PRIMARY_MATCHES}" -eq 1 \
+    || fail "guard-owner rejection did not preserve one real primary owner"
+  rm -f "${LOCK_FILE}"
+  rm -f "${GUARD_OWNER_PRIMARY_OWNER}"
+fi
+rm -f "${GUARD_OWNER_SYMLINK_STALE_OWNER}"
+GUARD_OWNER_SYMLINK_RECOVERER_PID=""
+codesign --verify "${APP_NAME}.app" \
+  || fail "guard-owner symlink regression left an invalid local app"
+
 # Audit the ordinary owner-release site separately. Replace its legitimate
 # hard link with a symlink after acquisition; release must leave that foreign
-# directory entry untouched even though it resolves to the owner's inode.
+# directory entry and owner evidence untouched, then report failure.
+set +e
 PATH="${WRAPPER_DIR}:${PATH}" \
 HARNESS_RECOVERER=release-symlink \
 HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" \
 HARNESS_LOCK_FILE="${LOCK_FILE}" \
 HARNESS_PROMOTION_ROOT="${PROMOTION_ROOT}" \
-  ./build.sh > "${HARNESS_ROOT}/release-symlink-build.log" 2>&1 \
-  || fail "the release-site symlink build did not complete"
+  ./build.sh > "${HARNESS_ROOT}/release-symlink-build.log" 2>&1
+RELEASE_SYMLINK_STATUS=$?
+set -e
 test -e "${HARNESS_ROOT}/release-symlink-primary-installed" \
   || fail "the release-site regression did not install its primary symlink"
-if [ ! -L "${LOCK_FILE}" ]; then
-  echo "FAIL: promotion release removed a primary symlink resolving to its owner" >&2
+expected_release_target="$(<"${HARNESS_ROOT}/release-symlink-primary-target")"
+if [ "${RELEASE_SYMLINK_STATUS}" -eq 0 ] \
+    || [ ! -L "${LOCK_FILE}" ] \
+    || [ ! -f "${expected_release_target}" ] \
+    || [ -L "${expected_release_target}" ]; then
+  echo "FAIL: promotion release did not fail closed with its ownership evidence" >&2
   RED_FAILURES=1
 else
-  expected_release_target="$(<"${HARNESS_ROOT}/release-symlink-primary-target")"
   test "$(readlink "${LOCK_FILE}")" = "${expected_release_target}" \
     || fail "promotion release changed the foreign symlink target"
-  rm -f "${LOCK_FILE}"
+  expected_release_hash="$(awk '{print $1}' \
+    "${HARNESS_ROOT}/release-symlink-owner-hash")"
+  test "$(shasum -a 256 "${expected_release_target}" | awk '{print $1}')" = \
+    "${expected_release_hash}" || fail "promotion release changed its owner evidence"
+fi
+if [ -L "${LOCK_FILE}" ]; then rm -f "${LOCK_FILE}"; fi
+if [ -f "${expected_release_target}" ] \
+    && [ ! -L "${expected_release_target}" ]; then
+  rm -f "${expected_release_target}"
 fi
 codesign --verify "${APP_NAME}.app" \
   || fail "release-site symlink regression left an invalid local app"
@@ -1177,6 +1300,130 @@ test "$(shasum -a 256 "${RECOVERY_GUARD}/owner" | awk '{print $1}')" = \
 rm -f "${RECOVERY_GUARD}/owner"
 rmdir "${RECOVERY_GUARD}"
 
+# The deliberate cleanup probe above removes its scratch root. Recreate that
+# private location for the managed-path probes that follow.
+mkdir -p "${HARNESS_ROOT}"
+
+probe_legacy_bundle_symlink() {
+  local managed_path="$1"
+  local label="$2"
+  local mode="$3"
+  local target_path
+  local target_hash=""
+  local local_hash
+  local status
+
+  test ! -e "${managed_path}" -a ! -L "${managed_path}" \
+    || fail "${label} probe found a pre-existing managed path"
+  if [ "${mode}" = "signed" ]; then
+    target_path="${HARNESS_ROOT}/${label}-signed-target.app"
+    cp -R "${APP_NAME}.app" "${target_path}"
+    codesign --verify "${target_path}" || fail "${label} target is not signed"
+    target_hash="$(shasum -a 256 \
+      "${target_path}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
+  else
+    target_path="${HARNESS_ROOT}/${label}-missing-target.app"
+    test ! -e "${target_path}" -a ! -L "${target_path}" \
+      || fail "${label} broken target unexpectedly exists"
+  fi
+  ln -s "${target_path}" "${managed_path}"
+  local_hash="$(shasum -a 256 \
+    "${APP_NAME}.app/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
+
+  set +e
+  ./build.sh > "${HARNESS_ROOT}/${label}-${mode}.log" 2>&1
+  status=$?
+  set -e
+  if [ "${status}" -eq 0 ] || [ ! -L "${managed_path}" ]; then
+    echo "FAIL: ${label} ${mode} symlink was accepted or removed" >&2
+    RED_FAILURES=1
+  else
+    test "$(readlink "${managed_path}")" = "${target_path}" \
+      || fail "${label} rejection changed the symlink target"
+    test "$(shasum -a 256 \
+      "${APP_NAME}.app/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = \
+      "${local_hash}" || fail "${label} rejection changed the local app"
+  fi
+  if [ "${mode}" = "signed" ]; then
+    test -d "${target_path}" -a ! -L "${target_path}" \
+      || fail "${label} probe removed or replaced its external bundle"
+    codesign --verify "${target_path}" \
+      || fail "${label} probe invalidated its external bundle"
+    test "$(shasum -a 256 \
+      "${target_path}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = \
+      "${target_hash}" || fail "${label} probe changed its external bundle"
+  else
+    test ! -e "${target_path}" -a ! -L "${target_path}" \
+      || fail "${label} probe created its broken-link target"
+  fi
+  if [ -L "${managed_path}" ]; then rm -f "${managed_path}"; fi
+  if [ "${mode}" = "signed" ]; then rm -rf "${target_path}"; fi
+  codesign --verify "${APP_NAME}.app" \
+    || fail "${label} probe left an invalid local app"
+}
+
+probe_local_bundle_symlink() {
+  local mode="$1"
+  local source_path
+  local target_path
+  local source_hash
+  local status
+
+  if [ "${mode}" = "signed" ]; then
+    source_path="${SIGNED_LOCAL_TARGET}"
+    target_path="${SIGNED_LOCAL_TARGET}"
+  else
+    source_path="${BROKEN_LOCAL_BACKUP}"
+    target_path="${HARNESS_ROOT}/missing-local-target.app"
+  fi
+  mv "${APP_NAME}.app" "${source_path}"
+  source_hash="$(shasum -a 256 \
+    "${source_path}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')"
+  ln -s "${target_path}" "${APP_NAME}.app"
+
+  set +e
+  ./build.sh > "${HARNESS_ROOT}/local-${mode}-symlink.log" 2>&1
+  status=$?
+  set -e
+  if [ "${status}" -eq 0 ] || [ ! -L "${APP_NAME}.app" ]; then
+    echo "FAIL: local app ${mode} symlink was accepted or replaced" >&2
+    RED_FAILURES=1
+  else
+    test "$(readlink "${APP_NAME}.app")" = "${target_path}" \
+      || fail "local app rejection changed the symlink target"
+  fi
+  test -d "${source_path}" -a ! -L "${source_path}" \
+    || fail "local app probe removed its preserved bundle"
+  codesign --verify "${source_path}" \
+    || fail "local app probe invalidated its preserved bundle"
+  test "$(shasum -a 256 \
+    "${source_path}/Contents/MacOS/${APP_NAME}" | awk '{print $1}')" = \
+    "${source_hash}" || fail "local app probe changed its preserved bundle"
+
+  if [ -L "${APP_NAME}.app" ]; then
+    rm -f "${APP_NAME}.app"
+  elif [ -e "${APP_NAME}.app" ]; then
+    rm -rf "${APP_NAME}.app"
+  fi
+  mv "${source_path}" "${APP_NAME}.app"
+  codesign --verify "${APP_NAME}.app" \
+    || fail "local app ${mode} teardown restored an invalid bundle"
+}
+
+# codesign follows bundle symlinks, while `-e` hides broken ones. Both forms are
+# foreign managed entries and must fail closed without touching their targets.
+probe_legacy_bundle_symlink "${LEGACY_CANDIDATE}" "legacy-candidate" signed
+probe_legacy_bundle_symlink "${LEGACY_BACKUP}" "legacy-backup" signed
+probe_legacy_bundle_symlink "${LEGACY_CANDIDATE}" "legacy-candidate" broken
+probe_legacy_bundle_symlink "${LEGACY_BACKUP}" "legacy-backup" broken
+probe_local_bundle_symlink signed
+probe_local_bundle_symlink broken
+
+test ! -e "${LOCK_FILE}" -a ! -L "${LOCK_FILE}" \
+  || fail "managed-path probes left the primary lock"
+test ! -e "${RECOVERY_GUARD}" -a ! -L "${RECOVERY_GUARD}" \
+  || fail "managed-path probes left the recovery guard"
+
 test "${RED_FAILURES}" -eq 0 || exit 1
 
-echo "PASS: contention, stale recovery admission, signal retry, and owned cleanup"
+echo "PASS: contention, guarded recovery, managed paths, signal retry, and owned cleanup"

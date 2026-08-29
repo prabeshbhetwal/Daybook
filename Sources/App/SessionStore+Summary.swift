@@ -26,6 +26,7 @@ extension SessionStore {
                 lastSeen: timelineSegments.map(\.end).max(),
                 focused: isToday ? todayTotal : focusedForSelectedDay,
                 goal: goal,
+                goalAchieved: isToday ? self.goal.achieved : focusedActiveForSelectedDay,
                 sessions: sessions,
                 rests: rests,
                 apps: rankedApps,
@@ -41,11 +42,16 @@ extension SessionStore {
         var focused: TimeInterval = 0
         var sessions = 0
         var goalMetDays = 0
+        let usageSnapshot = effectiveUsageSnapshot
         for periodDay in rollup.days {
             let work = engine.archive.workSeconds(on: periodDay.date)
             focused += work
             sessions += engine.archive.threadCount(on: periodDay.date)
-            if goal > 0, work >= goal { goalMetDays += 1 }
+            if goal > 0,
+               focusedActiveSeconds(on: periodDay.date,
+                                    usageSnapshot: usageSnapshot) >= goal {
+                goalMetDays += 1
+            }
         }
         let busiest = rollup.days.max { $0.tracked < $1.tracked }
         summarySentences = SummaryText.period(PeriodSummaryInput(
@@ -68,13 +74,12 @@ extension SessionStore {
             workTypes: workTypeShares))
     }
 
-    /// The goal as the selected day saw it: live for today (hands-on time
-    /// inside sessions, against your usual pace), the day's recorded session
-    /// work for any other day — the same measure the calendar tints and the
-    /// title band judge by. A finished day has no "usual by now", so
+    /// The goal as the selected day saw it: focused-active time on every day,
+    /// with today's usual pace only. A finished day has no "usual by now", so
     /// `aheadBy` is nil and no pace clause is written.
     var selectedDayGoal: GoalProgress {
         guard !isToday else { return goal }
-        return GoalProgress(goal: engine.store.dailyGoal, achieved: focusedForSelectedDay, typical: nil)
+        return GoalProgress(goal: engine.store.dailyGoal,
+                            achieved: focusedActiveForSelectedDay, typical: nil)
     }
 }

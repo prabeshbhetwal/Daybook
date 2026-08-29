@@ -6,6 +6,9 @@ struct DayFacts: Equatable {
     var tracked: TimeInterval = 0
     var focused: TimeInterval = 0
     var sessions: Int = 0
+    /// Nil lets gallery fixtures retain their declared focused tint; live store
+    /// facts provide the stricter focused-active goal credit explicitly.
+    var goalAchieved: TimeInterval? = nil
 }
 
 /// The month that is showing, and its facts. `@State` is unavailable here.
@@ -105,7 +108,7 @@ struct DayPickerCalendar: View {
         let active = days.filter { $0.tracked > 0 }.count
         guard active > 0 else { return "Nothing recorded this month" }
         let focused = days.reduce(0) { $0 + $1.focused }
-        let met = days.filter { goal > 0 && $0.focused >= goal }.count
+        let met = days.filter { goal > 0 && ($0.goalAchieved ?? $0.focused) >= goal }.count
         var parts = [active == 1 ? "1 active day" : "\(active) active days",
                      "\(Tokens.duration(focused)) focused"]
         if met > 0 { parts.append("goal met \(met)×") }
@@ -189,7 +192,7 @@ struct DayPickerCalendar: View {
         let tooEarly = earliest.map { key < calendar.startOfDay(for: $0) } ?? false
         let pickable = !tooLate && !tooEarly
         let hovered = hover.id == key.description
-        let share = goal > 0 ? facts.focused / goal : 0
+        let share = goal > 0 ? (facts.goalAchieved ?? facts.focused) / goal : 0
 
         return Button { if pickable { onPick(day) } } label: {
             VStack(spacing: 2) {

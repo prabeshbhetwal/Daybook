@@ -78,6 +78,7 @@ struct DashboardStats {
 
     private let sessions: SessionArchive
     private let usage: AppUsageArchive
+    private let usageSnapshot: AppUsageSnapshot?
     private let now: () -> Date
     private let calendar: Calendar
 
@@ -99,10 +100,12 @@ struct DashboardStats {
 
     init(sessions: SessionArchive,
          usage: AppUsageArchive,
+         usageSnapshot: AppUsageSnapshot? = nil,
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init) {
         self.sessions = sessions
         self.usage = usage
+        self.usageSnapshot = usageSnapshot
         self.calendar = calendar
         self.now = now
     }
@@ -127,7 +130,7 @@ struct DashboardStats {
     private func clippedUsage(for day: Date) -> [(session: AppUsageSession,
                                                   start: Date, end: Date)] {
         let (dayStart, dayEnd) = bounds(of: day)
-        return usage.sessions.compactMap { session in
+        return sourceSessions.compactMap { session in
             let start = max(session.start, dayStart)
             let end = min(session.end, dayEnd)
             guard end > start else { return nil }
@@ -187,13 +190,13 @@ struct DashboardStats {
             }
             .sorted { $0.start < $1.start }
         cache.day = day
-        cache.sourceRevision = usage.revision
+        cache.sourceRevision = sourceRevision
     }
 
     private func ensure(_ day: Date) {
         if let cached = cache.day,
            calendar.isDate(cached, inSameDayAs: day),
-           cache.sourceRevision == usage.revision {
+           cache.sourceRevision == sourceRevision {
             return
         }
         build(for: day)
@@ -301,10 +304,18 @@ struct DashboardStats {
 
     /// Earliest day with any record, used to bound the date stepper.
     func earliestRecordedDay() -> Date? {
-        let usageStart = usage.sessions.map(\.start).min()
+        let usageStart = sourceSessions.map(\.start).min()
         let sessionStart = sessions.records.map(\.start).min()
         let earliest = [usageStart, sessionStart].compactMap { $0 }.min()
         return earliest.map { calendar.startOfDay(for: $0) }
+    }
+
+    private var sourceSessions: [AppUsageSession] {
+        usageSnapshot?.sessions ?? usage.sessions
+    }
+
+    private var sourceRevision: Int {
+        usageSnapshot?.revision ?? usage.revision
     }
 
     /// The adaptive drawing window: an hour either side of the day's data,

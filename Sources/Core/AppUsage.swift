@@ -85,6 +85,60 @@ enum AppUsageConstants {
     static let capacity = 20_000
 }
 
+/// One authoritative in-memory view of app usage. Durable records remain
+/// untouched until persistence succeeds; an overlay with the same stable UUID
+/// replaces that record for every reader, while new pending UUIDs append in
+/// observation order. A correction below the archive noise floor removes its
+/// durable record from the view, matching what a successful checkpoint writes.
+struct AppUsageSnapshot {
+    let sessions: [AppUsageSession]
+    let accurateFrom: Date
+    let revision: Int
+
+    init(archive: AppUsageArchive, tracker: AppUsageTracker? = nil) {
+        let overlay = tracker?.usageOverlaySessions() ?? []
+        self.sessions = Self.overlay(durable: archive.sessions, with: overlay)
+        self.accurateFrom = archive.metadata.accurateFrom
+        self.revision = archive.revision &* 1_000_003 &+ (tracker?.overlayRevision ?? 0)
+    }
+
+    private static func overlay(durable: [AppUsageSession],
+                                with pending: [AppUsageSession]) -> [AppUsageSession] {
+        var latest: [UUID: AppUsageSession] = [:]
+        for session in pending { latest[session.id] = session }
+
+        let durableIDs = Set(durable.map(\.id))
+        var result: [AppUsageSession] = []
+        result.reserveCapacity(durable.count + pending.count)
+        for session in durable {
+            guard let replacement = latest[session.id] else {
+                result.append(session)
+                continue
+            }
+            if replacement.seconds >= AppUsageConstants.minimumSegment {
+                result.append(replacement)
+            }
+        }
+
+        var appended: Set<UUID> = []
+        for session in pending
+        where !durableIDs.contains(session.id) && !appended.contains(session.id) {
+            appended.insert(session.id)
+            if session.seconds > 0 { result.append(session) }
+        }
+        return result
+    }
+
+    func total(on day: Date, calendar: Calendar = .current) -> TimeInterval {
+        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return 0 }
+        return sessions.reduce(0) { total, session in
+            let start = max(session.start, bounds.start)
+            let end = min(session.end, bounds.end)
+            return end > start ? total + end.timeIntervalSince(start) : total
+        }
+    }
+}
+
 /// Local-only per-app usage history. Same shape as `SessionArchive`: a plain
 /// Codable file, atomic writes, corrupt files moved aside rather than lost.
 final class AppUsageArchive {

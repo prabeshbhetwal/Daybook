@@ -128,15 +128,18 @@ struct PeriodStats {
 
     private let sessions: SessionArchive
     private let usage: AppUsageArchive
+    private let usageSnapshot: AppUsageSnapshot?
     private let calendar: Calendar
     private let now: () -> Date
 
     init(sessions: SessionArchive,
          usage: AppUsageArchive,
+         usageSnapshot: AppUsageSnapshot? = nil,
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init) {
         self.sessions = sessions
         self.usage = usage
+        self.usageSnapshot = usageSnapshot
         self.calendar = calendar
         self.now = now
     }
@@ -165,6 +168,7 @@ struct PeriodStats {
         }
         let (previousStart, previousEnd) = bounds(for: period, containing: previousDay)
         let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var total: TimeInterval = 0
         var cursor = previousStart
@@ -183,6 +187,7 @@ struct PeriodStats {
     func days(for period: TrackingPeriod, containing day: Date) -> [PeriodDay] {
         let (start, end) = bounds(for: period, containing: day)
         let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var result: [PeriodDay] = []
         var cursor = start
@@ -203,6 +208,7 @@ struct PeriodStats {
     func rollup(for period: TrackingPeriod, containing day: Date) -> PeriodRollup {
         let (start, end) = bounds(for: period, containing: day)
         let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var allDays: [PeriodDay] = []
         var entries: [LogEntry] = []
@@ -252,6 +258,7 @@ struct PeriodStats {
     func log(for period: TrackingPeriod, containing day: Date) -> [LogEntry] {
         let (start, end) = bounds(for: period, containing: day)
         let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var entries: [LogEntry] = []
         var cursor = start

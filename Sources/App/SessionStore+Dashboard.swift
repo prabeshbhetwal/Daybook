@@ -42,7 +42,7 @@ extension SessionStore {
         let count = sessionsForSelectedDay
         if count > 0 { parts.append(count == 1 ? "1 session" : "\(count) sessions") }
         if focusedForSelectedDay > 0 {
-            parts.append(focusedForSelectedDay >= engine.store.dailyGoal
+            parts.append(focusedActiveForSelectedDay >= engine.store.dailyGoal
                          ? "goal met" : "\(Tokens.duration(focusedForSelectedDay)) focused")
         } else if trackedForSelectedDay > 0 {
             parts.append("no focus sessions")
@@ -89,7 +89,8 @@ extension SessionStore {
     /// Bounds of the selected period, for charts that must show empty days too.
     var periodBounds: (start: Date, end: Date)? {
         guard let usage else { return nil }
-        let bounds = PeriodStats(sessions: engine.archive, usage: usage)
+        let bounds = PeriodStats(sessions: engine.archive, usage: usage,
+                                 usageSnapshot: effectiveUsageSnapshot)
             .bounds(for: period, containing: selectedDay)
         // `end` is exclusive; charts want the last day that exists.
         return (bounds.start, bounds.end.addingTimeInterval(-1))
@@ -229,15 +230,20 @@ extension SessionStore {
     func dayFacts(inMonthOf date: Date) -> [Date: DayFacts] {
         guard let usage else { return [:] }
         let calendar = Calendar.current
-        let days = PeriodStats(sessions: engine.archive, usage: usage)
+        let usageSnapshot = effectiveUsageSnapshot
+        let days = PeriodStats(sessions: engine.archive, usage: usage,
+                               usageSnapshot: usageSnapshot)
             .days(for: .month, containing: date)
         var facts: [Date: DayFacts] = [:]
         for day in days {
             let key = calendar.startOfDay(for: day.date)
             let focused = engine.archive.workSeconds(on: key)
+            let goalAchieved = focusedActiveSeconds(on: key,
+                                                    usageSnapshot: usageSnapshot)
             let sessions = engine.archive.threadCount(on: key)
             if day.tracked > 0 || focused > 0 || sessions > 0 {
-                facts[key] = DayFacts(tracked: day.tracked, focused: focused, sessions: sessions)
+                facts[key] = DayFacts(tracked: day.tracked, focused: focused,
+                                      sessions: sessions, goalAchieved: goalAchieved)
             }
         }
         return facts

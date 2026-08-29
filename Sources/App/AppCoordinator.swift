@@ -93,10 +93,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
         tracker.flush()
         let moment = Date()
+        let usageSnapshot = AppUsageSnapshot(archive: usage, tracker: tracker)
         let window = (start: moment.addingTimeInterval(-FocusConstants.focusWindow),
                       end: moment)
         let score = FocusScorer(purposeOverrides: engine.store.purposeOverrides)
-            .score(segments: usage.sessions, activity: density.activity, window: window)
+            .score(segments: usageSnapshot.sessions, activity: density.activity, window: window)
 
         // Rebuilt each pass so a break length changed in settings takes effect
         // rather than being frozen at whatever it was on first use.
@@ -123,7 +124,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // case, across the very gap the user is being asked about.
             detector.reset()
         }
-        evaluateRewards(score: score, at: moment)
+        evaluateRewards(score: score, at: moment, usageSnapshot: usageSnapshot)
     }
 
     @MainActor private func apply(_ decision: AutoDecision) {
@@ -161,7 +162,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
     }
 
-    @MainActor private func evaluateRewards(score: FocusScore, at moment: Date) {
+    @MainActor private func evaluateRewards(score: FocusScore, at moment: Date,
+                                            usageSnapshot: AppUsageSnapshot) {
         guard engine.store.rewardsEnabled else { return }
 
         // Ask the cheap question first. Building the context below walks the
@@ -174,9 +176,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // here, so it happens after the gate, not before it.
         updateMusicPairing(score: score, at: moment)
 
-        let goalUsage = Self.usageForRewardGoal(durable: usage.sessions,
-                                                tracker: tracker)
-
         let context = RewardContext(
             focusedToday: engine.todayTotal,
             sameWeekdayLastWeek: engine.archive.focusedSameWeekdayLastWeek(),
@@ -186,11 +185,12 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // `goalReached` and `goalPace` permanently dormant — the one goal
             // computation in the app that was still fed no evidence.
             goal: DailyGoal(archive: engine.archive, goal: engine.store.dailyGoal,
-                            usage: goalUsage,
-                            usageAccurateFrom: usage.metadata.accurateFrom,
+                            usage: usageSnapshot.sessions,
+                            usageAccurateFrom: usageSnapshot.accurateFrom,
                             running: engine.runningSpan,
                             runningWork: engine.elapsedToday()).progress(),
-            endedMedia: recentlyEndedMedia(before: moment),
+            endedMedia: recentlyEndedMedia(before: moment,
+                                           usage: usageSnapshot.sessions),
             musicPairing: musicPairingSince.map { moment.timeIntervalSince($0) },
             isSessionRunning: engine.state != .idle)
 
@@ -198,13 +198,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         engine.store.rewardLog = rewards.recording(reward)
         hud.show(title: reward.title, detail: reward.detail,
                  symbolName: reward.symbolName, undo: nil)
-    }
-
-    /// Reward goal progress uses the same complete interval evidence as the
-    /// dashboard goal, including every disjoint tail queued during an outage.
-    static func usageForRewardGoal(durable: [AppUsageSession],
-                                   tracker: AppUsageTracker) -> [AppUsageSession] {
-        durable + tracker.unpersistedSessions()
     }
 
     /// Music counts only while a focused app is actually frontmost — a playlist
@@ -226,14 +219,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// A media stretch that closed in the last minute. Anything older has
     /// already been reported or missed; re-reporting it would be a lie about
     /// when it happened.
-    private func recentlyEndedMedia(before moment: Date) -> (appName: String,
-                                                             seconds: TimeInterval)? {
+    private func recentlyEndedMedia(before moment: Date,
+                                    usage: [AppUsageSession]) -> (appName: String,
+                                                                  seconds: TimeInterval)? {
         let overrides = engine.store.purposeOverrides
         // `endReason == .stillOpen` means the tracker split an ongoing stretch
         // for bookkeeping, not that the user stopped watching. Without this the
         // HUD says "hope you enjoyed it" while the film is still playing.
         let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        let recent = usage.sessions.last {
+        let recent = usage.last {
             moment.timeIntervalSince($0.end) < 60 && moment >= $0.end
                 && $0.endReason != .stillOpen
                 && $0.bundleID != frontmost
@@ -293,7 +287,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
         // Launched behind a lock, nothing is in front of anyone: seeding the
         // frontmost app would record usage nobody is producing.
-        if !screenLocked, let frontmost = NSWorkspace.shared.frontmostApplication {
+        if AppCoordinator.permitsInitialUsageSeed(screenLocked: screenLocked,
+                                                  displayAsleep: displayAsleep),
+           let frontmost = NSWorkspace.shared.frontmostApplication {
             engine.transition(on: .appActivated(bundleID: frontmost.bundleIdentifier,
                                                 name: frontmost.localizedName ?? "Unknown"))
             tracker.appActivated(bundleID: frontmost.bundleIdentifier,
@@ -414,6 +410,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private static func screenIsLockedNow() -> Bool {
         guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
         return (session["CGSSessionScreenIsLocked"] as? Bool) ?? false
+    }
+
+    /// Pure launch policy kept at the lifecycle seam so sleep/lock combinations
+    /// can be verified without manipulating the real display in a headless run.
+    static func permitsInitialUsageSeed(screenLocked: Bool,
+                                        displayAsleep: Bool) -> Bool {
+        !screenLocked && !displayAsleep
     }
 
     private func wireMonitor() {

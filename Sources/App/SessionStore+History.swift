@@ -17,7 +17,8 @@ extension SessionStore {
             if hoveredSegment != nil { hoveredSegment = nil }
             return
         }
-        let found = DashboardStats(sessions: engine.archive, usage: usage)
+        let found = DashboardStats(sessions: engine.archive, usage: usage,
+                                   usageSnapshot: effectiveUsageSnapshot)
             .segment(at: date, on: glance ? Date() : selectedDay)
         // Only publish on a real change, or every mouse move redraws the band.
         if found?.id != hoveredSegment?.id { hoveredSegment = found }
@@ -41,7 +42,8 @@ extension SessionStore {
         let hourStart = calendar.dateInterval(of: .hour, for: selected.start)?.start
             ?? selected.start
         let hourEnd = hourStart.addingTimeInterval(3_600)
-        stretchesInSelectedHour = DashboardStats(sessions: engine.archive, usage: usage)
+        stretchesInSelectedHour = DashboardStats(sessions: engine.archive, usage: usage,
+                                                  usageSnapshot: effectiveUsageSnapshot)
             .stretches(for: selectedDay, bundleID: selected.bundleID)
             .filter { $0.start < hourEnd && $0.end > hourStart }
     }
@@ -65,7 +67,8 @@ extension SessionStore {
         if selectedSession?.id == session.id { clearSession(); return }
         selectedSession = session
         guard let usage else { return }
-        let stats = DashboardStats(sessions: engine.archive, usage: usage)
+        let stats = DashboardStats(sessions: engine.archive, usage: usage,
+                                   usageSnapshot: effectiveUsageSnapshot)
         sessionAppRanks = stats.rankedApps(for: selectedDay, within: session.spans)
         sessionTracked = stats.trackedTotal(for: selectedDay, within: session.spans)
     }
@@ -99,7 +102,8 @@ extension SessionStore {
     /// Grouped sittings for one app on the selected day.
     func sessions(for bundleID: String) -> [AppSession] {
         guard let usage else { return [] }
-        return DashboardStats(sessions: engine.archive, usage: usage)
+        return DashboardStats(sessions: engine.archive, usage: usage,
+                              usageSnapshot: effectiveUsageSnapshot)
             .sessions(for: selectedDay, bundleID: bundleID)
             .sorted { $0.start > $1.start }
     }
@@ -107,14 +111,16 @@ extension SessionStore {
     /// Minutes per hour for one app, for the drill-down strip.
     func hourlyBuckets(for bundleID: String) -> [HourBucket] {
         guard let usage else { return [] }
-        return DashboardStats(sessions: engine.archive, usage: usage)
+        return DashboardStats(sessions: engine.archive, usage: usage,
+                              usageSnapshot: effectiveUsageSnapshot)
             .hourlyBuckets(for: selectedDay, bundleID: bundleID)
     }
 
     /// `9:02 am – 4:41 pm` for one app on the selected day.
     func span(for bundleID: String) -> (start: Date, end: Date)? {
         guard let usage else { return nil }
-        return DashboardStats(sessions: engine.archive, usage: usage)
+        return DashboardStats(sessions: engine.archive, usage: usage,
+                              usageSnapshot: effectiveUsageSnapshot)
             .span(for: selectedDay, bundleID: bundleID)
     }
 
@@ -168,13 +174,16 @@ extension SessionStore {
     private func rebuildGlance() {
         guard let usage else { return }
         let today = Date()
-        let stats = DashboardStats(sessions: engine.archive, usage: usage)
+        let usageSnapshot = effectiveUsageSnapshot
+        let stats = DashboardStats(sessions: engine.archive, usage: usage,
+                                   usageSnapshot: usageSnapshot)
         glanceApps = stats.rankedApps(for: today)
         glanceInsights = stats.insights(for: today)
         glanceTimeline = stats.timeline(for: today)
         glanceBrackets = stats.focusSpans(for: today).map { ($0.start, $0.end) }
         glanceLayout = TimelineLayout(segments: glanceTimeline)
         threadsToday = ThreadStats(sessions: engine.archive, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    purposeOverrides: engine.store.purposeOverrides)
             .threads(on: today, running: runningThread())
     }
@@ -183,7 +192,9 @@ extension SessionStore {
     /// Called only by the visibility gate above.
     private func rebuildDashboard() {
         guard let usage else { return }
-        let stats = DashboardStats(sessions: engine.archive, usage: usage)
+        let usageSnapshot = effectiveUsageSnapshot
+        let stats = DashboardStats(sessions: engine.archive, usage: usage,
+                                   usageSnapshot: usageSnapshot)
         let day = selectedDay
 
         rankedApps = stats.rankedApps(for: day)
@@ -197,26 +208,30 @@ extension SessionStore {
             for: day,
             // Keep this in step with `sessionsToday`: without it the same screen
             // reads "1 session today" and "No sessions yet today".
-            runningSeconds: (state != .idle && dayOffset == 0) ? engine.elapsed : nil)
+            runningSeconds: (state != .idle && dayOffset == 0) ? engine.elapsedToday() : nil)
         insights = stats.insights(for: day)
         trackedForSelectedDay = stats.trackedTotal(for: day)
         trackedYesterday = Calendar.current.date(byAdding: .day, value: -1, to: day)
             .map { stats.trackedTotal(for: $0) } ?? 0
         sessionsForSelectedDay = engine.archive.threadCount(on: day)
         focusedForSelectedDay = engine.archive.workSeconds(on: day)
+        focusedActiveForSelectedDay = focusedActiveSeconds(on: day,
+                                                           usageSnapshot: usageSnapshot)
         let longest = engine.archive.longestThread(on: day)
         longestForSelectedDay = longest?.seconds ?? 0
         // Unnamed work is named by its type, as the Sessions card and the
         // summary name it.
         longestNameForSelectedDay = longest.map { $0.name.isEmpty ? $0.workType.displayName : $0.name }
         earliestDay = stats.earliestRecordedDay()
-        let selectedBounds = PeriodStats(sessions: engine.archive, usage: usage)
+        let selectedBounds = PeriodStats(sessions: engine.archive, usage: usage,
+                                         usageSnapshot: usageSnapshot)
             .bounds(for: period, containing: day)
+        let accuracyEpoch = usageSnapshot?.accurateFrom ?? usage.metadata.accurateFrom
         if usage.containsUsage(in: DateInterval(start: selectedBounds.start,
                                                 end: selectedBounds.end),
-                               before: usage.metadata.accurateFrom) {
+                                                before: accuracyEpoch) {
             selectedDayIntegrityNote = "App usage from before "
-                + "\(Tokens.longDate(usage.metadata.accurateFrom)) was preserved "
+                + "\(Tokens.longDate(accuracyEpoch)) was preserved "
                 + "and may include unattended time."
         } else {
             selectedDayIntegrityNote = nil
@@ -234,14 +249,16 @@ extension SessionStore {
             clearSession()
         }
 
-        let rollup = PeriodStats(sessions: engine.archive, usage: usage)
+        let rollup = PeriodStats(sessions: engine.archive, usage: usage,
+                                 usageSnapshot: usageSnapshot)
             .rollup(for: period, containing: day)
         periodDays = rollup.days
         periodLog = rollup.log
         periodAppGroups = PeriodStats.appGroups(from: rollup.log)
         periodDayTotals = rollup.dayTotals
         periodSummary = rollup.summary
-        previousPeriodTracked = PeriodStats(sessions: engine.archive, usage: usage)
+        previousPeriodTracked = PeriodStats(sessions: engine.archive, usage: usage,
+                                            usageSnapshot: usageSnapshot)
             .previousPeriodTracked(for: period, containing: day)
 
         // Charts. The rhythm is the day's segments re-cut by the hour; the
@@ -386,6 +403,7 @@ extension SessionStore {
     func threadApps(_ thread: ThreadSummary) -> ThreadApps {
         guard let usage else { return .none }
         return ThreadStats(sessions: engine.archive, usage: usage,
+                           usageSnapshot: effectiveUsageSnapshot,
                            purposeOverrides: engine.store.purposeOverrides)
             .apps(for: thread, on: Date())
     }
@@ -426,9 +444,9 @@ extension SessionStore {
     /// Total tracked time for an app today — what "time spent" means once a
     /// session has been continued one or more times.
     func totalToday(for bundleID: String) -> TimeInterval {
-        guard let usage else { return 0 }
+        guard let sessions = effectiveUsageSnapshot?.sessions else { return 0 }
         let calendar = Calendar.current
-        return usage.sessions
+        return sessions
             .filter { $0.bundleID == bundleID && calendar.isDateInToday($0.end) }
             .reduce(0) { $0 + $1.seconds }
     }

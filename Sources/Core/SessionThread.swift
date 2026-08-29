@@ -42,17 +42,20 @@ struct ThreadStats {
 
     private let sessions: SessionArchive
     private let usage: AppUsageArchive
+    private let usageSnapshot: AppUsageSnapshot?
     private let overrides: [String: String]
     private let calendar: Calendar
     private let now: () -> Date
 
     init(sessions: SessionArchive,
          usage: AppUsageArchive,
+         usageSnapshot: AppUsageSnapshot? = nil,
          purposeOverrides: [String: String] = [:],
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init) {
         self.sessions = sessions
         self.usage = usage
+        self.usageSnapshot = usageSnapshot
         self.overrides = purposeOverrides
         self.calendar = calendar
         self.now = now
@@ -147,7 +150,7 @@ struct ThreadStats {
         guard !ranges.isEmpty else { return .none }
 
         var totals: [String: (name: String, total: TimeInterval, longest: TimeInterval)] = [:]
-        for session in usage.sessions {
+        for session in usageSnapshot?.sessions ?? usage.sessions {
             var attended: TimeInterval = 0
             var longest: TimeInterval = 0
             for range in ranges {

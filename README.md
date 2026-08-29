@@ -149,10 +149,12 @@ to. Sessions shorter than 30 s are never written at all.
 ### Which day does work belong to?
 
 A record carries `start`, `end` and `workSeconds`, and its span is normally larger than
-its work. `SessionRecord.workSeconds(in:)` spreads the work evenly across the span and is
-the **single rule** every per-day query uses — `todayTotal`, `weekBars`, `currentStreak`,
-`bestStreak`, `focusedSameWeekdayLastWeek`, the goal bar, the pace median, and
-`focusQuality`.
+its work. `SessionRecord.workSeconds(in:)` spreads declared session work evenly across the
+span for raw focus totals, week bars, streaks and work-type composition. Goal achievement
+and usual pace apply a second evidence layer: `FocusedActiveTime` intersects those declared
+focus intervals with the authoritative hands-on app-usage snapshot, then caps each record
+at its credited work. Neither a session clock alone nor unrelated computer use can fill a
+focus goal.
 
 It replaces filing each record under the day it *ended*, which was the largest single
 source of wrong numbers here. A session begun Friday afternoon and stopped Sunday evening
@@ -164,7 +166,10 @@ attribution was a guess too, and an unbounded one. The span cap above keeps the 
 small.
 
 The running session is split the same way by `SessionEngine.elapsedToday()`, so a session
-started before midnight cannot donate last night's hours to this morning's goal.
+started before midnight cannot donate last night's hours to this morning's goal or
+work-type share. Historical pace begins only after the app-usage `accurateFrom` epoch, and
+historical goal rings use the same focused-active intersection while leaving raw Focused
+statistics intact.
 
 The time that passes while the card is up **is** counted. That rule once ran the other
 way, written for a blocking alert that has since been replaced by a passive card: with
@@ -275,6 +280,10 @@ session field, copies its original bytes to
 `app-usage-v1-backup-<unix timestamp>.json`, then writes the v2 envelope. Open stretches
 use one stable identity: periodic checkpoints replace that record rather than appending
 fragments, and later idle evidence can shorten or remove its provisional tail.
+While a write is pending, every live and historical consumer reads one in-memory snapshot:
+pending records replace durable records by stable UUID, including backward corrections,
+and newly confirmed intervals append once. The durable history remains untouched until the
+checkpoint succeeds.
 
 Everything is local. Nothing is transmitted, and no Accessibility, Automation, Screen
 Recording or Input Monitoring permission is requested — the global hotkey uses Carbon's

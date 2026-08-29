@@ -94,6 +94,10 @@ enum SelfTest {
             ("App activation updates a waiting usage candidate", testWaitingActivationUpdatesCandidate),
             ("Wake activation defers engine work and automation until presence",
              testWakeActivationDefersEngineAndAutomation),
+            ("An unprepared wake activation remains non-recording",
+             testUnpreparedWakeActivationRemainsGated),
+            ("Launch never seeds usage behind a lock or sleeping display",
+             testLaunchUsageSeedRequiresVisiblePresence),
             ("Usage tracker lifecycle callbacks publish only final states",
              testUsageTrackerLifecycleCallbacks),
             ("Legacy app usage migration preserves history", testLegacyUsageMigrationPreservesHistory),
@@ -108,6 +112,10 @@ enum SelfTest {
              testConfirmedPendingUsageSurvivesLaterLifecycleEvents),
             ("Queued usage intervals reconcile tracked and focused-active totals",
              testQueuedUsageIntervalsFeedFocusedActiveTotals),
+            ("Pending usage retries even without a minute of additive tail",
+             testPendingUsageRetriesWithoutTailThreshold),
+            ("Pending usage overlays durable UUIDs across every consumer",
+             testAuthoritativePendingUsageOverlay),
             ("Failed usage preservation keeps source evidence read-only",
              testUsagePreservationFailureFailsClosed),
             ("Future usage schema stays byte-identical and read-only",
@@ -216,6 +224,8 @@ enum SelfTest {
              testShadowAwaySurvivesRelaunch),
             ("Sessions, Focused and Longest follow the selected day",
              testDayScopedSessionFigures),
+            ("Historical goal status uses focused-active time",
+             testHistoricalGoalStatusUsesFocusedActiveTime),
             ("Palette: seven distinct app colours, both appearances, total work types",
              testPalette),
             ("Menu-bar glyph renders a template ring for every state", testMenuBarGlyph),
@@ -239,6 +249,8 @@ enum SelfTest {
              testSessionDigest),
             ("Day digest and focus metrics stay clipped to the selected day",
              testDayDigestAndFocusAreDayScoped),
+            ("Live focus quality clips running work at midnight",
+             testLiveFocusQualityClipsAtMidnight),
             ("Apps within a session's spans: intersected, ranked, shares of the inside",
              testAppsWithinSpans),
             ("Summary text: every clause gated on its figure; empty days say so",
@@ -1475,6 +1487,63 @@ enum SelfTest {
         return problems
     }
 
+    /// Wake preparation can legitimately find no ordinary frontmost app. A
+    /// later workspace activation is still machine evidence, not permission for
+    /// a stopped tracker to begin before the shared presence gate confirms it.
+    private static func testUnpreparedWakeActivationRemainsGated() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let directory = scratchDirectory()
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                      idle: .disabled, now: { clock.value })
+        let engine = makeEngine(clock)
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+
+        store.noteMachineWake()
+        let delivered = store.handleApplicationActivation(
+            bundleID: "com.example.editor", name: "Editor")
+        clock.advance(60)
+        tracker.flush()
+
+        expect(!delivered && tracker.currentBundleID == nil,
+               "an unprepared wake activation must remain a waiting candidate", &problems)
+        expect(usage.sessions.isEmpty,
+               "an unprepared wake activation records nothing before presence", &problems)
+
+        let confirmedAt = clock.value
+        store.confirmPresence(at: confirmedAt)
+        clock.advance(60)
+        tracker.flush()
+        expectClose(usage.sessions.first?.start.timeIntervalSince(confirmedAt) ?? -1, 0,
+                    "usage begins at confirmed presence rather than machine activation", &problems)
+        expectClose(usage.sessions.first?.seconds ?? -1, 60,
+                    "only post-confirmation usage is retained", &problems)
+        return problems
+    }
+
+    /// Initial frontmost-app seeding is permitted only when the display can
+    /// actually be in front of a person. An unlocked but sleeping display is as
+    /// absent as a locked one and must wait for later presence evidence.
+    private static func testLaunchUsageSeedRequiresVisiblePresence() -> [String] {
+        var problems: [String] = []
+        let cases: [(locked: Bool, asleep: Bool, expected: Bool, label: String)] = [
+            (false, false, true, "unlocked and awake"),
+            (true, false, false, "locked and awake"),
+            (false, true, false, "unlocked and asleep"),
+            (true, true, false, "locked and asleep")
+        ]
+        for item in cases {
+            let actual = AppCoordinator.permitsInitialUsageSeed(
+                screenLocked: item.locked, displayAsleep: item.asleep)
+            expect(actual == item.expected,
+                   "launch seed policy for \(item.label) expected \(item.expected), got \(actual)",
+                   &problems)
+        }
+        return problems
+    }
+
     /// The callback is a lifecycle boundary, not an early mutation notice. A
     /// same-app confirmation must publish active, and suspend must publish
     /// stopped only after its checkpoint has settled.
@@ -2038,8 +2107,7 @@ enum SelfTest {
         expectClose(store.goal.achieved, 21 * 60,
                     "focused-active time includes every disjoint queued interval", &problems)
 
-        let rewardUsage = AppCoordinator.usageForRewardGoal(
-            durable: usage.sessions, tracker: tracker)
+        let rewardUsage = AppUsageSnapshot(archive: usage, tracker: tracker).sessions
         let rewardGoal = DailyGoal(archive: engine.archive,
                                    goal: engine.store.dailyGoal,
                                    usage: rewardUsage,
@@ -2050,6 +2118,181 @@ enum SelfTest {
         expectClose(rewardGoal.achievedToday(), 21 * 60,
                     "reward focused-active time includes every disjoint queued interval",
                     &problems)
+        return problems
+    }
+
+    /// Persistence state, not the size of an additive tail, drives the existing
+    /// minute cadence. A short terminal close and an idle correction behind the
+    /// durable checkpoint are both immutable pending writes that must retry.
+    private static func testPendingUsageRetriesWithoutTailThreshold() -> [String] {
+        var problems: [String] = []
+
+        do {
+            let clock = Clock(base)
+            let root = scratchDirectory()
+            let directory = root.appendingPathComponent("usage")
+            let savedDirectory = root.appendingPathComponent("saved-usage")
+            let usage = AppUsageArchive(directory: directory, now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+
+            tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+            clock.advance(10 * 60)
+            tracker.flush()
+            clock.advance(30)
+            try? FileManager.default.moveItem(at: directory, to: savedDirectory)
+            try? Data("blocked".utf8).write(to: directory)
+            tracker.suspend()
+
+            expectClose(tracker.unpersistedSeconds(), 30,
+                        "the failed terminal close has only a sub-minute tail", &problems)
+            expect(tracker.openSeconds(exceeds: 60),
+                   "a sub-minute pending close must request the persistence cadence", &problems)
+
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.moveItem(at: savedDirectory, to: directory)
+            if tracker.openSeconds(exceeds: 60) { tracker.flush() }
+            expectClose(usage.sessions.first?.seconds ?? -1, 10.5 * 60,
+                        "the cadence retries and persists the short frozen close", &problems)
+        }
+
+        do {
+            let clock = Clock(base)
+            let root = scratchDirectory()
+            let directory = root.appendingPathComponent("usage")
+            let savedDirectory = root.appendingPathComponent("saved-usage")
+            let usage = AppUsageArchive(directory: directory, now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+
+            tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+            clock.advance(10 * 60)
+            tracker.flush()
+            clock.advance(2 * 60)
+            try? FileManager.default.moveItem(at: directory, to: savedDirectory)
+            try? Data("blocked".utf8).write(to: directory)
+            tracker.observeIdle(seconds: 7 * 60)
+
+            expectClose(tracker.unpersistedSeconds(), 0,
+                        "a backward correction has no additive tail", &problems)
+            expect(tracker.openSeconds(exceeds: 60),
+                   "a backward correction must still request the persistence cadence", &problems)
+
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.moveItem(at: savedDirectory, to: directory)
+            if tracker.openSeconds(exceeds: 60) { tracker.flush() }
+            expectClose(usage.sessions.first?.seconds ?? -1, 5 * 60,
+                        "the cadence retries and persists the backward correction", &problems)
+            expect(usage.sessions.first?.endReason == .idle,
+                   "the retried correction retains its idle reason", &problems)
+        }
+
+        return problems
+    }
+
+    /// Pending usage is the current truth for its stable UUID. It replaces a
+    /// durable checkpoint in memory—possibly with an earlier end—and supplies
+    /// queued UUIDs to the live, dashboard, period, goal and reward paths while
+    /// the on-disk archive remains untouched.
+    private static func testAuthoritativePendingUsageOverlay() -> [String] {
+        var problems: [String] = []
+
+        do {
+            let clock = Clock(base)
+            let root = scratchDirectory()
+            let directory = root.appendingPathComponent("usage")
+            let savedDirectory = root.appendingPathComponent("saved-usage")
+            let usage = AppUsageArchive(directory: directory, now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let engine = makeEngine(clock)
+            engine.start(workType: .deepWork, intent: "Correct checkpoint")
+
+            tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+            clock.advance(10 * 60)
+            tracker.flush()
+            let stableID = usage.sessions.first?.id
+            clock.advance(2 * 60)
+            try? FileManager.default.moveItem(at: directory, to: savedDirectory)
+            try? Data("blocked".utf8).write(to: directory)
+            tracker.observeIdle(seconds: 7 * 60)
+
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.setDashboardVisible(true)
+
+            expectClose(usage.sessions.first?.seconds ?? -1, 10 * 60,
+                        "the durable archive remains untouched while correction is pending",
+                        &problems)
+            expectClose(store.trackedToday, 5 * 60,
+                        "the live tracked total replaces the durable checkpoint", &problems)
+            expectClose(store.goal.achieved, 5 * 60,
+                        "the live goal uses the corrected hands-on interval", &problems)
+            expectClose(store.trackedForSelectedDay, 5 * 60,
+                        "the dashboard total uses the corrected interval", &problems)
+            expectClose(store.rankedApps.first?.total ?? -1, 5 * 60,
+                        "the dashboard app ranking uses the corrected interval", &problems)
+            expect(store.timelineSegments.count == 1
+                       && store.timelineSegments.first?.id == stableID,
+                   "the dashboard keeps one stable corrected UUID", &problems)
+
+            let rewardUsage = AppUsageSnapshot(archive: usage, tracker: tracker).sessions
+            expect(rewardUsage.count == 1 && rewardUsage.first?.id == stableID,
+                   "the reward path replaces rather than duplicates the pending UUID", &problems)
+            expectClose(rewardUsage.first?.seconds ?? -1, 5 * 60,
+                        "the reward path sees the backward correction", &problems)
+        }
+
+        do {
+            let clock = Clock(base)
+            let root = scratchDirectory()
+            let directory = root.appendingPathComponent("usage")
+            let savedDirectory = root.appendingPathComponent("saved-usage")
+            let usage = AppUsageArchive(directory: directory, now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let engine = makeEngine(clock)
+
+            tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+            clock.advance(10 * 60)
+            tracker.flush()
+            clock.advance(60)
+            try? FileManager.default.moveItem(at: directory, to: savedDirectory)
+            try? Data("blocked".utf8).write(to: directory)
+            tracker.suspend()
+            clock.advance(4 * 60)
+            tracker.prepareToResume(bundleID: "com.example.browser", name: "Browser")
+            tracker.confirmPresence(at: clock.value)
+            clock.advance(5 * 60)
+            tracker.appActivated(bundleID: "com.example.xcode", name: "Xcode")
+            clock.advance(5 * 60)
+
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.setDashboardVisible(true)
+
+            expectClose(store.trackedForSelectedDay, 21 * 60,
+                        "the Day dashboard includes every queued confirmed interval", &problems)
+            expectClose(store.rankedApps.reduce(0) { $0 + $1.total }, 21 * 60,
+                        "the Day app rows reconcile with the queued total", &problems)
+            expect(Set(store.timelineSegments.map(\.id)).count == 3,
+                   "the Day timeline contains the three authoritative UUIDs", &problems)
+
+            store.period = .week
+            expectClose(store.periodSummary.tracked, 21 * 60,
+                        "the Week total includes every queued confirmed interval", &problems)
+            expectClose(store.periodDays.reduce(0) { $0 + $1.tracked }, 21 * 60,
+                        "the Week bars reconcile with their queued total", &problems)
+
+            store.period = .month
+            expectClose(store.periodSummary.tracked, 21 * 60,
+                        "the Month total includes every queued confirmed interval", &problems)
+            expectClose(store.periodDays.reduce(0) { $0 + $1.tracked }, 21 * 60,
+                        "the Month bars reconcile with their queued total", &problems)
+            expectClose(usage.sessions.first?.seconds ?? -1, 10 * 60,
+                        "period views do not rewrite the durable checkpoint", &problems)
+        }
+
         return problems
     }
 
@@ -6102,6 +6345,67 @@ enum SelfTest {
         return problems
     }
 
+    /// Historical focus remains a raw session statistic, but every goal claim
+    /// must use the same declared-session ∩ authoritative-hands-on measure as
+    /// today. Five unattended session hours cannot meet a four-hour goal when
+    /// only one hour intersects app usage.
+    private static func testHistoricalGoalStatusUsesFocusedActiveTime() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: clock.value)
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+              let accurateFrom = calendar.date(byAdding: .day, value: -1, to: yesterday) else {
+            return ["could not make authoritative historical days"]
+        }
+        let directory = scratchDirectory()
+        let archive = SessionArchive(directory: directory, calendar: calendar,
+                                     now: { clock.value })
+        archive.append(SessionRecord(name: "Unattended build", workType: .deepWork,
+                                     start: yesterday.addingTimeInterval(9 * 3_600),
+                                     end: yesterday.addingTimeInterval(14 * 3_600),
+                                     workSeconds: 5 * 3_600))
+        let usage = AppUsageArchive(directory: directory, calendar: calendar,
+                                    now: { accurateFrom })
+        usage.record(AppUsageSession(bundleID: "com.example.editor", appName: "Editor",
+                                     start: yesterday.addingTimeInterval(9 * 3_600),
+                                     end: yesterday.addingTimeInterval(10 * 3_600)))
+
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let persistence = PersistenceStore(defaults: defaults)
+        persistence.removeAll()
+        persistence.dailyGoal = 4 * 3_600
+        let engine = SessionEngine(store: persistence, archive: archive,
+                                   ownBundleID: "com.example.self",
+                                   schedulesDwell: false, now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                      idle: .disabled, now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+        store.setDashboardVisible(true)
+        store.selectDay(offset: 1)
+
+        expectClose(store.focusedForSelectedDay, 5 * 3_600,
+                    "the historical Focused statistic retains raw session work", &problems)
+        expectClose(store.selectedDayGoal.achieved, 3_600,
+                    "the historical goal ring uses focused-active time", &problems)
+        expect(!store.selectedDayGoal.isMet,
+               "one hands-on hour cannot meet a four-hour historical goal", &problems)
+        expect(!store.selectedDaySummary.contains("goal met"),
+               "the historical title must not claim the raw session met the goal", &problems)
+        let daySummary = SummaryText.plain(store.summarySentences)
+        expect(daySummary.contains("3h short of the 4h goal"),
+               "historical shortfall copy uses focused-active achievement: \(daySummary)",
+               &problems)
+
+        store.period = .week
+        let periodSummary = SummaryText.plain(store.summarySentences)
+        expect(periodSummary.contains("without meeting the 4h goal on any day"),
+               "period goal-day status uses focused-active achievement: \(periodSummary)",
+               &problems)
+        return problems
+    }
+
     // MARK: - 80
 
     /// Seven distinct app colours in both appearances, clamped past the end,
@@ -6712,6 +7016,52 @@ enum SelfTest {
                "the break does not increase the focus session count, got \(quality.sessionCount)", &problems)
         expect(quality.byWorkType.allSatisfy { $0.workType != WorkType.breakTime },
                "the break is absent from focus work-type shares", &problems)
+        return problems
+    }
+
+    /// A running stretch can begin yesterday while the dashboard is showing
+    /// today. Its work-type credit must be the overlap since local midnight,
+    /// otherwise last night's work inflates today's focus-quality composition.
+    private static func testLiveFocusQualityClipsAtMidnight() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: base)
+        let clock = Clock(day.addingTimeInterval(-30 * 60))
+        let directory = scratchDirectory()
+        let archive = SessionArchive(directory: directory, calendar: calendar,
+                                     now: { clock.value })
+        archive.append(SessionRecord(name: "Morning admin", workType: .admin,
+                                     start: day, end: day.addingTimeInterval(30 * 60),
+                                     workSeconds: 30 * 60))
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let persistence = PersistenceStore(defaults: defaults)
+        persistence.removeAll()
+        let engine = SessionEngine(store: persistence, archive: archive,
+                                   ownBundleID: "com.example.self",
+                                   schedulesDwell: false, now: { clock.value })
+        engine.start(workType: .deepWork, intent: "Overnight deploy")
+        clock.advance(60 * 60)
+
+        let usage = AppUsageArchive(directory: directory, calendar: calendar,
+                                    now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                      idle: .disabled, now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+        store.setDashboardVisible(true)
+
+        let deep = store.focusQuality.byWorkType.first { $0.workType == .deepWork }
+        let admin = store.focusQuality.byWorkType.first { $0.workType == .admin }
+        expectClose(engine.elapsed, 60 * 60,
+                    "the underlying running stretch still spans the full hour", &problems)
+        expectClose(engine.elapsedToday(), 30 * 60,
+                    "only thirty running minutes belong to today", &problems)
+        expectClose(deep?.seconds ?? -1, 30 * 60,
+                    "today's live Deep Work quality credit is midnight-clipped", &problems)
+        expectClose(admin?.seconds ?? -1, 30 * 60,
+                    "today's archived Admin quality credit remains thirty minutes", &problems)
+        expectClose(deep?.share ?? -1, 0.5,
+                    "today's work-type share excludes last night's running portion", &problems)
         return problems
     }
 

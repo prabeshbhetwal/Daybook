@@ -91,6 +91,10 @@ final class SessionStore: ObservableObject {
     /// today's Sessions, Focused and Longest — four figures, two days.
     @Published var sessionsForSelectedDay = 0
     @Published var focusedForSelectedDay: TimeInterval = 0
+    /// Goal credit for the selected day: declared focus intersected with the
+    /// authoritative usage snapshot. Kept separate from raw session work so the
+    /// Focused statistic remains a record of the declared session.
+    @Published var focusedActiveForSelectedDay: TimeInterval = 0
     @Published var longestForSelectedDay: TimeInterval = 0
     @Published var longestNameForSelectedDay: String?
     /// 0 = today, 1 = yesterday, and so on back through history.
@@ -239,6 +243,27 @@ final class SessionStore: ObservableObject {
     var usage: AppUsageArchive?
     private var ticker: Timer?
 
+    /// The sole read model for live and historical consumers. Pending tracker
+    /// records replace durable records by stable UUID in memory; the archive's
+    /// bytes and accuracy epoch remain unchanged until a write succeeds.
+    var effectiveUsageSnapshot: AppUsageSnapshot? {
+        guard let usage else { return nil }
+        return AppUsageSnapshot(archive: usage, tracker: tracker)
+    }
+
+    func focusedActiveSeconds(on day: Date,
+                              usageSnapshot: AppUsageSnapshot? = nil) -> TimeInterval {
+        guard let snapshot = usageSnapshot ?? effectiveUsageSnapshot else { return 0 }
+        let calendar = Calendar.current
+        let includesRunning = engine.state != .idle
+            && calendar.isDate(day, inSameDayAs: now())
+        return FocusedActiveTime.seconds(
+            on: day, records: engine.archive.records, usage: snapshot.sessions,
+            running: includesRunning ? engine.runningSpan : nil,
+            runningWork: includesRunning ? engine.elapsedToday() : nil,
+            calendar: calendar)
+    }
+
     init(engine: SessionEngine,
          now: @escaping () -> Date = Date.init) {
         self.engine = engine
@@ -374,10 +399,11 @@ final class SessionStore: ObservableObject {
     func handleApplicationActivation(bundleID: String?, name: String) -> Bool {
         var delivered = false
         withRefreshTransaction {
-            tracker?.appActivated(bundleID: bundleID, name: name)
             if presenceGate.isAwaitingConfirmation {
+                tracker?.prepareToResume(bundleID: bundleID, name: name)
                 pendingWakeActivation = (bundleID, name)
             } else {
+                tracker?.appActivated(bundleID: bundleID, name: name)
                 engine.transition(on: .appActivated(bundleID: bundleID, name: name))
                 delivered = true
             }
@@ -417,6 +443,7 @@ final class SessionStore: ObservableObject {
     /// beneath it counted on, so the two disagreed by however long you looked.
     private func refreshLiveFigures(at moment: Date? = nil) {
         let moment = moment ?? now()
+        let usageSnapshot = effectiveUsageSnapshot
         // `engine.state`, not the published mirror: `state` is updated on an
         // async hop, and several callers refresh synchronously right after
         // mutating the engine, when the mirror still says `.idle`.
@@ -432,8 +459,8 @@ final class SessionStore: ObservableObject {
         goal = GoalProgress(goal: engine.store.dailyGoal,
                             achieved: DailyGoal(archive: engine.archive,
                                                 goal: engine.store.dailyGoal,
-                                                usage: focusedActiveUsage,
-                                                usageAccurateFrom: usage?.metadata.accurateFrom,
+                                                usage: usageSnapshot?.sessions ?? [],
+                                                usageAccurateFrom: usageSnapshot?.accurateFrom,
                                                 running: engine.runningSpan,
                                                 runningWork: inFlight,
                                                 now: { moment })
@@ -442,26 +469,17 @@ final class SessionStore: ObservableObject {
         // Re-read rather than adding the open stretch to a cached total. The
         // cached version missed every segment that opened *and closed* between
         // refreshes, so the figure went backwards on each app switch.
-        if let usage {
-            trackedToday = usage.totalToday()
-                + (tracker?.unpersistedSeconds(on: moment, calendar: .current) ?? 0)
+        if let usageSnapshot {
+            trackedToday = usageSnapshot.total(on: moment)
         }
     }
 
-    /// Usage already committed to the archive plus every unsaved interval.
-    /// `FocusedActiveTime` merges overlaps, so a checkpoint boundary can never
-    /// double-count the same second.
-    private var focusedActiveUsage: [AppUsageSession] {
-        var sessions = usage?.sessions ?? []
-        if let pending = tracker?.unpersistedSessions() { sessions.append(contentsOf: pending) }
-        return sessions
-    }
-
     private func refreshTypical(at moment: Date) {
+        let usageSnapshot = effectiveUsageSnapshot
         cachedTypical = DailyGoal(archive: engine.archive,
                                   goal: engine.store.dailyGoal,
-                                  usage: focusedActiveUsage,
-                                  usageAccurateFrom: usage?.metadata.accurateFrom,
+                                  usage: usageSnapshot?.sessions ?? [],
+                                  usageAccurateFrom: usageSnapshot?.accurateFrom,
                                   running: engine.runningSpan,
                                   now: { moment }).typical()
         cachedTypicalMinute = Calendar.current.dateInterval(of: .minute,
@@ -483,14 +501,15 @@ final class SessionStore: ObservableObject {
     /// Continuous computer use, session or not: the case that hurts is grinding
     /// for hours without ever pressing Start.
     private func refreshBreak() {
-        guard let usage, engine.store.remindersEnabled else {
+        guard let usageSnapshot = effectiveUsageSnapshot,
+              engine.store.remindersEnabled else {
             breakCountdown = 0
             isBreakDue = false
             nextBreakTier = nil
             return
         }
         let moment = Date()
-        let result = BreakReminder.evaluate(usage.sessions, now: moment,
+        let result = BreakReminder.evaluate(usageSnapshot.sessions, now: moment,
                                             last: engine.store.lastBreakNotice)
         breakCountdown = result.next?.seconds ?? 0
         nextBreakTier = result.next?.tier
@@ -600,8 +619,8 @@ final class SessionStore: ObservableObject {
             // switch with it — `applicationWillTerminate` does not run for any
             // of those. Bounded to a minute now, instead of unbounded.
             if self.tick % SessionStore.flushEverySeconds == 0 {
-                if (self.tracker?.unpersistedSeconds() ?? 0) >=
-                        TimeInterval(SessionStore.flushEverySeconds) {
+                if self.tracker?.openSeconds(
+                    exceeds: TimeInterval(SessionStore.flushEverySeconds)) == true {
                     self.tracker?.flush()
                 }
                 // The engine's snapshot has the same problem: `savedAt` is the

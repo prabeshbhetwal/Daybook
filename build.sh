@@ -44,17 +44,112 @@ PROMOTION_PATHS_TOUCHED=0
 PRESERVE_PROMOTION_LOCK=0
 RECOVERY_GUARD_HELD=0
 PRESERVE_RECOVERY_GUARD=0
+OWNER_MARKER_IDENTITY=""
+RECOVERY_GUARD_IDENTITY=""
+RECOVERY_GUARD_OWNER_IDENTITY=""
+CANDIDATE_APP_IDENTITY=""
+BACKUP_APP_IDENTITY=""
+PROMOTED_LOCAL_IDENTITY=""
+
+path_exists() {
+  [ -e "$1" ] || [ -L "$1" ]
+}
+
+path_is_missing() {
+  [ ! -e "$1" ] && [ ! -L "$1" ]
+}
+
+real_regular_file() {
+  [ -f "$1" ] && [ ! -L "$1" ]
+}
+
+real_directory() {
+  [ -d "$1" ] && [ ! -L "$1" ]
+}
+
+entry_identity() {
+  stat -f '%d:%i' "$1" 2>/dev/null
+}
+
+same_real_file() {
+  expected_identity="$2"
+  real_regular_file "$1" \
+    && [ -n "${expected_identity}" ] \
+    && [ "$(entry_identity "$1")" = "${expected_identity}" ]
+}
+
+same_real_directory() {
+  expected_identity="$2"
+  real_directory "$1" \
+    && [ -n "${expected_identity}" ] \
+    && [ "$(entry_identity "$1")" = "${expected_identity}" ]
+}
+
+require_real_directory() {
+  managed_path="$1"
+  managed_label="$2"
+  if [ -L "${managed_path}" ]; then
+    echo "error: ${managed_label} is a symlink; preserving it" >&2
+    return 1
+  fi
+  if [ ! -d "${managed_path}" ]; then
+    echo "error: ${managed_label} is not a real directory; preserving it" >&2
+    return 1
+  fi
+}
+
+create_owner_file() {
+  owner_path="$1"
+  owner_payload="$2"
+  owner_label="$3"
+  if ! path_is_missing "${owner_path}"; then
+    echo "error: ${owner_label} already exists or is a broken symlink; preserving it" >&2
+    return 1
+  fi
+  if ! (set -o noclobber; printf '%s' "${owner_payload}" > "${owner_path}") 2>/dev/null; then
+    echo "error: could not create ${owner_label} exclusively" >&2
+    return 1
+  fi
+  if ! real_regular_file "${owner_path}"; then
+    echo "error: ${owner_label} is not a real regular file; preserving it" >&2
+    return 1
+  fi
+}
+
+find_single_owner_for_identity() {
+  sought_identity="$1"
+  OWNER_MATCH_PATH=""
+  owner_matches=0
+  for possible_owner in "${PROMOTION_ROOT}"/promotion-owner.*; do
+    if real_regular_file "${possible_owner}" \
+        && [ "$(entry_identity "${possible_owner}")" = "${sought_identity}" ]; then
+      OWNER_MATCH_PATH="${possible_owner}"
+      owner_matches=$((owner_matches + 1))
+    fi
+  done
+  [ "${owner_matches}" -eq 1 ]
+}
 
 recovery_guard_exists() {
-  [ -e "${RECOVERY_GUARD}" ] || [ -L "${RECOVERY_GUARD}" ]
+  path_exists "${RECOVERY_GUARD}"
 }
 
 recovery_guard_owned_by_current_run() {
-  if [ ! -f "${RECOVERY_GUARD_OWNER}" ]; then
+  if ! same_real_directory "${RECOVERY_GUARD}" "${RECOVERY_GUARD_IDENTITY}" \
+      || ! same_real_file "${RECOVERY_GUARD_OWNER}" \
+          "${RECOVERY_GUARD_OWNER_IDENTITY}"; then
     return 1
   fi
+  guard_owner_identity_before="$(entry_identity "${RECOVERY_GUARD_OWNER}")" \
+    || return 1
   guard_pid="$(sed -n 's/^pid=//p' "${RECOVERY_GUARD_OWNER}" | head -n 1)"
   guard_run_id="$(sed -n 's/^run_id=//p' "${RECOVERY_GUARD_OWNER}" | head -n 1)"
+  guard_owner_identity_after="$(entry_identity "${RECOVERY_GUARD_OWNER}")" \
+    || return 1
+  if [ "${guard_owner_identity_before}" != "${guard_owner_identity_after}" ] \
+      || [ "${guard_owner_identity_after}" != "${RECOVERY_GUARD_OWNER_IDENTITY}" ]; then
+    return 1
+  fi
   [ "${guard_pid}" = "$$" ] && [ "${guard_run_id}" = "${RUN_ID}" ]
 }
 
@@ -63,53 +158,124 @@ release_recovery_guard() {
     return 0
   fi
 
-  if [ "${PRESERVE_RECOVERY_GUARD}" -eq 0 ] \
-      && recovery_guard_owned_by_current_run; then
-    rm -f "${RECOVERY_GUARD_OWNER}"
-    if ! rmdir "${RECOVERY_GUARD}" 2>/dev/null; then
-      if [ -d "${RECOVERY_GUARD}" ]; then
-        printf 'pid=%s\nrun_id=%s\n' "$$" "${RUN_ID}" \
-          > "${RECOVERY_GUARD_OWNER}" || true
+  if [ "${PRESERVE_RECOVERY_GUARD}" -eq 1 ]; then
+    RECOVERY_GUARD_HELD=0
+    return 0
+  fi
+  if ! recovery_guard_owned_by_current_run; then
+    PRESERVE_RECOVERY_GUARD=1
+    RECOVERY_GUARD_HELD=0
+    echo "error: cannot prove promotion recovery guard ownership; preserving it" >&2
+    return 1
+  fi
+  guard_entries="$(find "${RECOVERY_GUARD}" -mindepth 1 -maxdepth 1 -print 2>/dev/null)"
+  if [ "${guard_entries}" != "${RECOVERY_GUARD_OWNER}" ]; then
+    PRESERVE_RECOVERY_GUARD=1
+    RECOVERY_GUARD_HELD=0
+    echo "error: promotion recovery guard contains unknown entries; preserving it" >&2
+    return 1
+  fi
+  if ! rm -f "${RECOVERY_GUARD_OWNER}" \
+      || ! path_is_missing "${RECOVERY_GUARD_OWNER}"; then
+    PRESERVE_RECOVERY_GUARD=1
+    RECOVERY_GUARD_HELD=0
+    echo "error: could not release the proven recovery guard owner" >&2
+    return 1
+  fi
+  if ! same_real_directory "${RECOVERY_GUARD}" "${RECOVERY_GUARD_IDENTITY}" \
+      || ! rmdir "${RECOVERY_GUARD}" 2>/dev/null; then
+    if same_real_directory "${RECOVERY_GUARD}" "${RECOVERY_GUARD_IDENTITY}" \
+        && path_is_missing "${RECOVERY_GUARD_OWNER}"; then
+      guard_payload="$(printf 'pid=%s\nrun_id=%s\n' "$$" "${RUN_ID}")"
+      if create_owner_file "${RECOVERY_GUARD_OWNER}" "${guard_payload}" \
+          "preserved promotion recovery guard owner"; then
+        RECOVERY_GUARD_OWNER_IDENTITY="$(entry_identity "${RECOVERY_GUARD_OWNER}")" \
+          || true
       fi
-      echo "warning: could not release the owned promotion recovery guard; preserving it" >&2
     fi
+    PRESERVE_RECOVERY_GUARD=1
+    RECOVERY_GUARD_HELD=0
+    echo "error: could not remove the proven promotion recovery guard; preserving it" >&2
+    return 1
   fi
   RECOVERY_GUARD_HELD=0
+  RECOVERY_GUARD_IDENTITY=""
+  RECOVERY_GUARD_OWNER_IDENTITY=""
 }
 
 release_promotion_lock() {
+  release_status=0
   if [ "${PROMOTION_LOCK_HELD}" -eq 1 ]; then
-    if [ "${PRESERVE_PROMOTION_LOCK}" -eq 0 ] \
-        && [ -e "${OWNER_MARKER}" ] \
-        && [ -f "${PROMOTION_LOCK}" ] && [ ! -L "${PROMOTION_LOCK}" ] \
-        && [ "${OWNER_MARKER}" -ef "${PROMOTION_LOCK}" ]; then
-      rm -f "${PROMOTION_LOCK}"
+    if [ "${PRESERVE_PROMOTION_LOCK}" -eq 0 ]; then
+      if ! same_real_file "${OWNER_MARKER}" "${OWNER_MARKER_IDENTITY}" \
+          || ! real_regular_file "${PROMOTION_LOCK}" \
+          || [ ! "${OWNER_MARKER}" -ef "${PROMOTION_LOCK}" ]; then
+        PRESERVE_PROMOTION_LOCK=1
+        release_status=1
+        echo "error: cannot prove promotion lock ownership; preserving owner and lock" >&2
+      elif ! rm -f "${PROMOTION_LOCK}" \
+          || ! path_is_missing "${PROMOTION_LOCK}"; then
+        PRESERVE_PROMOTION_LOCK=1
+        release_status=1
+        echo "error: could not release the proven promotion lock; preserving owner" >&2
+      fi
     fi
     PROMOTION_LOCK_HELD=0
   fi
-  if [ "${PROMOTION_PATHS_TOUCHED}" -eq 1 ]; then
-    rm -f "${OWNER_MARKER}"
+  if [ "${PROMOTION_PATHS_TOUCHED}" -eq 1 ] \
+      && [ "${PRESERVE_PROMOTION_LOCK}" -eq 0 ]; then
+    if ! same_real_file "${OWNER_MARKER}" "${OWNER_MARKER_IDENTITY}"; then
+      release_status=1
+      PRESERVE_PROMOTION_LOCK=1
+      echo "error: cannot prove promotion owner identity; preserving it" >&2
+    elif ! rm -f "${OWNER_MARKER}" \
+        || ! path_is_missing "${OWNER_MARKER}"; then
+      release_status=1
+      PRESERVE_PROMOTION_LOCK=1
+      echo "error: could not release the promotion owner marker" >&2
+    else
+      PROMOTION_PATHS_TOUCHED=0
+      OWNER_MARKER_IDENTITY=""
+    fi
   fi
+  return "${release_status}"
 }
 
 restore_previous_app() {
-  if [ -e "${BACKUP_APP_DIR}" ]; then
-    if [ -e "${LOCAL_APP_DIR}" ]; then
-      rm -rf "${LOCAL_APP_DIR}"
+  if path_exists "${BACKUP_APP_DIR}"; then
+    if ! same_real_directory "${BACKUP_APP_DIR}" "${BACKUP_APP_IDENTITY}"; then
+      echo "error: promotion backup ownership is unverifiable; preserving it" >&2
+      return 1
+    fi
+    if path_exists "${LOCAL_APP_DIR}"; then
+      if ! same_real_directory "${LOCAL_APP_DIR}" "${PROMOTED_LOCAL_IDENTITY}"; then
+        echo "error: local app changed before rollback; preserving both entries" >&2
+        return 1
+      fi
+      if ! rm -rf "${LOCAL_APP_DIR}"; then return 1; fi
     fi
     if ! mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}"; then
       echo "error: could not restore the previous local app from ${BACKUP_APP_DIR}" >&2
       return 1
     fi
+    PROMOTED_LOCAL_IDENTITY=""
+    BACKUP_APP_IDENTITY=""
     return 0
   fi
 
   if [ "${LOCAL_APP_WAS_PRESENT}" -eq 0 ]; then
-    rm -rf "${LOCAL_APP_DIR}"
+    if path_exists "${LOCAL_APP_DIR}"; then
+      if ! same_real_directory "${LOCAL_APP_DIR}" "${PROMOTED_LOCAL_IDENTITY}"; then
+        echo "error: unexpected local entry appeared during rollback; preserving it" >&2
+        return 1
+      fi
+      if ! rm -rf "${LOCAL_APP_DIR}"; then return 1; fi
+      PROMOTED_LOCAL_IDENTITY=""
+    fi
     return 0
   fi
 
-  if [ -e "${LOCAL_APP_DIR}" ]; then
+  if same_real_directory "${LOCAL_APP_DIR}" "${LOCAL_APP_IDENTITY}"; then
     echo "warning: backup is absent; preserving the existing local app" >&2
     return 0
   fi
@@ -142,13 +308,27 @@ cleanup_build() {
   rm -rf "${STAGE_ROOT}"
   if [ "${PROMOTION_PATHS_TOUCHED}" -eq 1 ] \
       && [ "${PRESERVE_PROMOTION_LOCK}" -eq 0 ]; then
-    rm -rf "${CANDIDATE_APP_DIR}"
-    if [ "${PROMOTION_COMPLETE}" -eq 1 ]; then
-      rm -rf "${BACKUP_APP_DIR}"
+    if path_exists "${CANDIDATE_APP_DIR}"; then
+      if same_real_directory "${CANDIDATE_APP_DIR}" "${CANDIDATE_APP_IDENTITY}"; then
+        rm -rf "${CANDIDATE_APP_DIR}" || cleanup_status=1
+      else
+        echo "error: candidate cleanup ownership is unverifiable; preserving it" >&2
+        cleanup_status=1
+        PRESERVE_PROMOTION_LOCK=1
+      fi
+    fi
+    if [ "${PROMOTION_COMPLETE}" -eq 1 ] && path_exists "${BACKUP_APP_DIR}"; then
+      if same_real_directory "${BACKUP_APP_DIR}" "${BACKUP_APP_IDENTITY}"; then
+        rm -rf "${BACKUP_APP_DIR}" || cleanup_status=1
+      else
+        echo "error: backup cleanup ownership is unverifiable; preserving it" >&2
+        cleanup_status=1
+        PRESERVE_PROMOTION_LOCK=1
+      fi
     fi
   fi
-  release_recovery_guard
-  release_promotion_lock
+  if ! release_recovery_guard; then cleanup_status=1; fi
+  if ! release_promotion_lock; then cleanup_status=1; fi
   exit "${cleanup_status}"
 }
 
@@ -309,6 +489,13 @@ ORDINARY_VERIFY_LOG="${STAGE_ROOT}/ordinary-verify.log"
 verify_ordinary_signature() {
   bundle_path="$1"
   bundle_label="$2"
+  if ! require_real_directory "${bundle_path}" "${bundle_label}"; then
+    return 1
+  fi
+  bundle_identity_before="$(entry_identity "${bundle_path}")" || {
+    echo "error: ${bundle_label} identity is unreadable; preserving it" >&2
+    return 1
+  }
   : > "${ORDINARY_VERIFY_LOG}"
   if ! codesign --verify "${bundle_path}" 2>"${ORDINARY_VERIFY_LOG}"; then
     echo "error: ${bundle_label} did not pass ordinary signature verification" >&2
@@ -319,6 +506,10 @@ verify_ordinary_signature() {
     fi
     return 1
   fi
+  if ! same_real_directory "${bundle_path}" "${bundle_identity_before}"; then
+    echo "error: ${bundle_label} changed during signature verification; preserving it" >&2
+    return 1
+  fi
 }
 
 recover_transaction_paths() {
@@ -326,49 +517,129 @@ recover_transaction_paths() {
   stale_backup="$2"
   stale_label="$3"
 
-  if [ -e "${stale_backup}" ]; then
-    if [ ! -e "${LOCAL_APP_DIR}" ]; then
+  stale_candidate_present=0
+  stale_backup_present=0
+  local_app_present=0
+  stale_candidate_identity=""
+  stale_backup_identity=""
+  local_app_identity=""
+
+  if path_exists "${stale_candidate}"; then
+    if ! require_real_directory "${stale_candidate}" "${stale_label} candidate"; then
+      return 1
+    fi
+    stale_candidate_present=1
+    stale_candidate_identity="$(entry_identity "${stale_candidate}")" || return 1
+  fi
+  if path_exists "${stale_backup}"; then
+    if ! require_real_directory "${stale_backup}" "${stale_label} backup"; then
+      return 1
+    fi
+    stale_backup_present=1
+    stale_backup_identity="$(entry_identity "${stale_backup}")" || return 1
+  fi
+  if path_exists "${LOCAL_APP_DIR}"; then
+    if ! require_real_directory "${LOCAL_APP_DIR}" "local app"; then
+      return 1
+    fi
+    local_app_present=1
+    local_app_identity="$(entry_identity "${LOCAL_APP_DIR}")" || return 1
+  fi
+
+  if [ "${stale_backup_present}" -eq 1 ]; then
+    if [ "${local_app_present}" -eq 0 ]; then
       if ! verify_ordinary_signature "${stale_backup}" "${stale_label} backup"; then
         echo "error: local app is absent and the ${stale_label} backup is not verifiable; preserving recovery files" >&2
         return 1
       fi
+      if ! same_real_directory "${stale_backup}" "${stale_backup_identity}" \
+          || ! path_is_missing "${LOCAL_APP_DIR}"; then
+        echo "error: ${stale_label} backup or local path changed before recovery; preserving files" >&2
+        return 1
+      fi
       echo "Recovering missing local app from ${stale_backup}." >&2
-      mv "${stale_backup}" "${LOCAL_APP_DIR}"
+      if ! mv "${stale_backup}" "${LOCAL_APP_DIR}"; then return 1; fi
     elif verify_ordinary_signature "${LOCAL_APP_DIR}" \
         "existing local app before ${stale_label} cleanup"; then
-      rm -rf "${stale_backup}"
+      if ! same_real_directory "${LOCAL_APP_DIR}" "${local_app_identity}" \
+          || ! same_real_directory "${stale_backup}" "${stale_backup_identity}"; then
+        echo "error: ${stale_label} paths changed before cleanup; preserving files" >&2
+        return 1
+      fi
+      if ! rm -rf "${stale_backup}" || ! path_is_missing "${stale_backup}"; then
+        echo "error: could not remove the proven ${stale_label} backup" >&2
+        return 1
+      fi
     else
       if ! verify_ordinary_signature "${stale_backup}" "${stale_label} backup"; then
         echo "error: existing local app and ${stale_label} backup both failed ordinary verification; preserving recovery files" >&2
         return 1
       fi
+      if ! same_real_directory "${LOCAL_APP_DIR}" "${local_app_identity}" \
+          || ! same_real_directory "${stale_backup}" "${stale_backup_identity}"; then
+        echo "error: ${stale_label} paths changed before rollback; preserving files" >&2
+        return 1
+      fi
       echo "Restoring verified ${stale_label} backup over invalid local app." >&2
-      rm -rf "${LOCAL_APP_DIR}"
-      mv "${stale_backup}" "${LOCAL_APP_DIR}"
+      if ! rm -rf "${LOCAL_APP_DIR}" || ! path_is_missing "${LOCAL_APP_DIR}"; then
+        echo "error: could not remove the proven invalid local app" >&2
+        return 1
+      fi
+      if ! mv "${stale_backup}" "${LOCAL_APP_DIR}"; then return 1; fi
     fi
-    rm -rf "${stale_candidate}"
+    if [ "${stale_candidate_present}" -eq 1 ]; then
+      if ! same_real_directory "${stale_candidate}" "${stale_candidate_identity}"; then
+        echo "error: ${stale_label} candidate changed before cleanup; preserving it" >&2
+        return 1
+      fi
+      if ! rm -rf "${stale_candidate}" || ! path_is_missing "${stale_candidate}"; then
+        echo "error: could not remove the proven ${stale_label} candidate" >&2
+        return 1
+      fi
+    fi
     return 0
   fi
 
-  if [ ! -e "${stale_candidate}" ]; then
+  if [ "${stale_candidate_present}" -eq 0 ]; then
     return 0
   fi
   if ! verify_ordinary_signature "${stale_candidate}" "${stale_label} candidate"; then
     echo "error: ${stale_label} candidate is not verifiable; preserving it" >&2
     return 1
   fi
-  if [ ! -e "${LOCAL_APP_DIR}" ]; then
+  if [ "${local_app_present}" -eq 0 ]; then
+    if ! same_real_directory "${stale_candidate}" "${stale_candidate_identity}" \
+        || ! path_is_missing "${LOCAL_APP_DIR}"; then
+      echo "error: ${stale_label} candidate or local path changed before recovery; preserving it" >&2
+      return 1
+    fi
     echo "Recovering verified ${stale_label} candidate as the local app." >&2
     mv "${stale_candidate}" "${LOCAL_APP_DIR}"
     return 0
   fi
   if verify_ordinary_signature "${LOCAL_APP_DIR}" \
       "existing local app before ${stale_label} candidate cleanup"; then
-    rm -rf "${stale_candidate}"
+    if ! same_real_directory "${LOCAL_APP_DIR}" "${local_app_identity}" \
+        || ! same_real_directory "${stale_candidate}" "${stale_candidate_identity}"; then
+      echo "error: ${stale_label} paths changed before candidate cleanup; preserving it" >&2
+      return 1
+    fi
+    if ! rm -rf "${stale_candidate}" || ! path_is_missing "${stale_candidate}"; then
+      echo "error: could not remove the proven ${stale_label} candidate" >&2
+      return 1
+    fi
     return 0
   fi
+  if ! same_real_directory "${LOCAL_APP_DIR}" "${local_app_identity}" \
+      || ! same_real_directory "${stale_candidate}" "${stale_candidate_identity}"; then
+    echo "error: ${stale_label} paths changed before candidate replacement; preserving it" >&2
+    return 1
+  fi
   echo "Replacing invalid local app with verified ${stale_label} candidate." >&2
-  rm -rf "${LOCAL_APP_DIR}"
+  if ! rm -rf "${LOCAL_APP_DIR}" || ! path_is_missing "${LOCAL_APP_DIR}"; then
+    echo "error: could not remove the proven invalid local app" >&2
+    return 1
+  fi
   mv "${stale_candidate}" "${LOCAL_APP_DIR}"
 }
 
@@ -391,12 +662,14 @@ lock_identity() {
 
 read_lock_snapshot() {
   snapshot_file="$1"
+  real_regular_file "${snapshot_file}" || return 1
   snapshot_identity_before="$(lock_identity "${snapshot_file}")" || return 1
   SNAPSHOT_PID="$(owner_field pid "${snapshot_file}")"
   SNAPSHOT_RUN_ID="$(owner_field run_id "${snapshot_file}")"
   SNAPSHOT_STARTED="$(owner_field started "${snapshot_file}")"
   snapshot_identity_after="$(lock_identity "${snapshot_file}")" || return 1
-  if [ "${snapshot_identity_before}" != "${snapshot_identity_after}" ]; then
+  if ! real_regular_file "${snapshot_file}" \
+      || [ "${snapshot_identity_before}" != "${snapshot_identity_after}" ]; then
     return 1
   fi
   SNAPSHOT_IDENTITY="${snapshot_identity_before}"
@@ -408,19 +681,56 @@ acquire_recovery_guard() {
     return 1
   fi
   RECOVERY_GUARD_HELD=1
-  if ! printf 'pid=%s\nrun_id=%s\n' "$$" "${RUN_ID}" \
-      > "${RECOVERY_GUARD_OWNER}"; then
+  if ! real_directory "${RECOVERY_GUARD}"; then
+    PRESERVE_RECOVERY_GUARD=1
+    echo "error: promotion recovery guard is not a real directory; preserving it" >&2
+    return 1
+  fi
+  RECOVERY_GUARD_IDENTITY="$(entry_identity "${RECOVERY_GUARD}")" || {
+    PRESERVE_RECOVERY_GUARD=1
+    echo "error: could not identify promotion recovery guard; preserving it" >&2
+    return 1
+  }
+  guard_payload="$(printf 'pid=%s\nrun_id=%s\n' "$$" "${RUN_ID}")"
+  if ! create_owner_file "${RECOVERY_GUARD_OWNER}" "${guard_payload}" \
+      "promotion recovery guard owner"; then
     PRESERVE_RECOVERY_GUARD=1
     echo "error: could not record promotion recovery guard ownership; preserving the guard" >&2
     return 1
   fi
+  RECOVERY_GUARD_OWNER_IDENTITY="$(entry_identity "${RECOVERY_GUARD_OWNER}")" \
+    || {
+      PRESERVE_RECOVERY_GUARD=1
+      echo "error: could not identify promotion recovery guard owner; preserving it" >&2
+      return 1
+    }
 }
 
 acquire_promotion_lock() {
-  mkdir -p "${PROMOTION_ROOT}"
+  if path_exists "${PROMOTION_ROOT}"; then
+    if ! require_real_directory "${PROMOTION_ROOT}" "promotion root"; then
+      return 1
+    fi
+  else
+    mkdir "${PROMOTION_ROOT}" || {
+      echo "error: could not create promotion root" >&2
+      return 1
+    }
+    if ! require_real_directory "${PROMOTION_ROOT}" "promotion root"; then
+      return 1
+    fi
+  fi
   PROMOTION_PATHS_TOUCHED=1
-  printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
-    "$$" "${RUN_ID}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${OWNER_MARKER}"
+  owner_payload="$(printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
+    "$$" "${RUN_ID}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")"
+  if ! create_owner_file "${OWNER_MARKER}" "${owner_payload}" \
+      "promotion owner marker"; then
+    return 1
+  fi
+  OWNER_MARKER_IDENTITY="$(entry_identity "${OWNER_MARKER}")" || {
+    echo "error: could not identify promotion owner marker" >&2
+    return 1
+  }
 
   while true; do
     if recovery_guard_exists; then
@@ -459,12 +769,24 @@ acquire_promotion_lock() {
         return 1
         ;;
     esac
-    if kill -0 "${lock_pid}" 2>/dev/null; then
-      echo "error: promotion lock is held by live process ${lock_pid} (run ${lock_run_id:-unknown}, started ${lock_started:-unknown})" >&2
+    if ! valid_run_id "${lock_run_id}" || [ -z "${lock_started}" ]; then
+      echo "error: promotion lock ownership is incomplete; preserving it" >&2
       return 1
     fi
-    if ! valid_run_id "${lock_run_id}"; then
-      echo "error: stale promotion lock has an invalid run id; preserving it" >&2
+    if ! find_single_owner_for_identity "${lock_snapshot_identity}"; then
+      echo "error: promotion lock owner is missing, symlinked or unstable; preserving it" >&2
+      return 1
+    fi
+    lock_owner_path="${OWNER_MATCH_PATH}"
+    lock_owner_identity="${lock_snapshot_identity}"
+    transaction_owner_path="${PROMOTION_ROOT}/promotion-owner.${lock_run_id}"
+    if ! real_regular_file "${transaction_owner_path}"; then
+      echo "error: promotion transaction owner is missing or symlinked; preserving it" >&2
+      return 1
+    fi
+    transaction_owner_identity="$(entry_identity "${transaction_owner_path}")" || return 1
+    if kill -0 "${lock_pid}" 2>/dev/null; then
+      echo "error: promotion lock is held by live process ${lock_pid} (run ${lock_run_id:-unknown}, started ${lock_started:-unknown})" >&2
       return 1
     fi
 
@@ -472,11 +794,20 @@ acquire_promotion_lock() {
     if ! acquire_recovery_guard; then
       return 1
     fi
-    if ! read_lock_snapshot "${PROMOTION_LOCK}" \
-        || [ "${SNAPSHOT_PID}" != "${lock_pid}" ] \
+    if ! read_lock_snapshot "${PROMOTION_LOCK}"; then
+      PRESERVE_RECOVERY_GUARD=1
+      if [ -L "${PROMOTION_LOCK}" ]; then
+        echo "error: stale promotion lock became a symlink before removal; preserving it" >&2
+      else
+        echo "error: stale promotion lock changed before recovery admission; preserving it" >&2
+      fi
+      return 1
+    fi
+    if [ "${SNAPSHOT_PID}" != "${lock_pid}" ] \
         || [ "${SNAPSHOT_RUN_ID}" != "${lock_run_id}" ] \
         || [ "${SNAPSHOT_STARTED}" != "${lock_started}" ] \
         || [ "${SNAPSHOT_IDENTITY}" != "${lock_snapshot_identity}" ]; then
+      PRESERVE_RECOVERY_GUARD=1
       echo "error: stale promotion lock changed before recovery admission; preserving it" >&2
       return 1
     fi
@@ -490,16 +821,27 @@ acquire_promotion_lock() {
     # replacement with the stale run until recovery completes, so signal
     # cleanup leaves the rollback paths discoverable by the next promoter.
     replacement_started="$(owner_field started "${OWNER_MARKER}")"
+    if ! same_real_file "${OWNER_MARKER}" "${OWNER_MARKER_IDENTITY}"; then
+      PRESERVE_RECOVERY_GUARD=1
+      echo "error: recovery owner marker changed before restamping; preserving evidence" >&2
+      return 1
+    fi
     printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
       "$$" "${lock_run_id}" "${lock_started:-unknown}" > "${OWNER_MARKER}"
+    if ! same_real_file "${OWNER_MARKER}" "${OWNER_MARKER_IDENTITY}"; then
+      PRESERVE_RECOVERY_GUARD=1
+      echo "error: recovery owner marker changed while restamping; preserving evidence" >&2
+      return 1
+    fi
     PRESERVE_RECOVERY_GUARD=1
     PRESERVE_PROMOTION_LOCK=1
     if [ -L "${PROMOTION_LOCK}" ]; then
       echo "error: stale promotion lock became a symlink before removal; preserving it" >&2
       return 1
     fi
-    if [ ! -f "${PROMOTION_LOCK}" ]; then
-      echo "error: stale promotion lock became non-regular before removal; preserving it" >&2
+    if ! real_regular_file "${PROMOTION_LOCK}" \
+        || [ "$(lock_identity "${PROMOTION_LOCK}")" != "${lock_snapshot_identity}" ]; then
+      echo "error: stale promotion lock changed before removal; preserving it" >&2
       return 1
     fi
     if ! rm -f "${PROMOTION_LOCK}"; then
@@ -519,7 +861,7 @@ acquire_promotion_lock() {
         echo "error: promotion recovery guard ownership changed during primary replacement; preserving recovery evidence" >&2
         return 1
       fi
-      if [ ! -f "${OWNER_MARKER}" ]; then
+      if ! same_real_file "${OWNER_MARKER}" "${OWNER_MARKER_IDENTITY}"; then
         echo "error: recovery owner marker disappeared during primary replacement; preserving recovery evidence" >&2
         return 1
       fi
@@ -600,9 +942,30 @@ acquire_promotion_lock() {
       # promoter retries the same preserved evidence.
       return 1
     fi
-    rm -f "${PROMOTION_ROOT}/promotion-owner.${lock_run_id}"
+    if ! same_real_file "${lock_owner_path}" "${lock_owner_identity}" \
+        || ! rm -f "${lock_owner_path}" \
+        || ! path_is_missing "${lock_owner_path}"; then
+      echo "error: stale promotion owner changed before release; preserving current evidence" >&2
+      return 1
+    fi
+    if [ "${transaction_owner_path}" != "${lock_owner_path}" ]; then
+      if ! same_real_file "${transaction_owner_path}" "${transaction_owner_identity}" \
+          || ! rm -f "${transaction_owner_path}" \
+          || ! path_is_missing "${transaction_owner_path}"; then
+        echo "error: promotion transaction owner changed before release" >&2
+        return 1
+      fi
+    fi
+    if ! same_real_file "${OWNER_MARKER}" "${OWNER_MARKER_IDENTITY}"; then
+      echo "error: promotion owner marker changed before final restamp; preserving it" >&2
+      return 1
+    fi
     printf 'pid=%s\nrun_id=%s\nstarted=%s\n' \
       "$$" "${RUN_ID}" "${replacement_started}" > "${OWNER_MARKER}"
+    if ! same_real_file "${OWNER_MARKER}" "${OWNER_MARKER_IDENTITY}"; then
+      echo "error: promotion owner marker changed during final restamp; preserving it" >&2
+      return 1
+    fi
     PRESERVE_PROMOTION_LOCK=0
     return 0
   done
@@ -621,43 +984,91 @@ if ! recover_transaction_paths "${LEGACY_CANDIDATE_APP_DIR}" \
   exit 1
 fi
 
-if ! mv "${APP_DIR}" "${CANDIDATE_APP_DIR}"; then
+if ! path_is_missing "${CANDIDATE_APP_DIR}" \
+    || ! path_is_missing "${BACKUP_APP_DIR}"; then
+  echo "error: this run's candidate or backup path already exists; preserving it" >&2
+  exit 1
+fi
+if ! require_real_directory "${APP_DIR}" "staged app"; then
+  exit 1
+fi
+STAGED_APP_IDENTITY="$(entry_identity "${APP_DIR}")" || exit 1
+if ! same_real_directory "${APP_DIR}" "${STAGED_APP_IDENTITY}" \
+    || ! mv "${APP_DIR}" "${CANDIDATE_APP_DIR}"; then
   echo "error: could not move the staged app to ${CANDIDATE_APP_DIR}" >&2
   exit 1
 fi
+CANDIDATE_APP_IDENTITY="$(entry_identity "${CANDIDATE_APP_DIR}")" || exit 1
 
 if ! verify_ordinary_signature "${CANDIDATE_APP_DIR}" "promotion candidate"; then
   exit 1
 fi
+if ! same_real_directory "${CANDIDATE_APP_DIR}" "${CANDIDATE_APP_IDENTITY}"; then
+  echo "error: promotion candidate changed after verification; preserving it" >&2
+  exit 1
+fi
 
-if [ -e "${LOCAL_APP_DIR}" ]; then
+LOCAL_APP_IDENTITY=""
+if path_exists "${LOCAL_APP_DIR}"; then
+  if ! require_real_directory "${LOCAL_APP_DIR}" "local app before promotion"; then
+    exit 1
+  fi
   LOCAL_APP_WAS_PRESENT=1
+  LOCAL_APP_IDENTITY="$(entry_identity "${LOCAL_APP_DIR}")" || exit 1
 fi
 PROMOTION_IN_PROGRESS=1
 
 if [ "${LOCAL_APP_WAS_PRESENT}" -eq 1 ]; then
-  if ! mv "${LOCAL_APP_DIR}" "${BACKUP_APP_DIR}"; then
+  if ! path_is_missing "${BACKUP_APP_DIR}" \
+      || ! same_real_directory "${LOCAL_APP_DIR}" "${LOCAL_APP_IDENTITY}" \
+      || ! mv "${LOCAL_APP_DIR}" "${BACKUP_APP_DIR}"; then
     echo "error: could not move the previous local app to ${BACKUP_APP_DIR}" >&2
     rollback_failed_promotion || true
     exit 1
   fi
+  BACKUP_APP_IDENTITY="$(entry_identity "${BACKUP_APP_DIR}")" || {
+    rollback_failed_promotion || true
+    exit 1
+  }
 fi
 
-if ! mv "${CANDIDATE_APP_DIR}" "${LOCAL_APP_DIR}"; then
+if ! path_is_missing "${LOCAL_APP_DIR}" \
+    || ! same_real_directory "${CANDIDATE_APP_DIR}" "${CANDIDATE_APP_IDENTITY}" \
+    || ! mv "${CANDIDATE_APP_DIR}" "${LOCAL_APP_DIR}"; then
   echo "error: could not replace the local app with the verified candidate" >&2
   rollback_failed_promotion || true
   exit 1
 fi
+PROMOTED_LOCAL_IDENTITY="$(entry_identity "${LOCAL_APP_DIR}")" || {
+  rollback_failed_promotion || true
+  exit 1
+}
 
 if ! verify_ordinary_signature "${LOCAL_APP_DIR}" "promoted local app"; then
+  rollback_failed_promotion || true
+  exit 1
+fi
+if ! same_real_directory "${LOCAL_APP_DIR}" "${PROMOTED_LOCAL_IDENTITY}"; then
+  echo "error: promoted local app changed after verification" >&2
   rollback_failed_promotion || true
   exit 1
 fi
 
 PROMOTION_COMPLETE=1
 PROMOTION_IN_PROGRESS=0
-rm -rf "${BACKUP_APP_DIR}"
-release_promotion_lock
+if [ "${LOCAL_APP_WAS_PRESENT}" -eq 1 ]; then
+  if ! same_real_directory "${BACKUP_APP_DIR}" "${BACKUP_APP_IDENTITY}" \
+      || ! rm -rf "${BACKUP_APP_DIR}" \
+      || ! path_is_missing "${BACKUP_APP_DIR}"; then
+    echo "error: promotion backup changed before final cleanup; preserving evidence" >&2
+    PRESERVE_PROMOTION_LOCK=1
+    exit 1
+  fi
+fi
+if ! release_promotion_lock; then
+  echo "error: promotion completed but ownership release could not be proved" >&2
+  exit 1
+fi
 
 LOCAL_BINARY="${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}"
 SIZE="$(du -h "${LOCAL_BINARY}" | cut -f1 | tr -d ' ')"
