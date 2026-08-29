@@ -12,10 +12,14 @@ LIVE_RUN_ID="harness-live-$$"
 STALE_RUN_ID="harness-stale-$$"
 DUAL_STALE_RUN_ID="harness-dual-stale-$$"
 SIGNAL_STALE_RUN_ID="harness-signal-stale-$$"
+GAP_STALE_RUN_ID="harness-gap-stale-$$"
+CLEANUP_STALE_RUN_ID="harness-cleanup-stale-$$"
 LIVE_OWNER="${PROMOTION_ROOT}/promotion-owner.${LIVE_RUN_ID}"
 STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${STALE_RUN_ID}"
 DUAL_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${DUAL_STALE_RUN_ID}"
 SIGNAL_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${SIGNAL_STALE_RUN_ID}"
+GAP_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${GAP_STALE_RUN_ID}"
+CLEANUP_STALE_OWNER="${PROMOTION_ROOT}/promotion-owner.${CLEANUP_STALE_RUN_ID}"
 LIVE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${LIVE_RUN_ID}"
 LIVE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${LIVE_RUN_ID}"
 STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${STALE_RUN_ID}"
@@ -24,11 +28,20 @@ DUAL_STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${DUAL_STALE_R
 DUAL_STALE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${DUAL_STALE_RUN_ID}"
 SIGNAL_STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${SIGNAL_STALE_RUN_ID}"
 SIGNAL_STALE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${SIGNAL_STALE_RUN_ID}"
+GAP_STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${GAP_STALE_RUN_ID}"
+GAP_STALE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${GAP_STALE_RUN_ID}"
+CLEANUP_STALE_CANDIDATE="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.${CLEANUP_STALE_RUN_ID}"
+CLEANUP_STALE_BACKUP="${PROMOTION_ROOT}/${APP_NAME}.app.backup.${CLEANUP_STALE_RUN_ID}"
+CLEANUP_PID_RECORD="${PROMOTION_ROOT}/harness-cleanup-probe.pid"
+CLEANUP_RUN_RECORD="${PROMOTION_ROOT}/harness-cleanup-probe.run-id"
 HARNESS_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/focuscontinuity-concurrency.XXXXXX")"
 HOLDER_PID=""
 FIRST_RECOVERER_PID=""
 SECOND_RECOVERER_PID=""
 SIGNAL_RECOVERER_PID=""
+GAP_RECOVERER_PID=""
+CLEANUP_RECOVERER_PID=""
+RED_FAILURES=0
 
 fail() {
   echo "FAIL: $*" >&2
@@ -66,6 +79,32 @@ wait_for_file_or_process_exit() {
 cleanup() {
   cleanup_status=$?
   trap - EXIT INT TERM HUP
+  tracked_guard_pid=""
+  tracked_guard_run_id=""
+  if [ -f "${RECOVERY_GUARD}/owner" ]; then
+    observed_guard_pid="$(sed -n 's/^pid=//p' "${RECOVERY_GUARD}/owner" | head -n 1)"
+    observed_guard_run_id="$(sed -n 's/^run_id=//p' "${RECOVERY_GUARD}/owner" | head -n 1)"
+    case "${observed_guard_pid}" in
+      ""|*[!0-9]*) ;;
+      *)
+        case "${observed_guard_run_id}" in
+          ""|*[!A-Za-z0-9._-]*) ;;
+          *)
+            for recoverer_pid in \
+                "${FIRST_RECOVERER_PID}" "${SECOND_RECOVERER_PID}" \
+                "${SIGNAL_RECOVERER_PID}" "${GAP_RECOVERER_PID}" \
+                "${CLEANUP_RECOVERER_PID}"; do
+              if [ -n "${recoverer_pid}" ] \
+                  && [ "${observed_guard_pid}" = "${recoverer_pid}" ]; then
+                tracked_guard_pid="${observed_guard_pid}"
+                tracked_guard_run_id="${observed_guard_run_id}"
+              fi
+            done
+            ;;
+        esac
+        ;;
+    esac
+  fi
   if [ -n "${HOLDER_PID}" ]; then
     kill "${HOLDER_PID}" 2>/dev/null || true
     wait "${HOLDER_PID}" 2>/dev/null || true
@@ -73,29 +112,51 @@ cleanup() {
   for wrapper_pid_file in \
       "${HARNESS_ROOT}/first-codesign-wrapper.pid" \
       "${HARNESS_ROOT}/second-rm-wrapper.pid" \
-      "${HARNESS_ROOT}/signal-codesign-wrapper.pid"; do
+      "${HARNESS_ROOT}/signal-codesign-wrapper.pid" \
+      "${HARNESS_ROOT}/gap-rm-wrapper.pid" \
+      "${HARNESS_ROOT}/cleanup-rm-wrapper.pid"; do
     if [ -f "${wrapper_pid_file}" ]; then
       kill "$(<"${wrapper_pid_file}")" 2>/dev/null || true
     fi
   done
   for recoverer_pid in \
-      "${FIRST_RECOVERER_PID}" "${SECOND_RECOVERER_PID}" "${SIGNAL_RECOVERER_PID}"; do
+      "${FIRST_RECOVERER_PID}" "${SECOND_RECOVERER_PID}" "${SIGNAL_RECOVERER_PID}" \
+      "${GAP_RECOVERER_PID}" "${CLEANUP_RECOVERER_PID}"; do
     if [ -n "${recoverer_pid}" ]; then
       kill "${recoverer_pid}" 2>/dev/null || true
     fi
   done
   for recoverer_pid in \
-      "${FIRST_RECOVERER_PID}" "${SECOND_RECOVERER_PID}" "${SIGNAL_RECOVERER_PID}"; do
+      "${FIRST_RECOVERER_PID}" "${SECOND_RECOVERER_PID}" "${SIGNAL_RECOVERER_PID}" \
+      "${GAP_RECOVERER_PID}" "${CLEANUP_RECOVERER_PID}"; do
     if [ -n "${recoverer_pid}" ]; then
       wait "${recoverer_pid}" 2>/dev/null || true
     fi
   done
+  if [ -n "${tracked_guard_pid}" ] \
+      && ! kill -0 "${tracked_guard_pid}" 2>/dev/null \
+      && [ -f "${RECOVERY_GUARD}/owner" ]; then
+    final_guard_pid="$(sed -n 's/^pid=//p' "${RECOVERY_GUARD}/owner" | head -n 1)"
+    final_guard_run_id="$(sed -n 's/^run_id=//p' "${RECOVERY_GUARD}/owner" | head -n 1)"
+    if [ "${final_guard_pid}" = "${tracked_guard_pid}" ] \
+        && [ "${final_guard_run_id}" = "${tracked_guard_run_id}" ]; then
+      rm -f "${RECOVERY_GUARD}/owner"
+      if ! rmdir "${RECOVERY_GUARD}" 2>/dev/null; then
+        printf 'pid=%s\nrun_id=%s\n' \
+          "${tracked_guard_pid}" "${tracked_guard_run_id}" \
+          > "${RECOVERY_GUARD}/owner" || true
+        cleanup_status=1
+      fi
+    fi
+  fi
   if [ -f "${LOCK_FILE}" ] && grep -Eq \
-      "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID})$" \
+      "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID})$" \
       "${LOCK_FILE}"; then
     rm -f "${LOCK_FILE}"
   fi
   for recovery_path in \
+      "${CLEANUP_STALE_BACKUP}" "${CLEANUP_STALE_CANDIDATE}" \
+      "${GAP_STALE_BACKUP}" "${GAP_STALE_CANDIDATE}" \
       "${SIGNAL_STALE_BACKUP}" "${SIGNAL_STALE_CANDIDATE}" \
       "${DUAL_STALE_BACKUP}" "${DUAL_STALE_CANDIDATE}" \
       "${STALE_BACKUP}" "${STALE_CANDIDATE}"; do
@@ -105,10 +166,11 @@ cleanup() {
     fi
   done
   rm -f \
-    "${LIVE_OWNER}" "${STALE_OWNER}" "${DUAL_STALE_OWNER}" "${SIGNAL_STALE_OWNER}"
+    "${LIVE_OWNER}" "${STALE_OWNER}" "${DUAL_STALE_OWNER}" "${SIGNAL_STALE_OWNER}" \
+    "${GAP_STALE_OWNER}" "${CLEANUP_STALE_OWNER}"
   for owner_marker in "${PROMOTION_ROOT}"/promotion-owner.*; do
     if [ -f "${owner_marker}" ] && grep -Eq \
-        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID})$" \
+        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID})$" \
         "${owner_marker}"; then
       rm -f "${owner_marker}"
     fi
@@ -117,6 +179,8 @@ cleanup() {
   rm -rf "${STALE_CANDIDATE}" "${STALE_BACKUP}"
   rm -rf "${DUAL_STALE_CANDIDATE}" "${DUAL_STALE_BACKUP}"
   rm -rf "${SIGNAL_STALE_CANDIDATE}" "${SIGNAL_STALE_BACKUP}"
+  rm -rf "${GAP_STALE_CANDIDATE}" "${GAP_STALE_BACKUP}"
+  rm -rf "${CLEANUP_STALE_CANDIDATE}" "${CLEANUP_STALE_BACKUP}"
   rm -rf "${HARNESS_ROOT}"
   exit "${cleanup_status}"
 }
@@ -227,6 +291,17 @@ if [ "${is_primary_lock}" -eq 1 ] && [ -n "${HARNESS_RECOVERER:-}" ]; then
   while [ ! -e "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-release-lock-remove" ]; do
     sleep 0.05
   done
+  if [ "${HARNESS_RECOVERER}" = "gap" ] \
+      || [ "${HARNESS_RECOVERER}" = "cleanup" ]; then
+    printf '%s\n' "$$" \
+      > "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-rm-wrapper.pid"
+    /bin/rm "$@"
+    : > "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-primary-unlinked"
+    while [ ! -e "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-release-after-unlink" ]; do
+      sleep 0.05
+    done
+    exit 0
+  fi
   if [ "${HARNESS_RECOVERER}" = "second" ] && [ -f "${HARNESS_LOCK_FILE}" ]; then
     current_run_id="$(sed -n 's/^run_id=//p' "${HARNESS_LOCK_FILE}" | head -n 1)"
     if [ "${current_run_id}" != "${HARNESS_STALE_RUN_ID}" ]; then
@@ -394,4 +469,143 @@ test ! -e "${SIGNAL_STALE_BACKUP}" -a ! -e "${SIGNAL_STALE_CANDIDATE}" \
 codesign --verify "${APP_NAME}.app" \
   || fail "the signal recovery retry left an invalid local app"
 
-echo "PASS: live contention, non-promoting --check, dual recovery, and signal-safe retry"
+# Recovery admission must also cover a promoter that arrives only after the
+# stale primary has been unlinked. The admitted process is held inside the real
+# rm wrapper after /bin/rm completes but before build.sh can link its replacement.
+mv "${APP_NAME}.app" "${GAP_STALE_BACKUP}"
+cp -R "${GAP_STALE_BACKUP}" "${GAP_STALE_CANDIDATE}"
+printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
+  "${DEAD_PID}" "${GAP_STALE_RUN_ID}" > "${GAP_STALE_OWNER}"
+ln "${GAP_STALE_OWNER}" "${LOCK_FILE}"
+
+PATH="${WRAPPER_DIR}:${PATH}" \
+HARNESS_RECOVERER=gap \
+HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" \
+HARNESS_LOCK_FILE="${LOCK_FILE}" \
+HARNESS_STALE_RUN_ID="${GAP_STALE_RUN_ID}" \
+HARNESS_STALE_BACKUP="${GAP_STALE_BACKUP}" \
+  ./build.sh > "${HARNESS_ROOT}/gap-recoverer.log" 2>&1 &
+GAP_RECOVERER_PID=$!
+wait_for_file "${HARNESS_ROOT}/gap-before-lock-remove" 120 \
+  || fail "the gap recoverer did not reach the controlled unlink"
+: > "${HARNESS_ROOT}/gap-release-lock-remove"
+wait_for_file "${HARNESS_ROOT}/gap-primary-unlinked" 30 \
+  || fail "the gap recoverer did not execute the real primary unlink"
+test ! -e "${LOCK_FILE}" || fail "the primary path was not empty during the controlled gap"
+test -f "${RECOVERY_GUARD}/owner" \
+  || fail "the admitted gap recoverer did not retain its recovery guard"
+
+set +e
+./build.sh > "${HARNESS_ROOT}/fresh-gap-promoter.log" 2>&1
+FRESH_GAP_STATUS=$?
+set -e
+test -e "${GAP_STALE_BACKUP}" -a -e "${GAP_STALE_CANDIDATE}" \
+  || fail "the fresh gap promoter discarded interrupted transaction evidence"
+: > "${HARNESS_ROOT}/gap-release-after-unlink"
+set +e
+wait "${GAP_RECOVERER_PID}"
+GAP_STATUS=$?
+GAP_RECOVERER_PID=""
+set -e
+test "${GAP_STATUS}" -eq 0 || fail "the admitted gap recoverer did not complete"
+if [ "${FRESH_GAP_STATUS}" -eq 0 ]; then
+  echo "FAIL: a fresh promoter acquired the primary during live recovery admission" >&2
+  RED_FAILURES=1
+else
+  grep -F "another process is recovering a stale promotion lock" \
+    "${HARNESS_ROOT}/fresh-gap-promoter.log" >/dev/null \
+    || fail "the fresh gap promoter did not diagnose recovery admission"
+fi
+test ! -e "${LOCK_FILE}" -a ! -e "${RECOVERY_GUARD}" \
+  || fail "the gap recovery left coordination debris"
+test ! -e "${GAP_STALE_BACKUP}" -a ! -e "${GAP_STALE_CANDIDATE}" \
+  || fail "the gap recovery left transaction debris"
+codesign --verify "${APP_NAME}.app" \
+  || fail "the gap recovery left an invalid local app"
+
+# Exercise this harness's actual EXIT cleanup in a subshell while a tracked
+# recoverer is paused after unlink. The parent then observes whether cleanup
+# leaked that recoverer's owned guard, and tears down only the proven dead owner.
+set +e
+(
+  trap cleanup EXIT
+  mv "${APP_NAME}.app" "${CLEANUP_STALE_BACKUP}"
+  cp -R "${CLEANUP_STALE_BACKUP}" "${CLEANUP_STALE_CANDIDATE}"
+  printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
+    "${DEAD_PID}" "${CLEANUP_STALE_RUN_ID}" > "${CLEANUP_STALE_OWNER}"
+  ln "${CLEANUP_STALE_OWNER}" "${LOCK_FILE}"
+
+  PATH="${WRAPPER_DIR}:${PATH}" \
+  HARNESS_RECOVERER=cleanup \
+  HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" \
+  HARNESS_LOCK_FILE="${LOCK_FILE}" \
+  HARNESS_STALE_RUN_ID="${CLEANUP_STALE_RUN_ID}" \
+  HARNESS_STALE_BACKUP="${CLEANUP_STALE_BACKUP}" \
+    ./build.sh > "${HARNESS_ROOT}/cleanup-recoverer.log" 2>&1 &
+  CLEANUP_RECOVERER_PID=$!
+  wait_for_file "${HARNESS_ROOT}/cleanup-before-lock-remove" 120 \
+    || fail "the cleanup recoverer did not reach the controlled unlink"
+  : > "${HARNESS_ROOT}/cleanup-release-lock-remove"
+  wait_for_file "${HARNESS_ROOT}/cleanup-primary-unlinked" 30 \
+    || fail "the cleanup recoverer did not execute the real primary unlink"
+  test -f "${RECOVERY_GUARD}/owner" \
+    || fail "the cleanup recoverer did not hold a recovery guard"
+  printf '%s\n' "${CLEANUP_RECOVERER_PID}" > "${CLEANUP_PID_RECORD}"
+  sed -n 's/^run_id=//p' "${RECOVERY_GUARD}/owner" | head -n 1 \
+    > "${CLEANUP_RUN_RECORD}"
+  exit 97
+)
+CLEANUP_PROBE_STATUS=$?
+set -e
+test "${CLEANUP_PROBE_STATUS}" -eq 97 \
+  || fail "the cleanup probe did not exercise the intended failure exit"
+
+CLEANUP_GUARD_LEAKED=0
+if [ -e "${RECOVERY_GUARD}" ]; then
+  CLEANUP_GUARD_LEAKED=1
+  echo "FAIL: harness cleanup leaked a tracked recoverer's recovery guard" >&2
+  expected_cleanup_pid="$(<"${CLEANUP_PID_RECORD}")"
+  expected_cleanup_run="$(<"${CLEANUP_RUN_RECORD}")"
+  actual_cleanup_pid="$(sed -n 's/^pid=//p' "${RECOVERY_GUARD}/owner" | head -n 1)"
+  actual_cleanup_run="$(sed -n 's/^run_id=//p' "${RECOVERY_GUARD}/owner" | head -n 1)"
+  if [ "${actual_cleanup_pid}" = "${expected_cleanup_pid}" ] \
+      && [ "${actual_cleanup_run}" = "${expected_cleanup_run}" ] \
+      && ! kill -0 "${actual_cleanup_pid}" 2>/dev/null; then
+    rm -f "${RECOVERY_GUARD}/owner"
+    rmdir "${RECOVERY_GUARD}"
+  else
+    fail "the cleanup probe encountered an unknown or live recovery guard"
+  fi
+fi
+rm -f "${CLEANUP_PID_RECORD}" "${CLEANUP_RUN_RECORD}"
+test -d "${APP_NAME}.app" || fail "cleanup probe did not restore the local app"
+codesign --verify "${APP_NAME}.app" || fail "cleanup probe restored an invalid local app"
+test ! -e "${LOCK_FILE}" || fail "cleanup probe left the primary lock"
+if [ "${CLEANUP_GUARD_LEAKED}" -eq 1 ]; then
+  RED_FAILURES=1
+fi
+
+# A guard not owned by any tracked harness process must remain byte-identical.
+mkdir "${RECOVERY_GUARD}"
+printf 'pid=%s\nrun_id=harness-unknown-%s\n' "$$" "$$" \
+  > "${RECOVERY_GUARD}/owner"
+UNKNOWN_GUARD_HASH="$(shasum -a 256 "${RECOVERY_GUARD}/owner" | awk '{print $1}')"
+set +e
+(
+  trap cleanup EXIT
+  exit 96
+)
+UNKNOWN_GUARD_PROBE_STATUS=$?
+set -e
+test "${UNKNOWN_GUARD_PROBE_STATUS}" -eq 96 \
+  || fail "the unknown-guard cleanup probe did not preserve its exit status"
+test -f "${RECOVERY_GUARD}/owner" \
+  || fail "harness cleanup removed an unknown recovery guard"
+test "$(shasum -a 256 "${RECOVERY_GUARD}/owner" | awk '{print $1}')" = \
+  "${UNKNOWN_GUARD_HASH}" || fail "harness cleanup changed an unknown recovery guard"
+rm -f "${RECOVERY_GUARD}/owner"
+rmdir "${RECOVERY_GUARD}"
+
+test "${RED_FAILURES}" -eq 0 || exit 1
+
+echo "PASS: contention, stale recovery admission, signal retry, and owned cleanup"

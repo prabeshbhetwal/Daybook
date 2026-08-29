@@ -45,6 +45,10 @@ PRESERVE_PROMOTION_LOCK=0
 RECOVERY_GUARD_HELD=0
 PRESERVE_RECOVERY_GUARD=0
 
+recovery_guard_exists() {
+  [ -e "${RECOVERY_GUARD}" ] || [ -L "${RECOVERY_GUARD}" ]
+}
+
 recovery_guard_owned_by_current_run() {
   if [ ! -f "${RECOVERY_GUARD_OWNER}" ]; then
     return 1
@@ -418,8 +422,17 @@ acquire_promotion_lock() {
     "$$" "${RUN_ID}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${OWNER_MARKER}"
 
   while true; do
+    if recovery_guard_exists; then
+      echo "error: another process is recovering a stale promotion lock" >&2
+      return 1
+    fi
     if ln "${OWNER_MARKER}" "${PROMOTION_LOCK}" 2>/dev/null; then
       PROMOTION_LOCK_HELD=1
+      if recovery_guard_exists; then
+        echo "error: another process is recovering a stale promotion lock" >&2
+        release_promotion_lock
+        return 1
+      fi
       return 0
     fi
     if [ ! -f "${PROMOTION_LOCK}" ]; then
