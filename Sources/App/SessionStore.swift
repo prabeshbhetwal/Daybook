@@ -448,12 +448,12 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    /// Usage already committed to the archive plus only the unsaved live tail.
+    /// Usage already committed to the archive plus every unsaved interval.
     /// `FocusedActiveTime` merges overlaps, so a checkpoint boundary can never
     /// double-count the same second.
     private var focusedActiveUsage: [AppUsageSession] {
         var sessions = usage?.sessions ?? []
-        if let live = tracker?.unpersistedSession() { sessions.append(live) }
+        if let pending = tracker?.unpersistedSessions() { sessions.append(contentsOf: pending) }
         return sessions
     }
 

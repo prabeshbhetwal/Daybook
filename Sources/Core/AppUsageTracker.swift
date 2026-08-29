@@ -152,7 +152,10 @@ final class AppUsageTracker {
         unpersistedSessions().last
     }
 
-    private func unpersistedSessions() -> [AppUsageSession] {
+    /// Every disjoint interval not yet represented by the archive. A storage
+    /// outage can leave several frozen tails ahead of the live continuation;
+    /// interval consumers must receive all of them rather than only the newest.
+    func unpersistedSessions() -> [AppUsageSession] {
         switch state {
         case .active(let segment):
             return liveTail(for: segment).map { [$0] } ?? []

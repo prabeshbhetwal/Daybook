@@ -174,8 +174,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // here, so it happens after the gate, not before it.
         updateMusicPairing(score: score, at: moment)
 
-        var goalUsage = usage.sessions
-        if let live = tracker.unpersistedSession() { goalUsage.append(live) }
+        let goalUsage = Self.usageForRewardGoal(durable: usage.sessions,
+                                                tracker: tracker)
 
         let context = RewardContext(
             focusedToday: engine.todayTotal,
@@ -198,6 +198,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         engine.store.rewardLog = rewards.recording(reward)
         hud.show(title: reward.title, detail: reward.detail,
                  symbolName: reward.symbolName, undo: nil)
+    }
+
+    /// Reward goal progress uses the same complete interval evidence as the
+    /// dashboard goal, including every disjoint tail queued during an outage.
+    static func usageForRewardGoal(durable: [AppUsageSession],
+                                   tracker: AppUsageTracker) -> [AppUsageSession] {
+        durable + tracker.unpersistedSessions()
     }
 
     /// Music counts only while a focused app is actually frontmost — a playlist

@@ -106,6 +106,8 @@ enum SelfTest {
              testFailedTerminalCheckpointRetainsOriginalBoundary),
             ("Confirmed queued usage survives later lifecycle events",
              testConfirmedPendingUsageSurvivesLaterLifecycleEvents),
+            ("Queued usage intervals reconcile tracked and focused-active totals",
+             testQueuedUsageIntervalsFeedFocusedActiveTotals),
             ("Failed usage preservation keeps source evidence read-only",
              testUsagePreservationFailureFailsClosed),
             ("Future usage schema stays byte-identical and read-only",
@@ -1995,6 +1997,59 @@ enum SelfTest {
                    "recovery after queued suspension settles stopped", &problems)
         }
 
+        return problems
+    }
+
+    /// Scalar and interval consumers must see the same disjoint unsaved facts:
+    /// Editor's one-minute tail, Browser's five-minute close and Xcode's live
+    /// five minutes, without filling the four-minute absence between them.
+    private static func testQueuedUsageIntervalsFeedFocusedActiveTotals() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let root = scratchDirectory()
+        let directory = root.appendingPathComponent("usage")
+        let savedDirectory = root.appendingPathComponent("saved-usage")
+        let usage = AppUsageArchive(directory: directory, now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                      idle: .disabled, now: { clock.value })
+        let engine = makeEngine(clock)
+        engine.start(workType: .deepWork, intent: "Reconcile queued usage")
+
+        tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
+        clock.advance(10 * 60)
+        tracker.flush()
+        clock.advance(60)
+        try? FileManager.default.moveItem(at: directory, to: savedDirectory)
+        try? Data("blocked".utf8).write(to: directory)
+        tracker.suspend()
+
+        clock.advance(4 * 60)
+        tracker.prepareToResume(bundleID: "com.example.browser", name: "Browser")
+        tracker.confirmPresence(at: base.addingTimeInterval(15 * 60))
+        clock.advance(5 * 60)
+        tracker.appActivated(bundleID: "com.example.xcode", name: "Xcode")
+        clock.advance(5 * 60)
+
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+
+        expectClose(store.trackedToday, 21 * 60,
+                    "scalar tracked time includes every disjoint queued interval", &problems)
+        expectClose(store.goal.achieved, 21 * 60,
+                    "focused-active time includes every disjoint queued interval", &problems)
+
+        let rewardUsage = AppCoordinator.usageForRewardGoal(
+            durable: usage.sessions, tracker: tracker)
+        let rewardGoal = DailyGoal(archive: engine.archive,
+                                   goal: engine.store.dailyGoal,
+                                   usage: rewardUsage,
+                                   usageAccurateFrom: usage.metadata.accurateFrom,
+                                   running: engine.runningSpan,
+                                   runningWork: engine.elapsedToday(),
+                                   now: { clock.value })
+        expectClose(rewardGoal.achievedToday(), 21 * 60,
+                    "reward focused-active time includes every disjoint queued interval",
+                    &problems)
         return problems
     }
 
