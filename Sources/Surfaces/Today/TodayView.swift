@@ -39,7 +39,8 @@ struct TodayView: View {
             SurfacePanel(showsHeader: false) {
                 SectionHeader(title: "Time ribbon",
                               trailing: "app activity · focus brackets beneath")
-                DayTimelineView(store: store, dominant: true, showsDetail: false)
+                DayTimelineView(store: store, dominant: true, showsDetail: false,
+                                usesTodaySelection: true)
                 if let inspector = store.todayInspector {
                     TodayInspector(data: inspector) { store.clearTodaySelection() }
                         .transition(.opacity)

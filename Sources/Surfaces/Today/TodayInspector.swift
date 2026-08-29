@@ -87,6 +87,13 @@ extension SessionStore {
         selectSession(session)
     }
 
+    /// Ribbon selection is the reverse of session selection: clear the session
+    /// first, then preserve the established timeline toggle/hour-detail logic.
+    func selectTodayTimeline(at fraction: Double) {
+        clearSession()
+        selectTimeline(at: fraction)
+    }
+
 }
 
 /// The selected evidence beneath the ribbon. An app selection describes the

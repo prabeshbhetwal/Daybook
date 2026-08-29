@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// A quiet reconciliation line, not a KPI grid. Focused uses the selected
-/// day's focused-active goal measure; At the Mac remains observed app-use time.
+/// A quiet reconciliation line, not a KPI grid. Focused displays raw canonical
+/// focus-session time; its note separately names focused-active goal credit.
+/// At the Mac remains observed app-use time.
 struct TodayRecap: View {
     @ObservedObject var store: SessionStore
 

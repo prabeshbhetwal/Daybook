@@ -1,5 +1,47 @@
 import SwiftUI
 
+struct TimelineRestEvidence: Identifiable, Equatable {
+    let id: UUID
+    let name: String
+    let start: Date
+    let end: Date
+
+    var duration: TimeInterval { max(0, end.timeIntervalSince(start)) }
+}
+
+/// Presentation-only partition of one elided gap. Named rests retain only
+/// their canonical overlap; every interval outside them remains unknown
+/// inactivity instead of inheriting the rest's label.
+struct TimelineGapEvidence: Equatable {
+    let rests: [TimelineRestEvidence]
+    let unknown: [DateInterval]
+
+    init(gap: TimelineGap, breaks: [SessionRecord]) {
+        rests = breaks.compactMap { record in
+            guard record.workType == .breakTime else { return nil }
+            let start = max(gap.start, record.start)
+            let end = min(gap.end, record.end)
+            guard end > start else { return nil }
+            return TimelineRestEvidence(id: record.id,
+                                        name: record.name.isEmpty ? "Break" : record.name,
+                                        start: start, end: end)
+        }.sorted { $0.start < $1.start }
+
+        var unlabelled: [DateInterval] = []
+        var cursor = gap.start
+        for rest in rests {
+            if rest.start > cursor {
+                unlabelled.append(DateInterval(start: cursor, end: rest.start))
+            }
+            cursor = max(cursor, rest.end)
+        }
+        if cursor < gap.end {
+            unlabelled.append(DateInterval(start: cursor, end: gap.end))
+        }
+        unknown = unlabelled
+    }
+}
+
 /// The day as one band, divided into uniform hour columns. Drawn with `Canvas`
 /// rather than Swift Charts because a busy day is several hundred segments and
 /// Canvas draws them in a single immediate-mode pass.
@@ -22,6 +64,9 @@ struct DayTimelineView: View {
     /// The purpose-built Today surface presents detail in its inspector below
     /// the ribbon; legacy Dashboard keeps the inline hour detail.
     var showsDetail: Bool = true
+    /// Today owns mutually exclusive app/session inspection. Legacy Dashboard
+    /// retains its established combined selection behaviour.
+    var usesTodaySelection: Bool = false
 
     private var bandHeight: CGFloat { compact ? 26 : dominant ? 64 : 44 }
     /// The menu bar's band. It draws today's segments and brackets, not the
@@ -70,14 +115,27 @@ struct DayTimelineView: View {
                     let rect = CGRect(x: gap.xStart * size.width, y: 0,
                                       width: (gap.xEnd - gap.xStart) * size.width,
                                       height: bandHeight)
-                    let namedRest = recordedBreaks.contains {
-                        $0.start < gap.end && $0.end > gap.start
-                    }
-                    let fill = namedRest
-                        ? Tokens.Palette.workType(.breakTime).opacity(0.18)
-                        : Tokens.Colour.elevated
                     context.fill(Path(roundedRect: rect, cornerRadius: Tokens.Radius.swatch),
-                                 with: .color(fill))
+                                 with: .color(Tokens.Colour.elevated))
+
+                    // A canonical rest may occupy only part of this collapsed
+                    // gap. Draw its proportional slice; unknown time keeps the
+                    // ordinary inactivity fill around it.
+                    let evidence = TimelineGapEvidence(gap: gap, breaks: recordedBreaks)
+                    let gapDuration = max(1, gap.duration)
+                    for rest in evidence.rests {
+                        let from = rest.start.timeIntervalSince(gap.start) / gapDuration
+                        let to = rest.end.timeIntervalSince(gap.start) / gapDuration
+                        let restRect = CGRect(
+                            x: (gap.xStart + from * (gap.xEnd - gap.xStart)) * size.width,
+                            y: 0,
+                            width: max(1.5, (to - from) * (gap.xEnd - gap.xStart) * size.width),
+                            height: bandHeight)
+                        context.fill(Path(roundedRect: restRect,
+                                          cornerRadius: Tokens.Radius.swatch),
+                                     with: .color(Tokens.Palette.workType(.breakTime)
+                                        .opacity(0.55)))
+                    }
                 }
 
                 // Hour columns inside clusters only.
@@ -156,12 +214,18 @@ struct DayTimelineView: View {
             }
             .onTapGesture { location in
                 // Selection opens the detail row, which the glance band has not.
-                if !isGlance { store.selectTimeline(at: Double(location.x / width)) }
+                if !isGlance {
+                    let fraction = Double(location.x / width)
+                    if usesTodaySelection { store.selectTodayTimeline(at: fraction) }
+                    else { store.selectTimeline(at: fraction) }
+                }
             }
-            .overlay(alignment: .topLeading) { gapLabels(layout, width: width) }
+            .overlay(alignment: .topLeading) {
+                if !compact { gapLabels(layout, width: width) }
+            }
             .overlay(alignment: .topLeading) { hoverLabel(layout, width: width) }
         }
-        .frame(height: bandHeight + bracketRow)
+        .frame(height: bandHeight + bracketRow + gapLabelRow(layout))
         .accessibilityLabel("Day timeline, \(segments.count) app segments, "
                             + "\(layout.gaps.count) inactive periods")
     }
@@ -170,22 +234,39 @@ struct DayTimelineView: View {
     /// separator is too narrow to hold a label.
     @ViewBuilder
     private func gapLabels(_ layout: TimelineLayout, width: CGFloat) -> some View {
-        // A gap the user named — "Dinner" — says so; the rest say what they are.
         let breaks = store.breakRecords(on: layoutOverride != nil ? Date() : store.selectedDay)
         ForEach(layout.gaps) { gap in
             let separatorWidth = (gap.xEnd - gap.xStart) * width
-            let named = breaks.first { $0.start < gap.end && $0.end > gap.start }
-            let title = named.map { $0.name.isEmpty ? "Break" : $0.name } ?? "No activity"
-            if separatorWidth >= 40 {
-                Text(title + " · " + Tokens.preciseDuration(gap.duration))
-                    .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
-                    .fixedSize()
-                    .offset(x: min(max(gap.xStart * width - 30, 0), max(0, width - 110)),
-                            y: bandHeight + 2)
-                    .allowsHitTesting(false)
+            let evidence = TimelineGapEvidence(gap: gap, breaks: breaks)
+            if !evidence.rests.isEmpty, separatorWidth >= 28 {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(evidence.rests) { rest in
+                        Text("\(rest.name) · \(Tokens.timeRange(rest.start, rest.end)) · "
+                             + Tokens.preciseDuration(rest.duration))
+                    }
+                    let unknown = evidence.unknown.reduce(0) { $0 + $1.duration }
+                    if unknown > 0 {
+                        Text("Other inactivity · \(Tokens.preciseDuration(unknown))")
+                            .foregroundStyle(.quaternary)
+                    }
+                }
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .fixedSize()
+                .offset(x: min(max(gap.xStart * width - 30, 0), max(0, width - 260)),
+                        y: bandHeight + bracketRow + 1)
+                .allowsHitTesting(false)
             }
         }
+    }
+
+    private func gapLabelRow(_ layout: TimelineLayout) -> CGFloat {
+        guard !compact, !layout.gaps.isEmpty else { return 0 }
+        let breaks = store.breakRecords(on: layoutOverride != nil ? Date() : store.selectedDay)
+        return layout.gaps.contains {
+            !TimelineGapEvidence(gap: $0, breaks: breaks).rests.isEmpty
+        } ? 24 : 0
     }
 
     @ViewBuilder

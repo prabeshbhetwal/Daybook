@@ -279,6 +279,8 @@ enum SelfTest {
              testMainWindowRoutesAndCommands),
             ("Today preserves day scope and clears only its inspector selection",
              testTodaySurfaceScopeAndInspector),
+            ("Timeline rests stay clipped inside otherwise unknown gaps",
+             testTimelineRestEvidenceStaysCanonical),
             ("Focus states keep one honest action and continuations stop at three",
              testFocusSurfaceStateAndContinuationLimit),
             ("Focus composition guards decisions and keeps automatic corrections available",
@@ -6740,6 +6742,18 @@ enum SelfTest {
                        "session selection opens a session inspector", &problems)
                 expect(store.selectedSegment == nil,
                        "session inspection replaces the prior app inspection", &problems)
+                store.selectTodayTimeline(at: fraction)
+                expect(store.todayInspector?.kind == .app,
+                       "ribbon selection replaces the session inspector with app evidence",
+                       &problems)
+                expect(store.selectedSession == nil && store.selectedSegment != nil,
+                       "ribbon selection leaves exactly one app backing selection", &problems)
+                let backingSelections = [store.selectedSession != nil,
+                                         store.selectedSegment != nil].filter { $0 }.count
+                expect(backingSelections == 1,
+                       "Today retains exactly one backing inspector selection", &problems)
+                expect(store.dayOffset == 1,
+                       "session-to-ribbon inspection preserves the historical day", &problems)
             } else {
                 problems.append("past-day fixture did not provide a selectable session")
             }
@@ -6760,6 +6774,49 @@ enum SelfTest {
                    "the reset action is hidden on the real current day", &problems)
             return problems
         }
+    }
+
+    /// A named rest is evidence only for its clipped record interval. It cannot
+    /// inherit the duration of the larger elided inactivity gap around it.
+    private static func testTimelineRestEvidenceStaysCanonical() -> [String] {
+        var problems: [String] = []
+        let day = Calendar.current.startOfDay(for: base)
+        let gap = TimelineGap(start: day.addingTimeInterval(9 * 3_600),
+                              end: day.addingTimeInterval(12 * 3_600),
+                              xStart: 0.4, xEnd: 0.44)
+        let tea = SessionRecord(name: "Tea break", workType: .breakTime,
+                                start: day.addingTimeInterval(10 * 3_600),
+                                end: day.addingTimeInterval(10.5 * 3_600),
+                                workSeconds: 30 * 60)
+        // Crosses the gap's right boundary: only the fifteen minutes inside the
+        // gap are eligible for its presentation.
+        let handover = SessionRecord(name: "Handover", workType: .breakTime,
+                                     start: day.addingTimeInterval(11.75 * 3_600),
+                                     end: day.addingTimeInterval(12.25 * 3_600),
+                                     workSeconds: 30 * 60)
+
+        let evidence = TimelineGapEvidence(gap: gap, breaks: [tea, handover])
+        expect(evidence.rests.count == 2,
+               "two overlapping canonical rests remain two rest slices", &problems)
+        if evidence.rests.count == 2 {
+            expectClose(evidence.rests[0].start.timeIntervalSince(day), 10 * 3_600,
+                        "the inside rest keeps its start", &problems)
+            expectClose(evidence.rests[0].end.timeIntervalSince(day), 10.5 * 3_600,
+                        "the inside rest keeps its end", &problems)
+            expectClose(evidence.rests[0].duration, 30 * 60,
+                        "the inside rest keeps its own duration", &problems)
+            expectClose(evidence.rests[1].start.timeIntervalSince(day), 11.75 * 3_600,
+                        "the boundary-crossing rest keeps its inside start", &problems)
+            expectClose(evidence.rests[1].end.timeIntervalSince(day), 12 * 3_600,
+                        "the boundary-crossing rest clips at the gap end", &problems)
+            expectClose(evidence.rests[1].duration, 15 * 60,
+                        "the boundary-crossing rest labels only its clipped duration", &problems)
+        }
+        expect(evidence.unknown.count == 2,
+               "unknown inactivity remains on both sides of the named evidence", &problems)
+        expectClose(evidence.unknown.reduce(0) { $0 + $1.duration }, 135 * 60,
+                    "surrounding inactivity stays distinct from named rests", &problems)
+        return problems
     }
 
     /// Focus is an operational surface, so every engine state needs one clear
