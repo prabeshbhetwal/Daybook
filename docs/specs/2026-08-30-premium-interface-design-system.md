@@ -1,7 +1,7 @@
 # FocusContinuity Premium Interface Design System
 
 **Date:** 2026-08-30  
-**Status:** Approved direction; design-system specification awaiting implementation-plan review  
+**Status:** Approved direction; detailed execution plan written; implementation not started  
 **Scope:** Main checkout only. This document defines the visual and interaction system for every FocusContinuity surface. It does not change time-accounting semantics, persistence, or historical evidence.  
 **Supersedes:** The visual-system and Review-routing portions of `2026-08-29-interface-redesign-design.md`. The five-tab product architecture, its privacy constraints, and its truthfulness requirements remain in force.
 
@@ -490,4 +490,3 @@ No implementation starts from this specification until the user has reviewed it 
 - New user-configurable dashboard layouts, export, sharing, cloud sync, onboarding, data editing, or account features are outside this redesign.
 - A custom multi-month range calendar is allowed only if native macOS date controls cannot meet the contained range-popover design at macOS 13. It must not add a dependency or reduce keyboard/VoiceOver behaviour.
 - Additional chart types require a separate question, canonical measure, and specification; a chart is not added merely to populate open space.
-
