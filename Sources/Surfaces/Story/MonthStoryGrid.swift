@@ -52,8 +52,9 @@ struct MonthStoryGrid: View {
                         } else {
                             RoundedRectangle(cornerRadius: 9, style: .continuous)
                                 .fill(Tokens.Colour.elevated.opacity(0.4))
-                                .aspectRatio(1, contentMode: .fit)
-                                .frame(maxWidth: .infinity)
+                                .frame(maxWidth: .infinity,
+                                       minHeight: MonthDayCell.height,
+                                       maxHeight: MonthDayCell.height)
                                 .accessibilityHidden(true)
                         }
                     }
@@ -128,6 +129,10 @@ struct MonthStoryGrid: View {
 /// One day in the month grid. The tint is the day's share of the goal, so the
 /// month reads as a heat map of real progress rather than of raw presence.
 struct MonthDayCell: View {
+    /// A fixed row height, shared with the empty leading and trailing slots so
+    /// every week in the grid is the same height.
+    static let height: CGFloat = 58
+
     let day: Date
     let facts: DayFacts?
     let goal: TimeInterval
@@ -147,36 +152,49 @@ struct MonthDayCell: View {
 
     var body: some View {
         Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 2) {
-                    Text("\(Calendar.current.component(.day, from: day))")
-                        .font(.caption.weight(.bold).monospacedDigit())
-                    Spacer(minLength: 0)
-                    if isToday {
-                        Text("TODAY")
-                            .font(.system(size: 8, weight: .bold))
-                            .kerning(0.4)
-                    }
-                }
-                Spacer(minLength: 0)
-                Text(focused > 0 ? Tokens.duration(focused) : "—")
-                    .font(.system(size: 10).monospacedDigit())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-            .foregroundStyle(readableForeground)
-            .padding(7)
-            .frame(maxWidth: .infinity)
-            .aspectRatio(1, contentMode: .fit)
-            .background(background)
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .strokeBorder(Tokens.Colour.focus, lineWidth: isSelected ? 2 : 0))
-            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            face
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Open this day as a story")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 9, style: .continuous)
+    }
+
+    private var face: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 2) {
+                Text(dayNumber)
+                    .font(.caption.weight(.bold).monospacedDigit())
+                Spacer(minLength: 0)
+                if isToday {
+                    Text("TODAY")
+                        .font(.system(size: 8, weight: .bold))
+                        .kerning(0.4)
+                }
+            }
+            Spacer(minLength: 0)
+            Text(focused > 0 ? Tokens.duration(focused) : "—")
+                .font(.system(size: 10).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .foregroundStyle(readableForeground)
+        .padding(7)
+        // A fixed row height rather than a square: at seven columns a square
+        // cell is as tall as the column is wide, and the last week of the
+        // month falls out of the window.
+        .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height)
+        .background(background)
+        .overlay(shape.strokeBorder(Tokens.Colour.focus, lineWidth: isSelected ? 2 : 0))
+        .contentShape(shape)
+    }
+
+    private var dayNumber: String {
+        "\(Calendar.current.component(.day, from: day))"
     }
 
     @ViewBuilder private var background: some View {
