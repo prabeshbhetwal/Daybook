@@ -57,7 +57,7 @@ struct StatCard: View {
                 // The label never breaks; a long badge yields, scaling down
                 // before it truncates — "TRACKE / D" was the alternative.
                 Text(label.uppercased())
-                    .font(Tokens.Typography.sectionLabel)
+                    .font(Tokens.Typography.tabLabel)
                     .kerning(0.7)
                     .foregroundStyle(.secondary)
                     .fixedSize()
@@ -65,7 +65,7 @@ struct StatCard: View {
                 Spacer(minLength: Tokens.Space.xs)
                 if let badge {
                     Text(badge)
-                        .font(Tokens.Typography.detail.weight(.medium).monospacedDigit())
+                        .font(Tokens.Typography.metadata.weight(.medium).monospacedDigit())
                         .foregroundStyle(badgeTint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.secondary))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
@@ -76,12 +76,12 @@ struct StatCard: View {
                 }
             }
             Text(value)
-                .font(Tokens.Typography.stat)
+                .font(Tokens.Typography.metricValue)
                 .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(context ?? " ")
-                .font(Tokens.Typography.detail)
+                .font(Tokens.Typography.metadata)
                 .foregroundStyle(contextTint.map(AnyShapeStyle.init)
                                  ?? AnyShapeStyle(.secondary))
                 .lineLimit(2)

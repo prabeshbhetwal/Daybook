@@ -367,7 +367,9 @@ enum SelfTest {
             ("History date controls provide real 28 point hit targets",
              testHistoryDateControlsMeetTarget),
             ("Expanded app rows retain daily accessibility and keyboard actions",
-             testPeriodAppRowsExposeDailyAccessibility)
+             testPeriodAppRowsExposeDailyAccessibility),
+            ("Snapshot matrix covers every material surface",
+             testSnapshotMatrixCoversEveryMaterialSurface)
         ]
 
         print("FocusContinuity self-test")
@@ -6859,6 +6861,87 @@ enum SelfTest {
                    "compact dark snapshot root contains title and status evidence", &problems)
             expect(!snapshotHasTitleStatusBand(blankRenderer.nsImage),
                    "the structural probe rejects a root with no title/status band", &problems)
+            return problems
+        }
+    }
+
+    /// Task 11 — the gallery and PNG harness share one explicit product-surface
+    /// matrix. This catches a return to fixture-centric output, a missing
+    /// Settings group, an appearance omission or a dropped responsive shell.
+    private static func testSnapshotMatrixCoversEveryMaterialSurface() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let required: [SnapshotScenario] = [
+                .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
+                .todayHistory, .todayPast,
+                .reviewWeek, .reviewMonth,
+                .insightsEnough, .insightsEmpty,
+                .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
+                .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
+                .awayQuick, .awayFull, .rewardEarned
+            ]
+
+            expect(SnapshotScenario.allCases == required,
+                   "snapshot scenarios must equal the approved global surface order",
+                   &problems)
+
+            let settingsScenarios = SnapshotScenario.allCases.compactMap(\.settingsSection)
+            expect(settingsScenarios == SettingsSection.allCases,
+                   "snapshot Settings scenarios must equal every persisted Settings group",
+                   &problems)
+
+            let matrix = Set(Snapshotter.matrix)
+            let appearances = SnapshotAppearance.allCases
+            for scenario in required {
+                for appearance in appearances {
+                    expect(matrix.contains(where: {
+                        $0.scenario == scenario && $0.appearance == appearance
+                    }), "\(scenario.rawValue) must render in \(appearance.rawValue)",
+                    &problems)
+                }
+            }
+
+            let compactScenarios: Set<SnapshotScenario> = [
+                .awayQuick, .awayFull, .rewardEarned
+            ]
+            let shellScenarios = required.filter { !compactScenarios.contains($0) }
+            for scenario in shellScenarios {
+                for appearance in appearances {
+                    for presentation in [SnapshotPresentation.minimum,
+                                         SnapshotPresentation.comfortable] {
+                        expect(matrix.contains(SnapshotRender(
+                            scenario: scenario,
+                            appearance: appearance,
+                            presentation: presentation)),
+                        "\(scenario.rawValue) must retain the \(presentation.rawValue) shell",
+                        &problems)
+                    }
+                }
+            }
+
+            let focusScenarios = Array(required.prefix(4))
+            for scenario in focusScenarios {
+                for appearance in appearances {
+                    expect(matrix.contains(SnapshotRender(
+                        scenario: scenario,
+                        appearance: appearance,
+                        presentation: .popover)),
+                    "\(scenario.rawValue) must retain the compact popover",
+                    &problems)
+                }
+            }
+
+            for scenario in compactScenarios {
+                for appearance in appearances {
+                    expect(matrix.contains(SnapshotRender(
+                        scenario: scenario,
+                        appearance: appearance,
+                        presentation: .compact)),
+                    "\(scenario.rawValue) must retain its compact production surface",
+                    &problems)
+                }
+            }
+
             return problems
         }
     }

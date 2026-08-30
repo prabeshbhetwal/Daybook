@@ -48,7 +48,7 @@ struct RhythmChart: View {
                     ForEach(hours) { hour in
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .fill(hour.seconds > 0 ? AnyShapeStyle(Tokens.Palette.app(rank: hour.colorIndex))
-                                                   : AnyShapeStyle(Tokens.Surface.well))
+                                                   : AnyShapeStyle(Tokens.Colour.elevated))
                             .frame(height: max(3, height * CGFloat(min(1, hour.seconds / 3_600))))
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
@@ -59,11 +59,11 @@ struct RhythmChart: View {
                     }
                 }
                 .frame(height: height, alignment: .bottom)
-                .overlay(alignment: .bottom) { Rectangle().fill(Tokens.Surface.hairline).frame(height: 1) }
+                .overlay(alignment: .bottom) { Rectangle().fill(Tokens.Colour.line).frame(height: 1) }
                 HStack(spacing: labelStep == 1 ? 8 : 4) {
                     ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
                         Text(index % labelStep == 0 ? DayTimelineView.hourLabel(hour.hour) : "")
-                            .font(Tokens.Typography.detail)
+                            .font(Tokens.Typography.metadata)
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity)
@@ -103,7 +103,7 @@ struct WorkTypeDonut: View {
         } else {
             HStack(spacing: Tokens.Space.m) {
                 ZStack {
-                    Circle().stroke(Tokens.Surface.well, lineWidth: lineWidth)
+                    Circle().stroke(Tokens.Colour.elevated, lineWidth: lineWidth)
                     ForEach(cumulative, id: \.share.id) { slice in
                         Circle()
                             .trim(from: slice.from, to: slice.to)
@@ -124,9 +124,9 @@ struct WorkTypeDonut: View {
                             Circle().fill(Tokens.Palette.workType(share.workType))
                                 .frame(width: 8, height: 8)
                             Text(share.workType.displayName)
-                                .font(Tokens.Typography.detail)
+                                .font(Tokens.Typography.metadata)
                             Text("\(Int((share.share * 100).rounded()))%")
-                                .font(Tokens.Typography.detail.monospacedDigit())
+                                .font(Tokens.Typography.metadata.monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -150,18 +150,18 @@ struct RunningNowChips: View {
                 HStack(spacing: Tokens.Space.xs) {
                     AppIcon(bundleID: app.bundleID, size: 14, appName: app.appName)
                     Text(app.appName)
-                        .font(Tokens.Typography.detail)
+                        .font(Tokens.Typography.metadata)
                         .lineLimit(1)
                 }
                 .padding(.horizontal, Tokens.Space.s)
                 .padding(.vertical, 4)
-                .overlay(Capsule().strokeBorder(Tokens.Surface.hairline))
+                .overlay(Capsule().strokeBorder(Tokens.Colour.line))
                 .help((app.launched.map { Tokens.timeOfDay($0) } ?? "")
                       + (app.openFor.map { " · in front \(Tokens.preciseDuration($0))" } ?? ""))
             }
             if apps.count > 8 {
                 Text("+\(apps.count - 8) more")
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
                     .foregroundStyle(.tertiary)
             }
             Spacer(minLength: 0)

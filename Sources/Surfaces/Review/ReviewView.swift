@@ -62,11 +62,11 @@ struct ReviewView: View {
         HStack(alignment: .top, spacing: Tokens.Space.l) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Review")
-                    .font(Tokens.Typography.title)
+                    .font(Tokens.Typography.pageTitle)
                 Text(navigation.reviewSection == .history
                      ? "Search the local record and open any day in Today."
                      : store.reviewSummaryLine)
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: Tokens.Space.l)
@@ -316,7 +316,7 @@ private struct ReviewMetric: View {
                 .font(Tokens.Typography.metricValue.monospacedDigit())
             if let note {
                 Text(note)
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

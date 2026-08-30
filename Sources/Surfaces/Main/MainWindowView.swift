@@ -8,18 +8,25 @@ struct MainWindowView: View {
     @ObservedObject var navigation: MainWindowModel
     var focusScrolls = true
     var todayScrolls = true
+    var reviewScrolls = true
+    var insightsScrolls = true
     var settingsScrolls = true
 
     var body: some View {
         VStack(spacing: 0) {
             MainWindowHeader(store: store, navigation: navigation)
                 .accessibilitySortPriority(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
             Divider()
             tabBand
                 .accessibilitySortPriority(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
             Divider()
             selectedCanvas
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .clipped()
                 .accessibilitySortPriority(1)
         }
         .frame(minWidth: 980, minHeight: 680)
@@ -50,9 +57,9 @@ struct MainWindowView: View {
         case .today:
             TodayView(store: store, scrolls: todayScrolls)
         case .review:
-            ReviewView(store: store, navigation: navigation)
+            ReviewView(store: store, navigation: navigation, scrolls: reviewScrolls)
         case .insights:
-            InsightsView(store: store, navigation: navigation)
+            InsightsView(store: store, navigation: navigation, scrolls: insightsScrolls)
         case .settings:
             SettingsView(model: settings, navigation: navigation,
                          scrolls: settingsScrolls)

@@ -1,38 +1,13 @@
 import SwiftUI
 
-/// `--gallery` renders every surface state from fixtures, light and dark, side by
-/// side. It is a design-review surface and a visual regression check, and it
-/// never touches real user data — every fixture gets a throwaway directory.
-enum Fixture: String, CaseIterable, Identifiable {
+/// Data states used to build the product-surface matrix. They are deliberately
+/// not the Gallery's navigation model; `SnapshotScenario` owns that contract.
+enum FixtureState: String {
     case firstRun
     case idleWithHistory
     case running
-    case automaticRunning
     case paused
-    case watching
-    case automaticPaused
-    case automaticWatching
-    case automaticAway
     case needsResolution
-    case brokenStreak
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .firstRun: return "First run — no history"
-        case .idleWithHistory: return "Idle — with history"
-        case .running: return "Running"
-        case .automaticRunning: return "Automatic — running"
-        case .paused: return "Paused"
-        case .watching: return "Watching"
-        case .automaticPaused: return "Automatic — paused"
-        case .automaticWatching: return "Automatic — Watching"
-        case .automaticAway: return "Automatic — declared Away"
-        case .needsResolution: return "Needs resolution"
-        case .brokenStreak: return "Broken streak"
-        }
-    }
 }
 
 enum FixtureFactory {
@@ -52,7 +27,7 @@ enum FixtureFactory {
             .appendingPathComponent("fc-gallery-\(UUID().uuidString)", isDirectory: true)
     }
 
-    static func store(for fixture: Fixture, accurateUsage: Bool = false) -> SessionStore {
+    static func store(for fixture: FixtureState, accurateUsage: Bool = false) -> SessionStore {
         // Anchor at 10:00 today, not "now": seeding from a late-evening anchor
         // pushes a session's end past midnight, so it lands on the wrong day and
         // the totals lie. Sessions are attributed to the day they end.
@@ -100,15 +75,6 @@ enum FixtureFactory {
                                          threadID: todayThread))
         }
 
-        /// Automatic ownership is part of the persisted engine contract. Mark
-        /// the fixture through that real restore path so paused/Watching/Away
-        /// snapshots exercise the same presentation state a relaunch can hold.
-        func restoreAutomaticOwnership() {
-            var snapshot = engine.snapshot()
-            snapshot.isAuto = true
-            engine.restore(from: snapshot)
-        }
-
         switch fixture {
         case .firstRun:
             break
@@ -118,39 +84,11 @@ enum FixtureFactory {
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")
             clock.value = anchor.addingTimeInterval(2_712)
-        case .automaticRunning:
-            seedWeek()
-            engine.start(workType: .deepWork, intent: "Detected coding", isAuto: true)
-            clock.value = anchor.addingTimeInterval(2_712)
-            restoreAutomaticOwnership()
         case .paused:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")
             clock.value = anchor.addingTimeInterval(1_500)
             engine.transition(on: .manualPause)
-        case .watching:
-            seedWeek()
-            engine.start(workType: .deepWork, intent: "Review the product demo")
-            clock.value = anchor.addingTimeInterval(1_500)
-            engine.transition(on: .watchingObserved(seconds: 10 * 60))
-        case .automaticPaused:
-            seedWeek()
-            engine.start(workType: .deepWork, intent: "Detected coding", isAuto: true)
-            clock.value = anchor.addingTimeInterval(1_500)
-            engine.transition(on: .manualPause)
-            restoreAutomaticOwnership()
-        case .automaticWatching:
-            seedWeek()
-            engine.start(workType: .deepWork, intent: "Detected review", isAuto: true)
-            clock.value = anchor.addingTimeInterval(1_500)
-            engine.transition(on: .watchingObserved(seconds: 10 * 60))
-            restoreAutomaticOwnership()
-        case .automaticAway:
-            seedWeek()
-            engine.start(workType: .deepWork, intent: "Detected coding", isAuto: true)
-            clock.value = anchor.addingTimeInterval(1_500)
-            engine.transition(on: .markedAway)
-            restoreAutomaticOwnership()
         case .needsResolution:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")
@@ -158,9 +96,6 @@ enum FixtureFactory {
             engine.transition(on: .awayBegan(trigger: .screenLock))
             clock.value = anchor.addingTimeInterval(600 + 1_320)
             engine.transition(on: .awayEnded)
-        case .brokenStreak:
-            // Worked solidly until three days ago, then stopped.
-            seedWeek(skippingDaysAgo: [0, 1, 2])
         }
 
         let store = SessionStore(engine: engine)
@@ -294,40 +229,41 @@ enum FixtureFactory {
     }
 }
 
-struct GalleryView: View {
-    private let fixtures: [(Fixture, SessionStore, SessionStore)]
+@MainActor private final class GalleryModel: ObservableObject {
+    @Published var scenario: SnapshotScenario = .focusRunning
+}
 
-    init() {
-        // Two independent stores per fixture: SwiftUI would otherwise share one
-        // object across both colour schemes and the focus state would fight.
-        fixtures = Fixture.allCases.map {
-            ($0, FixtureFactory.store(for: $0), FixtureFactory.store(for: $0))
-        }
-    }
+struct GalleryView: View {
+    @StateObject private var model = GalleryModel()
 
     var body: some View {
-        ScrollView {
+        ScrollView([.horizontal, .vertical]) {
             VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-                Text("FocusContinuity — state catalogue")
+                Text("FocusContinuity — product surface catalogue")
                     .font(.largeTitle.weight(.semibold))
-                VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                    Text("Components").font(.headline)
-                    ComponentStrip()
+                Picker("Scenario", selection: $model.scenario) {
+                    ForEach(SnapshotScenario.allCases) { scenario in
+                        Text(scenario.title).tag(scenario)
+                    }
                 }
-                Divider()
-                ForEach(fixtures, id: \.0.id) { fixture, lightStore, darkStore in
+                .pickerStyle(.menu)
+                .frame(width: 340, alignment: .leading)
+
+                ForEach(model.scenario.presentations, id: \.rawValue) { presentation in
                     VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                        Text(fixture.title).font(.headline)
+                        Text(presentation.title).font(.headline)
                         HStack(alignment: .top, spacing: Tokens.Space.xl) {
                             labelled("Light") {
-                                PopoverView(store: lightStore,
-                                            settings: gallerySettings())
-                                    .preferredColorScheme(.light)
+                                Snapshotter.view(for: SnapshotRender(
+                                    scenario: model.scenario,
+                                    appearance: .light,
+                                    presentation: presentation))
                             }
                             labelled("Dark") {
-                                PopoverView(store: darkStore,
-                                            settings: gallerySettings())
-                                    .preferredColorScheme(.dark)
+                                Snapshotter.view(for: SnapshotRender(
+                                    scenario: model.scenario,
+                                    appearance: .dark,
+                                    presentation: presentation))
                             }
                         }
                     }
@@ -343,20 +279,10 @@ struct GalleryView: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Text(title).font(.caption).foregroundStyle(.secondary)
             content()
-                .clipShape(RoundedRectangle(cornerRadius: Tokens.cardCorner))
-                .overlay(RoundedRectangle(cornerRadius: Tokens.cardCorner)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.panel))
+                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel)
                     .strokeBorder(.quaternary))
         }
-    }
-
-    private func gallerySettings() -> SettingsModel {
-        let defaults = UserDefaults(
-            suiteName: "com.prabesh.focuscontinuity.gallery.settings"
-        ) ?? .standard
-        let persistence = PersistenceStore(defaults: defaults)
-        persistence.removeAll()
-        return SettingsModel(store: persistence, isTrackingEnabled: true,
-                             onChange: {}, onTrackingChanged: { _ in })
     }
 }
 
@@ -365,77 +291,6 @@ struct GalleryApp: App {
         Window("Gallery", id: "gallery") {
             GalleryView()
         }
-        .defaultSize(width: 820, height: 900)
-    }
-}
-
-/// The vocabulary in one row, so a token change can be judged in isolation.
-struct ComponentStrip: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.l) {
-            HStack(alignment: .top, spacing: Tokens.Space.l) {
-                SurfacePanel(title: "Primary shell", layout: InterfaceDensity.compact.layout) {
-                    VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                        Text("Icon and label")
-                            .font(Tokens.Typography.metadata)
-                            .foregroundStyle(.secondary)
-                        TabRail(selectedTab: .constant(.focus)) { _ in }
-                        Text("Label only at compact width")
-                            .font(Tokens.Typography.metadata)
-                            .foregroundStyle(.secondary)
-                        TabRail(selectedTab: .constant(.today)) { _ in }
-                            .frame(width: 360)
-                    }
-                }
-                .frame(width: 680)
-            }
-            HStack(alignment: .top, spacing: Tokens.Space.l) {
-                SurfacePanel(title: "Metric line", layout: InterfaceDensity.comfortable.layout) {
-                    VStack(spacing: Tokens.Space.s) {
-                        MetricLine(label: "Tracked", value: "5h 10m",
-                                   note: "3h 5m vs yesterday")
-                        MetricLine(label: "Focus", value: "3h 02m",
-                                   note: "2h 12m in deep work", tint: Tokens.Colour.focus)
-                        GoalRing(progress: 0.63, label: "63%")
-                        GoalRing(progress: 1.0, isMet: true)
-                    }
-                }
-                SurfacePanel(title: "Usage rows", layout: InterfaceDensity.compact.layout) {
-                    VStack(spacing: Tokens.Space.s) {
-                        AppUsageRow(appName: "Xcode", bundleID: "com.apple.dt.Xcode",
-                                    rank: 0, seconds: 4_200, share: 0.62,
-                                    layout: InterfaceDensity.compact.layout)
-                        AppUsageRow(appName: "Chrome", bundleID: "com.google.Chrome",
-                                    rank: 1, seconds: 1_950, share: 0.29,
-                                    layout: InterfaceDensity.compact.layout)
-                        AppUsageRow(appName: "Slack", bundleID: "com.tinyspeck.slackmacgap", rank: 2,
-                                    seconds: 900, share: 0.09,
-                                    layout: InterfaceDensity.compact.layout)
-                        EmptyState("No running sessions",
-                                   detail: "Start focus and your first session appears here.")
-                    }
-                }
-            }
-            HStack(alignment: .top, spacing: Tokens.Space.l) {
-                SurfacePanel(title: "Settings and warnings", layout: InterfaceDensity.comfortable.layout) {
-                    SettingsRow("Appearance", value: "Dark",
-                                layout: InterfaceDensity.comfortable.layout)
-                    Divider()
-                    SettingsRow("Show timeline labels", value: "On",
-                                layout: InterfaceDensity.comfortable.layout)
-                    Divider()
-                    IntegrityNotice("App usage from before 13 August may include unattended time.")
-                }
-                SurfacePanel(title: "Density compare", layout: InterfaceDensity.compact.layout) {
-                    MetricLine(label: "Compact", value: "44 pt",
-                               layout: InterfaceDensity.compact.layout)
-                    Divider()
-                    MetricLine(label: "Comfortable", value: "52 pt",
-                               layout: InterfaceDensity.comfortable.layout)
-                }
-            }
-        }
-        .padding(Tokens.Space.l)
-        .background(Tokens.Colour.ground)
+        .defaultSize(width: 1_420, height: 920)
     }
 }

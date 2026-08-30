@@ -114,8 +114,8 @@ struct AwayAnswerGrid: View {
         .padding(.top, hasText ? max(1, controlVerticalPadding - 3) : controlVerticalPadding - 1)
         .padding(.bottom, hasText ? max(3, controlVerticalPadding - 1) : controlVerticalPadding + 1)
         .background(Tokens.Colour.elevated,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
             .strokeBorder(Tokens.Colour.line))
         .help("Name the break and it is written down under that name")
     }
@@ -167,11 +167,11 @@ struct AwayAnswerGrid: View {
             .padding(.bottom, controlVerticalPadding + 1)
             .background(answer.prominent ? AnyShapeStyle(Tokens.Colour.focus)
                                          : AnyShapeStyle(Tokens.Colour.elevated),
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
                                              style: .continuous))
             .foregroundStyle(answer.prominent ? AnyShapeStyle(Tokens.Colour.onFocus)
                                               : AnyShapeStyle(.primary))
-            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.control))
+            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
         }
         .buttonStyle(.plain)
         .help(showsCaptions ? "" : answer.caption)

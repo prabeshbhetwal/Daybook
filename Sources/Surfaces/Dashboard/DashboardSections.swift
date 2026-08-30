@@ -73,7 +73,7 @@ struct EarlierTodayList: View {
             HStack(spacing: Tokens.Space.s) {
                 AppSwatch(rank: app.colorIndex, bundleID: app.bundleID,
                           appName: app.appName, size: 16)
-                Text(app.appName).font(Tokens.Typography.row).lineLimit(1)
+                Text(app.appName).font(Tokens.Typography.rowTitle).lineLimit(1)
                 Spacer()
                 Text(Tokens.preciseDuration(app.total))
                     .font(.caption.monospacedDigit())
@@ -173,8 +173,8 @@ struct TopAppsList: View {
             }
         }
         .contentShape(Rectangle())
-        .background(hover.id == app.bundleID ? Tokens.Surface.hover : Color.clear,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
+        .background(hover.id == app.bundleID ? Tokens.Colour.hover : Color.clear,
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
         .onHover { inside in
             hover.id = inside ? app.bundleID : nil
             store?.highlightApp(inside ? app.bundleID : nil)
@@ -187,16 +187,16 @@ struct TopAppsList: View {
             AppSwatch(rank: min(rank, 6), bundleID: app.bundleID, appName: app.appName,
                       size: compact ? 16 : 20)
             Text(app.appName)
-                .font(compact ? .caption : Tokens.Typography.row)
+                .font(compact ? .caption : Tokens.Typography.rowTitle)
                 .lineLimit(1)
                 .frame(width: compact ? 72 : 120, alignment: .leading)
             DataBar(share: app.share, tint: Tokens.Palette.app(rank: min(rank, 6)))
                 .frame(minWidth: compact ? 48 : 80, idealWidth: 120, maxWidth: .infinity)
             Text(Tokens.preciseDuration(app.total))
-                .font((compact ? Font.caption : Tokens.Typography.row).monospacedDigit())
+                .font((compact ? Font.caption : Tokens.Typography.rowTitle).monospacedDigit())
                 .frame(width: compact ? 50 : 66, alignment: .trailing)
             Text("\(Int((app.share * 100).rounded()))%")
-                .font(Tokens.Typography.detail.monospacedDigit())
+                .font(Tokens.Typography.metadata.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: compact ? 30 : 38, alignment: .trailing)
         }
@@ -306,12 +306,12 @@ struct RunningNowList: View {
                         AppIcon(bundleID: app.bundleID, size: 18, appName: app.appName)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(app.appName)
-                                .font(Tokens.Typography.row)
+                                .font(Tokens.Typography.rowTitle)
                                 .lineLimit(1)
                             // Apps with no launch date are filtered out upstream,
                             // so this always has a real time.
                             Text(app.launched.map { Tokens.timeOfDay($0) } ?? "")
-                                .font(Tokens.Typography.detail)
+                                .font(Tokens.Typography.metadata)
                                 .foregroundStyle(.tertiary)
                         }
                         Spacer()
@@ -345,13 +345,13 @@ struct InsightsList: View {
                             .frame(width: 16)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(insight.headline)
-                                .font(Tokens.Typography.row)
+                                .font(Tokens.Typography.rowTitle)
                                 // The right column is 260pt and these headlines
                                 // are sentences. Without this one read
                                 // "10% of tracked time was in a focu…".
                                 .fixedSize(horizontal: false, vertical: true)
                             Text(insight.detail)
-                                .font(Tokens.Typography.detail)
+                                .font(Tokens.Typography.metadata)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -397,7 +397,7 @@ struct FocusQualityBar: View {
                         }
                     }
                 }
-                .font(Tokens.Typography.detail)
+                .font(Tokens.Typography.metadata)
                 HStack(spacing: Tokens.Space.xl) {
                     Text("\(Int((quality.insideSessionShare * 100).rounded()))% of tracked time in a session")
                     Text(String(format: "%.1f app switches per session", quality.switchesPerSession))

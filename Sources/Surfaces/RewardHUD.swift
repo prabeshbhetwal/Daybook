@@ -49,15 +49,15 @@ private struct RewardHUDView: View {
         .padding(Tokens.Space.m)
         .frame(width: Tokens.popoverWidth, alignment: .leading)
         .background(Tokens.Colour.surface,
-                    in: RoundedRectangle(cornerRadius: Tokens.cardCorner))
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.panel))
         .overlay(
-            RoundedRectangle(cornerRadius: Tokens.cardCorner)
+            RoundedRectangle(cornerRadius: Tokens.Radius.panel)
                 .strokeBorder(Tokens.Colour.progress.opacity(0.38), lineWidth: 1)
         )
         // A tap anywhere dismisses; the Undo button is the deepest hit-tested
         // view at its location, so SwiftUI resolves its own tap first and this
         // background gesture never steals it.
-        .contentShape(RoundedRectangle(cornerRadius: Tokens.cardCorner))
+        .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.panel))
         .onTapGesture(perform: onBackgroundTapped)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(model.title). \(model.detail)")
@@ -132,6 +132,18 @@ final class RewardHUD {
             model: model,
             onUndoTapped: { [weak self] in self?.handleUndo() },
             onBackgroundTapped: { [weak self] in self?.dismiss() })
+    }
+
+    /// The PNG/gallery harness renders the exact hosted content without
+    /// ordering the production non-activating panel or starting its timer.
+    static func snapshotView(for reward: Reward) -> some View {
+        let model = RewardHUDContentModel()
+        model.title = reward.title
+        model.detail = reward.detail
+        model.symbolName = reward.symbolName
+        return RewardHUDView(model: model,
+                             onUndoTapped: {},
+                             onBackgroundTapped: {})
     }
 
     /// - Parameter duration: how long it stays up. A break prompt needs longer

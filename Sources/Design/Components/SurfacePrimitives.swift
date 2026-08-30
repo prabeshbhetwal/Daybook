@@ -69,7 +69,7 @@ struct MetricLine: View {
                                      : AnyShapeStyle(tint))
                 if let note {
                     Text(note)
-                        .font(Tokens.Typography.detail)
+                        .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -237,12 +237,12 @@ struct SettingsRow: View {
             Spacer()
             if let value {
                 Text(value)
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
             if let accessory {
                 accessory
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
             }
         }
         .frame(minHeight: layout.rowHeight)

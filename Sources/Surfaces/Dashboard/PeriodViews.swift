@@ -63,7 +63,7 @@ struct StatBand: View {
                     GoalRing(progress: goal.share, diameter: 56, lineWidth: 6,
                              label: Tokens.duration(goal.achieved), isMet: goal.isMet)
                     Text("of \(Tokens.duration(goal.goal))")
-                        .font(Tokens.Typography.detail)
+                        .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                 }
                 .frame(width: 96)
@@ -169,7 +169,7 @@ struct PeriodChart: View {
                     .overlay(alignment: .topLeading) {
                         if let label = hoverLabel {
                             Text(label)
-                                .font(Tokens.Typography.detail)
+                                .font(Tokens.Typography.metadata)
                                 .padding(.horizontal, Tokens.Space.s)
                                 .padding(.vertical, 4)
                                 .background(.regularMaterial, in: Capsule())
@@ -302,7 +302,7 @@ struct PeriodAppRowButton: View {
                 AppSwatch(rank: min(rank, 6), bundleID: group.bundleID,
                           appName: group.appName, size: 18)
                 Text(group.appName)
-                    .font(Tokens.Typography.row)
+                    .font(Tokens.Typography.rowTitle)
                     .lineLimit(1)
                     .frame(width: 120, alignment: .leading)
                 DataBar(share: group.share,
@@ -319,7 +319,7 @@ struct PeriodAppRowButton: View {
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .contentShape(Rectangle())
             .background(hover.id == group.bundleID ? Tokens.Colour.hover : Color.clear,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
                                              style: .continuous))
         }
         .buttonStyle(.plain)
@@ -384,7 +384,7 @@ struct SessionLogList: View {
                     Text("%")
                         .frame(width: 38, alignment: .trailing)
                 }
-                .font(Tokens.Typography.sectionLabel)
+                .font(Tokens.Typography.tabLabel)
                 .kerning(0.5)
                 .textCase(.uppercase)
                 .foregroundStyle(.tertiary)

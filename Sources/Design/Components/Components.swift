@@ -55,7 +55,7 @@ struct StartButton: View {
                 .padding(.horizontal, Tokens.Space.m)
                 .padding(.vertical, 7)
                 .background(Tokens.Colour.focus,
-                            in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
+                            in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
                                                  style: .continuous))
                 .foregroundStyle(Tokens.Colour.onFocus)
         }
@@ -72,7 +72,7 @@ struct LiveTimer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Text(Tokens.clock(seconds))
-                .font(Tokens.heroTimerFont)
+                .font(Tokens.Typography.liveTimer)
                 .foregroundStyle(paused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 .accessibilityLabel("Elapsed \(Tokens.duration(seconds))")
             Text(paused ? "Paused · \(intent)" : intent)
@@ -202,7 +202,7 @@ struct StatTile: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(Tokens.statNumberFont)
+                .font(Tokens.Typography.metricValue)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card(padding: Tokens.Space.m)
@@ -270,7 +270,7 @@ struct MenuBarLabel: View {
             }
             if state != .idle {
                 Text(Tokens.duration(elapsed))
-                    .font(Tokens.menuBarFont)
+                    .font(Tokens.Typography.menuBar)
             }
         }
         .foregroundStyle(state.isPaused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))

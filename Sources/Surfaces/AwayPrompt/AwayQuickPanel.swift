@@ -35,9 +35,9 @@ private struct QuickPromptView: View {
                 .padding(Tokens.Space.m)
                 .frame(width: 300, alignment: .leading)
                 .background(Tokens.Colour.surface,
-                            in: RoundedRectangle(cornerRadius: Tokens.Radius.card,
+                            in: RoundedRectangle(cornerRadius: Tokens.Radius.panel,
                                                  style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
+                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
                     .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
         }
         .fixedSize()

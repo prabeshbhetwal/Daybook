@@ -75,6 +75,7 @@ DEAD_RECOVERER_PID=""
 SYMLINK_RECOVERER_PID=""
 PREUNLINK_SYMLINK_RECOVERER_PID=""
 GUARD_OWNER_SYMLINK_RECOVERER_PID=""
+RELEASE_GUARD_FAILURE_RECOVERER_PID=""
 RED_FAILURES=0
 
 fail() {
@@ -190,7 +191,8 @@ cleanup() {
                 "${RETRY_RECOVERER_PID}" "${DEAD_CONTENDER_PID}" \
                 "${DEAD_RECOVERER_PID}" "${SYMLINK_RECOVERER_PID}" \
                 "${PREUNLINK_SYMLINK_RECOVERER_PID}" \
-                "${GUARD_OWNER_SYMLINK_RECOVERER_PID}"; do
+                "${GUARD_OWNER_SYMLINK_RECOVERER_PID}" \
+                "${RELEASE_GUARD_FAILURE_RECOVERER_PID}"; do
               if [ -n "${recoverer_pid}" ] \
                   && [ "${observed_guard_pid}" = "${recoverer_pid}" ]; then
                 tracked_guard_pid="${observed_guard_pid}"
@@ -226,7 +228,8 @@ cleanup() {
       "${PRECHECK_CONTENDER_PID}" "${RETRY_RECOVERER_PID}" \
       "${DEAD_CONTENDER_PID}" "${DEAD_RECOVERER_PID}" \
       "${SYMLINK_RECOVERER_PID}" "${PREUNLINK_SYMLINK_RECOVERER_PID}" \
-      "${GUARD_OWNER_SYMLINK_RECOVERER_PID}"; do
+      "${GUARD_OWNER_SYMLINK_RECOVERER_PID}" \
+      "${RELEASE_GUARD_FAILURE_RECOVERER_PID}"; do
     if [ -n "${recoverer_pid}" ]; then
       kill "${recoverer_pid}" 2>/dev/null || true
     fi
@@ -237,7 +240,8 @@ cleanup() {
       "${PRECHECK_CONTENDER_PID}" "${RETRY_RECOVERER_PID}" \
       "${DEAD_CONTENDER_PID}" "${DEAD_RECOVERER_PID}" \
       "${SYMLINK_RECOVERER_PID}" "${PREUNLINK_SYMLINK_RECOVERER_PID}" \
-      "${GUARD_OWNER_SYMLINK_RECOVERER_PID}"; do
+      "${GUARD_OWNER_SYMLINK_RECOVERER_PID}" \
+      "${RELEASE_GUARD_FAILURE_RECOVERER_PID}"; do
     if [ -n "${recoverer_pid}" ]; then
       wait "${recoverer_pid}" 2>/dev/null || true
     fi
@@ -265,7 +269,7 @@ cleanup() {
         || [ "${cleanup_lock_target}" = "${PREUNLINK_SYMLINK_STALE_OWNER}" ]; then
       cleanup_known_symlink=1
     elif [ -f "${LOCK_FILE}" ] && grep -Eq \
-        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID})$" \
+        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID}|${RELEASE_GUARD_FAILURE_STALE_RUN_ID})$" \
         "${LOCK_FILE}"; then
       cleanup_known_symlink=1
     fi
@@ -273,12 +277,14 @@ cleanup() {
       rm -f "${LOCK_FILE}"
     fi
   elif [ -f "${LOCK_FILE}" ] && grep -Eq \
-      "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID})$" \
+      "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID}|${RELEASE_GUARD_FAILURE_STALE_RUN_ID})$" \
       "${LOCK_FILE}"; then
     rm -f "${LOCK_FILE}"
   fi
   for recovery_path in \
       "${SYMLINK_STALE_BACKUP}" "${SYMLINK_STALE_CANDIDATE}" \
+      "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" \
+      "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}" \
       "${DEAD_STALE_BACKUP}" "${DEAD_STALE_CANDIDATE}" \
       "${RETRY_STALE_BACKUP}" "${RETRY_STALE_CANDIDATE}" \
       "${CLEANUP_STALE_BACKUP}" "${CLEANUP_STALE_CANDIDATE}" \
@@ -298,9 +304,10 @@ cleanup() {
   rm -f "${SYMLINK_STALE_OWNER}"
   rm -f "${INITIAL_SYMLINK_STALE_OWNER}" "${PREUNLINK_SYMLINK_STALE_OWNER}"
   rm -f "${GUARD_OWNER_SYMLINK_STALE_OWNER}"
+  rm -f "${RELEASE_GUARD_FAILURE_STALE_OWNER}"
   for owner_marker in "${PROMOTION_ROOT}"/promotion-owner.*; do
     if [ -f "${owner_marker}" ] && grep -Eq \
-        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID})$" \
+        "^run_id=(${LIVE_RUN_ID}|${STALE_RUN_ID}|${DUAL_STALE_RUN_ID}|${SIGNAL_STALE_RUN_ID}|${GAP_STALE_RUN_ID}|${CLEANUP_STALE_RUN_ID}|${RETRY_STALE_RUN_ID}|${DEAD_STALE_RUN_ID}|${SYMLINK_STALE_RUN_ID}|${INITIAL_SYMLINK_STALE_RUN_ID}|${PREUNLINK_SYMLINK_STALE_RUN_ID}|${GUARD_OWNER_SYMLINK_STALE_RUN_ID}|${RELEASE_GUARD_FAILURE_STALE_RUN_ID})$" \
         "${owner_marker}"; then
       rm -f "${owner_marker}"
     fi
@@ -314,6 +321,8 @@ cleanup() {
   rm -rf "${RETRY_STALE_CANDIDATE}" "${RETRY_STALE_BACKUP}"
   rm -rf "${DEAD_STALE_CANDIDATE}" "${DEAD_STALE_BACKUP}"
   rm -rf "${SYMLINK_STALE_CANDIDATE}" "${SYMLINK_STALE_BACKUP}"
+  rm -rf "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}" \
+    "${RELEASE_GUARD_FAILURE_STALE_BACKUP}"
   if [ -L "${LEGACY_CANDIDATE}" ]; then rm -f "${LEGACY_CANDIDATE}"; fi
   if [ -L "${LEGACY_BACKUP}" ]; then rm -f "${LEGACY_BACKUP}"; fi
   if [ -L "${APP_NAME}.app" ]; then
@@ -481,7 +490,8 @@ if [ "${is_primary_lock}" -eq 1 ] && [ -n "${HARNESS_RECOVERER:-}" ] \
     && [ "${HARNESS_RECOVERER}" != "symlink" ] \
     && [ "${HARNESS_RECOVERER}" != "preunlink-symlink" ] \
     && [ "${HARNESS_RECOVERER}" != "guard-owner-symlink" ] \
-    && [ "${HARNESS_RECOVERER}" != "release-symlink" ]; then
+    && [ "${HARNESS_RECOVERER}" != "release-symlink" ] \
+    && [ "${HARNESS_RECOVERER}" != "release-guard-failure" ]; then
   : > "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-before-lock-remove"
   while [ ! -e "${HARNESS_CONTROL_ROOT}/${HARNESS_RECOVERER}-release-lock-remove" ]; do
     sleep 0.05
@@ -1302,18 +1312,35 @@ printf 'pid=%s\nrun_id=%s\nstarted=2000-01-01T00:00:00Z\n' \
 ln "${RELEASE_GUARD_FAILURE_STALE_OWNER}" "${LOCK_FILE}"
 STALE_CANDIDATE_HASH="$(bundle_hash "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}")"
 STALE_BACKUP_HASH="$(bundle_hash "${RELEASE_GUARD_FAILURE_STALE_BACKUP}")"
-set +e
 PATH="${WRAPPER_DIR}:${PATH}" HARNESS_RECOVERER=release-guard-failure \
 HARNESS_CONTROL_ROOT="${HARNESS_ROOT}" HARNESS_LOCK_FILE="${LOCK_FILE}" \
 HARNESS_PROMOTION_ROOT="${PROMOTION_ROOT}" HARNESS_RECOVERY_GUARD="${RECOVERY_GUARD}" \
 HARNESS_GUARD_OWNER_TARGET="${HARNESS_ROOT}/release-guard-owner-target" \
-  ./build.sh > "${HARNESS_ROOT}/release-guard-failure-build.log" 2>&1
+  ./build.sh > "${HARNESS_ROOT}/release-guard-failure-build.log" 2>&1 &
+RELEASE_GUARD_FAILURE_RECOVERER_PID=$!
+if ! wait_for_file_or_process_exit \
+    "${HARNESS_ROOT}/release-guard-owner-corrupted" \
+    "${RELEASE_GUARD_FAILURE_RECOVERER_PID}" 120; then
+  fail "release-boundary regression did not reach its guard assertion"
+fi
+deadline=$((SECONDS + 30))
+while kill -0 "${RELEASE_GUARD_FAILURE_RECOVERER_PID}" 2>/dev/null; do
+  [ "${SECONDS}" -lt "${deadline}" ] \
+    || fail "release-boundary regression did not terminate"
+  sleep 0.05
+done
+set +e
+wait "${RELEASE_GUARD_FAILURE_RECOVERER_PID}"
 BUILD_STATUS=$?
 set -e
+RELEASE_GUARD_FAILURE_RECOVERER_PID=""
 test -e "${HARNESS_ROOT}/release-guard-owner-corrupted" \
   || fail "release-boundary regression did not corrupt the guard owner"
 GUARD_HASH="$(awk '{print $1}' "${HARNESS_ROOT}/release-guard-owner-hash")"
 test "${BUILD_STATUS}" -ne 0 || fail "recovery continued after guard release failed"
+grep -F "promotion recovery guard ownership changed after primary replacement" \
+  "${HARNESS_ROOT}/release-guard-failure-build.log" >/dev/null \
+  || fail "release-boundary regression missed the fail-closed guard diagnosis"
 test -e "${RELEASE_GUARD_FAILURE_STALE_CANDIDATE}" \
   -a -e "${RELEASE_GUARD_FAILURE_STALE_BACKUP}" \
   || fail "failed guard release discarded recovery evidence"

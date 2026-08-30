@@ -73,7 +73,7 @@ struct DayPickerCalendar: View {
                     .font(.system(size: 15, weight: .semibold))
                     .contentTransition(.numericText())
                 Text(monthSummary)
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -145,7 +145,7 @@ struct DayPickerCalendar: View {
         HStack(spacing: gap) {
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
-                    .font(Tokens.Typography.sectionLabel)
+                    .font(Tokens.Typography.tabLabel)
                     .foregroundStyle(.tertiary)
                     .frame(width: cellWidth)
             }
@@ -218,13 +218,13 @@ struct DayPickerCalendar: View {
             .frame(width: cellWidth, height: cellHeight)
             .background(isSelected ? AnyShapeStyle(Tokens.Colour.focus)
                         : AnyShapeStyle(Tokens.Colour.focus.opacity(pickable ? tint(share) : 0)),
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
-                    .fill(hovered && pickable && !isSelected ? Tokens.Surface.hover : Color.clear)
+                RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+                    .fill(hovered && pickable && !isSelected ? Tokens.Colour.hover : Color.clear)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
+                RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
                     .strokeBorder(Tokens.Colour.focus.opacity(isToday && !isSelected ? 0.7 : 0),
                                   lineWidth: 1)
             )
@@ -236,7 +236,7 @@ struct DayPickerCalendar: View {
                         .padding(4)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.control))
+            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
         }
         .buttonStyle(.plain)
         .disabled(!pickable)
@@ -296,7 +296,7 @@ struct DayPickerCalendar: View {
             }
             Text("Share of your \(Tokens.duration(goal)) goal · figure is focused time")
         }
-        .font(Tokens.Typography.detail)
+        .font(Tokens.Typography.metadata)
         .foregroundStyle(.tertiary)
         .accessibilityElement(children: .combine)
     }

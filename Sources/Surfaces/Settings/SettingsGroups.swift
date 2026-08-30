@@ -240,7 +240,7 @@ struct SettingsGroups: View {
                     .foregroundStyle(.secondary)
                 Spacer(minLength: Tokens.Space.m)
                 Text(value)
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
                     .multilineTextAlignment(.trailing)
                     .textSelection(.enabled)
             }

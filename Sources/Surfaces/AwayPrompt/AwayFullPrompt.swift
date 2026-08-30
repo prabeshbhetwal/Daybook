@@ -36,9 +36,9 @@ private struct FullPromptView: View {
             .padding(Tokens.Space.xl)
             .frame(width: 520)
             .background(Tokens.Colour.surface,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.card + 4,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4,
                                              style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.card + 4, style: .continuous)
+            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4, style: .continuous)
                 .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
             .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
             .accessibilityElement(children: .contain)

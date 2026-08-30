@@ -32,7 +32,7 @@ struct InsightSection: View {
                         .font(Tokens.Typography.metadata.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text(insight.detail)
-                        .font(Tokens.Typography.detail)
+                        .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

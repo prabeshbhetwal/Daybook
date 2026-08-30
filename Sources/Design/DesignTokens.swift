@@ -86,31 +86,8 @@ enum Tokens {
         static let nested: CGFloat = 12
         static let capsule: CGFloat = 999
 
-        // Task 11 removes these compatibility aliases after legacy surfaces
-        // migrate to panel/nested semantics.
-        static let control = nested
-        static let card = panel
         static let swatch: CGFloat = 5
         static let bar: CGFloat = 3
-    }
-
-    /// Task 11 removes this compatibility namespace once all callers consume
-    /// `Tokens.Colour` directly.
-    enum Surface {
-        static let ground = Colour.ground
-        static let surface = Colour.surface
-        static let elevated = Colour.elevated
-        static let line = Colour.line
-        static let hover = Colour.hover
-        static let focus = Colour.focus
-        static let progress = Colour.progress
-        static let attention = Colour.attention
-        static let danger = Colour.danger
-
-        static let card = surface
-        static let well = elevated
-        static let control = elevated
-        static let hairline = line
     }
 
     enum Typography {
@@ -124,14 +101,6 @@ enum Tokens {
         static let rowTitle = Font.system(size: 14, weight: .medium, design: .default)
         static let metadata = Font.system(size: 12, weight: .regular, design: .default)
 
-        // Task 11 removes these aliases after legacy surfaces adopt the named
-        // typography roles above.
-        static let heroTimer = liveTimer
-        static let stat = metricValue
-        static let title = pageTitle
-        static let sectionLabel = tabLabel
-        static let row = rowTitle
-        static let detail = metadata
         static let ringLabel = Font.system(size: 11, weight: .semibold, design: .rounded)
             .monospacedDigit()
         static let menuBar = Font.system(size: NSFont.systemFontSize).monospacedDigit()
@@ -142,13 +111,6 @@ enum Tokens {
     /// primary button. Text and controls have a comfortable measure that does
     /// not grow with the window.
     static let formMeasure: CGFloat = 340
-    static let cardCorner: CGFloat = Radius.panel
-    static let panelCorner: CGFloat = Radius.panel
-
-    static let menuBarFont = Typography.menuBar
-    static let heroTimerFont = Typography.heroTimer
-    static let statNumberFont = Typography.stat
-
     /// `2h 15m`, `15m`, `0m`.
     static func duration(_ seconds: TimeInterval) -> String {
         let total = max(0, Int(seconds))

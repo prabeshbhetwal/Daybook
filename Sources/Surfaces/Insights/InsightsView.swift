@@ -52,9 +52,9 @@ struct InsightsView: View {
         HStack(alignment: .top, spacing: Tokens.Space.l) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Insights")
-                    .font(Tokens.Typography.title)
+                    .font(Tokens.Typography.pageTitle)
                 Text("Only patterns supported by your local record appear here.")
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: Tokens.Space.l)

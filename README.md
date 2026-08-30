@@ -1,9 +1,8 @@
 # FocusContinuity
 
 A native macOS focus-session tracker that keeps your time honest across screen locks,
-sleeps and app switches. Menu bar first: a SwiftUI popover with a focused intent field,
-one-click start, live timer, streak and weekly rhythm — plus a Today window for depth.
-No dock icon.
+sleeps and app switches. The compact menu-bar popover is action-first; the main window is
+organised around persistent Focus, Today, Review, Insights and Settings tabs. No dock icon.
 
 It distinguishes a **micro-break** (step away for coffee — the session continues
 silently) from an **extended break** (a resolve card records what happened); an absence
@@ -46,11 +45,14 @@ Two extra launch modes, for design review:
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
 ```
 
-`--gallery` opens a window showing every surface state (first run, idle, running, paused,
-needs-resolution, broken streak) in light and dark. `--snapshot` renders those same states
-to PNG, which works without a Screen Recording grant and doubles as a visual regression
-artefact. `TextField` and material backgrounds do not render under `ImageRenderer`; use
-`--gallery` or the live app to review those.
+`--gallery` and `--snapshot` consume the same `SnapshotScenario` matrix. It covers the
+material Focus, Today, Review, Insights and Settings states through the persistent main
+shell in light/dark at minimum and comfortable widths; Focus also renders through the
+compact popover, and quick/full Away plus the earned-reward HUD retain compact artefacts.
+`--gallery` lets a reviewer select one scenario and compare its variants; `--snapshot`
+writes the whole matrix to PNG without a Screen Recording grant. Native AppKit fields and
+menus can render placeholder interiors under `ImageRenderer`, so use the live Gallery when
+their control chrome itself is the subject of review.
 
 ## Test
 
@@ -70,7 +72,7 @@ longer than the threshold, the distraction dwell guard and its cancellation, the
 helpers (title formatting, archive ring cap, defaults, corrupt-blob tolerance), and
 decision-time accounting, the archive queries (today, sessions, longest, week bars), the
 25-minute streak rule, archive reload and corrupt-file recovery, quick-start ranking,
-discrete session start/stop, away time inside a session, the dashboard computations
+discrete session start/stop, away time inside a session, the canonical day/period read models
 (timeline ordering and clipping across midnight, app rankings, focus quality, gated
 insights), idle trimming, and a regression for the running-session figures. The period
 tests pin the week and month bounds, the average-over-active-days rule, the empty period,
@@ -254,7 +256,7 @@ prompted for nothing. `.combinedSessionState`, the obvious-looking alternative, 
 App icons are rasterised once at the size actually drawn and cached as small bitmaps.
 `NSWorkspace.icon(forFile:)` returns an image carrying 32 representations up to
 2048×2048: measured on this machine, caching eight of those whole costs **1296 MB** once
-decoded, against **5 MB** rasterised. The dashboard also computes its day slice once per
+decoded, against **5 MB** rasterised. The selected-day read model also computes its slice once per
 refresh and shares it across every query, rather than rescanning the usage array for each.
 
 That day slice is a single slot, so a period view walks it once per day and asking for the
@@ -294,11 +296,46 @@ it was written is resolved through the same extended-break path a live lock/wake
 
 ## Surfaces
 
-**Menu bar popover** (320pt, `.ultraThinMaterial`) answers the whole day without opening
-the dashboard: today's focused time, streak and tracked total; the live timer or the intent
-field; the day's timeline band; the top four apps with real icons and shares; one line each
-for what is running and the day's first insight; and the break countdown. Every block has a
-designed empty state — a section that renders nothing is treated as a defect.
+The main window has one persistent centred tab rail. Its title/status band and navigation
+stay visible while the selected tab owns the canvas below it.
+
+| Tab | Purpose | Primary evidence or action |
+|---|---|---|
+| Focus | What should I do now? | start/resume/pause/stop, current thread and break context |
+| Today | What happened on one day? | app-activity ribbon, focus brackets, sessions, apps and recap |
+| Review | How is time changing? | exact tracked Week/Month bars and searchable History |
+| Insights | What patterns are actually supported? | gated pace, rhythm, quality and continuity statements |
+| Settings | How should the app behave? | persisted controls, privacy evidence and diagnostics |
+
+The window's minimum content size is 980 × 680 and its comfortable default is 1,160 × 780.
+`Command 1` through `Command 5` select the tabs; `Command ,` opens Settings; the tab rail
+supports left/right keyboard movement after focus enters it. Review days and History rows
+route into the exact selected date in Today.
+
+The 320 pt **menu-bar popover** is deliberately Focus-only: the same action-first hero as
+the desktop Focus tab, up to three resumable threads when relevant, one quiet break line,
+and explicit Focus/Settings/Quit destinations. Today, Review and Insights never reappear as
+an embedded dashboard inside it.
+
+### Settings
+
+Settings is a global tab, not a separate drifting scene. At comfortable widths it uses a
+group sidebar and detail pane; at the production minimum it uses a group selector above the
+same detail. Search filters group metadata and control labels.
+
+| Group | Persisted or observable scope |
+|---|---|
+| General | default tab and interface density |
+| Focus sessions | goal, default work type and continuation behaviour |
+| Away and breaks | away thresholds, full-prompt tier and break reminders |
+| Automatic and rewards | automatic sessions, gap and earned moments |
+| Tracking and apps | app-usage recording, exclusions, purpose overrides and privacy scope |
+| Appearance | system/light/dark, density and timeline labels |
+| Data and privacy | local storage, accuracy epoch and preserved legacy evidence |
+| Advanced | version/build diagnostics, recovery evidence and separated destructive actions |
+
+Every visible control writes to real persistence and has an observable consumer. Unsupported
+retention, export, launch or appearance controls are not displayed.
 
 ### Automatic sessions
 
@@ -366,10 +403,9 @@ straggler is never collapsed, since the line would cost the row it saves.
 
 Grouping it this way made the old Top apps section a second copy of the same
 list — same apps, same totals, same shares, a few hundred points further down —
-so its bar and hourly strip moved into the log and the duplicate was removed.
-The log is period-aware and Top apps never was, so a week or month view now
-answers which apps took it. The compact Top apps list remains in the popover,
-where there is no room for the log.
+so its bar and hourly strip moved into Review's period-aware log and the duplicate
+reporting section was removed. The popover remains Focus-only rather than carrying a
+second reporting hierarchy.
 
 ### Learning from corrections
 
@@ -393,15 +429,18 @@ counter arithmetic, not machine learning, and is not described as such.
 
 ### Design
 
-Three tonal surfaces (`Surface.ground`, `.card`, `.well`) plus two hairlines; the system
-accent is the only accent; a seven-colour data palette assigned by each day's app rank so
-one app is one colour on every surface that day; fixed colours per work type; SF Rounded
-numerals with tabular digits for the timer and the stat band. The goal ring is the
-signature element — in the popover's hero card, in the dashboard's stat band, and as the
-menu-bar glyph (a template image rasterised inside the existing tick). Settings live in a
-standard `Settings` scene (⌘, or the popover's gear); the popover is a glance surface:
-hero, Today, Top apps, Continue today, footer. All tokens are light/dark pairs built with
-`NSColor(name:dynamicProvider:)` — no asset catalog.
+Warm-precision semantic colours (`Colour.ground`, `.surface`, `.elevated`, `.line`,
+`.focus`, `.progress`, `.attention`) define light/dark pairs through
+`NSColor(name:dynamicProvider:)`. A seven-colour data palette remains keyed by each day's
+app rank, with fixed work-type colours. System typography carries named roles for live
+timers, page/section titles, metrics, tabs, rows and metadata; technical numbers use
+monospaced digits without turning the entire interface into a developer console.
+
+Spacing follows 4, 8, 12, 16, 24, 32 and 48 pt steps. Primary panels use 16 pt corners,
+nested wells 12 pt, and capsules only for tabs, filters and compact actions. Compact and
+comfortable density both flow through the shared surface primitives. The goal ring remains
+the Focus signature and menu-bar template glyph, while Today and Review lead with their
+literal evidence rather than a grid of interchangeable metric cards.
 
 ### Daily goal
 
@@ -500,77 +539,34 @@ being rested, not a preference — thirty seconds will never fix ninety minutes 
 concentration whatever it is set to. The settings panel states the three tiers instead, so
 the reasoning is available before the first interruption rather than only during one.
 
-The older three-zone layout:
+### Focus, Today, Review and Insights
 
-```
-2h 20m                                    🔥 7      ← today's focus · streak
-──────────────────────────────────────────────
-What are you working on?                          ← focused on open, Return starts
-[Deep work ▾]  [ ▶ Start Focus ]
-──────────────────────────────────────────────
-Quick start   [Refactor] [Standup] [Email]        ← derived from the last 14 days
-──────────────────────────────────────────────
-▁▂▅▃▆▂█  Th F Sa Su M Tu W                        ← weekly rhythm, today accented
-Open Dashboard                            Quit
-```
+Focus uses one operational hero. First run asks for intent and work type; running shows the
+live timer with Pause, Away and Stop; paused retains intent and offers Resume/Stop; Watching
+explains the quiet pause; an unresolved absence replaces ordinary controls with the honest
+decision set and its exact range. Continuations stop at three and disappear whenever the
+decision state needs the user's full attention.
 
-While a session runs, the hero becomes an SF Mono timer with Pause, **Away** and Stop.
-Away is the one absence the app never has to guess at: it stops the session *and*
-background recording until you press **I'm back** or touch a work app.
+Today is one calendar day. Its dominant time ribbon draws canonical app stretches, named
+rests, unknown inactivity and focus brackets. The date is the master context: browsing a
+past day never moves the live session out of Focus or the popover. Selecting ribbon/session
+evidence opens one lightweight inspector; Escape clears inspection but keeps the day.
+Sessions, At the Mac and the recap consume the same selected-day read model, and any
+pre-accuracy qualification appears before the evidence it governs.
 
-After an unannounced absence the hero becomes a resolve card — *"Away 9h 17m — not
-counted. Your session is still running."* — offering *I was away* / *I was working* /
-*Start fresh*. It blocks nothing: the clock, the totals and background recording all keep
-going whether or not it is answered. Nothing ever steals focus.
+Review owns Week, Month and History. Week and Month draw daily bars from exact tracked time;
+the dashed average uses that same series and divides by active days. Work-type composition
+is separate, never stacked into bar height. The summary, focus-session evidence, apps and
+date-grouped log share the selected period. History intersects its date, query, app and
+work-type filters, then routes a chosen row to the literal date in Today.
+
+Insights is deliberately sparse. Pace, rhythm, focus quality and continuity render only
+when their canonical source data is sufficient. Missing comparisons disappear rather than
+becoming zero or generic encouragement; the empty state explains that comparable local
+history is still accumulating.
 
 **Menu bar item** has four ambient states: glyph when idle, glyph plus elapsed while
-running, dimmed with ⏸ when paused, and a badge when an absence needs resolving.
-
-**Dashboard window** is one column of cards on a flat ground, top to bottom: the title
-band (day, date, streak, goal; Day · Week · Month and a date stepper with a calendar),
-the **hero** (the goal ring, the running session's stretch clock and controls, and the
-day's Tracked · Focused · Sessions), the apps running now as chips, a **Summary** — the
-day in four or five sentences written from the same figures, every clause gated on its
-data, with a Copy button — four KPI cards each with a week of shape beneath the number,
-the hourly **Rhythm** beside the goal ring, the **Sessions** card beside the day
-**Timeline**, then App share · Work type · Insights and the App usage table.
-
-The date is the master context. On a past day every card, the hero included, shows that
-day and nothing that moves: the hero's clock becomes the day's focused total, the ring is
-that day's goal, and the running session stays in the menu bar and on today. A session
-is a *thread* — work that carried on across breaks — so `Sessions 1` and `1 session ·
-7 stretches` describe one thing; hovering a session lights its stretches on the
-timeline, clicking narrows the page to it, Esc clears.
-
-### Day, Week, Month
-
-One segmented control above the chart switches the period. **Day** shows the 24-hour
-timeline; **Week** and **Month** replace it with daily bars of exact tracked time, over an
-axis spanning the whole period — so a month with one busy week reads as one busy week, not
-as a busy month. Work-type composition stays in the separate donut rather than changing
-bar height. A dashed rule marks the average.
-
-The stat row above it reads **Tracked · Active days · Average/day · Longest session**. The
-average divides by **active** days, not calendar days: averaging a five-day week over seven
-understates every working day by nearly a third. `4 of 7` states the denominator so the
-figure cannot be misread. With nothing recorded, longest reads `—` rather than `0s`.
-
-Below the chart, the **session log** lists every grouped session in the period, newest
-first, grouped under day headers carrying that day's total. Each row is a clock range, the
-app's icon and name, `· N visits` where grouping merged separate visits, and the attended
-duration — the evidence behind the rankings further down.
-
-Top apps and Focus quality stay scoped to the selected day even in Week and Month, so their
-headers name it (`Top apps · Thu 13 Aug`).
-
-The timeline is divided into uniform hour columns. Hovering names the app under the
-pointer with its clock range and duration; clicking a segment expands that app's stretches
-for the hour. Dates are reached with a `‹ Wed 13 Aug ›` stepper, bounded at your earliest
-record and at today.
-
-Every figure carries its context — a delta, a share, a name — and the Summary and the
-Insights are computed and gated: a sentence or an insight with no data behind it does not
-appear rather than showing zero. No model is involved anywhere; the words are the figures.
+running, dimmed with pause when paused, and a badge when an absence needs resolving.
 
 **⌃⌥Space** starts or stops a session from anywhere. macOS 13 exposes no API to open a
 `MenuBarExtra` programmatically, so the hotkey acts directly rather than opening the
@@ -602,38 +598,46 @@ Sources/
     FocusContinuityApp.swift        @main, argument gate, scenes
     AppCoordinator.swift            Lifecycle, ownership, monitor wiring
     SessionStore.swift              The one bridge: engine → @Published
-    SessionStore+Dashboard.swift    Dashboard figures, charts, the selected period
+    MainWindowModel.swift           Global tabs and Review/Insights/Settings navigation
+    SessionStore+Dashboard.swift    Canonical selected-day figures and timeline data
     SessionStore+History.swift      Timeline inspection, per-app history, threads
-    SettingsModel.swift             Settings window bridge to PersistenceStore
+    SessionStore+Review.swift       Week/Month/History presentation state
+    SessionStore+Insights.swift     Evidence-gated Insights presentation state
+    SettingsModel.swift             Persisted Settings-tab bridge
     EventMonitor.swift              Workspace + distributed notifications (AppKit)
     HotKeyMonitor.swift             Carbon global hotkey, no TCC grant
   Surfaces/
+    Main/
+      MainWindowView.swift          Persistent title band, centred tabs and tab canvas
+      MainWindowCommands.swift      Command 1–5 and Command , navigation
+    Focus/                          Action-first desktop Focus states and continuations
+    Today/                          Selected-day ribbon, inspector, groups and recap
+    Review/                         Exact Week/Month comparison and searchable History
+    Insights/                       Sparse evidence-gated statements
+    Settings/                       Responsive groups, search and backed controls
     Popover/
-      PopoverView.swift             Menu bar popover: frame, metrics, scroll
-      HeroCard.swift                Goal ring beside the timer / start form / away card
-      GlanceCards.swift             Today timeline, Top apps, Continue today
-      PopoverFooter.swift           Break countdown and the three icon buttons
-    Settings/
-      SettingsView.swift            ⌘, window: Goal · Away and breaks · Automatic · Display
+      PopoverView.swift             Compact Focus-only menu-bar composition
+      HeroCard.swift                Compact wrapper around the shared Focus hero
+      PopoverFooter.swift           Focus, Settings and Quit destinations
+    AwayPrompt/                     Quick and full honest-away surfaces
     ContinueTodaySection.swift      Today's threads, resumable in one click
     RewardHUD.swift                 Non-activating panel; cannot take focus
     Dashboard/
-      DashboardView.swift           Two-column dashboard shell
-      DayTimelineView.swift         24-hour Canvas timeline
-      DashboardHero.swift           Goal ring, running session, today's headline figures
-      DashboardCharts.swift         Sparkline, rhythm bars, work-type donut, running-now chips
-      DashboardSections.swift       Top apps, Running now, Insights, Focus quality
-      PeriodViews.swift             Stat band, period chart, session log
-    GalleryView.swift               --gallery state catalogue and fixtures
-    Snapshotter.swift               --snapshot PNG renderer
+      DayTimelineView.swift         Shared canonical app/focus ribbon
+      DayPickerCalendar.swift       Today and History calendar control
+      DashboardSessions.swift       Shared selected-day session rows
+      DashboardSections.swift       Shared app/work-type evidence groups
+      PeriodViews.swift             Review bars, summaries and period log
+    GalleryView.swift               Live selector over SnapshotScenario
+    Snapshotter.swift               Shared light/dark responsive PNG matrix
   Design/
-    DesignTokens.swift              Surfaces, palette, type, radii, formatters
+    DesignTokens.swift              Semantic colours, spacing, type, radii and formatters
     PopoverMetrics.swift            Panel size from the screen it opens on
     MenuBarGlyph.swift              Goal ring as a template image for the status item
-    Components/Components.swift     Start button, away card, menu-bar label
-    Components/Cards.swift          Card modifier, stat card, bar, swatch, icon button
+    Components/TabRail.swift        Responsive centred global navigation
+    Components/SurfacePrimitives.swift Shared panels, rows, empty/integrity states
+    Components/AwayAnswers.swift    Shared quick/full decision content
     Components/GoalRing.swift       The signature ring
-    Components/InfoTip.swift        Plain-English explanations on hover
     Components/AppIcon.swift        Cached app icons; palette forwarder
   SelfTest.swift                    Headless logic self-test
 docs/superpowers/

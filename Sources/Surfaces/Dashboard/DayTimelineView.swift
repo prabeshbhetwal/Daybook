@@ -146,7 +146,7 @@ struct DayTimelineView: View {
                     var line = Path()
                     line.move(to: CGPoint(x: fraction * size.width, y: 0))
                     line.addLine(to: CGPoint(x: fraction * size.width, y: bandHeight))
-                    context.stroke(line, with: .color(Tokens.Surface.hairline),
+                    context.stroke(line, with: .color(Tokens.Colour.line),
                                    lineWidth: 0.5)
                 }
 
@@ -512,7 +512,7 @@ struct SegmentHourDetail: View {
         .padding(Tokens.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.25),
-                    in: RoundedRectangle(cornerRadius: Tokens.cardCorner))
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.panel))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(appName), \(stretches.count) visits, "
                             + "\(Tokens.preciseDuration(totalInHour)) in this hour")
@@ -527,13 +527,13 @@ struct SegmentHourDetail: View {
             Canvas { context, size in
                 context.fill(Path(roundedRect: CGRect(origin: .zero, size: size),
                                   cornerRadius: 3),
-                             with: .color(Tokens.Surface.well))
+                             with: .color(Tokens.Colour.elevated))
                 for quarter in 1...3 {
                     let x = size.width * CGFloat(quarter) / 4
                     var line = Path()
                     line.move(to: CGPoint(x: x, y: 0))
                     line.addLine(to: CGPoint(x: x, y: size.height))
-                    context.stroke(line, with: .color(Tokens.Surface.hairline), lineWidth: 0.5)
+                    context.stroke(line, with: .color(Tokens.Colour.line), lineWidth: 0.5)
                 }
                 for stretch in stretches {
                     let from = max(0, stretch.start.timeIntervalSince(hourStart) / 3_600)

@@ -45,7 +45,7 @@ struct PopoverView: View {
                  ? max(Tokens.Space.m, metrics.outerPadding - 4)
                  : metrics.outerPadding)
         .frame(width: metrics.width)
-        .background(Tokens.Surface.ground)
+        .background(Tokens.Colour.ground)
         .background(.regularMaterial)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
@@ -58,8 +58,16 @@ struct PopoverView: View {
     }
 
     @ViewBuilder private func middle(cap: CGFloat, twoColumn: Bool) -> some View {
-        let content = GlanceCards(store: store, metrics: metrics)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        let content = VStack(alignment: .leading, spacing: metrics.stackSpacing) {
+            if store.focusSurfaceComposition.showsContinuationSection {
+                ContinueTodaySection(store: store, limit: 3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .card(padding: metrics.dense ? Tokens.Space.m : Tokens.Space.l)
+            }
+            FocusBreakLine(store: store)
+                .padding(.horizontal, Tokens.Space.xs)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
 
         if scrolls {
             ScrollView {

@@ -89,18 +89,18 @@ struct SessionsCard: View {
             ForEach(lines, id: \.id) { line in
                 HStack(spacing: Tokens.Space.s) {
                     Text(line.time)
-                        .font(Tokens.Typography.detail.monospacedDigit())
+                        .font(Tokens.Typography.metadata.monospacedDigit())
                         .foregroundStyle(line.isRest ? .tertiary : .secondary)
                         .frame(width: 150, alignment: .leading)
                     if line.isRest {
-                        Rectangle().fill(Tokens.Surface.hairline).frame(height: 1)
+                        Rectangle().fill(Tokens.Colour.line).frame(height: 1)
                     }
                     Text(line.label)
-                        .font(Tokens.Typography.detail)
+                        .font(Tokens.Typography.metadata)
                         .foregroundStyle(line.isRest ? .tertiary : .secondary)
                         .fixedSize()
                     if line.isRest {
-                        Rectangle().fill(Tokens.Surface.hairline).frame(height: 1)
+                        Rectangle().fill(Tokens.Colour.line).frame(height: 1)
                     } else {
                         Spacer(minLength: 0)
                     }
@@ -133,7 +133,7 @@ struct SessionsCard: View {
                     .frame(width: 4, height: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Tokens.timeRange(session.start, session.end))
-                        .font(Tokens.Typography.row.weight(.medium).monospacedDigit())
+                        .font(Tokens.Typography.rowTitle.weight(.medium).monospacedDigit())
                     if unfoldable(session) {
                         // A disclosure for the stretches; it must not select.
                         Button {
@@ -146,14 +146,14 @@ struct SessionsCard: View {
                                       ? "chevron.down" : "chevron.right")
                                     .font(.system(size: 8, weight: .semibold))
                             }
-                            .font(Tokens.Typography.detail)
+                            .font(Tokens.Typography.metadata)
                             .foregroundStyle(.tertiary)
                         }
                         .buttonStyle(.plain)
                         .help(unfolded.ids.contains(session.id) ? "Hide the stretches" : "Show the stretches and breaks inside")
                     } else {
                         Text(stretchLine(session))
-                            .font(Tokens.Typography.detail)
+                            .font(Tokens.Typography.metadata)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -161,7 +161,7 @@ struct SessionsCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: Tokens.Space.xs) {
                         Text(session.name.isEmpty ? session.workType.displayName : session.name)
-                            .font(Tokens.Typography.row.weight(.medium))
+                            .font(Tokens.Typography.rowTitle.weight(.medium))
                             .lineLimit(1)
                         if watchingSessionID == session.id {
                             Text("Watching · focus paused")
@@ -174,22 +174,22 @@ struct SessionsCard: View {
                         }
                     }
                     Text(session.workType.displayName)
-                        .font(Tokens.Typography.detail)
+                        .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(Tokens.preciseDuration(session.worked))
-                    .font(Tokens.Typography.row.weight(.medium).monospacedDigit())
+                    .font(Tokens.Typography.rowTitle.weight(.medium).monospacedDigit())
                     .frame(width: 60, alignment: .trailing)
             }
             .padding(.horizontal, Tokens.Space.s)
             .padding(.vertical, Tokens.Space.s)
-            .background(hovered && !isSelected ? Tokens.Surface.hover : Color.clear,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
+            .background(hovered && !isSelected ? Tokens.Colour.hover : Color.clear,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
                 .strokeBorder(Color.accentColor.opacity(isSelected ? 0.9 : 0), lineWidth: 1.5))
             .opacity(dimmed ? 0.45 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.control))
+            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
         }
         .buttonStyle(.plain)
         .onHover { inside in
@@ -231,7 +231,7 @@ struct SessionsCard: View {
     private func restRow(_ rest: RestEntry) -> some View {
         HStack(spacing: Tokens.Space.s) {
             Text(Tokens.timeRange(rest.start, rest.end))
-                .font(Tokens.Typography.detail.monospacedDigit())
+                .font(Tokens.Typography.metadata.monospacedDigit())
                 .foregroundStyle(.tertiary)
                 .frame(width: 150, alignment: .leading)
             Rectangle().fill(Tokens.Colour.line).frame(height: 1)
@@ -240,7 +240,7 @@ struct SessionsCard: View {
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(Tokens.Palette.workType(.breakTime))
                 .fixedSize()
-            Rectangle().fill(Tokens.Surface.hairline).frame(height: 1)
+            Rectangle().fill(Tokens.Colour.line).frame(height: 1)
         }
         .padding(.horizontal, Tokens.Space.s)
         .padding(.vertical, 2)

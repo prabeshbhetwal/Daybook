@@ -16,7 +16,7 @@ struct GoalRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Tokens.Surface.well, lineWidth: lineWidth)
+                .stroke(Tokens.Colour.elevated, lineWidth: lineWidth)
             Circle()
                 // Drawn clamped; `progress` itself may exceed 1 so the figures
                 // beside it can say "160%" honestly.
