@@ -114,6 +114,21 @@ struct SnapshotRender: Hashable, Identifiable {
     var filename: String { "\(id).png" }
 }
 
+/// A configured product root. Keeping the exact SettingsModel beside the view
+/// makes its independently persisted appearance and density lifetime explicit:
+/// Gallery cards coexist instead of consulting one mutable shared domain.
+struct SnapshotSurface: View {
+    let settings: SettingsModel?
+    private let root: AnyView
+
+    init(settings: SettingsModel?, root: AnyView) {
+        self.settings = settings
+        self.root = root
+    }
+
+    var body: some View { root }
+}
+
 /// One product-surface matrix drives both the live Gallery and PNG output. No
 /// legacy Dashboard root or fixture catalogue has a separate rendering path.
 @MainActor
@@ -141,10 +156,11 @@ enum Snapshotter {
         scheme: ColorScheme
     ) -> some View {
         let appearance: SnapshotAppearance = scheme == .light ? .light : .dark
-        return mainShell(for: SnapshotRender(scenario: .focusRunning,
-                                             appearance: appearance,
-                                             presentation: .comfortable),
-                         densityOverride: density)
+        let item = SnapshotRender(scenario: .focusRunning,
+                                  appearance: appearance,
+                                  presentation: .comfortable)
+        let settings = snapshotSettings(for: item, density: density)
+        return mainShell(for: item, settings: settings)
     }
 
     static func run(directory: URL) -> Bool {
@@ -173,26 +189,29 @@ enum Snapshotter {
         return wrote == matrix.count
     }
 
-    static func view(for item: SnapshotRender) -> AnyView {
+    static func view(for item: SnapshotRender) -> SnapshotSurface {
         switch item.presentation {
         case .minimum, .comfortable:
-            return AnyView(mainShell(for: item))
+            let density: InterfaceDensity = item.presentation == .minimum
+                ? .compact : .comfortable
+            let settings = snapshotSettings(for: item, density: density)
+            return SnapshotSurface(settings: settings,
+                                   root: AnyView(mainShell(for: item, settings: settings)))
         case .popover:
-            return focusPopover(for: item)
+            let settings = snapshotSettings(for: item, density: .compact)
+            return SnapshotSurface(settings: settings,
+                                   root: focusPopover(for: item, settings: settings))
         case .compact:
-            return compactSurface(for: item)
+            return SnapshotSurface(settings: nil, root: compactSurface(for: item))
         }
     }
 
     private static func mainShell(
         for item: SnapshotRender,
-        densityOverride: InterfaceDensity? = nil
+        settings: SettingsModel
     ) -> some View {
         let store = store(for: item.scenario)
         let navigation = navigation(for: item.scenario)
-        let density = densityOverride ?? (item.presentation == .minimum ? .compact : .comfortable)
-        let settings = snapshotSettings(density: density,
-                                        appearance: item.appearance.preference)
         let size = shellSize(for: item)
         return MainWindowView(store: store,
                               settings: settings,
@@ -208,11 +227,12 @@ enum Snapshotter {
             .background(Tokens.Colour.ground)
     }
 
-    private static func focusPopover(for item: SnapshotRender) -> AnyView {
+    private static func focusPopover(
+        for item: SnapshotRender,
+        settings: SettingsModel
+    ) -> AnyView {
         let metrics = PopoverMetrics.fitting(popoverScreen)
         let store = store(for: item.scenario)
-        let settings = snapshotSettings(density: .compact,
-                                        appearance: item.appearance.preference)
         let view = PopoverView(store: store,
                                settings: settings,
                                metricsOverride: metrics,
@@ -228,40 +248,19 @@ enum Snapshotter {
         let reference = Date(timeIntervalSince1970: 1_700_000_000)
         switch item.scenario {
         case .awayQuick:
-            let view = AwayAnswerGrid(
+            let view = AwayQuickPanel.snapshotView(
                 away: 22 * 60,
                 range: (reference.addingTimeInterval(-22 * 60), reference),
-                compact: true,
-                onAnswer: { _ in },
-                onReason: { _ in })
-                .padding(Tokens.Space.m)
-                .frame(width: 300)
-                .background(Tokens.Colour.surface,
-                            in: RoundedRectangle(cornerRadius: Tokens.Radius.panel,
-                                                 style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel,
-                                          style: .continuous)
-                    .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
+                note: nil)
                 .environment(\.colorScheme, item.appearance.scheme)
                 .fixedSize(horizontal: false, vertical: true)
             return AnyView(view)
         case .awayFull:
-            let view = AwayAnswerGrid(
+            let view = AwayFullPrompt.snapshotView(
                 away: 72 * 60,
                 range: (reference.addingTimeInterval(-72 * 60), reference),
-                showsCaptions: true,
-                onAnswer: { _ in },
-                onReason: { _ in })
-                .padding(Tokens.Space.xl)
-                .frame(width: 520)
-                .background(Tokens.Colour.surface,
-                            in: RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4,
-                                                 style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4,
-                                          style: .continuous)
-                    .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
+                note: nil)
                 .environment(\.colorScheme, item.appearance.scheme)
-                .fixedSize(horizontal: false, vertical: true)
             return AnyView(view)
         case .rewardEarned:
             let reward = Reward(kind: .goalReached,
@@ -350,13 +349,17 @@ enum Snapshotter {
     }
 
     private static func snapshotSettings(
-        density: InterfaceDensity = .comfortable,
-        appearance: AppearancePreference = .system,
+        for item: SnapshotRender,
+        density: InterfaceDensity,
         showsTimelineLabels: Bool = true
     ) -> SettingsModel {
-        let defaults = UserDefaults(
-            suiteName: "com.prabesh.focuscontinuity.snapshot.shell"
-        ) ?? .standard
+        // Every simultaneously alive product card has a stable persistence
+        // domain. Reconstructing the same render is harmless because it writes
+        // the same complete configuration; a different card cannot see it.
+        let suiteName = "com.prabesh.focuscontinuity.snapshot.\(item.id).\(density.rawValue)"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            preconditionFailure("Could not create snapshot defaults domain \(suiteName)")
+        }
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         let diagnostics = SettingsDiagnostics(
@@ -372,7 +375,7 @@ enum Snapshotter {
                                   onTrackingChanged: { _ in },
                                   diagnostics: diagnostics)
         model.interfaceDensity = density
-        model.appearancePreference = appearance
+        model.appearancePreference = item.appearance.preference
         model.showsTimelineLabels = showsTimelineLabels
         return model
     }

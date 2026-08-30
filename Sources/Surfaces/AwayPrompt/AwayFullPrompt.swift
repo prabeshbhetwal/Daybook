@@ -75,6 +75,26 @@ final class AwayFullPrompt {
         self.onLater = onLater
     }
 
+    /// A deterministic safe host for the exact full-screen production root.
+    /// No AppKit window is created, no app is activated and no dismissal
+    /// callback has side effects, while the backdrop and Later/Escape route
+    /// remain part of the rendered hierarchy.
+    static func snapshotView(
+        away: TimeInterval,
+        range: (start: Date, end: Date)?,
+        note: String? = nil
+    ) -> some View {
+        let model = FullPromptModel()
+        model.away = away
+        model.range = range
+        model.note = note
+        return FullPromptView(model: model,
+                              onAnswer: { _ in },
+                              onReason: { _ in },
+                              onLater: {})
+            .frame(width: 760, height: 620)
+    }
+
     func show(away: TimeInterval, range: (start: Date, end: Date)?, note: String?) {
         model.away = away
         model.range = range

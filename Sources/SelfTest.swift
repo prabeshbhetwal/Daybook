@@ -369,7 +369,11 @@ enum SelfTest {
             ("Expanded app rows retain daily accessibility and keyboard actions",
              testPeriodAppRowsExposeDailyAccessibility),
             ("Snapshot matrix covers every material surface",
-             testSnapshotMatrixCoversEveryMaterialSurface)
+             testSnapshotMatrixCoversEveryMaterialSurface),
+            ("Simultaneous snapshots keep isolated presentation preferences",
+             testSimultaneousSnapshotsKeepIsolatedPreferences),
+            ("Away snapshots retain production prompt chrome",
+             testAwaySnapshotsRetainProductionPromptChrome)
         ]
 
         print("FocusContinuity self-test")
@@ -6944,6 +6948,143 @@ enum SelfTest {
 
             return problems
         }
+    }
+
+    /// Gallery cards stay alive together. Constructing a second root must not
+    /// rewrite the first root's computed SettingsModel preferences through a
+    /// shared UserDefaults domain, before or during a simultaneous render.
+    private static func testSimultaneousSnapshotsKeepIsolatedPreferences() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let minimum = Snapshotter.view(for: SnapshotRender(
+                scenario: .settingsAppearance,
+                appearance: .light,
+                presentation: .minimum))
+            let comfortable = Snapshotter.view(for: SnapshotRender(
+                scenario: .settingsAppearance,
+                appearance: .dark,
+                presentation: .comfortable))
+
+            expect(minimum.settings?.appearancePreference == .light,
+                   "the first live Gallery card retains its light preference",
+                   &problems)
+            expect(minimum.settings?.interfaceDensity == .compact,
+                   "the first live Gallery card retains Compact density",
+                   &problems)
+            expect(comfortable.settings?.appearancePreference == .dark,
+                   "the second live Gallery card retains its dark preference",
+                   &problems)
+            expect(comfortable.settings?.interfaceDensity == .comfortable,
+                   "the second live Gallery card retains Comfortable density",
+                   &problems)
+
+            let renderer = ImageRenderer(content: HStack(spacing: 0) {
+                minimum
+                comfortable
+            })
+            renderer.scale = 1
+            expect(renderer.nsImage != nil,
+                   "the independently configured Gallery cards render simultaneously",
+                   &problems)
+            expect(minimum.settings?.appearancePreference == .light
+                   && minimum.settings?.interfaceDensity == .compact,
+                   "simultaneous rendering cannot overwrite the first card's settings",
+                   &problems)
+            expect(comfortable.settings?.appearancePreference == .dark
+                   && comfortable.settings?.interfaceDensity == .comfortable,
+                   "simultaneous rendering cannot overwrite the second card's settings",
+                   &problems)
+            return problems
+        }
+    }
+
+    /// The official Away cases must exercise the hosted production wrappers,
+    /// not an answer grid restyled inside Snapshotter. The quick pointer and
+    /// full-screen click-catcher/Later row are observable raster structure.
+    private static func testAwaySnapshotsRetainProductionPromptChrome() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let quickRenderer = ImageRenderer(content: Snapshotter.view(for: SnapshotRender(
+                scenario: .awayQuick,
+                appearance: .light,
+                presentation: .compact)))
+            quickRenderer.scale = 1
+            let fullRenderer = ImageRenderer(content: Snapshotter.view(for: SnapshotRender(
+                scenario: .awayFull,
+                appearance: .light,
+                presentation: .compact)))
+            fullRenderer.scale = 1
+
+            guard let quick = snapshotBitmap(quickRenderer.nsImage),
+                  let full = snapshotBitmap(fullRenderer.nsImage) else {
+                return ["Away production roots did not render"]
+            }
+
+            expect(quick.pixelsWide == 300 && (218...224).contains(quick.pixelsHigh),
+                   "quick Away includes its 9pt pointer above the 300pt card; got "
+                   + "\(quick.pixelsWide)x\(quick.pixelsHigh)", &problems)
+            expect(snapshotOpaqueColumns(quick, row: 0) <= 24,
+                   "quick Away begins with the narrow production pointer",
+                   &problems)
+
+            expect(full.pixelsWide == 760 && full.pixelsHigh == 620,
+                   "full Away uses its safe full-prompt host; got "
+                   + "\(full.pixelsWide)x\(full.pixelsHigh)", &problems)
+            expect((0.10...0.30).contains(snapshotAlpha(full, x: 4, y: 4)),
+                   "full Away retains the dimmed outside click-catcher",
+                   &problems)
+            expect(snapshotContrast(full, x: 570..<620, y: 425..<455) > 0.05,
+                   "full Away retains visible trailing Later/Escape chrome",
+                   &problems)
+            return problems
+        }
+    }
+
+    @MainActor private static func snapshotBitmap(_ image: NSImage?) -> NSBitmapImageRep? {
+        guard let image, let tiff = image.tiffRepresentation else { return nil }
+        return NSBitmapImageRep(data: tiff)
+    }
+
+    @MainActor private static func snapshotAlpha(
+        _ bitmap: NSBitmapImageRep,
+        x: Int,
+        y: Int
+    ) -> Double {
+        guard x >= 0, x < bitmap.pixelsWide, y >= 0, y < bitmap.pixelsHigh,
+              let colour = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else {
+            return 0
+        }
+        return Double(colour.alphaComponent)
+    }
+
+    @MainActor private static func snapshotOpaqueColumns(
+        _ bitmap: NSBitmapImageRep,
+        row: Int
+    ) -> Int {
+        (0..<bitmap.pixelsWide).reduce(into: 0) { count, column in
+            if snapshotAlpha(bitmap, x: column, y: row) > 0.05 { count += 1 }
+        }
+    }
+
+    @MainActor private static func snapshotContrast(
+        _ bitmap: NSBitmapImageRep,
+        x: Range<Int>,
+        y: Range<Int>
+    ) -> Double {
+        var low = 1.0
+        var high = 0.0
+        for row in y where row >= 0 && row < bitmap.pixelsHigh {
+            for column in x where column >= 0 && column < bitmap.pixelsWide {
+                guard let colour = bitmap.colorAt(x: column, y: row)?
+                    .usingColorSpace(.sRGB) else { continue }
+                let luminance = 0.2126 * Double(colour.redComponent)
+                    + 0.7152 * Double(colour.greenComponent)
+                    + 0.0722 * Double(colour.blueComponent)
+                low = min(low, luminance)
+                high = max(high, luminance)
+            }
+        }
+        return high - low
     }
 
     @MainActor private static func snapshotHasTitleStatusBand(_ image: NSImage?) -> Bool {

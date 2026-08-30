@@ -106,6 +106,22 @@ final class AwayQuickPanel {
         relay.onSize = { [weak self] size in self?.layout(to: size) }
     }
 
+    /// The Gallery/PNG harness hosts the exact production SwiftUI root without
+    /// constructing or ordering its non-activating panel and without starting
+    /// the twenty-second fade timer.
+    static func snapshotView(
+        away: TimeInterval,
+        range: (start: Date, end: Date)?,
+        note: String? = nil
+    ) -> some View {
+        let model = QuickPromptModel()
+        model.away = away
+        model.range = range
+        model.note = note
+        return QuickPromptView(model: model, relay: SizeRelay(),
+                               onAnswer: { _ in }, onReason: { _ in })
+    }
+
     func show(away: TimeInterval, range: (start: Date, end: Date)?, note: String?) {
         generation += 1
         let current = generation
