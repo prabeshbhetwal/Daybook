@@ -126,7 +126,8 @@ struct SettingsGroups: View {
     private var tracking: some View {
         SurfacePanel(title: "Tracking and apps", layout: layout) {
             preferenceRow("Sessions per app",
-                          detail: "Controls how many recent sessions each app shows in the menu bar.") {
+                          detail: "Controls how many newest grouped app sessions Today shows "
+                            + "after you select an app.") {
                 Picker("Sessions per app", selection: $model.menuSessionCount) {
                     ForEach([3, 5, 7, 10], id: \.self) { count in
                         Text("\(count)").tag(count)

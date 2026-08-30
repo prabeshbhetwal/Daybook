@@ -259,7 +259,7 @@ extension SessionStore {
         let activeDays = authoritativeDays.filter { $0.tracked > 0 }.count
         let rhythm = insightRhythm(stats: stats, days: authoritativeDays,
                                    calendar: calendar)
-        let quality = insightQuality(stats: stats, days: elapsedDays,
+        let quality = insightQuality(stats: stats, days: authoritativeDays,
                                      moment: moment, calendar: calendar)
         let comparable = comparablePreviousTracked(
             period: period, periodStats: periodStats, stats: stats,
@@ -325,7 +325,10 @@ extension SessionStore {
         for day in days {
             let running = engine.state != .idle && calendar.isDate(day.date, inSameDayAs: moment)
                 ? engine.elapsedToday() : nil
-            let quality = qualityStats.focusQuality(for: day.date, runningSeconds: running)
+            let quality = qualityStats.focusQuality(
+                for: day.date,
+                runningSeconds: running,
+                runningThreadID: running == nil ? nil : engine.activeThreadID)
             let tracked = stats.trackedTotal(for: day.date)
             trackedSeconds += tracked
             insideSeconds += quality.insideSessionShare * tracked

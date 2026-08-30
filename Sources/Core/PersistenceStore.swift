@@ -177,8 +177,9 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.name) }
     }
 
-    /// How many recent sessions each app shows in the menu bar. Settable in
-    /// Settings; a missing key means the default rather than zero.
+    /// How many newest grouped app sessions Today shows after an app is selected.
+    /// The historical key name is retained for preference compatibility; a
+    /// missing key means the default rather than zero.
     var menuSessionCount: Int {
         get {
             let stored = defaults.integer(forKey: Key.menuSessions)

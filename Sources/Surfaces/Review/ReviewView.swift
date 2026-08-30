@@ -123,6 +123,13 @@ struct ReviewView: View {
 
             if !store.reviewLog.isEmpty {
                 SurfacePanel(showsHeader: false) {
+                    if store.reviewLogRowsOmitted > 0 {
+                        Label(store.reviewLogRowsQualification,
+                              systemImage: "line.3.horizontal.decrease")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel(store.reviewLogRowsQualification)
+                    }
                     SessionLogList(entries: store.reviewLog,
                                    dayTotals: store.reviewDayTotals,
                                    grouping: .byTime)
@@ -229,7 +236,9 @@ struct ReviewView: View {
     }
 
     private var topApps: some View {
-        SurfacePanel(title: "Top apps") {
+        SurfacePanel(showsHeader: false) {
+            SectionHeader(title: "Top apps",
+                          trailing: store.reviewAppAggregateQualification)
             if store.reviewAppGroups.isEmpty {
                 Text("No app usage in this period.")
                     .font(.callout)

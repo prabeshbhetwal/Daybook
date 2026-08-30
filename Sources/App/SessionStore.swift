@@ -2,6 +2,12 @@ import SwiftUI
 import AppKit
 import Combine
 
+enum SessionHotKeyActionResult: Equatable {
+    case started
+    case stopped
+    case showAwayDecision
+}
+
 /// The one bridge between `Core` and SwiftUI. Subscribes to the engine's
 /// callbacks and republishes them as `@Published` values; views never touch the
 /// engine directly. No `@State` anywhere in this app — the Command Line Tools
@@ -144,6 +150,7 @@ final class SessionStore: ObservableObject {
     @Published var reviewPeriod: TrackingPeriod = .week
     @Published var reviewDays: [PeriodDay] = []
     @Published var reviewLog: [LogEntry] = []
+    @Published var reviewLogTotalEntries = 0
     @Published var reviewAppGroups: [LogAppGroup] = []
     @Published var reviewDayTotals: [Date: TimeInterval] = [:]
     @Published var reviewSummary = PeriodSummary(tracked: 0, activeDays: 0,
@@ -170,6 +177,10 @@ final class SessionStore: ObservableObject {
     @Published var historyRangeStart: Date?
     @Published var historyRangeEnd: Date?
     @Published var historyAppNames: [String: String] = [:]
+    /// Source qualifications shown before History's derived filters and rows.
+    /// Legacy evidence remains visible; defensive span omissions remain in the
+    /// source archive and are counted explicitly rather than disappearing.
+    @Published var historyIntegrityNotices: [String] = []
 
     var logGrouping: LogGrouping {
         get { engine.store.logGrouping }
@@ -188,10 +199,22 @@ final class SessionStore: ObservableObject {
     /// by hand — the popover labels it, and only these may be undone.
     var isAutoSession: Bool { state != .idle && engine.activeIsAuto }
 
+    /// The authoritative action boundary for every ordinary session mutation.
+    /// Views hide controls while an Away question is pending, but global
+    /// shortcuts and future non-visual callers must be rejected here as well.
+    /// Read the engine first because its callback publishes `state` on an async
+    /// main-queue hop; `pendingAway` additionally covers the side-effect-free
+    /// preview route used by the visual harness.
+    var hasUnresolvedAwayDecision: Bool {
+        if case .awaitingUserDecision = engine.state { return true }
+        return pendingAway != nil
+    }
+
     /// Starts a session on the detector's behalf, backdated to when the
     /// qualifying stretch actually began.
     func startAutomatically(workType: WorkType, name: String, backdatedTo: Date,
                             because: String) {
+        guard !hasUnresolvedAwayDecision else { return }
         engine.start(workType: workType, intent: name, isAuto: true)
         engine.backdate(to: backdatedTo)
         refresh()
@@ -203,7 +226,7 @@ final class SessionStore: ObservableObject {
     var onAutoSessionUndone: (() -> Void)?
 
     func undoAutoSession() {
-        guard isAutoSession else { return }
+        guard isAutoSession, !hasUnresolvedAwayDecision else { return }
         engine.discard()
         onAutoSessionUndone?()
         refresh()
@@ -214,7 +237,7 @@ final class SessionStore: ObservableObject {
     /// Resume tracking first, exactly as `I'm back` does, then preserve the
     /// existing adopt/reclassify semantics of `start()`.
     func applyAutomaticSessionCorrection() {
-        guard isAutoSession else { return }
+        guard isAutoSession, !hasUnresolvedAwayDecision else { return }
         if isAway {
             // `endAway()` refreshes `workType` from the still-active session.
             // Preserve the user's pending correction across that required
@@ -234,7 +257,7 @@ final class SessionStore: ObservableObject {
     /// whether tracking was suspended, discard while ownership is intact, then
     /// resume the App-level tracker exactly once.
     func undoAutomaticSessionCorrection() {
-        guard isAutoSession else { return }
+        guard isAutoSession, !hasUnresolvedAwayDecision else { return }
         let resumesTracking = isAway
         undoAutoSession()
         if resumesTracking { onAwayEnded?() }
@@ -727,11 +750,29 @@ final class SessionStore: ObservableObject {
 
     // MARK: - Actions
 
+    /// The sole start/stop route for the global shortcut. An unresolved Away
+    /// question is evidence awaiting classification, not a running state the
+    /// shortcut may stop. The coordinator uses the returned route to re-present
+    /// the existing answer surface; no second decision UI is introduced.
+    @discardableResult
+    func performSessionHotKeyAction() -> SessionHotKeyActionResult {
+        guard !hasUnresolvedAwayDecision else { return .showAwayDecision }
+        if engine.state == .idle {
+            engine.start(workType: engine.activeWorkType, intent: "")
+            refresh()
+            return .started
+        }
+        engine.stop()
+        refresh()
+        return .stopped
+    }
+
     /// Pressing Start continues a session already running on the same kind of
     /// work — including one the app started by itself — and only begins a new
     /// one when the work type differs. Background recording is unaffected
     /// either way: app usage is captured all day regardless of sessions.
     func start() {
+        guard !hasUnresolvedAwayDecision else { return }
         if engine.wouldAdopt(workType: workType) {
             engine.adopt(intent: intent)
         } else {
@@ -742,6 +783,7 @@ final class SessionStore: ObservableObject {
     }
 
     func startQuick(_ quick: QuickStart) {
+        guard !hasUnresolvedAwayDecision else { return }
         workType = quick.workType
         if engine.wouldAdopt(workType: quick.workType) {
             engine.adopt(intent: quick.name)
@@ -756,10 +798,12 @@ final class SessionStore: ObservableObject {
     var startWouldContinue: Bool { engine.wouldAdopt(workType: workType) }
 
     func stop() {
+        guard !hasUnresolvedAwayDecision else { return }
         engine.stop()
     }
 
     func togglePause() {
+        guard !hasUnresolvedAwayDecision else { return }
         let resumable = !engine.state.isRunning && engine.state != .idle
         engine.transition(on: resumable ? .manualResume : .manualPause)
     }

@@ -15,6 +15,15 @@ struct HistoryDay: Identifiable, Equatable {
     var id: Date { date }
 }
 
+/// History is a derived presentation index. Source records whose decoded span
+/// exceeds the defensive day-walk bound stay byte-identical in their archives,
+/// but the omission must travel with the derived rows so the UI can disclose it.
+struct HistoryBuildResult: Equatable {
+    let days: [HistoryDay]
+    let droppedUsageSpans: Int
+    let droppedSessionSpans: Int
+}
+
 /// Every non-nil condition must match. A query searches the date plus the
 /// canonical app and work-type identifiers carried by `HistoryDay`; the
 /// optional app and work-type controls then narrow that result by intersection.
@@ -89,17 +98,38 @@ enum HistoryStats {
         var workTypes: Set<WorkType> = []
     }
 
+    private enum SpanResolution {
+        case accepted(first: Date, last: Date)
+        case invalid
+        case exceedsBound
+    }
+
     static func days(sessionRecords: [SessionRecord],
                      usage: [AppUsageSession],
                      calendar: Calendar = .current) -> [HistoryDay] {
+        build(sessionRecords: sessionRecords, usage: usage, calendar: calendar).days
+    }
+
+    static func build(sessionRecords: [SessionRecord],
+                      usage: [AppUsageSession],
+                      calendar: Calendar = .current) -> HistoryBuildResult {
         var buckets: [Date: DayAccumulator] = [:]
+        var droppedUsageSpans = 0
+        var droppedSessionSpans = 0
 
         // Split each usage stretch only across the calendar days it touches.
         // This is linear in the archive plus cross-midnight spans, rather than
         // rescanning all 20,000 possible usage records once for every day.
         for session in usage where session.end > session.start {
-            guard let span = boundedSpan(start: session.start, end: session.end,
-                                         calendar: calendar) else { continue }
+            let span: (first: Date, last: Date)
+            switch boundedSpan(start: session.start, end: session.end, calendar: calendar) {
+            case .accepted(let first, let last): span = (first, last)
+            case .exceedsBound:
+                droppedUsageSpans += 1
+                continue
+            case .invalid:
+                continue
+            }
             var cursor = span.first
             let finalDay = span.last
             while cursor <= finalDay {
@@ -120,8 +150,15 @@ enum HistoryStats {
         // Session records keep their established proportional day attribution.
         // Break records add a work-type fact but never focused time or a session.
         for record in sessionRecords {
-            guard let span = boundedSpan(start: record.start, end: record.end,
-                                         calendar: calendar) else { continue }
+            let span: (first: Date, last: Date)
+            switch boundedSpan(start: record.start, end: record.end, calendar: calendar) {
+            case .accepted(let first, let last): span = (first, last)
+            case .exceedsBound:
+                droppedSessionSpans += 1
+                continue
+            case .invalid:
+                continue
+            }
             var cursor = span.first
             let finalDay = span.last
             while cursor <= finalDay {
@@ -140,18 +177,21 @@ enum HistoryStats {
             }
         }
 
-        return buckets.map { date, bucket in
+        let days = buckets.map { date, bucket in
             HistoryDay(date: date, tracked: bucket.tracked,
                        focused: bucket.focused, sessions: bucket.threadIDs.count,
                        appBundleIDs: bucket.appBundleIDs,
                        workTypes: bucket.workTypes)
         }
         .sorted { $0.date > $1.date }
+        return HistoryBuildResult(days: days,
+                                  droppedUsageSpans: droppedUsageSpans,
+                                  droppedSessionSpans: droppedSessionSpans)
     }
 
     private static func boundedSpan(start: Date, end: Date,
-                                    calendar: Calendar) -> (first: Date, last: Date)? {
-        guard end >= start else { return nil }
+                                    calendar: Calendar) -> SpanResolution {
+        guard end >= start else { return .invalid }
         let first = calendar.startOfDay(for: start)
         // An exclusive midnight end did not touch the following day. Pull the
         // probe just inside any positive interval before counting local days.
@@ -161,8 +201,8 @@ enum HistoryStats {
             : end
         let last = calendar.startOfDay(for: probe)
         guard let distance = calendar.dateComponents([.day], from: first, to: last).day,
-              distance >= 0,
-              distance < maximumCalendarDaysPerRecord else { return nil }
-        return (first, last)
+              distance >= 0 else { return .invalid }
+        guard distance < maximumCalendarDaysPerRecord else { return .exceedsBound }
+        return .accepted(first: first, last: last)
     }
 }

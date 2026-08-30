@@ -43,7 +43,10 @@ struct TodayView: View {
                 DayTimelineView(store: store, dominant: true, showsDetail: false,
                                 usesTodaySelection: true)
                 if let inspector = store.todayInspector {
-                    TodayInspector(data: inspector) { store.clearTodaySelection() }
+                    TodayInspector(
+                        data: inspector,
+                        appSessions: inspector.bundleID.map(store.sessions(for:)) ?? []
+                    ) { store.clearTodaySelection() }
                         .transition(.opacity)
                 }
             }

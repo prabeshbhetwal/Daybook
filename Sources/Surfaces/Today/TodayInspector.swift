@@ -101,6 +101,7 @@ extension SessionStore {
 /// and app-use intersection already computed by SessionStore.
 struct TodayInspector: View {
     let data: TodayInspectorData
+    var appSessions: [AppSession] = []
     let onClose: () -> Void
 
     var body: some View {
@@ -185,6 +186,33 @@ struct TodayInspector: View {
                         Text(Tokens.preciseDuration(stretch.seconds))
                             .font(Tokens.Typography.metadata.monospacedDigit())
                     }
+                }
+            }
+            if !appSessions.isEmpty {
+                Divider()
+                SectionHeader(
+                    title: "Recent app sessions",
+                    trailing: appSessions.count == 1 ? "1 newest session"
+                        : "\(appSessions.count) newest sessions")
+                ForEach(appSessions) { session in
+                    HStack(spacing: Tokens.Space.s) {
+                        Text(Tokens.timeRange(session.start, session.end))
+                            .font(Tokens.Typography.metadata.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        if session.visits > 1 {
+                            Text("\(session.visits) visits")
+                                .font(Tokens.Typography.metadata)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer(minLength: Tokens.Space.s)
+                        Text(Tokens.preciseDuration(session.attended))
+                            .font(Tokens.Typography.metadata.monospacedDigit())
+                    }
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(Tokens.timeRange(session.start, session.end)), "
+                                        + "\(Tokens.spent(session.attended)), "
+                                        + "\(session.visits) visits")
                 }
             }
         }

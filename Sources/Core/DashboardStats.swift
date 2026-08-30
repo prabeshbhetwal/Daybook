@@ -391,7 +391,11 @@ struct DashboardStats {
     /// - Parameter runningSeconds: work banked by a session still in flight. Passing
     ///   it keeps this in step with `sessionsToday`; without it the same screen can
     ///   read "1 session today" and "No sessions yet today".
-    func focusQuality(for day: Date, runningSeconds: TimeInterval? = nil) -> FocusQuality {
+    /// - Parameter runningThreadID: canonical identity of that in-flight thread,
+    ///   preventing an archived earlier stretch of the same thread counting twice.
+    func focusQuality(for day: Date,
+                      runningSeconds: TimeInterval? = nil,
+                      runningThreadID: UUID? = nil) -> FocusQuality {
         ensure(day)
         let records = focusSessions(for: day)
         let clipped = cache.segments.map { (session: $0, start: $0.start, end: $0.end) }
@@ -427,13 +431,29 @@ struct DashboardStats {
         }
         .sorted { $0.seconds > $1.seconds }
 
-        // App switches that happened while a session was running.
-        let switches = clipped.filter { entry in
-            focused.contains { $0.start <= entry.start && entry.start < $0.end }
-        }.count
+        // Count identity CHANGES inside each canonical focus stretch. The first
+        // app observed is context, not a switch, and a same-app checkpoint split
+        // is persistence detail rather than interruption evidence.
+        var switches = 0
+        for record in records {
+            var previousBundleID: String?
+            for entry in cache.segments
+            where entry.start < record.end && entry.end > record.start {
+                if let previousBundleID, previousBundleID != entry.bundleID {
+                    switches += 1
+                }
+                previousBundleID = entry.bundleID
+            }
+        }
 
-        let runningCount = runningSeconds != nil && activeWorkType.countsAsFocus ? 1 : 0
-        let count = records.count + runningCount
+        let threadIDs = Set(records.map(\.threadID))
+        let runningCount: Int
+        if runningSeconds != nil, activeWorkType.countsAsFocus {
+            runningCount = runningThreadID.map(threadIDs.contains) == true ? 0 : 1
+        } else {
+            runningCount = 0
+        }
+        let count = threadIDs.count + runningCount
         return FocusQuality(
             byWorkType: shares,
             insideSessionShare: tracked > 0 ? min(1, inside / tracked) : 0,

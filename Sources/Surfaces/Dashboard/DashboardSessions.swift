@@ -1,5 +1,37 @@
 import SwiftUI
 
+enum SessionRowControlAction: Equatable {
+    case selection
+    case disclosure
+}
+
+/// Pure interaction contract consumed by the two sibling row buttons. Keeping
+/// dispatch, target size and VoiceOver state in one value prevents a disclosure
+/// from becoming an undersized nested button when the row layout changes.
+struct SessionRowInteraction: Equatable {
+    static let minimumTargetSize = AccessibilityMetrics.minimumTargetSize
+
+    let sessionName: String
+    let isExpanded: Bool
+
+    var disclosureAccessibilityLabel: String {
+        "\(isExpanded ? "Hide" : "Show") stretches and breaks for \(sessionName)"
+    }
+
+    var disclosureAccessibilityValue: String {
+        isExpanded ? "Expanded" : "Collapsed"
+    }
+
+    func perform(_ action: SessionRowControlAction,
+                 onSelect: () -> Void,
+                 onDisclosure: () -> Void) {
+        switch action {
+        case .selection: onSelect()
+        case .disclosure: onDisclosure()
+        }
+    }
+}
+
 /// The selected day's focus sessions as rows, with the rests between them
 /// inline — the card the dashboard was missing. Hover a row to frame it on
 /// the timeline; click to narrow the page to it.
@@ -126,81 +158,98 @@ struct SessionsCard: View {
         let isSelected = selected?.id == session.id
         let dimmed = selected != nil && !isSelected
         let hovered = hover.id == session.id.uuidString
-        return Button { onSelect(session) } label: {
-            HStack(alignment: .center, spacing: Tokens.Space.m) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Tokens.Palette.workType(session.workType))
-                    .frame(width: 4, height: 34)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Tokens.timeRange(session.start, session.end))
-                        .font(Tokens.Typography.rowTitle.weight(.medium).monospacedDigit())
-                    if unfoldable(session) {
-                        // A disclosure for the stretches; it must not select.
-                        Button {
-                            if unfolded.ids.contains(session.id) { unfolded.ids.remove(session.id) }
-                            else { unfolded.ids.insert(session.id) }
-                        } label: {
-                            HStack(spacing: 3) {
-                                Text(stretchLine(session))
-                                Image(systemName: unfolded.ids.contains(session.id)
-                                      ? "chevron.down" : "chevron.right")
-                                    .font(.system(size: 8, weight: .semibold))
-                            }
-                            .font(Tokens.Typography.metadata)
-                            .foregroundStyle(.tertiary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(unfolded.ids.contains(session.id) ? "Hide the stretches" : "Show the stretches and breaks inside")
-                    } else {
+        let displayName = session.name.isEmpty ? session.workType.displayName : session.name
+        let isExpanded = unfolded.ids.contains(session.id)
+        let interaction = SessionRowInteraction(sessionName: displayName,
+                                                isExpanded: isExpanded)
+        return HStack(alignment: .center, spacing: Tokens.Space.xs) {
+            Button {
+                interaction.perform(.selection,
+                                    onSelect: { onSelect(session) },
+                                    onDisclosure: {})
+            } label: {
+                HStack(alignment: .center, spacing: Tokens.Space.m) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Tokens.Palette.workType(session.workType))
+                        .frame(width: 4, height: 34)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(Tokens.timeRange(session.start, session.end))
+                            .font(Tokens.Typography.rowTitle.weight(.medium).monospacedDigit())
                         Text(stretchLine(session))
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.tertiary)
                     }
-                }
-                .frame(width: 150, alignment: .leading)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: Tokens.Space.xs) {
-                        Text(session.name.isEmpty ? session.workType.displayName : session.name)
-                            .font(Tokens.Typography.rowTitle.weight(.medium))
-                            .lineLimit(1)
-                        if watchingSessionID == session.id {
-                            Text("Watching · focus paused")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(Tokens.Colour.attention)
-                        } else if session.isRunning {
-                            Text("active")
-                                .font(.caption2.weight(.medium))
-                                .foregroundStyle(Tokens.Colour.focus)
+                    .frame(width: 150, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: Tokens.Space.xs) {
+                            Text(displayName)
+                                .font(Tokens.Typography.rowTitle.weight(.medium))
+                                .lineLimit(1)
+                            if watchingSessionID == session.id {
+                                Text("Watching · focus paused")
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(Tokens.Colour.attention)
+                            } else if session.isRunning {
+                                Text("active")
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(Tokens.Colour.focus)
+                            }
                         }
+                        Text(session.workType.displayName)
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
                     }
-                    Text(session.workType.displayName)
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(Tokens.preciseDuration(session.worked))
+                        .font(Tokens.Typography.rowTitle.weight(.medium).monospacedDigit())
+                        .frame(width: 60, alignment: .trailing)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                Text(Tokens.preciseDuration(session.worked))
-                    .font(Tokens.Typography.rowTitle.weight(.medium).monospacedDigit())
-                    .frame(width: 60, alignment: .trailing)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, Tokens.Space.s)
-            .padding(.vertical, Tokens.Space.s)
-            .background(hovered && !isSelected ? Tokens.Colour.hover : Color.clear,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(isSelected ? 0.9 : 0), lineWidth: 1.5))
-            .opacity(dimmed ? 0.45 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("\(Tokens.timeRange(session.start, session.end)), "
+                                + "\(displayName), "
+                                + Tokens.spent(session.worked))
+
+            if unfoldable(session) {
+                Button {
+                    interaction.perform(.disclosure,
+                                        onSelect: {},
+                                        onDisclosure: {
+                                            if isExpanded { unfolded.ids.remove(session.id) }
+                                            else { unfolded.ids.insert(session.id) }
+                                        })
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .frame(width: SessionRowInteraction.minimumTargetSize,
+                               height: SessionRowInteraction.minimumTargetSize)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(interaction.disclosureAccessibilityLabel)
+                .accessibilityLabel(interaction.disclosureAccessibilityLabel)
+                .accessibilityValue(interaction.disclosureAccessibilityValue)
+                .accessibilityAddTraits(isExpanded ? .isSelected : [])
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, Tokens.Space.s)
+        .padding(.vertical, Tokens.Space.s)
+        .frame(minHeight: SessionRowInteraction.minimumTargetSize)
+        .background(hovered && !isSelected ? Tokens.Colour.hover : Color.clear,
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                         style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+            .strokeBorder(Color.accentColor.opacity(isSelected ? 0.9 : 0), lineWidth: 1.5))
+        .opacity(dimmed ? 0.45 : 1)
         .onHover { inside in
             hover.id = inside ? session.id.uuidString : nil
             onHover(inside ? session : nil)
         }
         .help(isSelected ? "Click again to show the whole day"
                          : "Click to narrow the page to this session")
-        .accessibilityLabel("\(Tokens.timeRange(session.start, session.end)), "
-                            + "\(session.name.isEmpty ? session.workType.displayName : session.name), "
-                            + Tokens.spent(session.worked))
     }
 
     /// `4 stretches · 2 breaks` — the breaks being the rests *recorded* inside

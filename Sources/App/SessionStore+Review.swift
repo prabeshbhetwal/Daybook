@@ -49,11 +49,36 @@ extension SessionStore {
 
         let previousNewest = historyDays.first?.date
         let previousOldest = historyDays.last?.date
-        let rebuiltHistory = HistoryStats.days(
+        let rebuiltHistory = HistoryStats.build(
             sessionRecords: engine.archive.records,
             usage: snapshot.sessions,
             calendar: calendar)
-        historyDays = rebuiltHistory
+        historyDays = rebuiltHistory.days
+        historyIntegrityNotices = []
+        if snapshot.sessions.contains(where: {
+            $0.end > $0.start && $0.start < snapshot.accurateFrom
+        }) {
+            historyIntegrityNotices.append(
+                "History includes preserved legacy app usage from before "
+                    + "\(Tokens.longDate(snapshot.accurateFrom)); it may include unattended time.")
+        }
+        if rebuiltHistory.droppedUsageSpans > 0
+            || rebuiltHistory.droppedSessionSpans > 0 {
+            var dropped: [String] = []
+            if rebuiltHistory.droppedUsageSpans > 0 {
+                let count = rebuiltHistory.droppedUsageSpans
+                dropped.append("\(count) app-usage " + (count == 1 ? "record" : "records"))
+            }
+            if rebuiltHistory.droppedSessionSpans > 0 {
+                let count = rebuiltHistory.droppedSessionSpans
+                dropped.append("\(count) focus " + (count == 1 ? "record" : "records"))
+            }
+            historyIntegrityNotices.append(
+                "History omitted \(dropped.joined(separator: " and ")) from derived day rows "
+                    + "because each spans at least "
+                    + "\(HistoryStats.maximumCalendarDaysPerRecord) calendar days. "
+                    + "Source records remain preserved in local data.")
+        }
         maintainHistoryRange(previousNewest: previousNewest,
                              previousOldest: previousOldest,
                              calendar: calendar)
@@ -70,7 +95,8 @@ extension SessionStore {
         let rollup = periodStats.rollup(for: reviewPeriod, containing: anchor)
         reviewDays = rollup.days
         reviewLog = rollup.log
-        reviewAppGroups = PeriodStats.appGroups(from: rollup.log)
+        reviewLogTotalEntries = rollup.totalLogEntries
+        reviewAppGroups = rollup.exactAppGroups
         reviewDayTotals = rollup.dayTotals
         reviewSummary = rollup.summary
         reviewWorkTypeShares = Self.reviewWorkTypes(from: rollup.days)
@@ -181,6 +207,20 @@ extension SessionStore {
         reviewSummary.tracked > 0 || !reviewFocusSessions.isEmpty || !reviewLog.isEmpty
     }
 
+    var reviewLogRowsOmitted: Int {
+        max(0, reviewLogTotalEntries - reviewLog.count)
+    }
+
+    var reviewLogRowsQualification: String {
+        "Showing newest \(reviewLog.count) of \(reviewLogTotalEntries) app-session rows"
+    }
+
+    var reviewAppAggregateQualification: String {
+        let sessions = reviewLogTotalEntries == 1 ? "1 app session"
+            : "\(reviewLogTotalEntries) app sessions"
+        return "Exact full period · \(sessions)"
+    }
+
     var reviewFocusSessionCount: Int {
         Set(reviewFocusSessions.map(\.threadID)).count
     }
@@ -280,6 +320,7 @@ extension SessionStore {
     private func clearReviewData() {
         reviewDays = []
         reviewLog = []
+        reviewLogTotalEntries = 0
         reviewAppGroups = []
         reviewDayTotals = [:]
         reviewSummary = PeriodRollup.empty.summary
@@ -292,6 +333,7 @@ extension SessionStore {
         historyRangeStart = nil
         historyRangeEnd = nil
         historyAppNames = [:]
+        historyIntegrityNotices = []
         reviewRefreshPending = false
     }
 

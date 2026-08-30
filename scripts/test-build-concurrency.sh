@@ -129,10 +129,17 @@ def main() -> None:
 
 
 def _walk_all_entries(root: str):
-    for current_dir, dirnames, filenames in os.walk(root):
+    for current_dir, dirnames, filenames in os.walk(root, followlinks=False):
         dirnames.sort()
         filenames.sort()
         yield current_dir
+        # os.walk lists directory symlinks in dirnames but, correctly, does not
+        # descend into them when followlinks is false. Yield those entries here
+        # so their own mode and target bytes still protect the bundle hash.
+        for dirname in dirnames:
+            candidate = os.path.join(current_dir, dirname)
+            if os.path.islink(candidate):
+                yield candidate
         for filename in filenames:
             yield os.path.join(current_dir, filename)
 
@@ -347,6 +354,30 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
+
+# Preservation hashes must name directory symlinks themselves without walking
+# their targets. Changing the link target is a bundle mutation; changing bytes
+# behind the same external link is not.
+HASH_PROBE_BUNDLE="${HARNESS_ROOT}/bundle-hash-probe.app"
+HASH_PROBE_TARGET_A="${HARNESS_ROOT}/bundle-hash-target-a"
+HASH_PROBE_TARGET_B="${HARNESS_ROOT}/bundle-hash-target-b"
+mkdir -p "${HASH_PROBE_BUNDLE}" "${HASH_PROBE_TARGET_A}" "${HASH_PROBE_TARGET_B}"
+printf 'outside a\n' > "${HASH_PROBE_TARGET_A}/sentinel"
+printf 'outside b\n' > "${HASH_PROBE_TARGET_B}/sentinel"
+ln -s "${HASH_PROBE_TARGET_A}" "${HASH_PROBE_BUNDLE}/linked-directory"
+HASH_WITH_TARGET_A="$(bundle_hash "${HASH_PROBE_BUNDLE}")"
+rm -f "${HASH_PROBE_BUNDLE}/linked-directory"
+ln -s "${HASH_PROBE_TARGET_B}" "${HASH_PROBE_BUNDLE}/linked-directory"
+HASH_WITH_TARGET_B="$(bundle_hash "${HASH_PROBE_BUNDLE}")"
+test "${HASH_WITH_TARGET_A}" != "${HASH_WITH_TARGET_B}" \
+  || fail "bundle hash ignored a directory symlink target change"
+rm -f "${HASH_PROBE_BUNDLE}/linked-directory"
+ln -s "${HASH_PROBE_TARGET_A}" "${HASH_PROBE_BUNDLE}/linked-directory"
+HASH_BEFORE_EXTERNAL_CHANGE="$(bundle_hash "${HASH_PROBE_BUNDLE}")"
+printf 'outside a changed\n' > "${HASH_PROBE_TARGET_A}/sentinel"
+HASH_AFTER_EXTERNAL_CHANGE="$(bundle_hash "${HASH_PROBE_BUNDLE}")"
+test "${HASH_BEFORE_EXTERNAL_CHANGE}" = "${HASH_AFTER_EXTERNAL_CHANGE}" \
+  || fail "bundle hash followed a directory symlink into external bytes"
 
 test -d "${APP_NAME}.app" || fail "a verified local app is required before the harness"
 codesign --verify "${APP_NAME}.app" || fail "the baseline local app is not signed"

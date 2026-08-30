@@ -325,14 +325,14 @@ same detail. Search filters group metadata and control labels.
 
 | Group | Persisted or observable scope |
 |---|---|
-| General | default tab and interface density |
-| Focus sessions | goal, default work type and continuation behaviour |
+| General | default main-window tab |
+| Focus sessions | daily focused-active goal and usual-pace explanation |
 | Away and breaks | away thresholds, full-prompt tier and break reminders |
-| Automatic and rewards | automatic sessions, gap and earned moments |
-| Tracking and apps | app-usage recording, exclusions, purpose overrides and privacy scope |
+| Automatic and rewards | automatic-session toggle, end-gap and milestone toggle |
+| Tracking and apps | **Sessions per app** for Today’s selected-app history; app-usage recording and local privacy scope |
 | Appearance | system/light/dark, density and timeline labels |
-| Data and privacy | local storage, accuracy epoch and preserved legacy evidence |
-| Advanced | version/build diagnostics, recovery evidence and separated destructive actions |
+| Data and privacy | local storage, accuracy epoch, preserved legacy evidence and Reveal data folder |
+| Advanced | version, build and evidence-preserving recovery diagnostics |
 
 Every visible control writes to real persistence and has an observable consumer. Unsupported
 retention, export, launch or appearance controls are not displayed.
@@ -568,9 +568,10 @@ history is still accumulating.
 **Menu bar item** has four ambient states: glyph when idle, glyph plus elapsed while
 running, dimmed with pause when paused, and a badge when an absence needs resolving.
 
-**⌃⌥Space** starts or stops a session from anywhere. macOS 13 exposes no API to open a
-`MenuBarExtra` programmatically, so the hotkey acts directly rather than opening the
-popover.
+**⌃⌥Space** starts or stops a session from anywhere. If an Away decision is unresolved,
+the shortcut preserves it and re-presents the existing quick/full decision surface instead.
+macOS 13 exposes no API to open a `MenuBarExtra` programmatically, so ordinary states still
+act directly rather than opening the popover.
 
 ## Files
 

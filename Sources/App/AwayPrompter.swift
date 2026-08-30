@@ -51,6 +51,17 @@ final class AwayPrompter {
         }
     }
 
+    /// Re-opens the already-published question using its ordinary quick/full
+    /// policy. The global hotkey calls this after the shared action boundary
+    /// returns `.showAwayDecision`; it never manufactures or resolves evidence.
+    @discardableResult
+    func presentPendingDecision() -> Bool {
+        guard let away = store.pendingAway else { return false }
+        present(away: away)
+        wasPending = true
+        return true
+    }
+
     private func answer(_ decision: UserDecision) {
         dismiss()
         store.resolve(decision)

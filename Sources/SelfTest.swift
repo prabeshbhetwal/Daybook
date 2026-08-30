@@ -340,6 +340,8 @@ enum SelfTest {
              testHistorySearchesDisplayedAppName),
             ("History bounds malformed spans but keeps ordinary midnight clipping",
              testHistoryBoundsMalformedSpans),
+            ("History discloses legacy accuracy and span-bound derived omissions",
+             testHistoryDisclosesLegacyAndDroppedSpans),
             ("Review longest focus clips period boundaries and excludes breaks",
              testReviewLongestFocusClipsBoundsAndExcludesBreaks),
             ("Timeline rests stay clipped inside otherwise unknown gaps",
@@ -348,6 +350,14 @@ enum SelfTest {
              testFocusSurfaceStateAndContinuationLimit),
             ("Focus composition guards decisions and keeps automatic corrections available",
              testFocusSurfaceCompositionGuards),
+            ("Unresolved Away decisions reject ordinary session mutations",
+             testAwayDecisionRejectsOrdinarySessionMutations),
+            ("The global hotkey routes unresolved Away evidence to its decision surface",
+             testHotKeyRoutesPendingAwayDecision),
+            ("Sessions per app limits the real Today app-session list",
+             testSessionsPerAppLimitsProductionAppHistory),
+            ("Focus quality counts threads and real app transitions",
+             testFocusQualityCountsThreadsAndTransitions),
             ("Declared-Away automatic corrections resume tracking exactly once",
              testDeclaredAwayAutomaticCorrectionRoutes),
             ("Settings groups contain only backed controls",
@@ -368,6 +378,8 @@ enum SelfTest {
              testHistoryDateControlsMeetTarget),
             ("Expanded app rows retain daily accessibility and keyboard actions",
              testPeriodAppRowsExposeDailyAccessibility),
+            ("Today session selection and disclosure are independent accessible controls",
+             testTodaySessionRowControlsAreIndependent),
             ("Snapshot matrix covers every material surface",
              testSnapshotMatrixCoversEveryMaterialSurface),
             ("Simultaneous snapshots keep isolated presentation preferences",
@@ -7845,6 +7857,40 @@ enum SelfTest {
         return problems
     }
 
+    /// Selecting a session and disclosing its stretches are two actions. The
+    /// disclosure must never be nested inside the selection button, swallowed by
+    /// it, or represented as an undersized pointer-only chevron.
+    private static func testTodaySessionRowControlsAreIndependent() -> [String] {
+        var problems: [String] = []
+        var selections = 0
+        var disclosures = 0
+        let collapsed = SessionRowInteraction(sessionName: "Write proposal",
+                                              isExpanded: false)
+        collapsed.perform(.disclosure,
+                          onSelect: { selections += 1 },
+                          onDisclosure: { disclosures += 1 })
+        expect(selections == 0 && disclosures == 1,
+               "disclosure fires without selecting the session", &problems)
+        collapsed.perform(.selection,
+                          onSelect: { selections += 1 },
+                          onDisclosure: { disclosures += 1 })
+        expect(selections == 1 && disclosures == 1,
+               "selection fires without toggling disclosure", &problems)
+        expect(SessionRowInteraction.minimumTargetSize >= 28,
+               "both sibling controls retain a practical 28 point target", &problems)
+        expect(collapsed.disclosureAccessibilityLabel
+                   == "Show stretches and breaks for Write proposal"
+                   && collapsed.disclosureAccessibilityValue == "Collapsed",
+               "collapsed disclosure names its action and state", &problems)
+        let expanded = SessionRowInteraction(sessionName: "Write proposal",
+                                             isExpanded: true)
+        expect(expanded.disclosureAccessibilityLabel
+                   == "Hide stretches and breaks for Write proposal"
+                   && expanded.disclosureAccessibilityValue == "Expanded",
+               "expanded disclosure names its action and state", &problems)
+        return problems
+    }
+
     /// A preserved legacy stretch may remain visible in Review, but Insights
     /// cannot call it verified Rhythm or an authoritative active day. A later
     /// complete day remains eligible and supplies the literal expected totals.
@@ -7873,9 +7919,18 @@ enum SelfTest {
         let persistence = PersistenceStore(
             defaults: UserDefaults(suiteName: suiteName) ?? .standard)
         persistence.removeAll()
+        let archive = makeArchive(clock)
+        archive.append(SessionRecord(name: "Legacy deep work", workType: .deepWork,
+                                     start: legacyStart,
+                                     end: legacyStart.addingTimeInterval(60 * 60),
+                                     workSeconds: 60 * 60))
+        archive.append(SessionRecord(name: "Current admin", workType: .admin,
+                                     start: authoritativeStart,
+                                     end: authoritativeStart.addingTimeInterval(30 * 60),
+                                     workSeconds: 30 * 60))
         let engine = SessionEngine(
             store: persistence,
-            archive: makeArchive(clock),
+            archive: archive,
             ownBundleID: "com.example.self",
             schedulesDwell: false,
             now: { clock.value })
@@ -7896,6 +7951,12 @@ enum SelfTest {
         expect(month.continuity?.headline.hasPrefix("1 of 2 days had tracked time") == true,
                "active-day continuity counts only complete authoritative days; got "
                    + "'\(month.continuity?.headline ?? "nil")'", &problems)
+        expect(month.quality?.headline == "Admin was 100% of focused time",
+               "Focus quality excludes preserved pre-accuracy session/usage evidence; got "
+                   + "'\(month.quality?.headline ?? "nil")'", &problems)
+        expect(month.quality?.detail.hasPrefix("1 recorded focus session supplies") == true,
+               "Focus quality counts only the authoritative thread session; got "
+                   + "'\(month.quality?.detail ?? "nil")'", &problems)
         return problems
     }
 
@@ -7987,9 +8048,9 @@ enum SelfTest {
         return problems
     }
 
-    /// A bounded period read model must discard the oldest overflow, not stop
-    /// before it reaches the newest days. Log, day totals, summary and app groups
-    /// must all describe the same retained 500 entries.
+    /// Row presentation retains the newest 500, while exact period aggregates
+    /// remain separately available from all source sessions. A bound must never
+    /// silently turn Top Apps into "Top apps among the newest rows".
     private static func testPeriodLogRetainsNewestLimit() -> [String] {
         var problems: [String] = []
         var calendar = Calendar(identifier: .gregorian)
@@ -8038,14 +8099,44 @@ enum SelfTest {
         }, "the newest ten sessions survive the cap", &problems)
         expect(separateLog == rollup.log,
                "standalone log and rollup retain the identical set", &problems)
+        expect(rollup.totalLogEntries == 510 && rollup.logRowsOmitted == 10,
+               "the bounded row model carries its exact full-period count", &problems)
         expectClose(rollup.dayTotals.values.reduce(0, +),
                     rollup.log.reduce(0) { $0 + $1.session.attended },
-                    "retained day totals", &problems)
-        let groups = PeriodStats.appGroups(from: rollup.log)
+                   "retained day totals", &problems)
+        let groups = rollup.exactAppGroups
         expectClose(groups.first(where: { $0.bundleID == "org.example.current" })?.total ?? -1,
-                    10 * 60, "recent app retained total", &problems)
+                    10 * 60, "recent app exact total", &problems)
         expectClose(groups.first(where: { $0.bundleID == "org.example.archive" })?.total ?? -1,
-                    490 * 60, "old app retained remainder", &problems)
+                    500 * 60, "old app exact full-period total", &problems)
+        expectClose(groups.reduce(0) { $0 + $1.total }, 510 * 60,
+                    "exact app groups remain separate from bounded rows", &problems)
+
+        let persistence = PersistenceStore(
+            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+        persistence.removeAll()
+        let engine = SessionEngine(store: persistence, archive: archive,
+                                   ownBundleID: "com.example.self", schedulesDwell: false,
+                                   now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: "com.example.self",
+                                      idle: .disabled,
+                                      now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+        store.reviewAnchor = anchor
+        store.refreshReview(period: .month)
+        expect(store.reviewLog.count == 500 && store.reviewLogTotalEntries == 510
+                   && store.reviewLogRowsOmitted == 10,
+               "Review publishes bounded rows beside the exact source count", &problems)
+        expect(store.reviewLogRowsQualification
+                   == "Showing newest 500 of 510 app-session rows",
+               "Review labels the bounded chronological rows", &problems)
+        expect(store.reviewAppAggregateQualification
+                   == "Exact full period · 510 app sessions",
+               "Review labels Top Apps as an exact full-period aggregate", &problems)
+        expectClose(store.reviewAppGroups.reduce(0) { $0 + $1.total }, 510 * 60,
+                    "Review Top Apps consumes every full-period session", &problems)
         return problems
     }
 
@@ -8240,8 +8331,9 @@ enum SelfTest {
                           workSeconds: 501 * 86_400)
         ]
 
-        let days = HistoryStats.days(sessionRecords: records, usage: usage,
-                                     calendar: calendar)
+        let result = HistoryStats.build(sessionRecords: records, usage: usage,
+                                        calendar: calendar)
+        let days = result.days
         expect(days.map(\.date) == [secondDay, firstDay],
                "malformed distant records add no derived days", &problems)
         if days.count == 2 {
@@ -8256,6 +8348,71 @@ enum SelfTest {
         }
         expect(usage.count == 2 && records.count == 2,
                "derived bounding never mutates source records", &problems)
+        expect(result.droppedUsageSpans == 1,
+               "the omitted span-bound usage record is counted for disclosure", &problems)
+        expect(result.droppedSessionSpans == 1,
+               "the omitted span-bound focus record is counted for disclosure", &problems)
+        return problems
+    }
+
+    /// History keeps legacy evidence visible, but it must qualify its recording
+    /// guarantee and disclose every record omitted only from the bounded derived
+    /// index. Neither notice permits mutation of the preserved source archives.
+    private static func testHistoryDisclosesLegacyAndDroppedSpans() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: anchoredNow())
+        let clock = Clock(today.addingTimeInterval(12 * 3_600))
+        guard let legacyDay = calendar.date(byAdding: .day, value: -2, to: today),
+              let malformedStart = calendar.date(byAdding: .day, value: -500, to: today),
+              let accurateFrom = calendar.date(byAdding: .day, value: -1, to: today)?
+                .addingTimeInterval(12 * 3_600) else {
+            return ["could not build History disclosure dates"]
+        }
+        let legacyStart = legacyDay.addingTimeInterval(9 * 3_600)
+        let malformedEnd = today.addingTimeInterval(10 * 3_600)
+        let usageSessions = [
+            AppUsageSession(bundleID: "org.example.legacy", appName: "Legacy",
+                            start: legacyStart, end: legacyStart.addingTimeInterval(30 * 60)),
+            AppUsageSession(bundleID: "org.example.malformed", appName: "Malformed",
+                            start: malformedStart, end: malformedEnd)
+        ]
+        let sessionRecords = [
+            SessionRecord(name: "Legacy focus", workType: .learning,
+                          start: legacyStart, end: legacyStart.addingTimeInterval(30 * 60),
+                          workSeconds: 30 * 60),
+            SessionRecord(name: "Malformed focus", workType: .deepWork,
+                          start: malformedStart, end: malformedEnd,
+                          workSeconds: 500 * 86_400)
+        ]
+        let usage = makeUsageArchive(clock, sessions: usageSessions,
+                                     accurateFrom: accurateFrom)
+        let archive = makeArchive(clock, records: sessionRecords, calendar: calendar)
+        let persistence = PersistenceStore(
+            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+        persistence.removeAll()
+        let engine = SessionEngine(store: persistence, archive: archive,
+                                   ownBundleID: "com.example.self", schedulesDwell: false,
+                                   now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: "com.example.self",
+                                      idle: .disabled,
+                                      now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+        store.refreshReview()
+
+        expect(store.historyIntegrityNotices.contains {
+            $0.contains(Tokens.longDate(accurateFrom))
+                && $0.localizedCaseInsensitiveContains("legacy")
+        }, "History qualifies preserved pre-accuracy app usage", &problems)
+        expect(store.historyIntegrityNotices.contains {
+            $0.contains("1 app-usage record") && $0.contains("1 focus record")
+                && $0.localizedCaseInsensitiveContains("source records remain preserved")
+        }, "History states both span-bound derived omissions and source preservation",
+               &problems)
+        expect(usage.sessions == usageSessions && archive.records == sessionRecords,
+               "History disclosure never rewrites either source archive", &problems)
         return problems
     }
 
@@ -8468,6 +8625,170 @@ enum SelfTest {
             isAutomatic: true)
         expect(!idle.showsAutomaticSessionControls,
                "idle never exposes automatic-session controls", &problems)
+        return problems
+    }
+
+    /// Presentation hiding is not an action boundary. A global shortcut or any
+    /// future caller can still reach the store directly, so an unresolved Away
+    /// decision must reject ordinary stop/start/pause mutations at that shared
+    /// App seam while leaving the exact pending evidence intact.
+    private static func testAwayDecisionRejectsOrdinarySessionMutations() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(base)
+        let engine = makeEngine(clock)
+        engine.start(workType: .deepWork, intent: "Pending evidence")
+        clock.advance(20 * 60)
+        engine.transition(on: .awayBegan(trigger: .screenLock))
+        clock.advance(20 * 60)
+        engine.transition(on: .awayEnded)
+        guard case .awaitingUserDecision(let pendingBefore, _) = engine.state else {
+            return ["fixture did not reach awaitingUserDecision: \(engine.state)"]
+        }
+        let recordsBefore = engine.archive.records
+        let store = SessionStore(engine: engine, now: { clock.value })
+
+        store.stop()
+        store.togglePause()
+        store.startQuick(QuickStart(id: "blocked", name: "Blocked", workType: .admin))
+
+        if case .awaitingUserDecision(let pendingAfter, _) = engine.state {
+            expectClose(pendingAfter, pendingBefore,
+                        "ordinary actions preserve the pending Away interval", &problems)
+        } else {
+            problems.append("ordinary actions changed unresolved evidence to \(engine.state)")
+        }
+        expect(engine.archive.records == recordsBefore,
+               "rejected ordinary actions archive no partial session", &problems)
+        return problems
+    }
+
+    /// The hotkey has three literal outcomes. Pending evidence is not a fourth
+    /// kind of stop: it routes back to the existing answer surface and leaves
+    /// state untouched. Idle and ordinary live states retain zero-friction
+    /// start/stop behaviour through the same store boundary.
+    private static func testHotKeyRoutesPendingAwayDecision() -> [String] {
+        var problems: [String] = []
+
+        let idleClock = Clock(base)
+        let idleEngine = makeEngine(idleClock)
+        let idleStore = SessionStore(engine: idleEngine, now: { idleClock.value })
+        expect(idleStore.performSessionHotKeyAction() == .started,
+               "idle hotkey starts through the shared boundary", &problems)
+        expect(idleEngine.state == .running,
+               "idle hotkey leaves a running session", &problems)
+        expect(idleStore.performSessionHotKeyAction() == .stopped,
+               "ordinary live hotkey stops through the shared boundary", &problems)
+        expect(idleEngine.state == .idle,
+               "ordinary live hotkey leaves an idle session", &problems)
+
+        let pendingClock = Clock(base)
+        let pendingEngine = makeEngine(pendingClock)
+        pendingEngine.start(workType: .learning, intent: "Pending")
+        pendingClock.advance(20 * 60)
+        pendingEngine.transition(on: .awayBegan(trigger: .systemSleep))
+        pendingClock.advance(20 * 60)
+        pendingEngine.transition(on: .awayEnded)
+        let pendingStore = SessionStore(engine: pendingEngine, now: { pendingClock.value })
+        let recordsBefore = pendingEngine.archive.records
+
+        expect(pendingStore.performSessionHotKeyAction() == .showAwayDecision,
+               "pending hotkey routes to the existing Away decision", &problems)
+        expect(pendingStore.hasUnresolvedAwayDecision,
+               "pending hotkey keeps the decision outstanding", &problems)
+        expect(pendingEngine.archive.records == recordsBefore,
+               "pending hotkey writes no replacement evidence", &problems)
+        return problems
+    }
+
+    /// The setting is retained only because it controls a real production list:
+    /// the selected app's recent grouped sessions in Today. The rows are newest
+    /// first and the configured limit is applied after canonical grouping.
+    private static func testSessionsPerAppLimitsProductionAppHistory() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: anchoredNow())
+        let clock = Clock(day.addingTimeInterval(12 * 3_600))
+        let app = "org.example.editor"
+        let usageSessions = (0..<5).map { index -> AppUsageSession in
+            let start = day.addingTimeInterval(9 * 3_600 + Double(index * 10 * 60))
+            return AppUsageSession(bundleID: app, appName: "Editor",
+                                   start: start, end: start.addingTimeInterval(60))
+        }
+        let usage = makeUsageArchive(clock, sessions: usageSessions, accurateFrom: day)
+        let persistence = PersistenceStore(
+            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+        persistence.removeAll()
+        persistence.menuSessionCount = 3
+        let engine = SessionEngine(
+            store: persistence, archive: makeArchive(clock),
+            ownBundleID: "com.example.self", schedulesDwell: false,
+            now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: "com.example.self",
+                                      idle: .disabled,
+                                      now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+
+        let visible = store.sessions(for: app)
+        expect(visible.count == 3,
+               "configured Today app-session list shows three rows, got \(visible.count)",
+               &problems)
+        expect(visible.map(\.start) == usageSessions.suffix(3).reversed().map(\.start),
+               "the configured list retains the newest grouped app sessions", &problems)
+        return problems
+    }
+
+    /// A focus session is a thread, not every archived stretch. An app switch is
+    /// a change between adjacent app identities inside one focus stretch, not the
+    /// first app observed and not a same-app checkpoint split.
+    private static func testFocusQualityCountsThreadsAndTransitions() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: base)
+        let clock = Clock(day.addingTimeInterval(12 * 3_600))
+        let sharedThread = UUID()
+        let secondThread = UUID()
+        let records = [
+            SessionRecord(name: "One", workType: .deepWork,
+                          start: day.addingTimeInterval(9 * 3_600),
+                          end: day.addingTimeInterval(9.5 * 3_600),
+                          workSeconds: 30 * 60, threadID: sharedThread),
+            SessionRecord(name: "One", workType: .deepWork,
+                          start: day.addingTimeInterval(10 * 3_600),
+                          end: day.addingTimeInterval(10.5 * 3_600),
+                          workSeconds: 30 * 60, threadID: sharedThread),
+            SessionRecord(name: "Two", workType: .admin,
+                          start: day.addingTimeInterval(11 * 3_600),
+                          end: day.addingTimeInterval(11.5 * 3_600),
+                          workSeconds: 30 * 60, threadID: secondThread)
+        ]
+        func use(_ bundleID: String, _ startMinute: Int, _ endMinute: Int)
+            -> AppUsageSession {
+            AppUsageSession(bundleID: bundleID, appName: bundleID,
+                            start: day.addingTimeInterval(Double(startMinute * 60)),
+                            end: day.addingTimeInterval(Double(endMinute * 60)))
+        }
+        let usage = makeUsageArchive(clock, sessions: [
+            use("app.a", 9 * 60, 9 * 60 + 10),
+            use("app.a", 9 * 60 + 10, 9 * 60 + 15),
+            use("app.b", 9 * 60 + 15, 9 * 60 + 30),
+            use("app.b", 10 * 60, 10 * 60 + 10),
+            use("app.b", 10 * 60 + 10, 10 * 60 + 20),
+            use("app.c", 10 * 60 + 20, 10 * 60 + 30),
+            use("app.c", 11 * 60, 11 * 60 + 15),
+            use("app.a", 11 * 60 + 15, 11 * 60 + 30)
+        ], accurateFrom: day)
+        let archive = makeArchive(clock, records: records, calendar: calendar)
+        let quality = DashboardStats(sessions: archive, usage: usage,
+                                     calendar: calendar, now: { clock.value })
+            .focusQuality(for: day)
+
+        expect(quality.sessionCount == 2,
+               "three stretches across two thread IDs count as two sessions; got "
+                   + "\(quality.sessionCount)", &problems)
+        expectClose(quality.switchesPerSession, 1.5,
+                    "three real app transitions over two thread sessions", &problems)
         return problems
     }
 

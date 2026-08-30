@@ -111,12 +111,18 @@ struct LogAppGroup: Identifiable, Equatable {
 /// Everything the dashboard needs for one period, from one walk over the days.
 struct PeriodRollup: Equatable {
     let days: [PeriodDay]
+    /// Newest bounded rows for chronological presentation.
     let log: [LogEntry]
+    /// Exact source count and app aggregates remain independent of the row cap.
+    let totalLogEntries: Int
+    let exactAppGroups: [LogAppGroup]
     let dayTotals: [Date: TimeInterval]
     let summary: PeriodSummary
 
+    var logRowsOmitted: Int { max(0, totalLogEntries - log.count) }
+
     static let empty = PeriodRollup(
-        days: [], log: [], dayTotals: [:],
+        days: [], log: [], totalLogEntries: 0, exactAppGroups: [], dayTotals: [:],
         summary: PeriodSummary(tracked: 0, activeDays: 0, totalDays: 0,
                                averagePerActiveDay: 0, longest: nil))
 }
@@ -213,28 +219,33 @@ struct PeriodStats {
                                    usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var allDays: [PeriodDay] = []
-        var entries: [LogEntry] = []
+        var retainedEntries: [LogEntry] = []
+        var allEntries: [LogEntry] = []
         var cursor = start
         while cursor < end && allDays.count < 40 {
             allDays.append(PeriodDay(date: cursor,
                                      tracked: stats.trackedTotal(for: cursor),
                                      byWorkType: stats.focusQuality(for: cursor).byWorkType))
-            Self.retainNewest(Self.logEntries(on: cursor, stats: stats), in: &entries)
+            let dayEntries = Self.logEntries(on: cursor, stats: stats)
+            allEntries.append(contentsOf: dayEntries)
+            Self.retainNewest(dayEntries, in: &retainedEntries)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             cursor = next
         }
-        entries.sort { $0.session.start > $1.session.start }
+        allEntries.sort { $0.session.start > $1.session.start }
+        retainedEntries.sort { $0.session.start > $1.session.start }
         var totals: [Date: TimeInterval] = [:]
-        for entry in entries { totals[entry.day, default: 0] += entry.session.attended }
+        for entry in retainedEntries { totals[entry.day, default: 0] += entry.session.attended }
         return PeriodRollup(days: allDays,
-                            log: entries,
+                            log: retainedEntries,
+                            totalLogEntries: allEntries.count,
+                            exactAppGroups: Self.appGroups(from: allEntries),
                             dayTotals: totals,
-                            summary: summarise(days: allDays, entries: entries))
+                            summary: summarise(days: allDays, entries: allEntries))
     }
 
     func summary(for period: TrackingPeriod, containing day: Date) -> PeriodSummary {
-        summarise(days: days(for: period, containing: day),
-                  entries: log(for: period, containing: day))
+        rollup(for: period, containing: day).summary
     }
 
     private func summarise(days allDays: [PeriodDay], entries: [LogEntry]) -> PeriodSummary {

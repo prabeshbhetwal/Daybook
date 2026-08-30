@@ -81,7 +81,7 @@ extension SessionStore {
     /// also covers the preview path whose engine state remains running.
     var focusSurfaceComposition: FocusSurfaceComposition {
         FocusSurfaceComposition(state: state,
-                                hasPendingDecision: pendingAway != nil,
+                                hasPendingDecision: hasUnresolvedAwayDecision,
                                 isAutomatic: isAutoSession)
     }
 }

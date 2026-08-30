@@ -85,6 +85,9 @@ struct HistoryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            ForEach(store.historyIntegrityNotices, id: \.self) { notice in
+                IntegrityNotice(notice)
+            }
             SurfacePanel(showsHeader: false) {
                 SectionHeader(title: "History filters",
                               trailing: resultLabel)

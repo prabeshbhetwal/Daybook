@@ -102,10 +102,11 @@ extension SessionStore {
     /// Grouped sittings for one app on the selected day.
     func sessions(for bundleID: String) -> [AppSession] {
         guard let usage else { return [] }
-        return DashboardStats(sessions: engine.archive, usage: usage,
-                              usageSnapshot: effectiveUsageSnapshot)
+        let grouped = DashboardStats(sessions: engine.archive, usage: usage,
+                                     usageSnapshot: effectiveUsageSnapshot)
             .sessions(for: selectedDay, bundleID: bundleID)
             .sorted { $0.start > $1.start }
+        return Array(grouped.prefix(engine.store.menuSessionCount))
     }
 
     /// Minutes per hour for one app, for the drill-down strip.
@@ -214,7 +215,9 @@ extension SessionStore {
             for: day,
             // Keep this in step with `sessionsToday`: without it the same screen
             // reads "1 session today" and "No sessions yet today".
-            runningSeconds: (state != .idle && dayOffset == 0) ? engine.elapsedToday() : nil)
+            runningSeconds: (state != .idle && dayOffset == 0) ? engine.elapsedToday() : nil,
+            runningThreadID: (state != .idle && dayOffset == 0)
+                ? engine.activeThreadID : nil)
         insights = stats.insights(for: day)
         trackedForSelectedDay = stats.trackedTotal(for: day)
         trackedYesterday = Calendar.current.date(byAdding: .day, value: -1, to: day)
@@ -316,7 +319,7 @@ extension SessionStore {
         let runningIDs = Set(runningApps.map(\.bundleID))
         earlierToday = rankedApps
             .filter { !runningIDs.contains($0.bundleID) }
-            .prefix(engine.store.menuSessionCount)
+            .prefix(engine.store.menuAppCount)
             .enumerated()
             .map { index, rank in
                 AppDayHistory(bundleID: rank.bundleID,
@@ -420,7 +423,7 @@ extension SessionStore {
     /// launched — reopening an app the user deliberately closed would be worse
     /// than doing nothing.
     func continueThread(_ thread: ThreadSummary) {
-        guard !thread.isRunning else { return }
+        guard !hasUnresolvedAwayDecision, !thread.isRunning else { return }
         let primary = threadApps(thread).primary?.bundleID
         engine.start(workType: thread.workType, intent: thread.name,
                      threadID: thread.threadID)
@@ -437,7 +440,8 @@ extension SessionStore {
     /// labelled with it. Refuses when the app is not running — there is nothing
     /// to continue.
     func continueApp(_ summary: AppUsageSummary) {
-        guard isRunning(bundleID: summary.bundleID) else { return }
+        guard !hasUnresolvedAwayDecision,
+              isRunning(bundleID: summary.bundleID) else { return }
         NSRunningApplication
             .runningApplications(withBundleIdentifier: summary.bundleID)
             .first?

@@ -256,18 +256,19 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                                        : densityIdle.idleSeconds()))
     }
 
-    /// macOS 13 exposes no API to open a `MenuBarExtra` window programmatically,
-    /// so ⌃⌥Space does what Brief 1 actually asks for — "start/stop a session
-    /// from anywhere" — rather than opening the popover. Starting from the hotkey
-    /// uses the last work type and an empty intent, which is the zero-friction
-    /// path; the intent can be added later from the popover.
+    /// macOS 13 exposes no API to open a `MenuBarExtra` window programmatically.
+    /// Ordinary states therefore keep the zero-friction start/stop route, while
+    /// an unresolved Away question is re-presented through the existing prompt
+    /// owner. The shortcut never archives or clears unclassified evidence.
     private func toggleSessionFromHotKey() {
-        if engine.state == .idle {
-            engine.start(workType: engine.activeWorkType, intent: "")
-        } else {
-            engine.stop()
+        let result = store.performSessionHotKeyAction()
+        if result == .showAwayDecision {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.mainWindow.open(tab: .focus)
+                _ = self.awayPrompter.presentPendingDecision()
+            }
         }
-        store.refresh()
     }
 
     override init() {
