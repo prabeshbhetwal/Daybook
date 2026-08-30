@@ -322,6 +322,8 @@ enum SelfTest {
              testMainWindowRoutesAndCommands),
             ("Unified window chrome keeps context beside tabs without a native focus ring",
              testUnifiedWindowChrome),
+            ("Native chrome uses individual tabs and a compact app mark",
+             testNativeChromePresentation),
             ("Today preserves day scope and clears only its inspector selection",
              testTodaySurfaceScopeAndInspector),
             ("Review keeps tracked bars canonical and History filters by intersection",
@@ -6921,13 +6923,11 @@ enum SelfTest {
         MainActor.assumeIsolated {
             var problems: [String] = []
 
-            let light = Snapshotter.densityFocusSnapshot(
-                density: .compact, scheme: .light)
+            let light = Snapshotter.narrowFocusSnapshot(scheme: .light)
             let lightRenderer = ImageRenderer(content: light)
             lightRenderer.scale = 1
 
-            let dark = Snapshotter.densityFocusSnapshot(
-                density: .compact, scheme: .dark)
+            let dark = Snapshotter.narrowFocusSnapshot(scheme: .dark)
             let darkRenderer = ImageRenderer(content: dark)
             darkRenderer.scale = 1
 
@@ -7303,6 +7303,20 @@ enum SelfTest {
                "chrome reserves room for native traffic lights", &problems)
         expect(MainWindowChrome.usesNativeFocusRing == false,
                "tab rail does not draw the native blue focus outline", &problems)
+        return problems
+    }
+
+    private static func testNativeChromePresentation() -> [String] {
+        var problems: [String] = []
+        expect(!TabRailPresentation.usesOuterSurface,
+               "global tabs do not sit inside a second enclosing rail", &problems)
+        expect(!TabRailPresentation.unselectedUsesBorder,
+               "unselected tabs remain quiet individual controls", &problems)
+        expect(MainWindowChrome.appMarkFallbackSymbol == "target"
+                   && MainWindowChrome.appMarkSize == 24,
+               "window chrome has a compact deterministic app-mark fallback", &problems)
+        expect(MainWindowChrome.trafficLightClearance >= 68,
+               "adding the app mark preserves traffic-light clearance", &problems)
         return problems
     }
 

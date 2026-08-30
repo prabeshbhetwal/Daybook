@@ -170,6 +170,12 @@ enum Snapshotter {
         return mainShell(for: item, settings: settings)
     }
 
+    /// The production minimum-width Focus shell, used by structural checks for
+    /// the compact app mark and tab row together.
+    static func narrowFocusSnapshot(scheme: ColorScheme) -> some View {
+        densityFocusSnapshot(density: .compact, scheme: scheme)
+    }
+
     static func run(directory: URL) -> Bool {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)

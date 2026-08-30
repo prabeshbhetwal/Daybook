@@ -1,10 +1,13 @@
 import SwiftUI
+import AppKit
 
 /// Pure context for the one-row window chrome. It keeps the visible title and
 /// live status in the same visual band as the application tabs.
 enum MainWindowChrome {
     static let trafficLightClearance: CGFloat = 76
     static let usesNativeFocusRing = false
+    static let appMarkFallbackSymbol = "target"
+    static let appMarkSize: CGFloat = 24
 
     struct Context: Equatable {
         let title: String
@@ -33,6 +36,30 @@ enum MainWindowChrome {
     }
 }
 
+private struct FocusContinuityMark: View {
+    private var icon: NSImage? {
+        Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
+            .flatMap(NSImage.init(contentsOf:))
+    }
+
+    var body: some View {
+        Group {
+            if let icon {
+                Image(nsImage: icon).resizable().interpolation(.high)
+            } else {
+                Image(systemName: MainWindowChrome.appMarkFallbackSymbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Tokens.Colour.focus)
+                    .background(Tokens.Colour.focus.opacity(0.12), in: Circle())
+            }
+        }
+            .frame(width: MainWindowChrome.appMarkSize,
+                   height: MainWindowChrome.appMarkSize)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
 /// The title, status and tab rail share one fixed content-titlebar row. The
 /// actual macOS traffic lights remain native; the leading inset gives them
 /// space when the scene uses `.hiddenTitleBar`.
@@ -52,6 +79,8 @@ struct MainWindowChromeBar: View {
 
     var body: some View {
         HStack(spacing: Tokens.Space.m) {
+            FocusContinuityMark()
+
             VStack(alignment: .leading, spacing: 0) {
                 Text(context.title)
                     .font(Tokens.Typography.sectionTitle)

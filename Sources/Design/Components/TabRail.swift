@@ -8,6 +8,11 @@ enum AccessibilityMetrics {
     static let minimumTargetSize: CGFloat = 28
 }
 
+enum TabRailPresentation {
+    static let usesOuterSurface = false
+    static let unselectedUsesBorder = false
+}
+
 extension AppTab {
     func accessibilityLabel(isSelected: Bool) -> String {
         "\(title), \(isSelected ? "selected" : "not selected"), Command \(commandNumber)"
@@ -36,9 +41,6 @@ struct TabRail: View {
             pills(showsIcons: true)
             pills(showsIcons: false)
         }
-        .padding(Tokens.Space.xs)
-        .background(Tokens.Colour.elevated, in: Capsule())
-        .overlay(Capsule().stroke(Tokens.Colour.line, lineWidth: 1))
         .quietFocus()
         .onMoveCommand { direction in
             switch direction {
@@ -105,7 +107,8 @@ struct TabRail: View {
                          ? AnyShapeStyle(Tokens.Colour.onFocus)
                          : AnyShapeStyle(Color.primary))
         .overlay(
-            Capsule().strokeBorder(selected ? Color.clear : Tokens.Colour.line,
+            Capsule().strokeBorder(selected || !TabRailPresentation.unselectedUsesBorder
+                                   ? Color.clear : Tokens.Colour.line,
                                    lineWidth: 1)
         )
         .contentShape(Capsule())
