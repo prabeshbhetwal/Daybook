@@ -315,41 +315,16 @@ extension SessionStore {
                                 days: [PeriodDay],
                                 moment: Date,
                                 calendar: Calendar) -> FocusQuality {
-        var typeSeconds: [WorkType: TimeInterval] = [:]
-        var insideSeconds: TimeInterval = 0
-        var trackedSeconds: TimeInterval = 0
-        var switches: Double = 0
-        var sessions = 0
         var qualityStats = stats
         qualityStats.activeWorkType = engine.activeWorkType
-        for day in days {
-            let running = engine.state != .idle && calendar.isDate(day.date, inSameDayAs: moment)
-                ? engine.elapsedToday() : nil
-            let quality = qualityStats.focusQuality(
-                for: day.date,
-                runningSeconds: running,
-                runningThreadID: running == nil ? nil : engine.activeThreadID)
-            let tracked = stats.trackedTotal(for: day.date)
-            trackedSeconds += tracked
-            insideSeconds += quality.insideSessionShare * tracked
-            switches += quality.switchesPerSession * Double(quality.sessionCount)
-            sessions += quality.sessionCount
-            for share in quality.byWorkType {
-                typeSeconds[share.workType, default: 0] += share.seconds
-            }
+        let includesToday = days.contains {
+            calendar.isDate($0.date, inSameDayAs: moment)
         }
-        let typeTotal = typeSeconds.values.reduce(0, +)
-        let shares = WorkType.allCases.compactMap { type -> WorkTypeShare? in
-            guard let seconds = typeSeconds[type], seconds > 0 else { return nil }
-            return WorkTypeShare(workType: type, seconds: seconds,
-                                 share: typeTotal > 0 ? seconds / typeTotal : 0)
-        }
-        .sorted { $0.seconds > $1.seconds }
-        return FocusQuality(
-            byWorkType: shares,
-            insideSessionShare: trackedSeconds > 0 ? insideSeconds / trackedSeconds : 0,
-            switchesPerSession: sessions > 0 ? switches / Double(sessions) : 0,
-            sessionCount: sessions)
+        let running = engine.state != .idle && includesToday ? engine.elapsedToday() : nil
+        return qualityStats.focusQuality(
+            for: days.map(\.date),
+            runningSeconds: running,
+            runningThreadID: running == nil ? nil : engine.activeThreadID)
     }
 
     /// Compares the current calendar range-to-now with the same local day and

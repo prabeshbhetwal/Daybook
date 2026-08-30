@@ -21,7 +21,8 @@ struct HistoryDay: Identifiable, Equatable {
 struct HistoryBuildResult: Equatable {
     let days: [HistoryDay]
     let droppedUsageSpans: Int
-    let droppedSessionSpans: Int
+    let droppedFocusSpans: Int
+    let droppedRestSpans: Int
 }
 
 /// Every non-nil condition must match. A query searches the date plus the
@@ -115,7 +116,8 @@ enum HistoryStats {
                       calendar: Calendar = .current) -> HistoryBuildResult {
         var buckets: [Date: DayAccumulator] = [:]
         var droppedUsageSpans = 0
-        var droppedSessionSpans = 0
+        var droppedFocusSpans = 0
+        var droppedRestSpans = 0
 
         // Split each usage stretch only across the calendar days it touches.
         // This is linear in the archive plus cross-midnight spans, rather than
@@ -154,7 +156,8 @@ enum HistoryStats {
             switch boundedSpan(start: record.start, end: record.end, calendar: calendar) {
             case .accepted(let first, let last): span = (first, last)
             case .exceedsBound:
-                droppedSessionSpans += 1
+                if record.workType.countsAsFocus { droppedFocusSpans += 1 }
+                else { droppedRestSpans += 1 }
                 continue
             case .invalid:
                 continue
@@ -186,7 +189,8 @@ enum HistoryStats {
         .sorted { $0.date > $1.date }
         return HistoryBuildResult(days: days,
                                   droppedUsageSpans: droppedUsageSpans,
-                                  droppedSessionSpans: droppedSessionSpans)
+                                  droppedFocusSpans: droppedFocusSpans,
+                                  droppedRestSpans: droppedRestSpans)
     }
 
     private static func boundedSpan(start: Date, end: Date,

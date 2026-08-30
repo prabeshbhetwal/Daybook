@@ -63,15 +63,20 @@ extension SessionStore {
                     + "\(Tokens.longDate(snapshot.accurateFrom)); it may include unattended time.")
         }
         if rebuiltHistory.droppedUsageSpans > 0
-            || rebuiltHistory.droppedSessionSpans > 0 {
+            || rebuiltHistory.droppedFocusSpans > 0
+            || rebuiltHistory.droppedRestSpans > 0 {
             var dropped: [String] = []
             if rebuiltHistory.droppedUsageSpans > 0 {
                 let count = rebuiltHistory.droppedUsageSpans
                 dropped.append("\(count) app-usage " + (count == 1 ? "record" : "records"))
             }
-            if rebuiltHistory.droppedSessionSpans > 0 {
-                let count = rebuiltHistory.droppedSessionSpans
+            if rebuiltHistory.droppedFocusSpans > 0 {
+                let count = rebuiltHistory.droppedFocusSpans
                 dropped.append("\(count) focus " + (count == 1 ? "record" : "records"))
+            }
+            if rebuiltHistory.droppedRestSpans > 0 {
+                let count = rebuiltHistory.droppedRestSpans
+                dropped.append("\(count) rest " + (count == 1 ? "record" : "records"))
             }
             historyIntegrityNotices.append(
                 "History omitted \(dropped.joined(separator: " and ")) from derived day rows "

@@ -326,6 +326,8 @@ enum SelfTest {
              testInsightSurfaceRequiresEvidence),
             ("Insights rhythm and active days exclude pre-accuracy usage",
              testInsightsExcludePreAccuracyUsage),
+            ("Insights quality deduplicates resumed threads across its full range",
+             testInsightQualityDeduplicatesThreadsAcrossRange),
             ("Tracker checkpoints refresh visible and next-open Insights",
              testTrackerTransitionsInvalidateInsights),
             ("Insights preserve tiny positive quality facts without zero labels",
@@ -7960,6 +7962,80 @@ enum SelfTest {
         return problems
     }
 
+    /// Week and Month are range statements. One canonical thread resumed after
+    /// local midnight remains one focus session, and an A-to-B app change across
+    /// those resumed stretches remains one real transition divided by that one
+    /// session — never two daily denominators that dilute the rate to zero.
+    private static func testInsightQualityDeduplicatesThreadsAcrossRange() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.calendar = calendar
+        components.timeZone = calendar.timeZone
+        components.year = 2026
+        components.month = 8
+        components.day = 26
+        components.hour = 12
+        guard let moment = calendar.date(from: components),
+              let firstDay = calendar.date(byAdding: .day, value: -1,
+                                           to: calendar.startOfDay(for: moment)),
+              let accuracyDay = calendar.date(byAdding: .day, value: -1,
+                                              to: firstDay) else {
+            return ["could not build cross-day Insights quality fixture"]
+        }
+        let secondDay = calendar.startOfDay(for: moment)
+        let clock = Clock(moment)
+        let threadID = UUID()
+        let firstStart = firstDay.addingTimeInterval(23.5 * 3_600)
+        let secondStart = secondDay.addingTimeInterval(10 * 60)
+        let records = [
+            SessionRecord(name: "Range thread", workType: .deepWork,
+                          start: firstStart,
+                          end: firstStart.addingTimeInterval(20 * 60),
+                          workSeconds: 20 * 60, threadID: threadID),
+            SessionRecord(name: "Range thread", workType: .deepWork,
+                          start: secondStart,
+                          end: secondStart.addingTimeInterval(30 * 60),
+                          workSeconds: 30 * 60, threadID: threadID)
+        ]
+        let usage = makeUsageArchive(
+            clock,
+            sessions: [
+                AppUsageSession(bundleID: "org.example.alpha", appName: "Alpha",
+                                start: firstStart,
+                                end: firstStart.addingTimeInterval(20 * 60)),
+                AppUsageSession(bundleID: "org.example.beta", appName: "Beta",
+                                start: secondStart,
+                                end: secondStart.addingTimeInterval(30 * 60))
+            ],
+            accurateFrom: accuracyDay.addingTimeInterval(12 * 3_600))
+        let archive = makeArchive(clock, records: records, calendar: calendar)
+        let persistence = PersistenceStore(
+            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+        persistence.removeAll()
+        let engine = SessionEngine(store: persistence, archive: archive,
+                                   ownBundleID: "com.example.self", schedulesDwell: false,
+                                   now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: "com.example.self",
+                                      idle: .disabled,
+                                      now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+        store.refreshInsights()
+
+        for (label, surface) in [("Week", store.insightWeekSurface),
+                                 ("Month", store.insightMonthSurface)] {
+            let detail = surface.quality?.detail ?? "nil"
+            expect(detail.hasPrefix("1 recorded focus session supplies"),
+                   "\(label) deduplicates the resumed thread; got '\(detail)'", &problems)
+            expect(detail.contains("1.0 app switches per recorded focus session"),
+                   "\(label) keeps the cross-day A-to-B transition undiluted; got "
+                       + "'\(detail)'", &problems)
+        }
+        return problems
+    }
+
     /// Tracker-originated checkpoints publish archive callbacks while the
     /// tracker is transitioning. Insights must join that final transition frame
     /// just like Review, then retain a pending refresh while hidden.
@@ -8350,7 +8426,7 @@ enum SelfTest {
                "derived bounding never mutates source records", &problems)
         expect(result.droppedUsageSpans == 1,
                "the omitted span-bound usage record is counted for disclosure", &problems)
-        expect(result.droppedSessionSpans == 1,
+        expect(result.droppedFocusSpans == 1 && result.droppedRestSpans == 0,
                "the omitted span-bound focus record is counted for disclosure", &problems)
         return problems
     }
@@ -8383,6 +8459,10 @@ enum SelfTest {
                           workSeconds: 30 * 60),
             SessionRecord(name: "Malformed focus", workType: .deepWork,
                           start: malformedStart, end: malformedEnd,
+                          workSeconds: 500 * 86_400),
+            SessionRecord(name: "Malformed break", workType: .breakTime,
+                          start: malformedStart.addingTimeInterval(60),
+                          end: malformedEnd,
                           workSeconds: 500 * 86_400)
         ]
         let usage = makeUsageArchive(clock, sessions: usageSessions,
@@ -8408,8 +8488,9 @@ enum SelfTest {
         }, "History qualifies preserved pre-accuracy app usage", &problems)
         expect(store.historyIntegrityNotices.contains {
             $0.contains("1 app-usage record") && $0.contains("1 focus record")
+                && $0.contains("1 rest record")
                 && $0.localizedCaseInsensitiveContains("source records remain preserved")
-        }, "History states both span-bound derived omissions and source preservation",
+        }, "History distinguishes focus/rest span omissions and source preservation",
                &problems)
         expect(usage.sessions == usageSessions && archive.records == sessionRecords,
                "History disclosure never rewrites either source archive", &problems)

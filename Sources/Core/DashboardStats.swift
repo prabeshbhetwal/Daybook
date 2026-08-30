@@ -461,6 +461,135 @@ struct DashboardStats {
             sessionCount: count)
     }
 
+    /// Canonical quality for a multi-day evidence range. Unlike summing daily
+    /// `FocusQuality` values, this keeps one denominator entry per thread across
+    /// local midnight and resumed stretches, then derives app transitions from
+    /// the ordered usage identities that intersect that thread anywhere in the
+    /// selected range.
+    ///
+    /// Running work preserves the daily contract: it contributes work type and
+    /// one deduplicated thread identity, while app-intersection/switch evidence
+    /// remains based on closed canonical ranges until that stretch is archived.
+    func focusQuality(for days: [Date],
+                      runningSeconds: TimeInterval? = nil,
+                      runningThreadID: UUID? = nil) -> FocusQuality {
+        var seenDays: Set<Date> = []
+        let dayIntervals: [DateInterval] = days.compactMap { day in
+            let start = calendar.startOfDay(for: day)
+            guard seenDays.insert(start).inserted,
+                  let bounds = SessionRecord.dayBounds(start, calendar: calendar) else {
+                return nil
+            }
+            return DateInterval(start: bounds.start, end: bounds.end)
+        }
+        .sorted { $0.start < $1.start }
+        guard !dayIntervals.isEmpty else {
+            return FocusQuality(byWorkType: [], insideSessionShare: 0,
+                                switchesPerSession: 0, sessionCount: 0)
+        }
+
+        var byType: [WorkType: TimeInterval] = [:]
+        var threadIDs: Set<UUID> = []
+        var rangesByThread: [UUID: [DateInterval]] = [:]
+        for record in sessions.records where record.workType.countsAsFocus {
+            for bounds in dayIntervals {
+                let worked = record.workSeconds(in: (start: bounds.start, end: bounds.end))
+                guard worked > 0 else { continue }
+                byType[record.workType, default: 0] += worked
+                threadIDs.insert(record.threadID)
+                let start = max(record.start, bounds.start)
+                let end = min(record.end, bounds.end)
+                if end > start {
+                    rangesByThread[record.threadID, default: []]
+                        .append(DateInterval(start: start, end: end))
+                }
+            }
+        }
+
+        var anonymousRunningCount = 0
+        if let runningSeconds, activeWorkType.countsAsFocus {
+            if runningSeconds > 0 {
+                byType[activeWorkType, default: 0] += runningSeconds
+            }
+            if let runningThreadID { threadIDs.insert(runningThreadID) }
+            else { anonymousRunningCount = 1 }
+        }
+
+        let typeTotal = byType.values.reduce(0, +)
+        let shares = WorkType.allCases.compactMap { type -> WorkTypeShare? in
+            guard let seconds = byType[type], seconds > 0 else { return nil }
+            return WorkTypeShare(workType: type, seconds: seconds,
+                                 share: typeTotal > 0 ? seconds / typeTotal : 0)
+        }
+        .sorted { $0.seconds > $1.seconds }
+
+        let orderedUsage = sourceSessions
+            .filter { session in
+                dayIntervals.contains { interval in
+                    session.start < interval.end && session.end > interval.start
+                }
+            }
+            .sorted {
+                if $0.start != $1.start { return $0.start < $1.start }
+                if $0.end != $1.end { return $0.end < $1.end }
+                return $0.id.uuidString < $1.id.uuidString
+            }
+
+        var tracked: TimeInterval = 0
+        for session in orderedUsage {
+            for interval in dayIntervals {
+                let start = max(session.start, interval.start)
+                let end = min(session.end, interval.end)
+                if end > start { tracked += end.timeIntervalSince(start) }
+            }
+        }
+
+        let allFocusRanges = Self.mergeRanges(rangesByThread.values.flatMap { $0 })
+        var inside: TimeInterval = 0
+        for session in orderedUsage {
+            for range in allFocusRanges {
+                let start = max(session.start, range.start)
+                let end = min(session.end, range.end)
+                if end > start { inside += end.timeIntervalSince(start) }
+            }
+        }
+
+        var switches = 0
+        for ranges in rangesByThread.values {
+            let canonicalRanges = Self.mergeRanges(ranges)
+            var previousBundleID: String?
+            for session in orderedUsage where canonicalRanges.contains(where: {
+                session.start < $0.end && session.end > $0.start
+            }) {
+                if let previousBundleID, previousBundleID != session.bundleID {
+                    switches += 1
+                }
+                previousBundleID = session.bundleID
+            }
+        }
+
+        let count = threadIDs.count + anonymousRunningCount
+        return FocusQuality(
+            byWorkType: shares,
+            insideSessionShare: tracked > 0 ? min(1, inside / tracked) : 0,
+            switchesPerSession: count > 0 ? Double(switches) / Double(count) : 0,
+            sessionCount: count)
+    }
+
+    private static func mergeRanges(_ ranges: [DateInterval]) -> [DateInterval] {
+        let ordered = ranges.filter { $0.end > $0.start }.sorted { $0.start < $1.start }
+        var merged: [DateInterval] = []
+        for range in ordered {
+            if let last = merged.last, range.start <= last.end {
+                merged[merged.count - 1] = DateInterval(
+                    start: last.start, end: max(last.end, range.end))
+            } else {
+                merged.append(range)
+            }
+        }
+        return merged
+    }
+
     // MARK: Running apps
 
     func runningNow(from inputs: [RunningAppInput]) -> [RunningApp] {
