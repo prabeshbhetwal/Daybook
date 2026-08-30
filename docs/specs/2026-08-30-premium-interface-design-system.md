@@ -312,7 +312,7 @@ Today is the canonical day record, including past-day browsing.
 4. **Supporting evidence:** two aligned groups: `Sessions` and `At the Mac`.
 5. **Recap:** one compact band with Focused, At the Mac, Sessions, Longest, and the lead canonical SummaryText sentence where available. Remaining canonical day-summary sentences appear in a compact `More about this day` disclosure.
 
-The recap consumes the existing selected-day SummaryText output. It does not recalculate a parallel narrative or permanently duplicate a generic Insight card.
+The recap consumes the existing selected-day SummaryText output. It does not recalculate a parallel narrative or permanently duplicate a generic Insight card. SummaryText's internal bold markers are stripped with SummaryText.plain before a sentence reaches SwiftUI Text: 12-point secondary recap copy remains plain, not Markdown-rendered.
 
 The time ribbon stays dominant. Supporting cards use equal top alignment, but they must not visually rival the timeline. Named break time stays visibly separate from focus; unknown inactivity never resembles productive time.
 

@@ -532,6 +532,7 @@ struct DayRecapNarrative: Equatable {
 ~~~
 
 - FocusSurfaceLayout.permitsSupportingReport always returns false: Focus remains an operational canvas and never becomes a report/grid.
+- DayRecapNarrative applies SummaryText.plain to each individual sentence before assigning lead/details. Its public strings therefore never contain SummaryText's internal ** emphasis markers.
 
 - [ ] **Step 1: Write failing hierarchy tests**
 
@@ -543,9 +544,11 @@ expect(FocusSurfaceLayout.operationalMeasure == 760,
        "Focus keeps a deliberate operational measure", &problems)
 expect(!FocusSurfaceLayout.permitsSupportingReport(state: .running),
        "Focus does not become a running dashboard", &problems)
-let narrative = DayRecapNarrative(sentences: ["First verified fact", "Second verified fact"])
-expect(narrative.lead == "First verified fact" && narrative.details == ["Second verified fact"],
+let narrative = DayRecapNarrative(sentences: ["Tracked **5h 10m**", "Second verified fact"])
+expect(narrative.lead == "Tracked 5h 10m" && narrative.details == ["Second verified fact"],
        "Today recap exposes one summary fact before its supporting disclosure", &problems)
+expect(!narrative.lead!.contains("**"),
+       "Today recap never renders SummaryText emphasis markers literally", &problems)
 ~~~
 
 - [ ] **Step 2: Run the test to verify RED**
@@ -558,7 +561,7 @@ Expected: the presentation contracts are absent.
 
 - [ ] **Step 3: Implement Today's compact recap grammar**
 
-Make TodayView's sections follow DaySurfaceOrder. Add DayRecapNarrative in TodayRecap.swift: its lead is the first item in SessionStore.summarySentences and its details are every remaining item, preserving their existing canonical SummaryText order.
+Make TodayView's sections follow DaySurfaceOrder. Add DayRecapNarrative in TodayRecap.swift: map every SessionStore.summarySentences item through SummaryText.plain([$0]), then expose the first plain item as lead and the remaining plain items as details. This preserves canonical SummaryText order while preventing its internal ** emphasis markers from reaching a SwiftUI Text literal.
 
 Replace the current direct store.insights.first block in TodayRecap with this narrative treatment:
 
