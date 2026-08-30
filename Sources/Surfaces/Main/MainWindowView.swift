@@ -8,6 +8,7 @@ struct MainWindowView: View {
     @ObservedObject var navigation: MainWindowModel
     var focusScrolls = true
     var todayScrolls = true
+    var settingsScrolls = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -49,7 +50,8 @@ struct MainWindowView: View {
         case .insights:
             InsightsView(store: store, navigation: navigation)
         case .settings:
-            SettingsView(model: settings, navigation: navigation)
+            SettingsView(model: settings, navigation: navigation,
+                         scrolls: settingsScrolls)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }

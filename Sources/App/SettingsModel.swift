@@ -104,6 +104,45 @@ struct SettingsDiagnostics {
         recoverySummary: "Archive diagnostics are unavailable in this presentation context.",
         version: "Development",
         build: "Unnumbered")
+
+    private static let accuracyDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_AU")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "EEEE d MMMM yyyy"
+        return formatter
+    }()
+
+    static func accuracyEpochLabel(_ date: Date) -> String {
+        accuracyDateFormatter.string(from: date)
+    }
+}
+
+/// Explicitly separates passive app-usage observation from text the user
+/// chooses to enter into FocusContinuity. A single disclosure feeds both
+/// Tracking and Data so those surfaces cannot drift into contradictory claims.
+struct SettingsPrivacyDisclosure {
+    enum FocusInput: Hashable {
+        case sessionName
+        case intent
+    }
+
+    let appUsageMonitoringCapturesTextInOtherApps: Bool
+    let locallyStoredFocusInputs: Set<FocusInput>
+
+    static let current = SettingsPrivacyDisclosure(
+        appUsageMonitoringCapturesTextInOtherApps: false,
+        locallyStoredFocusInputs: [.sessionName, .intent])
+
+    var appUsageDetail: String {
+        "App-usage monitoring does not capture text in other apps. It stores app names, "
+        + "bundle identifiers and activity times locally."
+    }
+
+    var storageDetail: String {
+        appUsageDetail
+        + " Session names and intent entered into FocusContinuity are stored locally."
+    }
 }
 
 /// Preferences projected into the SwiftUI surface tree. Keeping the density

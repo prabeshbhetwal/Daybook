@@ -345,7 +345,15 @@ enum SelfTest {
             ("Declared-Away automatic corrections resume tracking exactly once",
              testDeclaredAwayAutomaticCorrectionRoutes),
             ("Settings groups contain only backed controls",
-             testSettingsGroupsContainOnlyBackedControls)
+             testSettingsGroupsContainOnlyBackedControls),
+            ("Settings privacy distinguishes monitoring from entered session data",
+             testSettingsPrivacyDisclosure),
+            ("Shared panels consume the interface density environment",
+             testSharedPanelDensityEnvironment),
+            ("Settings narrow navigation is reachable at the production minimum width",
+             testSettingsProductionBreakpoint),
+            ("Settings accuracy epoch always includes its year",
+             testSettingsAccuracyEpochYear)
         ]
 
         print("FocusContinuity self-test")
@@ -6741,6 +6749,75 @@ enum SelfTest {
                    .resolvingSymlinksInPath() == newerBackup.resolvingSymlinksInPath(),
                "Data diagnostics rediscover the newest preserved legacy backup after relaunch",
                &problems)
+        return problems
+    }
+
+    private static func testSettingsPrivacyDisclosure() -> [String] {
+        var problems: [String] = []
+        let disclosure = SettingsPrivacyDisclosure.current
+        expect(!disclosure.appUsageMonitoringCapturesTextInOtherApps,
+               "app-usage monitoring never claims to capture text in other apps", &problems)
+        expect(disclosure.locallyStoredFocusInputs == [.sessionName, .intent],
+               "session names and intent entered in FocusContinuity are disclosed as local data",
+               &problems)
+        expect(disclosure.storageDetail.contains(
+            "App-usage monitoring does not capture text in other apps"),
+            "privacy copy states the real app-monitoring boundary", &problems)
+        expect(disclosure.storageDetail.contains(
+            "Session names and intent entered into FocusContinuity are stored locally"),
+            "privacy copy states that FocusContinuity-entered text is stored locally", &problems)
+        expect(!disclosure.storageDetail.contains("anything you type"),
+               "privacy copy makes no blanket claim about typed text", &problems)
+        return problems
+    }
+
+    private static func testSharedPanelDensityEnvironment() -> [String] {
+        var problems: [String] = []
+        let sizes: (comfortable: CGSize, compact: CGSize) = MainActor.assumeIsolated {
+            let comfortablePanel = SurfacePanel(showsHeader: false) {
+                Text("Ordinary panel content")
+            }
+            .environment(\.focusInterfaceDensity, InterfaceDensity.comfortable)
+            .frame(width: 320)
+            .fixedSize(horizontal: false, vertical: true)
+            let comfortableRenderer = ImageRenderer(content: comfortablePanel)
+            comfortableRenderer.scale = 1
+
+            let compactPanel = SurfacePanel(showsHeader: false) {
+                Text("Ordinary panel content")
+            }
+            .environment(\.focusInterfaceDensity, InterfaceDensity.compact)
+            .frame(width: 320)
+            .fixedSize(horizontal: false, vertical: true)
+            let compactRenderer = ImageRenderer(content: compactPanel)
+            compactRenderer.scale = 1
+
+            return (comfortableRenderer.nsImage?.size ?? .zero,
+                    compactRenderer.nsImage?.size ?? .zero)
+        }
+        expect(sizes.comfortable.width > 0 && sizes.compact.width > 0,
+               "both shared panel density probes render", &problems)
+        expect(sizes.compact.height < sizes.comfortable.height,
+               "compact density reduces an actual shared SurfacePanel from "
+               + "\(sizes.comfortable.height)pt to \(sizes.compact.height)pt", &problems)
+        return problems
+    }
+
+    private static func testSettingsProductionBreakpoint() -> [String] {
+        var problems: [String] = []
+        expect(!SettingsView.usesSidebar(at: 980),
+               "the 980pt production minimum selects the narrow group menu", &problems)
+        expect(SettingsView.usesSidebar(at: 1_160),
+               "the 1160pt comfortable production width selects the sidebar", &problems)
+        return problems
+    }
+
+    private static func testSettingsAccuracyEpochYear() -> [String] {
+        var problems: [String] = []
+        let epoch = Date(timeIntervalSince1970: 1_700_000_000)
+        let label = SettingsDiagnostics.accuracyEpochLabel(epoch)
+        expect(label.contains("2023"),
+               "accuracy epoch includes its year, got \(label)", &problems)
         return problems
     }
 

@@ -139,8 +139,7 @@ struct SettingsGroups: View {
             rowDivider
             Toggle("Record app usage", isOn: $model.isTrackingEnabled)
                 .frame(minHeight: layout.rowHeight)
-            explanation("Recording is local and keeps app names and bundle identifiers only — "
-                        + "never window titles, addresses, or anything you type.")
+            explanation(SettingsPrivacyDisclosure.current.storageDetail)
         }
     }
 
@@ -178,12 +177,11 @@ struct SettingsGroups: View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Privacy", layout: layout) {
                 readOnlyRow("Storage", value: "Local only",
-                            detail: "FocusContinuity stores session history, app names and bundle "
-                                  + "identifiers on this Mac. It never records window titles, "
-                                  + "addresses or anything you type.")
+                            detail: SettingsPrivacyDisclosure.current.storageDetail)
                 rowDivider
                 readOnlyRow("Accurate app usage from",
-                            value: model.diagnostics.usageAccuracyEpoch.map(Tokens.longDate)
+                            value: model.diagnostics.usageAccuracyEpoch.map(
+                                SettingsDiagnostics.accuracyEpochLabel)
                                 ?? "Not established",
                             detail: "App-use patterns before this epoch remain visibly qualified.")
                 rowDivider

@@ -14,13 +14,18 @@ struct SettingsView: View {
         self.scrolls = scrolls
     }
 
+    /// Chosen against the real 980–1160 pt production window range: the
+    /// minimum gets the compact group menu and the comfortable default keeps
+    /// the two-pane sidebar.
+    static func usesSidebar(at width: CGFloat) -> Bool { width >= 1_080 }
+
     var body: some View {
         GeometryReader { proxy in
             let sections = SettingsSection.matching(navigation.settingsQuery)
             VStack(alignment: .leading, spacing: Tokens.Space.l) {
                 search
                 if let section = visibleSection(in: sections) {
-                    if proxy.size.width >= 760 {
+                    if Self.usesSidebar(at: proxy.size.width) {
                         wide(sections: sections, section: section)
                     } else {
                         narrow(sections: sections, section: section)
@@ -32,7 +37,8 @@ struct SettingsView: View {
                         .frame(maxHeight: .infinity)
                 }
             }
-            .padding(proxy.size.width >= 760 ? Tokens.Space.xxl : Tokens.Space.l)
+            .padding(Self.usesSidebar(at: proxy.size.width)
+                     ? Tokens.Space.xxl : Tokens.Space.l)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .background(Tokens.Colour.ground)

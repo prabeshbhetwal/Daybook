@@ -397,8 +397,8 @@ enum Snapshotter {
             let settingsAppearance: AppearancePreference = scheme == .light
                 ? .light : .dark
             let settingsVariants: [(name: String, size: CGSize)] = [
-                ("wide", CGSize(width: 1_100, height: 1_100)),
-                ("narrow", CGSize(width: 680, height: 1_280))
+                ("wide", CGSize(width: 1_160, height: 1_300)),
+                ("narrow", CGSize(width: 980, height: 1_450))
             ]
             for density in InterfaceDensity.allCases {
                 for variant in settingsVariants {
@@ -407,10 +407,11 @@ enum Snapshotter {
                                                         appearance: settingsAppearance)
                         let navigation = MainWindowModel(selectedTab: .settings)
                         navigation.settingsSection = section
-                        let selectedSettings = SettingsView(model: settings,
-                                                            navigation: navigation,
-                                                            scrolls: false)
-                            .environment(\.focusInterfaceDensity, density)
+                        let selectedSettings = MainWindowView(
+                            store: FixtureFactory.store(for: .running),
+                            settings: settings,
+                            navigation: navigation,
+                            settingsScrolls: false)
                             .environment(\.colorScheme, scheme)
                             .frame(width: variant.size.width, height: variant.size.height,
                                    alignment: .topLeading)
@@ -431,10 +432,11 @@ enum Snapshotter {
                                                         appearance: settingsAppearance)
                         let navigation = MainWindowModel(selectedTab: .settings)
                         navigation.settingsQuery = filter
-                        let filtered = SettingsView(model: settings,
-                                                    navigation: navigation,
-                                                    scrolls: false)
-                            .environment(\.focusInterfaceDensity, density)
+                        let filtered = MainWindowView(
+                            store: FixtureFactory.store(for: .running),
+                            settings: settings,
+                            navigation: navigation,
+                            settingsScrolls: false)
                             .environment(\.colorScheme, scheme)
                             .frame(width: variant.size.width, height: variant.size.height,
                                    alignment: .topLeading)
@@ -449,6 +451,31 @@ enum Snapshotter {
                             print("  FAILED \(filteredName)")
                         }
                     }
+                }
+            }
+
+            // Same-width comparison through the real desktop shell. Unlike
+            // the general wide/narrow fixtures, only density changes here, so
+            // the shared Focus panel's inset/height difference is observable.
+            for density in InterfaceDensity.allCases {
+                let densitySettings = snapshotSettings(density: density,
+                                                       appearance: settingsAppearance)
+                let densityFocus = MainWindowView(
+                    store: FixtureFactory.store(for: .running),
+                    settings: densitySettings,
+                    navigation: MainWindowModel(selectedTab: .focus),
+                    focusScrolls: false)
+                    .environment(\.colorScheme, scheme)
+                    .frame(width: 1_160, height: 780, alignment: .topLeading)
+                    .background(Tokens.Colour.ground)
+                let densityName = "main-density-focus-\(density.rawValue)-"
+                    + "\(scheme == .light ? "light" : "dark").png"
+                if render(densityFocus,
+                          to: directory.appendingPathComponent(densityName)) {
+                    print("  wrote \(densityName)")
+                } else {
+                    supplementalFailed = true
+                    print("  FAILED \(densityName)")
                 }
             }
 

@@ -1,21 +1,26 @@
 import SwiftUI
 
 struct SurfacePanel<Content: View>: View {
+    @Environment(\.focusInterfaceDensity) private var density
     let title: String?
-    let layout: InterfaceDensity.Layout
+    let layoutOverride: InterfaceDensity.Layout?
     let showsHeader: Bool
     @ViewBuilder let content: Content
 
     init(
         title: String? = nil,
-        layout: InterfaceDensity.Layout = .comfortable,
+        layout: InterfaceDensity.Layout? = nil,
         showsHeader: Bool = true,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
-        self.layout = layout
+        self.layoutOverride = layout
         self.showsHeader = showsHeader
         self.content = content()
+    }
+
+    private var layout: InterfaceDensity.Layout {
+        layoutOverride ?? density.layout
     }
 
     var body: some View {
@@ -38,12 +43,17 @@ struct SurfacePanel<Content: View>: View {
 }
 
 struct MetricLine: View {
+    @Environment(\.focusInterfaceDensity) private var density
     let label: String
     let value: String
     var note: String?
     var tint: Color = .primary
     var isDense: Bool = false
-    var layout: InterfaceDensity.Layout = .comfortable
+    var layout: InterfaceDensity.Layout?
+
+    private var effectiveLayout: InterfaceDensity.Layout {
+        layout ?? density.layout
+    }
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
@@ -66,31 +76,36 @@ struct MetricLine: View {
             }
             .multilineTextAlignment(.trailing)
         }
-        .frame(minHeight: layout.rowHeight)
+        .frame(minHeight: effectiveLayout.rowHeight)
         .accessibilityElement(children: .combine)
         .accessibilityLabel([label, value, note].compactMap { $0 }.joined(separator: ", "))
     }
 }
 
 struct AppUsageRow: View {
+    @Environment(\.focusInterfaceDensity) private var density
     let appName: String
     let bundleID: String?
     let rank: Int
     let seconds: TimeInterval
     let share: Double?
-    let layout: InterfaceDensity.Layout
+    let layoutOverride: InterfaceDensity.Layout?
     var onRow: (() -> Void)?
 
     init(appName: String, bundleID: String? = nil, rank: Int = 0, seconds: TimeInterval,
-         share: Double? = nil, layout: InterfaceDensity.Layout = .comfortable,
+         share: Double? = nil, layout: InterfaceDensity.Layout? = nil,
          onRow: (() -> Void)? = nil) {
         self.appName = appName
         self.bundleID = bundleID
         self.rank = rank
         self.seconds = seconds
         self.share = share
-        self.layout = layout
+        self.layoutOverride = layout
         self.onRow = onRow
+    }
+
+    private var layout: InterfaceDensity.Layout {
+        layoutOverride ?? density.layout
     }
 
     @ViewBuilder
@@ -188,26 +203,31 @@ struct IntegrityNotice: View {
 }
 
 struct SettingsRow: View {
+    @Environment(\.focusInterfaceDensity) private var density
     let title: String
     let value: String?
-    let layout: InterfaceDensity.Layout
+    let layoutOverride: InterfaceDensity.Layout?
     let accessory: AnyView?
 
     init(_ title: String, value: String? = nil,
-         layout: InterfaceDensity.Layout = .comfortable) {
+         layout: InterfaceDensity.Layout? = nil) {
         self.title = title
         self.value = value
-        self.layout = layout
+        self.layoutOverride = layout
         self.accessory = nil
     }
 
     init<Accessory: View>(_ title: String, value: String? = nil,
-                          layout: InterfaceDensity.Layout = .comfortable,
+                          layout: InterfaceDensity.Layout? = nil,
                           @ViewBuilder accessory: () -> Accessory) {
         self.title = title
         self.value = value
-        self.layout = layout
+        self.layoutOverride = layout
         self.accessory = AnyView(accessory())
+    }
+
+    private var layout: InterfaceDensity.Layout {
+        layoutOverride ?? density.layout
     }
 
     var body: some View {
