@@ -100,6 +100,9 @@ enum Tokens {
             .monospacedDigit()
         static let pageTitle = Font.system(size: 26, weight: .semibold, design: .default)
         static let sectionTitle = Font.system(size: 17, weight: .semibold, design: .default)
+        /// The sentence a story opens with — prose, so it wraps and breathes
+        /// rather than shouting like a page title.
+        static let storyHeadline = Font.system(size: 23, weight: .semibold, design: .default)
         static let metricValue = Font.system(size: 28, weight: .semibold, design: .rounded)
             .monospacedDigit()
         static let tabLabel = Font.system(size: 13, weight: .medium, design: .default)
@@ -205,6 +208,22 @@ enum Tokens {
     /// `since 2:13 PM`, for a launch time.
     static func timeOfDay(_ date: Date) -> String {
         "since \(timeFormatter.string(from: date))"
+    }
+
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter
+    }()
+
+    /// `Wednesday`, for a sentence that names a day rather than dating it.
+    static func weekdayName(_ date: Date) -> String {
+        weekdayFormatter.string(from: date)
+    }
+
+    /// `2:13 PM` on its own, for a column that already means "when".
+    static func timeOfDayOnly(_ date: Date) -> String {
+        timeFormatter.string(from: date)
     }
 
     private static let longDateFormatter: DateFormatter = {

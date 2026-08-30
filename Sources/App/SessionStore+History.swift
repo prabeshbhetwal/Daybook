@@ -86,6 +86,14 @@ extension SessionStore {
     /// the hovered one.
     var framedSession: DaySession? { selectedSession ?? hoveredSession }
 
+    /// Apps used inside the given spans on the selected day. The story opens
+    /// entries independently, so it cannot use the single-selection cache.
+    func appRanks(within spans: [DateInterval]) -> [AppRank] {
+        guard let usage, !spans.isEmpty else { return [] }
+        return DashboardStats(sessions: engine.archive, usage: usage)
+            .rankedApps(for: selectedDay, within: spans)
+    }
+
     func clearTimelineSelection() {
         selectedSegment = nil
         stretchesInSelectedHour = []

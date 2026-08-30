@@ -8,6 +8,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case reviewSelectedFirstDay, reviewSelectedLastDay, reviewHistorySelection
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
+    case storyDay, storyWeek, storyMonth
     case settingsGeneral, settingsFocus, settingsAway, settingsAutomatic
     case settingsTracking, settingsAppearance, settingsData, settingsAdvanced
     case awayQuick, awayFull, rewardEarned
@@ -32,6 +33,9 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .insightsEmpty: return "Insights — insufficient evidence"
         case .awardsEarned: return "Awards — earned and in progress"
         case .awardsEmpty: return "Awards — nothing earned yet"
+        case .storyDay: return "Story — the day"
+        case .storyWeek: return "Story — the week"
+        case .storyMonth: return "Story — the month"
         case .settingsGeneral: return "Settings — General"
         case .settingsFocus: return "Settings — Focus sessions"
         case .settingsAway: return "Settings — Away and breaks"
@@ -86,6 +90,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .insights
         case .awardsEarned, .awardsEmpty:
             return .awards
+        case .storyDay, .storyWeek, .storyMonth:
+            return .story
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
             return .settings
@@ -342,6 +348,20 @@ enum Snapshotter {
             return store
         case .awardsEmpty:
             return FixtureFactory.store(for: .firstRun)
+        case .storyDay:
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            store.setDashboardVisible(true)
+            return store
+        case .storyWeek:
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            store.setDashboardVisible(true)
+            store.refreshReview(period: .week)
+            return store
+        case .storyMonth:
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            store.setDashboardVisible(true)
+            store.refreshReview(period: .month)
+            return store
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
             return FixtureFactory.store(for: .running)
@@ -363,6 +383,14 @@ enum Snapshotter {
                                    store: SessionStore) -> MainWindowModel {
         let navigation = MainWindowModel(selectedTab: scenario.tab ?? .focus)
         switch scenario {
+        case .storyDay:
+            navigation.storyScope = .day
+        case .storyWeek:
+            navigation.storyScope = .week
+            if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
+        case .storyMonth:
+            navigation.storyScope = .month
+            if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
         case .reviewWeek:
             navigation.reviewSection = .week
         case .reviewMonth:
@@ -408,6 +436,7 @@ enum Snapshotter {
             }
         case .insights: height = 780
         case .awards: height = 900
+        case .story: height = 1_200
         case .settings: height = item.presentation == .minimum ? 1_450 : 1_300
         case nil: height = 780
         }

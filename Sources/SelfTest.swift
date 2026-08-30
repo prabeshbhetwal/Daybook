@@ -6966,6 +6966,7 @@ enum SelfTest {
                 .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
+                .storyDay, .storyWeek, .storyMonth,
                 .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
                 .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
                 .awayQuick, .awayFull, .rewardEarned
@@ -7374,13 +7375,13 @@ enum SelfTest {
             let tabLabels = AppTab.allCases.map {
                 $0.accessibilityLabel(isSelected: $0 == .review)
             }
-            expect(tabLabels.contains("Review, selected, Command 3"),
+            expect(tabLabels.contains("Review, selected, Command 4"),
                    "the selected tab label announces selection and its command", &problems)
             expect(tabLabels.contains("Focus, not selected, Command 1"),
                    "unselected tab labels announce their state", &problems)
-            expect(Set(AppTab.allCases.map(\.commandNumber)) == Set(1...6),
-                   "Command 1 through Command 6 map uniquely to the six tabs", &problems)
-            expect(AppTab.review.moved(by: -1) == .today
+            expect(Set(AppTab.allCases.map(\.commandNumber)) == Set(1...7),
+                   "Command 1 through Command 7 map uniquely to the seven tabs", &problems)
+            expect(AppTab.review.moved(by: -1) == .story
                        && AppTab.review.moved(by: 1) == .insights,
                    "left and right move from the focused Review tab", &problems)
 

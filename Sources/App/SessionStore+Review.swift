@@ -233,6 +233,30 @@ extension SessionStore {
         return shown.start < current.start
     }
 
+    /// The period's strongest day by focused time, or nil when nothing was
+    /// focused at all.
+    var reviewBestDay: (day: Date, focused: TimeInterval)? {
+        let ranked = reviewDays
+            .map { (day: $0.date, focused: engine.archive.workSeconds(on: $0.date)) }
+            .filter { $0.focused > 0 }
+        return ranked.max { $0.focused < $1.focused }
+    }
+
+    /// The first day of the shown Review period — what the month grid lays out.
+    var reviewPeriodStart: Date {
+        let calendar = Calendar.current
+        let anchor = reviewAnchor ?? Date()
+        let unit: Calendar.Component = reviewPeriod == .week ? .weekOfYear : .month
+        return calendar.dateInterval(of: unit, for: anchor)?.start
+            ?? calendar.startOfDay(for: anchor)
+    }
+
+    /// Focused seconds across the shown period, from the same per-day archive
+    /// figures History reports.
+    var reviewFocusedSeconds: TimeInterval {
+        reviewDays.reduce(0) { $0 + engine.archive.workSeconds(on: $1.date) }
+    }
+
     var reviewPeriodLabel: String {
         let anchor = reviewAnchor ?? now()
         if reviewPeriod == .month {

@@ -4,6 +4,7 @@ import AppKit
 enum AppTab: String, CaseIterable, Identifiable {
     case focus
     case today
+    case story
     case review
     case insights
     case awards
@@ -16,6 +17,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .focus: return "Focus"
         case .today: return "Today"
         case .review: return "Review"
+        case .story: return "Story"
         case .insights: return "Insights"
         case .awards: return "Awards"
         case .settings: return "Settings"
@@ -27,6 +29,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .focus: return "target"
         case .today: return "calendar"
         case .review: return "chart.bar"
+        case .story: return "book.pages"
         case .insights: return "sparkles"
         case .awards: return "rosette"
         case .settings: return "gearshape"
@@ -37,10 +40,11 @@ enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .focus: return 1
         case .today: return 2
-        case .review: return 3
-        case .insights: return 4
-        case .awards: return 5
-        case .settings: return 6
+        case .story: return 3
+        case .review: return 4
+        case .insights: return 5
+        case .awards: return 6
+        case .settings: return 7
         }
     }
 
@@ -108,6 +112,11 @@ enum AppearancePreference: String, CaseIterable {
     /// deliberately separate from `requestedDate`: selecting evidence in Review
     /// explains a day in place, while `requestedDate` moves the user to Today.
     @Published private(set) var reviewSelectedDate: Date?
+    /// Which span the Story surface is telling, and the day drilled into from
+    /// a week bar or a month cell. The selection is inspection: it never leaves
+    /// the surface, and `openStoryDay` is the one action that changes scope.
+    @Published var storyScope: StoryScope = .day
+    @Published private(set) var storySelectedDay: Date?
     @Published var reviewSection: ReviewSection = .week
     @Published var insightRange: InsightRange = .week
     @Published var settingsSection: SettingsSection = .general
@@ -147,6 +156,22 @@ enum AppearancePreference: String, CaseIterable {
     func openSelectedReviewDayInToday() {
         guard let reviewSelectedDate else { return }
         openToday(date: reviewSelectedDate)
+    }
+
+    func selectStoryDay(_ date: Date, calendar: Calendar = .current) {
+        storySelectedDay = calendar.startOfDay(for: date)
+    }
+
+    func clearStoryDay() {
+        storySelectedDay = nil
+    }
+
+    /// The named drill-in: the month or week hands its selected day to the day
+    /// story, which is the whole point of choosing a cell.
+    func openStoryDay(_ date: Date, calendar: Calendar = .current) {
+        storySelectedDay = calendar.startOfDay(for: date)
+        storyScope = .day
+        requestedDate = calendar.startOfDay(for: date)
     }
 
     func openSettings() {
