@@ -324,6 +324,18 @@ enum SelfTest {
              testTodaySurfaceScopeAndInspector),
             ("Review keeps tracked bars canonical and History filters by intersection",
              testReviewHistoryFiltersAndDayRouting),
+            ("A selected Review day derives canonical, day-scoped detail",
+             testReviewSelectedDayDetail),
+            ("Period charts reserve a whole calendar day at each edge",
+             testPeriodChartLayout),
+            ("History states its range once and its columns in a header",
+             testHistoryRangeAndTableAnatomy),
+            ("Review reads period answer, trend, selected day, then evidence",
+             testReviewContentHierarchy),
+            ("Today qualifies before it charts; Focus stays an instrument",
+             testDayAndFocusHierarchy),
+            ("Insights lead with the finding; Settings keeps a native measure",
+             testInsightAndSettingsPresentation),
             ("Insights render statements only when canonical evidence exists",
              testInsightSurfaceRequiresEvidence),
             ("Insights rhythm and active days exclude pre-accuracy usage",
@@ -336,6 +348,8 @@ enum SelfTest {
              testInsightQualityPreservesTinyPositiveEvidence),
             ("Period logs retain the newest 500 sessions consistently",
              testPeriodLogRetainsNewestLimit),
+            ("Selected Review days retain app evidence beyond the period-log cap",
+             testReviewDetailRetainsUncappedDayEntries),
             ("Review keeps focus-only periods out of the empty state",
              testReviewFocusOnlyPeriodEvidence),
             ("Dense focus Review shows the newest 500 rows without capping evidence",
@@ -6841,9 +6855,9 @@ enum SelfTest {
 
     private static func testSettingsProductionBreakpoint() -> [String] {
         var problems: [String] = []
-        expect(!SettingsView.usesSidebar(at: 980),
+        expect(!SettingsLayout.usesSidebar(at: 980),
                "the 980pt production minimum selects the narrow group menu", &problems)
-        expect(SettingsView.usesSidebar(at: 1_160),
+        expect(SettingsLayout.usesSidebar(at: 1_160),
                "the 1160pt comfortable production width selects the sidebar", &problems)
         return problems
     }
@@ -6895,6 +6909,7 @@ enum SelfTest {
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
                 .todayHistory, .todayPast,
                 .reviewWeek, .reviewMonth,
+                .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection,
                 .insightsEnough, .insightsEmpty,
                 .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
                 .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
@@ -6919,6 +6934,25 @@ enum SelfTest {
                     }), "\(scenario.rawValue) must render in \(appearance.rawValue)",
                     &problems)
                 }
+            }
+
+            // Every global tab must own at least one rendered surface, or a
+            // whole product area could regress unseen.
+            for tab in AppTab.allCases {
+                expect(required.contains { $0.tab == tab },
+                       "\(tab.rawValue) must have a snapshot scenario", &problems)
+            }
+
+            // The selected-day detail is reachable two ways, and both edges of
+            // the chart are where clipping and annotation collisions hide.
+            let selectionScenarios: [SnapshotScenario] = [
+                .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection
+            ]
+            for scenario in selectionScenarios {
+                expect(required.contains(scenario),
+                       "\(scenario.rawValue) must stay in the visual matrix", &problems)
+                expect(scenario.tab == .review,
+                       "\(scenario.rawValue) must render inside Review", &problems)
             }
 
             let compactScenarios: Set<SnapshotScenario> = [
@@ -7166,6 +7200,7 @@ enum SelfTest {
         MainActor.assumeIsolated {
             var problems: [String] = []
             let navigation = MainWindowModel()
+            let calendar = Calendar.current
             let yesterday = base.addingTimeInterval(-24 * 3_600)
 
             navigation.open(tab: .review)
@@ -7177,6 +7212,26 @@ enum SelfTest {
             navigation.openSettings()
             expect(navigation.selectedTab == .settings,
                    "command-comma routes to Settings", &problems)
+
+            // Selecting a day in Review is inspection, not navigation: only the
+            // explicit action may move the user to another tab.
+            let reviewNavigation = MainWindowModel(selectedTab: .review)
+            reviewNavigation.selectReviewDay(yesterday, calendar: calendar)
+            expect(reviewNavigation.selectedTab == .review,
+                   "selecting a Review day keeps Review selected", &problems)
+            expect(calendar.isDate(reviewNavigation.reviewSelectedDate ?? base,
+                                   inSameDayAs: yesterday),
+                   "Review stores the literal selected local day", &problems)
+            expect(reviewNavigation.requestedDate == nil,
+                   "Review selection does not change Today scope", &problems)
+            reviewNavigation.openSelectedReviewDayInToday()
+            expect(reviewNavigation.selectedTab == .today
+                       && calendar.isDate(reviewNavigation.requestedDate ?? base,
+                                          inSameDayAs: yesterday),
+                   "only the explicit Review action opens the selected day in Today", &problems)
+            reviewNavigation.clearReviewDay()
+            expect(reviewNavigation.reviewSelectedDate == nil,
+                   "closing the Review detail clears its selected day", &problems)
             return problems
         }
     }
@@ -7519,6 +7574,361 @@ enum SelfTest {
     /// Review compares the authoritative tracked series rather than focus
     /// composition. History joins those usage days to archive evidence once,
     /// orders them newest first, and combines every requested filter.
+    /// An Insight card states its conclusion first and keeps its method behind
+    /// a literal disclosure. Settings keeps the sidebar only while it fits.
+    private static func testInsightAndSettingsPresentation() -> [String] {
+        var problems: [String] = []
+        let insight = Insight(id: "pace",
+                              headline: "10m behind your usual pace",
+                              detail: "1h 15m focused-active today",
+                              symbolName: "gauge")
+        let presentation = InsightPresentation(title: "Pace", insight: insight)
+        expect(presentation.disclosureLabel == "How this is calculated",
+               "Insights keep methodology behind a literal disclosure", &problems)
+        expect(presentation.title == "Pace" && presentation.headline == insight.headline,
+               "the card leads with the finding it was given", &problems)
+        expect(presentation.provenance == insight.detail,
+               "provenance is the insight's own evidence, never invented", &problems)
+
+        expect(SettingsLayout.usesSidebar(at: 1_080),
+               "Settings uses the native-like sidebar at the comfortable threshold", &problems)
+        expect(!SettingsLayout.usesSidebar(at: 1_079),
+               "Settings switches before its sidebar becomes cramped", &problems)
+        expect(!SettingsLayout.usesSidebar(at: 980),
+               "the production minimum uses the compact group menu", &problems)
+        expect(SettingsLayout.detailMeasure == 720,
+               "Settings controls retain a readable measure", &problems)
+        return problems
+    }
+
+    /// Today reads in one order: what day, what qualifies it, the ribbon, the
+    /// thing selected in it, supporting groups, then the recap. Focus refuses to
+    /// become a report at any state. The recap's narrative shows canonical
+    /// summary sentences without leaking their emphasis markers.
+    private static func testDayAndFocusHierarchy() -> [String] {
+        var problems: [String] = []
+
+        expect(DaySurfaceOrder.visible(hasQualification: true, hasSelection: true) == [
+            .header, .qualification, .timeline, .selectedDetail, .supportingGroups, .recap
+        ], "Today qualifies data before its timeline and keeps inspection near selection",
+               &problems)
+        expect(DaySurfaceOrder.visible(hasQualification: false, hasSelection: false) == [
+            .header, .timeline, .supportingGroups, .recap
+        ], "an unqualified day with no selection shows neither placeholder", &problems)
+        expect(DaySurfaceOrder.visible(hasQualification: false, hasSelection: true) == [
+            .header, .timeline, .selectedDetail, .supportingGroups, .recap
+        ], "inspection stays directly beneath the ribbon it came from", &problems)
+
+        expect(FocusSurfaceLayout.operationalMeasure == 760,
+               "Focus keeps a deliberate operational measure", &problems)
+        for state in [SessionState.idle, .running, .paused(reason: .manual),
+                      .awaitingUserDecision(away: 600, lastApp: "Editor")] {
+            expect(!FocusSurfaceLayout.permitsSupportingReport(state: state),
+                   "Focus does not become a dashboard in \(state)", &problems)
+        }
+
+        let narrative = DayRecapNarrative(sentences: ["Tracked **5h 10m**",
+                                                      "Second verified fact"])
+        expect(narrative.lead == "Tracked 5h 10m" && narrative.details == ["Second verified fact"],
+               "Today recap exposes one summary fact before its supporting disclosure",
+               &problems)
+        expect(!(narrative.lead ?? "").contains("**"),
+               "Today recap never renders SummaryText emphasis markers literally", &problems)
+        expect(narrative.details.allSatisfy { !$0.contains("**") },
+               "disclosed sentences drop their emphasis markers too", &problems)
+
+        let empty = DayRecapNarrative(sentences: [])
+        expect(empty.lead == nil && empty.details.isEmpty,
+               "a day with no summary sentences renders no narrative", &problems)
+
+        // The value type is only useful if the store actually publishes
+        // sentences for a day with evidence.
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            store.setDashboardVisible(true)
+            store.refresh()
+            let live = DayRecapNarrative(sentences: store.summarySentences)
+            expect(live.lead != nil,
+                   "a day with recorded evidence publishes a recap narrative", &problems)
+            expect(!(live.lead ?? "**").contains("**"),
+                   "the published narrative is plain text", &problems)
+        }
+        return problems
+    }
+
+    /// Review is a sequence, not a pile: the period answer precedes its trend,
+    /// and a selected day is explained directly beneath the trend that produced
+    /// it. Only the named action may leave the tab.
+    private static func testReviewContentHierarchy() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let calendar = Calendar.current
+            let yesterday = base.addingTimeInterval(-24 * 3_600)
+
+            expect(ReviewContentOrder.visible(selectedDay: nil) == [
+                .periodNavigation, .summary, .trend, .breakdowns, .evidenceLists
+            ], "Review omits selected detail until a day is chosen", &problems)
+            expect(Array(ReviewContentOrder.visible(selectedDay: yesterday).prefix(4)) == [
+                .periodNavigation, .summary, .trend, .selectedDetail
+            ], "Review explains the selected day directly after its trend", &problems)
+            expect(ReviewContentOrder.visible(selectedDay: yesterday).count
+                       == ReviewContentOrder.allCases.count,
+                   "a selected day adds its detail without dropping other evidence", &problems)
+
+            // Only the explicit action changes tabs. Selecting, clearing, and an
+            // action with nothing selected all leave the user in Review.
+            let navigation = MainWindowModel(selectedTab: .review)
+            navigation.selectReviewDay(yesterday, calendar: calendar)
+            expect(navigation.selectedTab == .review,
+                   "selecting a day does not leave Review", &problems)
+            navigation.clearReviewDay()
+            expect(navigation.selectedTab == .review,
+                   "closing the detail does not leave Review", &problems)
+            navigation.openSelectedReviewDayInToday()
+            expect(navigation.selectedTab == .review && navigation.requestedDate == nil,
+                   "the Today action does nothing while no day is selected", &problems)
+            navigation.selectReviewDay(yesterday, calendar: calendar)
+            navigation.openSelectedReviewDayInToday()
+            expect(navigation.selectedTab == .today,
+                   "the named action is the one route out of Review", &problems)
+            return problems
+        }
+    }
+
+    /// The History range is one compact summary control, and the table states
+    /// its measures once in a header rather than on every row.
+    private static func testHistoryRangeAndTableAnatomy() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        guard let startDate = calendar.date(from: DateComponents(year: 2026, month: 8, day: 12)),
+              let endDate = calendar.date(from: DateComponents(year: 2026, month: 8, day: 30)),
+              let earlier = calendar.date(from: DateComponents(year: 2025, month: 12, day: 28))
+        else {
+            return ["could not build History range fixture dates"]
+        }
+
+        // Endpoints arrive reversed; the summary sorts them for display without
+        // rewriting the stored filter.
+        let range = HistoryRangePresentation(start: endDate, end: startDate, calendar: calendar)
+        expect(range.label == "12 Aug – 30 Aug 2026",
+               "History range label sorts displayed endpoints, got “\(range.label)”", &problems)
+        expect(range.accessibilityLabel.contains("from Wednesday 12 August 2026"),
+               "History range exposes its literal first endpoint, got “\(range.accessibilityLabel)”",
+               &problems)
+        expect(range.accessibilityLabel.contains("to Sunday 30 August 2026"),
+               "History range exposes its literal last endpoint, got “\(range.accessibilityLabel)”",
+               &problems)
+
+        let crossYear = HistoryRangePresentation(start: earlier, end: endDate, calendar: calendar)
+        expect(crossYear.label == "28 Dec 2025 – 30 Aug 2026",
+               "a range spanning two years names both, got “\(crossYear.label)”", &problems)
+
+        let oneDay = HistoryRangePresentation(start: endDate, end: endDate, calendar: calendar)
+        expect(oneDay.label == "30 Aug 2026",
+               "a single-day range reads as one date, got “\(oneDay.label)”", &problems)
+
+        expect(HistoryTableLayout.trackedWidth >= 76 && HistoryTableLayout.focusedWidth >= 76
+                   && HistoryTableLayout.sessionWidth >= 60,
+               "History numeric columns remain scanable", &problems)
+        return problems
+    }
+
+    /// A bar drawn at the plot edge is a bar the user cannot read. The domain
+    /// reserves one whole calendar day on each side — calendar arithmetic, not
+    /// 86,400 seconds, so a daylight-saving day is padded correctly too.
+    private static func testPeriodChartLayout() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        guard let first = calendar.date(from: DateComponents(year: 2026, month: 8, day: 24)),
+              let last = calendar.date(byAdding: .day, value: 6, to: first),
+              let expectedLower = calendar.date(byAdding: .day, value: -1, to: first),
+              let expectedUpper = calendar.date(byAdding: .day, value: 1, to: last) else {
+            return ["could not build chart domain fixture dates"]
+        }
+        let domain = PeriodChartLayout.domain(for: [
+            PeriodChartPoint(date: first, seconds: 60),
+            PeriodChartPoint(date: last, seconds: 3_600)
+        ], calendar: calendar)
+        expect(domain.lowerBound <= expectedLower,
+               "chart reserves a full leading bar width", &problems)
+        expect(domain.upperBound >= expectedUpper,
+               "chart reserves a full trailing bar width", &problems)
+        // A daily bar fills the cell from its day to the next, so the bound must
+        // clear the final bar's own cell before the padding exists at all.
+        if let clearOfFinalBar = calendar.date(byAdding: .day, value: 2, to: last) {
+            expect(domain.upperBound >= clearOfFinalBar,
+                   "the final bar is followed by an empty bar-width, not the frame",
+                   &problems)
+        }
+
+        // A 23-hour day still gets exactly one calendar day of padding, which a
+        // fixed 86,400-second offset cannot produce.
+        var sydney = Calendar(identifier: .gregorian)
+        if let zone = TimeZone(identifier: "Australia/Sydney") { sydney.timeZone = zone }
+        if let dstDay = sydney.date(from: DateComponents(year: 2026, month: 10, day: 4)),
+           let dstLower = sydney.date(byAdding: .day, value: -1, to: dstDay),
+           let dstUpper = sydney.date(byAdding: .day, value: 1, to: dstDay) {
+            let dstDomain = PeriodChartLayout.domain(
+                for: [PeriodChartPoint(date: dstDay, seconds: 600)], calendar: sydney)
+            expect(dstDomain.lowerBound == dstLower,
+                   "leading padding is one calendar day across a daylight-saving change",
+                   &problems)
+            expect(sydney.dateComponents([.day], from: dstDay, to: dstDomain.upperBound).day == 2,
+                   "trailing padding clears the final bar's own day across a change",
+                   &problems)
+            expect(dstUpper.timeIntervalSince(dstDay) != 86_400,
+                   "the daylight-saving fixture actually exercises a short day", &problems)
+        } else {
+            problems.append("could not build a daylight-saving fixture")
+        }
+
+        let empty = PeriodChartLayout.domain(for: [], calendar: calendar)
+        expect(empty.lowerBound <= empty.upperBound,
+               "an empty period still yields a valid domain", &problems)
+
+        // The vertical scale starts at zero and rounds up to a readable step, so
+        // the tallest bar and the average rule both stay inside the plot.
+        expectClose(PeriodChartLayout.yMaximumMinutes(
+            for: [PeriodChartPoint(date: first, seconds: 47 * 60)], average: 0), 60,
+                    "a short day rounds up to a quarter-hour scale", &problems)
+        expectClose(PeriodChartLayout.yMaximumMinutes(
+            for: [PeriodChartPoint(date: first, seconds: 3 * 3_600)], average: 0), 180,
+                    "a three-hour day keeps an exact half-hour scale", &problems)
+        expectClose(PeriodChartLayout.yMaximumMinutes(
+            for: [PeriodChartPoint(date: first, seconds: 60)], average: 5 * 3_600), 300,
+                    "the average is inside the scale even when it exceeds every bar", &problems)
+        expectClose(PeriodChartLayout.yMaximumMinutes(for: [], average: 0), 15,
+                    "an empty chart still has a positive scale", &problems)
+        return problems
+    }
+
+    /// The inline Review detail is a projection of values Review has already
+    /// published. It must never recompute time, never reach past the selected
+    /// local day, and never survive a period or filter that no longer contains
+    /// its date.
+    private static func testReviewSelectedDayDetail() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(anchoredNow())
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: clock.value)
+            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
+                  let longAgo = calendar.date(byAdding: .day, value: -400, to: today),
+                  let endOfYesterday = calendar.date(byAdding: .day, value: 1, to: yesterday),
+                  let endOfToday = calendar.date(byAdding: .day, value: 1, to: today) else {
+                return ["could not build Review detail fixture dates"]
+            }
+
+            // Early-morning offsets so every fixture moment stays in the past
+            // whatever hour the suite runs at.
+            let archive = makeArchive(clock)
+            archive.append(SessionRecord(
+                name: "Parser", workType: .deepWork,
+                start: today.addingTimeInterval(3_600),
+                end: today.addingTimeInterval(3_600 + 25 * 60),
+                workSeconds: 25 * 60))
+            archive.append(SessionRecord(
+                name: "Lunch", workType: .breakTime,
+                start: today.addingTimeInterval(2 * 3_600),
+                end: today.addingTimeInterval(2 * 3_600 + 30 * 60),
+                workSeconds: 30 * 60))
+            archive.append(SessionRecord(
+                name: "Stand-up", workType: .meetings,
+                start: yesterday.addingTimeInterval(3_600),
+                end: yesterday.addingTimeInterval(3_600 + 15 * 60),
+                workSeconds: 15 * 60))
+            archive.append(SessionRecord(
+                name: "Night hand-off", workType: .deepWork,
+                start: yesterday.addingTimeInterval(23 * 3_600 + 50 * 60),
+                end: today.addingTimeInterval(10 * 60),
+                workSeconds: 20 * 60))
+
+            let usage = AppUsageArchive(directory: scratchDirectory(), now: { clock.value })
+            usage.record(AppUsageSession(
+                bundleID: "com.example.editor", appName: "Editor",
+                start: today.addingTimeInterval(3_600),
+                end: today.addingTimeInterval(3_600 + 45 * 60)))
+            usage.record(AppUsageSession(
+                bundleID: "com.example.browser", appName: "Browser",
+                start: today.addingTimeInterval(2 * 3_600 + 30 * 60),
+                end: today.addingTimeInterval(2 * 3_600 + 50 * 60)))
+            usage.record(AppUsageSession(
+                bundleID: "com.example.editor", appName: "Editor",
+                start: yesterday.addingTimeInterval(3_600),
+                end: yesterday.addingTimeInterval(3_600 + 30 * 60)))
+
+            let persistence = PersistenceStore(
+                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            persistence.removeAll()
+            let engine = SessionEngine(store: persistence, archive: archive,
+                                       ownBundleID: "com.example.self", schedulesDwell: false,
+                                       now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.refreshReview()
+
+            guard let detail = store.reviewDayDetail(for: today, calendar: calendar) else {
+                return problems + ["selected Review day should derive a detail"]
+            }
+            expect(calendar.isDate(detail.day.date, inSameDayAs: today),
+                   "detail keeps the literal day", &problems)
+            expectClose(detail.day.tracked, 65 * 60,
+                        "detail uses canonical History tracked time", &problems)
+            expectClose(detail.day.focused, 35 * 60,
+                        "detail uses canonical History focused time", &problems)
+            expect(detail.appEntries.allSatisfy { calendar.isDate($0.day, inSameDayAs: today) },
+                   "detail log contains only the selected local day", &problems)
+            expect(detail.appEntries.contains { $0.session.bundleID == "com.example.browser" },
+                   "detail log keeps the selected day's own app evidence", &problems)
+            expect(detail.focusEntries.allSatisfy { $0.start < endOfToday && $0.end > today },
+                   "detail focus rows intersect the selected local day", &problems)
+            expect(detail.focusEntries.count == 2
+                       && detail.focusEntries.allSatisfy { $0.workType.countsAsFocus },
+                   "detail focus rows exclude rest records", &problems)
+            expect(detail.periodDay.map { calendar.isDate($0.date, inSameDayAs: today) } ?? false,
+                   "detail carries the matching period bar", &problems)
+
+            guard let yesterdayDetail = store.reviewDayDetail(for: yesterday, calendar: calendar),
+                  let beforeMidnight = yesterdayDetail.focusEntries.first(where: {
+                      $0.name == "Night hand-off"
+                  }),
+                  let afterMidnight = detail.focusEntries.first(where: {
+                      $0.name == "Night hand-off"
+                  }) else {
+                return problems + ["cross-midnight focus should appear in both selected days"]
+            }
+            expect(beforeMidnight.start == yesterday.addingTimeInterval(23 * 3_600 + 50 * 60)
+                       && beforeMidnight.end == endOfYesterday,
+                   "previous-day detail clips a crossing focus range at midnight", &problems)
+            expectClose(beforeMidnight.seconds, 10 * 60,
+                        "previous-day detail clips a crossing focus duration", &problems)
+            expect(afterMidnight.start == today
+                       && afterMidnight.end == today.addingTimeInterval(10 * 60),
+                   "next-day detail begins a crossing focus range at midnight", &problems)
+            expectClose(afterMidnight.seconds, 10 * 60,
+                        "next-day detail clips a crossing focus duration", &problems)
+
+            expect(store.reviewDayIsAvailable(today, section: .week, calendar: calendar),
+                   "a day inside the selected period stays available", &problems)
+            expect(!store.reviewDayIsAvailable(longAgo, section: .week, calendar: calendar),
+                   "a day outside the selected period is unavailable", &problems)
+            expect(store.reviewDayDetail(for: longAgo, calendar: calendar) == nil,
+                   "a day with no canonical History row derives no detail", &problems)
+
+            expect(store.reviewDayIsAvailable(yesterday, section: .history, calendar: calendar),
+                   "History availability starts from the unfiltered rows", &problems)
+            store.setHistoryQuery("browser")
+            expect(!store.reviewDayIsAvailable(yesterday, section: .history, calendar: calendar),
+                   "a filtered-out day stops being available in History", &problems)
+            expect(store.reviewDayIsAvailable(today, section: .history, calendar: calendar),
+                   "the matching day remains available under an active filter", &problems)
+            store.clearHistoryFilters()
+            return problems
+        }
+    }
+
     private static func testReviewHistoryFiltersAndDayRouting() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
@@ -7639,14 +8049,18 @@ enum SelfTest {
                 return problems + ["Week chart did not contain yesterday's literal date"]
             }
             let navigation = MainWindowModel(selectedTab: .review)
-            let openReviewDay = ReviewDayRoute.callback(store: store,
+            let selectReviewDay = ReviewDayRoute.select(store: store,
                                                         navigation: navigation)
-            openReviewDay(routedDate)
-            expect(navigation.selectedTab == .today
-                       && navigation.requestedDate == yesterday,
-                   "a selected Review bar routes its literal date into Today", &problems)
-            expect(calendar.isDate(store.selectedDay, inSameDayAs: yesterday),
-                   "the Review callback selects that same literal Today day", &problems)
+            selectReviewDay(routedDate)
+            expect(navigation.selectedTab == .review,
+                   "a selected Review bar keeps the user in Review", &problems)
+            expect(calendar.isDate(navigation.reviewSelectedDate ?? base,
+                                   inSameDayAs: yesterday),
+                   "a selected Review bar selects its literal date in Review", &problems)
+            expect(navigation.requestedDate == nil,
+                   "selecting a bar does not request a Today day", &problems)
+            expect(calendar.isDate(store.selectedDay, inSameDayAs: today),
+                   "the Review selection leaves Today's own selected day alone", &problems)
             return problems
         }
     }
@@ -8239,7 +8653,61 @@ enum SelfTest {
                "Review labels Top Apps as an exact full-period aggregate", &problems)
         expectClose(store.reviewAppGroups.reduce(0) { $0 + $1.total }, 510 * 60,
                     "Review Top Apps consumes every full-period session", &problems)
+        guard let oldDayDetail = store.reviewDayDetail(for: monthStart, calendar: calendar) else {
+            return problems + ["oldest dense-period day should open a Review detail"]
+        }
+        expect(oldDayDetail.appEntries.count == 18,
+               "selected-day app detail retains every old-day entry beyond the period log cap",
+               &problems)
+        expectClose(oldDayDetail.appEntries.reduce(0) { $0 + $1.session.attended }, 18 * 60,
+                    "selected-day app detail retains the old day's exact tracked evidence",
+                    &problems)
         return problems
+    }
+
+    /// A dense period log is intentionally capped at 500 chronological rows,
+    /// but selecting a day must still expose every app session that belongs to
+    /// that literal day. If detail reads the capped period list, one real app
+    /// disappears as soon as the period reaches 501 rows.
+    private static func testReviewDetailRetainsUncappedDayEntries() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(anchoredNow())
+            let calendar = Calendar.current
+            let day = calendar.startOfDay(for: clock.value)
+            let start = day.addingTimeInterval(3_600)
+            let sessions = (0...500).map { index in
+                AppUsageSession(bundleID: "org.example.day.\(index)",
+                                appName: "Day app \(index)",
+                                start: start,
+                                end: start.addingTimeInterval(60))
+            }
+            let usage = makeUsageArchive(clock, sessions: sessions, accurateFrom: day)
+            let persistence = PersistenceStore(
+                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            persistence.removeAll()
+            let engine = SessionEngine(store: persistence, archive: makeArchive(clock),
+                                       ownBundleID: "com.example.self", schedulesDwell: false,
+                                       now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            store.refreshReview(period: .month)
+
+            expect(store.reviewLog.count == 500 && store.reviewLogTotalEntries == 501,
+                   "the chronological Review log applies its 500-row display cap", &problems)
+            guard let detail = store.reviewDayDetail(for: day, calendar: calendar) else {
+                return problems + ["the dense selected day should derive a Review detail"]
+            }
+            expect(detail.appEntries.count == 501,
+                   "selected-day app detail retains all 501 canonical entries", &problems)
+            expect(Set(detail.appEntries.map(\.session.bundleID)).count == 501,
+                   "selected-day app detail loses no app identity beyond the cap", &problems)
+            expectClose(detail.appEntries.reduce(0) { $0 + $1.session.attended }, 501 * 60,
+                        "selected-day app detail retains exact tracked evidence", &problems)
+            return problems
+        }
     }
 
     /// Tracked time can legitimately be absent while the archive still contains

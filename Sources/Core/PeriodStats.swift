@@ -28,6 +28,44 @@ struct PeriodChartPoint: Identifiable, Equatable {
     var id: Date { date }
 }
 
+/// Pure plot geometry for the tracked-by-day chart. It lives in Core so the
+/// contract can be tested without a view: a bar drawn hard against the plot
+/// frame is unreadable, and a scale that ends below the average rule hides it.
+enum PeriodChartLayout {
+    /// One empty bar-width of padding on each side of the series. A daily bar
+    /// occupies the whole cell from its own day to the next, so the trailing
+    /// bound is two days past the last point: stopping one day past it lets the
+    /// final bar fill the padding and finish flush against the plot frame.
+    /// Calendar arithmetic rather than 86,400 seconds, because a daylight-saving
+    /// day is 23 or 25 hours long and fixed seconds would land the edge mid-day.
+    static func domain(for points: [PeriodChartPoint],
+                       calendar: Calendar = .current) -> ClosedRange<Date> {
+        let anchor = points.map(\.date).min() ?? calendar.startOfDay(for: Date())
+        let end = points.map(\.date).max() ?? anchor
+        let first = calendar.startOfDay(for: anchor)
+        let last = calendar.startOfDay(for: end)
+        let lower = calendar.date(byAdding: .day, value: -1, to: first) ?? first
+        let upper = calendar.date(byAdding: .day, value: 2, to: last) ?? last
+        return lower...max(upper, lower)
+    }
+
+    /// The vertical scale in minutes: zero-based, always containing the tallest
+    /// bar and the average rule, rounded up to a step a reader can label.
+    static func yMaximumMinutes(for points: [PeriodChartPoint],
+                                average: TimeInterval) -> Double {
+        let tallest = points.map(\.seconds).max() ?? 0
+        let minutes = max(tallest, max(0, average)) / 60
+        let step: Double
+        switch minutes {
+        case ..<60: step = 15
+        case ..<240: step = 30
+        case ..<600: step = 60
+        default: step = 120
+        }
+        return max(step, (minutes / step).rounded(.up) * step)
+    }
+}
+
 enum PeriodChartData {
     static func tracked(_ days: [PeriodDay]) -> [PeriodChartPoint] {
         days.map { PeriodChartPoint(date: $0.date, seconds: $0.tracked) }
@@ -113,6 +151,9 @@ struct PeriodRollup: Equatable {
     let days: [PeriodDay]
     /// Newest bounded rows for chronological presentation.
     let log: [LogEntry]
+    /// Exact app-session rows grouped by their local calendar day. Detail views
+    /// use this index rather than the bounded chronological presentation.
+    let entriesByDay: [Date: [LogEntry]]
     /// Exact source count and app aggregates remain independent of the row cap.
     let totalLogEntries: Int
     let exactAppGroups: [LogAppGroup]
@@ -122,7 +163,7 @@ struct PeriodRollup: Equatable {
     var logRowsOmitted: Int { max(0, totalLogEntries - log.count) }
 
     static let empty = PeriodRollup(
-        days: [], log: [], totalLogEntries: 0, exactAppGroups: [], dayTotals: [:],
+        days: [], log: [], entriesByDay: [:], totalLogEntries: 0, exactAppGroups: [], dayTotals: [:],
         summary: PeriodSummary(tracked: 0, activeDays: 0, totalDays: 0,
                                averagePerActiveDay: 0, longest: nil))
 }
@@ -221,6 +262,7 @@ struct PeriodStats {
         var allDays: [PeriodDay] = []
         var retainedEntries: [LogEntry] = []
         var allEntries: [LogEntry] = []
+        var entriesByDay: [Date: [LogEntry]] = [:]
         var cursor = start
         while cursor < end && allDays.count < 40 {
             allDays.append(PeriodDay(date: cursor,
@@ -228,6 +270,7 @@ struct PeriodStats {
                                      byWorkType: stats.focusQuality(for: cursor).byWorkType))
             let dayEntries = Self.logEntries(on: cursor, stats: stats)
             allEntries.append(contentsOf: dayEntries)
+            entriesByDay[cursor] = dayEntries
             Self.retainNewest(dayEntries, in: &retainedEntries)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             cursor = next
@@ -238,6 +281,7 @@ struct PeriodStats {
         for entry in retainedEntries { totals[entry.day, default: 0] += entry.session.attended }
         return PeriodRollup(days: allDays,
                             log: retainedEntries,
+                            entriesByDay: entriesByDay,
                             totalLogEntries: allEntries.count,
                             exactAppGroups: Self.appGroups(from: allEntries),
                             dayTotals: totals,

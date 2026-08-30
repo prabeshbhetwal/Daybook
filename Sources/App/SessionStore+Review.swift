@@ -12,6 +12,17 @@ struct ReviewFocusEntry: Identifiable, Equatable {
     let seconds: TimeInterval
 }
 
+/// One selected Review day, projected from values Review has already published.
+/// `day` is the canonical History row and remains the displayed source of
+/// truth, so the inline detail can never disagree with the chart or the table
+/// the day was selected from. Nothing here recomputes tracked or focused time.
+struct ReviewDayDetail: Equatable {
+    let day: HistoryDay
+    let periodDay: PeriodDay?
+    let appEntries: [LogEntry]
+    let focusEntries: [ReviewFocusEntry]
+}
+
 /// The Review read model. It composes existing canonical period/accounting
 /// helpers and publishes presentation-ready values; no archive mutation or
 /// historical repair is possible from this surface.
@@ -100,6 +111,7 @@ extension SessionStore {
         let rollup = periodStats.rollup(for: reviewPeriod, containing: anchor)
         reviewDays = rollup.days
         reviewLog = rollup.log
+        reviewEntriesByDay = rollup.entriesByDay
         reviewLogTotalEntries = rollup.totalLogEntries
         reviewAppGroups = rollup.exactAppGroups
         reviewDayTotals = rollup.dayTotals
@@ -139,6 +151,60 @@ extension SessionStore {
                 + "and may include unattended time."
             : nil
         reviewRefreshPending = false
+    }
+
+    /// The selected day's evidence, or nil when Review has no canonical row for
+    /// it. Every field is filtered from already-published state; a View calling
+    /// this never reaches an archive.
+    func reviewDayDetail(for date: Date, calendar: Calendar = .current) -> ReviewDayDetail? {
+        let day = calendar.startOfDay(for: date)
+        guard let historyDay = historyDays.first(where: {
+            calendar.isDate($0.date, inSameDayAs: day)
+        }) else { return nil }
+        let periodDay = reviewDays.first { calendar.isDate($0.date, inSameDayAs: day) }
+        let appEntries = reviewEntriesByDay.first { key, _ in
+            calendar.isDate(key, inSameDayAs: day)
+        }?.value ?? []
+        let focusEntries: [ReviewFocusEntry]
+        if let dayEnd = calendar.date(byAdding: .day, value: 1, to: day) {
+            focusEntries = reviewFocusSessions.compactMap { entry in
+                let start = max(entry.start, day)
+                let end = min(entry.end, dayEnd)
+                guard end > start else { return nil }
+                let span = entry.end.timeIntervalSince(entry.start)
+                let seconds = span > 0
+                    ? entry.seconds * end.timeIntervalSince(start) / span
+                    : entry.seconds
+                return ReviewFocusEntry(id: entry.id,
+                                        threadID: entry.threadID,
+                                        name: entry.name,
+                                        workType: entry.workType,
+                                        start: start,
+                                        end: end,
+                                        seconds: seconds)
+            }
+        } else {
+            focusEntries = []
+        }
+        return ReviewDayDetail(day: historyDay,
+                               periodDay: periodDay,
+                               appEntries: appEntries,
+                               focusEntries: focusEntries)
+    }
+
+    /// Whether the selected day still belongs to what Review is showing. Week
+    /// and Month answer from the period's own days; History answers from the
+    /// filtered rows, so a filter that hides the row also closes its detail.
+    func reviewDayIsAvailable(_ date: Date,
+                              section: ReviewSection,
+                              calendar: Calendar = .current) -> Bool {
+        let day = calendar.startOfDay(for: date)
+        switch section {
+        case .history:
+            return filteredHistoryDays.contains { calendar.isDate($0.date, inSameDayAs: day) }
+        case .week, .month:
+            return reviewDays.contains { calendar.isDate($0.date, inSameDayAs: day) }
+        }
     }
 
     func moveReviewPeriod(by delta: Int) {
@@ -325,6 +391,7 @@ extension SessionStore {
     private func clearReviewData() {
         reviewDays = []
         reviewLog = []
+        reviewEntriesByDay = [:]
         reviewLogTotalEntries = 0
         reviewAppGroups = []
         reviewDayTotals = [:]

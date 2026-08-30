@@ -27,8 +27,8 @@
 | File | Responsibility after this work |
 |---|---|
 | Sources/App/MainWindowModel.swift | Top-level route plus selected Review day; the sole place an explicit Review-to-Today route is initiated. |
-| Sources/App/SessionStore+Review.swift | Canonical Review-derived day detail and selection validity after period/filter changes. |
-| Sources/Core/PeriodStats.swift | Pure chart-domain helper based on canonical PeriodChartPoint dates. |
+| Sources/App/SessionStore+Review.swift | Canonical Review-derived day detail, full selected-day evidence and selection validity after period/filter changes. |
+| Sources/Core/PeriodStats.swift | Pure chart-domain helper plus uncapped day-entry index beside the bounded period log. |
 | Sources/Design/Components/SurfacePrimitives.swift | Shared table header and metric grammar where reuse is genuine. |
 | Sources/Surfaces/Dashboard/PeriodViews.swift | Non-clipping tracked-time chart, leading y-axis, selected-bar state and accessible chart content. |
 | Sources/Surfaces/Review/ReviewView.swift | Review workbench hierarchy, inline selected-day detail and explicit Today action. |
@@ -75,7 +75,7 @@
 - selectReviewDay stores calendar.startOfDay(for: date), changes no tab, and leaves requestedDate unchanged.
 - openSelectedReviewDayInToday calls openToday(date:) only when a selected Review day exists.
 
-- [ ] **Step 1: Write failing route tests**
+- [x] **Step 1: Write failing route tests**
 
 Replace the existing assertion that expects a Review bar to route to Today:
 
@@ -97,7 +97,7 @@ expect(navigation.selectedTab == .today
 
 Call ReviewDayRoute.select(store:navigation:) in the period-bar fixture and assert the store's selected Today date remains unchanged.
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 Run:
 
@@ -107,7 +107,7 @@ Run:
 
 Expected: the new model APIs are missing and the old callback still changes selectedTab to Today.
 
-- [ ] **Step 3: Implement the narrow navigation state**
+- [x] **Step 3: Implement the narrow navigation state**
 
 Add this behaviour to MainWindowModel:
 
@@ -128,7 +128,7 @@ func openSelectedReviewDayInToday() {
 
 Replace ReviewDayRoute.callback with ReviewDayRoute.select. It calls navigation.selectReviewDay(date), and must not call store.selectDate(date) or navigation.openToday(date:).
 
-- [ ] **Step 4: Run the full suite to verify GREEN**
+- [x] **Step 4: Run the full suite to verify GREEN**
 
 ~~~bash
 ./build.sh --check
@@ -137,7 +137,7 @@ git diff --check
 
 Expected: every self-test passes and Review selection no longer changes the active tab.
 
-- [ ] **Step 5: Commit locally**
+- [x] **Step 5: Commit locally**
 
 ~~~bash
 git add Sources/App/MainWindowModel.swift Sources/Surfaces/Review/ReviewView.swift Sources/SelfTest.swift
@@ -149,6 +149,8 @@ git commit -m "fix: keep Review day selection in context"
 **Files:**
 
 - Modify: Sources/App/SessionStore+Review.swift:1-345
+- Modify: Sources/App/SessionStore.swift:150-160
+- Modify: Sources/Core/PeriodStats.swift:149-284
 - Create: Sources/Surfaces/Review/ReviewDayDetail.swift
 - Modify: Sources/Surfaces/Review/ReviewView.swift
 - Modify: Sources/SelfTest.swift
@@ -165,7 +167,12 @@ struct ReviewDayDetail: Equatable {
     let focusEntries: [ReviewFocusEntry]
 }
 
+struct PeriodRollup: Equatable {
+    let entriesByDay: [Date: [LogEntry]]
+}
+
 extension SessionStore {
+    var reviewEntriesByDay: [Date: [LogEntry]] { get }
     func reviewDayDetail(for date: Date,
                          calendar: Calendar = .current) -> ReviewDayDetail?
     func reviewDayIsAvailable(_ date: Date,
@@ -180,10 +187,11 @@ struct ReviewDayDetailPanel: View {
 }
 ~~~
 
-- ReviewDayDetail derives from existing historyDays, reviewDays, reviewLog, and reviewFocusSessions. It never reads an archive from a View or mutates records.
+- ReviewDayDetail derives from existing historyDays, reviewDays, reviewEntriesByDay, and reviewFocusSessions. It never reads an archive from a View or mutates records.
+- PeriodRollup retains an uncapped entriesByDay index for exact selected-day detail while log remains the independently capped chronological period presentation.
 - A selected day is valid for Week/Month when it is in reviewDays; it is valid for History when it is in filteredHistoryDays.
 
-- [ ] **Step 1: Write failing canonical-detail tests**
+- [x] **Step 1: Write failing canonical-detail tests**
 
 Create a fixture with app usage, a focus stretch and a break on yesterday, then derive its local-day end:
 
@@ -203,7 +211,9 @@ expect(!store.reviewDayIsAvailable(twoDaysAgo, section: .week, calendar: calenda
        "a day outside the selected period is unavailable", &problems)
 ~~~
 
-- [ ] **Step 2: Run the test to verify RED**
+Add a cross-midnight focus record and assert that its selected-day detail appears as two 10-minute ranges, one ending at midnight and one beginning at midnight. Add a 501-entry selected-day fixture and assert reviewLog remains capped at 500 while detail.appEntries still contains all 501 canonical entries.
+
+- [x] **Step 2: Run the test to verify RED**
 
 ~~~bash
 ./build.sh --check
@@ -211,13 +221,13 @@ expect(!store.reviewDayIsAvailable(twoDaysAgo, section: .week, calendar: calenda
 
 Expected: ReviewDayDetail and the detail/availability APIs do not exist.
 
-- [ ] **Step 3: Implement the App read model**
+- [x] **Step 3: Implement the App read model**
 
-Define ReviewDayDetail beside ReviewFocusEntry. Normalise the input with calendar.startOfDay(for:), locate HistoryDay, filter reviewLog by entry.day, and filter reviewFocusSessions by interval intersection with the local day.
+Define ReviewDayDetail beside ReviewFocusEntry. Extend PeriodRollup with entriesByDay and publish it on SessionStore during refresh; the selected detail retrieves that exact local-day entry list instead of filtering reviewLog. Normalise the input with calendar.startOfDay(for:), locate HistoryDay, and rebuild each overlapping ReviewFocusEntry with start/end and proportional seconds clipped to that calendar day.
 
 Do not recompute tracked/focused values from entries. detail.day is the displayed source of truth. Return nil when no canonical HistoryDay exists.
 
-- [ ] **Step 4: Implement a side-effect-free panel**
+- [x] **Step 4: Implement a side-effect-free panel**
 
 Create ReviewDayDetailPanel with:
 
@@ -230,11 +240,11 @@ Selected-day app and focus-session evidence, grouped and bounded
 
 Use SurfacePanel, existing AppUsageRow, Tokens.duration, and Tokens.preciseDuration. The Open-in-Today and close controls are separate Buttons. No row action may call either closure.
 
-- [ ] **Step 5: Clear stale selection**
+- [x] **Step 5: Clear stale selection**
 
 In ReviewView, clear navigation.reviewSelectedDate when the changed section, period, or History filter makes it unavailable. Do not clear an available date merely because Review refreshes.
 
-- [ ] **Step 6: Verify GREEN and commit locally**
+- [x] **Step 6: Verify GREEN and commit locally**
 
 ~~~bash
 ./build.sh --check
@@ -275,7 +285,7 @@ struct PeriodChart: View {
 - The domain has one whole local calendar-day of padding on each side of the first/last point.
 - The y-axis is explicitly leading, uses minutes, and begins at zero.
 
-- [ ] **Step 1: Write failing chart-layout tests**
+- [x] **Step 1: Write failing chart-layout tests**
 
 ~~~
 let first = calendar.date(from: DateComponents(year: 2026, month: 8, day: 24))!
@@ -292,7 +302,7 @@ expect(domain.upperBound >= calendar.date(byAdding: .day, value: 1, to: last)!,
 
 Retain the existing accessibility test that names each literal date and exact tracked duration.
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 ~~~bash
 ./build.sh --check
@@ -300,11 +310,11 @@ Retain the existing accessibility test that names each literal date and exact tr
 
 Expected: PeriodChartLayout is absent.
 
-- [ ] **Step 3: Implement the pure domain helper**
+- [x] **Step 3: Implement the pure domain helper**
 
 Add PeriodChartLayout to PeriodStats.swift. Use calendar.startOfDay(for:) and calendar.date(byAdding: .day, value: ...). Do not add a fixed 86,400-second interval, because local daylight-saving days can differ from 24 hours.
 
-- [ ] **Step 4: Make axes and selected-bar state explicit**
+- [x] **Step 4: Make axes and selected-bar state explicit**
 
 In PeriodViews.swift apply:
 
@@ -322,11 +332,11 @@ In PeriodViews.swift apply:
 
 Compute yMaximum from bars and average, rounded to a readable minute scale. Give the selected bar a restrained focus-colour/opacity distinction while retaining exact tracked-time encoding. Keep hover and VoiceOver content; do not create a trailing y-axis or crop the final mark.
 
-- [ ] **Step 5: Wire the Review selection**
+- [x] **Step 5: Wire the Review selection**
 
 Pass navigation.reviewSelectedDate and ReviewDayRoute.select(store:navigation:) to PeriodChart. Selection must not call openToday.
 
-- [ ] **Step 6: Verify GREEN and commit locally**
+- [x] **Step 6: Verify GREEN and commit locally**
 
 ~~~bash
 ./build.sh --check
@@ -379,7 +389,7 @@ struct TableColumnHeader: View {
 - The existing HistoryNativeDatePicker may remain as the keyboard/VoiceOver control inside the popover, but it is no longer permanently visible with stepper arrows.
 - HistoryRangePresentation normalises reversed dates for display only and formats a concise Australian-English label.
 
-- [ ] **Step 1: Write failing range/table tests**
+- [x] **Step 1: Write failing range/table tests**
 
 ~~~
 let startDate = calendar.date(from: DateComponents(year: 2026, month: 8, day: 12))!
@@ -393,7 +403,7 @@ expect(HistoryTableLayout.trackedWidth >= 76 && HistoryTableLayout.sessionWidth 
        "History numeric columns remain scanable", &problems)
 ~~~
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 ~~~bash
 ./build.sh --check
@@ -401,13 +411,13 @@ expect(HistoryTableLayout.trackedWidth >= 76 && HistoryTableLayout.sessionWidth 
 
 Expected: the range presentation and table layout APIs do not exist.
 
-- [ ] **Step 3: Implement the compact range summary**
+- [x] **Step 3: Implement the compact range summary**
 
 Replace permanent From/To steppers with one capsule or borderless button labelled by HistoryRangePresentation. Its popover contains All dates, two labelled native date pickers and one accessible range label. It uses existing bounds and bindings; filteredHistoryDays keeps its existing order normalisation.
 
 Keep search, app and work-type filters in the same group. Use ViewThatFits to stack only when controls cannot fit at 980 points.
 
-- [ ] **Step 4: Implement History table anatomy**
+- [x] **Step 4: Implement History table anatomy**
 
 Add one header before filteredHistoryDays:
 
@@ -417,7 +427,7 @@ Day and context                         Tracked     Focused    Sessions
 
 Use HistoryTableLayout widths for both header and body. Remove HistoryMetric's per-row labels; it displays only right-aligned values. Preserve full VoiceOver row wording, selected state and chevron disclosure. The row action calls ReviewDayRoute.select, not Today navigation.
 
-- [ ] **Step 5: Verify GREEN and commit locally**
+- [x] **Step 5: Verify GREEN and commit locally**
 
 ~~~bash
 ./build.sh --check
@@ -451,7 +461,7 @@ enum ReviewContentOrder: CaseIterable {
 
 - Review uses the invariant order: header/period navigation, period answer, trend, optional selected-day detail, supporting breakdowns, bounded evidence lists.
 
-- [ ] **Step 1: Write failing hierarchy tests**
+- [x] **Step 1: Write failing hierarchy tests**
 
 ~~~
 expect(ReviewContentOrder.visible(selectedDay: nil) == [
@@ -464,7 +474,7 @@ expect(Array(ReviewContentOrder.visible(selectedDay: yesterday).prefix(4)) == [
 
 Add a route regression asserting that only ReviewDayDetailPanel's Open-in-Today closure may alter MainWindowModel.selectedTab.
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 ~~~bash
 ./build.sh --check
@@ -472,21 +482,21 @@ Add a route regression asserting that only ReviewDayDetailPanel's Open-in-Today 
 
 Expected: ReviewContentOrder is undefined and the canvas still has the previous fixed order.
 
-- [ ] **Step 3: Implement the period answer and detail placement**
+- [x] **Step 3: Implement the period answer and detail placement**
 
 Move periodSummary before Tracked by day. Render valid selected detail immediately after PeriodChart. Do not duplicate the selected day's raw log again in the full period log.
 
 Keep Top apps and Work type after selected detail. Keep Focus sessions and App usage after those supporting breakdowns. Every bounded list states its shown and total count.
 
-- [ ] **Step 4: Make History use the same selection contract**
+- [x] **Step 4: Make History use the same selection contract**
 
 History renders ReviewDayDetailPanel immediately beneath its selected row, or beneath the Days header if filtering moves the selected row. The title, close and Open-in-Today controls must be identical to a chart selection.
 
-- [ ] **Step 5: Add visual scenarios**
+- [x] **Step 5: Add visual scenarios**
 
 Extend Snapshotter with Review Week and History-selection fixtures. Select the first and last chart dates so snapshot inspection catches both edge and inline-detail regressions.
 
-- [ ] **Step 6: Verify GREEN and commit locally**
+- [x] **Step 6: Verify GREEN and commit locally**
 
 ~~~bash
 ./build.sh --check
@@ -534,7 +544,7 @@ struct DayRecapNarrative: Equatable {
 - FocusSurfaceLayout.permitsSupportingReport always returns false: Focus remains an operational canvas and never becomes a report/grid.
 - DayRecapNarrative applies SummaryText.plain to each individual sentence before assigning lead/details. Its public strings therefore never contain SummaryText's internal ** emphasis markers.
 
-- [ ] **Step 1: Write failing hierarchy tests**
+- [x] **Step 1: Write failing hierarchy tests**
 
 ~~~
 expect(DaySurfaceOrder.visible(hasQualification: true, hasSelection: true) == [
@@ -551,7 +561,7 @@ expect(!narrative.lead!.contains("**"),
        "Today recap never renders SummaryText emphasis markers literally", &problems)
 ~~~
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 ~~~bash
 ./build.sh --check
@@ -559,7 +569,7 @@ expect(!narrative.lead!.contains("**"),
 
 Expected: the presentation contracts are absent.
 
-- [ ] **Step 3: Implement Today's compact recap grammar**
+- [x] **Step 3: Implement Today's compact recap grammar**
 
 Make TodayView's sections follow DaySurfaceOrder. Add DayRecapNarrative in TodayRecap.swift: map every SessionStore.summarySentences item through SummaryText.plain([$0]), then expose the first plain item as lead and the remaining plain items as details. This preserves canonical SummaryText order while preventing its internal ** emphasis markers from reaching a SwiftUI Text literal.
 
@@ -574,11 +584,11 @@ Use shared metric-band styling: labels once, tabular values and concise qualifie
 
 Do not alter timeline selection, past-day navigation, Escape, goal calculations, break representation or At the Mac semantics.
 
-- [ ] **Step 4: Preserve Focus as a quiet instrument**
+- [x] **Step 4: Preserve Focus as a quiet instrument**
 
 Replace the literal 760 in FocusView with FocusSurfaceLayout.operationalMeasure. Keep the continuation section as its only supporting panel and the break line outside decorative card treatment. Do not add metrics/charts to fill vertical space.
 
-- [ ] **Step 5: Verify GREEN and commit locally**
+- [x] **Step 5: Verify GREEN and commit locally**
 
 ~~~bash
 ./build.sh --check
@@ -620,7 +630,7 @@ enum SettingsLayout {
 
 - InsightPresentation never manufactures a fact; it wraps an existing non-nil Insight.
 
-- [ ] **Step 1: Write failing presentation tests**
+- [x] **Step 1: Write failing presentation tests**
 
 ~~~
 let insight = Insight(id: "pace", headline: "10m behind your usual pace",
@@ -636,7 +646,7 @@ expect(SettingsLayout.detailMeasure == 720,
        "Settings controls retain a readable measure", &problems)
 ~~~
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 ~~~bash
 ./build.sh --check
@@ -644,15 +654,15 @@ expect(SettingsLayout.detailMeasure == 720,
 
 Expected: InsightPresentation and SettingsLayout are absent.
 
-- [ ] **Step 3: Implement concise Insight cards**
+- [x] **Step 3: Implement concise Insight cards**
 
 Have InsightSection construct InsightPresentation. Render category and headline by default. Move provenance to DisclosureGroup(presentation.disclosureLabel), collapsed by default, retaining full text in accessibility label/value. InsightsView's evidence gating may change only layout and adaptive measure, never whether an insight exists.
 
-- [ ] **Step 4: Implement Settings layout constants**
+- [x] **Step 4: Implement Settings layout constants**
 
 Move SettingsView.usesSidebar(at:) into SettingsLayout and replace literal 720 measure. Keep a small selected group naturally small instead of stretching a panel. Preserve search, selected-group navigation, keyboard order and all existing backed controls.
 
-- [ ] **Step 5: Verify GREEN and commit locally**
+- [x] **Step 5: Verify GREEN and commit locally**
 
 ~~~bash
 ./build.sh --check
@@ -683,11 +693,11 @@ Insights: enough/partial/empty evidence
 Settings: each group, wide and narrow layout
 ~~~
 
-- [ ] **Step 1: Write final visual-contract tests**
+- [x] **Step 1: Write final visual-contract tests**
 
 Add a self-test that asserts every material surface is represented by at least one SnapshotScenario and that Review selected-day fixtures include both period-chart and History-row selection. Keep the test pure by inspecting scenario cases/labels, not image pixels.
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 ~~~bash
 ./build.sh --check
@@ -695,7 +705,7 @@ Add a self-test that asserts every material surface is represented by at least o
 
 Expected: the current scenario matrix lacks the required Review-selection variants.
 
-- [ ] **Step 3: Extend snapshots and inspect actual renders**
+- [x] **Step 3: Extend snapshots and inspect actual renders**
 
 Render to a temporary directory:
 
@@ -706,11 +716,11 @@ FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot "$snapshot_dir"
 
 Inspect every listed state in light/dark and minimum/comfortable widths. Inspect the running app separately for titlebar/traffic lights, range popover, date-picker keyboard operation, tab focus, scroll behaviour and Review selection. Any observed defect begins a new red/green task; do not weaken a test or omit a scenario.
 
-- [ ] **Step 4: Refresh documentation truthfully**
+- [x] **Step 4: Refresh documentation truthfully**
 
 Update README only with shipped behaviour: Review stays in context on selection; selected data has an explicit Open in Today action; History uses a date-range control/table headers; charts compare exact tracked time. Update the design-spec status to implemented and verified only after Step 5 succeeds.
 
-- [ ] **Step 5: Run final verification**
+- [x] **Step 5: Run final verification**
 
 ~~~bash
 ./build.sh --check
@@ -727,7 +737,7 @@ Expected:
 - The snapshot matrix contains every material state and manual native-control inspection is recorded.
 - No generated app, snapshot, Finder metadata or unrelated local file is staged.
 
-- [ ] **Step 6: Commit locally without pushing**
+- [x] **Step 6: Commit locally without pushing**
 
 ~~~bash
 git add Sources/Surfaces/Snapshotter.swift Sources/SelfTest.swift README.md \

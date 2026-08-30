@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// Focus is an operational canvas, not a report. The measure is deliberate: the
+/// quiet space around it supports concentration and is never filled with
+/// secondary metrics or charts, in any session state.
+enum FocusSurfaceLayout {
+    static let operationalMeasure: CGFloat = 760
+
+    static func permitsSupportingReport(state: SessionState) -> Bool { false }
+}
+
 /// The desktop Focus canvas: one operational hero, no KPI grid, followed by a
 /// bounded continuation path and one quiet break line.
 struct FocusView: View {
@@ -42,7 +51,7 @@ struct FocusView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Tokens.Space.s)
         }
-        .frame(maxWidth: 760)
+        .frame(maxWidth: FocusSurfaceLayout.operationalMeasure)
         .padding(Tokens.Space.xl)
         .frame(maxWidth: .infinity, alignment: .top)
     }

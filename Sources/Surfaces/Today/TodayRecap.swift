@@ -1,5 +1,20 @@
 import SwiftUI
 
+/// The day's canonical summary sentences, ready to render. `SummaryText` marks
+/// its figures with `**` for a Markdown renderer; the recap is plain secondary
+/// text, so every sentence is stripped here rather than showing the markers.
+struct DayRecapNarrative: Equatable {
+    let lead: String?
+    let details: [String]
+
+    init(sentences: [String]) {
+        let plain = sentences.map { SummaryText.plain([$0]) }
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        lead = plain.first
+        details = Array(plain.dropFirst())
+    }
+}
+
 /// A quiet reconciliation line, not a KPI grid. Focused displays raw canonical
 /// focus-session time; its note separately names focused-active goal credit.
 /// At the Mac remains observed app-use time.
@@ -29,19 +44,40 @@ struct TodayRecap: View {
                             note: store.isToday ? store.longestNameToday
                                               : store.longestNameForSelectedDay)
             }
-            if let insight = store.insights.first {
-                Divider()
-                HStack(alignment: .top, spacing: Tokens.Space.s) {
-                    Image(systemName: insight.symbolName)
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(Tokens.Colour.focus)
-                    Text("\(insight.headline) · \(insight.detail)")
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: 820, alignment: .leading)
-                        .textSelection(.enabled)
+            narrative
+        }
+    }
+
+    /// One summary fact, with the rest of the day's sentences behind a literal
+    /// disclosure. Nothing is rendered when the day has produced no sentences.
+    @ViewBuilder private var narrative: some View {
+        let recap = DayRecapNarrative(sentences: store.summarySentences)
+        if let lead = recap.lead {
+            Divider()
+            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                Text(lead)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 820, alignment: .leading)
+                    .textSelection(.enabled)
+                if !recap.details.isEmpty {
+                    DisclosureGroup("More about this day") {
+                        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                            ForEach(recap.details, id: \.self) { sentence in
+                                Text(sentence)
+                                    .font(Tokens.Typography.metadata)
+                                    .foregroundStyle(.secondary)
+                                    .lineSpacing(2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: 820, alignment: .leading)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        .padding(.top, Tokens.Space.xs)
+                    }
+                    .font(Tokens.Typography.metadata)
                 }
             }
         }

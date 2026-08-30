@@ -86,6 +86,10 @@ enum AppearancePreference: String, CaseIterable {
 @MainActor final class MainWindowModel: ObservableObject {
     @Published var selectedTab: AppTab
     @Published private(set) var requestedDate: Date?
+    /// The day Review is inspecting, or nil when nothing is selected. It is
+    /// deliberately separate from `requestedDate`: selecting evidence in Review
+    /// explains a day in place, while `requestedDate` moves the user to Today.
+    @Published private(set) var reviewSelectedDate: Date?
     @Published var reviewSection: ReviewSection = .week
     @Published var insightRange: InsightRange = .week
     @Published var settingsSection: SettingsSection = .general
@@ -107,6 +111,24 @@ enum AppearancePreference: String, CaseIterable {
     func openToday(date: Date) {
         requestedDate = date
         selectedTab = .today
+    }
+
+    /// Inspection, not navigation. The tab and Today's own scope are untouched;
+    /// the date is normalised so one literal local day identifies the selection
+    /// however the caller expressed it.
+    func selectReviewDay(_ date: Date, calendar: Calendar = .current) {
+        reviewSelectedDate = calendar.startOfDay(for: date)
+    }
+
+    func clearReviewDay() {
+        reviewSelectedDate = nil
+    }
+
+    /// The only route out of Review. It is reached from a named action, never
+    /// as a side effect of selecting a bar or a row.
+    func openSelectedReviewDayInToday() {
+        guard let reviewSelectedDate else { return }
+        openToday(date: reviewSelectedDate)
     }
 
     func openSettings() {

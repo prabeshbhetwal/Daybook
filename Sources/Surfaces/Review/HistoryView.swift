@@ -77,6 +77,119 @@ struct HistoryDateControl: View {
     }
 }
 
+/// The History range as one readable phrase. Endpoints are sorted for display
+/// only — the stored filter is never rewritten — and the year is stated once
+/// unless the range actually spans two. Australian English, so the compact
+/// control reads the same on every machine.
+struct HistoryRangePresentation: Equatable {
+    let label: String
+    let accessibilityLabel: String
+
+    private static func formatter(_ format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_AU")
+        formatter.dateFormat = format
+        return formatter
+    }
+
+    init(start: Date, end: Date, calendar: Calendar = .current) {
+        let first = calendar.startOfDay(for: min(start, end))
+        let last = calendar.startOfDay(for: max(start, end))
+        let day = Self.formatter("d MMM")
+        let dayYear = Self.formatter("d MMM yyyy")
+        let spoken = Self.formatter("EEEE d MMMM yyyy")
+
+        if calendar.isDate(first, inSameDayAs: last) {
+            label = dayYear.string(from: first)
+        } else if calendar.component(.year, from: first)
+                    == calendar.component(.year, from: last) {
+            label = "\(day.string(from: first)) – \(dayYear.string(from: last))"
+        } else {
+            label = "\(dayYear.string(from: first)) – \(dayYear.string(from: last))"
+        }
+        accessibilityLabel = "History range, from \(spoken.string(from: first)) "
+            + "to \(spoken.string(from: last))"
+    }
+}
+
+/// Fixed widths for the numeric columns, shared by the header and every row so
+/// the figures form readable columns instead of drifting with content.
+enum HistoryTableLayout {
+    static let trackedWidth: CGFloat = 88
+    static let focusedWidth: CGFloat = 88
+    static let sessionWidth: CGFloat = 72
+    /// Reserved for the row disclosure, so the header's last column lines up.
+    static let disclosureWidth: CGFloat = 14
+}
+
+/// One compact summary of the selected range that opens a focused choice
+/// surface. The permanent stepper pair it replaces put two spin controls in the
+/// filter bar for a value the user changes rarely.
+struct HistoryRangeControl: View {
+    @Binding var start: Date
+    @Binding var end: Date
+    let bounds: ClosedRange<Date>
+    let onReset: () -> Void
+    @StateObject private var shown = BoolBox()
+
+    private var presentation: HistoryRangePresentation {
+        HistoryRangePresentation(start: start, end: end)
+    }
+
+    var body: some View {
+        Button {
+            shown.value.toggle()
+        } label: {
+            HStack(spacing: Tokens.Space.xs) {
+                Image(systemName: "calendar")
+                    .accessibilityHidden(true)
+                Text(presentation.label)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
+                    .accessibilityHidden(true)
+            }
+            .font(Tokens.Typography.metadata)
+            .padding(.horizontal, Tokens.Space.m)
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            .background(Tokens.Colour.elevated, in: Capsule())
+            .overlay(Capsule().strokeBorder(Tokens.Colour.line))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(presentation.accessibilityLabel)
+        .accessibilityHint("Choose the History date range")
+        .popover(isPresented: Binding(get: { shown.value },
+                                      set: { shown.value = $0 }),
+                 arrowEdge: .bottom) {
+            popoverContent
+        }
+    }
+
+    /// A temporary choice surface: a reset, two native date targets, and the
+    /// selected range in words. Native controls apply immediately, so there is
+    /// nothing to stage behind an Apply action.
+    private var popoverContent: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.m) {
+            HStack {
+                Text("Date range")
+                    .font(Tokens.Typography.sectionTitle)
+                Spacer(minLength: Tokens.Space.l)
+                Button("All dates", action: onReset)
+                    .buttonStyle(.borderless)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            }
+            HistoryDateControl(label: "From", selection: $start, range: bounds)
+            HistoryDateControl(label: "To", selection: $end, range: bounds)
+            Text(presentation.accessibilityLabel)
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(Tokens.Space.l)
+        .frame(minWidth: 260)
+    }
+}
+
 /// Search and intersection filters over canonical day rows. Controls only
 /// select evidence; there are deliberately no edit, repair or export actions.
 struct HistoryView: View {
@@ -98,10 +211,7 @@ struct HistoryView: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if !store.historyDays.isEmpty {
-                    Divider()
-                    rangeBar
-                }
+
             }
 
             SurfacePanel(showsHeader: false) {
@@ -115,10 +225,18 @@ struct HistoryView: View {
                                detail: "Adjust the date range or clear one of the intersecting filters.",
                                icon: "line.3.horizontal.decrease.circle")
                 } else {
+                    tableHeader
                     ForEach(Array(store.filteredHistoryDays.enumerated()),
                             id: \.element.id) { index, day in
                         if index > 0 { Divider() }
                         dayRow(day)
+                        if isSelected(day), let detail = selectedDayDetail {
+                            ReviewDayDetailPanel(
+                                detail: detail,
+                                onOpenInToday: { navigation.openSelectedReviewDayInToday() },
+                                onClose: { navigation.clearReviewDay() },
+                                inset: true)
+                        }
                     }
                 }
             }
@@ -129,6 +247,7 @@ struct HistoryView: View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Tokens.Space.s) {
                 searchField
+                rangeControl
                 appMenu
                 workTypeMenu
                 clearFilters
@@ -136,6 +255,7 @@ struct HistoryView: View {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 searchField
                 HStack(spacing: Tokens.Space.s) {
+                    rangeControl
                     appMenu
                     workTypeMenu
                     clearFilters
@@ -144,14 +264,12 @@ struct HistoryView: View {
         }
     }
 
-    private var rangeBar: some View {
-        ViewThatFits(in: .horizontal) {
-            rangeControls(horizontal: true)
-            rangeControls(horizontal: false)
+    @ViewBuilder private var rangeControl: some View {
+        if !store.historyDays.isEmpty {
+            HistoryRangeControl(start: startBinding, end: endBinding,
+                                bounds: dateBounds,
+                                onReset: { store.resetHistoryRange() })
         }
-        .font(Tokens.Typography.metadata)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("History date range")
     }
 
     private var searchField: some View {
@@ -178,25 +296,6 @@ struct HistoryView: View {
             Button("Clear filters") { store.clearHistoryFilters() }
                 .buttonStyle(.borderless)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-        }
-    }
-
-    @ViewBuilder private func rangeControls(horizontal: Bool) -> some View {
-        let from = HistoryDateControl(label: "From", selection: startBinding,
-                                      range: dateBounds)
-        let to = HistoryDateControl(label: "To", selection: endBinding,
-                                    range: dateBounds)
-        let all = Button("All dates") { store.resetHistoryRange() }
-            .buttonStyle(.borderless)
-            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-
-        if horizontal {
-            HStack(spacing: Tokens.Space.m) { from; to; Spacer(); all }
-        } else {
-            VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                HStack(spacing: Tokens.Space.m) { from; to }
-                all
-            }
         }
     }
 
@@ -239,9 +338,33 @@ struct HistoryView: View {
                             + (store.historyFilter.workType?.displayName ?? "all work types"))
     }
 
+    /// The same canonical detail a chart selection opens. Nil unless the
+    /// selected day survives the active filters.
+    private var selectedDayDetail: ReviewDayDetail? {
+        guard let date = navigation.reviewSelectedDate,
+              store.reviewDayIsAvailable(date, section: .history) else { return nil }
+        return store.reviewDayDetail(for: date)
+    }
+
+    /// The measures are named once, here.
+    private var tableHeader: some View {
+        HStack(alignment: .center, spacing: Tokens.Space.l) {
+            TableColumnHeader(title: "Day and context", alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            TableColumnHeader(title: "Tracked", width: HistoryTableLayout.trackedWidth)
+            TableColumnHeader(title: "Focused", width: HistoryTableLayout.focusedWidth)
+            TableColumnHeader(title: "Sessions", width: HistoryTableLayout.sessionWidth)
+            Spacer().frame(width: HistoryTableLayout.disclosureWidth)
+        }
+        .padding(.horizontal, Tokens.Space.xs)
+        .padding(.bottom, Tokens.Space.xs)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Columns: day and context, tracked, focused, sessions")
+    }
+
     private func dayRow(_ day: HistoryDay) -> some View {
         Button {
-            ReviewDayRoute.callback(store: store, navigation: navigation)(day.date)
+            ReviewDayRoute.select(store: store, navigation: navigation)(day.date)
         } label: {
             HStack(alignment: .center, spacing: Tokens.Space.l) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -253,22 +376,48 @@ struct HistoryView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: Tokens.Space.l)
-                HistoryMetric(label: "Tracked", value: Tokens.duration(day.tracked))
-                HistoryMetric(label: "Focused", value: Tokens.duration(day.focused))
-                HistoryMetric(label: "Sessions", value: "\(day.sessions)")
+                HistoryMetric(value: Tokens.duration(day.tracked),
+                              width: HistoryTableLayout.trackedWidth)
+                HistoryMetric(value: Tokens.duration(day.focused),
+                              width: HistoryTableLayout.focusedWidth)
+                HistoryMetric(value: "\(day.sessions)",
+                              width: HistoryTableLayout.sessionWidth)
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
+                    .frame(width: HistoryTableLayout.disclosureWidth)
             }
             .padding(.vertical, Tokens.Space.s)
+            .padding(.horizontal, Tokens.Space.xs)
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            .background(rowBackground(day))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(Tokens.longDate(day.date)), "
-                            + "\(Tokens.duration(day.tracked)) tracked, "
-                            + "\(Tokens.duration(day.focused)) focused, "
-                            + "\(day.sessions) sessions, open in Today")
+        .accessibilityLabel(rowAccessibilityLabel(day))
+        .accessibilityHint("Shows this day's detail in Review")
+        .accessibilityAddTraits(isSelected(day) ? .isSelected : [])
+    }
+
+    /// Built outside the view builder: a long chain of interpolated fragments
+    /// inside the body defeats the type checker.
+    private func rowAccessibilityLabel(_ day: HistoryDay) -> String {
+        var parts = [Tokens.longDate(day.date),
+                     "\(Tokens.duration(day.tracked)) tracked",
+                     "\(Tokens.duration(day.focused)) focused",
+                     "\(day.sessions) sessions"]
+        if isSelected(day) { parts.append("selected") }
+        return parts.joined(separator: ", ")
+    }
+
+    @ViewBuilder private func rowBackground(_ day: HistoryDay) -> some View {
+        RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+            .fill(isSelected(day) ? Tokens.Colour.hover : Color.clear)
+    }
+
+    private func isSelected(_ day: HistoryDay) -> Bool {
+        guard let selected = navigation.reviewSelectedDate else { return false }
+        return Calendar.current.isDate(day.date, inSameDayAs: selected)
     }
 
     private func dayContext(_ day: HistoryDay) -> String {
@@ -334,18 +483,14 @@ struct HistoryView: View {
     }
 }
 
+/// A value only: the column header above it already names the measure.
 private struct HistoryMetric: View {
-    let label: String
     let value: String
+    let width: CGFloat
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 1) {
-            Text(label)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.callout.weight(.semibold).monospacedDigit())
-        }
-        .frame(minWidth: 76, alignment: .trailing)
+        Text(value)
+            .font(.callout.weight(.semibold).monospacedDigit())
+            .frame(width: width, alignment: .trailing)
     }
 }

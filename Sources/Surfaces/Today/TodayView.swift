@@ -1,5 +1,22 @@
 import SwiftUI
 
+/// Today's invariant reading sequence. A qualification that appears after the
+/// figures it governs has already misled the reader, so its position is part of
+/// the contract rather than a layout preference.
+enum DaySurfaceOrder: CaseIterable {
+    case header, qualification, timeline, selectedDetail, supportingGroups, recap
+
+    static func visible(hasQualification: Bool, hasSelection: Bool) -> [DaySurfaceOrder] {
+        allCases.filter { section in
+            switch section {
+            case .qualification: return hasQualification
+            case .selectedDetail: return hasSelection
+            default: return true
+            }
+        }
+    }
+}
+
 /// The evidence-led narrative of one calendar day. The ribbon is the dominant
 /// full-width visual; supporting groups read the same selected-day cache and do
 /// not recompute or reinterpret accounting.

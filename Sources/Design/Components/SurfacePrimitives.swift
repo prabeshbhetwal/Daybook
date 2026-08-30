@@ -142,6 +142,23 @@ struct AppUsageRow: View {
     }
 }
 
+/// One column heading in a data table. A table states its measures once, here,
+/// instead of repeating a label beside every value in every row.
+struct TableColumnHeader: View {
+    let title: String
+    var width: CGFloat?
+    var alignment: Alignment = .trailing
+
+    var body: some View {
+        Text(title)
+            .font(Tokens.Typography.metadata)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .frame(width: width, alignment: alignment)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
 struct EmptyState: View {
     let message: String
     let detail: String?

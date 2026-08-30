@@ -88,7 +88,10 @@ struct PeriodChart: View {
     let days: [PeriodDay]
     let average: TimeInterval
     var height: CGFloat = 150
-    /// A bar clicked: that day, so the dashboard can jump to it.
+    /// The day being inspected, so the bar that produced the open detail is
+    /// visibly the selected one. Selection never changes a bar's height.
+    var selectedDay: Date?
+    /// A bar clicked: that day, so the surface can inspect it.
     var onPickDay: ((Date) -> Void)?
     @StateObject private var hovered = DayBox()
 
@@ -132,14 +135,16 @@ struct PeriodChart: View {
                         ForEach(trackedPoints) { point in
                             BarMark(x: .value("Day", point.date, unit: .day),
                                     y: .value("Minutes", point.seconds / 60))
-                                .foregroundStyle(Tokens.Palette.app(rank: 0))
+                                .foregroundStyle(barStyle(for: point.date))
                                 .cornerRadius(Tokens.Radius.bar)
                         }
                         if average > 0 {
                             RuleMark(y: .value("Average", average / 60))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                                 .foregroundStyle(.secondary)
-                                .annotation(position: .top, alignment: .trailing) {
+                                // Leading, over the reserved padding column: the
+                                // trailing edge is where the final bar lives.
+                                .annotation(position: .top, alignment: .leading, spacing: 2) {
                                     Text("avg \(Tokens.preciseDuration(average))")
                                         .font(.caption2)
                                         .foregroundStyle(.secondary)
@@ -148,8 +153,17 @@ struct PeriodChart: View {
                     }
                     // Without an explicit domain the axis spans only the days that have
                     // bars, so a month with one busy week reads as a busy month.
-                    .chartXScale(domain: domain)
+                    .chartXScale(domain: PeriodChartLayout.domain(for: trackedPoints))
+                    .chartYScale(domain: 0...PeriodChartLayout.yMaximumMinutes(
+                        for: trackedPoints, average: average))
                     .chartLegend(.hidden)
+                    .chartYAxis {
+                        AxisMarks(position: .leading) {
+                            AxisGridLine().foregroundStyle(Tokens.Colour.line)
+                            AxisTick().foregroundStyle(Tokens.Colour.line)
+                            AxisValueLabel().foregroundStyle(.secondary)
+                        }
+                    }
                     .chartYAxisLabel("minutes", position: .leading)
                     // Hover names the day under the pointer; a click opens it.
                     .chartOverlay { proxy in
@@ -184,6 +198,16 @@ struct PeriodChart: View {
         .accessibilityRepresentation { accessibilitySummary }
     }
 
+    /// Selection is a restrained colour change, never a height change: the bar
+    /// keeps encoding exact tracked time. Unselected bars step back only while
+    /// something is actually selected.
+    private func barStyle(for date: Date) -> Color {
+        guard let selectedDay else { return Tokens.Palette.app(rank: 0) }
+        return Calendar.current.isDate(date, inSameDayAs: selectedDay)
+            ? Tokens.Colour.focus
+            : Tokens.Palette.app(rank: 0).opacity(0.45)
+    }
+
     private var chartLegend: some View {
         HStack(spacing: Tokens.Space.l) {
             Label("Bars: tracked time", systemImage: "chart.bar.fill")
@@ -201,11 +225,16 @@ struct PeriodChart: View {
             Text("Tracked time by day")
                 .accessibilityAddTraits(.isHeader)
             ForEach(trackedPoints) { point in
+                let isSelected = selectedDay.map {
+                    Calendar.current.isDate(point.date, inSameDayAs: $0)
+                } ?? false
+                let summary = point.accessibilitySummary() + (isSelected ? ", selected" : "")
                 if let onPickDay {
-                    Button(point.accessibilitySummary()) { onPickDay(point.date) }
+                    Button(summary) { onPickDay(point.date) }
                         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                 } else {
-                    Text(point.accessibilitySummary())
+                    Text(summary)
                 }
             }
             if average > 0 {
@@ -214,15 +243,6 @@ struct PeriodChart: View {
         }
     }
 
-    private var domain: ClosedRange<Date> {
-        guard let first = trackedPoints.first?.date, let last = trackedPoints.last?.date else {
-            let now = Date()
-            return now...now
-        }
-        // Half a day of padding either side, so the first and last bars are not
-        // clipped by the plot edge.
-        return first.addingTimeInterval(-43_200)...last.addingTimeInterval(43_200)
-    }
 }
 
 /// One app's usage per day across the period, in that app's own colour so the

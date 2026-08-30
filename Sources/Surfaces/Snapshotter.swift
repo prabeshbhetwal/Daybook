@@ -5,6 +5,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision
     case todayHistory, todayPast
     case reviewWeek, reviewMonth
+    case reviewSelectedFirstDay, reviewSelectedLastDay, reviewHistorySelection
     case insightsEnough, insightsEmpty
     case settingsGeneral, settingsFocus, settingsAway, settingsAutomatic
     case settingsTracking, settingsAppearance, settingsData, settingsAdvanced
@@ -22,6 +23,9 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .todayPast: return "Today — past day and integrity"
         case .reviewWeek: return "Review — week"
         case .reviewMonth: return "Review — month"
+        case .reviewSelectedFirstDay: return "Review — first day selected"
+        case .reviewSelectedLastDay: return "Review — last day selected"
+        case .reviewHistorySelection: return "Review — History row selected"
         case .insightsEnough: return "Insights — enough evidence"
         case .insightsEmpty: return "Insights — insufficient evidence"
         case .settingsGeneral: return "Settings — General"
@@ -63,13 +67,16 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    fileprivate var tab: AppTab? {
+    /// Internal rather than fileprivate: the visual-matrix test asserts that
+    /// every global tab owns a rendered surface.
+    var tab: AppTab? {
         switch self {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision:
             return .focus
         case .todayHistory, .todayPast:
             return .today
-        case .reviewWeek, .reviewMonth:
+        case .reviewWeek, .reviewMonth, .reviewSelectedFirstDay,
+             .reviewSelectedLastDay, .reviewHistorySelection:
             return .review
         case .insightsEnough, .insightsEmpty:
             return .insights
@@ -211,7 +218,7 @@ enum Snapshotter {
         settings: SettingsModel
     ) -> some View {
         let store = store(for: item.scenario)
-        let navigation = navigation(for: item.scenario)
+        let navigation = navigation(for: item.scenario, store: store)
         let size = shellSize(for: item)
         return MainWindowView(store: store,
                               settings: settings,
@@ -302,6 +309,10 @@ enum Snapshotter {
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.refreshReview(period: .month)
             return store
+        case .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection:
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            store.refreshReview(period: .week)
+            return store
         case .insightsEnough:
             return FixtureFactory.insightsStore(withEvidence: true)
         case .insightsEmpty:
@@ -314,13 +325,36 @@ enum Snapshotter {
         }
     }
 
-    private static func navigation(for scenario: SnapshotScenario) -> MainWindowModel {
+    /// Days the Review period and the History index both hold. Selecting any
+    /// other date would open no detail, which would make the fixture useless.
+    private static func selectableReviewDays(_ store: SessionStore) -> [Date] {
+        let calendar = Calendar.current
+        return store.reviewDays.map(\.date).filter { day in
+            store.historyDays.contains { calendar.isDate($0.date, inSameDayAs: day) }
+        }
+    }
+
+    private static func navigation(for scenario: SnapshotScenario,
+                                   store: SessionStore) -> MainWindowModel {
         let navigation = MainWindowModel(selectedTab: scenario.tab ?? .focus)
         switch scenario {
         case .reviewWeek:
             navigation.reviewSection = .week
         case .reviewMonth:
             navigation.reviewSection = .month
+        // The first and last selectable bars: the plot edges are exactly where
+        // a clipped mark or a colliding annotation would hide.
+        case .reviewSelectedFirstDay:
+            navigation.reviewSection = .week
+            if let day = selectableReviewDays(store).first { navigation.selectReviewDay(day) }
+        case .reviewSelectedLastDay:
+            navigation.reviewSection = .week
+            if let day = selectableReviewDays(store).last { navigation.selectReviewDay(day) }
+        case .reviewHistorySelection:
+            navigation.reviewSection = .history
+            if let day = store.filteredHistoryDays.first?.date {
+                navigation.selectReviewDay(day)
+            }
         case .insightsEnough, .insightsEmpty:
             navigation.insightRange = .week
         default:
@@ -340,7 +374,13 @@ enum Snapshotter {
         // Review's unscrolled period evidence is intentionally tall. A generous
         // canvas keeps the fixed shell bands and full log in one artefact;
         // ImageRenderer cannot rasterise the real ScrollView viewport.
-        case .review: height = 2_400
+        case .review:
+            switch item.scenario {
+            case .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection:
+                height = 2_800
+            default:
+                height = 2_400
+            }
         case .insights: height = 780
         case .settings: height = item.presentation == .minimum ? 1_450 : 1_300
         case nil: height = 780

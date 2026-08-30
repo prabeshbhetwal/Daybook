@@ -150,6 +150,9 @@ final class SessionStore: ObservableObject {
     @Published var reviewPeriod: TrackingPeriod = .week
     @Published var reviewDays: [PeriodDay] = []
     @Published var reviewLog: [LogEntry] = []
+    /// Full, day-scoped Review evidence for the selected-day detail. The
+    /// chronological review log remains independently bounded for rendering.
+    @Published var reviewEntriesByDay: [Date: [LogEntry]] = [:]
     @Published var reviewLogTotalEntries = 0
     @Published var reviewAppGroups: [LogAppGroup] = []
     @Published var reviewDayTotals: [Date: TimeInterval] = [:]

@@ -65,7 +65,7 @@ The main window has one persistent tab rail.
 |---|---|---|
 | Focus | What should I do now? | Start, pause, away/stop actions, current thread and break context |
 | Today | What happened on this calendar day? | Activity ribbon, selected inspector, sessions, app evidence and recap |
-| Review | How is time changing? | Exact tracked Week/Month bars and searchable History |
+| Review | How did time change across a period? | Period answer, exact tracked Week/Month bars, selected-day detail and searchable History |
 | Insights | What patterns are supported? | Gated pace, rhythm, quality and continuity statements |
 | Settings | How should the app behave? | Real persisted controls, privacy evidence and diagnostics |
 
@@ -100,6 +100,13 @@ the global hotkey—are blocked and route back to the existing decision surface.
 Historical sessions and app use are clipped by local calendar day, so a
 cross-midnight session contributes only its proper portion to each day.
 Review bars use exact tracked time; work-type composition is separate.
+
+Review reads as one workbench: the period answer, then the tracked-by-day
+trend, then the day you select from it. Selecting a bar or a History row
+explains that day inline and keeps you in Review — moving to Today is the
+separate, named **Open in Today** action on the selected-day detail. History
+states its date range in one compact control and names Tracked, Focused and
+Sessions once in a table header rather than beside every value.
 
 ## Privacy and local storage
 
@@ -180,7 +187,8 @@ The binary also supports review modes:
 ```
 
 `--gallery` and `--snapshot` use the same `SnapshotScenario` catalogue. The
-matrix covers Focus, Today, Review, Insights, all Settings groups, compact Away
+matrix covers Focus, Today, Review (including a selected first day, a selected
+last day and a selected History row), Insights, all Settings groups, compact Away
 and Reward states in light/dark; main-window scenarios also render at minimum
 and comfortable widths. `ImageRenderer` may show placeholder interiors for
 native AppKit fields or menus, so use the live Gallery when native control

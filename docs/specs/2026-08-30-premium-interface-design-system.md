@@ -1,7 +1,7 @@
 # FocusContinuity Premium Interface Design System
 
 **Date:** 2026-08-30  
-**Status:** Approved direction; detailed execution plan written; implementation not started  
+**Status:** Implemented and verified — headless suite green, visual matrix rendered and inspected
 **Scope:** Main checkout only. This document defines the visual and interaction system for every FocusContinuity surface. It does not change time-accounting semantics, persistence, or historical evidence.  
 **Supersedes:** The visual-system and Review-routing portions of `2026-08-29-interface-redesign-design.md`. The five-tab product architecture, its privacy constraints, and its truthfulness requirements remain in force.
 
@@ -337,7 +337,7 @@ Supporting evidence: top apps, work-type composition, focus sessions, full activ
 1. **Period header:** Review label, short canonical summary, Week/Month/History segmented control, previous/next period controls.
 2. **Period answer band:** exactly four related values: Tracked, Active days, Average / active day, Longest focus stretch.
 3. **Trend:** the tracked-by-day chart described in section 6.7.
-4. **Selected-day detail:** appears only after selection, immediately after the trend. It contains selected date, tracked/focused/sessions, a concise app/session breakdown, and explicit `Open in Today`. It has a clear close action and preserves the selected period/filter state.
+4. **Selected-day detail:** appears only after selection, immediately after the trend. It contains selected date, tracked/focused/sessions, a concise app/session breakdown, and explicit `Open in Today`. App evidence is complete for the selected local day even when the period's chronological log is display-capped; focus ranges and durations are clipped to that day before display. It has a clear close action and preserves the selected period/filter state.
 5. **Supporting breakdowns:** top apps and work-type composition. Their titles state what they measure; the work-type donut is never presented as tracked-time comparison.
 6. **Evidence lists:** Focus sessions and the full activity log appear after interpretation. Large lists are collapsible or grouped with a literal row count, but never silently discarded.
 

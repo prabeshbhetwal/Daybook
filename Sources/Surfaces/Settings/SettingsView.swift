@@ -1,5 +1,14 @@
 import SwiftUI
 
+/// Where Settings switches between the two-pane sidebar and the compact group
+/// menu, and how wide its control column reads. Chosen against the real
+/// 980–1,160 pt production window range.
+enum SettingsLayout {
+    static let detailMeasure: CGFloat = 720
+
+    static func usesSidebar(at width: CGFloat) -> Bool { width >= 1_080 }
+}
+
 /// First-class Settings canvas. Search filters the navigation metadata; the
 /// selected group remains the sole detail surface rather than expanding eight
 /// forms into one exhaustive page.
@@ -14,10 +23,11 @@ struct SettingsView: View {
         self.scrolls = scrolls
     }
 
-    /// Chosen against the real 980–1160 pt production window range: the
-    /// minimum gets the compact group menu and the comfortable default keeps
-    /// the two-pane sidebar.
-    static func usesSidebar(at width: CGFloat) -> Bool { width >= 1_080 }
+    /// Kept as the view's own spelling of the shared contract so existing call
+    /// sites and tests read naturally.
+    static func usesSidebar(at width: CGFloat) -> Bool {
+        SettingsLayout.usesSidebar(at: width)
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -116,7 +126,7 @@ struct SettingsView: View {
                 .symbolRenderingMode(.hierarchical)
                 .accessibilityAddTraits(.isHeader)
             SettingsGroups(model: model, section: section)
-                .frame(maxWidth: 720, alignment: .topLeading)
+                .frame(maxWidth: SettingsLayout.detailMeasure, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
 

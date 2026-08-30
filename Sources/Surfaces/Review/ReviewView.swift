@@ -1,16 +1,27 @@
 import SwiftUI
 
-/// The exact callback supplied to period bars and History day rows. Keeping the
-/// selection and navigation together prevents a route from opening one date
-/// while Today still displays another.
+/// The exact callback supplied to period bars and History day rows. Selecting
+/// evidence explains that day inside Review; it never changes the tab and never
+/// moves Today's own selected day. Opening the day in Today is a separate,
+/// visibly named action on the selected-day detail.
 @MainActor
 enum ReviewDayRoute {
-    static func callback(store: SessionStore,
-                         navigation: MainWindowModel) -> (Date) -> Void {
+    static func select(store: SessionStore,
+                       navigation: MainWindowModel) -> (Date) -> Void {
         { date in
-            store.selectDate(date)
-            navigation.openToday(date: date)
+            navigation.selectReviewDay(date)
         }
+    }
+}
+
+/// Review's invariant reading sequence. Naming it makes the hierarchy testable
+/// and stops a later edit from letting a breakdown drift above the answer it is
+/// meant to support.
+enum ReviewContentOrder: CaseIterable {
+    case periodNavigation, summary, trend, selectedDetail, breakdowns, evidenceLists
+
+    static func visible(selectedDay: Date?) -> [ReviewContentOrder] {
+        allCases.filter { $0 != .selectedDetail || selectedDay != nil }
     }
 }
 
@@ -40,7 +51,13 @@ struct ReviewView: View {
         .onDisappear { store.setReviewVisible(false) }
         .onChange(of: navigation.reviewSection) { section in
             store.selectReviewSection(section)
+            clearSelectedDayIfUnavailable()
         }
+        .onChange(of: store.reviewPeriod) { _ in clearSelectedDayIfUnavailable() }
+        .onChange(of: store.reviewDays) { _ in clearSelectedDayIfUnavailable() }
+        .onChange(of: store.historyFilter) { _ in clearSelectedDayIfUnavailable() }
+        .onChange(of: store.historyRangeStart) { _ in clearSelectedDayIfUnavailable() }
+        .onChange(of: store.historyRangeEnd) { _ in clearSelectedDayIfUnavailable() }
     }
 
     private var content: some View {
@@ -64,13 +81,34 @@ struct ReviewView: View {
                 Text("Review")
                     .font(Tokens.Typography.pageTitle)
                 Text(navigation.reviewSection == .history
-                     ? "Search the local record and open any day in Today."
+                     ? "Search the local record, select a day for detail, then open it in Today when needed."
                      : store.reviewSummaryLine)
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: Tokens.Space.l)
             ReviewSectionPills(selection: sectionBinding)
+        }
+    }
+
+    /// Nil unless Review still has canonical evidence for the selected day in
+    /// the section being shown. Availability is checked here as well as in the
+    /// clearing handlers, so a stale date can never render against a period it
+    /// no longer belongs to.
+    private var selectedDayDetail: ReviewDayDetail? {
+        guard let date = navigation.reviewSelectedDate,
+              store.reviewDayIsAvailable(date, section: navigation.reviewSection) else {
+            return nil
+        }
+        return store.reviewDayDetail(for: date)
+    }
+
+    /// Clears a selection the user can no longer see. A refresh that leaves the
+    /// day inside the shown evidence deliberately keeps it selected.
+    private func clearSelectedDayIfUnavailable() {
+        guard let date = navigation.reviewSelectedDate else { return }
+        if !store.reviewDayIsAvailable(date, section: navigation.reviewSection) {
+            navigation.clearReviewDay()
         }
     }
 
@@ -93,20 +131,27 @@ struct ReviewView: View {
                            icon: "chart.bar")
             }
         } else {
+            // The period answer, then the trend that supports it, then the day
+            // the user selected from that trend. Breakdowns and raw evidence
+            // follow interpretation rather than competing with it.
+            periodSummary
+
             SurfacePanel(showsHeader: false) {
                 SectionHeader(title: "Tracked by day",
                               trailing: "bars and average use exact tracked time")
                 PeriodChart(days: store.reviewDays,
                             average: store.reviewSummary.averagePerActiveDay,
                             height: 190,
-                            onPickDay: ReviewDayRoute.callback(
+                            selectedDay: navigation.reviewSelectedDate,
+                            onPickDay: ReviewDayRoute.select(
                                 store: store, navigation: navigation))
             }
 
-            periodSummary
-
-            if !store.reviewFocusSessions.isEmpty {
-                focusSessions
+            if let detail = selectedDayDetail {
+                ReviewDayDetailPanel(
+                    detail: detail,
+                    onOpenInToday: { navigation.openSelectedReviewDayInToday() },
+                    onClose: { navigation.clearReviewDay() })
             }
 
             ViewThatFits(in: .horizontal) {
@@ -120,6 +165,10 @@ struct ReviewView: View {
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
+
+            if !store.reviewFocusSessions.isEmpty {
+                focusSessions
+            }
 
             if !store.reviewLog.isEmpty {
                 SurfacePanel(showsHeader: false) {
