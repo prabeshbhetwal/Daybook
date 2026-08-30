@@ -90,7 +90,8 @@ expect(calendar.isDate(navigation.reviewSelectedDate ?? base,
 expect(navigation.requestedDate == nil,
        "Review selection does not change Today scope", &problems)
 navigation.openSelectedReviewDayInToday()
-expect(navigation.selectedTab == .today && navigation.requestedDate == yesterday,
+expect(navigation.selectedTab == .today
+           && calendar.isDate(navigation.requestedDate ?? base, inSameDayAs: yesterday),
        "only the explicit Review action opens the selected day in Today", &problems)
 ~~~
 
@@ -500,9 +501,9 @@ git commit -m "ui: organise Review around selected evidence"
 
 **Files:**
 
-- Modify: Sources/Surfaces/Today/TodayView.swift:26-121
+- Modify: Sources/Surfaces/Today/TodayView.swift:26-111
 - Modify: Sources/Surfaces/Today/TodayRecap.swift:1-77
-- Modify: Sources/Surfaces/Focus/FocusView.swift:4-54
+- Modify: Sources/Surfaces/Focus/FocusView.swift:4-49
 - Modify: Sources/Design/Components/SurfacePrimitives.swift
 - Modify: Sources/SelfTest.swift
 
@@ -521,6 +522,13 @@ enum FocusSurfaceLayout {
     static let operationalMeasure: CGFloat = 760
     static func permitsSupportingReport(state: SessionState) -> Bool
 }
+
+struct DayRecapNarrative: Equatable {
+    let lead: String?
+    let details: [String]
+
+    init(sentences: [String])
+}
 ~~~
 
 - FocusSurfaceLayout.permitsSupportingReport always returns false: Focus remains an operational canvas and never becomes a report/grid.
@@ -535,6 +543,9 @@ expect(FocusSurfaceLayout.operationalMeasure == 760,
        "Focus keeps a deliberate operational measure", &problems)
 expect(!FocusSurfaceLayout.permitsSupportingReport(state: .running),
        "Focus does not become a running dashboard", &problems)
+let narrative = DayRecapNarrative(sentences: ["First verified fact", "Second verified fact"])
+expect(narrative.lead == "First verified fact" && narrative.details == ["Second verified fact"],
+       "Today recap exposes one summary fact before its supporting disclosure", &problems)
 ~~~
 
 - [ ] **Step 2: Run the test to verify RED**
@@ -547,7 +558,16 @@ Expected: the presentation contracts are absent.
 
 - [ ] **Step 3: Implement Today's compact recap grammar**
 
-Make TodayView's sections follow DaySurfaceOrder. Update TodayRecap to use shared metric-band styling: labels once, tabular values, concise qualifiers, and one optional evidence sentence with a disclosure when it exceeds compact reading measure.
+Make TodayView's sections follow DaySurfaceOrder. Add DayRecapNarrative in TodayRecap.swift: its lead is the first item in SessionStore.summarySentences and its details are every remaining item, preserving their existing canonical SummaryText order.
+
+Replace the current direct store.insights.first block in TodayRecap with this narrative treatment:
+
+~~~text
+Lead summary sentence, visible when one exists
+DisclosureGroup("More about this day") containing remaining summary sentences
+~~~
+
+Use shared metric-band styling: labels once, tabular values and concise qualifiers. Render no narrative group when summarySentences is empty. This makes the existing SessionStore+Summary computation visible on Today without recomputing it, while keeping the recap compact.
 
 Do not alter timeline selection, past-day navigation, Escape, goal calculations, break representation or At the Mac semantics.
 
@@ -572,7 +592,7 @@ git commit -m "ui: reinforce day and focus hierarchy"
 
 - Modify: Sources/Surfaces/Insights/InsightSection.swift:3-55
 - Modify: Sources/Surfaces/Insights/InsightsView.swift:30-111
-- Modify: Sources/Surfaces/Settings/SettingsView.swift:5-164
+- Modify: Sources/Surfaces/Settings/SettingsView.swift:5-141
 - Modify: Sources/SelfTest.swift
 
 **Interfaces:**

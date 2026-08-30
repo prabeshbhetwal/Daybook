@@ -310,7 +310,9 @@ Today is the canonical day record, including past-day browsing.
 2. **Primary visual:** time ribbon across the full content width. It shows app stretches, breaks/gaps, focus brackets, labels, hover, and selected state.
 3. **Selected detail:** clicking a ribbon segment, session, or app opens a lightweight inspector directly below the ribbon. Escape clears only inspection; it does not change the selected day.
 4. **Supporting evidence:** two aligned groups: `Sessions` and `At the Mac`.
-5. **Recap:** one compact band with Focused, At the Mac, Sessions, Longest, and one evidence-qualified sentence where available.
+5. **Recap:** one compact band with Focused, At the Mac, Sessions, Longest, and the lead canonical SummaryText sentence where available. Remaining canonical day-summary sentences appear in a compact `More about this day` disclosure.
+
+The recap consumes the existing selected-day SummaryText output. It does not recalculate a parallel narrative or permanently duplicate a generic Insight card.
 
 The time ribbon stays dominant. Supporting cards use equal top alignment, but they must not visually rival the timeline. Named break time stays visibly separate from focus; unknown inactivity never resembles productive time.
 
