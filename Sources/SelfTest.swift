@@ -342,6 +342,8 @@ enum SelfTest {
              testDayAndFocusHierarchy),
             ("Insights lead with the finding; Settings keeps a native measure",
              testInsightAndSettingsPresentation),
+            ("Awards are earned from the record, never invented",
+             testAwardsAreEvidenceBacked),
             ("Insights render statements only when canonical evidence exists",
              testInsightSurfaceRequiresEvidence),
             ("Insights rhythm and active days exclude pre-accuracy usage",
@@ -6959,10 +6961,11 @@ enum SelfTest {
             var problems: [String] = []
             let required: [SnapshotScenario] = [
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
-                .todayHistory, .todayPast,
+                .todayHistory, .todayHistoryExpanded, .todayPast,
                 .reviewWeek, .reviewMonth,
                 .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection,
                 .insightsEnough, .insightsEmpty,
+                .awardsEarned, .awardsEmpty,
                 .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
                 .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
                 .awayQuick, .awayFull, .rewardEarned
@@ -7259,15 +7262,17 @@ enum SelfTest {
                "compact targets remain practical", &problems)
         expect(InterfaceDensity.compact.layout.rowHeight < InterfaceDensity.comfortable.layout.rowHeight,
                "compact density is observably denser", &problems)
-        expect(Tokens.Colour.resolved(.focus, dark: false).hex == 0x3478F6,
-               "light focus token matches the approved signal", &problems)
-        expect(Tokens.Colour.resolved(.attention, dark: true).hex == 0xE3A34F,
+        expect(Tokens.Colour.resolved(.focus, dark: false).hex == 0x007AFF,
+               "light focus token is Apple's system blue", &problems)
+        expect(Tokens.Colour.resolved(.focus, dark: true).hex == 0x0A84FF,
+               "dark focus token is the dark system blue", &problems)
+        expect(Tokens.Colour.resolved(.attention, dark: true).hex == 0xFF9F0A,
                "dark attention token remains semantic amber", &problems)
         let lightOnFocus = Tokens.Colour.resolved(.onFocus, dark: false).hex
         let darkOnFocus = Tokens.Colour.resolved(.onFocus, dark: true).hex
         expect(lightOnFocus == 0x0F1115 && darkOnFocus == 0x0F1115,
                "on-focus foreground remains near-black in both appearances", &problems)
-        let lightContrast = contrastRatio(lightOnFocus, 0x3478F6)
+        let lightContrast = contrastRatio(lightOnFocus, 0x007AFF)
         expect(lightContrast >= 4.5,
                "on-focus foreground has at least 4.5:1 contrast on light focus; got "
                + String(format: "%.2f:1", lightContrast), &problems)
@@ -7373,8 +7378,8 @@ enum SelfTest {
                    "the selected tab label announces selection and its command", &problems)
             expect(tabLabels.contains("Focus, not selected, Command 1"),
                    "unselected tab labels announce their state", &problems)
-            expect(Set(AppTab.allCases.map(\.commandNumber)) == Set(1...5),
-                   "Command 1 through Command 5 map uniquely to the five tabs", &problems)
+            expect(Set(AppTab.allCases.map(\.commandNumber)) == Set(1...6),
+                   "Command 1 through Command 6 map uniquely to the six tabs", &problems)
             expect(AppTab.review.moved(by: -1) == .today
                        && AppTab.review.moved(by: 1) == .insights,
                    "left and right move from the focused Review tab", &problems)
@@ -7673,6 +7678,78 @@ enum SelfTest {
     /// Review compares the authoritative tracked series rather than focus
     /// composition. History joins those usage days to archive evidence once,
     /// orders them newest first, and combines every requested filter.
+    /// An award may only state what the local record proves. An unearned one
+    /// shows real progress rather than an exhortation, and a run of goal days
+    /// is broken by a calendar gap, not merely by a lower figure.
+    private static func testAwardsAreEvidenceBacked() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: base)
+        func offset(_ days: Int) -> Date {
+            calendar.date(byAdding: .day, value: days, to: day) ?? day
+        }
+
+        // Seven consecutive days at goal, then a gap, then two more.
+        var credit: [Date: TimeInterval] = [:]
+        for index in 0..<7 { credit[offset(index)] = 4 * 3_600 }
+        credit[offset(8)] = 4 * 3_600
+        credit[offset(9)] = 4 * 3_600
+        // A day below the goal must not extend a run.
+        credit[offset(7)] = 30 * 60
+
+        var facts = AwardFacts(goal: 4 * 3_600,
+                               goalCreditByDay: credit,
+                               longestStretch: (95 * 60, offset(2)),
+                               activeDays: 22,
+                               totalFocused: 62 * 3_600 + 40 * 60,
+                               currentStreak: 12,
+                               bestStreak: 14)
+
+        let run = Awards.longestGoalRun(facts, calendar: calendar)
+        expect(run.length == 7, "the longest run is the seven consecutive days, got \(run.length)",
+               &problems)
+        expect(run.start.map { calendar.isDate($0, inSameDayAs: offset(0)) } == true
+                   && run.end.map { calendar.isDate($0, inSameDayAs: offset(6)) } == true,
+               "the run reports the literal days that bound it", &problems)
+
+        let awards = Awards.all(from: facts, calendar: calendar)
+        expect(awards.count == 4, "four awards are offered", &problems)
+        expect(Set(awards.map(\.id)).count == 4, "each award has its own identity", &problems)
+
+        guard let goalRun = awards.first(where: { $0.id == "goal-run" }),
+              let stretch = awards.first(where: { $0.id == "longest-stretch" }),
+              let active = awards.first(where: { $0.id == "active-days" }),
+              let hours = awards.first(where: { $0.id == "focused-hours" }) else {
+            return problems + ["every award must be present"]
+        }
+        expect(goalRun.isEarned, "seven days at goal earns the run award", &problems)
+        expect(stretch.isEarned && stretch.detail.contains("1h 35m"),
+               "the longest stretch states its own duration, got “\(stretch.detail)”", &problems)
+        expect(!active.isEarned && active.detail == "22 so far",
+               "an unearned award states real progress, got “\(active.detail)”", &problems)
+        expect(!hours.isEarned && hours.detail.contains("62h 40m"),
+               "progress toward hours is the exact recorded total, got “\(hours.detail)”", &problems)
+        expect(awards.allSatisfy { !$0.method.isEmpty },
+               "every award can explain what it measured", &problems)
+
+        // No goal set: the goal award is withheld rather than judged.
+        facts.goal = 0
+        let withoutGoal = Awards.all(from: facts, calendar: calendar)
+        expect(withoutGoal.first(where: { $0.id == "goal-run" })?.isEarned == false,
+               "no goal means no goal award", &problems)
+        expect(Awards.longestGoalRun(facts, calendar: calendar) == Awards.GoalRun.none,
+               "a run cannot be judged without a goal", &problems)
+
+        // An empty record earns nothing and still explains itself.
+        let empty = Awards.all(from: AwardFacts(), calendar: calendar)
+        expect(empty.allSatisfy { !$0.isEarned },
+               "an empty record earns nothing", &problems)
+        expect(empty.first(where: { $0.id == "longest-stretch" })?.detail
+                   == "No focus session recorded yet",
+               "an absent stretch says so plainly", &problems)
+        return problems
+    }
+
     /// An Insight card states its conclusion first and keeps its method behind
     /// a literal disclosure. Settings keeps the sidebar only while it fits.
     private static func testInsightAndSettingsPresentation() -> [String] {
@@ -7708,14 +7785,24 @@ enum SelfTest {
         var problems: [String] = []
 
         expect(DaySurfaceOrder.visible(hasQualification: true, hasSelection: true) == [
-            .header, .qualification, .timeline, .selectedDetail, .supportingGroups, .recap
-        ], "Today qualifies data before its timeline and keeps inspection near selection",
-               &problems)
+            .header, .qualification, .recap, .timeline, .selectedDetail, .supportingGroups
+        ], "Today qualifies before the recap, then answers the day before its chronology", &problems)
+
+        let closed = DayRecapDisclosurePresentation(isExpanded: false)
+        expect(closed.chevronSystemName == "chevron.right"
+                   && closed.accessibilityLabel == "Show more about this day"
+                   && closed.accessibilityValue == "Collapsed",
+               "the recap disclosure exposes one full-row collapsed action", &problems)
+        let open = DayRecapDisclosurePresentation(isExpanded: true)
+        expect(open.chevronSystemName == "chevron.down"
+                   && open.accessibilityLabel == "Hide more about this day"
+                   && open.accessibilityValue == "Expanded",
+               "the recap disclosure exposes one full-row expanded action", &problems)
         expect(DaySurfaceOrder.visible(hasQualification: false, hasSelection: false) == [
-            .header, .timeline, .supportingGroups, .recap
+            .header, .recap, .timeline, .supportingGroups
         ], "an unqualified day with no selection shows neither placeholder", &problems)
         expect(DaySurfaceOrder.visible(hasQualification: false, hasSelection: true) == [
-            .header, .timeline, .selectedDetail, .supportingGroups, .recap
+            .header, .recap, .timeline, .selectedDetail, .supportingGroups
         ], "inspection stays directly beneath the ribbon it came from", &problems)
 
         expect(FocusSurfaceLayout.operationalMeasure == 760,

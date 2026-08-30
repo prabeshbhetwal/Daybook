@@ -112,13 +112,25 @@ struct DayTimelineView: View {
         return GeometryReader { geometry in
             let width = max(1, geometry.size.width)
             Canvas { context, size in
+                // The ribbon is one object: a single rounded band with its
+                // stretches butted together, rather than a row of separate
+                // blocks. Clipping a copy keeps the focus brackets and the
+                // selected-session frame — which sit outside the band — free.
+                let bandRect = CGRect(x: 0, y: 0, width: size.width, height: bandHeight)
+                var band = context
+                band.clip(to: Path(roundedRect: bandRect,
+                                   cornerRadius: Tokens.Radius.nested,
+                                   style: .continuous))
+                // Time with nothing recorded is the band's own ground, so a gap
+                // reads as quiet rather than as a hole in the page.
+                band.fill(Path(bandRect), with: .color(Tokens.Colour.elevated))
+
                 // Elided gaps first, so activity draws over them.
                 for gap in layout.gaps {
                     let rect = CGRect(x: gap.xStart * size.width, y: 0,
                                       width: (gap.xEnd - gap.xStart) * size.width,
                                       height: bandHeight)
-                    context.fill(Path(roundedRect: rect, cornerRadius: Tokens.Radius.swatch),
-                                 with: .color(Tokens.Colour.elevated))
+                    band.fill(Path(rect), with: .color(Tokens.Colour.elevated))
 
                     // A canonical rest may occupy only part of this collapsed
                     // gap. Draw its proportional slice; unknown time keeps the
@@ -133,10 +145,9 @@ struct DayTimelineView: View {
                             y: 0,
                             width: max(1.5, (to - from) * (gap.xEnd - gap.xStart) * size.width),
                             height: bandHeight)
-                        context.fill(Path(roundedRect: restRect,
-                                          cornerRadius: Tokens.Radius.swatch),
-                                     with: .color(Tokens.Palette.workType(.breakTime)
-                                        .opacity(0.55)))
+                        band.fill(Path(restRect),
+                                  with: .color(Tokens.Palette.workType(.breakTime)
+                                     .opacity(0.55)))
                     }
                 }
 
@@ -146,8 +157,7 @@ struct DayTimelineView: View {
                     var line = Path()
                     line.move(to: CGPoint(x: fraction * size.width, y: 0))
                     line.addLine(to: CGPoint(x: fraction * size.width, y: bandHeight))
-                    context.stroke(line, with: .color(Tokens.Colour.line),
-                                   lineWidth: 0.5)
+                    band.stroke(line, with: .color(Tokens.Colour.line), lineWidth: 0.5)
                 }
 
                 // A session under the pointer or selected frames its spans and
@@ -171,12 +181,12 @@ struct DayTimelineView: View {
                     } ?? true
                     let matchesApp = highlight.map { $0 == segment.bundleID } ?? true
                     let emphasis: Double = (insideFrame && matchesApp) ? (isFocused ? 1 : 0.92) : 0.22
-                    context.fill(Path(roundedRect: rect, cornerRadius: Tokens.Radius.swatch),
-                                 with: .color(TimelinePalette.color(segment.colorIndex)
-                                    .opacity(emphasis)))
+                    band.fill(Path(rect),
+                              with: .color(TimelinePalette.color(segment.colorIndex)
+                                 .opacity(emphasis)))
                     if isFocused {
-                        context.stroke(Path(roundedRect: rect, cornerRadius: Tokens.Radius.swatch),
-                                       with: .color(.primary.opacity(0.6)), lineWidth: 1)
+                        band.stroke(Path(rect), with: .color(.primary.opacity(0.6)),
+                                    lineWidth: 1)
                     }
                 }
 

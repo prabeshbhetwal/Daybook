@@ -1,10 +1,21 @@
 import SwiftUI
 
+private struct TodayRecapInitiallyExpandedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var todayRecapInitiallyExpanded: Bool {
+        get { self[TodayRecapInitiallyExpandedKey.self] }
+        set { self[TodayRecapInitiallyExpandedKey.self] = newValue }
+    }
+}
+
 /// Today's invariant reading sequence. A qualification that appears after the
 /// figures it governs has already misled the reader, so its position is part of
 /// the contract rather than a layout preference.
 enum DaySurfaceOrder: CaseIterable {
-    case header, qualification, timeline, selectedDetail, supportingGroups, recap
+    case header, qualification, recap, timeline, selectedDetail, supportingGroups
 
     static func visible(hasQualification: Bool, hasSelection: Bool) -> [DaySurfaceOrder] {
         allCases.filter { section in
@@ -23,6 +34,7 @@ enum DaySurfaceOrder: CaseIterable {
 struct TodayView: View {
     @ObservedObject var store: SessionStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.todayRecapInitiallyExpanded) private var recapInitiallyExpanded
     /// `ImageRenderer` gives a `ScrollView` no intrinsic content. The repository
     /// harness renders this exact canvas unscrolled.
     var scrolls = true
@@ -54,6 +66,8 @@ struct TodayView: View {
                 IntegrityNotice(note)
             }
 
+            TodayRecap(store: store, initiallyExpanded: recapInitiallyExpanded)
+
             SurfacePanel(showsHeader: false) {
                 SectionHeader(title: "Time ribbon",
                               trailing: "app activity · focus brackets beneath")
@@ -73,7 +87,6 @@ struct TodayView: View {
                 supportingGroups(horizontal: false)
             }
 
-            TodayRecap(store: store)
         }
         .padding(Tokens.Space.xxl)
         .frame(maxWidth: .infinity, alignment: .topLeading)

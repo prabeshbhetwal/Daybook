@@ -3,10 +3,11 @@ import AppKit
 
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision
-    case todayHistory, todayPast
+    case todayHistory, todayHistoryExpanded, todayPast
     case reviewWeek, reviewMonth
     case reviewSelectedFirstDay, reviewSelectedLastDay, reviewHistorySelection
     case insightsEnough, insightsEmpty
+    case awardsEarned, awardsEmpty
     case settingsGeneral, settingsFocus, settingsAway, settingsAutomatic
     case settingsTracking, settingsAppearance, settingsData, settingsAdvanced
     case awayQuick, awayFull, rewardEarned
@@ -20,6 +21,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusPaused: return "Focus — paused"
         case .focusAwaitingDecision: return "Focus — awaiting decision"
         case .todayHistory: return "Today — history"
+        case .todayHistoryExpanded: return "Today — history expanded recap"
         case .todayPast: return "Today — past day and integrity"
         case .reviewWeek: return "Review — week"
         case .reviewMonth: return "Review — month"
@@ -28,6 +30,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .reviewHistorySelection: return "Review — History row selected"
         case .insightsEnough: return "Insights — enough evidence"
         case .insightsEmpty: return "Insights — insufficient evidence"
+        case .awardsEarned: return "Awards — earned and in progress"
+        case .awardsEmpty: return "Awards — nothing earned yet"
         case .settingsGeneral: return "Settings — General"
         case .settingsFocus: return "Settings — Focus sessions"
         case .settingsAway: return "Settings — Away and breaks"
@@ -73,13 +77,15 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision:
             return .focus
-        case .todayHistory, .todayPast:
+        case .todayHistory, .todayHistoryExpanded, .todayPast:
             return .today
         case .reviewWeek, .reviewMonth, .reviewSelectedFirstDay,
              .reviewSelectedLastDay, .reviewHistorySelection:
             return .review
         case .insightsEnough, .insightsEmpty:
             return .insights
+        case .awardsEarned, .awardsEmpty:
+            return .awards
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
             return .settings
@@ -240,6 +246,8 @@ enum Snapshotter {
                               insightsScrolls: false,
                               settingsScrolls: false)
             .environment(\.colorScheme, item.appearance.scheme)
+            .environment(\.todayRecapInitiallyExpanded,
+                         item.scenario == .todayHistoryExpanded)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
             .clipped()
             .background(Tokens.Colour.ground)
@@ -303,7 +311,7 @@ enum Snapshotter {
             return FixtureFactory.store(for: .paused)
         case .focusAwaitingDecision:
             return FixtureFactory.store(for: .needsResolution)
-        case .todayHistory:
+        case .todayHistory, .todayHistoryExpanded:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
@@ -328,6 +336,12 @@ enum Snapshotter {
             return FixtureFactory.insightsStore(withEvidence: true)
         case .insightsEmpty:
             return FixtureFactory.insightsStore(withEvidence: false)
+        case .awardsEarned:
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            store.refreshReview(period: .month)
+            return store
+        case .awardsEmpty:
+            return FixtureFactory.store(for: .firstRun)
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
             return FixtureFactory.store(for: .running)
@@ -393,6 +407,7 @@ enum Snapshotter {
                 height = 2_400
             }
         case .insights: height = 780
+        case .awards: height = 900
         case .settings: height = item.presentation == .minimum ? 1_450 : 1_300
         case nil: height = 780
         }

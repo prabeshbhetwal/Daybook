@@ -15,11 +15,24 @@ struct DayRecapNarrative: Equatable {
     }
 }
 
+struct DayRecapDisclosurePresentation: Equatable {
+    let isExpanded: Bool
+
+    var chevronSystemName: String { isExpanded ? "chevron.down" : "chevron.right" }
+    var accessibilityLabel: String {
+        isExpanded ? "Hide more about this day" : "Show more about this day"
+    }
+    var accessibilityValue: String { isExpanded ? "Expanded" : "Collapsed" }
+}
+
 /// A quiet reconciliation line, not a KPI grid. Focused displays raw canonical
 /// focus-session time; its note separately names focused-active goal credit.
 /// At the Mac remains observed app-use time.
 struct TodayRecap: View {
     @ObservedObject var store: SessionStore
+    var initiallyExpanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var narrativeExpanded = BoolBox()
 
     private var goal: GoalProgress { store.selectedDayGoal }
     private var sessions: Int {
@@ -63,7 +76,34 @@ struct TodayRecap: View {
                     .frame(maxWidth: 820, alignment: .leading)
                     .textSelection(.enabled)
                 if !recap.details.isEmpty {
-                    DisclosureGroup("More about this day") {
+                    let isExpanded = initiallyExpanded || narrativeExpanded.value
+                    let presentation = DayRecapDisclosurePresentation(isExpanded: isExpanded)
+                    Button {
+                        if reduceMotion {
+                            narrativeExpanded.value.toggle()
+                        } else {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                narrativeExpanded.value.toggle()
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: Tokens.Space.xs) {
+                            Image(systemName: presentation.chevronSystemName)
+                                .font(.caption.weight(.semibold))
+                            Text("More about this day")
+                            Spacer(minLength: 0)
+                        }
+                        .frame(maxWidth: .infinity,
+                               minHeight: AccessibilityMetrics.minimumTargetSize,
+                               alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .font(Tokens.Typography.metadata)
+                    .accessibilityLabel(presentation.accessibilityLabel)
+                    .accessibilityValue(presentation.accessibilityValue)
+
+                    if isExpanded {
                         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                             ForEach(recap.details, id: \.self) { sentence in
                                 Text(sentence)
@@ -77,7 +117,6 @@ struct TodayRecap: View {
                         }
                         .padding(.top, Tokens.Space.xs)
                     }
-                    .font(Tokens.Typography.metadata)
                 }
             }
         }

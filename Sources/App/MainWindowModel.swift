@@ -6,6 +6,7 @@ enum AppTab: String, CaseIterable, Identifiable {
     case today
     case review
     case insights
+    case awards
     case settings
 
     var id: String { rawValue }
@@ -16,6 +17,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .today: return "Today"
         case .review: return "Review"
         case .insights: return "Insights"
+        case .awards: return "Awards"
         case .settings: return "Settings"
         }
     }
@@ -26,6 +28,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .today: return "calendar"
         case .review: return "chart.bar"
         case .insights: return "sparkles"
+        case .awards: return "rosette"
         case .settings: return "gearshape"
         }
     }
@@ -36,7 +39,8 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .today: return 2
         case .review: return 3
         case .insights: return 4
-        case .settings: return 5
+        case .awards: return 5
+        case .settings: return 6
         }
     }
 

@@ -19,15 +19,20 @@ enum Tokens {
 
             fileprivate var swatch: (light: UInt32, dark: UInt32) {
                 switch self {
-                case .ground: return (0xF7F6F3, 0x1C1919)
-                case .surface: return (0xFFFFFF, 0x272222)
-                case .elevated: return (0xF0EEEA, 0x332C2D)
+                // Apple's neutral system greys rather than a warm cast: the
+                // shell should read as a macOS window, not as a themed one.
+                case .ground: return (0xF2F2F7, 0x1C1C1E)
+                case .surface: return (0xFFFFFF, 0x2C2C2E)
+                case .elevated: return (0xEBEBF0, 0x3A3A3C)
                 case .line: return (0x000000, 0xFFFFFF)
                 case .hover: return (0x000000, 0xFFFFFF)
-                case .focus: return (0x3478F6, 0x82AEFF)
+                // System blue, in its own light and dark variants.
+                case .focus: return (0x007AFF, 0x0A84FF)
+                // Near-black, not white: white on system blue is 4.02:1, which
+                // fails the contrast contract this app holds itself to.
                 case .onFocus: return (0x0F1115, 0x0F1115)
-                case .progress: return (0x238D7A, 0x52C3AC)
-                case .attention: return (0xB9721F, 0xE3A34F)
+                case .progress: return (0x34C759, 0x30D158)
+                case .attention: return (0xFF9500, 0xFF9F0A)
                 case .danger: return (0xFF3B30, 0xFF453A)
                 }
             }
@@ -216,13 +221,15 @@ enum Tokens {
     // MARK: Palette
 
     enum Palette {
+        /// The Apple system hues, in light and dark variants. Rank 0 is the
+        /// busiest app, and the last entry is always the neutral "other" grey.
         private static let pairs: [(light: UInt32, dark: UInt32)] = [
-            (0x4A7BE0, 0x7DA2F2),
-            (0x2E9E86, 0x5CC4AB),
-            (0xD08A2A, 0xE6AE5B),
-            (0x8A6CD4, 0xAE97E8),
-            (0xCF5F7C, 0xE58AA3),
-            (0x4695B5, 0x78BBD5),
+            (0x007AFF, 0x0A84FF),
+            (0x30B0C7, 0x40C8E0),
+            (0xFF9500, 0xFF9F0A),
+            (0x5E5CE6, 0x7D7AFF),
+            (0xFF375F, 0xFF6482),
+            (0xAF52DE, 0xBF5AF2),
             (0x8E8E93, 0x98989D)
         ]
         private static let ramp: [Color] = pairs.map { Color(lightHex: $0.light, darkHex: $0.dark) }
@@ -232,15 +239,18 @@ enum Tokens {
         }
 
         static let untracked = ramp[ramp.count - 1]
-        static let slate = Color(lightHex: 0x6C7A93, darkHex: 0x93A1BB)
-        static let warmGrey = Color(lightHex: 0xA39E98, darkHex: 0x7E7973)
+        static let slate = Color(lightHex: 0x30B0C7, darkHex: 0x40C8E0)
+        static let warmGrey = Color(lightHex: 0x8E8E93, darkHex: 0x98989D)
 
+        /// Fixed identities, matching the approved design's composition legend:
+        /// deep work indigo, meetings orange, admin teal, learning pink, rest
+        /// neutral grey. Rest must never look like work.
         static func workType(_ type: WorkType) -> Color {
             switch type {
-            case .deepWork: return .accentColor
+            case .deepWork: return ramp[3]
             case .meetings: return ramp[2]
-            case .admin: return slate
-            case .learning: return ramp[3]
+            case .admin: return ramp[1]
+            case .learning: return ramp[4]
             case .breakTime: return warmGrey
             }
         }
@@ -253,6 +263,27 @@ enum Tokens {
             return (Double((hex >> 16) & 0xFF) / 255,
                     Double((hex >> 8) & 0xFF) / 255,
                     Double(hex & 0xFF) / 255)
+        }
+    }
+
+    /// The design's motion notes as one contract. Every value is short,
+    /// interruptible and explains a state change; nothing here is decorative,
+    /// and `reduceMotion` collapses all of it to an instant cut.
+    enum Motion {
+        /// The selection pill travels rather than redrawing, so the eye follows
+        /// one object across the rail.
+        static let selection = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.42)
+        /// Content settling into place after a view change.
+        static let rise = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.5)
+        /// Children enter this far apart, in order.
+        static let stagger: Double = 0.06
+        /// A hover is a tint, never a colour jump.
+        static let hover = Animation.easeOut(duration: 0.16)
+        /// Pressable things settle back from this scale.
+        static let pressedScale: CGFloat = 0.97
+
+        static func animation(_ base: Animation, reduceMotion: Bool) -> Animation? {
+            reduceMotion ? nil : base
         }
     }
 

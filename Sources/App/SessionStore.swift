@@ -27,6 +27,8 @@ final class SessionStore: ObservableObject {
     @Published var threadStartedAt: Date?
     @Published private(set) var todayTotal: TimeInterval = 0
     @Published private(set) var streak = 0
+    /// The best run on record, for the Awards streak panel.
+    @Published private(set) var streakBest = 0
     @Published private(set) var weekBars: [DayBar] = []
     @Published private(set) var quickStarts: [QuickStart] = []
     @Published var threadsToday: [ThreadSummary] = []
@@ -559,6 +561,7 @@ final class SessionStore: ObservableObject {
         sessionsToday = engine.sessionsToday
         longestToday = engine.longestToday
         streak = engine.archive.currentStreak(includingToday: inFlight)
+        streakBest = engine.archive.bestStreak()
         goal = GoalProgress(goal: engine.store.dailyGoal,
                             achieved: DailyGoal(archive: engine.archive,
                                                 goal: engine.store.dailyGoal,

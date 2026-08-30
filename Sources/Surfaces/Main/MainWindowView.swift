@@ -42,6 +42,8 @@ struct MainWindowView: View {
             ReviewView(store: store, navigation: navigation, scrolls: reviewScrolls)
         case .insights:
             InsightsView(store: store, navigation: navigation, scrolls: insightsScrolls)
+        case .awards:
+            AwardsView(store: store, scrolls: insightsScrolls)
         case .settings:
             SettingsView(model: settings, navigation: navigation,
                          scrolls: settingsScrolls)
