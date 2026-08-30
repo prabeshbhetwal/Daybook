@@ -72,6 +72,7 @@ struct SettingsView: View {
         .frame(maxWidth: 480)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Search settings")
+        .accessibilitySortPriority(2)
     }
 
     private func wide(sections: [SettingsSection], section: SettingsSection) -> some View {
@@ -89,6 +90,7 @@ struct SettingsView: View {
             detail(section)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilitySortPriority(1)
     }
 
     private func narrow(sections: [SettingsSection], section: SettingsSection) -> some View {
@@ -104,6 +106,7 @@ struct SettingsView: View {
             detail(section)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilitySortPriority(1)
     }
 
     @ViewBuilder private func detail(_ section: SettingsSection) -> some View {

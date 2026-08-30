@@ -17,6 +17,7 @@ struct AwayAnswerGrid: View {
     /// to fit on a timeline label.
     var onReason: ((String) -> Void)?
     @StateObject private var reason = ReasonBox()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// One set of metrics for the buttons and the field, so the field is the
     /// same height as the row above it and the text sits with air below it.
@@ -94,26 +95,28 @@ struct AwayAnswerGrid: View {
                 Button(action: submitReason) {
                     Image(systemName: "arrow.up")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 22, height: 22)
-                        .background(Color.accentColor, in: Circle())
+                        .foregroundStyle(Tokens.Colour.onFocus)
+                        .frame(width: AccessibilityMetrics.minimumTargetSize,
+                               height: AccessibilityMetrics.minimumTargetSize)
+                        .background(Tokens.Colour.focus, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .help("Log it (Return)")
                 .accessibilityLabel("Log the reason")
-                .transition(.scale.combined(with: .opacity))
+                .transition(reduceMotion ? .identity : .scale.combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: hasText)
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8),
+                   value: hasText)
         .padding(.horizontal, controlHorizontalPadding)
         // Same vertical room as the buttons (and the same optical shift), less
         // the submit circle's overhang, so the field matches the row above.
         .padding(.top, hasText ? max(1, controlVerticalPadding - 3) : controlVerticalPadding - 1)
         .padding(.bottom, hasText ? max(3, controlVerticalPadding - 1) : controlVerticalPadding + 1)
-        .background(Tokens.Surface.well,
+        .background(Tokens.Colour.elevated,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
-            .strokeBorder(Tokens.Surface.hairline))
+            .strokeBorder(Tokens.Colour.line))
         .help("Name the break and it is written down under that name")
     }
 
@@ -130,6 +133,7 @@ struct AwayAnswerGrid: View {
             Label("Away \(Tokens.duration(away))", systemImage: "moon.zzz.fill")
                 .font(compact ? .headline : .title3.weight(.semibold))
                 .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Tokens.Colour.attention)
             if let range {
                 Text(Tokens.timeRange(range.start, range.end))
                     .font(compact ? .caption : .callout)
@@ -153,6 +157,7 @@ struct AwayAnswerGrid: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .padding(.horizontal, controlHorizontalPadding)
             // Optically centred: SF's line box carries more headroom than
             // descent, so equal padding leaves the glyphs sitting low and the
@@ -160,11 +165,12 @@ struct AwayAnswerGrid: View {
             // above the ink, 20 px below — hence a point shifted downward.
             .padding(.top, controlVerticalPadding - 1)
             .padding(.bottom, controlVerticalPadding + 1)
-            .background(answer.prominent ? AnyShapeStyle(Color.accentColor)
-                                         : AnyShapeStyle(Tokens.Surface.control),
+            .background(answer.prominent ? AnyShapeStyle(Tokens.Colour.focus)
+                                         : AnyShapeStyle(Tokens.Colour.elevated),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
                                              style: .continuous))
-            .foregroundStyle(answer.prominent ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .foregroundStyle(answer.prominent ? AnyShapeStyle(Tokens.Colour.onFocus)
+                                              : AnyShapeStyle(.primary))
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.control))
         }
         .buttonStyle(.plain)

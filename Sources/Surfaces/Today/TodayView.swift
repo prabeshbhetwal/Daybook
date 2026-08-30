@@ -5,6 +5,7 @@ import SwiftUI
 /// not recompute or reinterpret accounting.
 struct TodayView: View {
     @ObservedObject var store: SessionStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// `ImageRenderer` gives a `ScrollView` no intrinsic content. The repository
     /// harness renders this exact canvas unscrolled.
     var scrolls = true
@@ -47,33 +48,53 @@ struct TodayView: View {
                 }
             }
 
-            HStack(alignment: .top, spacing: Tokens.Space.l) {
-                SurfacePanel(showsHeader: false) {
-                    SessionsCard(
-                        entries: store.daySessions,
-                        selected: store.selectedSession,
-                        watchingSessionID: watchingSessionID,
-                        onHover: { store.hoverSession($0) },
-                        onSelect: { store.selectTodaySession($0) })
-                }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                SurfacePanel(showsHeader: false) {
-                    TodayAppsList(apps: store.rankedApps, store: store,
-                                  selectedBundleID: store.todayInspector?.kind == .app
-                                      ? store.todayInspector?.bundleID : nil)
-                }
-                .frame(maxWidth: .infinity, alignment: .topLeading)
+            ViewThatFits(in: .horizontal) {
+                supportingGroups(horizontal: true)
+                supportingGroups(horizontal: false)
             }
-            .fixedSize(horizontal: false, vertical: true)
 
             TodayRecap(store: store)
         }
         .padding(Tokens.Space.xxl)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .onExitCommand { store.clearTodaySelection() }
-        .animation(.easeInOut(duration: 0.18), value: store.dayOffset)
-        .animation(.easeInOut(duration: 0.16), value: store.todayInspector)
+        .onExitCommand { Self.handleEscape(in: store) }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: store.dayOffset)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: store.todayInspector)
+    }
+
+    /// The exact action behind Escape. Browsing scope is deliberately distinct
+    /// from transient inspection, so this must never call `goToToday` or change
+    /// `dayOffset`.
+    static func handleEscape(in store: SessionStore) {
+        store.clearTodaySelection()
+    }
+
+    @ViewBuilder
+    private func supportingGroups(horizontal: Bool) -> some View {
+        let sessions = SurfacePanel(showsHeader: false) {
+            SessionsCard(
+                entries: store.daySessions,
+                selected: store.selectedSession,
+                watchingSessionID: watchingSessionID,
+                onHover: { store.hoverSession($0) },
+                onSelect: { store.selectTodaySession($0) })
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+
+        let apps = SurfacePanel(showsHeader: false) {
+            TodayAppsList(apps: store.rankedApps, store: store,
+                          selectedBundleID: store.todayInspector?.kind == .app
+                              ? store.todayInspector?.bundleID : nil)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+
+        if horizontal {
+            HStack(alignment: .top, spacing: Tokens.Space.l) { sessions; apps }
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            VStack(alignment: .leading, spacing: Tokens.Space.l) { sessions; apps }
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var watchingSessionID: UUID? {

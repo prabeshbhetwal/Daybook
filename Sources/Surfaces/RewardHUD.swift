@@ -22,7 +22,7 @@ private struct RewardHUDView: View {
         HStack(alignment: .top, spacing: Tokens.Space.m) {
             Image(systemName: model.symbolName)
                 .font(.title2)
-                .foregroundStyle(.tint)
+                .foregroundStyle(Tokens.Colour.progress)
                 .frame(width: Tokens.Space.xl)
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text(model.title)
@@ -40,18 +40,27 @@ private struct RewardHUDView: View {
                     Button("Undo", action: onUndoTapped)
                         .buttonStyle(.borderless)
                         .font(.caption.weight(.medium))
+                        .foregroundStyle(Tokens.Colour.focus)
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 }
             }
             Spacer(minLength: 0)
         }
         .padding(Tokens.Space.m)
         .frame(width: Tokens.popoverWidth, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Tokens.cardCorner))
+        .background(Tokens.Colour.surface,
+                    in: RoundedRectangle(cornerRadius: Tokens.cardCorner))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.cardCorner)
+                .strokeBorder(Tokens.Colour.progress.opacity(0.38), lineWidth: 1)
+        )
         // A tap anywhere dismisses; the Undo button is the deepest hit-tested
         // view at its location, so SwiftUI resolves its own tap first and this
         // background gesture never steals it.
         .contentShape(RoundedRectangle(cornerRadius: Tokens.cardCorner))
         .onTapGesture(perform: onBackgroundTapped)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(model.title). \(model.detail)")
     }
 }
 
@@ -147,11 +156,15 @@ final class RewardHUD {
         // Every call restarts the fade from invisible, so a reward that
         // replaces one still on screen gets its own clean 0.2s entrance
         // rather than an ambiguous cross-fade from wherever the old one was.
-        panel.alphaValue = 0
         panel.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            panel.animator().alphaValue = 1
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            panel.alphaValue = 1
+        } else {
+            panel.alphaValue = 0
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                panel.animator().alphaValue = 1
+            }
         }
 
         let workItem = DispatchWorkItem { [weak self] in
@@ -175,6 +188,11 @@ final class RewardHUD {
 
     private func fadeOutAndOrderOut(generation: Int) {
         guard panel.isVisible, generation == self.generation else { return }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            panel.alphaValue = 0
+            panel.orderOut(nil)
+            return
+        }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.3
             panel.animator().alphaValue = 0

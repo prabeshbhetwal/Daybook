@@ -356,7 +356,9 @@ enum SelfTest {
             ("Settings accuracy epoch always includes its year",
              testSettingsAccuracyEpochYear),
             ("Compact Focus snapshots retain the title and status band",
-             testCompactFocusSnapshotStructure)
+             testCompactFocusSnapshotStructure),
+            ("Accessible navigation and charts expose literal selected-state evidence",
+             testAccessibleNavigationAndChartSummaries)
         ]
 
         print("FocusContinuity self-test")
@@ -6926,6 +6928,64 @@ enum SelfTest {
             navigation.openSettings()
             expect(navigation.selectedTab == .settings,
                    "command-comma routes to Settings", &problems)
+            return problems
+        }
+    }
+
+    /// Accessibility must expose the same literal navigation and tracked-time
+    /// evidence as the visible UI. This exercises the production label builders
+    /// and the exact Escape action wired to Today rather than inspecting source.
+    private static func testAccessibleNavigationAndChartSummaries() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+
+            let tabLabels = AppTab.allCases.map {
+                $0.accessibilityLabel(isSelected: $0 == .review)
+            }
+            expect(tabLabels.contains("Review, selected, Command 3"),
+                   "the selected tab label announces selection and its command", &problems)
+            expect(tabLabels.contains("Focus, not selected, Command 1"),
+                   "unselected tab labels announce their state", &problems)
+            expect(Set(AppTab.allCases.map(\.commandNumber)) == Set(1...5),
+                   "Command 1 through Command 5 map uniquely to the five tabs", &problems)
+            expect(AppTab.review.moved(by: -1) == .today
+                       && AppTab.review.moved(by: 1) == .insights,
+                   "left and right move from the focused Review tab", &problems)
+
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.locale = Locale(identifier: "en_AU")
+            guard let sydney = TimeZone(identifier: "Australia/Sydney") else {
+                return problems + ["could not construct the Sydney time zone"]
+            }
+            calendar.timeZone = sydney
+            guard let saturday = calendar.date(from: DateComponents(
+                year: 2026, month: 8, day: 29, hour: 12)) else {
+                return problems + ["could not construct the chart-summary fixture date"]
+            }
+            let point = PeriodChartPoint(date: saturday, seconds: 5 * 3_600 + 10 * 60)
+            expect(point.accessibilitySummary(calendar: calendar)
+                       == "Saturday 29 August, 5 hours 10 minutes tracked",
+                   "period points expose a literal date and tracked duration; got "
+                       + "'\(point.accessibilitySummary(calendar: calendar))'", &problems)
+
+            expect(AccessibilityMetrics.minimumTargetSize >= 28,
+                   "compact controls retain a practical 28pt target", &problems)
+            expect(InterfaceDensity.compact.layout.rowHeight
+                       >= AccessibilityMetrics.minimumTargetSize,
+                   "compact rows remain at least as tall as the minimum target", &problems)
+
+            let clock = Clock(base)
+            let store = SessionStore(engine: makeEngine(clock), now: { clock.value })
+            store.dayOffset = 1
+            store.selectedSegment = TimelineSegment(
+                id: UUID(), bundleID: "com.example.editor", appName: "Editor",
+                start: base.addingTimeInterval(-3_600), end: base, colorIndex: 0)
+            let selectedDay = store.selectedDay
+            TodayView.handleEscape(in: store)
+            expect(store.selectedSegment == nil && store.todayInspector == nil,
+                   "Escape clears the Today inspector selection", &problems)
+            expect(calendar.isDate(store.selectedDay, inSameDayAs: selectedDay),
+                   "Escape preserves the selected calendar day", &problems)
             return problems
         }
     }

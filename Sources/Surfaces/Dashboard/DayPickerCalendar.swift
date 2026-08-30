@@ -85,6 +85,7 @@ struct DayPickerCalendar: View {
                     .foregroundStyle(Tokens.Colour.focus)
                     .padding(.horizontal, Tokens.Space.s)
                     .padding(.vertical, 3)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
             }
             IconButton(systemImage: "chevron.left", help: "Previous month") { step(-1) }
@@ -241,7 +242,9 @@ struct DayPickerCalendar: View {
         .disabled(!pickable)
         .onHover { hover.id = $0 ? key.description : nil }
         .help(helpText(day, facts, pickable: pickable))
-        .accessibilityLabel(helpText(day, facts, pickable: pickable))
+        .accessibilityLabel(dateAccessibilityLabel(day, facts, pickable: pickable,
+                                                   selected: isSelected))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     /// `Tue 19 Aug · 3h 20m focused · 5h 10m at the Mac · 2 sessions`.
@@ -257,6 +260,22 @@ struct DayPickerCalendar: View {
         return parts.joined(separator: " · ")
     }
 
+    private func dateAccessibilityLabel(_ day: Date, _ facts: DayFacts,
+                                        pickable: Bool, selected: Bool) -> String {
+        guard pickable else { return "\(Tokens.longDate(day)), unavailable" }
+        var parts = [Tokens.longDate(day), selected ? "selected date" : "not selected"]
+        if facts.tracked == 0 {
+            parts.append("nothing recorded")
+        } else {
+            if facts.focused > 0 { parts.append("\(Tokens.spent(facts.focused)) focused") }
+            parts.append("\(Tokens.spent(facts.tracked)) at the Mac")
+            if facts.sessions > 0 {
+                parts.append(facts.sessions == 1 ? "1 session" : "\(facts.sessions) sessions")
+            }
+        }
+        return parts.joined(separator: ", ")
+    }
+
     /// Four tint steps by share of the goal — enough to read the month's shape
     /// without turning the grid into a heat map.
     private func tint(_ share: Double) -> Double {
@@ -269,20 +288,17 @@ struct DayPickerCalendar: View {
     }
 
     private var legend: some View {
-        HStack(spacing: Tokens.Space.m) {
-            HStack(spacing: 3) {
-                ForEach([0.10, 0.20, 0.32], id: \.self) { opacity in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Tokens.Colour.focus.opacity(opacity))
-                        .frame(width: 10, height: 10)
-                }
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            HStack(spacing: Tokens.Space.m) {
+                Label("Below half", systemImage: "circle")
+                Label("Half or more", systemImage: "circle.lefthalf.filled")
+                Label("Goal met", systemImage: "checkmark.circle.fill")
             }
-            Text("share of your \(Tokens.duration(goal)) goal")
-            Spacer()
-            Text("figure: focused time")
+            Text("Share of your \(Tokens.duration(goal)) goal · figure is focused time")
         }
         .font(Tokens.Typography.detail)
         .foregroundStyle(.tertiary)
+        .accessibilityElement(children: .combine)
     }
 
     private func load() {

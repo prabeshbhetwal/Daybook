@@ -6,6 +6,7 @@ import SwiftUI
 /// A per-day series as a strip of bars, the last day full strength. Lives
 /// under a stat card's figure: the shape of the week behind today's number.
 struct Sparkline: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let values: [Double]
     var tint: Color = .accentColor
     var height: CGFloat = 26
@@ -21,7 +22,8 @@ struct Sparkline: View {
             }
         }
         .frame(height: height, alignment: .bottom)
-        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: values)
+        .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.85),
+                   value: values)
         .accessibilityHidden(true)
     }
 }

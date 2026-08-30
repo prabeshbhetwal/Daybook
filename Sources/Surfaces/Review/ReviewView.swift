@@ -20,6 +20,7 @@ enum ReviewDayRoute {
 struct ReviewView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The repository renderer cannot infer a `ScrollView`'s intrinsic height.
     var scrolls = true
 
@@ -53,7 +54,8 @@ struct ReviewView: View {
         }
         .padding(Tokens.Space.xxl)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .animation(.easeInOut(duration: 0.18), value: navigation.reviewSection)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18),
+                   value: navigation.reviewSection)
     }
 
     private var header: some View {
@@ -107,9 +109,15 @@ struct ReviewView: View {
                 focusSessions
             }
 
-            HStack(alignment: .top, spacing: Tokens.Space.l) {
-                topApps
-                workTypeComposition
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: Tokens.Space.l) {
+                    topApps
+                    workTypeComposition
+                }
+                VStack(alignment: .leading, spacing: Tokens.Space.l) {
+                    topApps
+                    workTypeComposition
+                }
             }
             .fixedSize(horizontal: false, vertical: true)
 
@@ -136,6 +144,9 @@ struct ReviewView: View {
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(store.reviewPeriodLabel), selected period")
+            .accessibilityAddTraits(.isSelected)
             IconButton(systemImage: "chevron.right",
                        help: store.reviewPeriod == .week ? "Next week" : "Next month") {
                 store.moveReviewPeriod(by: 1)
@@ -144,7 +155,7 @@ struct ReviewView: View {
             Spacer()
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Review period, \(store.reviewPeriodLabel)")
+        .accessibilityLabel("Review period, \(store.reviewPeriodLabel), selected")
     }
 
     private var periodSummary: some View {
@@ -268,7 +279,7 @@ private struct ReviewSectionPills: View {
                     Text(section.title)
                         .font(Tokens.Typography.metadata.weight(.semibold))
                         .padding(.horizontal, Tokens.Space.m)
-                        .frame(minHeight: 28)
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                         .background(selection == section
                                     ? Tokens.Colour.focus
                                     : Color.clear,
@@ -280,11 +291,14 @@ private struct ReviewSectionPills: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(section.title), "
                                     + (selection == section ? "selected" : "not selected"))
+                .accessibilityAddTraits(selection == section ? .isSelected : [])
             }
         }
         .padding(3)
         .background(Tokens.Colour.elevated, in: Capsule())
         .overlay(Capsule().strokeBorder(Tokens.Colour.line))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Review section")
     }
 }
 

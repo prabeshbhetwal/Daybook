@@ -142,7 +142,8 @@ struct TodayInspector: View {
             Button(action: onClose) {
                 Label("Close inspector", systemImage: "xmark")
                     .labelStyle(.iconOnly)
-                    .frame(width: 24, height: 24)
+                    .frame(width: AccessibilityMetrics.minimumTargetSize,
+                           height: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.surface, in: Circle())
             }
             .buttonStyle(.plain)

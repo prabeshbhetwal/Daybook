@@ -87,6 +87,7 @@ struct DayTimelineView: View {
         if let layout = layoutOverride ?? store.timelineLayout, !layout.isEmpty {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 band(layout)
+                if !compact { timelineLegend }
                 // Same rule as the bracket row: an axis with no labels on it is
                 // fourteen points of nothing.
                 if showsTimelineLabels, !layout.hourTicks().isEmpty { axis(layout) }
@@ -229,8 +230,83 @@ struct DayTimelineView: View {
             }
         }
         .frame(height: bandHeight + bracketRow + gapLabelRow(layout))
-        .accessibilityLabel("Day timeline, \(segments.count) app segments, "
-                            + "\(layout.gaps.count) inactive periods")
+        .accessibilityRepresentation { timelineAccessibilitySummary(layout) }
+    }
+
+    private var legendSegments: [TimelineSegment] {
+        var seen: Set<String> = []
+        return segments.filter { seen.insert($0.bundleID).inserted }
+    }
+
+    private var timelineLegend: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110),
+                                     spacing: Tokens.Space.s,
+                                     alignment: .leading)],
+                  alignment: .leading,
+                  spacing: Tokens.Space.xs) {
+            ForEach(legendSegments) { segment in
+                HStack(spacing: Tokens.Space.xs) {
+                    AppSwatch(rank: segment.colorIndex, bundleID: segment.bundleID,
+                              appName: segment.appName, size: 14)
+                    Text(segment.appName)
+                        .lineLimit(1)
+                }
+            }
+            if !brackets.isEmpty {
+                Label("Focus session", systemImage: "bracket.square")
+            }
+        }
+        .font(Tokens.Typography.metadata)
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Timeline legend, "
+                            + legendSegments.map(\.appName).joined(separator: ", ")
+                            + (brackets.isEmpty ? "" : ", focus session brackets"))
+    }
+
+    private func timelineAccessibilitySummary(_ layout: TimelineLayout) -> some View {
+        let breaks = store.breakRecords(on: isGlance ? Date() : store.selectedDay)
+        return VStack(alignment: .leading, spacing: 0) {
+            Text("Day timeline, \(segments.count) app segments, "
+                 + "\(layout.gaps.count) inactive periods")
+                .accessibilityAddTraits(.isHeader)
+            ForEach(segments) { segment in
+                if isGlance {
+                    Text(segmentAccessibilityLabel(segment))
+                } else {
+                    Button(segmentAccessibilityLabel(segment)) {
+                        selectForAccessibility(segment, layout: layout)
+                    }
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                }
+            }
+            ForEach(layout.gaps) { gap in
+                let evidence = TimelineGapEvidence(gap: gap, breaks: breaks)
+                ForEach(evidence.rests) { rest in
+                    Text("\(rest.name), \(Tokens.timeRange(rest.start, rest.end)), "
+                         + "\(Tokens.spent(rest.duration)) rest")
+                }
+                let unknown = evidence.unknown.reduce(0) { $0 + $1.duration }
+                if unknown > 0 {
+                    Text("Other inactivity, \(Tokens.spent(unknown))")
+                }
+            }
+            ForEach(Array(brackets.enumerated()), id: \.offset) { _, bracket in
+                Text("Focus session, \(Tokens.timeRange(bracket.start, bracket.end))")
+            }
+        }
+    }
+
+    private func segmentAccessibilityLabel(_ segment: TimelineSegment) -> String {
+        "\(segment.appName), \(Tokens.timeRange(segment.start, segment.end)), "
+            + "\(Tokens.spent(segment.seconds)) tracked"
+    }
+
+    private func selectForAccessibility(_ segment: TimelineSegment, layout: TimelineLayout) {
+        let midpoint = segment.start.addingTimeInterval(segment.seconds / 2)
+        guard let fraction = layout.fraction(for: midpoint) else { return }
+        if usesTodaySelection { store.selectTodayTimeline(at: fraction) }
+        else { store.selectTimeline(at: fraction) }
     }
 
     /// Real text for the elided durations, outside the `Canvas`. Hidden when the
@@ -428,6 +504,7 @@ struct SegmentHourDetail: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
                     .font(.caption)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             }
             hourStrip
             rows

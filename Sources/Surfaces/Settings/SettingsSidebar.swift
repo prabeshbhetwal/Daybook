@@ -148,7 +148,8 @@ struct SettingsGroupMenu: View {
             .contentShape(Capsule())
         }
         .menuStyle(.borderlessButton)
-        .accessibilityLabel("Settings group, \(selected.title)")
+        .accessibilityLabel("Settings group, \(selected.title), selected")
+        .accessibilityAddTraits(.isSelected)
     }
 }
 
@@ -172,6 +173,7 @@ struct SettingsGroupLabel: View {
         .frame(minHeight: 36)
         .background(Tokens.Colour.elevated, in: Capsule())
         .overlay(Capsule().stroke(Tokens.Colour.line, lineWidth: 1))
-        .accessibilityLabel("Settings group, \(selected.title)")
+        .accessibilityLabel("Settings group, \(selected.title), selected")
+        .accessibilityAddTraits(.isSelected)
     }
 }

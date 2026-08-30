@@ -13,17 +13,21 @@ struct MainWindowView: View {
     var body: some View {
         VStack(spacing: 0) {
             MainWindowHeader(store: store, navigation: navigation)
+                .accessibilitySortPriority(3)
             Divider()
             tabBand
+                .accessibilitySortPriority(2)
             Divider()
             selectedCanvas
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .accessibilitySortPriority(1)
         }
         .frame(minWidth: 980, minHeight: 680)
         .background(Tokens.Colour.ground)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .preferredColorScheme(settings.preferredColorScheme)
+        .accessibilityElement(children: .contain)
     }
 
     private var tabBand: some View {

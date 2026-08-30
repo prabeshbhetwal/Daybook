@@ -1,5 +1,19 @@
 import SwiftUI
 
+/// Shared interaction metrics for compact desktop controls. Callers use the
+/// same value for their visible frame, so the accessibility regression checks
+/// the hit area that production actually consumes rather than a test-only
+/// constant.
+enum AccessibilityMetrics {
+    static let minimumTargetSize: CGFloat = 28
+}
+
+extension AppTab {
+    func accessibilityLabel(isSelected: Bool) -> String {
+        "\(title), \(isSelected ? "selected" : "not selected"), Command \(commandNumber)"
+    }
+}
+
 struct TabRail: View {
     let tabs: [AppTab]
     @Binding var selectedTab: AppTab
@@ -48,8 +62,7 @@ struct TabRail: View {
                 .keyboardShortcut(KeyEquivalent(Character(String(tab.commandNumber))),
                                   modifiers: [.command])
                 .help(tab.title)
-                .accessibilityLabel("\(tab.title), \(isSelected ? "selected" : "not selected"), "
-                                    + "Command \(tab.commandNumber)")
+                .accessibilityLabel(tab.accessibilityLabel(isSelected: isSelected))
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
         }
@@ -86,7 +99,7 @@ struct TabRail: View {
         }
         .fixedSize()
         .padding(.horizontal, Tokens.Space.m)
-        .frame(minHeight: 28)
+        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .background(selected ? Tokens.Colour.focus : Color.clear, in: Capsule())
         .foregroundStyle(selected
                          ? AnyShapeStyle(Tokens.Colour.onFocus)

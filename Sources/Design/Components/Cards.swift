@@ -165,7 +165,8 @@ struct IconButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: 28, height: 28)
+                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                       height: AccessibilityMetrics.minimumTargetSize)
                 .background(prominent ? AnyShapeStyle(Tokens.Colour.focus.opacity(0.15))
                                       : AnyShapeStyle(Tokens.Colour.elevated),
                             in: Circle())

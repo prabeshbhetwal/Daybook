@@ -67,11 +67,13 @@ struct TodayHeader: View {
                 Label(store.dayLabel, systemImage: "calendar")
                     .font(Tokens.Typography.tabLabel)
                     .padding(.horizontal, Tokens.Space.m)
-                    .frame(height: 28)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.elevated, in: Capsule())
             }
             .buttonStyle(.plain)
             .help("Pick a date")
+            .accessibilityLabel("\(Tokens.longDate(store.selectedDay)), selected date")
+            .accessibilityAddTraits(.isSelected)
             .popover(isPresented: Binding(get: { calendarShown.value },
                                           set: { calendarShown.value = $0 })) {
                 DayPickerCalendar(
@@ -96,9 +98,10 @@ struct TodayHeader: View {
                     .font(Tokens.Typography.tabLabel)
                     .foregroundStyle(Tokens.Colour.focus)
                     .padding(.horizontal, Tokens.Space.s)
-                    .frame(height: 28)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.focus.opacity(0.10), in: Capsule())
                     .help("Return to the current day")
+                    .accessibilityLabel("Today, select current date")
             }
         }
     }

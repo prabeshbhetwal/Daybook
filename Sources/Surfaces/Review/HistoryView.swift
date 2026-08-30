@@ -46,46 +46,82 @@ struct HistoryView: View {
     }
 
     private var filterBar: some View {
-        HStack(spacing: Tokens.Space.s) {
+        ViewThatFits(in: .horizontal) {
             HStack(spacing: Tokens.Space.s) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField("Search date, app or work type", text: queryBinding)
-                    .textFieldStyle(.plain)
+                searchField
+                appMenu
+                workTypeMenu
+                clearFilters
             }
-            .padding(.horizontal, Tokens.Space.m)
-            .frame(minHeight: 32)
-            .background(Tokens.Colour.elevated,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                             style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                      style: .continuous)
-                .strokeBorder(Tokens.Colour.line))
-
-            appMenu
-            workTypeMenu
-            if store.historyFilter.isActive {
-                Button("Clear filters") { store.clearHistoryFilters() }
-                    .buttonStyle(.borderless)
+            VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                searchField
+                HStack(spacing: Tokens.Space.s) {
+                    appMenu
+                    workTypeMenu
+                    clearFilters
+                }
             }
         }
     }
 
     private var rangeBar: some View {
-        HStack(spacing: Tokens.Space.m) {
-            DatePicker("From", selection: startBinding,
-                       in: dateBounds, displayedComponents: .date)
-                .fixedSize()
-            DatePicker("To", selection: endBinding,
-                       in: dateBounds, displayedComponents: .date)
-                .fixedSize()
-            Spacer()
-            Button("All dates") { store.resetHistoryRange() }
-                .buttonStyle(.borderless)
+        ViewThatFits(in: .horizontal) {
+            rangeControls(horizontal: true)
+            rangeControls(horizontal: false)
         }
         .font(Tokens.Typography.metadata)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("History date range")
+    }
+
+    private var searchField: some View {
+        HStack(spacing: Tokens.Space.s) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            TextField("Search date, app or work type", text: queryBinding)
+                .textFieldStyle(.plain)
+        }
+        .padding(.horizontal, Tokens.Space.m)
+        .frame(minHeight: 32)
+        .background(Tokens.Colour.elevated,
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                         style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                  style: .continuous)
+            .strokeBorder(Tokens.Colour.line))
+        .accessibilityLabel("Search History")
+    }
+
+    @ViewBuilder private var clearFilters: some View {
+        if store.historyFilter.isActive {
+            Button("Clear filters") { store.clearHistoryFilters() }
+                .buttonStyle(.borderless)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+        }
+    }
+
+    @ViewBuilder private func rangeControls(horizontal: Bool) -> some View {
+        let from = DatePicker("From", selection: startBinding,
+                              in: dateBounds, displayedComponents: .date)
+            .fixedSize()
+            .accessibilityLabel("From date, \(Tokens.longDate(startBinding.wrappedValue)), selected")
+        let to = DatePicker("To", selection: endBinding,
+                            in: dateBounds, displayedComponents: .date)
+            .fixedSize()
+            .accessibilityLabel("To date, \(Tokens.longDate(endBinding.wrappedValue)), selected")
+        let all = Button("All dates") { store.resetHistoryRange() }
+            .buttonStyle(.borderless)
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+
+        if horizontal {
+            HStack(spacing: Tokens.Space.m) { from; to; Spacer(); all }
+        } else {
+            VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                HStack(spacing: Tokens.Space.m) { from; to }
+                all
+            }
+        }
     }
 
     private var appMenu: some View {
@@ -103,7 +139,8 @@ struct HistoryView: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .accessibilityLabel("App filter, "
+        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+        .accessibilityLabel("App filter, selected "
                             + (store.historyFilter.appBundleID.map(store.historyAppName(for:))
                                ?? "all apps"))
     }
@@ -121,7 +158,8 @@ struct HistoryView: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .accessibilityLabel("Work type filter, "
+        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+        .accessibilityLabel("Work type filter, selected "
                             + (store.historyFilter.workType?.displayName ?? "all work types"))
     }
 
@@ -147,6 +185,7 @@ struct HistoryView: View {
                     .foregroundStyle(.tertiary)
             }
             .padding(.vertical, Tokens.Space.s)
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

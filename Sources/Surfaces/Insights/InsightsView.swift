@@ -5,6 +5,7 @@ import SwiftUI
 struct InsightsView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var scrolls = true
 
     private var surface: InsightSurface {
@@ -82,7 +83,8 @@ struct InsightsView: View {
                 InsightSection(title: "Continuity", insight: continuity)
             }
         }
-        .animation(.easeInOut(duration: 0.18), value: navigation.insightRange)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18),
+                   value: navigation.insightRange)
     }
 }
 
@@ -98,7 +100,7 @@ private struct InsightRangePills: View {
                     Text(range.title)
                         .font(Tokens.Typography.metadata.weight(.semibold))
                         .padding(.horizontal, Tokens.Space.m)
-                        .frame(minHeight: 28)
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                         .background(selection == range
                                     ? Tokens.Colour.focus
                                     : Color.clear,

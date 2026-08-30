@@ -28,17 +28,21 @@ private struct FullPromptView: View {
                     Button("Later", action: onLater)
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                         .keyboardShortcut(.cancelAction)
+                        .accessibilityHint("Keeps the question available for later")
                 }
             }
             .padding(Tokens.Space.xl)
             .frame(width: 520)
-            .background(Tokens.Surface.card,
+            .background(Tokens.Colour.surface,
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.card + 4,
                                              style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.card + 4, style: .continuous)
-                .strokeBorder(Tokens.Surface.hairline))
+                .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
             .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Away decision")
         }
     }
 }
@@ -85,11 +89,15 @@ final class AwayFullPrompt {
         let front = NSWorkspace.shared.frontmostApplication
         previousApp = front?.bundleIdentifier == Bundle.main.bundleIdentifier ? nil : front
         NSApp.activate(ignoringOtherApps: true)
-        window.alphaValue = 0
         window.makeKeyAndOrderFront(nil)
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            window.animator().alphaValue = 1
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            window.alphaValue = 1
+        } else {
+            window.alphaValue = 0
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.2
+                window.animator().alphaValue = 1
+            }
         }
     }
 
@@ -97,6 +105,12 @@ final class AwayFullPrompt {
         guard let window, window.isVisible else { return }
         let previous = previousApp
         previousApp = nil
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            window.alphaValue = 0
+            window.orderOut(nil)
+            previous?.activate(options: [])
+            return
+        }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.15
             window.animator().alphaValue = 0

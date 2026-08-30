@@ -1,6 +1,34 @@
 import SwiftUI
 import Charts
 
+extension PeriodChartPoint {
+    /// Full spoken evidence for one chart point. The formatter follows the
+    /// supplied calendar's locale and time zone so date and value cannot drift
+    /// apart around local midnight.
+    func accessibilitySummary(calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = calendar.locale ?? .current
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "EEEE d MMMM"
+        return "\(formatter.string(from: date)), \(Self.spoken(seconds)) tracked"
+    }
+
+    private static func spoken(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        let hours = total / 3_600
+        let minutes = (total % 3_600) / 60
+        let seconds = total % 60
+        var parts: [String] = []
+        if hours > 0 { parts.append(hours == 1 ? "1 hour" : "\(hours) hours") }
+        if minutes > 0 { parts.append(minutes == 1 ? "1 minute" : "\(minutes) minutes") }
+        if parts.isEmpty {
+            parts.append(seconds == 1 ? "1 second" : "\(seconds) seconds")
+        }
+        return parts.joined(separator: " ")
+    }
+}
+
 /// One headline figure with its context line and an optional tint for it.
 struct StatFigure: Identifiable, Equatable {
     let label: String
@@ -91,63 +119,98 @@ struct PeriodChart: View {
     }
 
     var body: some View {
-        if days.allSatisfy({ $0.tracked == 0 }) {
-            Text("Nothing tracked in this period yet.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .frame(height: height, alignment: .leading)
-        } else {
-            Chart {
-                ForEach(trackedPoints) { point in
-                    BarMark(x: .value("Day", point.date, unit: .day),
-                            y: .value("Minutes", point.seconds / 60))
-                        .foregroundStyle(Tokens.Palette.app(rank: 0))
-                        .cornerRadius(Tokens.Radius.bar)
-                }
-                if average > 0 {
-                    RuleMark(y: .value("Average", average / 60))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                        .foregroundStyle(.secondary)
-                        .annotation(position: .top, alignment: .trailing) {
-                            Text("avg \(Tokens.preciseDuration(average))")
-                                .font(.caption2)
+        Group {
+            if days.allSatisfy({ $0.tracked == 0 }) {
+                Text("Nothing tracked in this period yet.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(height: height, alignment: .leading)
+            } else {
+                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                    chartLegend
+                    Chart {
+                        ForEach(trackedPoints) { point in
+                            BarMark(x: .value("Day", point.date, unit: .day),
+                                    y: .value("Minutes", point.seconds / 60))
+                                .foregroundStyle(Tokens.Palette.app(rank: 0))
+                                .cornerRadius(Tokens.Radius.bar)
+                        }
+                        if average > 0 {
+                            RuleMark(y: .value("Average", average / 60))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                                 .foregroundStyle(.secondary)
+                                .annotation(position: .top, alignment: .trailing) {
+                                    Text("avg \(Tokens.preciseDuration(average))")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
                         }
+                    }
+                    // Without an explicit domain the axis spans only the days that have
+                    // bars, so a month with one busy week reads as a busy month.
+                    .chartXScale(domain: domain)
+                    .chartLegend(.hidden)
+                    .chartYAxisLabel("minutes", position: .leading)
+                    // Hover names the day under the pointer; a click opens it.
+                    .chartOverlay { proxy in
+                        GeometryReader { geo in
+                            Rectangle().fill(Color.clear).contentShape(Rectangle())
+                                .onContinuousHover { phase in
+                                    switch phase {
+                                    case .active(let point): hovered.day = dayAt(point, proxy, geo)
+                                    case .ended: hovered.day = nil
+                                    }
+                                }
+                                .onTapGesture { location in
+                                    if let day = dayAt(location, proxy, geo) { onPickDay?(day) }
+                                }
+                        }
+                    }
+                    .overlay(alignment: .topLeading) {
+                        if let label = hoverLabel {
+                            Text(label)
+                                .font(Tokens.Typography.detail)
+                                .padding(.horizontal, Tokens.Space.s)
+                                .padding(.vertical, 4)
+                                .background(.regularMaterial, in: Capsule())
+                                .padding(Tokens.Space.xs)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .frame(height: height)
                 }
             }
-            // Without an explicit domain the axis spans only the days that have
-            // bars, so a month with one busy week reads as a busy month.
-            .chartXScale(domain: domain)
-            .chartLegend(.hidden)
-            .chartYAxisLabel("minutes", position: .leading)
-            // Hover names the day under the pointer; a click opens it.
-            .chartOverlay { proxy in
-                GeometryReader { geo in
-                    Rectangle().fill(Color.clear).contentShape(Rectangle())
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active(let point): hovered.day = dayAt(point, proxy, geo)
-                            case .ended: hovered.day = nil
-                            }
-                        }
-                        .onTapGesture { location in
-                            if let day = dayAt(location, proxy, geo) { onPickDay?(day) }
-                        }
+        }
+        .accessibilityRepresentation { accessibilitySummary }
+    }
+
+    private var chartLegend: some View {
+        HStack(spacing: Tokens.Space.l) {
+            Label("Bars: tracked time", systemImage: "chart.bar.fill")
+            if average > 0 {
+                Label("Dashed line: active-day average", systemImage: "minus")
+            }
+        }
+        .font(Tokens.Typography.metadata)
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var accessibilitySummary: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Tracked time by day")
+                .accessibilityAddTraits(.isHeader)
+            ForEach(trackedPoints) { point in
+                if let onPickDay {
+                    Button(point.accessibilitySummary()) { onPickDay(point.date) }
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                } else {
+                    Text(point.accessibilitySummary())
                 }
             }
-            .overlay(alignment: .topLeading) {
-                if let label = hoverLabel {
-                    Text(label)
-                        .font(Tokens.Typography.detail)
-                        .padding(.horizontal, Tokens.Space.s)
-                        .padding(.vertical, 4)
-                        .background(.regularMaterial, in: Capsule())
-                        .padding(Tokens.Space.xs)
-                        .allowsHitTesting(false)
-                }
+            if average > 0 {
+                Text("Active-day average, \(Tokens.spent(average)) tracked")
             }
-            .frame(height: height)
-            .accessibilityLabel("Tracked minutes per day, \(days.count) days")
         }
     }
 
@@ -188,7 +251,16 @@ struct DailyStrip: View {
             }
         }
         .frame(height: 46, alignment: .bottom)
-        .accessibilityLabel("Daily usage across the period")
+        .accessibilityRepresentation {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Daily usage across the period")
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(Array(totals.enumerated()), id: \.offset) { _, entry in
+                    Text(PeriodChartPoint(date: entry.day, seconds: entry.seconds)
+                        .accessibilitySummary())
+                }
+            }
+        }
     }
 }
 
@@ -275,7 +347,7 @@ struct SessionLogList: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .padding(.vertical, 4)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     if showsMinor {
                         ForEach(Array(split.minor.enumerated()), id: \.element.id) { i, group in
                             Divider()
@@ -394,6 +466,7 @@ struct SessionLogList: View {
                 }
             }
         }
+        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .padding(.vertical, 3)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(group.appName), \(Tokens.spent(group.total)), "
