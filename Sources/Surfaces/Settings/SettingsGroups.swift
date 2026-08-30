@@ -1,5 +1,15 @@
 import SwiftUI
 
+/// Scalar diagnostics align a short value with their title; a narrative status
+/// needs the row's full reading width instead of a compressed trailing column.
+enum SettingsReadOnlyRowLayout: Equatable {
+    case trailingValue
+    case statusBlock
+
+    var usesTrailingValue: Bool { self == .trailingValue }
+    var usesFullWidthValue: Bool { self == .statusBlock }
+}
+
 /// The selected Settings group. Every interactive row binds directly to the
 /// coordinator-owned model; read-only rows come from its live diagnostics.
 struct SettingsGroups: View {
@@ -208,7 +218,8 @@ struct SettingsGroups: View {
             readOnlyRow("Build", value: model.diagnostics.build)
             rowDivider
             readOnlyRow("Recovery", value: model.diagnostics.recoverySummary,
-                        detail: "Recovery preserves source evidence before the app resumes writing.")
+                        detail: "Recovery preserves source evidence before the app resumes writing.",
+                        valueLayout: .statusBlock)
         }
     }
 
@@ -233,28 +244,54 @@ struct SettingsGroups: View {
         .frame(minHeight: layout.rowHeight)
     }
 
-    private func readOnlyRow(_ title: String, value: String, detail: String? = nil) -> some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
+    @ViewBuilder
+    private func readOnlyRow(_ title: String, value: String, detail: String? = nil,
+                             valueLayout: SettingsReadOnlyRowLayout = .trailingValue) -> some View {
+        switch valueLayout {
+        case .trailingValue:
+            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
+                    Text(title)
+                        .font(Tokens.Typography.rowTitle)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: Tokens.Space.m)
+                    Text(value)
+                        .font(Tokens.Typography.metadata)
+                        .multilineTextAlignment(.trailing)
+                        .textSelection(.enabled)
+                }
+                if let detail {
+                    Text(detail)
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(minHeight: layout.rowHeight)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel([title, value, detail].compactMap { $0 }.joined(separator: ", "))
+
+        case .statusBlock:
+            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text(title)
                     .font(Tokens.Typography.rowTitle)
                     .foregroundStyle(.secondary)
-                Spacer(minLength: Tokens.Space.m)
                 Text(value)
-                    .font(Tokens.Typography.metadata)
-                    .multilineTextAlignment(.trailing)
-                    .textSelection(.enabled)
-            }
-            if let detail {
-                Text(detail)
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
+                    .font(Tokens.Typography.rowTitle)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                if let detail {
+                    Text(detail)
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
+            .frame(minHeight: layout.rowHeight)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel([title, value, detail].compactMap { $0 }.joined(separator: ", "))
         }
-        .frame(minHeight: layout.rowHeight)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel([title, value, detail].compactMap { $0 }.joined(separator: ", "))
     }
 
     private func thresholdPicker(_ label: String, selection: Binding<TimeInterval>,

@@ -380,6 +380,8 @@ enum SelfTest {
              testDeclaredAwayAutomaticCorrectionRoutes),
             ("Settings groups contain only backed controls",
              testSettingsGroupsContainOnlyBackedControls),
+            ("Narrative diagnostics use a full-width status layout",
+             testSettingsDiagnosticLayout),
             ("Settings privacy distinguishes monitoring from entered session data",
              testSettingsPrivacyDisclosure),
             ("Shared panels consume the interface density environment",
@@ -6799,6 +6801,19 @@ enum SelfTest {
                    .resolvingSymlinksInPath() == newerBackup.resolvingSymlinksInPath(),
                "Data diagnostics rediscover the newest preserved legacy backup after relaunch",
                &problems)
+        return problems
+    }
+
+    private static func testSettingsDiagnosticLayout() -> [String] {
+        var problems: [String] = []
+        expect(SettingsReadOnlyRowLayout.trailingValue.usesTrailingValue,
+               "scalar diagnostics retain the compact trailing-value layout", &problems)
+        expect(!SettingsReadOnlyRowLayout.trailingValue.usesFullWidthValue,
+               "scalar diagnostics do not claim the full row", &problems)
+        expect(SettingsReadOnlyRowLayout.statusBlock.usesFullWidthValue,
+               "Recovery uses a wrapping full-width status layout", &problems)
+        expect(!SettingsReadOnlyRowLayout.statusBlock.usesTrailingValue,
+               "Recovery never compresses into the trailing scalar column", &problems)
         return problems
     }
 
