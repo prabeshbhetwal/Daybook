@@ -231,6 +231,16 @@ struct DailyStrip: View {
     let totals: [(day: Date, seconds: TimeInterval)]
     let colorIndex: Int
 
+    static func accessibilitySummaries(
+        _ totals: [(day: Date, seconds: TimeInterval)],
+        calendar: Calendar = .current
+    ) -> [String] {
+        totals.map {
+            PeriodChartPoint(date: $0.day, seconds: $0.seconds)
+                .accessibilitySummary(calendar: calendar)
+        }
+    }
+
     var body: some View {
         let peak = max(1, totals.map(\.seconds).max() ?? 1)
         HStack(alignment: .bottom, spacing: 3) {
@@ -255,12 +265,72 @@ struct DailyStrip: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Daily usage across the period")
                     .accessibilityAddTraits(.isHeader)
-                ForEach(Array(totals.enumerated()), id: \.offset) { _, entry in
-                    Text(PeriodChartPoint(date: entry.day, seconds: entry.seconds)
-                        .accessibilitySummary())
+                ForEach(Array(Self.accessibilitySummaries(totals).enumerated()),
+                        id: \.offset) { _, summary in
+                    Text(summary)
                 }
             }
         }
+    }
+}
+
+/// The app row's expansion affordance is a native Button, so keyboard and
+/// VoiceOver users receive the same action as a pointer click. Its hit target,
+/// literal measure and expanded state all live on the control itself.
+struct PeriodAppRowButton: View {
+    let group: LogAppGroup
+    let rank: Int
+    let expanded: Bool
+    let onToggle: () -> Void
+    @StateObject private var hover = HoverBox()
+
+    var accessibilityLabelText: String {
+        "\(group.appName), \(Tokens.spent(group.total)), "
+            + "\(group.sessions.count) sessions, "
+            + "\(Int((group.share * 100).rounded())) percent of tracked time"
+    }
+
+    var accessibilityValueText: String { expanded ? "Expanded" : "Collapsed" }
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: Tokens.Space.m) {
+                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 10)
+                AppSwatch(rank: min(rank, 6), bundleID: group.bundleID,
+                          appName: group.appName, size: 18)
+                Text(group.appName)
+                    .font(Tokens.Typography.row)
+                    .lineLimit(1)
+                    .frame(width: 120, alignment: .leading)
+                DataBar(share: group.share,
+                        tint: Tokens.Palette.app(rank: min(rank, 6)))
+                    .frame(minWidth: 80, idealWidth: 160, maxWidth: .infinity)
+                Text(Tokens.preciseDuration(group.total))
+                    .font(.callout.monospacedDigit())
+                    .frame(width: 66, alignment: .trailing)
+                Text("\(Int((group.share * 100).rounded()))%")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 38, alignment: .trailing)
+            }
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            .contentShape(Rectangle())
+            .background(hover.id == group.bundleID ? Tokens.Colour.hover : Color.clear,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
+                                             style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hover.id = $0 ? group.bundleID : nil }
+        .accessibilityLabel(accessibilityLabelText)
+        .accessibilityValue(accessibilityValueText)
+        .accessibilityHint(expanded ? "Collapse daily and session details"
+                                   : "Expand daily and session details")
+        .accessibilityAddTraits(expanded ? .isSelected : [])
+        .accessibilityAction(named: Text(expanded ? "Collapse details" : "Expand details"),
+                             onToggle)
     }
 }
 
@@ -287,7 +357,6 @@ struct SessionLogList: View {
     var expandedApps: Set<String> = []
     /// Same reasoning as `expandedApps`.
     var showsMinorApps = false
-    @StateObject private var hover = HoverBox()
 
     private var showsMinor: Bool { showsMinorApps }
 
@@ -387,35 +456,9 @@ struct SessionLogList: View {
     @ViewBuilder private func appRow(_ group: LogAppGroup, rank: Int) -> some View {
         let expanded = expandedApps.contains(group.bundleID)
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: Tokens.Space.m) {
-                Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .frame(width: 10)
-                AppSwatch(rank: min(rank, 6), bundleID: group.bundleID,
-                          appName: group.appName, size: 18)
-                Text(group.appName)
-                    .font(Tokens.Typography.row)
-                    .lineLimit(1)
-                    .frame(width: 120, alignment: .leading)
-                // The bar carries shape at a glance; the number carries the
-                // fact. Both, because neither does the other's job.
-                DataBar(share: group.share, tint: Tokens.Palette.app(rank: min(rank, 6)))
-                    .frame(minWidth: 80, idealWidth: 160, maxWidth: .infinity)
-                Text(Tokens.preciseDuration(group.total))
-                    .font(.callout.monospacedDigit())
-                    .frame(width: 66, alignment: .trailing)
-                Text("\(Int((group.share * 100).rounded()))%")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: 38, alignment: .trailing)
+            PeriodAppRowButton(group: group, rank: rank, expanded: expanded) {
+                store?.toggleExpanded(group.bundleID)
             }
-            .contentShape(Rectangle())
-            .background(hover.id == group.bundleID ? Tokens.Surface.hover : Color.clear,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.control,
-                                             style: .continuous))
-            .onHover { hover.id = $0 ? group.bundleID : nil }
-            .onTapGesture { store?.toggleExpanded(group.bundleID) }
             HStack(spacing: Tokens.Space.xs) {
                 Text(Tokens.timeRange(group.firstStart, group.lastEnd))
                 Text("·")
@@ -466,11 +509,8 @@ struct SessionLogList: View {
                 }
             }
         }
-        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .padding(.vertical, 3)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(group.appName), \(Tokens.spent(group.total)), "
-                            + "\(group.sessions.count) sessions")
+        .accessibilityElement(children: .contain)
     }
 
     /// A labelled figure inside the expanded panel. Small, but the label is the

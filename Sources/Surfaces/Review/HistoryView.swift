@@ -1,5 +1,22 @@
 import SwiftUI
 
+/// The native graphical date control with an explicit practical hit target.
+/// Keeping the frame inside this production wrapper means the clickable control,
+/// not merely a surrounding range layout, owns the 28 pt minimum.
+struct HistoryDateControl: View {
+    let label: String
+    @Binding var selection: Date
+    let range: ClosedRange<Date>
+
+    var body: some View {
+        DatePicker(label, selection: $selection,
+                   in: range, displayedComponents: .date)
+            .fixedSize()
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            .accessibilityLabel("\(label) date, \(Tokens.longDate(selection)), selected")
+    }
+}
+
 /// Search and intersection filters over canonical day rows. Controls only
 /// select evidence; there are deliberately no edit, repair or export actions.
 struct HistoryView: View {
@@ -102,14 +119,10 @@ struct HistoryView: View {
     }
 
     @ViewBuilder private func rangeControls(horizontal: Bool) -> some View {
-        let from = DatePicker("From", selection: startBinding,
-                              in: dateBounds, displayedComponents: .date)
-            .fixedSize()
-            .accessibilityLabel("From date, \(Tokens.longDate(startBinding.wrappedValue)), selected")
-        let to = DatePicker("To", selection: endBinding,
-                            in: dateBounds, displayedComponents: .date)
-            .fixedSize()
-            .accessibilityLabel("To date, \(Tokens.longDate(endBinding.wrappedValue)), selected")
+        let from = HistoryDateControl(label: "From", selection: startBinding,
+                                      range: dateBounds)
+        let to = HistoryDateControl(label: "To", selection: endBinding,
+                                    range: dateBounds)
         let all = Button("All dates") { store.resetHistoryRange() }
             .buttonStyle(.borderless)
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)

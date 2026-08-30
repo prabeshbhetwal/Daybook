@@ -358,7 +358,11 @@ enum SelfTest {
             ("Compact Focus snapshots retain the title and status band",
              testCompactFocusSnapshotStructure),
             ("Accessible navigation and charts expose literal selected-state evidence",
-             testAccessibleNavigationAndChartSummaries)
+             testAccessibleNavigationAndChartSummaries),
+            ("History date controls provide real 28 point hit targets",
+             testHistoryDateControlsMeetTarget),
+            ("Expanded app rows retain daily accessibility and keyboard actions",
+             testPeriodAppRowsExposeDailyAccessibility)
         ]
 
         print("FocusContinuity self-test")
@@ -6986,6 +6990,97 @@ enum SelfTest {
                    "Escape clears the Today inspector selection", &problems)
             expect(calendar.isDate(store.selectedDay, inSameDayAs: selectedDay),
                    "Escape preserves the selected calendar day", &problems)
+            return problems
+        }
+    }
+
+    private static func testHistoryDateControlsMeetTarget() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let start = base
+            let end = base.addingTimeInterval(24 * 3_600)
+            let range = start...end
+            let fromRenderer = ImageRenderer(content: HistoryDateControl(
+                label: "From", selection: .constant(start), range: range).fixedSize())
+            fromRenderer.scale = 1
+            let toRenderer = ImageRenderer(content: HistoryDateControl(
+                label: "To", selection: .constant(end), range: range).fixedSize())
+            toRenderer.scale = 1
+            let from = fromRenderer.nsImage?.size ?? .zero
+            let to = toRenderer.nsImage?.size ?? .zero
+            expect(from.width > 0 && to.width > 0,
+                   "both native History date controls render", &problems)
+            expect(from.height >= 28 && to.height >= 28,
+                   "the actual From/To controls are at least 28pt; got "
+                       + "\(from.height)pt and \(to.height)pt", &problems)
+            return problems
+        }
+    }
+
+    private static func testPeriodAppRowsExposeDailyAccessibility() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.locale = Locale(identifier: "en_AU")
+            guard let sydney = TimeZone(identifier: "Australia/Sydney") else {
+                return ["could not construct the Sydney time zone"]
+            }
+            calendar.timeZone = sydney
+            guard let firstDay = calendar.date(from: DateComponents(
+                year: 2023, month: 11, day: 14, hour: 12)),
+                  let secondDay = calendar.date(byAdding: .day, value: 1, to: firstDay) else {
+                return ["could not construct the period app-row fixture dates"]
+            }
+            func entry(_ day: Date, seconds: TimeInterval) -> LogEntry {
+                LogEntry(session: AppSession(
+                    bundleID: "com.example.editor", appName: "Editor",
+                    start: day, end: day.addingTimeInterval(seconds),
+                    attended: seconds, visits: 1),
+                         day: calendar.startOfDay(for: day))
+            }
+            let group = LogAppGroup(
+                bundleID: "com.example.editor", appName: "Editor",
+                total: 90 * 60, visits: 2,
+                sessions: [entry(firstDay, seconds: 60 * 60),
+                           entry(secondDay, seconds: 30 * 60)],
+                share: 0.75)
+
+            let collapsed = PeriodAppRowButton(
+                group: group, rank: 0, expanded: false, onToggle: {})
+            let renderer = ImageRenderer(content: collapsed.frame(width: 520).fixedSize(
+                horizontal: false, vertical: true))
+            renderer.scale = 1
+            let size = renderer.nsImage?.size ?? .zero
+            expect(size.width > 0 && size.height >= 28,
+                   "the real expand/collapse Button is at least 28pt; got \(size)", &problems)
+            expect(collapsed.accessibilityLabelText
+                       == "Editor, 1 hour 30 min, 2 sessions, 75 percent of tracked time",
+                   "the app-row action states its literal measure", &problems)
+            expect(collapsed.accessibilityValueText == "Collapsed",
+                   "the closed app row announces Collapsed", &problems)
+            let expanded = PeriodAppRowButton(
+                group: group, rank: 0, expanded: true, onToggle: {})
+            expect(expanded.accessibilityValueText == "Expanded",
+                   "the open app row announces Expanded", &problems)
+
+            let summaries = DailyStrip.accessibilitySummaries(
+                [(day: firstDay, seconds: 60 * 60),
+                 (day: secondDay, seconds: 30 * 60)],
+                calendar: calendar)
+            expect(summaries == [
+                "Tuesday 14 November, 1 hour tracked",
+                "Wednesday 15 November, 30 minutes tracked"
+            ], "every expanded day retains its literal tracked summary; got \(summaries)",
+               &problems)
+
+            let clock = Clock(base)
+            let store = SessionStore(engine: makeEngine(clock), now: { clock.value })
+            store.toggleExpanded(group.bundleID)
+            expect(store.expandedApps.contains(group.bundleID),
+                   "the keyboard action expands the requested app", &problems)
+            store.toggleExpanded(group.bundleID)
+            expect(!store.expandedApps.contains(group.bundleID),
+                   "the same action collapses the requested app", &problems)
             return problems
         }
     }
