@@ -6942,6 +6942,9 @@ enum SelfTest {
             expect(snapshotHasAppMarkAndTabs(lightRenderer.nsImage),
                    "narrow Focus snapshot keeps the app mark and tab labels together",
                    &problems)
+            expect(snapshotHasAppMarkAndTabs(darkRenderer.nsImage),
+                   "narrow dark Focus snapshot keeps the app mark and tab labels together",
+                   &problems)
             expect(!snapshotHasTitleStatusBand(blankRenderer.nsImage),
                    "the structural probe rejects a root with no title/status band", &problems)
             return problems
@@ -7343,9 +7346,14 @@ enum SelfTest {
                "global tabs do not sit inside a second enclosing rail", &problems)
         expect(!TabRailPresentation.unselectedUsesBorder,
                "unselected tabs remain quiet individual controls", &problems)
+        expect(TabRailPresentation.showsLabelsInIconFallback,
+               "icon fallback keeps literal tab labels enabled", &problems)
         expect(MainWindowChrome.appMarkFallbackSymbol == "target"
                    && MainWindowChrome.appMarkSize == 24,
                "window chrome has a compact deterministic app-mark fallback", &problems)
+        expect(MainWindowChrome.appMarkPresentation(hasBundledIcon: true) == .bundledIcon
+                   && MainWindowChrome.appMarkPresentation(hasBundledIcon: false) == .targetFallback,
+               "window chrome exposes bundled-icon and target-fallback branches", &problems)
         expect(MainWindowChrome.trafficLightClearance >= 68,
                "adding the app mark preserves traffic-light clearance", &problems)
         return problems

@@ -9,6 +9,15 @@ enum MainWindowChrome {
     static let appMarkFallbackSymbol = "target"
     static let appMarkSize: CGFloat = 24
 
+    enum AppMarkPresentation: Equatable {
+        case bundledIcon
+        case targetFallback
+    }
+
+    static func appMarkPresentation(hasBundledIcon: Bool) -> AppMarkPresentation {
+        hasBundledIcon ? .bundledIcon : .targetFallback
+    }
+
     struct Context: Equatable {
         let title: String
         let subtitle: String
@@ -44,9 +53,12 @@ private struct FocusContinuityMark: View {
 
     var body: some View {
         Group {
-            if let icon {
-                Image(nsImage: icon).resizable().interpolation(.high)
-            } else {
+            switch MainWindowChrome.appMarkPresentation(hasBundledIcon: icon != nil) {
+            case .bundledIcon:
+                if let icon {
+                    Image(nsImage: icon).resizable().interpolation(.high)
+                }
+            case .targetFallback:
                 Image(systemName: MainWindowChrome.appMarkFallbackSymbol)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Tokens.Colour.focus)

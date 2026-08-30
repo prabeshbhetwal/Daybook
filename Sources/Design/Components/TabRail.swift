@@ -11,6 +11,7 @@ enum AccessibilityMetrics {
 enum TabRailPresentation {
     static let usesOuterSurface = false
     static let unselectedUsesBorder = false
+    static let showsLabelsInIconFallback = true
 }
 
 extension AppTab {
@@ -58,7 +59,8 @@ struct TabRail: View {
             ForEach(tabs) { tab in
                 let isSelected = tab == selectedTab
                 Button { select(tab) } label: {
-                    tabPill(tab, selected: isSelected, showsIcon: showsIcons)
+                    tabPill(tab, selected: isSelected, showsIcon: showsIcons,
+                            showsLabel: !showsIcons || TabRailPresentation.showsLabelsInIconFallback)
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(KeyEquivalent(Character(String(tab.commandNumber))),
@@ -88,16 +90,19 @@ struct TabRail: View {
         onSelect(tab)
     }
 
-    private func tabPill(_ tab: AppTab, selected: Bool, showsIcon: Bool) -> some View {
+    private func tabPill(_ tab: AppTab, selected: Bool, showsIcon: Bool,
+                         showsLabel: Bool) -> some View {
         HStack(spacing: Tokens.Space.xs) {
             if showsIcon {
                 Image(systemName: tab.symbol)
                     .font(.system(size: 11, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
             }
-            Text(tab.title)
-                .font(Tokens.Typography.tabLabel)
-                .lineLimit(1)
+            if showsLabel {
+                Text(tab.title)
+                    .font(Tokens.Typography.tabLabel)
+                    .lineLimit(1)
+            }
         }
         .fixedSize()
         .padding(.horizontal, Tokens.Space.m)
