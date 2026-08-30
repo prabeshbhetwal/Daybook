@@ -173,7 +173,12 @@ enum Snapshotter {
     /// The production minimum-width Focus shell, used by structural checks for
     /// the compact app mark and tab row together.
     static func narrowFocusSnapshot(scheme: ColorScheme) -> some View {
-        densityFocusSnapshot(density: .compact, scheme: scheme)
+        let appearance: SnapshotAppearance = scheme == .light ? .light : .dark
+        let item = SnapshotRender(scenario: .focusRunning,
+                                  appearance: appearance,
+                                  presentation: .minimum)
+        let settings = snapshotSettings(for: item, density: .compact)
+        return mainShell(for: item, settings: settings)
     }
 
     static func run(directory: URL) -> Bool {

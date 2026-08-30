@@ -6939,6 +6939,9 @@ enum SelfTest {
                    "compact light snapshot root contains title and status evidence", &problems)
             expect(snapshotHasTitleStatusBand(darkRenderer.nsImage),
                    "compact dark snapshot root contains title and status evidence", &problems)
+            expect(snapshotHasAppMarkAndTabs(lightRenderer.nsImage),
+                   "narrow Focus snapshot keeps the app mark and tab labels together",
+                   &problems)
             expect(!snapshotHasTitleStatusBand(blankRenderer.nsImage),
                    "the structural probe rejects a root with no title/status band", &problems)
             return problems
@@ -7215,6 +7218,34 @@ enum SelfTest {
             x: (bitmap.pixelsWide - sideWidth)..<(bitmap.pixelsWide - 10),
             y: 0..<bandHeight)
         return titleContrast > 0.2 && statusContrast > 0.08
+    }
+
+    @MainActor private static func snapshotHasAppMarkAndTabs(_ image: NSImage?) -> Bool {
+        guard let image, let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              bitmap.pixelsWide == 980, bitmap.pixelsHigh >= 680 else { return false }
+
+        func contrast(x: Range<Int>, y: Range<Int>) -> Double {
+            var low = 1.0
+            var high = 0.0
+            for row in stride(from: y.lowerBound, to: y.upperBound, by: 2) {
+                for column in stride(from: x.lowerBound, to: x.upperBound, by: 2) {
+                    guard let colour = bitmap.colorAt(x: column, y: row)?
+                        .usingColorSpace(.sRGB) else { continue }
+                    let luminance = 0.2126 * Double(colour.redComponent)
+                        + 0.7152 * Double(colour.greenComponent)
+                        + 0.0722 * Double(colour.blueComponent)
+                    low = min(low, luminance)
+                    high = max(high, luminance)
+                }
+            }
+            return high - low
+        }
+
+        // The app mark occupies the reserved leading inset; the tab labels are
+        // centred in the same 60pt chrome band at the production minimum.
+        return contrast(x: 68..<112, y: 0..<60) > 0.08
+            && contrast(x: 300..<700, y: 0..<60) > 0.08
     }
 
     /// The visual foundation keeps Compact practical rather than cramped and
