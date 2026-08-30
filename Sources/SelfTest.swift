@@ -318,6 +318,8 @@ enum SelfTest {
              testWarmPrecisionDesignTokensAndDensity),
             ("Main-window deep links and commands select their exact routes",
              testMainWindowRoutesAndCommands),
+            ("Unified window chrome keeps context beside tabs without a native focus ring",
+             testUnifiedWindowChrome),
             ("Today preserves day scope and clears only its inspector selection",
              testTodaySurfaceScopeAndInspector),
             ("Review keeps tracked bars canonical and History filters by intersection",
@@ -7177,6 +7179,30 @@ enum SelfTest {
                    "command-comma routes to Settings", &problems)
             return problems
         }
+    }
+
+    /// The unified chrome is a pure layout contract: contextual title/status
+    /// share the tab row, native traffic lights have reserved space, and the
+    /// rail does not rely on AppKit's conspicuous focus outline.
+    private static func testUnifiedWindowChrome() -> [String] {
+        var problems: [String] = []
+        let context = MainWindowChrome.context(
+            tab: .today,
+            state: .running,
+            threadElapsed: 21 * 60,
+            todayTotal: 2 * 3_600
+        )
+
+        expect(context.title == "Today", "chrome exposes the selected tab title", &problems)
+        expect(context.subtitle == "FocusContinuity",
+               "chrome keeps the app name beside the tabs", &problems)
+        expect(context.status == "Focus active · 21m",
+               "chrome keeps the literal live status beside the tabs", &problems)
+        expect(MainWindowChrome.trafficLightClearance >= 68,
+               "chrome reserves room for native traffic lights", &problems)
+        expect(MainWindowChrome.usesNativeFocusRing == false,
+               "tab rail does not draw the native blue focus outline", &problems)
+        return problems
     }
 
     /// Accessibility must expose the same literal navigation and tracked-time

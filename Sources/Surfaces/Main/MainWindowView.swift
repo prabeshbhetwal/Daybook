@@ -14,13 +14,8 @@ struct MainWindowView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            MainWindowHeader(store: store, navigation: navigation)
+            MainWindowChromeBar(store: store, navigation: navigation, settings: settings)
                 .accessibilitySortPriority(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .layoutPriority(1)
-            Divider()
-            tabBand
-                .accessibilitySortPriority(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
             Divider()
@@ -35,19 +30,6 @@ struct MainWindowView: View {
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .preferredColorScheme(settings.preferredColorScheme)
         .accessibilityElement(children: .contain)
-    }
-
-    private var tabBand: some View {
-        HStack {
-            Spacer(minLength: 0)
-            TabRail(selectedTab: $navigation.selectedTab) { tab in
-                navigation.select(tab)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, Tokens.Space.xl)
-        .padding(.vertical, settings.interfaceDensity == .compact
-                 ? Tokens.Space.xs : Tokens.Space.s)
     }
 
     @ViewBuilder private var selectedCanvas: some View {

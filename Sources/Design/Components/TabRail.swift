@@ -39,7 +39,7 @@ struct TabRail: View {
         .padding(Tokens.Space.xs)
         .background(Tokens.Colour.elevated, in: Capsule())
         .overlay(Capsule().stroke(Tokens.Colour.line, lineWidth: 1))
-        .focusable()
+        .quietFocus()
         .onMoveCommand { direction in
             switch direction {
             case .left: move(by: -1)

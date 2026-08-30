@@ -49,6 +49,7 @@ struct FocusContinuityApp: App {
         }
         .defaultSize(width: 1_160, height: 780)
         .windowResizability(.contentMinSize)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             MainWindowCommands(navigation: coordinator.mainWindow)
         }
