@@ -39,7 +39,7 @@ struct StatFigure: Identifiable, Equatable {
     var spark: [Double] = []
     var sparkTint: Color?
     /// An SF Symbol beside the label, and a short qualifier pinned top-right —
-    /// the card anatomy Mole's Status grid uses: label · badge / value / chart /
+    /// a compact status-grid anatomy: label · badge / value / chart /
     /// footer, so every card is read the same way.
     var symbol: String?
     var badge: String?

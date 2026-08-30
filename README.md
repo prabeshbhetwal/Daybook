@@ -207,8 +207,8 @@ agent scratch reports.
 
 ## Project documentation
 
-- [Current interface design](docs/superpowers/specs/2026-08-29-mole-inspired-interface-redesign-design.md)
-- [Interface implementation plan](docs/superpowers/plans/2026-08-29-mole-inspired-interface-redesign.md)
+- [Current interface design](docs/superpowers/specs/2026-08-29-interface-redesign-design.md)
+- [Interface implementation plan](docs/superpowers/plans/2026-08-29-interface-redesign.md)
 - [Stabilisation design](docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md)
 - [Build and repository hardening plan](docs/superpowers/plans/2026-08-28-build-repository-hardening.md)
 

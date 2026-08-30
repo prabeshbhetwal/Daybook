@@ -1,14 +1,14 @@
-# FocusContinuity Mole-Inspired Interface Redesign Implementation Plan
+# FocusContinuity Interface Redesign Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the vertically exhaustive dashboard with a Mole-inspired five-tab desktop interface while preserving FocusContinuity's canonical accounting, privacy boundary, compact menu-bar workflow and local build guarantees.
+**Goal:** Replace the vertically exhaustive dashboard with a calm five-tab desktop interface while preserving FocusContinuity's canonical accounting, privacy boundary, compact menu-bar workflow and local build guarantees.
 
 **Architecture:** Keep Core responsible for pure records and reporting, App responsible for navigation, persistence and published presentation data, Design responsible for tokens/primitives, and Surfaces responsible only for composition and interaction. A persistent `MainWindowModel` owns the five-tab route; each tab consumes the existing canonical `SessionStore` snapshot through a purpose-built surface. The compact popover shares Focus presentation primitives but never embeds the global tab system.
 
 **Tech Stack:** Swift 5 language mode, Swift 6.4 compiler, SwiftUI, AppKit, Charts, CoreGraphics, IOKit, macOS 13+, direct `swiftc`, no packages or Xcode project.
 
-**Spec:** `docs/superpowers/specs/2026-08-29-mole-inspired-interface-redesign-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-29-interface-redesign-design.md`
 
 ## Global Constraints
 
@@ -24,7 +24,7 @@
 
 ## Execution Baseline
 
-Execution starts in a new `codex/mole-interface-redesign` worktree created from `codex/focuscontinuity-stabilisation`. Bring the approved design specification and this plan from `main` into that branch before Task 1. Do not redesign on the older `main` source tree: the tab surfaces depend on the stabilised usage snapshot, focused-active history, period bars, integrity warnings, build harness and 139-test baseline.
+Execution starts in a new `codex/interface-redesign` worktree created from `codex/focuscontinuity-stabilisation`. Bring the approved design specification and this plan from `main` into that branch before Task 1. Do not redesign on the older `main` source tree: the tab surfaces depend on the stabilised usage snapshot, focused-active history, period bars, integrity warnings, build harness and 139-test baseline.
 
 ---
 
@@ -182,7 +182,7 @@ git commit -m "feat: add persistent main-window navigation"
 
 - [ ] **Step 1: Add design-behaviour tests**
 
-Add `testMoleDesignTokensAndDensity` with hand-derived relationships:
+Add `testWarmPrecisionDesignTokensAndDensity` with hand-derived relationships:
 
 ```swift
 expect(InterfaceDensity.compact.layout.rowHeight >= 28,
@@ -211,7 +211,7 @@ Render both appearances with selected/unselected tabs, integrity notice, empty s
 
 ```bash
 git add Sources/Design Sources/Surfaces/GalleryView.swift Sources/SelfTest.swift
-git commit -m "feat: add Mole-inspired design foundations"
+git commit -m "feat: add warm-precision design foundations"
 ```
 
 ### Task 4: Build the main-window shell, commands and routing
@@ -610,7 +610,7 @@ Render snapshots to a temporary directory. Inspect every `SnapshotScenario` in l
 
 ```bash
 git add -A Sources/Surfaces Sources/Design README.md Sources/SelfTest.swift
-git commit -m "test: verify the Mole-inspired interface"
+git commit -m "test: verify the interface"
 ```
 
 ## Acceptance Criteria

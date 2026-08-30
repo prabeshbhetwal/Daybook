@@ -1,19 +1,18 @@
-# FocusContinuity Mole-Inspired Interface Redesign — Design
+# FocusContinuity Interface Redesign — Design
 
 **Date:** 2026-08-29
 **Status:** Approved design direction; ready for main-thread review before implementation.
 
 ## 1. Decision
 
-FocusContinuity will receive a complete interface redesign built around a Mole-inspired
-desktop information architecture: a centred horizontal tab rail, an intentionally quiet
+FocusContinuity will receive a complete interface redesign built around a calm desktop
+information architecture: a centred horizontal tab rail, an intentionally quiet
 top-level hierarchy, restrained tonal surfaces, and one dominant piece of information per
 screen.
 
-This is not a clone of Mole. Mole supplies the interaction grammar — a calm tab rail,
-contextual secondary controls, dense but readable rows, and data that earns its visual
-weight. FocusContinuity remains a private focus-and-time-continuity product with its own
-purpose, content and cooler focus accent.
+The interaction grammar uses a calm tab rail, contextual secondary controls, dense but
+readable rows, and data that earns its visual weight. FocusContinuity remains a private
+focus-and-time-continuity product with its own purpose, content and cooler focus accent.
 
 The global tabs are:
 
@@ -28,7 +27,7 @@ metric, chart and list inside one vertically exhaustive dashboard.
 
 1. Make the first question on every surface obvious: *what should I do here?*
 2. Make the second question honest: *what did the data actually establish?*
-3. Give the desktop app a stable Mole-like tab hierarchy instead of a collection of cards
+3. Give the desktop app a stable tab hierarchy instead of a collection of cards
    competing for attention.
 4. Give Settings a first-class global tab where every real configurable behaviour is easy
    to find and explain.
@@ -80,9 +79,8 @@ Supporting figures must serve the dominant visual rather than appear as decorati
 
 ### 4.4 Calm density
 
-Mole demonstrates that a utility can contain substantial information without looking busy.
-FocusContinuity adopts compact rows, low-contrast structure and direct labels; it does not
-adopt decorative darkness, excessive glass, or a cleaner-utility visual metaphor.
+FocusContinuity uses compact rows, low-contrast structure and direct labels; it avoids
+decorative darkness, excessive glass and a cleaner-utility visual metaphor.
 
 ## 5. Global navigation and shell
 
@@ -96,7 +94,7 @@ The shell has three horizontal bands:
 
 1. **Title/status band** — app mark and contextual title on the left; quiet live status on
    the right, such as `Focus active · 42m` or `Today · 2h 10m focused`.
-2. **Global tab rail** — a centred capsule, visually modelled on Mole's five-mode rail.
+2. **Global tab rail** — a centred five-mode capsule.
    It uses icon + short label at generous desktop widths and label-only compact pills when
    the window narrows. The selected tab is filled; unselected tabs are text-only.
 3. **Tab canvas** — the selected tab's single purpose-built surface.
@@ -108,7 +106,7 @@ opens the main window on Settings rather than a separate form-only settings scen
 ### 5.2 Secondary controls
 
 Secondary controls appear only inside a relevant tab, directly below the tab rail or in the
-tab header. They use Mole's smaller text-pill grammar.
+tab header. They use a smaller text-pill grammar.
 
 | Global tab | Secondary control |
 |---|---|
@@ -140,8 +138,8 @@ relevant tab only when that tab directly answers the notification.
 
 ### 6.1 Colour
 
-The visual mood is **warm precision**: Mole's softly warm, near-black depth combined with a
-cool blue focus signal. Use dynamic light/dark token pairs rather than hard-coding colours
+The visual mood is **warm precision**: softly warm, near-black depth combined with a cool
+blue focus signal. Use dynamic light/dark token pairs rather than hard-coding colours
 in views.
 
 | Token | Light | Dark | Use |
@@ -455,7 +453,7 @@ headless test suite continues to prove time accounting; visual tests never repla
 
 ## 17. Acceptance criteria
 
-- The main desktop window has the five Mole-inspired global tabs and each tab owns one
+- The main desktop window has five global tabs and each tab owns one
   distinct information/task hierarchy.
 - Focus is action-first; Today is evidence-first; Review uses exact tracked daily bars;
   Insights is data-gated; Settings exposes every real user-configurable behaviour.

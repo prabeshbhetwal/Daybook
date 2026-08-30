@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Spacing, surfaces, palette, type and formatting. Colours are light/dark pairs
-/// with a single source of truth for the Mole-inspired shell.
+/// with a single source of truth for the warm-precision shell.
 enum Tokens {
 
     enum Colour {

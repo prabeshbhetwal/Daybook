@@ -314,8 +314,8 @@ enum SelfTest {
              testWakeIsNotAReturn),
             ("Main navigation and interface preferences persist across reload",
              testMainNavigationAndInterfacePreferences),
-            ("Mole design tokens preserve practical density and semantic signals",
-             testMoleDesignTokensAndDensity),
+            ("Warm-precision design tokens preserve practical density and semantic signals",
+             testWarmPrecisionDesignTokensAndDensity),
             ("Main-window deep links and commands select their exact routes",
              testMainWindowRoutesAndCommands),
             ("Today preserves day scope and clears only its inspector selection",
@@ -7137,7 +7137,7 @@ enum SelfTest {
 
     /// The visual foundation keeps Compact practical rather than cramped and
     /// resolves semantic signals independently of the current system appearance.
-    private static func testMoleDesignTokensAndDensity() -> [String] {
+    private static func testWarmPrecisionDesignTokensAndDensity() -> [String] {
         var problems: [String] = []
         expect(InterfaceDensity.compact.layout.rowHeight >= 28,
                "compact targets remain practical", &problems)
