@@ -28,17 +28,17 @@ private struct QuickPromptView: View {
     var body: some View {
         VStack(spacing: 0) {
             Triangle()
-                .fill(.regularMaterial)
+                .fill(Tokens.Colour.surface)
                 .frame(width: 18, height: 9)
             AwayAnswerGrid(away: model.away, range: model.range, compact: true,
                            note: model.note, onAnswer: onAnswer, onReason: onReason)
                 .padding(Tokens.Space.m)
                 .frame(width: 300, alignment: .leading)
-                .background(.regularMaterial,
-                            in: RoundedRectangle(cornerRadius: Tokens.Radius.card,
+                .background(Tokens.Colour.surface,
+                            in: RoundedRectangle(cornerRadius: Tokens.Radius.panel,
                                                  style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
-                    .strokeBorder(Tokens.Surface.hairline))
+                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
+                    .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
         }
         .fixedSize()
         // SwiftUI reports its own laid-out size; the panel follows it. AppKit's
@@ -48,6 +48,8 @@ private struct QuickPromptView: View {
             Color.clear.preference(key: QuickSizeKey.self, value: proxy.size)
         })
         .onPreferenceChange(QuickSizeKey.self) { relay.onSize?($0) }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Away decision")
     }
 }
 
@@ -104,6 +106,22 @@ final class AwayQuickPanel {
         relay.onSize = { [weak self] size in self?.layout(to: size) }
     }
 
+    /// The Gallery/PNG harness hosts the exact production SwiftUI root without
+    /// constructing or ordering its non-activating panel and without starting
+    /// the twenty-second fade timer.
+    static func snapshotView(
+        away: TimeInterval,
+        range: (start: Date, end: Date)?,
+        note: String? = nil
+    ) -> some View {
+        let model = QuickPromptModel()
+        model.away = away
+        model.range = range
+        model.note = note
+        return QuickPromptView(model: model, relay: SizeRelay(),
+                               onAnswer: { _ in }, onReason: { _ in })
+    }
+
     func show(away: TimeInterval, range: (start: Date, end: Date)?, note: String?) {
         generation += 1
         let current = generation
@@ -115,9 +133,13 @@ final class AwayQuickPanel {
         // the preference corrects the size the moment SwiftUI has laid out.
         layout(to: lastSize ?? CGSize(width: 300, height: 220))
         panel.orderFrontRegardless()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.18
-            panel.animator().alphaValue = 1
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            panel.alphaValue = 1
+        } else {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.18
+                panel.animator().alphaValue = 1
+            }
         }
         let item = DispatchWorkItem { [weak self] in
             guard let self, self.generation == current else { return }
@@ -132,6 +154,11 @@ final class AwayQuickPanel {
         fade?.cancel()
         fade = nil
         guard panel.alphaValue > 0 else { return }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            panel.alphaValue = 0
+            panel.orderOut(nil)
+            return
+        }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.15
             panel.animator().alphaValue = 0

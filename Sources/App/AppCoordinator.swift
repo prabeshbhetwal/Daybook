@@ -20,7 +20,12 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         store: engine.store,
         isTrackingEnabled: engine.store.isUsageTrackingEnabled,
         onChange: { [weak self] in self?.store.refresh() },
-        onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) })
+        onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) },
+        diagnostics: .live(usage: usage))
+    /// One route object for the window, menu popover, commands and deep links.
+    /// Its first tab comes from the persisted preference exactly once at launch.
+    @MainActor private(set) lazy var mainWindow = MainWindowModel(
+        selectedTab: settings.defaultAppTab)
 
     /// Input density, fed only at event boundaries — app activation, lock,
     /// unlock, wake — and never on a timer. A repeating timer would be the only
@@ -93,10 +98,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
         tracker.flush()
         let moment = Date()
+        let usageSnapshot = AppUsageSnapshot(archive: usage, tracker: tracker)
         let window = (start: moment.addingTimeInterval(-FocusConstants.focusWindow),
                       end: moment)
         let score = FocusScorer(purposeOverrides: engine.store.purposeOverrides)
-            .score(segments: usage.sessions, activity: density.activity, window: window)
+            .score(segments: usageSnapshot.sessions, activity: density.activity, window: window)
 
         // Rebuilt each pass so a break length changed in settings takes effect
         // rather than being frozen at whatever it was on first use.
@@ -123,7 +129,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // case, across the very gap the user is being asked about.
             detector.reset()
         }
-        evaluateRewards(score: score, at: moment)
+        evaluateRewards(score: score, at: moment, usageSnapshot: usageSnapshot)
     }
 
     @MainActor private func apply(_ decision: AutoDecision) {
@@ -161,7 +167,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
     }
 
-    @MainActor private func evaluateRewards(score: FocusScore, at moment: Date) {
+    @MainActor private func evaluateRewards(score: FocusScore, at moment: Date,
+                                            usageSnapshot: AppUsageSnapshot) {
         guard engine.store.rewardsEnabled else { return }
 
         // Ask the cheap question first. Building the context below walks the
@@ -183,9 +190,12 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // `goalReached` and `goalPace` permanently dormant — the one goal
             // computation in the app that was still fed no evidence.
             goal: DailyGoal(archive: engine.archive, goal: engine.store.dailyGoal,
-                            usage: usage.sessions, running: engine.runningSpan,
+                            usage: usageSnapshot.sessions,
+                            usageAccurateFrom: usageSnapshot.accurateFrom,
+                            running: engine.runningSpan,
                             runningWork: engine.elapsedToday()).progress(),
-            endedMedia: recentlyEndedMedia(before: moment),
+            endedMedia: recentlyEndedMedia(before: moment,
+                                           usage: usageSnapshot.sessions),
             musicPairing: musicPairingSince.map { moment.timeIntervalSince($0) },
             isSessionRunning: engine.state != .idle)
 
@@ -214,14 +224,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// A media stretch that closed in the last minute. Anything older has
     /// already been reported or missed; re-reporting it would be a lie about
     /// when it happened.
-    private func recentlyEndedMedia(before moment: Date) -> (appName: String,
-                                                             seconds: TimeInterval)? {
+    private func recentlyEndedMedia(before moment: Date,
+                                    usage: [AppUsageSession]) -> (appName: String,
+                                                                  seconds: TimeInterval)? {
         let overrides = engine.store.purposeOverrides
         // `endReason == .stillOpen` means the tracker split an ongoing stretch
         // for bookkeeping, not that the user stopped watching. Without this the
         // HUD says "hope you enjoyed it" while the film is still playing.
         let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        let recent = usage.sessions.last {
+        let recent = usage.last {
             moment.timeIntervalSince($0.end) < 60 && moment >= $0.end
                 && $0.endReason != .stillOpen
                 && $0.bundleID != frontmost
@@ -245,23 +256,20 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                                        : densityIdle.idleSeconds()))
     }
 
-    /// macOS 13 exposes no API to open a `MenuBarExtra` window programmatically,
-    /// so ⌃⌥Space does what Brief 1 actually asks for — "start/stop a session
-    /// from anywhere" — rather than opening the popover. Starting from the hotkey
-    /// uses the last work type and an empty intent, which is the zero-friction
-    /// path; the intent can be added later from the popover.
+    /// macOS 13 exposes no API to open a `MenuBarExtra` window programmatically.
+    /// Ordinary states therefore keep the zero-friction start/stop route, while
+    /// an unresolved Away question is re-presented through the existing prompt
+    /// owner. The shortcut never archives or clears unclassified evidence.
     private func toggleSessionFromHotKey() {
-        if engine.state == .idle {
-            engine.start(workType: engine.activeWorkType, intent: "")
-        } else {
-            engine.stop()
+        let result = store.performSessionHotKeyAction()
+        if result == .showAwayDecision {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.mainWindow.open(tab: .focus)
+                _ = self.awayPrompter.presentPendingDecision()
+            }
         }
-        store.refresh()
     }
-
-    /// Set by the scene so the popover can open the Today window — `openWindow`
-    /// is a SwiftUI environment value and is not reachable from a delegate.
-    var openTodayWindow: (() -> Void)?
 
     override init() {
         self.engine = SessionEngine()
@@ -285,7 +293,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
         // Launched behind a lock, nothing is in front of anyone: seeding the
         // frontmost app would record usage nobody is producing.
-        if !screenLocked, let frontmost = NSWorkspace.shared.frontmostApplication {
+        if AppCoordinator.permitsInitialUsageSeed(screenLocked: screenLocked,
+                                                  displayAsleep: displayAsleep),
+           let frontmost = NSWorkspace.shared.frontmostApplication {
             engine.transition(on: .appActivated(bundleID: frontmost.bundleIdentifier,
                                                 name: frontmost.localizedName ?? "Unknown"))
             tracker.appActivated(bundleID: frontmost.bundleIdentifier,
@@ -296,6 +306,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // about themselves.
         PurposeMap.declaredCategory = { AppCategoryReader.shared.category(for: $0) }
         store.attach(tracker: tracker, usage: usage)
+        store.onDeferredAutomationReady = { [weak self] in self?.scheduleAutomation() }
         store.refresh()
         Task { @MainActor in
             self.awayPrompter.start()
@@ -308,13 +319,21 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                         // The view's onAppear returns to today; step after it.
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.store.stepDay(by: -1) }
                     }
-                    // The dashboard in a plain window, so its card can be put
-                    // on screen and looked at without a click.
-                    let window = NSWindow(contentRect: NSRect(x: 200, y: 120, width: 1020, height: 920),
+                    // The real main shell in a plain preview window, so the
+                    // requested card or historical day can be inspected without
+                    // first clicking through the menu-bar extra.
+                    self.mainWindow.open(tab: .today)
+                    let window = NSWindow(contentRect: NSRect(x: 200, y: 120,
+                                                              width: 1_160, height: 780),
                                           styleMask: [.titled, .closable, .resizable],
                                           backing: .buffered, defer: false)
-                    window.title = "Dashboard (preview)"
-                    window.contentView = NSHostingView(rootView: DashboardView(store: self.store))
+                    window.title = "FocusContinuity (preview)"
+                    window.contentMinSize = NSSize(width: 980, height: 680)
+                    window.contentView = NSHostingView(rootView: MainWindowView(
+                        store: self.store,
+                        settings: self.settings,
+                        navigation: self.mainWindow
+                    ))
                     window.isReleasedWhenClosed = false
                     self.previewWindow = window
                     NSApp.activate(ignoringOtherApps: true)
@@ -376,18 +395,27 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         true
     }
 
-    /// Waking and carrying on in the same app posts no activation notification,
-    /// so tracking has to be restarted explicitly or that work goes unrecorded.
-    private func resumeTracking() {
+    /// Captures the frontmost app without recording it. The candidate becomes
+    /// active only when the presence gate confirms a return.
+    private func prepareTrackingResume() {
         guard let frontmost = NSWorkspace.shared.frontmostApplication else { return }
-        tracker.resume(bundleID: frontmost.bundleIdentifier,
-                       name: frontmost.localizedName ?? "Unknown")
-        // Waking a paused session changes no state — `.awayEnded` on `.paused`
+        store.prepareTrackingResume(bundleID: frontmost.bundleIdentifier,
+                                    name: frontmost.localizedName ?? "Unknown")
+    }
+
+    /// Unlock and explicit return are human actions, so they can activate the
+    /// prepared app immediately rather than waiting for a HID sample.
+    @discardableResult
+    private func resumeTracking(at moment: Date = Date()) -> Bool {
+        prepareTrackingResume()
+        let releasedDeferredAutomation = store.confirmPresence(at: moment)
+        // Returning to a paused session changes no state — `.awayEnded` on `.paused`
         // deliberately drops the interval, because the pause already accounts
         // for it — so nothing else refreshes here. Without this the one-second
         // ticker, stopped when the machine slept, never restarts, and an
         // idle-paused session stays paused forever with no way back.
         store.refresh()
+        return releasedDeferredAutomation
     }
 
     /// The session dictionary says whether the screen is locked right now —
@@ -396,6 +424,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private static func screenIsLockedNow() -> Bool {
         guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
         return (session["CGSSessionScreenIsLocked"] as? Bool) ?? false
+    }
+
+    /// Pure launch policy kept at the lifecycle seam so sleep/lock combinations
+    /// can be verified without manipulating the real display in a headless run.
+    static func permitsInitialUsageSeed(screenLocked: Bool,
+                                        displayAsleep: Bool) -> Bool {
+        !screenLocked && !displayAsleep
     }
 
     private func wireMonitor() {
@@ -414,12 +449,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self?.scheduleAutomation()
         }
         monitor.onScreenUnlocked = { [weak self] in
+            let moment = Date()
             self?.screenLocked = false
             self?.store.screenLocked = false
             self?.engine.transition(on: .awayEnded)
-            self?.resumeTracking()
+            let releasedDeferredAutomation = self?.resumeTracking(at: moment) ?? false
             self?.sampleInput()
-            self?.scheduleAutomation()
+            if !releasedDeferredAutomation { self?.scheduleAutomation() }
         }
         monitor.onSystemDidWake = { [weak self] in
             // A wake is the machine's, not the person's. One closed-lid
@@ -430,21 +466,18 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // confirms; never here. The refresh restarts the ticker so that
             // confirmation can happen.
             guard let self else { return }
-            if !self.screenLocked, CGDisplayIsAsleep(CGMainDisplayID()) == 0 {
-                self.resumeTracking()
-            } else {
-                self.store.refresh()
-            }
+            self.store.noteMachineWake()
+            self.prepareTrackingResume()
+            self.store.refresh()
             self.sampleInput()
-            self.scheduleAutomation()
         }
         monitor.onAppActivated = { [weak self] app in
-            self?.engine.transition(on: .appActivated(bundleID: app.bundleIdentifier,
-                                                      name: app.localizedName ?? "Unknown"))
-            self?.tracker.appActivated(bundleID: app.bundleIdentifier,
-                                       name: app.localizedName ?? "Unknown")
-            self?.sampleInput()
-            self?.scheduleAutomation()
+            guard let self else { return }
+            let delivered = self.store.handleApplicationActivation(
+                bundleID: app.bundleIdentifier,
+                name: app.localizedName ?? "Unknown")
+            self.sampleInput()
+            if delivered { self.scheduleAutomation() }
         }
         monitor.onWillPowerOff = { [weak self] in
             self?.engine.persist()

@@ -33,6 +33,7 @@ struct DailyGoal {
     private let archive: SessionArchive
     private let goal: TimeInterval
     private let usage: [AppUsageSession]
+    private let usageAccurateFrom: Date?
     private let running: (start: Date, end: Date)?
     private let runningWork: TimeInterval?
     private let calendar: Calendar
@@ -46,6 +47,7 @@ struct DailyGoal {
     init(archive: SessionArchive,
          goal: TimeInterval,
          usage: [AppUsageSession] = [],
+         usageAccurateFrom: Date? = nil,
          running: (start: Date, end: Date)? = nil,
          runningWork: TimeInterval? = nil,
          calendar: Calendar = .current,
@@ -53,6 +55,7 @@ struct DailyGoal {
         self.archive = archive
         self.goal = goal
         self.usage = usage
+        self.usageAccurateFrom = usageAccurateFrom
         self.running = running
         self.runningWork = runningWork
         self.calendar = calendar
@@ -82,60 +85,67 @@ struct DailyGoal {
 
     // MARK: - Personal median
 
-    /// Median focused seconds reached by this same hour of day, over the
-    /// trailing `goalMedianWindowDays` — counting only active days, for the
-    /// same reason `PeriodStats.averagePerActiveDay` divides by active days
-    /// rather than calendar days: folding zeros in understates every real
-    /// working day. Below `goalMedianMinimumDays` active days there is no
-    /// median worth quoting, so this returns nil rather than fabricate one.
+    /// Median focused-active seconds reached by this same hour of day, over
+    /// the trailing `goalMedianWindowDays`. A pace sample requires both an
+    /// active focused interval and usage recorded after its authoritative
+    /// epoch; a historical raw session is not evidence for this comparison.
     private func typicalByNow() -> TimeInterval? {
         let current = now()
-        let cutoffSeconds = secondsSinceMidnight(current)
         var reached: [TimeInterval] = []
+        guard let firstAccurateDay = firstCompleteAccurateDay() else { return nil }
 
         for offset in 1...FocusConstants.goalMedianWindowDays {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: current) else {
                 continue
             }
-            // Day-split, so a day whose work was donated to its successor is no
-            // longer mistaken for a day off. Friday used to vanish from this
-            // median entirely because the session covering it happened to be
-            // stopped on Saturday.
-            guard archive.workSeconds(on: day) > 0 else { continue }
-            reached.append(secondsByCutoff(archive.records(on: day),
-                                           dayStart: calendar.startOfDay(for: day),
-                                           cutoffSeconds: cutoffSeconds))
+            let dayStart = calendar.startOfDay(for: day)
+            // The migration day can contain old checkpoint semantics before
+            // `accurateFrom`, so the next complete calendar day is the first
+            // fair historical comparator.
+            guard dayStart >= firstAccurateDay else { continue }
+            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+                continue
+            }
+            let fullDay = FocusedActiveTime.seconds(
+                in: DateInterval(start: dayStart, end: dayEnd),
+                records: archive.records, usage: usage, running: nil)
+            guard fullDay > 0 else { continue }
+
+            // Eligibility is full-day focused activity; the stored sample is
+            // the same local clock-time interval and may validly be zero.
+            let cutoff = historicalCutoff(on: dayStart, ending: dayEnd, matching: current)
+            reached.append(FocusedActiveTime.seconds(
+                in: DateInterval(start: dayStart, end: cutoff),
+                records: archive.records, usage: usage, running: nil))
         }
 
         guard reached.count >= FocusConstants.goalMedianMinimumDays else { return nil }
-        let value = median(of: reached)
-        // A zero median is an artefact, not a fact about the user: someone who
-        // works one long session a day has nothing *ended* before the cutoff on
-        // most days. Reporting it would say "2h 30m ahead of usual" to somebody
-        // having an ordinary morning.
-        return value > 0 ? value : nil
+        return median(of: reached)
     }
 
-    /// Elapsed seconds since local midnight — the cutoff applied to every day
-    /// in the comparison, so "by this hour" means the same clock time on each.
-    private func secondsSinceMidnight(_ date: Date) -> TimeInterval {
-        date.timeIntervalSince(calendar.startOfDay(for: date))
+    /// `accurateFrom` is a point within the migration calendar day, not a
+    /// licence to combine its old and new checkpoint semantics. Start with the
+    /// following full local day regardless of the migration time.
+    private func firstCompleteAccurateDay() -> Date? {
+        guard let usageAccurateFrom else { return nil }
+        return calendar.date(byAdding: .day, value: 1,
+                             to: calendar.startOfDay(for: usageAccurateFrom))
     }
 
-    /// Work done on this day *before* the matching clock time.
-    ///
-    /// This used to weight each record by how much of its whole span fell before
-    /// the cutoff, on top of the archive's end-day rule — two different guesses
-    /// stacked. A record covering a night then reported most of its work as
-    /// having happened by mid-afternoon of the following day. Now the day
-    /// window and the cutoff are one range, and `workSeconds(in:)` is the single
-    /// rule that splits a record.
-    private func secondsByCutoff(_ records: [SessionRecord],
-                                 dayStart: Date,
-                                 cutoffSeconds: TimeInterval) -> TimeInterval {
-        let cutoff = dayStart.addingTimeInterval(cutoffSeconds)
-        guard cutoff > dayStart else { return 0 }
-        return records.reduce(0) { $0 + $1.workSeconds(in: (dayStart, cutoff)) }
+    /// The historical interval ends at today's local wall-clock time. `nextTime`
+    /// resolves a missing spring-forward time, `.first` chooses the first
+    /// repeated fall-back time, and clamping prevents a short DST day spilling
+    /// into its successor.
+    private func historicalCutoff(on dayStart: Date, ending dayEnd: Date,
+                                  matching current: Date) -> Date {
+        var time = calendar.dateComponents([.hour, .minute, .second], from: current)
+        time.calendar = calendar
+        time.timeZone = calendar.timeZone
+        let candidate = calendar.nextDate(
+            after: dayStart.addingTimeInterval(-1), matching: time,
+            matchingPolicy: .nextTime, repeatedTimePolicy: .first,
+            direction: .forward) ?? dayEnd
+        return min(max(candidate, dayStart), dayEnd)
     }
 
     private func median(of values: [TimeInterval]) -> TimeInterval {

@@ -46,6 +46,19 @@ struct AppUsageSession: Codable, Equatable, Identifiable {
     }
 }
 
+/// Identifies the app-usage file format and when corrected usage recording
+/// became authoritative. Earlier records remain visible as history, but are not
+/// silently represented as having the later recording guarantees.
+struct AppUsageMetadata: Codable, Equatable {
+    let schemaVersion: Int
+    let accurateFrom: Date
+
+    init(schemaVersion: Int = 2, accurateFrom: Date) {
+        self.schemaVersion = schemaVersion
+        self.accurateFrom = accurateFrom
+    }
+}
+
 /// A per-app rollup for the menu bar.
 struct AppUsageSummary: Identifiable, Equatable {
     let bundleID: String
@@ -72,15 +85,85 @@ enum AppUsageConstants {
     static let capacity = 20_000
 }
 
+/// One authoritative in-memory view of app usage. Durable records remain
+/// untouched until persistence succeeds; an overlay with the same stable UUID
+/// replaces that record for every reader, while new pending UUIDs append in
+/// observation order. A correction below the archive noise floor removes its
+/// durable record from the view, matching what a successful checkpoint writes.
+struct AppUsageSnapshot {
+    let sessions: [AppUsageSession]
+    let accurateFrom: Date
+    let revision: Int
+
+    init(archive: AppUsageArchive, tracker: AppUsageTracker? = nil) {
+        let overlay = tracker?.usageOverlaySessions() ?? []
+        self.sessions = Self.overlay(durable: archive.sessions, with: overlay)
+        self.accurateFrom = archive.metadata.accurateFrom
+        self.revision = archive.revision &* 1_000_003 &+ (tracker?.overlayRevision ?? 0)
+    }
+
+    private static func overlay(durable: [AppUsageSession],
+                                with pending: [AppUsageSession]) -> [AppUsageSession] {
+        var latest: [UUID: AppUsageSession] = [:]
+        for session in pending { latest[session.id] = session }
+
+        let durableIDs = Set(durable.map(\.id))
+        var result: [AppUsageSession] = []
+        result.reserveCapacity(durable.count + pending.count)
+        for session in durable {
+            guard let replacement = latest[session.id] else {
+                result.append(session)
+                continue
+            }
+            if replacement.seconds >= AppUsageConstants.minimumSegment {
+                result.append(replacement)
+            }
+        }
+
+        var appended: Set<UUID> = []
+        for session in pending
+        where !durableIDs.contains(session.id) && !appended.contains(session.id) {
+            appended.insert(session.id)
+            if session.seconds > 0 { result.append(session) }
+        }
+        return result
+    }
+
+    func total(on day: Date, calendar: Calendar = .current) -> TimeInterval {
+        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return 0 }
+        return sessions.reduce(0) { total, session in
+            let start = max(session.start, bounds.start)
+            let end = min(session.end, bounds.end)
+            return end > start ? total + end.timeIntervalSince(start) : total
+        }
+    }
+}
+
 /// Local-only per-app usage history. Same shape as `SessionArchive`: a plain
 /// Codable file, atomic writes, corrupt files moved aside rather than lost.
 final class AppUsageArchive {
+
+    /// The on-disk v2 shape. Keeping this private lets the archive evolve its
+    /// container without exposing a persistence detail to the rest of the app.
+    private struct Envelope: Codable {
+        let metadata: AppUsageMetadata
+        let sessions: [AppUsageSession]
+    }
 
     private let directory: URL
     private let fileURL: URL
     private let now: () -> Date
     private let calendar: Calendar
     private var cache: [AppUsageSession]
+
+    private(set) var revision = 0
+    private(set) var metadata: AppUsageMetadata
+    private(set) var legacyBackupURL: URL?
+    /// Unsupported schema or failed evidence preservation makes the archive a
+    /// display-only view for this process. Existing bytes are never downgraded
+    /// or overwritten after either condition.
+    private(set) var isReadOnly = false
+    var onDidChange: (() -> Void)?
 
     init(directory: URL = SessionArchive.defaultDirectory,
          calendar: Calendar = .current,
@@ -90,6 +173,7 @@ final class AppUsageArchive {
         self.now = now
         self.calendar = calendar
         self.cache = []
+        self.metadata = AppUsageMetadata(accurateFrom: now())
         self.cache = load()
     }
 
@@ -130,17 +214,61 @@ final class AppUsageArchive {
     /// seconds between them.
     @discardableResult
     func record(_ session: AppUsageSession) -> Bool {
-        guard session.seconds >= AppUsageConstants.minimumSegment else { return false }
-        cache.append(session)
+        guard !isReadOnly,
+              session.seconds >= AppUsageConstants.minimumSegment else { return false }
+        var candidate = cache
+        candidate.append(session)
 
-        if cache.count > AppUsageConstants.capacity {
-            cache.removeFirst(cache.count - AppUsageConstants.capacity)
+        if candidate.count > AppUsageConstants.capacity {
+            candidate.removeFirst(candidate.count - AppUsageConstants.capacity)
         }
-        save()
-        return true
+        return persistMutation(candidate)
+    }
+
+    /// Inserts a newly observed stretch or corrects the existing stretch with
+    /// the same stable UUID. A late idle observation can therefore shorten (or
+    /// remove) a previously saved checkpoint without leaving a duplicate tail.
+    @discardableResult
+    func checkpoint(_ session: AppUsageSession) -> Bool {
+        guard !isReadOnly else { return false }
+        if let index = cache.firstIndex(where: { $0.id == session.id }) {
+            guard session.seconds >= AppUsageConstants.minimumSegment else {
+                var candidate = cache
+                candidate.remove(at: index)
+                return persistMutation(candidate)
+            }
+            guard cache[index] != session else { return true }
+            var candidate = cache
+            candidate[index] = session
+            return persistMutation(candidate)
+        }
+
+        // There is nothing to persist or roll back for an unsaved stretch below
+        // the noise floor; treating that as success lets the tracker complete an
+        // explicit idle/suspend transition without inventing a file mutation.
+        guard session.seconds >= AppUsageConstants.minimumSegment else { return true }
+        var candidate = cache
+        candidate.append(session)
+        if candidate.count > AppUsageConstants.capacity {
+            candidate.removeFirst(candidate.count - AppUsageConstants.capacity)
+        }
+        return persistMutation(candidate)
     }
 
     // MARK: - Queries
+
+    /// Whether any ordinary app usage intersects `interval` before `cutoff`.
+    /// `contains` stops at the first match and reads the backing cache directly,
+    /// avoiding the full filtered-array allocation used by `sessions`.
+    func containsUsage(in interval: DateInterval, before cutoff: Date) -> Bool {
+        let upperBound = min(interval.end, cutoff)
+        guard upperBound > interval.start else { return false }
+        return cache.contains { session in
+            !AppUsageArchive.systemProcesses.contains(session.bundleID)
+                && session.end > interval.start
+                && session.start < upperBound
+        }
+    }
 
     /// Reads `sessions`, not `cache`. This was the one query in the app that
     /// skipped the system-process filter, and it is the one behind the popover
@@ -195,25 +323,82 @@ final class AppUsageArchive {
 
     private func load() -> [AppUsageSession] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+        let data: Data
         do {
-            return try JSONDecoder().decode([AppUsageSession].self,
-                                            from: Data(contentsOf: fileURL))
+            data = try Data(contentsOf: fileURL)
         } catch {
-            let stamp = Int(now().timeIntervalSince1970)
-            let aside = directory.appendingPathComponent("app-usage-corrupt-\(stamp).json")
-            try? FileManager.default.moveItem(at: fileURL, to: aside)
-            Diagnostics.log("app usage unreadable, moved to \(aside.lastPathComponent): \(error)")
-            return []
+            return preserveCorruptFile(after: error)
         }
+
+        if let envelope = try? JSONDecoder().decode(Envelope.self, from: data) {
+            metadata = envelope.metadata
+            guard envelope.metadata.schemaVersion == 2 else {
+                isReadOnly = true
+                Diagnostics.log("app usage schema \(envelope.metadata.schemaVersion) is unsupported; opened read-only")
+                return envelope.sessions
+            }
+            return envelope.sessions
+        }
+
+        let legacy: [AppUsageSession]
+        do {
+            legacy = try JSONDecoder().decode([AppUsageSession].self, from: data)
+        } catch {
+            return preserveCorruptFile(after: error)
+        }
+
+        let stamp = Int(now().timeIntervalSince1970)
+        let backup = directory.appendingPathComponent("app-usage-v1-backup-\(stamp).json")
+        do {
+            try data.write(to: backup, options: .atomic)
+            legacyBackupURL = backup
+        } catch {
+            isReadOnly = true
+            Diagnostics.log("failed to preserve legacy app usage; source kept read-only: \(error)")
+            return legacy
+        }
+
+        guard save(sessions: legacy) else {
+            isReadOnly = true
+            Diagnostics.log("failed to migrate app usage after backup; source kept read-only")
+            return legacy
+        }
+        return legacy
     }
 
-    private func save() {
+    private func preserveCorruptFile(after decodeError: Error) -> [AppUsageSession] {
+        let stamp = Int(now().timeIntervalSince1970)
+        let aside = directory.appendingPathComponent("app-usage-corrupt-\(stamp).json")
+        do {
+            try FileManager.default.moveItem(at: fileURL, to: aside)
+            Diagnostics.log("app usage unreadable, moved to \(aside.lastPathComponent): \(decodeError)")
+        } catch {
+            isReadOnly = true
+            Diagnostics.log("app usage unreadable and could not be preserved elsewhere; source kept read-only: \(error)")
+        }
+        return []
+    }
+
+    @discardableResult
+    private func save(sessions: [AppUsageSession]) -> Bool {
         do {
             try FileManager.default.createDirectory(at: directory,
                                                     withIntermediateDirectories: true)
-            try JSONEncoder().encode(cache).write(to: fileURL, options: .atomic)
+            let envelope = Envelope(metadata: metadata, sessions: sessions)
+            try JSONEncoder().encode(envelope).write(to: fileURL, options: .atomic)
+            return true
         } catch {
             Diagnostics.log("failed to write app usage: \(error)")
+            return false
         }
+    }
+
+    @discardableResult
+    private func persistMutation(_ candidate: [AppUsageSession]) -> Bool {
+        guard !isReadOnly, save(sessions: candidate) else { return false }
+        cache = candidate
+        revision += 1
+        onDidChange?()
+        return true
     }
 }

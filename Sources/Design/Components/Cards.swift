@@ -10,21 +10,21 @@ private struct CardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.card,
+            .background(surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.panel,
                                                       style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
-                    .strokeBorder(Tokens.Surface.hairline, lineWidth: 1)
+                RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
+                    .strokeBorder(Tokens.Colour.line, lineWidth: 1)
             )
     }
 }
 
 extension View {
-    /// A lifted surface on the ground: `Surface.card`, continuous 12pt corners,
+    /// A lifted surface on the ground: `Colour.surface`, continuous 16pt corners,
     /// one hairline. Cards size to their content; the ground between them is
     /// the layout.
     func card(padding: CGFloat = Tokens.Space.l,
-              surface: Color = Tokens.Surface.card) -> some View {
+              surface: Color = Tokens.Colour.surface) -> some View {
         modifier(CardModifier(padding: padding, surface: surface))
     }
 }
@@ -39,7 +39,7 @@ struct StatCard: View {
     /// A per-day series drawn as a small bar strip under the context line,
     /// the last day full strength. Empty draws nothing.
     var spark: [Double] = []
-    var sparkTint: Color = .accentColor
+    var sparkTint: Color = Tokens.Colour.focus
     /// Optional icon before the label and a small qualifier pill top-right.
     var symbol: String?
     var badge: String?
@@ -57,7 +57,7 @@ struct StatCard: View {
                 // The label never breaks; a long badge yields, scaling down
                 // before it truncates — "TRACKE / D" was the alternative.
                 Text(label.uppercased())
-                    .font(Tokens.Typography.sectionLabel)
+                    .font(Tokens.Typography.tabLabel)
                     .kerning(0.7)
                     .foregroundStyle(.secondary)
                     .fixedSize()
@@ -65,7 +65,7 @@ struct StatCard: View {
                 Spacer(minLength: Tokens.Space.xs)
                 if let badge {
                     Text(badge)
-                        .font(Tokens.Typography.detail.weight(.medium).monospacedDigit())
+                        .font(Tokens.Typography.metadata.weight(.medium).monospacedDigit())
                         .foregroundStyle(badgeTint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.secondary))
                         .padding(.horizontal, 7)
                         .padding(.vertical, 2)
@@ -76,12 +76,12 @@ struct StatCard: View {
                 }
             }
             Text(value)
-                .font(Tokens.Typography.stat)
+                .font(Tokens.Typography.metricValue)
                 .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(context ?? " ")
-                .font(Tokens.Typography.detail)
+                .font(Tokens.Typography.metadata)
                 .foregroundStyle(contextTint.map(AnyShapeStyle.init)
                                  ?? AnyShapeStyle(.secondary))
                 .lineLimit(2)
@@ -109,7 +109,7 @@ struct DataBar: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                Capsule().fill(Tokens.Surface.well)
+                Capsule().fill(Tokens.Colour.elevated)
                 Capsule()
                     .fill(tint)
                     .frame(width: max(3, geometry.size.width * min(1, max(0, share))))
@@ -165,11 +165,13 @@ struct IconButton: View {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .frame(width: 28, height: 28)
-                .background(prominent ? AnyShapeStyle(Color.accentColor.opacity(0.15))
-                                      : AnyShapeStyle(Tokens.Surface.well),
+                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                       height: AccessibilityMetrics.minimumTargetSize)
+                .background(prominent ? AnyShapeStyle(Tokens.Colour.focus.opacity(0.15))
+                                      : AnyShapeStyle(Tokens.Colour.elevated),
                             in: Circle())
-                .foregroundStyle(prominent ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                .foregroundStyle(prominent ? AnyShapeStyle(Tokens.Colour.focus)
+                                           : AnyShapeStyle(.secondary))
         }
         .buttonStyle(.plain)
         .help(help)

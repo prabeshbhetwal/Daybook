@@ -78,6 +78,7 @@ struct DashboardStats {
 
     private let sessions: SessionArchive
     private let usage: AppUsageArchive
+    private let usageSnapshot: AppUsageSnapshot?
     private let now: () -> Date
     private let calendar: Calendar
 
@@ -86,10 +87,9 @@ struct DashboardStats {
     /// array per refresh, each allocating its own tuples.
     private final class DaySliceCache {
         var day: Date?
-        /// Archive size when the slice was built. Without this the cache serves
-        /// stale data after the tracker records a new stretch — a trap, since
-        /// nothing would fail loudly.
-        var sourceCount = -1
+        /// Archive revision when the slice was built. Count is insufficient:
+        /// an open checkpoint is corrected in place under its stable UUID.
+        var sourceRevision = -1
         var segments: [TimelineSegment] = []
         var ranks: [AppRank] = []
     }
@@ -100,10 +100,12 @@ struct DashboardStats {
 
     init(sessions: SessionArchive,
          usage: AppUsageArchive,
+         usageSnapshot: AppUsageSnapshot? = nil,
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init) {
         self.sessions = sessions
         self.usage = usage
+        self.usageSnapshot = usageSnapshot
         self.calendar = calendar
         self.now = now
     }
@@ -128,7 +130,7 @@ struct DashboardStats {
     private func clippedUsage(for day: Date) -> [(session: AppUsageSession,
                                                   start: Date, end: Date)] {
         let (dayStart, dayEnd) = bounds(of: day)
-        return usage.sessions.compactMap { session in
+        return sourceSessions.compactMap { session in
             let start = max(session.start, dayStart)
             let end = min(session.end, dayEnd)
             guard end > start else { return nil }
@@ -188,13 +190,13 @@ struct DashboardStats {
             }
             .sorted { $0.start < $1.start }
         cache.day = day
-        cache.sourceCount = usage.sessions.count
+        cache.sourceRevision = sourceRevision
     }
 
     private func ensure(_ day: Date) {
         if let cached = cache.day,
            calendar.isDate(cached, inSameDayAs: day),
-           cache.sourceCount == usage.sessions.count {
+           cache.sourceRevision == sourceRevision {
             return
         }
         build(for: day)
@@ -302,10 +304,18 @@ struct DashboardStats {
 
     /// Earliest day with any record, used to bound the date stepper.
     func earliestRecordedDay() -> Date? {
-        let usageStart = usage.sessions.map(\.start).min()
+        let usageStart = sourceSessions.map(\.start).min()
         let sessionStart = sessions.records.map(\.start).min()
         let earliest = [usageStart, sessionStart].compactMap { $0 }.min()
         return earliest.map { calendar.startOfDay(for: $0) }
+    }
+
+    private var sourceSessions: [AppUsageSession] {
+        usageSnapshot?.sessions ?? usage.sessions
+    }
+
+    private var sourceRevision: Int {
+        usageSnapshot?.revision ?? usage.revision
     }
 
     /// The adaptive drawing window: an hour either side of the day's data,
@@ -337,7 +347,17 @@ struct DashboardStats {
 
     /// Records with work on this day, not merely those that ended on it.
     func focusSessions(for day: Date) -> [SessionRecord] {
-        sessions.records.filter { $0.workSeconds(on: day, calendar: calendar) > 0 }
+        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [] }
+        return sessions.records.compactMap { record in
+            guard record.workType.countsAsFocus else { return nil }
+            let work = record.workSeconds(in: bounds)
+            guard work > 0 else { return nil }
+            var clipped = record
+            clipped.start = max(record.start, bounds.start)
+            clipped.end = min(record.end, bounds.end)
+            clipped.workSeconds = work
+            return clipped
+        }
     }
 
     /// The parts of each session that fall inside the day, merged so overlapping
@@ -345,9 +365,8 @@ struct DashboardStats {
     /// against day-clipped usage was scoring a whole morning as "inside a
     /// session" whenever one record happened to span the previous night.
     private func focusRanges(for day: Date) -> [(start: Date, end: Date)] {
-        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [] }
         let clipped = focusSessions(for: day)
-            .map { (start: max($0.start, bounds.start), end: min($0.end, bounds.end)) }
+            .map { (start: $0.start, end: $0.end) }
             .filter { $0.end > $0.start }
             .sorted { $0.start < $1.start }
 
@@ -362,10 +381,21 @@ struct DashboardStats {
         return merged
     }
 
+    /// Focus-only spans within the requested day, merged for timeline brackets.
+    /// Breaks remain available through `breakRecords(on:)`; they do not create
+    /// a focus bracket or take part in any focus calculation.
+    func focusSpans(for day: Date) -> [DateInterval] {
+        focusRanges(for: day).map { DateInterval(start: $0.start, end: $0.end) }
+    }
+
     /// - Parameter runningSeconds: work banked by a session still in flight. Passing
     ///   it keeps this in step with `sessionsToday`; without it the same screen can
     ///   read "1 session today" and "No sessions yet today".
-    func focusQuality(for day: Date, runningSeconds: TimeInterval? = nil) -> FocusQuality {
+    /// - Parameter runningThreadID: canonical identity of that in-flight thread,
+    ///   preventing an archived earlier stretch of the same thread counting twice.
+    func focusQuality(for day: Date,
+                      runningSeconds: TimeInterval? = nil,
+                      runningThreadID: UUID? = nil) -> FocusQuality {
         ensure(day)
         let records = focusSessions(for: day)
         let clipped = cache.segments.map { (session: $0, start: $0.start, end: $0.end) }
@@ -389,7 +419,7 @@ struct DashboardStats {
             byType[record.workType, default: 0]
                 += record.workSeconds(on: day, calendar: calendar)
         }
-        if let runningSeconds, runningSeconds > 0 {
+        if let runningSeconds, runningSeconds > 0, activeWorkType.countsAsFocus {
             byType[activeWorkType, default: 0] += runningSeconds
         }
         let typeTotal = byType.values.reduce(0, +)
@@ -401,17 +431,163 @@ struct DashboardStats {
         }
         .sorted { $0.seconds > $1.seconds }
 
-        // App switches that happened while a session was running.
-        let switches = clipped.filter { entry in
-            focused.contains { $0.start <= entry.start && entry.start < $0.end }
-        }.count
+        // Count identity CHANGES inside each canonical focus stretch. The first
+        // app observed is context, not a switch, and a same-app checkpoint split
+        // is persistence detail rather than interruption evidence.
+        var switches = 0
+        for record in records {
+            var previousBundleID: String?
+            for entry in cache.segments
+            where entry.start < record.end && entry.end > record.start {
+                if let previousBundleID, previousBundleID != entry.bundleID {
+                    switches += 1
+                }
+                previousBundleID = entry.bundleID
+            }
+        }
 
-        let count = records.count + (runningSeconds != nil ? 1 : 0)
+        let threadIDs = Set(records.map(\.threadID))
+        let runningCount: Int
+        if runningSeconds != nil, activeWorkType.countsAsFocus {
+            runningCount = runningThreadID.map(threadIDs.contains) == true ? 0 : 1
+        } else {
+            runningCount = 0
+        }
+        let count = threadIDs.count + runningCount
         return FocusQuality(
             byWorkType: shares,
             insideSessionShare: tracked > 0 ? min(1, inside / tracked) : 0,
             switchesPerSession: count == 0 ? 0 : Double(switches) / Double(count),
             sessionCount: count)
+    }
+
+    /// Canonical quality for a multi-day evidence range. Unlike summing daily
+    /// `FocusQuality` values, this keeps one denominator entry per thread across
+    /// local midnight and resumed stretches, then derives app transitions from
+    /// the ordered usage identities that intersect that thread anywhere in the
+    /// selected range.
+    ///
+    /// Running work preserves the daily contract: it contributes work type and
+    /// one deduplicated thread identity, while app-intersection/switch evidence
+    /// remains based on closed canonical ranges until that stretch is archived.
+    func focusQuality(for days: [Date],
+                      runningSeconds: TimeInterval? = nil,
+                      runningThreadID: UUID? = nil) -> FocusQuality {
+        var seenDays: Set<Date> = []
+        let dayIntervals: [DateInterval] = days.compactMap { day in
+            let start = calendar.startOfDay(for: day)
+            guard seenDays.insert(start).inserted,
+                  let bounds = SessionRecord.dayBounds(start, calendar: calendar) else {
+                return nil
+            }
+            return DateInterval(start: bounds.start, end: bounds.end)
+        }
+        .sorted { $0.start < $1.start }
+        guard !dayIntervals.isEmpty else {
+            return FocusQuality(byWorkType: [], insideSessionShare: 0,
+                                switchesPerSession: 0, sessionCount: 0)
+        }
+
+        var byType: [WorkType: TimeInterval] = [:]
+        var threadIDs: Set<UUID> = []
+        var rangesByThread: [UUID: [DateInterval]] = [:]
+        for record in sessions.records where record.workType.countsAsFocus {
+            for bounds in dayIntervals {
+                let worked = record.workSeconds(in: (start: bounds.start, end: bounds.end))
+                guard worked > 0 else { continue }
+                byType[record.workType, default: 0] += worked
+                threadIDs.insert(record.threadID)
+                let start = max(record.start, bounds.start)
+                let end = min(record.end, bounds.end)
+                if end > start {
+                    rangesByThread[record.threadID, default: []]
+                        .append(DateInterval(start: start, end: end))
+                }
+            }
+        }
+
+        var anonymousRunningCount = 0
+        if let runningSeconds, activeWorkType.countsAsFocus {
+            if runningSeconds > 0 {
+                byType[activeWorkType, default: 0] += runningSeconds
+            }
+            if let runningThreadID { threadIDs.insert(runningThreadID) }
+            else { anonymousRunningCount = 1 }
+        }
+
+        let typeTotal = byType.values.reduce(0, +)
+        let shares = WorkType.allCases.compactMap { type -> WorkTypeShare? in
+            guard let seconds = byType[type], seconds > 0 else { return nil }
+            return WorkTypeShare(workType: type, seconds: seconds,
+                                 share: typeTotal > 0 ? seconds / typeTotal : 0)
+        }
+        .sorted { $0.seconds > $1.seconds }
+
+        let orderedUsage = sourceSessions
+            .filter { session in
+                dayIntervals.contains { interval in
+                    session.start < interval.end && session.end > interval.start
+                }
+            }
+            .sorted {
+                if $0.start != $1.start { return $0.start < $1.start }
+                if $0.end != $1.end { return $0.end < $1.end }
+                return $0.id.uuidString < $1.id.uuidString
+            }
+
+        var tracked: TimeInterval = 0
+        for session in orderedUsage {
+            for interval in dayIntervals {
+                let start = max(session.start, interval.start)
+                let end = min(session.end, interval.end)
+                if end > start { tracked += end.timeIntervalSince(start) }
+            }
+        }
+
+        let allFocusRanges = Self.mergeRanges(rangesByThread.values.flatMap { $0 })
+        var inside: TimeInterval = 0
+        for session in orderedUsage {
+            for range in allFocusRanges {
+                let start = max(session.start, range.start)
+                let end = min(session.end, range.end)
+                if end > start { inside += end.timeIntervalSince(start) }
+            }
+        }
+
+        var switches = 0
+        for ranges in rangesByThread.values {
+            let canonicalRanges = Self.mergeRanges(ranges)
+            var previousBundleID: String?
+            for session in orderedUsage where canonicalRanges.contains(where: {
+                session.start < $0.end && session.end > $0.start
+            }) {
+                if let previousBundleID, previousBundleID != session.bundleID {
+                    switches += 1
+                }
+                previousBundleID = session.bundleID
+            }
+        }
+
+        let count = threadIDs.count + anonymousRunningCount
+        return FocusQuality(
+            byWorkType: shares,
+            insideSessionShare: tracked > 0 ? min(1, inside / tracked) : 0,
+            switchesPerSession: count > 0 ? Double(switches) / Double(count) : 0,
+            sessionCount: count)
+    }
+
+    private static func mergeRanges(_ ranges: [DateInterval]) -> [DateInterval] {
+        let ordered = ranges.filter { $0.end > $0.start }.sorted { $0.start < $1.start }
+        var merged: [DateInterval] = []
+        for range in ordered {
+            if let last = merged.last, range.start <= last.end {
+                merged[merged.count - 1] = DateInterval(
+                    start: last.start, end: max(last.end, range.end))
+            } else {
+                merged.append(range)
+            }
+        }
+        return merged
     }
 
     // MARK: Running apps
@@ -438,8 +614,8 @@ struct DashboardStats {
     // MARK: Insights — each gated, never fabricated
 
     func insights(for day: Date) -> [Insight] {
-        // `deepWorkShare` is deliberately absent: the Focus quality section already
-        // states it, and repeating a figure makes the reader distrust both copies.
+        // Focus quality already states the work-type split, and repeating a figure
+        // makes the reader distrust both copies.
         [longestStretch(day), insideSession(day), versusYesterday(day)]
             .compactMap { $0 }
     }
@@ -469,16 +645,6 @@ struct DashboardStats {
                        detail: "\(durationPhrase(tracked * quality.insideSessionShare)) "
                              + "of \(durationPhrase(tracked)) tracked",
                        symbolName: "target")
-    }
-
-    private func deepWorkShare(_ day: Date) -> Insight? {
-        let quality = focusQuality(for: day)
-        guard let deep = quality.byWorkType.first(where: { $0.workType == .deepWork }),
-              deep.share > 0 else { return nil }
-        return Insight(id: "deep-work-share",
-                       headline: "Deep work \(Int((deep.share * 100).rounded()))%",
-                       detail: "of your session time today",
-                       symbolName: "brain.head.profile")
     }
 
     private func versusYesterday(_ day: Date) -> Insight? {

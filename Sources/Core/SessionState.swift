@@ -442,7 +442,8 @@ enum FocusConstants {
     static let streakMinimum: TimeInterval = 25 * 60
     /// Window used to derive the quick-start list.
     static let quickStartWindowDays = 14
-    /// Recent sessions shown per app in the menu bar, and how many apps.
+    /// Recent grouped sessions shown for a selected app, and how many apps older
+    /// compatibility surfaces retain.
     static let defaultMenuSessions = 5
     static let defaultMenuApps = 4
     /// Break reminders: work this long continuously, then take this long off.

@@ -1,133 +1,141 @@
 import SwiftUI
 
-/// Four tabs of grouped forms. The explanatory copy that used to crowd the
-/// popover lives here as footers, where it has room to be read.
+/// First-class Settings canvas. Search filters the navigation metadata; the
+/// selected group remains the sole detail surface rather than expanding eight
+/// forms into one exhaustive page.
 struct SettingsView: View {
     @ObservedObject var model: SettingsModel
+    @ObservedObject var navigation: MainWindowModel
+    var scrolls: Bool
+
+    init(model: SettingsModel, navigation: MainWindowModel, scrolls: Bool = true) {
+        self.model = model
+        self.navigation = navigation
+        self.scrolls = scrolls
+    }
+
+    /// Chosen against the real 980–1160 pt production window range: the
+    /// minimum gets the compact group menu and the comfortable default keeps
+    /// the two-pane sidebar.
+    static func usesSidebar(at width: CGFloat) -> Bool { width >= 1_080 }
 
     var body: some View {
-        TabView {
-            goal.tabItem { Label("Goal", systemImage: "target") }
-            away.tabItem { Label("Away and breaks", systemImage: "moon.zzz") }
-            automatic.tabItem { Label("Automatic", systemImage: "wand.and.stars") }
-            display.tabItem { Label("Display", systemImage: "macwindow") }
+        GeometryReader { proxy in
+            let sections = SettingsSection.matching(navigation.settingsQuery)
+            VStack(alignment: .leading, spacing: Tokens.Space.l) {
+                search
+                if let section = visibleSection(in: sections) {
+                    if Self.usesSidebar(at: proxy.size.width) {
+                        wide(sections: sections, section: section)
+                    } else {
+                        narrow(sections: sections, section: section)
+                    }
+                } else {
+                    EmptyState("No matching settings",
+                               detail: "Try a control label such as goal, privacy or appearance.",
+                               icon: "magnifyingglass")
+                        .frame(maxHeight: .infinity)
+                }
+            }
+            .padding(Self.usesSidebar(at: proxy.size.width)
+                     ? Tokens.Space.xxl : Tokens.Space.l)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(width: 480)
-        .frame(minHeight: 300)
+        .background(Tokens.Colour.ground)
     }
 
-    private var goal: some View {
-        Form {
-            Section {
-                Picker("Daily goal", selection: $model.dailyGoal) {
-                    ForEach(FocusConstants.dailyGoalOptions, id: \.self) {
-                        Text(Tokens.duration($0)).tag($0)
-                    }
-                }
-            } footer: {
-                Text("Counts only focus sessions while you were actually using the Mac. "
-                     + "Your usual pace compares today with the same hour on your last "
-                     + "\(FocusConstants.goalMedianWindowDays) working days.")
+    private var search: some View {
+        HStack(spacing: Tokens.Space.s) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            if scrolls {
+                TextField("Search settings", text: $navigation.settingsQuery)
+                    .textFieldStyle(.plain)
+            } else {
+                Text(navigation.settingsQuery.isEmpty
+                     ? "Search settings" : navigation.settingsQuery)
+                    .foregroundStyle(navigation.settingsQuery.isEmpty
+                                     ? AnyShapeStyle(.secondary)
+                                     : AnyShapeStyle(.primary))
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .formStyle(.grouped)
+        .padding(.horizontal, Tokens.Space.m)
+        .frame(height: 36)
+        .background(Tokens.Colour.elevated,
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                         style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                  style: .continuous)
+            .stroke(Tokens.Colour.line, lineWidth: 1))
+        .frame(maxWidth: 480)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Search settings")
+        .accessibilitySortPriority(2)
     }
 
-    private var away: some View {
-        Form {
-            Section {
-                Picker("Ask me after", selection: $model.breakThreshold) {
-                    ForEach(FocusConstants.thresholdOptions, id: \.self) {
-                        Text(Tokens.duration($0)).tag($0)
-                    }
+    private func wide(sections: [SettingsSection], section: SettingsSection) -> some View {
+        HStack(alignment: .top, spacing: Tokens.Space.xl) {
+            if scrolls {
+                ScrollView {
+                    SettingsSidebar(sections: sections,
+                                    selected: selectionBinding(in: sections))
                 }
-                Picker("End session after", selection: $model.longAwayCap) {
-                    ForEach(FocusConstants.longAwayCapOptions, id: \.self) {
-                        Text(Tokens.duration($0)).tag($0)
-                    }
-                }
-                Picker("Full-screen prompt after", selection: $model.fullPromptAfter) {
-                    ForEach(FocusConstants.fullPromptAfterOptions, id: \.self) {
-                        Text(Tokens.duration($0)).tag($0)
-                    }
-                    Text("Never").tag(0.0)
-                }
-            } header: {
-                Text("Stepping away")
-            } footer: {
-                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                    Text("Under 5 seconds is ignored. Up to "
-                         + "\(Tokens.duration(model.breakThreshold)) is left out of the session "
-                         + "without interrupting you. Up to \(Tokens.duration(model.longAwayCap)) "
-                         + "you are asked what it was, whether the screen locked or you simply "
-                         + "stopped. Past that the session ends where you left.")
-                    Text(model.fullPromptAfter > 0
-                         ? "Shorter absences are asked about from the menu bar; from "
-                           + "\(Tokens.duration(model.fullPromptAfter)) the question fills the screen."
-                         : "Every absence is asked about from the menu bar.")
-                    Text("Pressing Away is never asked about. Back within "
-                         + "\(Tokens.duration(model.breakThreshold)) the same stretch carries on; "
-                         + "back later, the stretch ended where you left, the gap is written "
-                         + "down as Away, and a new stretch starts when you return.")
-                    Text("Quiet in front of something you are watching — a video, a call, a "
-                         + "presentation keeping the screen awake — is never an absence, so it is "
-                         + "never asked about. In a Meetings or Learning session it counts; in any "
-                         + "other it pauses the clock quietly and appears as Watching.")
-                }
+            } else {
+                SettingsSidebar(sections: sections,
+                                selected: selectionBinding(in: sections))
             }
-            Section {
-                Toggle("Remind me to take breaks", isOn: $model.remindersEnabled)
-            } header: {
-                Text("Breaks")
-            } footer: {
-                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                    ForEach(BreakTier.allCases, id: \.rawValue) { tier in
-                        Text("\(Int(tier.workThreshold / 60)) minutes working → "
-                             + "\(BreakPrompt.phrase(tier.breakLength)) off. \(tier.reason)")
-                    }
-                    Text("Timed from continuous use, not from sessions. A short break "
-                         + "resets the short timer only; the longer ones keep running.")
-                }
-            }
+            Divider()
+            detail(section)
         }
-        .formStyle(.grouped)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilitySortPriority(1)
     }
 
-    private var automatic: some View {
-        Form {
-            Section {
-                Toggle("Start sessions for me", isOn: $model.autoSessionsEnabled)
-                Picker("Auto-session gap", selection: $model.breakLength) {
-                    ForEach(FocusConstants.breakLengthOptions, id: \.self) {
-                        Text(Tokens.duration($0)).tag($0)
-                    }
-                }
-                Toggle("Celebrate milestones", isOn: $model.rewardsEnabled)
-            } footer: {
-                Text("Sessions the app starts can be undone from the notice, and one it "
-                     + "ends on its own ends where the work stopped. The gap is how long "
-                     + "a pause must be before such a session is treated as over.")
-                Text("Started sessions are named by what you are doing — Browsing in a "
-                     + "browser, Coding, Writing & AI, Design elsewhere. Apps the app "
-                     + "does not know are read from the category they declare about "
-                     + "themselves, when they declare one.")
+    private func narrow(sections: [SettingsSection], section: SettingsSection) -> some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            if scrolls {
+                SettingsGroupMenu(sections: sections,
+                                  selected: selectionBinding(in: sections))
+                    .frame(maxWidth: 360)
+            } else {
+                SettingsGroupLabel(selected: section)
+                    .frame(maxWidth: 360)
             }
+            detail(section)
         }
-        .formStyle(.grouped)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilitySortPriority(1)
     }
 
-    private var display: some View {
-        Form {
-            Section {
-                Picker("Sessions per app", selection: $model.menuSessionCount) {
-                    ForEach([3, 5, 7, 10], id: \.self) { Text("\($0)").tag($0) }
-                }
-                Toggle("Record app usage", isOn: $model.isTrackingEnabled)
-            } footer: {
-                Text("Recording is local and keeps app names and bundle identifiers only — "
-                     + "never window titles, addresses, or anything you type.")
-            }
+    @ViewBuilder private func detail(_ section: SettingsSection) -> some View {
+        let content = VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            Label(section.title, systemImage: section.symbol)
+                .font(Tokens.Typography.pageTitle)
+                .symbolRenderingMode(.hierarchical)
+                .accessibilityAddTraits(.isHeader)
+            SettingsGroups(model: model, section: section)
+                .frame(maxWidth: 720, alignment: .topLeading)
         }
-        .formStyle(.grouped)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+
+        if scrolls {
+            ScrollView { content.padding(.bottom, Tokens.Space.xxl) }
+        } else {
+            content.frame(maxHeight: .infinity, alignment: .top)
+        }
+    }
+
+    private func visibleSection(in sections: [SettingsSection]) -> SettingsSection? {
+        guard !sections.isEmpty else { return nil }
+        return sections.contains(navigation.settingsSection)
+            ? navigation.settingsSection : sections[0]
+    }
+
+    private func selectionBinding(in sections: [SettingsSection]) -> Binding<SettingsSection> {
+        Binding(
+            get: { visibleSection(in: sections) ?? navigation.settingsSection },
+            set: { navigation.settingsSection = $0 })
     }
 }

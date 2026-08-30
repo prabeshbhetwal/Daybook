@@ -12,6 +12,9 @@ struct DaySummaryInput {
     /// Session work on the day, and the day's goal (0 means none).
     var focused: TimeInterval
     var goal: TimeInterval
+    /// Goal credit can be stricter than the raw focused statistic. Nil preserves
+    /// legacy callers that intentionally use the same value for both.
+    var goalAchieved: TimeInterval? = nil
     /// The day's sessions and the rests between their stretches, as the
     /// Sessions card shows them.
     var sessions: [DaySession]
@@ -102,8 +105,9 @@ enum SummaryText {
 
     private static func goalClause(_ i: DaySummaryInput) -> String? {
         guard i.goal > 0 else { return nil }
-        if i.focused >= i.goal { return "goal met" }
-        let short = duration(i.goal - i.focused)
+        let achieved = i.goalAchieved ?? i.focused
+        if achieved >= i.goal { return "goal met" }
+        let short = duration(i.goal - achieved)
         return i.isToday ? "**\(short)** to the \(duration(i.goal)) goal"
                          : "**\(short)** short of the \(duration(i.goal)) goal"
     }

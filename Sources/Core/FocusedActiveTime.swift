@@ -24,6 +24,20 @@ enum FocusedActiveTime {
         guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else {
             return 0
         }
+        return seconds(in: DateInterval(start: bounds.start, end: bounds.end),
+                       records: records, usage: usage, running: running,
+                       runningWork: runningWork)
+    }
+
+    /// Focused-active seconds inside any bounded interval. This is the same
+    /// intersection used for today's goal and historical same-clock-time pace.
+    static func seconds(in interval: DateInterval,
+                        records: [SessionRecord],
+                        usage: [AppUsageSession],
+                        running: (start: Date, end: Date)?,
+                        runningWork: TimeInterval? = nil) -> TimeInterval {
+        guard interval.duration > 0 else { return 0 }
+        let bounds = (start: interval.start, end: interval.end)
         let focusRecords = records.filter { $0.workType.countsAsFocus }
         var focus = focusRecords.map { (start: $0.start, end: $0.end) }
         if let running { focus.append(running) }

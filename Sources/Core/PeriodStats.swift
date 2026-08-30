@@ -20,6 +20,20 @@ struct PeriodDay: Identifiable, Equatable {
     var id: Date { date }
 }
 
+/// The only measure a period bar carries. Work-type composition is presented
+/// separately by the donut and must never be stacked into this value.
+struct PeriodChartPoint: Identifiable, Equatable {
+    let date: Date
+    let seconds: TimeInterval
+    var id: Date { date }
+}
+
+enum PeriodChartData {
+    static func tracked(_ days: [PeriodDay]) -> [PeriodChartPoint] {
+        days.map { PeriodChartPoint(date: $0.date, seconds: $0.tracked) }
+    }
+}
+
 struct PeriodSummary: Equatable {
     let tracked: TimeInterval
     let activeDays: Int
@@ -97,12 +111,18 @@ struct LogAppGroup: Identifiable, Equatable {
 /// Everything the dashboard needs for one period, from one walk over the days.
 struct PeriodRollup: Equatable {
     let days: [PeriodDay]
+    /// Newest bounded rows for chronological presentation.
     let log: [LogEntry]
+    /// Exact source count and app aggregates remain independent of the row cap.
+    let totalLogEntries: Int
+    let exactAppGroups: [LogAppGroup]
     let dayTotals: [Date: TimeInterval]
     let summary: PeriodSummary
 
+    var logRowsOmitted: Int { max(0, totalLogEntries - log.count) }
+
     static let empty = PeriodRollup(
-        days: [], log: [], dayTotals: [:],
+        days: [], log: [], totalLogEntries: 0, exactAppGroups: [], dayTotals: [:],
         summary: PeriodSummary(tracked: 0, activeDays: 0, totalDays: 0,
                                averagePerActiveDay: 0, longest: nil))
 }
@@ -112,17 +132,22 @@ struct PeriodRollup: Equatable {
 /// and the period totals can never drift from the day view.
 struct PeriodStats {
 
+    private static let maximumLogEntries = 500
+
     private let sessions: SessionArchive
     private let usage: AppUsageArchive
+    private let usageSnapshot: AppUsageSnapshot?
     private let calendar: Calendar
     private let now: () -> Date
 
     init(sessions: SessionArchive,
          usage: AppUsageArchive,
+         usageSnapshot: AppUsageSnapshot? = nil,
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init) {
         self.sessions = sessions
         self.usage = usage
+        self.usageSnapshot = usageSnapshot
         self.calendar = calendar
         self.now = now
     }
@@ -151,6 +176,7 @@ struct PeriodStats {
         }
         let (previousStart, previousEnd) = bounds(for: period, containing: previousDay)
         let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var total: TimeInterval = 0
         var cursor = previousStart
@@ -169,6 +195,7 @@ struct PeriodStats {
     func days(for period: TrackingPeriod, containing day: Date) -> [PeriodDay] {
         let (start, end) = bounds(for: period, containing: day)
         let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var result: [PeriodDay] = []
         var cursor = start
@@ -189,41 +216,45 @@ struct PeriodStats {
     func rollup(for period: TrackingPeriod, containing day: Date) -> PeriodRollup {
         let (start, end) = bounds(for: period, containing: day)
         let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var allDays: [PeriodDay] = []
-        var entries: [LogEntry] = []
-        var totals: [Date: TimeInterval] = [:]
+        var retainedEntries: [LogEntry] = []
+        var allEntries: [LogEntry] = []
         var cursor = start
         while cursor < end && allDays.count < 40 {
             allDays.append(PeriodDay(date: cursor,
                                      tracked: stats.trackedTotal(for: cursor),
                                      byWorkType: stats.focusQuality(for: cursor).byWorkType))
-            if entries.count < 500 {
-                for rank in stats.rankedApps(for: cursor) {
-                    for session in stats.sessions(for: cursor, bundleID: rank.bundleID) {
-                        entries.append(LogEntry(session: session, day: cursor))
-                        totals[cursor, default: 0] += session.attended
-                    }
-                }
-            }
+            let dayEntries = Self.logEntries(on: cursor, stats: stats)
+            allEntries.append(contentsOf: dayEntries)
+            Self.retainNewest(dayEntries, in: &retainedEntries)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             cursor = next
         }
-        entries.sort { $0.session.start > $1.session.start }
+        allEntries.sort { $0.session.start > $1.session.start }
+        retainedEntries.sort { $0.session.start > $1.session.start }
+        var totals: [Date: TimeInterval] = [:]
+        for entry in retainedEntries { totals[entry.day, default: 0] += entry.session.attended }
         return PeriodRollup(days: allDays,
-                            log: entries,
+                            log: retainedEntries,
+                            totalLogEntries: allEntries.count,
+                            exactAppGroups: Self.appGroups(from: allEntries),
                             dayTotals: totals,
-                            summary: summarise(days: allDays, entries: entries))
+                            summary: summarise(days: allDays, entries: allEntries))
     }
 
     func summary(for period: TrackingPeriod, containing day: Date) -> PeriodSummary {
-        summarise(days: days(for: period, containing: day),
-                  entries: log(for: period, containing: day))
+        rollup(for: period, containing: day).summary
     }
 
     private func summarise(days allDays: [PeriodDay], entries: [LogEntry]) -> PeriodSummary {
-        let active = allDays.filter { $0.tracked > 0 }
-        let tracked = allDays.reduce(0) { $0 + $1.tracked }
+        // The summary and the chart consume the exact same canonical series.
+        // Work-type composition remains on `PeriodDay.byWorkType` and cannot
+        // leak into either the bars or their average.
+        let trackedSeries = PeriodChartData.tracked(allDays)
+        let active = trackedSeries.filter { $0.seconds > 0 }
+        let tracked = trackedSeries.reduce(0) { $0 + $1.seconds }
         return PeriodSummary(
             tracked: tracked,
             activeDays: active.count,
@@ -238,19 +269,48 @@ struct PeriodStats {
     func log(for period: TrackingPeriod, containing day: Date) -> [LogEntry] {
         let (start, end) = bounds(for: period, containing: day)
         let stats = DashboardStats(sessions: sessions, usage: usage,
+                                   usageSnapshot: usageSnapshot,
                                    calendar: calendar, now: now)
         var entries: [LogEntry] = []
         var cursor = start
-        while cursor < end && entries.count < 500 {
-            for rank in stats.rankedApps(for: cursor) {
-                for session in stats.sessions(for: cursor, bundleID: rank.bundleID) {
-                    entries.append(LogEntry(session: session, day: cursor))
-                }
-            }
+        var visited = 0
+        while cursor < end && visited < 40 {
+            visited += 1
+            Self.retainNewest(Self.logEntries(on: cursor, stats: stats), in: &entries)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             cursor = next
         }
         return entries.sorted { $0.session.start > $1.session.start }
+    }
+
+    /// All grouped app sessions on one day. Sorting here makes same-day overflow
+    /// deterministic before `retainNewest` drops the oldest prefix.
+    private static func logEntries(on day: Date, stats: DashboardStats) -> [LogEntry] {
+        var result: [LogEntry] = []
+        for rank in stats.rankedApps(for: day) {
+            for session in stats.sessions(for: day, bundleID: rank.bundleID) {
+                result.append(LogEntry(session: session, day: day))
+            }
+        }
+        return result.sorted { left, right in
+            if left.session.start != right.session.start {
+                return left.session.start < right.session.start
+            }
+            if left.session.end != right.session.end {
+                return left.session.end < right.session.end
+            }
+            return left.session.id < right.session.id
+        }
+    }
+
+    /// Days are visited oldest first. Append a chronologically ordered day, then
+    /// remove only the oldest overflow so the newest 500 survive. Every rollup
+    /// consumer is derived after this retention step from the identical array.
+    private static func retainNewest(_ newEntries: [LogEntry],
+                                     in retained: inout [LogEntry]) {
+        retained.append(contentsOf: newEntries)
+        let overflow = retained.count - maximumLogEntries
+        if overflow > 0 { retained.removeFirst(overflow) }
     }
 
     /// Collapses a period's log into one row per app, largest first. Ties break

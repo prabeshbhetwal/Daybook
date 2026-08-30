@@ -6,6 +6,9 @@ struct DayFacts: Equatable {
     var tracked: TimeInterval = 0
     var focused: TimeInterval = 0
     var sessions: Int = 0
+    /// Nil lets gallery fixtures retain their declared focused tint; live store
+    /// facts provide the stricter focused-active goal credit explicitly.
+    var goalAchieved: TimeInterval? = nil
 }
 
 /// The month that is showing, and its facts. `@State` is unavailable here.
@@ -70,7 +73,7 @@ struct DayPickerCalendar: View {
                     .font(.system(size: 15, weight: .semibold))
                     .contentTransition(.numericText())
                 Text(monthSummary)
-                    .font(Tokens.Typography.detail)
+                    .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -79,10 +82,11 @@ struct DayPickerCalendar: View {
                 Button("Today") { shown.month = calendar.startOfDay(for: Date()) }
                     .buttonStyle(.plain)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.tint)
+                    .foregroundStyle(Tokens.Colour.focus)
                     .padding(.horizontal, Tokens.Space.s)
                     .padding(.vertical, 3)
-                    .background(Color.accentColor.opacity(0.12), in: Capsule())
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
             }
             IconButton(systemImage: "chevron.left", help: "Previous month") { step(-1) }
                 .opacity(canStep(-1) ? 1 : 0.35)
@@ -105,7 +109,7 @@ struct DayPickerCalendar: View {
         let active = days.filter { $0.tracked > 0 }.count
         guard active > 0 else { return "Nothing recorded this month" }
         let focused = days.reduce(0) { $0 + $1.focused }
-        let met = days.filter { goal > 0 && $0.focused >= goal }.count
+        let met = days.filter { goal > 0 && ($0.goalAchieved ?? $0.focused) >= goal }.count
         var parts = [active == 1 ? "1 active day" : "\(active) active days",
                      "\(Tokens.duration(focused)) focused"]
         if met > 0 { parts.append("goal met \(met)×") }
@@ -141,7 +145,7 @@ struct DayPickerCalendar: View {
         HStack(spacing: gap) {
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
-                    .font(Tokens.Typography.sectionLabel)
+                    .font(Tokens.Typography.tabLabel)
                     .foregroundStyle(.tertiary)
                     .frame(width: cellWidth)
             }
@@ -189,56 +193,58 @@ struct DayPickerCalendar: View {
         let tooEarly = earliest.map { key < calendar.startOfDay(for: $0) } ?? false
         let pickable = !tooLate && !tooEarly
         let hovered = hover.id == key.description
-        let share = goal > 0 ? facts.focused / goal : 0
+        let share = goal > 0 ? (facts.goalAchieved ?? facts.focused) / goal : 0
 
         return Button { if pickable { onPick(day) } } label: {
             VStack(spacing: 2) {
                 Text("\(calendar.component(.day, from: day))")
                     .font(.system(size: 13, weight: isToday || isSelected ? .semibold : .regular)
                         .monospacedDigit())
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.white)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)
                                      : !pickable ? AnyShapeStyle(.quaternary)
-                                     : isToday ? AnyShapeStyle(.tint)
+                                     : isToday ? AnyShapeStyle(Tokens.Colour.focus)
                                      : AnyShapeStyle(.primary))
                 // The fare: focused time, or a quiet dash for a day at the Mac
                 // with no session, or nothing at all.
                 Text(facts.focused > 0 ? Tokens.duration(facts.focused)
                      : facts.tracked > 0 ? "·" : " ")
                     .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.white.opacity(0.9))
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
                                      : facts.focused > 0 ? AnyShapeStyle(.secondary)
                                      : AnyShapeStyle(.tertiary))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
             .frame(width: cellWidth, height: cellHeight)
-            .background(isSelected ? AnyShapeStyle(Color.accentColor)
-                        : AnyShapeStyle(Color.accentColor.opacity(pickable ? tint(share) : 0)),
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
+            .background(isSelected ? AnyShapeStyle(Tokens.Colour.focus)
+                        : AnyShapeStyle(Tokens.Colour.focus.opacity(pickable ? tint(share) : 0)),
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
-                    .fill(hovered && pickable && !isSelected ? Tokens.Surface.hover : Color.clear)
+                RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+                    .fill(hovered && pickable && !isSelected ? Tokens.Colour.hover : Color.clear)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
-                    .strokeBorder(Color.accentColor.opacity(isToday && !isSelected ? 0.7 : 0),
+                RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+                    .strokeBorder(Tokens.Colour.focus.opacity(isToday && !isSelected ? 0.7 : 0),
                                   lineWidth: 1)
             )
             .overlay(alignment: .topTrailing) {
                 if share >= 1 && !isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 6, weight: .heavy))
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(Tokens.Colour.focus)
                         .padding(4)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.control))
+            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
         }
         .buttonStyle(.plain)
         .disabled(!pickable)
         .onHover { hover.id = $0 ? key.description : nil }
         .help(helpText(day, facts, pickable: pickable))
-        .accessibilityLabel(helpText(day, facts, pickable: pickable))
+        .accessibilityLabel(dateAccessibilityLabel(day, facts, pickable: pickable,
+                                                   selected: isSelected))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     /// `Tue 19 Aug · 3h 20m focused · 5h 10m at the Mac · 2 sessions`.
@@ -254,6 +260,22 @@ struct DayPickerCalendar: View {
         return parts.joined(separator: " · ")
     }
 
+    private func dateAccessibilityLabel(_ day: Date, _ facts: DayFacts,
+                                        pickable: Bool, selected: Bool) -> String {
+        guard pickable else { return "\(Tokens.longDate(day)), unavailable" }
+        var parts = [Tokens.longDate(day), selected ? "selected date" : "not selected"]
+        if facts.tracked == 0 {
+            parts.append("nothing recorded")
+        } else {
+            if facts.focused > 0 { parts.append("\(Tokens.spent(facts.focused)) focused") }
+            parts.append("\(Tokens.spent(facts.tracked)) at the Mac")
+            if facts.sessions > 0 {
+                parts.append(facts.sessions == 1 ? "1 session" : "\(facts.sessions) sessions")
+            }
+        }
+        return parts.joined(separator: ", ")
+    }
+
     /// Four tint steps by share of the goal — enough to read the month's shape
     /// without turning the grid into a heat map.
     private func tint(_ share: Double) -> Double {
@@ -266,20 +288,17 @@ struct DayPickerCalendar: View {
     }
 
     private var legend: some View {
-        HStack(spacing: Tokens.Space.m) {
-            HStack(spacing: 3) {
-                ForEach([0.10, 0.20, 0.32], id: \.self) { opacity in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.accentColor.opacity(opacity))
-                        .frame(width: 10, height: 10)
-                }
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            HStack(spacing: Tokens.Space.m) {
+                Label("Below half", systemImage: "circle")
+                Label("Half or more", systemImage: "circle.lefthalf.filled")
+                Label("Goal met", systemImage: "checkmark.circle.fill")
             }
-            Text("share of your \(Tokens.duration(goal)) goal")
-            Spacer()
-            Text("figure: focused time")
+            Text("Share of your \(Tokens.duration(goal)) goal · figure is focused time")
         }
-        .font(Tokens.Typography.detail)
+        .font(Tokens.Typography.metadata)
         .foregroundStyle(.tertiary)
+        .accessibilityElement(children: .combine)
     }
 
     private func load() {

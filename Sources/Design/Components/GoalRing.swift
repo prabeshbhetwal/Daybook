@@ -4,6 +4,7 @@ import SwiftUI
 /// well track, round caps, a label in the middle — the share, or a check once
 /// the goal is met. Animates on change and nowhere else.
 struct GoalRing: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let progress: Double
     var diameter: CGFloat = 64
     var lineWidth: CGFloat = 7
@@ -15,7 +16,7 @@ struct GoalRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Tokens.Surface.well, lineWidth: lineWidth)
+                .stroke(Tokens.Colour.elevated, lineWidth: lineWidth)
             Circle()
                 // Drawn clamped; `progress` itself may exceed 1 so the figures
                 // beside it can say "160%" honestly.
@@ -23,7 +24,8 @@ struct GoalRing: View {
                 .stroke(Color.accentColor,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.spring(response: 0.5, dampingFraction: 0.8), value: progress)
+                .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8),
+                           value: progress)
             if isMet {
                 Image(systemName: "checkmark")
                     .font(.system(size: diameter * 0.3, weight: .bold))

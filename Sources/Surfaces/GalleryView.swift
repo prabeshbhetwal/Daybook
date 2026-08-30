@@ -1,31 +1,21 @@
 import SwiftUI
 
-/// `--gallery` renders every surface state from fixtures, light and dark, side by
-/// side. It is a design-review surface and a visual regression check, and it
-/// never touches real user data — every fixture gets a throwaway directory.
-enum Fixture: String, CaseIterable, Identifiable {
+/// Data states used to build the product-surface matrix. They are deliberately
+/// not the Gallery's navigation model; `SnapshotScenario` owns that contract.
+enum FixtureState: String {
     case firstRun
     case idleWithHistory
     case running
     case paused
     case needsResolution
-    case brokenStreak
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .firstRun: return "First run — no history"
-        case .idleWithHistory: return "Idle — with history"
-        case .running: return "Running"
-        case .paused: return "Paused"
-        case .needsResolution: return "Needs resolution"
-        case .brokenStreak: return "Broken streak"
-        }
-    }
 }
 
 enum FixtureFactory {
+
+    private struct UsageFixtureEnvelope: Codable {
+        let metadata: AppUsageMetadata
+        let sessions: [AppUsageSession]
+    }
 
     private final class Clock {
         var value: Date
@@ -37,7 +27,7 @@ enum FixtureFactory {
             .appendingPathComponent("fc-gallery-\(UUID().uuidString)", isDirectory: true)
     }
 
-    static func store(for fixture: Fixture) -> SessionStore {
+    static func store(for fixture: FixtureState, accurateUsage: Bool = false) -> SessionStore {
         // Anchor at 10:00 today, not "now": seeding from a late-evening anchor
         // pushes a session's end past midnight, so it lands on the wrong day and
         // the totals lie. Sessions are attributed to the day they end.
@@ -106,9 +96,6 @@ enum FixtureFactory {
             engine.transition(on: .awayBegan(trigger: .screenLock))
             clock.value = anchor.addingTimeInterval(600 + 1_320)
             engine.transition(on: .awayEnded)
-        case .brokenStreak:
-            // Worked solidly until three days ago, then stopped.
-            seedWeek(skippingDaysAgo: [0, 1, 2])
         }
 
         let store = SessionStore(engine: engine)
@@ -116,7 +103,20 @@ enum FixtureFactory {
         // Background app usage, so the per-app history renders with real shapes.
         // First run gets the archive too, just empty: the empty state is only a
         // real check if it goes through the same code path.
-        let usageArchive = AppUsageArchive(directory: scratchDirectory(),
+        let usageDirectory = scratchDirectory()
+        if accurateUsage {
+            try? FileManager.default.createDirectory(at: usageDirectory,
+                                                     withIntermediateDirectories: true)
+            let envelope = UsageFixtureEnvelope(
+                metadata: AppUsageMetadata(accurateFrom:
+                    anchor.addingTimeInterval(-30 * 86_400)),
+                sessions: [])
+            if let data = try? JSONEncoder().encode(envelope) {
+                try? data.write(to: usageDirectory.appendingPathComponent("app-usage.json"),
+                                options: .atomic)
+            }
+        }
+        let usageArchive = AppUsageArchive(directory: usageDirectory,
                                            now: { clock.value })
         if fixture != .firstRun {
             func use(_ bundleID: String, _ name: String,
@@ -154,38 +154,116 @@ enum FixtureFactory {
         store.refresh()
         return store
     }
+
+    /// Task 8's visual pair needs a stable noon cutoff and non-zero historical
+    /// pace samples. The general gallery intentionally keeps its older 10:00
+    /// fixtures; this isolated record avoids changing accepted surfaces while
+    /// exercising every production Insights gate with canonical archives.
+    static func insightsStore(withEvidence: Bool) -> SessionStore {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let anchor = today.addingTimeInterval(12 * 3_600)
+        let clock = Clock(anchor)
+        let defaults = UserDefaults(
+            suiteName: "com.prabesh.focuscontinuity.gallery.insights.\(withEvidence)"
+        ) ?? .standard
+        let prefs = PersistenceStore(defaults: defaults)
+        prefs.removeAll()
+        let archive = SessionArchive(directory: scratchDirectory(),
+                                     calendar: calendar, now: { clock.value })
+        let engine = SessionEngine(store: prefs,
+                                   archive: archive,
+                                   ownBundleID: FocusConstants.bundleIdentifier,
+                                   schedulesDwell: false,
+                                   now: { clock.value })
+
+        let usageDirectory = scratchDirectory()
+        try? FileManager.default.createDirectory(at: usageDirectory,
+                                                 withIntermediateDirectories: true)
+        let accurateFrom = calendar.date(byAdding: .day, value: -40, to: today) ?? today
+        let envelope = UsageFixtureEnvelope(
+            metadata: AppUsageMetadata(accurateFrom: accurateFrom),
+            sessions: [])
+        if let data = try? JSONEncoder().encode(envelope) {
+            try? data.write(to: usageDirectory.appendingPathComponent("app-usage.json"),
+                            options: .atomic)
+        }
+        let usage = AppUsageArchive(directory: usageDirectory,
+                                    calendar: calendar, now: { clock.value })
+
+        if withEvidence {
+            let types: [WorkType] = [.deepWork, .learning, .admin, .meetings]
+            for daysAgo in 0..<14 {
+                guard let day = calendar.date(byAdding: .day, value: -daysAgo,
+                                              to: today) else { continue }
+                let focusStart = day.addingTimeInterval(9 * 3_600)
+                let minutes = 75 + (daysAgo % 4) * 10
+                let focusEnd = focusStart.addingTimeInterval(Double(minutes * 60))
+                archive.append(SessionRecord(
+                    name: daysAgo.isMultiple(of: 2) ? "Build the interface" : "Review evidence",
+                    workType: types[daysAgo % types.count],
+                    start: focusStart,
+                    end: focusEnd,
+                    workSeconds: Double(minutes * 60)))
+                let appSwitch = min(focusEnd,
+                                    focusStart.addingTimeInterval(55 * 60))
+                usage.record(AppUsageSession(
+                    bundleID: "com.apple.dt.Xcode", appName: "Xcode",
+                    start: focusStart, end: appSwitch))
+                if focusEnd > appSwitch {
+                    usage.record(AppUsageSession(
+                        bundleID: "com.apple.Terminal", appName: "Terminal",
+                        start: appSwitch, end: focusEnd))
+                }
+            }
+        }
+
+        let tracker = AppUsageTracker(archive: usage,
+                                      ownBundleID: FocusConstants.bundleIdentifier,
+                                      idle: .disabled,
+                                      now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+        store.refreshInsights()
+        return store
+    }
+}
+
+@MainActor private final class GalleryModel: ObservableObject {
+    @Published var scenario: SnapshotScenario = .focusRunning
 }
 
 struct GalleryView: View {
-    private let fixtures: [(Fixture, SessionStore, SessionStore)]
-
-    init() {
-        // Two independent stores per fixture: SwiftUI would otherwise share one
-        // object across both colour schemes and the focus state would fight.
-        fixtures = Fixture.allCases.map {
-            ($0, FixtureFactory.store(for: $0), FixtureFactory.store(for: $0))
-        }
-    }
+    @StateObject private var model = GalleryModel()
 
     var body: some View {
-        ScrollView {
+        ScrollView([.horizontal, .vertical]) {
             VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-                Text("FocusContinuity — state catalogue")
+                Text("FocusContinuity — product surface catalogue")
                     .font(.largeTitle.weight(.semibold))
-                VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                    Text("Components").font(.headline)
-                    ComponentStrip()
+                Picker("Scenario", selection: $model.scenario) {
+                    ForEach(SnapshotScenario.allCases) { scenario in
+                        Text(scenario.title).tag(scenario)
+                    }
                 }
-                Divider()
-                ForEach(fixtures, id: \.0.id) { fixture, lightStore, darkStore in
+                .pickerStyle(.menu)
+                .frame(width: 340, alignment: .leading)
+
+                ForEach(model.scenario.presentations, id: \.rawValue) { presentation in
                     VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                        Text(fixture.title).font(.headline)
+                        Text(presentation.title).font(.headline)
                         HStack(alignment: .top, spacing: Tokens.Space.xl) {
                             labelled("Light") {
-                                PopoverView(store: lightStore).preferredColorScheme(.light)
+                                Snapshotter.view(for: SnapshotRender(
+                                    scenario: model.scenario,
+                                    appearance: .light,
+                                    presentation: presentation))
                             }
                             labelled("Dark") {
-                                PopoverView(store: darkStore).preferredColorScheme(.dark)
+                                Snapshotter.view(for: SnapshotRender(
+                                    scenario: model.scenario,
+                                    appearance: .dark,
+                                    presentation: presentation))
                             }
                         }
                     }
@@ -201,8 +279,8 @@ struct GalleryView: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Text(title).font(.caption).foregroundStyle(.secondary)
             content()
-                .clipShape(RoundedRectangle(cornerRadius: Tokens.cardCorner))
-                .overlay(RoundedRectangle(cornerRadius: Tokens.cardCorner)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.panel))
+                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel)
                     .strokeBorder(.quaternary))
         }
     }
@@ -213,119 +291,6 @@ struct GalleryApp: App {
         Window("Gallery", id: "gallery") {
             GalleryView()
         }
-        .defaultSize(width: 820, height: 900)
-    }
-}
-
-/// The vocabulary in one row, so a token change can be judged in isolation.
-struct ComponentStrip: View {
-    var body: some View {
-        HStack(alignment: .top, spacing: Tokens.Space.l) {
-            GoalRing(progress: 0.63, label: "63%")
-            GoalRing(progress: 1.0, isMet: true)
-            StatCard(label: "Tracked", value: "5h 10m", context: "+3h 5m vs yesterday",
-                     contextTint: Tokens.Palette.app(rank: 1))
-                .frame(width: 150)
-            VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                ForEach(0..<7, id: \.self) { rank in
-                    HStack(spacing: Tokens.Space.s) {
-                        AppSwatch(rank: rank, bundleID: nil, appName: "App \(rank)")
-                        DataBar(share: 1 - Double(rank) / 8, tint: Tokens.Palette.app(rank: rank))
-                            .frame(width: 120)
-                    }
-                }
-            }
-            HStack(spacing: Tokens.Space.s) {
-                IconButton(systemImage: "pause.fill", help: "Pause") {}
-                IconButton(systemImage: "gearshape", help: "Settings…") {}
-                IconButton(systemImage: "power", help: "Quit", prominent: true) {}
-            }
-            StartButton(fills: false) {}
-            AwayAnswerGrid(away: 22 * 60,
-                           range: (Date().addingTimeInterval(-22 * 60), Date()),
-                           showsCaptions: true) { _ in }
-                .frame(width: 420)
-            SessionsCard(entries: {
-                let now = Date()
-                let thread = UUID()
-                func at(_ h: Double) -> Date { now.addingTimeInterval(-h * 3_600) }
-                return SessionDigest.entries(records: [
-                    SessionRecord(name: "Refactor the parser", workType: .deepWork,
-                                  start: at(5), end: at(4), workSeconds: 3_600, threadID: thread),
-                    SessionRecord(name: "Dinner", workType: .breakTime,
-                                  start: at(4), end: at(3.5), workSeconds: 1_800),
-                    SessionRecord(name: "Refactor the parser", workType: .deepWork,
-                                  start: at(3.5), end: at(2), workSeconds: 5_400, threadID: thread),
-                    SessionRecord(name: "Email", workType: .admin,
-                                  start: at(1.5), end: at(1), workSeconds: 1_800)
-                ], running: nil, now: now)
-            }(), selected: nil, unfoldAll: true, onHover: { _ in }, onSelect: { _ in })
-                .frame(width: 520)
-                .card(padding: 12)
-            VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                SegmentHourDetail(bundleID: "com.wa", appName: "WhatsApp",
-                                  hourStart: Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date(),
-                                  colorIndex: 2,
-                                  stretches: {
-                                      let hour = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-                                      var seed: UInt64 = 9
-                                      func rand(_ range: ClosedRange<Double>) -> Double {
-                                          seed = seed &* 6_364_136_223_846_793_005 &+ 1
-                                          let unit = Double(seed >> 33) / Double(UInt32.max)
-                                          return range.lowerBound + unit * (range.upperBound - range.lowerBound)
-                                      }
-                                      var cursor: TimeInterval = 60
-                                      var result: [TimelineSegment] = []
-                                      while cursor < 3_300 && result.count < 30 {
-                                          let length = rand(8...110)
-                                          result.append(TimelineSegment(id: UUID(), bundleID: "com.wa",
-                                                                        appName: "WhatsApp",
-                                                                        start: hour.addingTimeInterval(cursor),
-                                                                        end: hour.addingTimeInterval(cursor + length),
-                                                                        colorIndex: 2))
-                                          cursor += length + rand(20...140)
-                                      }
-                                      return result
-                                  }(), onClose: {})
-                SegmentHourDetail(bundleID: "com.x", appName: "Xcode",
-                                  hourStart: Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date(),
-                                  colorIndex: 0,
-                                  stretches: {
-                                      let hour = Calendar.current.dateInterval(of: .hour, for: Date())?.start ?? Date()
-                                      return [(300.0, 1_500.0), (1_800.0, 2_400.0), (2_700.0, 3_500.0)].map {
-                                          TimelineSegment(id: UUID(), bundleID: "com.x", appName: "Xcode",
-                                                          start: hour.addingTimeInterval($0.0),
-                                                          end: hour.addingTimeInterval($0.1), colorIndex: 0)
-                                      }
-                                  }(), onClose: {})
-            }
-            .frame(width: 430)
-            DayPickerCalendar(selected: Date(),
-                              earliest: Calendar.current.date(byAdding: .day, value: -40, to: Date()),
-                              goal: 4 * 3_600,
-                              facts: { month in
-                                  // A believable month: weekdays busy, weekends light.
-                                  let calendar = Calendar.current
-                                  guard let interval = calendar.dateInterval(of: .month, for: month) else { return [:] }
-                                  var facts: [Date: DayFacts] = [:]
-                                  var cursor = interval.start
-                                  while cursor < interval.end, cursor <= Date() {
-                                      let weekday = calendar.component(.weekday, from: cursor)
-                                      let dayOfMonth = calendar.component(.day, from: cursor)
-                                      let weekend = weekday == 1 || weekday == 7
-                                      let tracked: TimeInterval = weekend ? 40 * 60
-                                          : TimeInterval((dayOfMonth * 37) % 5 + 2) * 3_600
-                                      let focused: TimeInterval = weekend ? 0
-                                          : TimeInterval((dayOfMonth * 53) % 5) * 3_600 + 20 * 60
-                                      facts[cursor] = DayFacts(tracked: tracked, focused: focused,
-                                                               sessions: weekend ? 0 : (dayOfMonth % 3) + 1)
-                                      cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? interval.end
-                                  }
-                                  return facts
-                              }) { _ in }
-                .card(padding: 0)
-        }
-        .padding(Tokens.Space.l)
-        .background(Tokens.Surface.ground)
+        .defaultSize(width: 1_420, height: 920)
     }
 }

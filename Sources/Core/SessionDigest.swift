@@ -56,14 +56,37 @@ enum SessionDigest {
     static func entries(records: [SessionRecord],
                         running: RunningThread?,
                         now: Date,
+                        day: Date,
                         calendar: Calendar = .current) -> [DayEntry] {
+        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [] }
+        func clip(start: Date, end: Date, worked: TimeInterval) -> (start: Date, end: Date,
+                                                                      worked: TimeInterval)? {
+            let clippedStart = max(start, bounds.start)
+            let clippedEnd = min(end, bounds.end)
+            guard clippedEnd >= clippedStart else { return nil }
+            let fullSpan = max(0, end.timeIntervalSince(start))
+            let credit: TimeInterval
+            if fullSpan > 0 {
+                credit = worked * (clippedEnd.timeIntervalSince(clippedStart) / fullSpan)
+            } else {
+                credit = end >= bounds.start && end < bounds.end ? worked : 0
+            }
+            guard clippedEnd > clippedStart || credit > 0 else { return nil }
+            return (clippedStart, clippedEnd, credit)
+        }
         var items: [(start: Date, end: Date, name: String, type: WorkType, worked: TimeInterval,
-                     thread: UUID, id: UUID, running: Bool)] = records.map {
-            ($0.start, $0.end, $0.name, $0.workType, $0.workSeconds, $0.threadID, $0.id, false)
+                     thread: UUID, id: UUID, running: Bool)] = records.compactMap { record in
+            guard let clipped = clip(start: record.start, end: record.end, worked: record.workSeconds) else {
+                return nil
+            }
+            return (clipped.start, clipped.end, record.name, record.workType, clipped.worked,
+                    record.threadID, record.id, false)
         }
         if let running {
-            items.append((running.start, now, running.name, running.workType, running.worked,
-                          running.threadID, running.threadID, true))
+            if let clipped = clip(start: running.start, end: now, worked: running.worked) {
+                items.append((clipped.start, clipped.end, running.name, running.workType, clipped.worked,
+                              running.threadID, running.threadID, true))
+            }
         }
         items.sort { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start }
 

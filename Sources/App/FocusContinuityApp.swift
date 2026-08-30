@@ -29,23 +29,34 @@ struct FocusContinuityApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PopoverView(store: coordinator.store) {
-                NSApp.activate(ignoringOtherApps: true)
-                openWindow(id: "today")
-            }
+            PopoverView(
+                store: coordinator.store,
+                settings: coordinator.settings,
+                onOpenFocus: { openMainWindow(on: .focus) },
+                onOpenSettings: { openMainWindow(on: .settings) }
+            )
         } label: {
             MenuBarLabelView(store: coordinator.store)
         }
         .menuBarExtraStyle(.window)
 
-        Window("Dashboard", id: "today") {
-            DashboardView(store: coordinator.store)
+        Window("FocusContinuity", id: "main") {
+            MainWindowView(
+                store: coordinator.store,
+                settings: coordinator.settings,
+                navigation: coordinator.mainWindow
+            )
         }
-        .defaultSize(width: 1020, height: 920)
+        .defaultSize(width: 1_160, height: 780)
         .windowResizability(.contentMinSize)
-
-        Settings {
-            SettingsView(model: coordinator.settings)
+        .commands {
+            MainWindowCommands(navigation: coordinator.mainWindow)
         }
+    }
+
+    private func openMainWindow(on tab: AppTab) {
+        coordinator.mainWindow.open(tab: tab)
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: "main")
     }
 }
