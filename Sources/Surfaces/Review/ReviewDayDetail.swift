@@ -5,13 +5,18 @@ import SwiftUI
 /// navigation of its own. Opening the day in Today is a named action the user
 /// presses, never a side effect of selecting evidence.
 struct ReviewDayDetailPanel: View {
+    enum Presentation {
+        case standalone
+        case joined
+    }
+
     let detail: ReviewDayDetail
     let onOpenInToday: () -> Void
     let onClose: () -> Void
-    /// Inside the History table the detail is an inset well rather than a second
-    /// card: a panel drawn within a panel reads as a rendering fault. The
-    /// content, controls and accessibility are identical either way.
-    var inset: Bool = false
+    /// A History disclosure owns one shared surface: the selected row above it
+    /// supplies the title and close action, while this lower section supplies
+    /// the evidence. Elsewhere the panel remains independently titled.
+    var presentation: Presentation = .standalone
 
     /// One row per app, not per visit. `AppUsageRow` colours by position, so a
     /// per-visit list showed the same app twice in two different identity
@@ -41,21 +46,20 @@ struct ReviewDayDetailPanel: View {
     }
 
     var body: some View {
-        if inset {
+        switch presentation {
+        case .joined:
             VStack(alignment: .leading, spacing: Tokens.Space.m) { content }
-                .padding(Tokens.Space.l)
+                .padding(.horizontal, Tokens.Space.l)
+                .padding(.top, Tokens.Space.m)
+                .padding(.bottom, Tokens.Space.l)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Tokens.Colour.elevated,
-                            in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                                 style: .continuous))
-                .padding(.vertical, Tokens.Space.xs)
-        } else {
+        case .standalone:
             SurfacePanel(showsHeader: false) { content }
         }
     }
 
     @ViewBuilder private var content: some View {
-        header
+        if presentation == .standalone { header }
         metrics
         if appRows.isEmpty && focusRows.isEmpty {
             Text("No app or session evidence was recorded on this day.")

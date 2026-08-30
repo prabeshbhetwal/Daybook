@@ -181,6 +181,7 @@ final class SettingsModel: ObservableObject {
     private let store: PersistenceStore
     private let onChange: () -> Void
     private let onTrackingChanged: (Bool) -> Void
+    private let onAppearanceChanged: (AppearancePreference) -> Void
     private let onRevealDataFolder: (() -> Void)?
     let diagnostics: SettingsDiagnostics
     /// Mirrored here because the tracker — not the preference — is the truth
@@ -191,12 +192,14 @@ final class SettingsModel: ObservableObject {
          isTrackingEnabled: Bool,
          onChange: @escaping () -> Void,
          onTrackingChanged: @escaping (Bool) -> Void,
+         onAppearanceChanged: @escaping (AppearancePreference) -> Void = { _ in },
          revealDataFolder: (() -> Void)? = nil,
          diagnostics: SettingsDiagnostics = .unavailable) {
         self.store = store
         self.trackingEnabled = isTrackingEnabled
         self.onChange = onChange
         self.onTrackingChanged = onTrackingChanged
+        self.onAppearanceChanged = onAppearanceChanged
         self.onRevealDataFolder = revealDataFolder
         self.diagnostics = diagnostics
     }
@@ -260,7 +263,10 @@ final class SettingsModel: ObservableObject {
 
     var appearancePreference: AppearancePreference {
         get { AppearancePreference(rawValue: store.appearanceRawValue) ?? .system }
-        set { write { store.appearanceRawValue = newValue.rawValue } }
+        set {
+            write { store.appearanceRawValue = newValue.rawValue }
+            onAppearanceChanged(newValue)
+        }
     }
 
     var showsTimelineLabels: Bool {

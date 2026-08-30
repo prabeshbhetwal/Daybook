@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 enum AppTab: String, CaseIterable, Identifiable {
     case focus
@@ -81,6 +82,19 @@ enum AppearancePreference: String, CaseIterable {
     case system
     case light
     case dark
+
+    /// Light and Dark are intentional application-wide overrides. System is
+    /// represented by nil so the app returns to AppKit's inherited appearance
+    /// and continues following a live macOS appearance change.
+    func apply(to application: NSApplication) {
+        let appearanceName: NSAppearance.Name?
+        switch self {
+        case .system: appearanceName = nil
+        case .light: appearanceName = .aqua
+        case .dark: appearanceName = .darkAqua
+        }
+        application.appearance = appearanceName.flatMap(NSAppearance.init(named:))
+    }
 }
 
 @MainActor final class MainWindowModel: ObservableObject {

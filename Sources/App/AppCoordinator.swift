@@ -21,6 +21,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         isTrackingEnabled: engine.store.isUsageTrackingEnabled,
         onChange: { [weak self] in self?.store.refresh() },
         onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) },
+        onAppearanceChanged: { [weak self] in self?.applyApplicationAppearance($0) },
         diagnostics: .live(usage: usage))
     /// One route object for the window, menu popover, commands and deep links.
     /// Its first tab comes from the persisted preference exactly once at launch.
@@ -277,6 +278,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        applyApplicationAppearance(settings.appearancePreference)
         wireMonitor()
         monitor.start()
 
@@ -393,6 +395,14 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         true
+    }
+
+    /// SwiftUI's optional preferred scheme controls only its rendered tree.
+    /// The application-level override is what must be removed when the user
+    /// selects System, otherwise a prior explicit Light or Dark choice can
+    /// remain pinned for the running macOS app.
+    private func applyApplicationAppearance(_ preference: AppearancePreference) {
+        preference.apply(to: NSApp)
     }
 
     /// Captures the frontmost app without recording it. The candidate becomes

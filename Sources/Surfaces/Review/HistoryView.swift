@@ -122,6 +122,19 @@ enum HistoryTableLayout {
     static let disclosureWidth: CGFloat = 14
 }
 
+/// The selected History row owns its detail. Keeping this compact state in one
+/// presentation value makes the arrow, action and joined visual surface move
+/// together rather than leaving a row to imply one state and its content another.
+struct HistoryDayDisclosurePresentation: Equatable {
+    let isExpanded: Bool
+
+    var chevronSystemName: String {
+        isExpanded ? "chevron.down" : "chevron.right"
+    }
+
+    var usesJoinedSurface: Bool { isExpanded }
+}
+
 /// One compact summary of the selected range that opens a focused choice
 /// surface. The permanent stepper pair it replaces put two spin controls in the
 /// filter bar for a value the user changes rarely.
@@ -229,14 +242,7 @@ struct HistoryView: View {
                     ForEach(Array(store.filteredHistoryDays.enumerated()),
                             id: \.element.id) { index, day in
                         if index > 0 { Divider() }
-                        dayRow(day)
-                        if isSelected(day), let detail = selectedDayDetail {
-                            ReviewDayDetailPanel(
-                                detail: detail,
-                                onOpenInToday: { navigation.openSelectedReviewDayInToday() },
-                                onClose: { navigation.clearReviewDay() },
-                                inset: true)
-                        }
+                        historyDayEntry(day)
                     }
                 }
             }
@@ -362,9 +368,35 @@ struct HistoryView: View {
         .accessibilityLabel("Columns: day and context, tracked, focused, sessions")
     }
 
-    private func dayRow(_ day: HistoryDay) -> some View {
+    @ViewBuilder private func historyDayEntry(_ day: HistoryDay) -> some View {
+        let disclosure = HistoryDayDisclosurePresentation(
+            isExpanded: isSelected(day) && selectedDayDetail != nil)
+        if disclosure.usesJoinedSurface, let detail = selectedDayDetail {
+            VStack(spacing: 0) {
+                dayRow(day, disclosure: disclosure)
+                Divider().padding(.horizontal, Tokens.Space.m)
+                ReviewDayDetailPanel(
+                    detail: detail,
+                    onOpenInToday: { navigation.openSelectedReviewDayInToday() },
+                    onClose: { navigation.clearReviewDay() },
+                    presentation: .joined)
+            }
+            .background(Tokens.Colour.hover,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                             style: .continuous))
+        } else {
+            dayRow(day, disclosure: disclosure)
+        }
+    }
+
+    private func dayRow(_ day: HistoryDay,
+                        disclosure: HistoryDayDisclosurePresentation) -> some View {
         Button {
-            ReviewDayRoute.select(store: store, navigation: navigation)(day.date)
+            if disclosure.isExpanded {
+                navigation.clearReviewDay()
+            } else {
+                ReviewDayRoute.select(store: store, navigation: navigation)(day.date)
+            }
         } label: {
             HStack(alignment: .center, spacing: Tokens.Space.l) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -382,7 +414,7 @@ struct HistoryView: View {
                               width: HistoryTableLayout.focusedWidth)
                 HistoryMetric(value: "\(day.sessions)",
                               width: HistoryTableLayout.sessionWidth)
-                Image(systemName: "chevron.right")
+                Image(systemName: disclosure.chevronSystemName)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .frame(width: HistoryTableLayout.disclosureWidth)
@@ -390,12 +422,13 @@ struct HistoryView: View {
             .padding(.vertical, Tokens.Space.s)
             .padding(.horizontal, Tokens.Space.xs)
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-            .background(rowBackground(day))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(rowAccessibilityLabel(day))
-        .accessibilityHint("Shows this day's detail in Review")
+        .accessibilityHint(disclosure.isExpanded
+                           ? "Hides this day's detail"
+                           : "Shows this day's detail in Review")
         .accessibilityAddTraits(isSelected(day) ? .isSelected : [])
     }
 
@@ -408,11 +441,6 @@ struct HistoryView: View {
                      "\(day.sessions) sessions"]
         if isSelected(day) { parts.append("selected") }
         return parts.joined(separator: ", ")
-    }
-
-    @ViewBuilder private func rowBackground(_ day: HistoryDay) -> some View {
-        RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
-            .fill(isSelected(day) ? Tokens.Colour.hover : Color.clear)
     }
 
     private func isSelected(_ day: HistoryDay) -> Bool {

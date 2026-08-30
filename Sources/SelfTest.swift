@@ -314,6 +314,8 @@ enum SelfTest {
              testWakeIsNotAReturn),
             ("Main navigation and interface preferences persist across reload",
              testMainNavigationAndInterfacePreferences),
+            ("System appearance clears an explicit application override",
+             testSystemAppearanceClearsApplicationOverride),
             ("Warm-precision design tokens preserve practical density and semantic signals",
              testWarmPrecisionDesignTokensAndDensity),
             ("Main-window deep links and commands select their exact routes",
@@ -330,6 +332,8 @@ enum SelfTest {
              testPeriodChartLayout),
             ("History states its range once and its columns in a header",
              testHistoryRangeAndTableAnatomy),
+            ("History disclosures keep their selected row visually joined",
+             testHistoryDisclosurePresentation),
             ("Review reads period answer, trend, selected day, then evidence",
              testReviewContentHierarchy),
             ("Today qualifies before it charts; Focus stays an instrument",
@@ -6732,6 +6736,33 @@ enum SelfTest {
         return problems
     }
 
+    /// An explicit appearance may override macOS, but returning to System must
+    /// remove that override so a live system appearance change reaches the app.
+    private static func testSystemAppearanceClearsApplicationOverride() -> [String] {
+        var problems: [String] = []
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let store = PersistenceStore(defaults: defaults)
+        store.removeAll()
+        let originalAppearance = NSApp.appearance
+        defer { NSApp.appearance = originalAppearance }
+
+        let model = SettingsModel(
+            store: store,
+            isTrackingEnabled: true,
+            onChange: {},
+            onTrackingChanged: { _ in },
+            onAppearanceChanged: { preference in preference.apply(to: NSApp) })
+
+        model.appearancePreference = .dark
+        expect(NSApp.appearance?.name == .darkAqua,
+               "Dark sets an explicit application appearance", &problems)
+
+        model.appearancePreference = .system
+        expect(NSApp.appearance == nil,
+               "System clears the override so macOS appearance is inherited", &problems)
+        return problems
+    }
+
     /// The Settings information architecture is searchable because its real
     /// controls carry metadata, and every mutable row resolves to one concrete
     /// SettingsModel property rather than a placeholder preference.
@@ -7745,6 +7776,21 @@ enum SelfTest {
         expect(HistoryTableLayout.trackedWidth >= 76 && HistoryTableLayout.focusedWidth >= 76
                    && HistoryTableLayout.sessionWidth >= 60,
                "History numeric columns remain scanable", &problems)
+        return problems
+    }
+
+    /// A History row is a disclosure, not a route. Its open affordance must
+    /// point down and its detail must share the row's visual surface instead of
+    /// appearing as an unrelated card beneath it.
+    private static func testHistoryDisclosurePresentation() -> [String] {
+        var problems: [String] = []
+        let closed = HistoryDayDisclosurePresentation(isExpanded: false)
+        expect(closed.chevronSystemName == "chevron.right" && !closed.usesJoinedSurface,
+               "a closed History day remains a compact disclosure row", &problems)
+
+        let open = HistoryDayDisclosurePresentation(isExpanded: true)
+        expect(open.chevronSystemName == "chevron.down" && open.usesJoinedSurface,
+               "an open History day points down and joins its detail to the row", &problems)
         return problems
     }
 
