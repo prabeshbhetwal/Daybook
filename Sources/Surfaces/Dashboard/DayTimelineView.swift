@@ -51,6 +51,7 @@ struct TimelineGapEvidence: Equatable {
 /// cost is bounded by one app in one hour rather than by the size of the day.
 struct DayTimelineView: View {
     @ObservedObject var store: SessionStore
+    @Environment(\.focusShowsTimelineLabels) private var showsTimelineLabels
     /// The popover shows a shorter band and no detail row: it is a glance, not a
     /// workbench.
     var compact: Bool = false
@@ -88,7 +89,7 @@ struct DayTimelineView: View {
                 band(layout)
                 // Same rule as the bracket row: an axis with no labels on it is
                 // fourteen points of nothing.
-                if !layout.hourTicks().isEmpty { axis(layout) }
+                if showsTimelineLabels, !layout.hourTicks().isEmpty { axis(layout) }
                 if !compact { watchingStatus }
                 if !compact && showsDetail { detail }
             }
@@ -221,9 +222,11 @@ struct DayTimelineView: View {
                 }
             }
             .overlay(alignment: .topLeading) {
-                if !compact { gapLabels(layout, width: width) }
+                if showsTimelineLabels, !compact { gapLabels(layout, width: width) }
             }
-            .overlay(alignment: .topLeading) { hoverLabel(layout, width: width) }
+            .overlay(alignment: .topLeading) {
+                if showsTimelineLabels { hoverLabel(layout, width: width) }
+            }
         }
         .frame(height: bandHeight + bracketRow + gapLabelRow(layout))
         .accessibilityLabel("Day timeline, \(segments.count) app segments, "
@@ -262,7 +265,7 @@ struct DayTimelineView: View {
     }
 
     private func gapLabelRow(_ layout: TimelineLayout) -> CGFloat {
-        guard !compact, !layout.gaps.isEmpty else { return 0 }
+        guard showsTimelineLabels, !compact, !layout.gaps.isEmpty else { return 0 }
         let breaks = store.breakRecords(on: layoutOverride != nil ? Date() : store.selectedDay)
         return layout.gaps.contains {
             !TimelineGapEvidence(gap: $0, breaks: breaks).rests.isEmpty

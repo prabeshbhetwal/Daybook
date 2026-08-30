@@ -31,6 +31,7 @@ struct FocusContinuityApp: App {
         MenuBarExtra {
             PopoverView(
                 store: coordinator.store,
+                settings: coordinator.settings,
                 onOpenFocus: { openMainWindow(on: .focus) },
                 onOpenSettings: { openMainWindow(on: .settings) }
             )

@@ -5,6 +5,7 @@ import AppKit
 /// Insights dashboard, then at most three continuations and explicit routes.
 struct PopoverView: View {
     @ObservedObject var store: SessionStore
+    @ObservedObject var settings: SettingsModel
     @FocusState private var intentFocused: Bool
     @StateObject private var tips = TipCenter()
     /// Measured height of the scrolling middle. A `ScrollView` reports no
@@ -30,17 +31,25 @@ struct PopoverView: View {
 
     var body: some View {
         let metrics = self.metrics
-        return VStack(alignment: .leading, spacing: metrics.stackSpacing) {
+        return VStack(alignment: .leading,
+                      spacing: settings.interfaceDensity == .compact
+                        ? max(Tokens.Space.xs, metrics.stackSpacing - 4)
+                        : metrics.stackSpacing) {
             HeroCard(store: store, intentFocused: $intentFocused,
                      dense: metrics.dense, twoColumn: metrics.twoColumn)
             middle(cap: metrics.scrollCap, twoColumn: metrics.twoColumn)
             PopoverFooter(onOpenFocus: onOpenFocus,
                           onOpenSettings: onOpenSettings)
         }
-        .padding(metrics.outerPadding)
+        .padding(settings.interfaceDensity == .compact
+                 ? max(Tokens.Space.m, metrics.outerPadding - 4)
+                 : metrics.outerPadding)
         .frame(width: metrics.width)
         .background(Tokens.Surface.ground)
         .background(.regularMaterial)
+        .environment(\.focusInterfaceDensity, settings.interfaceDensity)
+        .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
+        .preferredColorScheme(settings.preferredColorScheme)
         .tipLayer(tips)
         .onAppear {
             store.refresh()

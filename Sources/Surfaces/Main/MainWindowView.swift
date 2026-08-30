@@ -20,6 +20,9 @@ struct MainWindowView: View {
         }
         .frame(minWidth: 980, minHeight: 680)
         .background(Tokens.Colour.ground)
+        .environment(\.focusInterfaceDensity, settings.interfaceDensity)
+        .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
+        .preferredColorScheme(settings.preferredColorScheme)
     }
 
     private var tabBand: some View {
@@ -31,7 +34,8 @@ struct MainWindowView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Tokens.Space.xl)
-        .padding(.vertical, Tokens.Space.s)
+        .padding(.vertical, settings.interfaceDensity == .compact
+                 ? Tokens.Space.xs : Tokens.Space.s)
     }
 
     @ViewBuilder private var selectedCanvas: some View {
@@ -45,8 +49,8 @@ struct MainWindowView: View {
         case .insights:
             InsightsView(store: store, navigation: navigation)
         case .settings:
-            SettingsView(model: settings)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            SettingsView(model: settings, navigation: navigation)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 

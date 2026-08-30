@@ -42,6 +42,7 @@ enum Snapshotter {
                 // `ImageRenderer`, so the harness would render an empty panel.
                 let metrics = PopoverMetrics.fitting(Snapshotter.screen)
                 let view = PopoverView(store: store,
+                                       settings: snapshotSettings(),
                                        metricsOverride: metrics,
                                        scrolls: false)
                     .environment(\.colorScheme, scheme)
@@ -114,7 +115,12 @@ enum Snapshotter {
             ]
             for variant in variants {
                 let store = FixtureFactory.store(for: .running)
-                let settings = snapshotSettings()
+                let shellDensity: InterfaceDensity = variant.name == "wide"
+                    ? .comfortable : .compact
+                let shellAppearance: AppearancePreference = scheme == .light
+                    ? .light : .dark
+                let settings = snapshotSettings(density: shellDensity,
+                                                appearance: shellAppearance)
                 let navigation = MainWindowModel(selectedTab: .focus)
                 let shell = MainWindowView(store: store,
                                            settings: settings,
@@ -147,7 +153,8 @@ enum Snapshotter {
                     let focusStore = FixtureFactory.store(for: state.fixture)
                     let focusShell = MainWindowView(
                         store: focusStore,
-                        settings: snapshotSettings(),
+                        settings: snapshotSettings(density: shellDensity,
+                                                   appearance: shellAppearance),
                         navigation: MainWindowModel(selectedTab: .focus),
                         focusScrolls: false
                     )
@@ -167,6 +174,9 @@ enum Snapshotter {
                     let popoverStore = FixtureFactory.store(for: state.fixture)
                     let popoverMetrics = PopoverMetrics.fitting(variant.screen)
                     let popover = PopoverView(store: popoverStore,
+                                              settings: snapshotSettings(
+                                                density: shellDensity,
+                                                appearance: shellAppearance),
                                               metricsOverride: popoverMetrics,
                                               scrolls: false)
                         .environment(\.colorScheme, scheme)
@@ -380,6 +390,93 @@ enum Snapshotter {
                 }
             }
 
+            // Task 9: every group is rendered through the production metadata
+            // at both breakpoints and densities. Light/dark is the enclosing
+            // loop; filtered goal/privacy searches prove the detail follows the
+            // filtered group rather than leaving a stale selection visible.
+            let settingsAppearance: AppearancePreference = scheme == .light
+                ? .light : .dark
+            let settingsVariants: [(name: String, size: CGSize)] = [
+                ("wide", CGSize(width: 1_100, height: 1_100)),
+                ("narrow", CGSize(width: 680, height: 1_280))
+            ]
+            for density in InterfaceDensity.allCases {
+                for variant in settingsVariants {
+                    for section in SettingsSection.allCases {
+                        let settings = snapshotSettings(density: density,
+                                                        appearance: settingsAppearance)
+                        let navigation = MainWindowModel(selectedTab: .settings)
+                        navigation.settingsSection = section
+                        let selectedSettings = SettingsView(model: settings,
+                                                            navigation: navigation,
+                                                            scrolls: false)
+                            .environment(\.focusInterfaceDensity, density)
+                            .environment(\.colorScheme, scheme)
+                            .frame(width: variant.size.width, height: variant.size.height,
+                                   alignment: .topLeading)
+                            .background(Tokens.Colour.ground)
+                        let settingsName = "settings-\(section.rawValue)-\(density.rawValue)-"
+                            + "\(variant.name)-\(scheme == .light ? "light" : "dark").png"
+                        if render(selectedSettings,
+                                  to: directory.appendingPathComponent(settingsName)) {
+                            print("  wrote \(settingsName)")
+                        } else {
+                            supplementalFailed = true
+                            print("  FAILED \(settingsName)")
+                        }
+                    }
+
+                    for filter in ["goal", "privacy"] {
+                        let settings = snapshotSettings(density: density,
+                                                        appearance: settingsAppearance)
+                        let navigation = MainWindowModel(selectedTab: .settings)
+                        navigation.settingsQuery = filter
+                        let filtered = SettingsView(model: settings,
+                                                    navigation: navigation,
+                                                    scrolls: false)
+                            .environment(\.focusInterfaceDensity, density)
+                            .environment(\.colorScheme, scheme)
+                            .frame(width: variant.size.width, height: variant.size.height,
+                                   alignment: .topLeading)
+                            .background(Tokens.Colour.ground)
+                        let filteredName = "settings-filter-\(filter)-\(density.rawValue)-"
+                            + "\(variant.name)-\(scheme == .light ? "light" : "dark").png"
+                        if render(filtered,
+                                  to: directory.appendingPathComponent(filteredName)) {
+                            print("  wrote \(filteredName)")
+                        } else {
+                            supplementalFailed = true
+                            print("  FAILED \(filteredName)")
+                        }
+                    }
+                }
+            }
+
+            // The preference must reach the real ribbon, not merely survive in
+            // UserDefaults. This shell snapshot selects Today with labels off.
+            let hiddenLabelSettings = snapshotSettings(density: .compact,
+                                                       appearance: settingsAppearance,
+                                                       showsTimelineLabels: false)
+            let hiddenLabelStore = FixtureFactory.store(for: .running)
+            hiddenLabelStore.setDashboardVisible(true)
+            let hiddenLabelShell = MainWindowView(
+                store: hiddenLabelStore,
+                settings: hiddenLabelSettings,
+                navigation: MainWindowModel(selectedTab: .today),
+                todayScrolls: false)
+                .environment(\.colorScheme, scheme)
+                .frame(width: 1_160, height: 780, alignment: .topLeading)
+                .background(Tokens.Colour.ground)
+            let hiddenLabelName = "today-timeline-labels-hidden-"
+                + "\(scheme == .light ? "light" : "dark").png"
+            if render(hiddenLabelShell,
+                      to: directory.appendingPathComponent(hiddenLabelName)) {
+                print("  wrote \(hiddenLabelName)")
+            } else {
+                supplementalFailed = true
+                print("  FAILED \(hiddenLabelName)")
+            }
+
             let strip = ComponentStrip()
                 .environment(\.colorScheme, scheme)
                 .frame(width: 2200)
@@ -406,16 +503,32 @@ enum Snapshotter {
         return wrote == Fixture.allCases.count * 2 && !supplementalFailed
     }
 
-    private static func snapshotSettings() -> SettingsModel {
+    private static func snapshotSettings(
+        density: InterfaceDensity = .comfortable,
+        appearance: AppearancePreference = .system,
+        showsTimelineLabels: Bool = true
+    ) -> SettingsModel {
         let defaults = UserDefaults(
             suiteName: "com.prabesh.focuscontinuity.snapshot.shell"
         ) ?? .standard
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
-        return SettingsModel(store: persistence,
-                             isTrackingEnabled: true,
-                             onChange: {},
-                             onTrackingChanged: { _ in })
+        let diagnostics = SettingsDiagnostics(
+            usageAccuracyEpoch: Date(timeIntervalSince1970: 1_700_000_000),
+            legacyBackupURL: SessionArchive.defaultDirectory
+                .appendingPathComponent("app-usage-v1-backup-1700000000.json"),
+            recoverySummary: "Legacy app usage was migrated only after its original bytes were preserved.",
+            version: "1.0.0",
+            build: "1")
+        let model = SettingsModel(store: persistence,
+                                  isTrackingEnabled: true,
+                                  onChange: {},
+                                  onTrackingChanged: { _ in },
+                                  diagnostics: diagnostics)
+        model.interfaceDensity = density
+        model.appearancePreference = appearance
+        model.showsTimelineLabels = showsTimelineLabels
+        return model
     }
 
     @MainActor

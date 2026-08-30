@@ -343,7 +343,9 @@ enum SelfTest {
             ("Focus composition guards decisions and keeps automatic corrections available",
              testFocusSurfaceCompositionGuards),
             ("Declared-Away automatic corrections resume tracking exactly once",
-             testDeclaredAwayAutomaticCorrectionRoutes)
+             testDeclaredAwayAutomaticCorrectionRoutes),
+            ("Settings groups contain only backed controls",
+             testSettingsGroupsContainOnlyBackedControls)
         ]
 
         print("FocusContinuity self-test")
@@ -6670,6 +6672,78 @@ enum SelfTest {
         return problems
     }
 
+    /// The Settings information architecture is searchable because its real
+    /// controls carry metadata, and every mutable row resolves to one concrete
+    /// SettingsModel property rather than a placeholder preference.
+    private static func testSettingsGroupsContainOnlyBackedControls() -> [String] {
+        var problems: [String] = []
+        let expectedTitles = [
+            "General", "Focus sessions", "Away and breaks", "Automatic and rewards",
+            "Tracking and apps", "Appearance", "Data and privacy", "Advanced"
+        ]
+        expect(SettingsSection.allCases.map(\.title) == expectedTitles,
+               "all eight Settings groups retain their approved order and titles", &problems)
+        expect(SettingsSection.allCases.allSatisfy {
+            !$0.symbol.isEmpty && !$0.controlLabels.isEmpty
+        }, "every Settings group exposes a symbol and searchable control labels", &problems)
+        expect(SettingsSection.matching("goal").map(\.title) == ["Focus sessions"],
+               "searching goal returns Focus sessions", &problems)
+        expect(SettingsSection.matching("privacy").map(\.title) == ["Data and privacy"],
+               "searching privacy returns Data and privacy", &problems)
+
+        let expectedControls: Set<SettingsControlKey> = [
+            .defaultTab, .dailyGoal, .breakThreshold, .longAwayCap, .fullPromptAfter,
+            .reminders, .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
+            .usageRecording, .appearance, .density, .timelineLabels
+        ]
+        let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
+        expect(Set(listedControls) == expectedControls,
+               "Settings lists exactly the fourteen backed mutable controls", &problems)
+        expect(listedControls.count == expectedControls.count,
+               "no backed mutable control appears in more than one group", &problems)
+        expect(Set(listedControls.map(\.modelKeyPath)).count == expectedControls.count,
+               "every mutable control maps to a distinct SettingsModel property", &problems)
+
+        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let store = PersistenceStore(defaults: defaults)
+        store.removeAll()
+        let settings = SettingsModel(store: store, isTrackingEnabled: true,
+                                     onChange: {}, onTrackingChanged: { _ in })
+        settings.defaultAppTab = .review
+        settings.interfaceDensity = .compact
+        settings.appearancePreference = .dark
+        settings.showsTimelineLabels = false
+        let reloaded = SettingsModel(store: store, isTrackingEnabled: true,
+                                     onChange: {}, onTrackingChanged: { _ in })
+        expect(reloaded.defaultAppTab == .review,
+               "Settings default tab survives reload", &problems)
+        expect(reloaded.interfaceDensity == .compact
+               && reloaded.interfaceLayout.rowHeight == InterfaceDensity.compact.layout.rowHeight,
+               "Settings density survives reload and changes layout metrics", &problems)
+        expect(reloaded.appearancePreference == .dark
+               && reloaded.preferredColorScheme == .dark,
+               "Settings appearance survives reload and resolves the shell colour scheme", &problems)
+        expect(!reloaded.showsTimelineLabels,
+               "Settings timeline-label choice survives reload", &problems)
+
+        let backupDirectory = scratchDirectory()
+        try? FileManager.default.createDirectory(at: backupDirectory,
+                                                 withIntermediateDirectories: true)
+        let olderBackup = backupDirectory
+            .appendingPathComponent("app-usage-v1-backup-1700000000.json")
+        let newerBackup = backupDirectory
+            .appendingPathComponent("app-usage-v1-backup-1800000000.json")
+        try? Data("older".utf8).write(to: olderBackup)
+        try? Data("newer".utf8).write(to: newerBackup)
+        try? Data("unrelated".utf8).write(
+            to: backupDirectory.appendingPathComponent("sessions.json"))
+        expect(SettingsDiagnostics.latestLegacyBackup(in: backupDirectory)?
+                   .resolvingSymlinksInPath() == newerBackup.resolvingSymlinksInPath(),
+               "Data diagnostics rediscover the newest preserved legacy backup after relaunch",
+               &problems)
+        return problems
+    }
+
     /// The visual foundation keeps Compact practical rather than cramped and
     /// resolves semantic signals independently of the current system appearance.
     private static func testMoleDesignTokensAndDensity() -> [String] {
@@ -8071,7 +8145,13 @@ enum SelfTest {
         let metrics = PopoverMetrics.fitting(CGSize(width: 1_440, height: 845))
         let height: CGFloat = MainActor.assumeIsolated {
             let store = FixtureFactory.store(for: .needsResolution)
-            let view = PopoverView(store: store, metricsOverride: metrics, scrolls: false)
+            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let persistence = PersistenceStore(defaults: defaults)
+            persistence.removeAll()
+            let settings = SettingsModel(store: persistence, isTrackingEnabled: true,
+                                         onChange: {}, onTrackingChanged: { _ in })
+            let view = PopoverView(store: store, settings: settings,
+                                   metricsOverride: metrics, scrolls: false)
                 .frame(width: metrics.width)
             let renderer = ImageRenderer(content: view)
             renderer.scale = 1

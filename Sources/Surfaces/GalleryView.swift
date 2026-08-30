@@ -320,10 +320,14 @@ struct GalleryView: View {
                         Text(fixture.title).font(.headline)
                         HStack(alignment: .top, spacing: Tokens.Space.xl) {
                             labelled("Light") {
-                                PopoverView(store: lightStore).preferredColorScheme(.light)
+                                PopoverView(store: lightStore,
+                                            settings: gallerySettings())
+                                    .preferredColorScheme(.light)
                             }
                             labelled("Dark") {
-                                PopoverView(store: darkStore).preferredColorScheme(.dark)
+                                PopoverView(store: darkStore,
+                                            settings: gallerySettings())
+                                    .preferredColorScheme(.dark)
                             }
                         }
                     }
@@ -343,6 +347,16 @@ struct GalleryView: View {
                 .overlay(RoundedRectangle(cornerRadius: Tokens.cardCorner)
                     .strokeBorder(.quaternary))
         }
+    }
+
+    private func gallerySettings() -> SettingsModel {
+        let defaults = UserDefaults(
+            suiteName: "com.prabesh.focuscontinuity.gallery.settings"
+        ) ?? .standard
+        let persistence = PersistenceStore(defaults: defaults)
+        persistence.removeAll()
+        return SettingsModel(store: persistence, isTrackingEnabled: true,
+                             onChange: {}, onTrackingChanged: { _ in })
     }
 }
 

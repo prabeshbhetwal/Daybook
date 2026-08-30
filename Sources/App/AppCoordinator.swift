@@ -20,7 +20,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         store: engine.store,
         isTrackingEnabled: engine.store.isUsageTrackingEnabled,
         onChange: { [weak self] in self?.store.refresh() },
-        onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) })
+        onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) },
+        diagnostics: .live(usage: usage))
     /// One route object for the window, menu popover, commands and deep links.
     /// Its first tab comes from the persisted preference exactly once at launch.
     @MainActor private(set) lazy var mainWindow = MainWindowModel(

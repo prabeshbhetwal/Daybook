@@ -89,6 +89,7 @@ enum AppearancePreference: String, CaseIterable {
     @Published var reviewSection: ReviewSection = .week
     @Published var insightRange: InsightRange = .week
     @Published var settingsSection: SettingsSection = .general
+    @Published var settingsQuery: String = ""
 
     init(selectedTab: AppTab = .focus, requestedDate: Date? = nil) {
         self.selectedTab = selectedTab
