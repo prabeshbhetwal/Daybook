@@ -1,19 +1,79 @@
 import SwiftUI
+import AppKit
 
-/// The native graphical date control with an explicit practical hit target.
-/// Keeping the frame inside this production wrapper means the clickable control,
-/// not merely a surrounding range layout, owns the 28 pt minimum.
+/// `NSDatePicker` reports a 20–24 pt intrinsic height even when a SwiftUI frame
+/// around it is taller. Publishing the practical minimum from the native view
+/// makes both its real target and its accessibility frame grow with it.
+final class HistoryNSDatePicker: NSDatePicker {
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        size.height = max(size.height, AccessibilityMetrics.minimumTargetSize)
+        return size
+    }
+}
+
+struct HistoryNativeDatePicker: NSViewRepresentable {
+    let label: String
+    @Binding var selection: Date
+    let range: ClosedRange<Date>
+
+    final class Coordinator: NSObject {
+        var selection: Binding<Date>
+
+        init(selection: Binding<Date>) {
+            self.selection = selection
+        }
+
+        @objc func changed(_ sender: NSDatePicker) {
+            selection.wrappedValue = sender.dateValue
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection)
+    }
+
+    func makeNSView(context: Context) -> HistoryNSDatePicker {
+        let picker = HistoryNSDatePicker()
+        picker.datePickerStyle = .textFieldAndStepper
+        picker.datePickerElements = [.yearMonthDay]
+        picker.controlSize = .large
+        picker.target = context.coordinator
+        picker.action = #selector(Coordinator.changed(_:))
+        configure(picker, coordinator: context.coordinator)
+        return picker
+    }
+
+    func updateNSView(_ picker: HistoryNSDatePicker, context: Context) {
+        configure(picker, coordinator: context.coordinator)
+    }
+
+    private func configure(_ picker: HistoryNSDatePicker, coordinator: Coordinator) {
+        coordinator.selection = $selection
+        if picker.dateValue != selection { picker.dateValue = selection }
+        picker.minDate = range.lowerBound
+        picker.maxDate = range.upperBound
+        picker.setAccessibilityLabel("\(label) date")
+        picker.setAccessibilityHelp("Selected History date")
+    }
+}
+
+/// Visible context plus one native keyboard/VoiceOver date target. The label is
+/// hidden from accessibility because the native control already carries it.
 struct HistoryDateControl: View {
     let label: String
     @Binding var selection: Date
     let range: ClosedRange<Date>
 
     var body: some View {
-        DatePicker(label, selection: $selection,
-                   in: range, displayedComponents: .date)
-            .fixedSize()
-            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-            .accessibilityLabel("\(label) date, \(Tokens.longDate(selection)), selected")
+        HStack(spacing: Tokens.Space.xs) {
+            Text(label)
+                .accessibilityHidden(true)
+            HistoryNativeDatePicker(label: label, selection: $selection, range: range)
+                .fixedSize()
+        }
+        .fixedSize()
+        .accessibilityElement(children: .contain)
     }
 }
 

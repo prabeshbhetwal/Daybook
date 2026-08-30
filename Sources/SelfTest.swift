@@ -13,6 +13,11 @@ enum SelfTest {
         func advance(_ seconds: TimeInterval) { value = value.addingTimeInterval(seconds) }
     }
 
+    private final class MutableDate {
+        var value: Date
+        init(_ value: Date) { self.value = value }
+    }
+
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
     private static let suiteName = "com.prabesh.focuscontinuity.selftest"
     private static var scratchDirectories: [URL] = []
@@ -7000,21 +7005,64 @@ enum SelfTest {
             let start = base
             let end = base.addingTimeInterval(24 * 3_600)
             let range = start...end
-            let fromRenderer = ImageRenderer(content: HistoryDateControl(
-                label: "From", selection: .constant(start), range: range).fixedSize())
-            fromRenderer.scale = 1
-            let toRenderer = ImageRenderer(content: HistoryDateControl(
-                label: "To", selection: .constant(end), range: range).fixedSize())
-            toRenderer.scale = 1
-            let from = fromRenderer.nsImage?.size ?? .zero
-            let to = toRenderer.nsImage?.size ?? .zero
-            expect(from.width > 0 && to.width > 0,
-                   "both native History date controls render", &problems)
-            expect(from.height >= 28 && to.height >= 28,
-                   "the actual From/To controls are at least 28pt; got "
-                       + "\(from.height)pt and \(to.height)pt", &problems)
+            let selected = start.addingTimeInterval(12 * 3_600)
+
+            @MainActor func probe(_ label: String, initial: Date) -> (
+                frame: NSRect, accessibility: NSRect, label: String?, valueChanged: Bool,
+                minimum: Date?, maximum: Date?
+            )? {
+                let date = MutableDate(initial)
+                let binding = Binding<Date>(get: { date.value }, set: { date.value = $0 })
+                let hosting = NSHostingView(rootView: HistoryDateControl(
+                    label: label, selection: binding, range: range))
+                hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
+                let window = NSWindow(contentRect: hosting.frame,
+                                      styleMask: [.borderless],
+                                      backing: .buffered, defer: false)
+                window.contentView = hosting
+                hosting.layoutSubtreeIfNeeded()
+                guard let picker = embeddedDatePicker(in: hosting) else { return nil }
+                let frame = picker.frame
+                let accessibility = picker.accessibilityFrame()
+                let accessibilityLabel = picker.accessibilityLabel()
+                let minimum = picker.minDate
+                let maximum = picker.maxDate
+                picker.dateValue = selected
+                picker.sendAction(picker.action, to: picker.target)
+                let changed = Calendar.current.isDate(date.value, inSameDayAs: selected)
+                window.contentView = nil
+                return (frame, accessibility, accessibilityLabel, changed, minimum, maximum)
+            }
+
+            guard let from = probe("From", initial: start),
+                  let to = probe("To", initial: end) else {
+                return ["could not locate both embedded native History date controls"]
+            }
+            expect(from.frame.height >= 28 && to.frame.height >= 28,
+                   "embedded NSDatePicker frames are at least 28pt; got "
+                       + "\(from.frame.height)pt and \(to.frame.height)pt", &problems)
+            expect(from.accessibility.height >= 28 && to.accessibility.height >= 28,
+                   "embedded NSDatePicker accessibility frames are at least 28pt; got "
+                       + "\(from.accessibility.height)pt and \(to.accessibility.height)pt",
+                   &problems)
+            expect(from.label == "From date" && to.label == "To date",
+                   "embedded native targets retain explicit From/To accessibility labels",
+                   &problems)
+            expect(from.valueChanged && to.valueChanged,
+                   "native date actions write through both production Bindings", &problems)
+            expect(from.minimum == start && from.maximum == end
+                       && to.minimum == start && to.maximum == end,
+                   "native controls preserve the exact History date range", &problems)
             return problems
         }
+    }
+
+    @MainActor private static func embeddedDatePicker(in view: NSView) -> NSDatePicker? {
+        if let picker = view as? NSDatePicker { return picker }
+        for child in view.subviews {
+            if let picker = embeddedDatePicker(in: child) { return picker }
+        }
+        return nil
     }
 
     private static func testPeriodAppRowsExposeDailyAccessibility() -> [String] {
