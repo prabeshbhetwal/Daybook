@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AppKit
 
 /// Headless logic tests (§7). Pure state-machine and time arithmetic with an
 /// injected clock — no UI, no notifications, no run loop.
@@ -353,7 +354,9 @@ enum SelfTest {
             ("Settings narrow navigation is reachable at the production minimum width",
              testSettingsProductionBreakpoint),
             ("Settings accuracy epoch always includes its year",
-             testSettingsAccuracyEpochYear)
+             testSettingsAccuracyEpochYear),
+            ("Compact Focus snapshots retain the title and status band",
+             testCompactFocusSnapshotStructure)
         ]
 
         print("FocusContinuity self-test")
@@ -6819,6 +6822,68 @@ enum SelfTest {
         expect(label.contains("2023"),
                "accuracy epoch includes its year, got \(label)", &problems)
         return problems
+    }
+
+    private static func testCompactFocusSnapshotStructure() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+
+            let light = Snapshotter.densityFocusSnapshot(
+                density: .compact, scheme: .light)
+            let lightRenderer = ImageRenderer(content: light)
+            lightRenderer.scale = 1
+
+            let dark = Snapshotter.densityFocusSnapshot(
+                density: .compact, scheme: .dark)
+            let darkRenderer = ImageRenderer(content: dark)
+            darkRenderer.scale = 1
+
+            let blankRenderer = ImageRenderer(
+                content: Color.white.frame(width: 1_160, height: 780))
+            blankRenderer.scale = 1
+
+            expect(snapshotHasTitleStatusBand(lightRenderer.nsImage),
+                   "compact light snapshot root contains title and status evidence", &problems)
+            expect(snapshotHasTitleStatusBand(darkRenderer.nsImage),
+                   "compact dark snapshot root contains title and status evidence", &problems)
+            expect(!snapshotHasTitleStatusBand(blankRenderer.nsImage),
+                   "the structural probe rejects a root with no title/status band", &problems)
+            return problems
+        }
+    }
+
+    @MainActor private static func snapshotHasTitleStatusBand(_ image: NSImage?) -> Bool {
+        guard let image, let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              bitmap.pixelsWide >= 720, bitmap.pixelsHigh >= 120 else { return false }
+
+        func contrast(x: Range<Int>, y: Range<Int>) -> Double {
+            var low = 1.0
+            var high = 0.0
+            for row in stride(from: y.lowerBound, to: y.upperBound, by: 2) {
+                for column in stride(from: x.lowerBound, to: x.upperBound, by: 2) {
+                    guard let colour = bitmap.colorAt(x: column, y: row)?
+                        .usingColorSpace(.sRGB) else { continue }
+                    let luminance = 0.2126 * Double(colour.redComponent)
+                        + 0.7152 * Double(colour.greenComponent)
+                        + 0.0722 * Double(colour.blueComponent)
+                    low = min(low, luminance)
+                    high = max(high, luminance)
+                }
+            }
+            return high - low
+        }
+
+        // NSBitmapImageRep's row zero is the rendered top. These disjoint
+        // regions cover the left title/app mark and right live-status text;
+        // the tab rail is centred lower down and cannot satisfy either probe.
+        let bandHeight = min(60, bitmap.pixelsHigh)
+        let sideWidth = min(360, bitmap.pixelsWide / 2)
+        let titleContrast = contrast(x: 10..<sideWidth, y: 0..<bandHeight)
+        let statusContrast = contrast(
+            x: (bitmap.pixelsWide - sideWidth)..<(bitmap.pixelsWide - 10),
+            y: 0..<bandHeight)
+        return titleContrast > 0.2 && statusContrast > 0.08
     }
 
     /// The visual foundation keeps Compact practical rather than cramped and

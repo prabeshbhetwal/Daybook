@@ -19,6 +19,24 @@ enum Snapshotter {
         return CGSize(width: 1_440, height: 845)
     }
 
+    /// One canonical root for the density comparison and its structural test.
+    /// Keeping the full MainWindowView here prevents either appearance from
+    /// accidentally substituting a Focus-only canvas that lacks fixed chrome.
+    static func densityFocusSnapshot(
+        density: InterfaceDensity,
+        scheme: ColorScheme
+    ) -> some View {
+        let appearance: AppearancePreference = scheme == .light ? .light : .dark
+        return MainWindowView(
+            store: FixtureFactory.store(for: .running),
+            settings: snapshotSettings(density: density, appearance: appearance),
+            navigation: MainWindowModel(selectedTab: .focus),
+            focusScrolls: false)
+            .environment(\.colorScheme, scheme)
+            .frame(width: 1_160, height: 780, alignment: .topLeading)
+            .background(Tokens.Colour.ground)
+    }
+
     static func run(directory: URL) -> Bool {
         // ImageRenderer needs AppKit initialised for text and symbol rendering.
         _ = NSApplication.shared
@@ -458,16 +476,8 @@ enum Snapshotter {
             // the general wide/narrow fixtures, only density changes here, so
             // the shared Focus panel's inset/height difference is observable.
             for density in InterfaceDensity.allCases {
-                let densitySettings = snapshotSettings(density: density,
-                                                       appearance: settingsAppearance)
-                let densityFocus = MainWindowView(
-                    store: FixtureFactory.store(for: .running),
-                    settings: densitySettings,
-                    navigation: MainWindowModel(selectedTab: .focus),
-                    focusScrolls: false)
-                    .environment(\.colorScheme, scheme)
-                    .frame(width: 1_160, height: 780, alignment: .topLeading)
-                    .background(Tokens.Colour.ground)
+                let densityFocus = densityFocusSnapshot(density: density,
+                                                        scheme: scheme)
                 let densityName = "main-density-focus-\(density.rawValue)-"
                     + "\(scheme == .light ? "light" : "dark").png"
                 if render(densityFocus,
