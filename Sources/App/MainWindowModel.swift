@@ -105,6 +105,38 @@ enum AppearancePreference: String, CaseIterable {
     }
 }
 
+/// The surfaces that arrive over the story rather than replacing it.
+enum StorySheetKind: String, CaseIterable, Identifiable {
+    case insights, awards, settings
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .insights: return "Insights"
+        case .awards: return "Awards"
+        case .settings: return "Settings"
+        }
+    }
+
+    var tab: AppTab {
+        switch self {
+        case .insights: return .insights
+        case .awards: return .awards
+        case .settings: return .settings
+        }
+    }
+
+    init?(tab: AppTab) {
+        switch tab {
+        case .insights: self = .insights
+        case .awards: self = .awards
+        case .settings: self = .settings
+        default: return nil
+        }
+    }
+}
+
 @MainActor final class MainWindowModel: ObservableObject {
     @Published var selectedTab: AppTab
     @Published private(set) var requestedDate: Date?
@@ -115,6 +147,9 @@ enum AppearancePreference: String, CaseIterable {
     /// Which span the Story surface is telling, and the day drilled into from
     /// a week bar or a month cell. The selection is inspection: it never leaves
     /// the surface, and `openStoryDay` is the one action that changes scope.
+    /// The surfaces the story links to rather than contains. Nil is the story
+    /// itself, which is what the window shows.
+    @Published private(set) var sheet: StorySheetKind?
     @Published var storyScope: StoryScope = .day
     @Published private(set) var storySelectedDay: Date?
     @Published var reviewSection: ReviewSection = .week
@@ -122,13 +157,14 @@ enum AppearancePreference: String, CaseIterable {
     @Published var settingsSection: SettingsSection = .general
     @Published var settingsQuery: String = ""
 
-    init(selectedTab: AppTab = .focus, requestedDate: Date? = nil) {
+    init(selectedTab: AppTab = .story, requestedDate: Date? = nil) {
         self.selectedTab = selectedTab
         self.requestedDate = requestedDate
     }
 
     func select(_ tab: AppTab) {
         selectedTab = tab
+        sheet = StorySheetKind(tab: tab)
     }
 
     func open(tab: AppTab) {
@@ -158,6 +194,16 @@ enum AppearancePreference: String, CaseIterable {
         openToday(date: reviewSelectedDate)
     }
 
+    func openSheet(_ kind: StorySheetKind) {
+        sheet = kind
+        selectedTab = kind.tab
+    }
+
+    func closeSheet() {
+        sheet = nil
+        selectedTab = .story
+    }
+
     func selectStoryDay(_ date: Date, calendar: Calendar = .current) {
         storySelectedDay = calendar.startOfDay(for: date)
     }
@@ -175,7 +221,7 @@ enum AppearancePreference: String, CaseIterable {
     }
 
     func openSettings() {
-        selectedTab = .settings
+        openSheet(.settings)
     }
 
     func moveTab(by delta: Int) {

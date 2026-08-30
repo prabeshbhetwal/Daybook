@@ -27,6 +27,8 @@ struct StoryHeadline: View {
     let eyebrow: String
     let sentence: String
     let facts: [String]
+    /// The one figure the sentence is about, coloured where it appears.
+    var highlight: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
@@ -34,7 +36,7 @@ struct StoryHeadline: View {
                 .font(.caption2.weight(.bold))
                 .kerning(0.8)
                 .foregroundStyle(.tertiary)
-            Text(sentence)
+            emphasised
                 .font(Tokens.Typography.storyHeadline)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 620, alignment: .leading)
@@ -46,6 +48,18 @@ struct StoryHeadline: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(eyebrow). \(sentence)")
+    }
+
+    /// The sentence with its key figure in the accent colour. `highlight` is
+    /// matched literally inside the sentence, so a figure the sentence does not
+    /// contain simply leaves the line unstyled rather than altering the words.
+    private var emphasised: Text {
+        guard let highlight, !highlight.isEmpty,
+              let range = sentence.range(of: highlight) else { return Text(sentence) }
+        return Text(String(sentence[sentence.startIndex..<range.lowerBound]))
+            + Text(highlight).foregroundColor(Tokens.Colour.focus)
+            + Text(String(sentence[range.upperBound...]))
     }
 }
 
@@ -58,7 +72,8 @@ struct DayStoryColumn: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
             StoryHeadline(eyebrow: Tokens.longDate(store.selectedDay),
                           sentence: sentence,
-                          facts: facts)
+                          facts: facts,
+                          highlight: Tokens.duration(focusedToday))
             DayStory(store: store)
             if let note = store.selectedDayIntegrityNote {
                 Text(note)
@@ -74,6 +89,10 @@ struct DayStoryColumn: View {
     private var sentence: String {
         let recap = DayRecapNarrative(sentences: store.summarySentences)
         return recap.lead ?? "Nothing has been recorded on this day."
+    }
+
+    private var focusedToday: TimeInterval {
+        store.isToday ? store.todayTotal : store.focusedForSelectedDay
     }
 
     private var facts: [String] {
@@ -101,12 +120,13 @@ struct WeekStoryColumn: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
             StoryHeadline(eyebrow: store.reviewPeriodLabel,
                           sentence: sentence,
-                          facts: facts)
-            PeriodChart(days: store.reviewDays,
-                        average: store.reviewSummary.averagePerActiveDay,
-                        height: 200,
-                        selectedDay: navigation.storySelectedDay,
-                        onPickDay: { navigation.selectStoryDay($0) })
+                          facts: facts,
+                          highlight: Tokens.duration(store.reviewFocusedSeconds))
+            WeekStoryChart(days: store.reviewDays,
+                           average: store.reviewSummary.averagePerActiveDay,
+                           selectedDay: navigation.storySelectedDay,
+                           onPickDay: { navigation.selectStoryDay($0) })
+            WorkTypeLegend(shares: store.reviewWorkTypeShares)
             if let day = navigation.storySelectedDay {
                 StorySelectedDayCard(store: store, navigation: navigation, day: day)
             }
@@ -191,7 +211,8 @@ struct MonthStoryColumn: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
             StoryHeadline(eyebrow: store.reviewPeriodLabel,
                           sentence: sentence,
-                          facts: facts)
+                          facts: facts,
+                          highlight: Tokens.duration(store.reviewFocusedSeconds))
             MonthStoryGrid(store: store, navigation: navigation)
             if let day = navigation.storySelectedDay {
                 StorySelectedDayCard(store: store, navigation: navigation, day: day)

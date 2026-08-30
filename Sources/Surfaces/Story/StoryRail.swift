@@ -82,7 +82,8 @@ struct StoryRail: View {
         case .week, .month:
             let summary = store.reviewSummary
             guard summary.activeDays > 0 else { return "No active days yet" }
-            return "\(summary.activeDays) active days · "
+            let dayWord = summary.activeDays == 1 ? "active day" : "active days"
+            return "\(summary.activeDays) \(dayWord) · "
                 + "\(Tokens.duration(summary.averagePerActiveDay)) average"
         }
     }
@@ -217,7 +218,7 @@ struct StoryRail: View {
                      + "\(Tokens.preciseDuration(FocusConstants.streakMinimum)) of focus.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
-                Button("Awards") { navigation.select(.awards) }
+                Button("Awards") { navigation.openSheet(.awards) }
                     .buttonStyle(.plain)
                     .font(Tokens.Typography.metadata.weight(.semibold))
                     .foregroundStyle(Tokens.Colour.focus)

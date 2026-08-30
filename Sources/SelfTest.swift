@@ -90,6 +90,23 @@ enum SelfTest {
         return now.timeIntervalSince(dayStart) < 3 * 3_600 ? dayStart.addingTimeInterval(12 * 3_600) : now
     }
 
+    /// An anchor that is safely inside its own week and month: fixtures that
+    /// seed "today, yesterday, two days ago" and then roll them up by week or
+    /// month must not straddle a boundary. On a Monday the plain anchor put
+    /// yesterday in the previous week, which emptied the week's chart and made
+    /// the anchor day the first day of its own period.
+    private static func periodAnchor(calendar: Calendar = .current) -> Date {
+        var day = calendar.startOfDay(for: Date()).addingTimeInterval(12 * 3_600)
+        for _ in 0..<40 {
+            let start = calendar.dateInterval(of: .weekOfYear, for: day)?.start ?? day
+            let daysIntoWeek = calendar.dateComponents([.day], from: start, to: day).day ?? 0
+            let dayOfMonth = calendar.component(.day, from: day)
+            if daysIntoWeek >= 2, dayOfMonth >= 10 { return day }
+            day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
+        }
+        return day
+    }
+
     private static func cleanUp() {
         for directory in scratchDirectories {
             try? FileManager.default.removeItem(at: directory)
@@ -3768,7 +3785,7 @@ enum SelfTest {
     private static func testPeriodIntegrityNoteCoversCompleteRange() -> [String] {
         var problems: [String] = []
         let calendar = Calendar.current
-        let anchor = anchoredNow()
+        let anchor = periodAnchor()
         guard let week = calendar.dateInterval(of: .weekOfYear, for: anchor),
               let month = calendar.dateInterval(of: .month, for: anchor) else {
             return ["could not construct period integrity bounds"]
@@ -8011,7 +8028,7 @@ enum SelfTest {
     private static func testReviewSelectedDayDetail() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(anchoredNow())
+            let clock = Clock(periodAnchor())
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: clock.value)
             guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
@@ -8134,7 +8151,7 @@ enum SelfTest {
     private static func testReviewHistoryFiltersAndDayRouting() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(anchoredNow())
+            let clock = Clock(periodAnchor())
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: clock.value)
             guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
