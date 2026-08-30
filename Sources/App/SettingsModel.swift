@@ -5,7 +5,7 @@ import AppKit
 /// to one real SettingsModel property below; section metadata reuses these keys
 /// so search/navigation cannot advertise a control with no backing behaviour.
 enum SettingsControlKey: String, CaseIterable, Hashable {
-    case defaultTab
+    case opensOn
     case dailyGoal
     case breakThreshold
     case longAwayCap
@@ -22,7 +22,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
 
     var modelKeyPath: PartialKeyPath<SettingsModel> {
         switch self {
-        case .defaultTab: return \SettingsModel.defaultAppTab
+        case .opensOn: return \SettingsModel.defaultStoryScope
         case .dailyGoal: return \SettingsModel.dailyGoal
         case .breakThreshold: return \SettingsModel.breakThreshold
         case .longAwayCap: return \SettingsModel.longAwayCap
@@ -254,6 +254,13 @@ final class SettingsModel: ObservableObject {
     var defaultAppTab: AppTab {
         get { AppTab(rawValue: store.defaultAppTabRawValue) ?? .focus }
         set { write { store.defaultAppTabRawValue = newValue.rawValue } }
+    }
+
+    /// Which story the window opens on. The window is the story, so this is the
+    /// launch preference the interface can actually honour.
+    var defaultStoryScope: StoryScope {
+        get { StoryScope(rawValue: store.defaultStoryScopeRawValue) ?? .day }
+        set { write { store.defaultStoryScopeRawValue = newValue.rawValue } }
     }
 
     var interfaceDensity: InterfaceDensity {

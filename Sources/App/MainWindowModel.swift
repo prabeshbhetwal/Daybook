@@ -157,9 +157,16 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     @Published var settingsSection: SettingsSection = .general
     @Published var settingsQuery: String = ""
 
-    init(selectedTab: AppTab = .story, requestedDate: Date? = nil) {
+    init(selectedTab: AppTab = .story,
+         storyScope: StoryScope = .day,
+         requestedDate: Date? = nil) {
         self.selectedTab = selectedTab
+        self.storyScope = storyScope
         self.requestedDate = requestedDate
+        // Construction and selection must agree: a model built on a sheet-backed
+        // tab is already presenting that sheet, or restoring one would show the
+        // story with no sign of the surface that was asked for.
+        self.sheet = StorySheetKind(tab: selectedTab)
     }
 
     func select(_ tab: AppTab) {

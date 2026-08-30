@@ -24,9 +24,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         onAppearanceChanged: { [weak self] in self?.applyApplicationAppearance($0) },
         diagnostics: .live(usage: usage))
     /// One route object for the window, menu popover, commands and deep links.
-    /// Its first tab comes from the persisted preference exactly once at launch.
+    /// Its first story comes from the persisted preference exactly once at
+    /// launch.
     @MainActor private(set) lazy var mainWindow = MainWindowModel(
-        selectedTab: settings.defaultAppTab)
+        selectedTab: settings.defaultAppTab,
+        storyScope: settings.defaultStoryScope)
 
     /// Input density, fed only at event boundaries — app activation, lock,
     /// unlock, wake — and never on a timer. A repeating timer would be the only

@@ -34,16 +34,16 @@ struct SettingsGroups: View {
 
     private var general: some View {
         SurfacePanel(title: "Main window", layout: layout) {
-            preferenceRow("Default tab",
-                          detail: "Used once when FocusContinuity launches its main window.") {
-                Picker("Default tab", selection: $model.defaultAppTab) {
-                    ForEach(AppTab.allCases) { tab in
-                        Text(tab.title).tag(tab)
+            preferenceRow("Opens on",
+                          detail: "Which story the window tells when it opens.") {
+                Picker("Opens on", selection: $model.defaultStoryScope) {
+                    ForEach(StoryScope.allCases) { scope in
+                        Text(scope.title).tag(scope)
                     }
                 }
                 .labelsHidden()
                 .frame(width: 180)
-                .accessibilityLabel("Default tab")
+                .accessibilityLabel("Opens on")
             }
         }
     }

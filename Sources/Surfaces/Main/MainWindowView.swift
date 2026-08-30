@@ -25,10 +25,12 @@ struct MainWindowView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .clipped()
                 .accessibilitySortPriority(1)
+                // The chrome stays visible and usable: a sheet is a layer over
+                // the story, not a replacement for the window.
+                .overlay { sheet }
         }
         .frame(minWidth: 980, minHeight: 680)
         .background(Tokens.Colour.ground)
-        .overlay { sheet }
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .preferredColorScheme(settings.preferredColorScheme)
@@ -155,8 +157,7 @@ struct StorySheet<Content: View>: View {
             .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
                 .strokeBorder(Tokens.Colour.line))
             .shadow(color: .black.opacity(0.24), radius: 30, y: 12)
-            .padding(.horizontal, Tokens.Space.xxl)
-            .padding(.bottom, Tokens.Space.xxl)
+            .padding(Tokens.Space.l)
             .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
         }
         .onExitCommand(perform: onClose)

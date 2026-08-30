@@ -405,6 +405,8 @@ enum SelfTest {
              testDeclaredAwayAutomaticCorrectionRoutes),
             ("Settings groups contain only backed controls",
              testSettingsGroupsContainOnlyBackedControls),
+            ("The window opens on the story the preference names",
+             testWindowOpensOnPreferredStory),
             ("Narrative diagnostics use a full-width status layout",
              testSettingsDiagnosticLayout),
             ("Settings privacy distinguishes monitoring from entered session data",
@@ -6787,6 +6789,32 @@ enum SelfTest {
     /// The Settings information architecture is searchable because its real
     /// controls carry metadata, and every mutable row resolves to one concrete
     /// SettingsModel property rather than a placeholder preference.
+    /// The launch preference must reach the window, and a sheet-backed tab must
+    /// present its sheet on construction — otherwise restoring a surface shows
+    /// the story with no sign of what was asked for.
+    private static func testWindowOpensOnPreferredStory() -> [String] {
+        var problems: [String] = []
+        MainActor.assumeIsolated {
+            for scope in StoryScope.allCases {
+                let window = MainWindowModel(selectedTab: .story, storyScope: scope)
+                expect(window.storyScope == scope,
+                       "a window built for \(scope.title) opens on \(scope.title)", &problems)
+                expect(window.sheet == nil,
+                       "the story itself presents no sheet at \(scope.title)", &problems)
+            }
+
+            let settings = MainWindowModel(selectedTab: .settings)
+            expect(settings.sheet == .settings,
+                   "a window built on Settings is already presenting Settings", &problems)
+            let awards = MainWindowModel(selectedTab: .awards)
+            expect(awards.sheet == .awards,
+                   "a window built on Awards is already presenting Awards", &problems)
+            settings.closeSheet()
+            expect(settings.sheet == nil, "closing the sheet returns the story", &problems)
+        }
+        return problems
+    }
+
     private static func testSettingsGroupsContainOnlyBackedControls() -> [String] {
         var problems: [String] = []
         let expectedTitles = [
@@ -6804,7 +6832,7 @@ enum SelfTest {
                "searching privacy returns Data and privacy", &problems)
 
         let expectedControls: Set<SettingsControlKey> = [
-            .defaultTab, .dailyGoal, .breakThreshold, .longAwayCap, .fullPromptAfter,
+            .opensOn, .dailyGoal, .breakThreshold, .longAwayCap, .fullPromptAfter,
             .reminders, .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
             .usageRecording, .appearance, .density, .timelineLabels
         ]

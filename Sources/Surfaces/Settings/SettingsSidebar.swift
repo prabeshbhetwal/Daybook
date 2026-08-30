@@ -54,7 +54,7 @@ extension SettingsSection {
 
     var mutableControlKeys: [SettingsControlKey] {
         switch self {
-        case .general: return [.defaultTab]
+        case .general: return [.opensOn]
         case .focus: return [.dailyGoal]
         case .away:
             return [.breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
