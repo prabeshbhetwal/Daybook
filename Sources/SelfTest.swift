@@ -405,6 +405,8 @@ enum SelfTest {
              testDeclaredAwayAutomaticCorrectionRoutes),
             ("Settings groups contain only backed controls",
              testSettingsGroupsContainOnlyBackedControls),
+            ("The story's corrections reach the day it shows",
+             testStoryCorrectionsReachTheDay),
             ("A stored tile order is repaired, never trusted verbatim",
              testStoredTileOrderIsRepaired),
             ("Correcting a session rewrites its whole thread",
@@ -6819,6 +6821,73 @@ enum SelfTest {
                    "a window built on Awards is already presenting Awards", &problems)
             settings.closeSheet()
             expect(settings.sheet == nil, "closing the sheet returns the story", &problems)
+        }
+        return problems
+    }
+
+    /// The card's actions are only real if the day the story shows changes.
+    /// Exercises them through the store, not the archive beneath it.
+    private static func testStoryCorrectionsReachTheDay() -> [String] {
+        var problems: [String] = []
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            store.setDashboardVisible(true)
+            store.refresh()
+
+            func firstSession() -> DaySession? {
+                for entry in store.daySessions {
+                    if case .session(let session) = entry { return session }
+                }
+                return nil
+            }
+
+            guard let original = firstSession() else {
+                problems.append("the fixture day has no session to correct")
+                return
+            }
+
+            store.renameSession(original, to: "Parser rewrite")
+            expect(firstSession()?.name == "Parser rewrite",
+                   "renaming a session renames it in the day the story shows", &problems)
+
+            // The shape describes the recording, so it must survive a rename
+            // and change only when the recording it describes changes.
+            let shapeBefore = firstSession().flatMap { store.sessionShape($0) }
+
+            guard let renamed = firstSession() else {
+                problems.append("the session vanished after being renamed")
+                return
+            }
+            let focusedBefore = store.focusedForSelectedDay
+            store.setWorkType(.breakTime, for: renamed)
+            expect(store.focusedForSelectedDay < focusedBefore,
+                   "correcting work to rest removes it from the day's focus", &problems)
+
+            // Rest is not a session, so the entry becomes a rest row rather
+            // than a card — the story stops calling it work.
+            expect(firstSession() == nil,
+                   "work corrected to rest is no longer a session entry", &problems)
+            let restNames = store.daySessions.compactMap { entry -> String? in
+                if case .rest(let rest) = entry { return rest.name }
+                return nil
+            }
+            expect(restNames.contains("Parser rewrite"),
+                   "the corrected entry appears as rest, under its own name", &problems)
+            let asRest = DaySession(id: renamed.id, threadID: renamed.threadID,
+                                    name: renamed.name, workType: .breakTime,
+                                    start: renamed.start, end: renamed.end,
+                                    worked: renamed.worked, stretches: renamed.stretches,
+                                    spans: renamed.spans, isRunning: false)
+            expect(!store.canContinue(asRest),
+                   "rest offers nothing to continue", &problems)
+            expect(store.canContinue(renamed),
+                   "work that is not running can be continued", &problems)
+
+            store.setWorkType(.deepWork, for: renamed)
+            expect(abs(store.focusedForSelectedDay - focusedBefore) < 1,
+                   "correcting the correction restores the day exactly", &problems)
+            expect(firstSession().flatMap { store.sessionShape($0) } == shapeBefore,
+                   "a name change never alters what the recording shows", &problems)
         }
         return problems
     }
