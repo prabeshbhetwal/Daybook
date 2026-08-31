@@ -53,7 +53,32 @@ final class SessionEngine {
     /// answer. Consumed by the next `.tookBreak` and cleared with every
     /// decision, so a label never outlives the question it answered.
     var pendingAwayLabel: String?
-    private(set) var lastAwayDecision: AwayDecisionReceipt?
+    private(set) var awayDecisions: [AwayDecisionReceipt] = []
+    /// Compatibility selection; changing selection never discards older rows.
+    private(set) var lastAwayDecision: AwayDecisionReceipt? {
+        get { awayDecisions.last }
+        set {
+            guard var receipt = newValue else { return }
+            receipt.sequence = correctionGeneration + 1
+            awayDecisions.removeAll { $0.id == receipt.id || ($0.range == receipt.range
+                && $0.threadID == receipt.threadID && $0.sessionStart == receipt.sessionStart) }
+            awayDecisions.append(receipt)
+        }
+    }
+    let decisionHistory: DecisionHistory
+    private var correctionGeneration = 0
+    var decisionHistoryRevision: Int { correctionGeneration }
+    var retainedCorrectionRecordIDs: Set<UUID> {
+        var ids = Set(awayDecisions.flatMap { receipt in
+            [receipt.insertedRecord?.id, receipt.expectedCreditRecord?.id, receipt.legacyOriginalRecord?.id].compactMap { $0 }
+        })
+        for field in decisionHistory.document.fields { ids.formUnion(field.archiveRecordIDs) }
+        if let pending = decisionHistory.document.pending {
+            ids.formUnion((pending.removed + pending.added).map(\.id))
+        }
+        return ids
+    }
+    func awayDecision(id: UUID) -> AwayDecisionReceipt? { awayDecisions.first { $0.id == id } }
     private(set) var awayDecisionError: String?
     private(set) var pendingDecisionID: UUID?
     private var workBeforePendingAway: TimeInterval?
@@ -103,9 +128,12 @@ final class SessionEngine {
          archive: SessionArchive? = nil,
          ownBundleID: String? = Bundle.main.bundleIdentifier,
          schedulesDwell: Bool = true,
+         correctionWriteOverride: (() -> String?)? = nil,
          now: @escaping () -> Date = Date.init) {
         self.store = store
         self.archive = archive ?? SessionArchive(now: now)
+        self.decisionHistory = DecisionHistory(directory: self.archive.dataDirectoryURL,
+                                              writeOverride: correctionWriteOverride)
         self.categories = CategoryManager(store: store)
         self.ownBundleID = ownBundleID
         self.schedulesDwell = schedulesDwell
@@ -273,7 +301,7 @@ final class SessionEngine {
                 enterPause(reason: .watching, at: now().addingTimeInterval(-seconds))
             }
         case (.running, .resetSession):
-            archiveCurrentSession()
+            guard archiveCurrentSession() else { onStateChanged?(state); return }
             beginFreshSession()
             forceEmit = true
         case (.running, .launch), (.running, .manualResume), (.running, .decision):
@@ -390,7 +418,7 @@ final class SessionEngine {
                 endIdlePause()
             }
         case (.paused, .resetSession):
-            archiveCurrentSession()
+            guard archiveCurrentSession() else { onStateChanged?(state); return }
             beginFreshSession()
             forceEmit = true
         case (.paused, .markedAway):
@@ -435,7 +463,7 @@ final class SessionEngine {
         case (.awaitingUserDecision, .decision(let decision)):
             apply(decision)
         case (.awaitingUserDecision, .resetSession):
-            archiveCurrentSession()
+            guard archiveCurrentSession() else { onStateChanged?(state); return }
             beginFreshSession()
             forceEmit = true
         case (.awaitingUserDecision, .appActivated(let bundleID, let name)):
@@ -535,15 +563,15 @@ final class SessionEngine {
             leavePause()
             return
         }
+        let thread = activeThreadID
+        // `elapsed` already subtracts the live pause, so the record carries
+        // exactly the work done before they left.
+        guard archiveCurrentSession(endingAt: began) else { return }
         if absence >= FocusConstants.minimumRecordedSession {
             archive.append(SessionRecord(name: "Away", workType: .breakTime,
                                          start: began, end: now(), workSeconds: absence,
                                          threadID: UUID()))
         }
-        let thread = activeThreadID
-        // `elapsed` already subtracts the live pause, so the record carries
-        // exactly the work done before they left.
-        archiveCurrentSession(endingAt: began)
         beginFreshSession()
         activeThreadID = thread
     }
@@ -609,7 +637,7 @@ final class SessionEngine {
     /// was done before they left.
     private func endAbsentSession() {
         let began = pauseStartDate
-        archiveCurrentSession(endingAt: began)
+        guard archiveCurrentSession(endingAt: began) else { return }
         cancelDwell()
         pauseStartDate = nil
         awayInterval = nil
@@ -692,7 +720,7 @@ final class SessionEngine {
         // There is also nothing to ask: nobody answers "was that a break?" about
         // a night's sleep with "I was working".
         if away >= store.longAwayCap {
-            archiveCurrentSession(endingAt: now().addingTimeInterval(-away))
+            guard archiveCurrentSession(endingAt: now().addingTimeInterval(-away)) else { return }
             activeIsAuto = false
             pauseStartDate = nil
             decisionStartDate = nil
@@ -715,6 +743,7 @@ final class SessionEngine {
     /// tests and for answers without a name.
     @discardableResult
     func decide(_ decision: UserDecision, label: String? = nil) -> Bool {
+        guard prepareCorrection() else { return false }
         guard case .awaitingUserDecision = state else { return false }
         awayDecisionError = nil
         pendingAwayLabel = label?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -724,6 +753,9 @@ final class SessionEngine {
 
     private func apply(_ decision: UserDecision) {
         guard case .awaitingUserDecision(let away, _) = state else { return }
+        guard prepareCorrection() else { return }
+        let before = snapshot()
+        let departureBefore = departureApp
         // Capitalised for the record — the timeline shows it as a title — and
         // consumed here whatever the answer, so it cannot leak into a later one.
         let breakName: String = {
@@ -779,7 +811,7 @@ final class SessionEngine {
             awayDecisionError = "The preceding stretch is already saved. Finish the original uncounted answer before changing this interval."
             return
         }
-        if let error = saveDecisionEffects(additions, allowsEviction: true) {
+        if let error = validateDecisionEffects(additions) {
             awayDecisionError = error
             return
         }
@@ -838,6 +870,13 @@ final class SessionEngine {
                 decision: decision, insertedRecord: breakRecord,
                 creditedSeconds: decision == .mergeTime ? max(0, uncreditedPause - totalPausedDuration) : 0)
         }
+        // Already-saved initial effects are a replay after interrupted legacy
+        // persistence; do not insert them a second time.
+        let newRecords = additions.filter { wanted in !archive.records.contains { $0.id == wanted.id } }
+        linkCreditRecords(additions)
+        if !commitCorrection(before: before, adding: newRecords, allowsEviction: true), isAwaitingCorrection {
+            departureApp = departureBefore
+        }
     }
 
     /// Undo affects the absence classification only. The session already begun
@@ -848,16 +887,30 @@ final class SessionEngine {
         return true
     }
 
+    func canUndoAwayDecision(expectedID: UUID) -> Bool {
+        awayDecision(id: expectedID)?.isResolved == true && !isAwaitingCorrection
+    }
+    private var isAwaitingCorrection: Bool {
+        if case .awaitingUserDecision = state { return true }; return false
+    }
+
     @discardableResult
-    func undoAwayDecision() -> Bool {
-        guard canUndoAwayDecision, var receipt = lastAwayDecision else { return false }
+    func undoAwayDecision(expectedID: UUID? = nil) -> Bool {
+        guard prepareCorrection(), !isAwaitingCorrection,
+              var receipt = expectedID.flatMap({ awayDecision(id: $0) }) ?? (expectedID == nil ? lastAwayDecision : nil),
+              receipt.isResolved else { return false }
+        let before = snapshot()
         var removals: [SessionRecord] = []
         var additions: [SessionRecord] = []
         var liveCredit: TimeInterval = 0
-        if let record = receipt.insertedRecord,
-           archive.records.contains(where: { $0.id == record.id }) {
+        if let record = receipt.insertedRecord {
+            guard archive.records.contains(where: { $0.id == record.id }) else {
+                awayDecisionError = "The original classified record is no longer available. Its correction history was preserved."
+                return false
+            }
             removals.append(record)
         }
+        if let original = receipt.legacyOriginalRecord { additions.append(original) }
         if receipt.creditedSeconds > 0 {
             if state != .idle, activeThreadID == receipt.threadID, sessionStartDate == receipt.sessionStart {
                 liveCredit = receipt.creditedSeconds
@@ -872,20 +925,17 @@ final class SessionEngine {
                     awayDecisionError = "The original saved session cannot be verified for Undo. Its record was preserved."
                     return false
                 }
-                var corrected = expected
-                corrected.workSeconds = max(0, expected.workSeconds - receipt.creditedSeconds)
-                if record == expected {
-                    removals.append(expected); additions.append(corrected)
-                } else if record != corrected {
+                // Name/type edits are independent fields, not a conflict with
+                // subtracting this exact, journalled credit from its stretch.
+                guard record.id == expected.id, record.start == expected.start, record.end == expected.end,
+                      record.threadID == expected.threadID, record.workSeconds == expected.workSeconds else {
                     awayDecisionError = "This session changed since the action. Its newer evidence was preserved."
                     return false
                 }
-                // An exact after-state is an interrupted Undo already committed
-                // to the archive. Finish its receipt without another debit.
+                var corrected = record
+                corrected.workSeconds = max(0, expected.workSeconds - receipt.creditedSeconds)
+                removals.append(record); additions.append(corrected)
             }
-        }
-        if let error = archive.edit(removing: removals, adding: additions) {
-            awayDecisionError = error; return false
         }
         totalPausedDuration += liveCredit
         receipt.decision = nil
@@ -894,7 +944,12 @@ final class SessionEngine {
         receipt.id = UUID()
         receipt.insertedRecord = nil
         receipt.creditedSeconds = 0
-        lastAwayDecision = receipt
+        if receipt.legacyOriginalRecord != nil {
+            awayDecisions.removeAll { $0.id == expectedID || ($0.range == receipt.range
+                && $0.legacyOriginalRecord?.id == receipt.legacyOriginalRecord?.id) }
+        } else { lastAwayDecision = receipt }
+        linkCreditRecords(additions)
+        guard commitCorrection(before: before, removing: removals, adding: additions) else { return false }
         awayDecisionError = nil
         persist()
         onStateChanged?(state)
@@ -904,9 +959,12 @@ final class SessionEngine {
     /// Re-answer an undone historical interval without replaying its original
     /// state transition or ending the work happening now.
     @discardableResult
-    func reviseAwayDecision(_ decision: UserDecision, label: String? = nil) -> Bool {
-        guard var receipt = lastAwayDecision, !receipt.isResolved else { return false }
+    func reviseAwayDecision(_ decision: UserDecision, label: String? = nil, expectedID: UUID? = nil) -> Bool {
+        guard prepareCorrection(),
+              var receipt = expectedID.flatMap({ awayDecision(id: $0) }) ?? (expectedID == nil ? lastAwayDecision : nil),
+              !receipt.isResolved else { return false }
         if case .awaitingUserDecision = state { return false }
+        let before = snapshot()
         var record: SessionRecord?
         if decision == .mergeTime || decision == .tookBreak {
             let trimmed = label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -916,12 +974,14 @@ final class SessionEngine {
                 start: receipt.range.start, end: receipt.range.end, workSeconds: receipt.range.duration,
                 threadID: decision == .mergeTime ? receipt.threadID : receipt.id)
         }
-        if let error = saveDecisionEffects(record.map { [$0] } ?? [], allowsEviction: false) {
+        if let error = validateDecisionEffects(record.map { [$0] } ?? []) {
             awayDecisionError = error; return false
         }
         receipt.decision = decision
         receipt.insertedRecord = record
         lastAwayDecision = receipt
+        let additions = record.map { archive.records.contains($0) ? [] : [$0] } ?? []
+        guard commitCorrection(before: before, adding: additions) else { return false }
         awayDecisionError = nil
         persist()
         onStateChanged?(state)
@@ -929,17 +989,50 @@ final class SessionEngine {
     }
 
     func dismissAwayDecisionReceipt() {
-        lastAwayDecision = nil
         awayDecisionError = nil
         persist()
+    }
+
+    /// A legacy break has no original away receipt. Reclassifying it records
+    /// the real break as the reversible before-state, never invented work.
+    @discardableResult
+    func reclassifyLegacyBreak(recordID: UUID, decision: UserDecision, focusTargetID: UUID? = nil) -> Bool {
+        guard prepareCorrection(), !isAwaitingCorrection,
+              decision == .continueSession || decision == .mergeTime,
+              let original = archive.records.first(where: { $0.id == recordID && $0.workType == .breakTime }),
+              original.end > original.start,
+              !awayDecisions.contains(where: { $0.insertedRecord?.id == recordID || $0.legacyOriginalRecord?.id == recordID })
+        else { return false }
+        let target = focusTargetID.flatMap { id in archive.records.first { $0.id == id && $0.workType.countsAsFocus } }
+        if decision == .mergeTime && target == nil {
+            awayDecisionError = "Choose a valid recorded focus session before counting this interval. Leave uncounted is still available."
+            return false
+        }
+        let before = snapshot()
+        let id = UUID()
+        let focus: SessionRecord? = target.map {
+            SessionRecord(id: id, name: $0.name, workType: $0.workType,
+                start: original.start, end: original.end, workSeconds: original.end.timeIntervalSince(original.start),
+                threadID: $0.threadID)
+        }
+        lastAwayDecision = AwayDecisionReceipt(id: id, range: DateInterval(start: original.start, end: original.end),
+            name: target?.name ?? original.name, workType: target?.workType ?? original.workType,
+            threadID: original.threadID, sessionStart: original.start, decision: decision,
+            insertedRecord: decision == .mergeTime ? focus : nil, creditedSeconds: 0,
+            legacyOriginalRecord: original)
+        guard commitCorrection(before: before, removing: [original], adding: decision == .mergeTime ? focus.map { [$0] } ?? [] : []) else {
+            return false
+        }
+        onStateChanged?(state)
+        return true
     }
 
     /// An archive commit can outlive its preference receipt. Repeated writes
     /// recognise their stable effect IDs and exact accounting values; mixed or
     /// incompatible evidence is never overwritten as part of recovery.
-    private func saveDecisionEffects(_ records: [SessionRecord], allowsEviction: Bool) -> String? {
+    private func validateDecisionEffects(_ records: [SessionRecord]) -> String? {
         let existing = records.compactMap { wanted in archive.records.first { $0.id == wanted.id } }
-        guard !existing.isEmpty else { return archive.edit(adding: records, allowsEviction: allowsEviction) }
+        guard !existing.isEmpty else { return nil }
         guard existing.count == records.count else {
             return "This interval's saved evidence has changed. No records were replaced."
         }
@@ -993,12 +1086,12 @@ final class SessionEngine {
         return completedUndo
     }
 
-    private func archiveCurrentSession(endingAt endMoment: Date? = nil) {
-        guard state != .idle else { return }
+    private func archiveCurrentSession(endingAt endMoment: Date? = nil) -> Bool {
+        guard state != .idle else { return true }
         // A start immediately followed by a stop is a misclick, not a session.
         // Nine such records sit in the shipped archive inflating the day's
         // session count and the quick-start tallies.
-        guard elapsed >= FocusConstants.minimumRecordedSession else { return }
+        guard elapsed >= FocusConstants.minimumRecordedSession else { return true }
         let record = SessionRecord(name: sessionName,
                                      workType: activeWorkType,
                                      start: sessionStartDate,
@@ -1013,12 +1106,30 @@ final class SessionEngine {
                                      detectedApp: activeDetectedApp,
                                      threadID: activeThreadID,
                                      isAuto: activeIsAuto)
-        archive.append(record)
-        if var receipt = lastAwayDecision, receipt.creditedSeconds > 0,
-           receipt.threadID == record.threadID, receipt.sessionStart == record.start {
-            receipt.expectedCreditRecord = record
-            lastAwayDecision = receipt
-        }
+        if awayDecisions.contains(where: { $0.creditedSeconds > 0 && $0.threadID == record.threadID
+            && $0.sessionStart == record.start }) {
+            let before = snapshot()
+            linkCreditRecords([record])
+            // A closed credited stretch must be recoverable even if the final
+            // preference write is interrupted; the archive and its receipt
+            // expectations are committed through the same journal.
+            var after = snapshot()
+            after.kind = .idle
+            after.correctionGeneration = correctionGeneration + 1
+            if let error = decisionHistory.commit(before: before, after: after, adding: [record],
+                                                  archive: archive, allowsEviction: true) {
+                awayDecisionError = error
+                if archive.records.contains(record) {
+                    // Archive committed, final journal write did not. Ending
+                    // is safe; the pending journal still owns its exact ID.
+                    correctionGeneration += 1
+                } else {
+                    awayDecisions = before.awayDecisions ?? []
+                    return false
+                }
+            } else { correctionGeneration += 1; awayDecisionError = nil }
+        } else { archive.append(record) }
+        return true
     }
 
     // MARK: - Discrete sessions
@@ -1088,24 +1199,30 @@ final class SessionEngine {
         return true
     }
 
+    @discardableResult
     func start(workType: WorkType, intent: String, threadID: UUID = UUID(),
-               isAuto: Bool = false) {
-        if state != .idle { stop() }
+               isAuto: Bool = false) -> Bool {
+        if state != .idle, !stop() { return false }
         activeWorkType = workType
         activeDetectedApp = currentAppBundleID
         activeThreadID = threadID
         activeIsAuto = isAuto
         store.sessionName = intent.trimmingCharacters(in: .whitespacesAndNewlines)
         transition(on: .launch)
+        return true
     }
 
     /// Ends the running session, writes its record, and returns to `.idle`.
     /// `endingAt` exists for automatic ends: the detector notices a session is
     /// over only after the break has run its course, and the record must say
     /// when the work stopped, not when the app worked it out.
-    func stop(endingAt endMoment: Date? = nil) {
-        guard state != .idle else { return }
-        archiveCurrentSession(endingAt: endMoment)
+    @discardableResult
+    func stop(endingAt endMoment: Date? = nil) -> Bool {
+        guard state != .idle else { return true }
+        awayDecisionError = nil
+        guard archiveCurrentSession(endingAt: endMoment) else {
+            persist(); onStateChanged?(state); return false
+        }
         // Must not survive into the next session: `beginFreshSession` can start
         // one without going through `start(_:)`, and it would inherit this flag
         // and be treated as the app's own guess.
@@ -1119,6 +1236,7 @@ final class SessionEngine {
         state = .idle
         persist()
         onStateChanged?(state)
+        return true
     }
 
     /// Moves a running session's start earlier, crediting work that happened
@@ -1186,6 +1304,88 @@ final class SessionEngine {
         store.saveState(snapshot())
     }
 
+    /// Reconcile before accepting another correction. A newer committed
+    /// generation owns correction identity even when preferences are stale.
+    @discardableResult
+    func prepareCorrection() -> Bool {
+        if let error = decisionHistory.reconcile(archive: archive) {
+            awayDecisionError = error; return false
+        }
+        if let saved = decisionHistory.document.checkpoint,
+           (saved.correctionGeneration ?? 0) > correctionGeneration {
+            applyExactCorrectionState(saved)
+        }
+        return true
+    }
+
+    func stageActiveCorrection(_ correction: SessionCorrection, threadID: UUID) {
+        guard state != .idle, activeThreadID == threadID else { return }
+        switch correction {
+        case .rename(let name): store.sessionName = name
+        case .workType(let type): activeWorkType = type
+        }
+    }
+
+    @discardableResult
+    func commitCorrection(before: PersistedState, removing: [SessionRecord] = [],
+                          adding: [SessionRecord] = [], allowsEviction: Bool = false,
+                          fields: [SessionStoreCorrectionState]? = nil) -> Bool {
+        correctionGeneration += 1
+        let after = snapshot()
+        if let error = decisionHistory.commit(before: before, after: after, removing: removing,
+            adding: adding, fields: fields, archive: archive, allowsEviction: allowsEviction) {
+            // Once the scoped archive effects landed, retain the live after
+            // state too. The pending journal completes finalisation on retry.
+            // Before archive commit, restore only our staged in-memory state.
+            let touched = Set((removing + adding).map(\.id))
+            let actual = archive.records.filter { touched.contains($0.id) }
+            let archiveCommitted = decisionHistory.document.pending != nil
+                && actual.count == adding.count && adding.allSatisfy { actual.contains($0) }
+            if !archiveCommitted { applyExactCorrectionState(before) }
+            awayDecisionError = error
+            persist()
+            return false
+        }
+        awayDecisionError = nil
+        persist()
+        return true
+    }
+
+    private func linkCreditRecords(_ records: [SessionRecord]) {
+        for index in awayDecisions.indices where awayDecisions[index].creditedSeconds > 0 {
+            if let record = records.first(where: { $0.threadID == awayDecisions[index].threadID
+                && $0.start == awayDecisions[index].sessionStart }) {
+                awayDecisions[index].expectedCreditRecord = record
+            }
+        }
+    }
+
+    /// Restore a transaction checkpoint without inventing a new presence event
+    /// or replaying the ordinary launch/away transition.
+    private func applyExactCorrectionState(_ saved: PersistedState) {
+        switch saved.kind {
+        case .idle: state = .idle
+        case .running: state = .running
+        case .paused: state = .paused(reason: saved.restoredPauseReason)
+        case .awaiting: state = .awaitingUserDecision(away: saved.pendingAway ?? 0, lastApp: saved.lastApp)
+        }
+        store.sessionName = saved.name
+        sessionStartDate = saved.sessionStart
+        totalPausedDuration = saved.totalPaused
+        pauseStartDate = saved.pauseStart
+        awayInterval = saved.awayStart.map { (start: $0, trigger: saved.awayTrigger ?? .screenLock) }
+        shadowAway = saved.shadowAway ?? 0
+        decisionStartDate = saved.decisionStarted
+        awayReturnedAt = saved.awayReturnedAt
+        pendingDecisionID = saved.pendingDecisionID
+        workBeforePendingAway = saved.workBeforePendingAway
+        activeThreadID = saved.threadID ?? activeThreadID
+        activeWorkType = saved.activeWorkType ?? .deepWork
+        activeIsAuto = saved.isAuto ?? false
+        awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
+        correctionGeneration = saved.correctionGeneration ?? 0
+    }
+
     func snapshot() -> PersistedState {
         var result = PersistedState(state: state,
                        name: sessionName,
@@ -1202,6 +1402,8 @@ final class SessionEngine {
                        isAuto: activeIsAuto,
                        shadowAway: shadowAway)
         result.awayDecision = lastAwayDecision
+        result.awayDecisions = awayDecisions
+        result.correctionGeneration = correctionGeneration
         result.pendingDecisionID = pendingDecisionID
         result.awayReturnedAt = awayReturnedAt
         result.workBeforePendingAway = workBeforePendingAway
@@ -1217,7 +1419,23 @@ final class SessionEngine {
     ///   unlock or wake resolves all of it. Resolving the gap at launch measured
     ///   only up to the launch and then forgot the lock, which is how a
     ///   40-minute absence was recorded as a 6-minute break.
-    func restore(from snapshot: PersistedState, awayAtLaunch: Bool = false) {
+    func restore(from original: PersistedState, awayAtLaunch: Bool = false) {
+        var snapshot = original
+        if let error = decisionHistory.reconcile(archive: archive) { awayDecisionError = error }
+        if let saved = decisionHistory.document.checkpoint,
+           (saved.correctionGeneration ?? 0) > (snapshot.correctionGeneration ?? 0) {
+            let replaySavedInitial = original.kind == .awaiting && saved.awayDecisions?.contains(where: {
+                $0.id == original.pendingDecisionID && $0.isResolved && $0.decision != .mergeTime
+            }) == true
+            if saved.savedAt >= snapshot.savedAt && !replaySavedInitial { snapshot = saved }
+            else {
+                // Later ordinary work owns the live clock. Only correction
+                // identity comes from the newer durable generation.
+                snapshot.awayDecisions = saved.awayDecisions
+                snapshot.awayDecision = saved.awayDecision
+                snapshot.correctionGeneration = saved.correctionGeneration
+            }
+        }
         store.sessionName = snapshot.name
         sessionStartDate = snapshot.sessionStart
         totalPausedDuration = snapshot.totalPaused
@@ -1228,12 +1446,13 @@ final class SessionEngine {
         activeThreadID = snapshot.threadID ?? UUID()
         activeWorkType = snapshot.activeWorkType ?? .deepWork
         activeIsAuto = snapshot.isAuto ?? false
-        lastAwayDecision = snapshot.awayDecision
+        awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
+        correctionGeneration = snapshot.correctionGeneration ?? 0
         pendingDecisionID = nil
         workBeforePendingAway = nil
         awayInterval = nil
         shadowAway = 0
-        let receiptReconciled = reconcileAwayReceipt()
+        let receiptReconciled = decisionHistory.document.checkpoint == nil ? reconcileAwayReceipt() : false
 
         switch snapshot.kind {
         case .idle:
@@ -1297,6 +1516,13 @@ final class SessionEngine {
         case .running:
             state = .running
             let began = snapshot.awayStart ?? snapshot.savedAt
+            if original.kind == .awaiting && snapshot.kind != original.kind {
+                // A committed initial live answer is proof of the answer, not
+                // proof of presence while the app was closed afterwards.
+                totalPausedDuration += interval(from: began)
+                if awayAtLaunch { awayInterval = (start: now(), trigger: snapshot.awayTrigger ?? .screenLock) }
+                break
+            }
             if awayAtLaunch {
                 awayInterval = (start: began, trigger: snapshot.awayTrigger ?? .screenLock)
             } else {

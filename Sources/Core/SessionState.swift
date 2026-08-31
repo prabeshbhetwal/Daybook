@@ -320,6 +320,8 @@ struct PersistedState: Codable, Equatable {
     var shadowAway: TimeInterval?
     /// Optional for snapshots written before reversible absence decisions.
     var awayDecision: AwayDecisionReceipt? = nil
+    var awayDecisions: [AwayDecisionReceipt]? = nil
+    var correctionGeneration: Int? = nil
     var pendingDecisionID: UUID? = nil
     var awayReturnedAt: Date? = nil
     var workBeforePendingAway: TimeInterval? = nil

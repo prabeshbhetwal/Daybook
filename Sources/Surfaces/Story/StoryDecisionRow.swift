@@ -20,7 +20,7 @@ struct StoryDecisionRow: View {
     var body: some View {
         if receipt.isResolved {
             StorySavedActionRow(title: receipt.title, range: range,
-                                canUndo: store.engine.canUndoAwayDecision,
+                                canUndo: store.engine.canUndoAwayDecision(expectedID: receipt.id),
                                 scopeNote: StoryDecisionScope.note(visible: range, full: receipt.range)) {
                 store.undoAwayDecision(expectedID: receipt.id)
             }

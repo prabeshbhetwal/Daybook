@@ -16,21 +16,21 @@ enum StoryTimelineItem: Identifiable {
     case moment(StoryMoment)
     case pending(DateInterval)
     case decision(AwayDecisionReceipt, DateInterval)
-    case correction(String, DateInterval)
+    case correction(UUID, String, DateInterval)
 
     var id: String {
         switch self {
         case .moment(let moment): return moment.id
         case .pending(let range): return "pending-\(range.start.timeIntervalSince1970)"
         case .decision(let receipt, _): return "decision-\(receipt.id.uuidString)"
-        case .correction(_, let range): return "correction-\(range.start.timeIntervalSince1970)"
+        case .correction(let id, _, _): return "correction-\(id)"
         }
     }
 
     var start: Date {
         switch self {
         case .moment(let moment): return moment.start
-        case .pending(let range), .decision(_, let range), .correction(_, let range): return range.start
+        case .pending(let range), .decision(_, let range), .correction(_, _, let range): return range.start
         }
     }
 
@@ -98,7 +98,8 @@ extension SessionStore {
         }
         var moments = storyMoments
         var notices: [StoryTimelineItem] = []
-        if let receipt = engine.lastAwayDecision, let range = clipped(receipt.range) {
+        for receipt in engine.awayDecisions {
+            guard let range = clipped(receipt.range) else { continue }
             // The receipt is the representation of its classified interval;
             // do not repeat the same break below the green confirmation row.
             moments.removeAll {
@@ -114,7 +115,9 @@ extension SessionStore {
                 return fragments
             }
             notices.append(.decision(receipt, range))
-        } else if let correction = lastCorrection {
+        }
+        var presentedThreads = Set<UUID>()
+        for correction in corrections.reversed() where presentedThreads.insert(correction.threadID).inserted {
             let ids = Set(engine.archive.records.filter { $0.threadID == correction.threadID }.map(\.id))
             if let match = moments.first(where: { moment in
                 switch moment {
@@ -134,7 +137,7 @@ extension SessionStore {
                 case .workType(.breakTime): title = "Recorded as a break"
                 case .workType(let type): title = "Changed to \(type.displayName)"
                 }
-                notices.append(.correction(title, DateInterval(start: entry.start, end: max(entry.start, end))))
+                notices.append(.correction(correction.id, title, DateInterval(start: entry.start, end: max(entry.start, end))))
                 if case .rest = entry { moments.removeAll { $0.id == match.id } }
             }
         }

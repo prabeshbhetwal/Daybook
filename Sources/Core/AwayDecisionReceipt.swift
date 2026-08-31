@@ -19,6 +19,10 @@ struct AwayDecisionReceipt: Codable, Equatable, Identifiable {
     /// exact before/after pair makes archived Undo safe across an interrupted
     /// archive write followed by stale preference restoration.
     var expectedCreditRecord: SessionRecord? = nil
+    var sequence: Int? = nil
+    /// Legacy reclassification can restore the actual saved break, not an
+    /// imagined prior focus credit which was never recorded.
+    var legacyOriginalRecord: SessionRecord? = nil
 
     var isResolved: Bool { decision != nil }
 

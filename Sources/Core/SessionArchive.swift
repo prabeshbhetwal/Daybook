@@ -75,6 +75,27 @@ final class SessionArchive {
     /// Replacements retain their array position; unrelated records never move.
     func edit(removing expected: [SessionRecord] = [], adding additions: [SessionRecord] = [],
               allowsEviction: Bool = false) -> String? {
+        if let failure = validateEdit(removing: expected, adding: additions, allowsEviction: allowsEviction) {
+            return failure
+        }
+        let expectedIDs = Set(expected.map(\.id))
+        let replacements = Dictionary(uniqueKeysWithValues: additions.map { ($0.id, $0) })
+        var candidate = cache.compactMap { record in
+            expectedIDs.contains(record.id) ? replacements[record.id] : record
+        }
+        candidate += additions.filter { !expectedIDs.contains($0.id) }
+        guard candidate != cache else { return nil }
+        if candidate.count > capacity, candidate.count > cache.count {
+            candidate.removeFirst(candidate.count - capacity)
+        }
+        switch write(candidate) {
+        case .success: cache = candidate; return nil
+        case .failure(let detail): return detail
+        }
+    }
+
+    func validateEdit(removing expected: [SessionRecord] = [], adding additions: [SessionRecord] = [],
+                      allowsEviction: Bool = false) -> String? {
         let expectedIDs = Set(expected.map(\.id))
         guard expectedIDs.count == expected.count,
               Set(additions.map(\.id)).count == additions.count else {
@@ -101,10 +122,7 @@ final class SessionArchive {
             }
             candidate.removeFirst(candidate.count - capacity)
         }
-        switch write(candidate) {
-        case .success: cache = candidate; return nil
-        case .failure(let detail): return detail
-        }
+        return nil
     }
 
     /// Renames every record in a thread. Segments of one piece of work share a

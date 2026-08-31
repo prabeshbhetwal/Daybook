@@ -553,6 +553,35 @@ extension SessionStore {
 
     // MARK: - Correcting a recorded session
 
+    var legacyFocusTargets: [SessionRecord] {
+        var threads = Set<UUID>()
+        return engine.archive.records.sorted { $0.end > $1.end }.filter {
+            $0.workType.countsAsFocus && $0.end > $0.start && threads.insert($0.threadID).inserted
+        }
+    }
+
+    func legacyBreakRecord(id: UUID) -> SessionRecord? {
+        engine.archive.records.first { $0.id == id && $0.workType == .breakTime }
+    }
+
+    @discardableResult
+    func reclassifyLegacyBreak(recordID: UUID, decision: UserDecision, focusTargetID: UUID? = nil,
+                              expectedRecord: SessionRecord? = nil, expectedTarget: SessionRecord? = nil) -> Bool {
+        guard let original = legacyBreakRecord(id: recordID),
+              expectedRecord == nil || expectedRecord == original,
+              expectedTarget == nil || engine.archive.records.contains(expectedTarget!) else {
+            publishCorrectionError("The confirmed record or focus target changed. Review it before trying again.")
+            return false
+        }
+        let target = focusTargetID.flatMap { id in engine.archive.records.first { $0.id == id } }
+        let saved = engine.reclassifyLegacyBreak(recordID: recordID, decision: decision, focusTargetID: focusTargetID)
+        publishCorrectionError(saved ? nil : engine.awayDecisionError ?? "This break changed. Its newer evidence was preserved.")
+        if saved { correctionRetry = nil }
+        else { correctionRetry = .legacy(record: original, decision: decision, target: target) }
+        refresh()
+        return saved
+    }
+
     /// Renames the work a session belongs to. The name is the thread's, so
     /// every stretch of that work carries the correction.
     @discardableResult
@@ -578,6 +607,21 @@ extension SessionStore {
     @discardableResult
     func retryLastCorrection() -> Bool {
         guard let retry = correctionRetry else { return false }
+        if let pending = engine.decisionHistory.document.pending {
+            guard retry.matches(pending) else {
+                publishCorrectionError("That Retry belongs to a different action. The pending correction was preserved.")
+                return false
+            }
+            guard engine.prepareCorrection() else {
+                publishCorrectionError(engine.awayDecisionError); return false
+            }
+            if engine.decisionHistoryRevision == pending.after.correctionGeneration {
+                correctionRetry = nil
+                publishCorrectionError(nil)
+                refresh()
+                return true
+            }
+        }
         switch retry {
         case .correction(let threadID, let correction):
             return applyCorrection(threadID: threadID, correction: correction)
@@ -587,17 +631,49 @@ extension SessionStore {
             return undoAwayDecision(expectedID: id)
         case .awayDecision(let decision, let label, let reviewing, let id):
             return applyAwayDecision(decision, label: label, reviewing: reviewing, expectedID: id)
+        case .legacy(let record, let decision, let target):
+            return reclassifyLegacyBreak(recordID: record.id, decision: decision, focusTargetID: target?.id,
+                                        expectedRecord: record, expectedTarget: target)
+        case .ending(let thread, let start):
+            guard engine.state != .idle, engine.activeThreadID == thread, engine.sessionStartDate == start else {
+                publishCorrectionError("That Retry belongs to an earlier session. Current work was preserved.")
+                return false
+            }
+            stop()
+            return engine.state == .idle && engine.awayDecisionError == nil
         }
     }
 
     @discardableResult
     func undoLastCorrection() -> Bool {
-        if engine.lastAwayDecision?.isResolved == true { return undoAwayDecision() }
+        if engine.lastAwayDecision?.isResolved == true,
+           (engine.lastAwayDecision?.sequence ?? 0) >= (lastCorrection?.sequence ?? 0) { return undoAwayDecision() }
         guard let state = lastCorrection else { return false }
         return undo(state)
     }
 
+    @discardableResult
+    func undoCorrection(expectedID: UUID) -> Bool {
+        guard let correction = corrections.first(where: { $0.id == expectedID }) else {
+            publishCorrectionError("That correction is no longer available. Later work was preserved.")
+            return false
+        }
+        return undo(correction)
+    }
+
+    func correctionScopeNote(expectedID: UUID) -> String? {
+        guard let correction = corrections.first(where: { $0.id == expectedID }) else { return nil }
+        let records = engine.archive.records.filter { $0.threadID == correction.threadID }
+        let count = records.count + (engine.state != .idle && engine.activeThreadID == correction.threadID ? 1 : 0)
+        guard count > 1 else { return nil }
+        return "Undo affects this field in all \(count) stretches of the session, including any on other days. Timing and other fields are unchanged."
+    }
+
     private func applyCorrection(threadID: UUID, correction: SessionCorrection) -> Bool {
+        guard engine.prepareCorrection() else {
+            publishCorrectionError(engine.awayDecisionError); return false
+        }
+        let before = engine.snapshot()
         let archiveRecordIDs = Set(engine.archive.records
             .filter { $0.threadID == threadID }
             .map(\.id))
@@ -608,29 +684,25 @@ extension SessionStore {
             activeBefore = nil
         }
 
-        let archiveResult = engine.archive.apply(correction, toThread: threadID)
-        if case .failed(let detail) = archiveResult {
-            publishCorrectionError("Could not save the \(correction.retryDescription): \(detail)")
-            correctionRetry = .correction(threadID: threadID, correction: correction)
-            return false
-        }
-
-        let activeChanged: Bool
-        if activeBefore != nil {
+        var removed: [SessionRecord] = [], added: [SessionRecord] = []
+        for record in engine.archive.records where record.threadID == threadID {
+            var changed = record
             switch correction {
-            case .rename(let name): activeChanged = engine.renameActive(to: name)
-            case .workType(let workType): activeChanged = engine.reclassifyActive(as: workType)
+            case .rename(let name): changed.name = name
+            case .workType(let type): changed.workType = type
             }
-        } else {
-            activeChanged = false
+            if changed != record { removed.append(record); added.append(changed) }
         }
-
-        let archiveSnapshot: SessionArchiveCorrectionSnapshot?
-        switch archiveResult {
-        case .applied(let snapshot): archiveSnapshot = snapshot
-        case .unchanged: archiveSnapshot = nil
-        case .failed: archiveSnapshot = nil // handled above
-        }
+        let archiveSnapshot: SessionArchiveCorrectionSnapshot? = removed.isEmpty ? nil : .init(
+            threadID: threadID, correction: correction, fields: removed.map {
+                .init(recordID: $0.id, name: $0.name, workType: $0.workType)
+            })
+        let activeChanged: Bool = activeBefore.map { value in
+            switch correction {
+            case .rename(let name): return value.name != name
+            case .workType(let type): return value.workType != type
+            }
+        } ?? false
         guard archiveSnapshot != nil || activeChanged else {
             publishCorrectionError(nil)
             correctionRetry = nil
@@ -646,11 +718,18 @@ extension SessionStore {
             return false
         }
 
-        lastCorrection = .init(threadID: threadID, correction: correction,
+        let receipt = SessionStoreCorrectionState(sequence: (before.correctionGeneration ?? 0) + 1,
+                               threadID: threadID, correction: correction,
                                archiveSnapshot: archiveSnapshot,
                                originalFields: originalFields,
                                archiveRecordIDs: archiveRecordIDs)
-        engine.dismissAwayDecisionReceipt()
+        engine.stageActiveCorrection(correction, threadID: threadID)
+        guard engine.commitCorrection(before: before, removing: removed, adding: added,
+                                      fields: corrections + [receipt]) else {
+            publishCorrectionError(engine.awayDecisionError)
+            correctionRetry = .correction(threadID: threadID, correction: correction)
+            return false
+        }
         publishCanUndoCorrection(true)
         publishCorrectionError(nil)
         correctionRetry = nil
@@ -659,36 +738,65 @@ extension SessionStore {
     }
 
     private func undo(_ state: SessionStoreCorrectionState) -> Bool {
-        let archiveResult = engine.archive.restore(
-            correction: state.correction, inThread: state.threadID,
-            snapshot: state.archiveSnapshot,
-            recordsPresentAtCorrection: state.archiveRecordIDs,
-            originalFields: (state.originalFields.name, state.originalFields.workType))
-        if case .failed(let detail) = archiveResult {
-            publishCorrectionError("Could not save the undo: \(detail)")
+        guard engine.prepareCorrection(), corrections.contains(where: { $0.id == state.id }) else {
+            publishCorrectionError(engine.awayDecisionError ?? "That correction was already undone.")
+            return false
+        }
+        let before = engine.snapshot()
+        let originals = Dictionary(uniqueKeysWithValues: (state.archiveSnapshot?.fields ?? []).map { ($0.recordID, $0) })
+        let existingIDs = Set(engine.archive.records.map(\.id))
+        guard Set(originals.keys).isSubset(of: existingIDs) else {
+            publishCorrectionError("An originally corrected record is not currently available. Restore its classification before undoing this field.")
             correctionRetry = .undo(state)
             return false
         }
-
-        let activeChanged: Bool
+        var removed: [SessionRecord] = [], added: [SessionRecord] = []
+        for record in engine.archive.records where record.threadID == state.threadID {
+            guard let original = originals[record.id] ?? (!state.archiveRecordIDs.contains(record.id)
+                ? .init(recordID: record.id, name: state.originalFields.name, workType: state.originalFields.workType) : nil)
+            else { continue }
+            var changed = record
+            switch state.correction {
+            case .rename(let expected):
+                guard record.name == expected || record.name == original.name else { return correctionConflict(state) }
+                changed.name = original.name
+            case .workType(let expected):
+                guard record.workType == expected || record.workType == original.workType else { return correctionConflict(state) }
+                changed.workType = original.workType
+            }
+            if changed != record { removed.append(record); added.append(changed) }
+        }
         if engine.state != .idle, engine.activeThreadID == state.threadID {
             switch state.correction {
-            case .rename: activeChanged = engine.restoreActiveName(to: state.originalFields.name)
-            case .workType: activeChanged = engine.reclassifyActive(as: state.originalFields.workType)
+            case .rename(let expected):
+                guard engine.sessionName == expected || engine.sessionName == state.originalFields.name else {
+                    return correctionConflict(state)
+                }
+                engine.stageActiveCorrection(.rename(state.originalFields.name), threadID: state.threadID)
+            case .workType(let expected):
+                guard engine.activeWorkType == expected || engine.activeWorkType == state.originalFields.workType else {
+                    return correctionConflict(state)
+                }
+                engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID)
             }
-        } else {
-            activeChanged = false
         }
-        let archiveChanged: Bool
-        if case .applied = archiveResult { archiveChanged = true } else { archiveChanged = false }
-        guard archiveChanged || activeChanged else { return false }
-
-        lastCorrection = nil
-        publishCanUndoCorrection(false)
+        guard engine.commitCorrection(before: before, removing: removed, adding: added,
+                                      fields: corrections.filter { $0.id != state.id }) else {
+            publishCorrectionError(engine.awayDecisionError)
+            correctionRetry = .undo(state)
+            return false
+        }
+        publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
         publishCorrectionError(nil)
         correctionRetry = nil
         refresh()
         return true
+    }
+
+    private func correctionConflict(_ state: SessionStoreCorrectionState) -> Bool {
+        publishCorrectionError("This field changed after the correction. Its newer value was preserved.")
+        correctionRetry = .undo(state)
+        return false
     }
 
     /// Starts a new stretch of the same work. Continuing never reopens a closed

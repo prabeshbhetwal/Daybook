@@ -6,6 +6,7 @@ enum SessionHotKeyActionResult: Equatable {
     case started
     case stopped
     case showAwayDecision
+    case saveFailed
 }
 
 /// The one bridge between `Core` and SwiftUI. Subscribes to the engine's
@@ -200,7 +201,8 @@ final class SessionStore: ObservableObject {
     /// refreshed until its candidate was atomically persisted.
     @Published private(set) var correctionError: String?
     @Published private(set) var canUndoCorrection = false
-    var lastCorrection: SessionStoreCorrectionState?
+    var corrections: [SessionStoreCorrectionState] { engine.decisionHistory.document.fields }
+    var lastCorrection: SessionStoreCorrectionState? { corrections.last }
     var correctionRetry: SessionCorrectionRetry?
 
     func publishCorrectionError(_ error: String?) { correctionError = error }
@@ -239,7 +241,9 @@ final class SessionStore: ObservableObject {
     func startAutomatically(workType: WorkType, name: String, backdatedTo: Date,
                             because: String) {
         guard !hasUnresolvedAwayDecision else { return }
-        engine.start(workType: workType, intent: name, isAuto: true)
+        guard engine.start(workType: workType, intent: name, isAuto: true) else {
+            retainEndingRetry(); refresh(); return
+        }
         engine.backdate(to: backdatedTo)
         refresh()
     }
@@ -901,9 +905,10 @@ final class SessionStore: ObservableObject {
             refresh()
             return .started
         }
-        engine.stop()
+        let stopped = engine.stop()
+        if !stopped { retainEndingRetry() }
         refresh()
-        return .stopped
+        return stopped ? .stopped : .saveFailed
     }
 
     /// Pressing Start continues a session already running on the same kind of
@@ -915,7 +920,9 @@ final class SessionStore: ObservableObject {
         if engine.wouldAdopt(workType: workType, intent: intent) {
             engine.adopt(intent: intent)
         } else {
-            engine.start(workType: workType, intent: intent)
+            guard engine.start(workType: workType, intent: intent) else {
+                retainEndingRetry(); refresh(); return
+            }
         }
         engine.store.rememberActivity(name: intent, workType: workType)
         intent = ""
@@ -928,7 +935,9 @@ final class SessionStore: ObservableObject {
         if engine.wouldAdopt(workType: quick.workType, intent: quick.name) {
             engine.adopt(intent: quick.name)
         } else {
-            engine.start(workType: quick.workType, intent: quick.name)
+            guard engine.start(workType: quick.workType, intent: quick.name) else {
+                retainEndingRetry(); refresh(); return
+            }
         }
         engine.store.rememberActivity(name: quick.name, workType: quick.workType)
         intent = ""
@@ -940,7 +949,21 @@ final class SessionStore: ObservableObject {
 
     func stop() {
         guard !hasUnresolvedAwayDecision else { return }
+        let thread = engine.activeThreadID, start = engine.sessionStartDate
         engine.stop()
+        if let error = engine.awayDecisionError {
+            publishCorrectionError(error)
+            correctionRetry = .ending(threadID: thread, sessionStart: start)
+        } else {
+            publishCorrectionError(nil)
+            correctionRetry = nil
+        }
+        refresh()
+    }
+
+    private func retainEndingRetry() {
+        publishCorrectionError(engine.awayDecisionError)
+        correctionRetry = .ending(threadID: engine.activeThreadID, sessionStart: engine.sessionStartDate)
     }
 
     func togglePause() {
@@ -999,7 +1022,8 @@ final class SessionStore: ObservableObject {
     @discardableResult
     func applyAwayDecision(_ decision: UserDecision, label: String? = nil, reviewing: Bool,
                            expectedID: UUID? = nil) -> Bool {
-        let currentID = reviewing ? engine.lastAwayDecision?.id : engine.pendingDecisionID
+        let currentID = reviewing ? (expectedID.flatMap { engine.awayDecision(id: $0)?.id }
+            ?? (expectedID == nil ? engine.lastAwayDecision?.id : nil)) : engine.pendingDecisionID
         guard let id = currentID, expectedID == nil || expectedID == id else {
             if expectedID != nil {
                 publishCorrectionError("That action belongs to an earlier interval. The current record was not changed.")
@@ -1007,7 +1031,7 @@ final class SessionStore: ObservableObject {
             }
             return false
         }
-        let saved = reviewing ? engine.reviseAwayDecision(decision, label: label)
+        let saved = reviewing ? engine.reviseAwayDecision(decision, label: label, expectedID: id)
             : engine.decide(decision, label: label)
         guard saved else {
             if let error = engine.awayDecisionError {
@@ -1016,7 +1040,6 @@ final class SessionStore: ObservableObject {
             }
             return false
         }
-        lastCorrection = nil
         correctionRetry = nil
         publishCorrectionError(nil)
         publishCanUndoCorrection(engine.lastAwayDecision?.isResolved == true)
@@ -1026,14 +1049,15 @@ final class SessionStore: ObservableObject {
 
     @discardableResult
     func undoAwayDecision(expectedID: UUID? = nil) -> Bool {
-        guard let id = engine.lastAwayDecision?.id, expectedID == nil || expectedID == id else {
+        guard let id = expectedID.flatMap({ engine.awayDecision(id: $0)?.id })
+            ?? (expectedID == nil ? engine.lastAwayDecision?.id : nil) else {
             if expectedID != nil {
                 publishCorrectionError("That Undo belongs to an earlier action. The current record was not changed.")
                 correctionRetry = nil
             }
             return false
         }
-        guard engine.undoAwayDecision() else {
+        guard engine.undoAwayDecision(expectedID: id) else {
             publishCorrectionError(engine.awayDecisionError ?? "Finish the current away decision before undoing an earlier one.")
             correctionRetry = .awayUndo(id)
             return false

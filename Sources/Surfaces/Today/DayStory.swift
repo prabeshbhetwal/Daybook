@@ -114,10 +114,13 @@ struct DayStory: View {
                      dotSize: 8, isFirst: isFirst, isLast: isLast) {
                 StoryDecisionRow(store: store, receipt: receipt, range: range)
             }
-        case .correction(let title, let range):
+        case .correction(let id, let title, let range):
             storyRow(time: range.start, tint: StoryStyle.successInk, dotSize: 8,
                      isFirst: isFirst, isLast: isLast) {
-                StorySavedActionRow(title: title, range: range) { store.undoLastCorrection() }
+                StorySavedActionRow(title: title, range: range,
+                                    scopeNote: store.correctionScopeNote(expectedID: id)) {
+                    store.undoCorrection(expectedID: id)
+                }
             }
         }
     }
@@ -185,7 +188,7 @@ struct DayStory: View {
                      tint: Tokens.Palette.workType(.breakTime),
                      dotSize: 7,
                      isFirst: isFirst, isLast: isLast) {
-                RestEntryRow(rest: rest)
+                RestEntryRow(store: store, rest: rest)
             }
         }
     }
@@ -594,6 +597,7 @@ final class TextBox: ObservableObject {
 /// Rest is not work, so it is a quiet row rather than a card: named where the
 /// user named it, and never coloured like a session.
 struct RestEntryRow: View {
+    @ObservedObject var store: SessionStore
     let rest: RestEntry
 
     var body: some View {
@@ -606,13 +610,14 @@ struct RestEntryRow: View {
             Text(Tokens.preciseDuration(rest.length))
                 .font(Tokens.Typography.metadata.monospacedDigit())
                 .foregroundStyle(.secondary)
+            StoryLegacyBreakActions(store: store, rest: rest)
         }
         .padding(.horizontal, Tokens.Space.m)
         .padding(.vertical, Tokens.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Tokens.Colour.elevated,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("\(rest.name), recorded break, \(Tokens.spent(rest.length)), "
                             + Tokens.timeRange(rest.start, rest.end))
     }
