@@ -446,6 +446,7 @@ enum SelfTest {
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
             + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
             + DecisionHistoryChecks.tests + DecisionRecoveryChecks.tests + StoryWorkspaceChecks.tests
+            + CompactControlsChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -6070,8 +6071,8 @@ enum SelfTest {
 
     // MARK: - 72
 
-    /// The panel had a fixed width and unbounded height, so its lower half ran
-    /// off a 14" display once Settings was expanded.
+    /// The compact operational menu remains one column on every display and
+    /// treats valid usable geometry as a hard bound, even below old floors.
     private static func testPopoverMetrics() -> [String] {
         var problems: [String] = []
 
@@ -6082,12 +6083,10 @@ enum SelfTest {
         expect(laptop.maxHeight >= 600,
                "but not uselessly short, got \(laptop.maxHeight)", &problems)
 
-        // A short laptop screen gets two panes precisely *because* it is short:
-        // one column there is roughly twice the height the screen can hold.
         let small = PopoverMetrics.fitting(CGSize(width: 1_366, height: 700))
         expect(small.maxHeight < 700, "shorter than a small screen too", &problems)
-        expect(small.twoColumn,
-               "a short screen needs two panes most, not least", &problems)
+        expect(!small.twoColumn && small.width == 340,
+               "a short screen remains a compact 340pt single column", &problems)
 
         // Genuinely narrow displays stay single-column: 560pt would be most of
         // the screen, and two panes of 250pt hold nothing.
@@ -6096,28 +6095,18 @@ enum SelfTest {
         expect(narrow.width == Tokens.popoverWidth,
                "and keeps the single-column width", &problems)
 
-        // A large display earns the second column, which roughly halves the
-        // height — that is what buys the extra width back.
         let desktop = PopoverMetrics.fitting(CGSize(width: 2_560, height: 1_440))
-        expect(desktop.twoColumn, "a large screen affords two panes", &problems)
-        expect(desktop.width > Tokens.popoverWidth,
-               "which needs more width, got \(desktop.width)", &problems)
-        expect(desktop.width <= 640, "but never a whole window", &problems)
+        expect(!desktop.twoColumn && desktop.width == 340,
+               "a large display does not widen one-column content", &problems)
 
-        // A 13" MacBook Pro is the tightest machine the panel must fit, and the
-        // one where a single column would be twice the screen's height. It must
-        // therefore qualify for two panes and for the tighter density.
         let thirteen = PopoverMetrics.fitting(CGSize(width: 1_440, height: 845))
-        expect(thirteen.twoColumn,
-               "a 13-inch must get two panes; one column does not fit it", &problems)
+        expect(!thirteen.twoColumn,
+               "a 13-inch remains one operational column", &problems)
         expect(thirteen.dense, "and the tighter density", &problems)
         expect(thirteen.rowHeight < 26 && thirteen.outerPadding < Tokens.Space.l,
                "which must actually change the measurements", &problems)
-        // Measured from the rendered states: the tallest is 778pt with settings
-        // expanded. Leave headroom, but not so much that a regression hides.
-        expect(thirteen.maxHeight >= 780,
-               "the panel must be allowed the 778pt its tallest state needs, got "
-               + "\(thirteen.maxHeight)", &problems)
+        expect(thirteen.maxHeight <= 845,
+               "the panel respects the 13-inch usable height", &problems)
 
         // A roomy screen keeps the comfortable density.
         let roomy = PopoverMetrics.fitting(CGSize(width: 2_560, height: 1_440))
@@ -6125,17 +6114,23 @@ enum SelfTest {
         expect(roomy.topAppCount > thirteen.topAppCount,
                "and can show more apps", &problems)
 
-        // The scrolling middle always gets a usable share, and never more than
-        // the panel itself — a `ScrollView` given no height renders nothing.
+        // The scrolling middle gets whatever genuine overflow room remains;
+        // its cap may be small, but can never exceed valid usable geometry.
         for size in [CGSize(width: 1_512, height: 900),
                      CGSize(width: 1_366, height: 700),
                      CGSize(width: 800, height: 400)] {
             let metrics = PopoverMetrics.fitting(size)
-            expect(metrics.scrollCap >= 200,
+            expect(metrics.scrollCap >= 1,
                    "the middle must never be given zero height at \(size)", &problems)
             expect(metrics.scrollCap < metrics.maxHeight,
                    "and never more than the whole panel at \(size)", &problems)
         }
+        let tiny = PopoverMetrics.fitting(CGSize(width: 312, height: 420))
+        expect(tiny.width <= 312 && tiny.maxHeight <= 420,
+               "valid tiny-screen geometry remains a hard bound", &problems)
+        let fallback = PopoverMetrics.fitting(CGSize(width: CGFloat.nan, height: -1))
+        expect(fallback.width == 340 && fallback.maxHeight > 0,
+               "invalid screen geometry uses the safe fallback", &problems)
         return problems
     }
 

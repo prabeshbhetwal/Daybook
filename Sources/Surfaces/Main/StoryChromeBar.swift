@@ -1,11 +1,17 @@
 import SwiftUI
 
+enum StoryChromeFocus: Hashable {
+    case session
+    case settings
+}
+
 /// The window's one chrome row, in the design's order: clearance for the native
 /// traffic lights, the scope, the period it resolves to, the live session, and
 /// Settings. It never scrolls and it is the only global navigation.
 struct StoryChromeBar: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    @FocusState private var focusedControl: StoryChromeFocus?
 
     var body: some View {
         HStack(spacing: Tokens.Space.l) {
@@ -15,7 +21,9 @@ struct StoryChromeBar: View {
                 .accessibilityHidden(true)
             workspaceControls
             Spacer(minLength: Tokens.Space.s)
-            StorySessionControl(store: store, onDetails: { navigation.openSheet(.focus) })
+            StorySessionControl(store: store,
+                                focus: $focusedControl,
+                                onDetails: navigation.toggleSessionControls)
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13, weight: .medium))
@@ -26,6 +34,7 @@ struct StoryChromeBar: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .focused($focusedControl, equals: .settings)
             .help("Settings")
             .accessibilityLabel("Settings")
         }
@@ -34,13 +43,22 @@ struct StoryChromeBar: View {
         .background(StoryStyle.canvas)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Window chrome")
+        .onChange(of: navigation.focusRestorationRequest) { target in
+            guard let target else { return }
+            switch target {
+            case .sessionControls: focusedControl = .session
+            case .settings: focusedControl = .settings
+            }
+            navigation.consumeFocusRestorationRequest()
+        }
     }
 
     @ViewBuilder private var workspaceControls: some View {
         switch navigation.workspace {
         case .story:
-            StoryScopePills(selection: Binding(get: { navigation.storyScope },
-                                               set: { navigation.selectScope($0) }))
+            NativeStoryScopeControl(selection: Binding(get: { navigation.storyScope },
+                                                       set: { navigation.selectScope($0) }))
+                .frame(width: 190, height: AccessibilityMetrics.minimumTargetSize)
             Spacer(minLength: Tokens.Space.s)
             periodNavigation
         case .history:
@@ -139,6 +157,7 @@ struct StoryChromeBar: View {
 /// describe it.
 struct StorySessionControl: View {
     @ObservedObject var store: SessionStore
+    var focus: FocusState<StoryChromeFocus?>.Binding
     var onDetails: () -> Void = {}
 
     var body: some View {
@@ -154,6 +173,7 @@ struct StorySessionControl: View {
                 .foregroundStyle(Tokens.Colour.onFocus)
             }
             .buttonStyle(.plain)
+            .focused(focus, equals: .session)
             .accessibilityLabel("Start a focus session")
         } else {
             Button(action: onDetails) {
@@ -176,44 +196,10 @@ struct StorySessionControl: View {
                 .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
             }
             .buttonStyle(.plain)
+            .focused(focus, equals: .session)
             .accessibilityLabel("\(Tokens.spent(store.elapsed)) elapsed, "
                                 + (store.isPaused ? "paused" : "running"))
             .accessibilityHint("Open session controls, including pause, resume and end")
         }
-    }
-}
-
-/// Day · Week · Month. The scope changes what the story is about; it never
-/// changes surface.
-struct StoryScopePills: View {
-    @Binding var selection: StoryScope
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(StoryScope.allCases) { scope in
-                pill(scope)
-            }
-        }
-        .padding(3)
-        .background(StoryStyle.well,
-                    in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Story scope")
-    }
-
-    private func pill(_ scope: StoryScope) -> some View {
-        let isSelected = selection == scope
-        return Button { selection = scope } label: {
-            Text(scope.title)
-                .font(Tokens.Typography.metadata.weight(.semibold))
-                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
-                .frame(width: 62, height: AccessibilityMetrics.minimumTargetSize)
-                .background(isSelected ? StoryStyle.card : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                .shadow(color: .black.opacity(isSelected ? 0.10 : 0), radius: 1, y: 1)
-        }
-        .buttonStyle(StoryPressStyle())
-        .accessibilityLabel("\(scope.title), \(isSelected ? "selected" : "not selected")")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

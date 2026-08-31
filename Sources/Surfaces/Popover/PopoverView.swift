@@ -8,10 +8,10 @@ struct PopoverView: View {
     @ObservedObject var settings: SettingsModel
     @FocusState private var intentFocused: Bool
     @StateObject private var tips = TipCenter()
-    /// Measured height of the scrolling middle. A `ScrollView` reports no
+    /// Measured height of the single overflow body. A `ScrollView` reports no
     /// intrinsic height, and this panel is sized to its content, so without
     /// measuring it collapsed to nothing.
-    @StateObject private var middleHeight = HeightBox()
+    @StateObject private var contentHeight = HeightBox()
     var onOpenApplication: () -> Void = {}
     var onOpenSettings: () -> Void = {}
 
@@ -35,9 +35,7 @@ struct PopoverView: View {
                       spacing: settings.interfaceDensity == .compact
                         ? max(Tokens.Space.xs, metrics.stackSpacing - 4)
                         : metrics.stackSpacing) {
-            HeroCard(store: store, intentFocused: $intentFocused,
-                     dense: metrics.dense, twoColumn: metrics.twoColumn)
-            middle(cap: metrics.scrollCap, twoColumn: metrics.twoColumn)
+            operationalContent(cap: bodyCap(metrics))
             PopoverFooter(onOpenApplication: onOpenApplication,
                           onOpenSettings: onOpenSettings)
         }
@@ -56,8 +54,16 @@ struct PopoverView: View {
         }
     }
 
-    @ViewBuilder private func middle(cap: CGFloat, twoColumn: Bool) -> some View {
+    private func bodyCap(_ metrics: PopoverMetrics) -> CGFloat {
+        let padding = settings.interfaceDensity == .compact
+            ? max(Tokens.Space.m, metrics.outerPadding - 4) : metrics.outerPadding
+        return max(1, metrics.maxHeight - (padding * 2) - 52 - metrics.stackSpacing)
+    }
+
+    @ViewBuilder private func operationalContent(cap: CGFloat) -> some View {
         let content = VStack(alignment: .leading, spacing: metrics.stackSpacing) {
+            HeroCard(store: store, intentFocused: $intentFocused,
+                     dense: metrics.dense)
             if store.focusSurfaceComposition.showsContinuationSection {
                 ContinueTodaySection(store: store, limit: 3)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -76,8 +82,8 @@ struct PopoverView: View {
                                                value: proxy.size.height)
                     })
             }
-            .frame(height: min(max(middleHeight.value, 1), cap))
-            .onPreferenceChange(ContentHeightKey.self) { middleHeight.value = $0 }
+            .frame(height: min(max(contentHeight.value, 1), cap))
+            .onPreferenceChange(ContentHeightKey.self) { contentHeight.value = $0 }
         } else {
             content
         }

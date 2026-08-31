@@ -1,5 +1,14 @@
 import SwiftUI
 
+enum MonthStoryLayout {
+    static let cellHeight: CGFloat = 54
+
+    static func durationLabel(for seconds: TimeInterval) -> String {
+        guard seconds != 0 else { return "—" }
+        return DurationText.precise(seconds)
+    }
+}
+
 /// The month as a calendar of real days: each cell carries its own focused
 /// figure and is tinted by its focused duration relative to this month's
 /// busiest day. Selection previews a day; its named action opens the story.
@@ -52,7 +61,8 @@ struct MonthStoryGrid: View {
                         } else {
                             RoundedRectangle(cornerRadius: 9, style: .continuous)
                                 .fill(StoryStyle.well.opacity(0.4))
-                                .aspectRatio(1, contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: MonthStoryLayout.cellHeight)
                                 .accessibilityHidden(true)
                         }
                     }
@@ -166,7 +176,8 @@ struct MonthDayCell: View {
 
     private var face: some View {
         shape.fill(Color(NSColor(hex: paint.background)))
-            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .frame(height: MonthStoryLayout.cellHeight)
             .overlay(alignment: .topLeading) {
               VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 2) {
@@ -179,7 +190,7 @@ struct MonthDayCell: View {
                 }
             }
             Spacer(minLength: 0)
-            Text(focused > 0 ? Tokens.duration(focused) : "—")
+            Text(MonthStoryLayout.durationLabel(for: focused))
                 .font(.system(size: 10).monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)

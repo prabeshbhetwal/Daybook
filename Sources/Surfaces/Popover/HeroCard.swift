@@ -6,13 +6,12 @@ struct HeroCard: View {
     @ObservedObject var store: SessionStore
     var intentFocused: FocusState<Bool>.Binding
     var dense = false
-    var twoColumn = true
 
     var body: some View {
         FocusHero(store: store,
                   intentFocused: intentFocused,
                   compact: true,
-                  wide: twoColumn)
+                  wide: false)
             .card(padding: dense ? Tokens.Space.m : Tokens.Space.l)
     }
 }

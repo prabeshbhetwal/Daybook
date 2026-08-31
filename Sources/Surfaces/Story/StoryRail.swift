@@ -14,6 +14,53 @@ extension EnvironmentValues {
     }
 }
 
+/// Deliberate rail-order state. Every drag, drop and keyboard move passes
+/// through this gate before SettingsModel persists the resulting order.
+final class StoryRailArrangement: ObservableObject {
+    @Published private(set) var isArranging = false
+    @Published private(set) var order: [StoryTileKind]
+    var allowsDrag: Bool { isArranging }
+
+    init(order: [StoryTileKind] = StoryTileKind.allCases) {
+        self.order = StoryTileKind.order(from: StoryTileKind.raw(from: order))
+    }
+
+    func synchronise(_ persisted: [StoryTileKind]) {
+        guard !isArranging else { return }
+        order = StoryTileKind.order(from: StoryTileKind.raw(from: persisted))
+    }
+
+    func begin() { isArranging = true }
+    func finish() { isArranging = false }
+    func escape() { finish() }
+
+    @discardableResult
+    func move(_ kind: StoryTileKind, by delta: Int,
+              visible: [StoryTileKind]? = nil) -> Bool {
+        guard isArranging, abs(delta) == 1 else { return false }
+        let shown = visible ?? order
+        guard let index = shown.firstIndex(of: kind),
+              shown.indices.contains(index + delta) else { return false }
+        let target = delta < 0 ? shown[index - 1]
+            : (index + 2 < shown.count ? shown[index + 2] : nil)
+        return move(kind, before: target)
+    }
+
+    @discardableResult
+    func move(_ kind: StoryTileKind, before target: StoryTileKind?) -> Bool {
+        guard isArranging else { return false }
+        let changed = StoryTileKind.moving(kind, before: target, in: order)
+        guard changed != order else { return false }
+        order = changed
+        return true
+    }
+
+    func reset() {
+        guard isArranging else { return }
+        order = StoryTileKind.allCases
+    }
+}
+
 /// The tiles beside the story. Each one follows the scope above it, carries its
 /// own colour, and shows nothing when it has nothing to say — a tile is never a
 /// zero-valued placeholder.
@@ -25,22 +72,22 @@ struct StoryRail: View {
     /// before the mouse is released.
     @StateObject private var dropTarget = TileBox()
     @StateObject private var selectedApp = TextBox()
+    @StateObject private var arrangement = StoryRailArrangement()
     @Environment(\.storyTilesAreDraggable) private var tilesAreDraggable
     @Environment(\.focusInterfaceDensity) private var density
 
     var body: some View {
         let shownTiles = visibleTiles
         VStack(alignment: .leading, spacing: density == .compact ? 10 : 14) {
+            HStack {
+                Text("Supporting cards")
+                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: Tokens.Space.s)
+                arrangeMenu(shownTiles)
+            }
             ForEach(shownTiles, id: \.self) { kind in
-                draggable(tile(kind), as: kind)
-                    .contextMenu {
-                        Button("Move \(kind.title) up") { moveVertically(kind, by: -1) }
-                            .disabled(shownTiles.first == kind)
-                        Button("Move \(kind.title) down") { moveVertically(kind, by: 1) }
-                            .disabled(shownTiles.last == kind)
-                    }
-                    .accessibilityAction(named: "Move up") { moveVertically(kind, by: -1) }
-                    .accessibilityAction(named: "Move down") { moveVertically(kind, by: 1) }
+                arrangedTile(kind, shownTiles: shownTiles)
             }
             droppable(footer, before: nil)
         }
@@ -49,6 +96,58 @@ struct StoryRail: View {
         .onChange(of: navigation.storyScope) { _ in selectedApp.text = "" }
         .onChange(of: store.dayOffset) { _ in selectedApp.text = "" }
         .onChange(of: store.reviewAnchor) { _ in selectedApp.text = "" }
+        .onChange(of: settings.storyTileOrder) { arrangement.synchronise($0) }
+        .onAppear { arrangement.synchronise(settings.storyTileOrder) }
+        .onExitCommand { arrangement.escape() }
+    }
+
+    private func arrangeMenu(_ shownTiles: [StoryTileKind]) -> some View {
+        Menu {
+            if arrangement.isArranging {
+                Button("Finish arranging") { arrangement.finish() }
+                Divider()
+                ForEach(shownTiles, id: \.self) { kind in
+                    Menu(kind.title) {
+                        Button("Move up") { moveVertically(kind, by: -1) }
+                            .disabled(shownTiles.first == kind)
+                        Button("Move down") { moveVertically(kind, by: 1) }
+                            .disabled(shownTiles.last == kind)
+                    }
+                }
+                Divider()
+                Button("Reset card order") { resetOrder() }
+            } else {
+                Button("Arrange cards") {
+                    arrangement.synchronise(settings.storyTileOrder)
+                    arrangement.begin()
+                }
+            }
+        } label: {
+            Label(arrangement.isArranging ? "Finish arranging" : "Arrange cards",
+                  systemImage: arrangement.isArranging ? "checkmark" : "arrow.up.arrow.down")
+                .font(Tokens.Typography.metadata.weight(.semibold))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel(arrangement.isArranging ? "Finish arranging cards" : "Arrange cards")
+    }
+
+    @ViewBuilder private func arrangedTile(_ kind: StoryTileKind,
+                                            shownTiles: [StoryTileKind]) -> some View {
+        let content = draggable(tile(kind), as: kind)
+        if arrangement.isArranging {
+            content
+                .contextMenu {
+                    Button("Move \(kind.title) up") { moveVertically(kind, by: -1) }
+                        .disabled(shownTiles.first == kind)
+                    Button("Move \(kind.title) down") { moveVertically(kind, by: 1) }
+                        .disabled(shownTiles.last == kind)
+                }
+                .accessibilityAction(named: "Move up") { moveVertically(kind, by: -1) }
+                .accessibilityAction(named: "Move down") { moveVertically(kind, by: 1) }
+        } else {
+            content
+        }
     }
 
     private var footer: some View {
@@ -59,7 +158,7 @@ struct StoryRail: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(StoryStyle.action)
-            Text(tilesAreDraggable
+            Text(arrangement.isArranging && tilesAreDraggable
                  ? "Drag tiles to reorder, or use their menu. The streak always describes recent days."
                  : "The streak always describes recent days.")
         }
@@ -70,8 +169,11 @@ struct StoryRail: View {
 
     @ViewBuilder private func draggable(_ content: some View,
                                         as kind: StoryTileKind) -> some View {
-        if tilesAreDraggable {
+        if tilesAreDraggable && arrangement.allowsDrag {
             droppable(content.opacity(dropTarget.kind == kind ? 0.55 : 1)
+                .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius)
+                    .stroke(StoryStyle.action.opacity(0.45), style: StrokeStyle(lineWidth: 1,
+                                                                                dash: [4, 3])))
                 .onDrag {
                     dropTarget.dragging = kind
                     return NSItemProvider(object: kind.rawValue as NSString)
@@ -83,7 +185,7 @@ struct StoryRail: View {
 
     @ViewBuilder private func droppable(_ content: some View,
                                         before target: StoryTileKind?) -> some View {
-        if tilesAreDraggable {
+        if tilesAreDraggable && arrangement.allowsDrag {
             content.onDrop(of: [.text], delegate: TileDropDelegate(
                 target: target, box: dropTarget,
                 move: { moved, before in move(moved, before: before) }))
@@ -118,18 +220,20 @@ struct StoryRail: View {
     }
 
     private func move(_ kind: StoryTileKind, before target: StoryTileKind?) {
-        let order = StoryTileKind.moving(kind, before: target, in: settings.storyTileOrder)
-        guard order != settings.storyTileOrder else { return }
-        settings.storyTileOrder = order
+        arrangement.synchronise(settings.storyTileOrder)
+        guard arrangement.move(kind, before: target) else { return }
+        settings.storyTileOrder = arrangement.order
     }
 
     private func moveVertically(_ kind: StoryTileKind, by delta: Int) {
-        let visible = visibleTiles
-        guard let index = visible.firstIndex(of: kind),
-              visible.indices.contains(index + delta) else { return }
-        let target = delta < 0 ? visible[index - 1]
-            : (index + 2 < visible.count ? visible[index + 2] : nil)
-        move(kind, before: target)
+        arrangement.synchronise(settings.storyTileOrder)
+        guard arrangement.move(kind, by: delta, visible: visibleTiles) else { return }
+        settings.storyTileOrder = arrangement.order
+    }
+
+    private func resetOrder() {
+        arrangement.reset()
+        settings.storyTileOrder = arrangement.order
     }
 
     // MARK: - Focus

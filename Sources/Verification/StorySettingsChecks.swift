@@ -64,6 +64,7 @@ enum StorySettingsChecks {
                                          return true
                                      })
         settings.defaultStoryScope = .month
+        settings.sessionControlsPinned = true
         settings.dailyGoal = FocusConstants.dailyGoalOptions.last ?? settings.dailyGoal
         settings.breakThreshold = FocusConstants.thresholdOptions.last ?? settings.breakThreshold
         settings.longAwayCap = FocusConstants.longAwayCapOptions.last ?? settings.longAwayCap
@@ -80,7 +81,7 @@ enum StorySettingsChecks {
         settings.isTrackingEnabled = false
         let reloaded = SettingsModel(store: store, isTrackingEnabled: false,
                                      onChange: {}, onTrackingChanged: { _ in })
-        if reloaded.defaultStoryScope != .month
+        if reloaded.defaultStoryScope != .month || !reloaded.sessionControlsPinned
             || reloaded.dailyGoal != settings.dailyGoal
             || reloaded.breakThreshold != settings.breakThreshold
             || reloaded.longAwayCap != settings.longAwayCap
@@ -124,15 +125,16 @@ enum StorySettingsChecks {
         var failures: [String] = []
         for section in SettingsSection.allCases {
             let height = SettingsLayout.sheetHeight(section: section, query: "")
-            if height > 570 || height < 49 {
-                failures.append("\(section.title) sheet height \(height) escapes the 570pt native-sheet bound")
+            if height > SettingsLayout.sheetMaximumHeight || height < 49 {
+                failures.append("\(section.title) sheet height \(height) escapes the stable native-sheet bound")
             }
         }
-        if SettingsLayout.sheetHeight(section: .general, query: "") >= 570 {
-            failures.append("General retained the full empty sheet instead of its compact fitted height")
+        let heights = SettingsSection.allCases.flatMap { section in
+            [SettingsLayout.sheetHeight(section: section, query: ""),
+             SettingsLayout.sheetHeight(section: section, query: "appearance")]
         }
-        if SettingsLayout.sheetHeight(section: .general, query: "appearance") != 570 {
-            failures.append("A contextual search did not retain room for every matching setting")
+        if Set(heights).count != 1 {
+            failures.append("Settings category or search changed the stable sheet frame")
         }
         return failures
     }

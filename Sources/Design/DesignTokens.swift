@@ -114,7 +114,7 @@ enum Tokens {
         static let menuBar = Font.system(size: NSFont.systemFontSize).monospacedDigit()
     }
 
-    static let popoverWidth: CGFloat = 320
+    static let popoverWidth: CGFloat = 340
     /// The widest a form row should ever be: an intent field, a settings row, a
     /// primary button. Text and controls have a comfortable measure that does
     /// not grow with the window.
@@ -286,9 +286,9 @@ enum Tokens {
     enum Motion {
         /// The selection pill travels rather than redrawing, so the eye follows
         /// one object across the rail.
-        static let selection = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.42)
+        static let selection = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.20)
         /// Content settling into place after a view change.
-        static let rise = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.5)
+        static let rise = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.22)
         /// Children enter this far apart, in order.
         static let stagger: Double = 0.06
         /// A hover is a tint, never a colour jump.

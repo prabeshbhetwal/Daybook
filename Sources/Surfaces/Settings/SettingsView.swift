@@ -1,22 +1,14 @@
 import SwiftUI
 
-/// Dimensions include StorySheet's approximately 49pt title band. The sheet
-/// stays below the 570pt native bound while short pages do not become a large,
-/// empty panel merely because another page has longer diagnostics.
+/// Dimensions include StorySheet's title band. Every category and search result
+/// shares this bounded frame; only genuinely overflowing page content scrolls.
 enum SettingsLayout {
     static let detailMeasure: CGFloat = 720
-    static let sheetMaximumHeight: CGFloat = 570
+    static let sheetHeight: CGFloat = 560
+    static let sheetMaximumHeight: CGFloat = 600
 
     static func sheetHeight(section: SettingsSection, query: String) -> CGFloat {
-        guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return sheetMaximumHeight
-        }
-        switch SettingsPage(section: section) {
-        case .general: return 490
-        case .sessions: return 520
-        case .awayAndBreaks, .privacy: return sheetMaximumHeight
-        case .recording: return 440
-        }
+        sheetHeight
     }
 
 }
@@ -58,15 +50,8 @@ struct SettingsView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-            if scrolls {
-                TextField("Search settings", text: $navigation.settingsQuery)
-                    .textFieldStyle(.plain)
-            } else {
-                Text(navigation.settingsQuery.isEmpty ? "Search settings" : navigation.settingsQuery)
-                    .foregroundStyle(navigation.settingsQuery.isEmpty
-                                     ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            TextField("Search settings", text: $navigation.settingsQuery)
+                .textFieldStyle(.plain)
         }
         .padding(.horizontal, Tokens.Space.m)
         .frame(height: 36)

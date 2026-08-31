@@ -76,6 +76,11 @@ enum MainReadingWorkspace: String, CaseIterable {
     case insights
 }
 
+enum MainWindowFocusTarget: Equatable {
+    case sessionControls
+    case settings
+}
+
 struct InsightReadingPosition: Equatable {
     let anchor: Date
     let pageCount: Int
@@ -118,9 +123,9 @@ enum AppearancePreference: String, CaseIterable {
     }
 }
 
-/// Attached panels plus compatibility routes for the two reading workspaces.
-/// History and Insights are intercepted by `openSheet` and never presented as
-/// modal sheets; Focus, Awards and Settings remain attached.
+/// Attached panels plus compatibility routes. History and Insights are reading
+/// workspaces; Focus is intercepted into the in-window strip; Awards and
+/// Settings remain attached sheets.
 enum StorySheetKind: String, CaseIterable, Identifiable {
     case focus, history, insights, awards, settings
 
@@ -179,6 +184,10 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
     @Published private(set) var storySelectedDay: Date?
     @Published private(set) var expandedStoryDay: Date?
+    /// Transient expansion belongs to navigation, not session state. A
+    /// separately persisted pin may keep the strip visible across relaunch.
+    @Published private(set) var sessionControlsExpanded = false
+    @Published private(set) var focusRestorationRequest: MainWindowFocusTarget?
     @Published var reviewSection: ReviewSection = .week
     @Published var insightRange: InsightRange = .week
     @Published private var insightAnchors: [InsightRange: Date]
@@ -192,7 +201,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
          storyScope: StoryScope = .day,
          requestedDate: Date? = nil,
          store: SessionStore? = nil) {
-        self.selectedTab = selectedTab
+        self.selectedTab = selectedTab == .focus ? .story : selectedTab
         self.storyScope = storyScope
         self.requestedDate = requestedDate
         let insightToday = Calendar.current.startOfDay(for: store?.now() ?? Date())
@@ -203,6 +212,10 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         // tab is already presenting that sheet, or restoring one would show the
         // story with no sign of the surface that was asked for.
         switch selectedTab {
+        case .focus:
+            self.workspace = .story
+            self.sheet = nil
+            self.sessionControlsExpanded = true
         case .review:
             self.workspace = .history
             self.sheet = nil
@@ -221,6 +234,10 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     func open(tab: AppTab) {
+        if tab == .focus {
+            revealSessionControls()
+            return
+        }
         selectedTab = tab
         switch tab {
         case .review:
@@ -272,6 +289,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     func openSheet(_ kind: StorySheetKind) {
         switch kind {
+        case .focus: revealSessionControls()
         case .history: open(tab: .review)
         case .insights: open(tab: .insights)
         default:
@@ -281,8 +299,26 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     func closeSheet() {
+        if sheet == .settings { focusRestorationRequest = .settings }
         sheet = nil
         selectedTab = tab(for: workspace)
+    }
+
+    func revealSessionControls() {
+        sessionControlsExpanded = true
+    }
+
+    func toggleSessionControls() {
+        sessionControlsExpanded.toggle()
+    }
+
+    func dismissSessionControls() {
+        sessionControlsExpanded = false
+        focusRestorationRequest = .sessionControls
+    }
+
+    func consumeFocusRestorationRequest() {
+        focusRestorationRequest = nil
     }
 
     func revealApplication() {

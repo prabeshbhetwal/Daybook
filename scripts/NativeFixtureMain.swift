@@ -33,7 +33,7 @@ import AppKit
     @StateObject private var context = NativeFixtureContext()
 
     var body: some Scene {
-        Window("FocusContinuity — safe verification", id: "safe-verification") {
+        Window("FocusContinuity — safe verification", id: "main") {
             MainWindowView(store: context.store, settings: context.settings, navigation: context.navigation)
                 .environment(\.storyEntryInitiallyOpen, context.scenario.opensStoryEntry)
         }

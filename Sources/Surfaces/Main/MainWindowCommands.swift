@@ -31,7 +31,7 @@ struct MainWindowCommands: Commands {
             Button("Awards") { route(to: .awards) }
                 .keyboardShortcut("6", modifiers: [.command])
             Divider()
-            Button("Focus session…") { route(to: .focus) }
+            Button("Session controls…") { route(to: .focus) }
                 .keyboardShortcut("7", modifiers: [.command])
         }
 

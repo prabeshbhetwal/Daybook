@@ -31,34 +31,23 @@ struct PopoverMetrics: Equatable {
     /// row, timer, subtitle and footer come to about 193pt on the tallest one.
     /// The previous 320 was a guess and 127pt too generous, which capped the
     /// middle — and produced a scrollbar — on screens with room to spare.
-    var scrollCap: CGFloat { max(200, maxHeight - 200) }
+    var scrollCap: CGFloat { max(1, maxHeight - 200) }
 
     /// Leaves a margin below the panel rather than filling the screen edge to
-    /// edge, which reads as a window that failed to size itself. Close to the
-    /// full height because the panel only ever reaches it with Settings open,
-    /// and scrolling a settings list you deliberately expanded is worse than a
-    /// tall panel.
+    /// edge, which reads as a window that failed to size itself.
     private static let heightShare: CGFloat = 0.94
-    /// Below these the panel would be too cramped to be worth splitting. Set so
-    /// a 13" MacBook Pro (1440pt wide) qualifies: it is the machine that needs
-    /// two panes most, because a single column there is twice as tall as the
-    /// screen can hold.
-    private static let twoColumnMinimumHeight: CGFloat = 640
-    private static let twoColumnMinimumWidth: CGFloat = 1_200
-    private static let twoColumnWidth: CGFloat = 560
+    /// Only invalid or nonsensical screen reports use a known safe geometry;
+    /// every valid usable size remains a hard bound, however small.
+    private static let fallbackVisible = CGSize(width: 1_440, height: 900)
 
     /// - Parameter visible: the screen's usable area, menu bar and Dock excluded.
     static func fitting(_ visible: CGSize) -> PopoverMetrics {
-        let twoColumn = visible.width >= twoColumnMinimumWidth
-            && visible.height >= twoColumnMinimumHeight
+        let usable = visible.width.isFinite && visible.height.isFinite
+            && visible.width > 0 && visible.height > 0 ? visible : fallbackVisible
         return PopoverMetrics(
-            width: twoColumn ? twoColumnWidth : Tokens.popoverWidth,
-            // Floored so a very small or misreported screen still yields a
-            // usable panel rather than a sliver.
-            maxHeight: max(480, visible.height * heightShare),
-            twoColumn: twoColumn,
-            // A 14" has room to breathe; a 13" does not, and the panel should
-            // tighten rather than scroll.
-            dense: visible.height < 950)
+            width: min(Tokens.popoverWidth, usable.width),
+            maxHeight: min(usable.height, usable.height * heightShare),
+            twoColumn: false,
+            dense: usable.height < 950)
     }
 }

@@ -1,5 +1,21 @@
 import SwiftUI
 
+enum AwayAnswerControlFocus: Hashable {
+    case answer(UserDecision)
+    case reason
+}
+
+/// A default Return shortcut is process-window scoped in SwiftUI. Install it
+/// only while this question's break button itself owns focus; native Return or
+/// Space continues to activate every other focused button, and the reason field
+/// retains its own onSubmit route.
+enum AwayAnswerDefaultAction {
+    static func installsShortcut(focus: AwayAnswerControlFocus?,
+                                 reasonHasText: Bool) -> Bool {
+        focus == .answer(.tookBreak) && !reasonHasText
+    }
+}
+
 /// The four answers to "what was that?", as one grid used by every surface that
 /// asks: the popover card, the dashboard card, the quick prompt, the full
 /// prompt. Header says how long and when; the recommended answer is filled.
@@ -19,6 +35,7 @@ struct AwayAnswerGrid: View {
     /// to fit on a timeline label.
     var onReason: ((String) -> Bool)?
     @StateObject private var reason = AwayReasonDraft()
+    @FocusState private var focusedControl: AwayAnswerControlFocus?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// One set of metrics for the buttons and the field, so the field is the
@@ -64,11 +81,10 @@ struct AwayAnswerGrid: View {
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: Tokens.Space.s) {
                 HStack(spacing: Tokens.Space.s) {
-                    // Return answers "break" — unless the reason field has text,
-                    // when Return must log the name instead. Both firing on one
-                    // keystroke recorded a nameless break before the name landed.
                     button(answers[0])
-                        .keyboardShortcut(reason.text.isEmpty ? .defaultAction : nil)
+                        .keyboardShortcut(AwayAnswerDefaultAction.installsShortcut(
+                            focus: focusedControl,
+                            reasonHasText: !reason.text.isEmpty) ? .defaultAction : nil)
                     button(answers[1])
                 }
                 HStack(spacing: Tokens.Space.s) {
@@ -111,6 +127,7 @@ struct AwayAnswerGrid: View {
             TextField("Name it — dinner, a call, a walk", text: $reason.text)
                 .textFieldStyle(.plain)
                 .font(Font.system(compact ? .callout : .body, design: .rounded))
+                .focused($focusedControl, equals: .reason)
                 .onSubmit(submitReason)
             // Appears with the first character; Return does the same thing.
             if hasText {
@@ -195,6 +212,7 @@ struct AwayAnswerGrid: View {
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
         }
         .buttonStyle(.plain)
+        .focused($focusedControl, equals: .answer(answer.decision))
         .help(showsCaptions ? "" : answer.caption)
         .accessibilityLabel("\(answer.title). \(answer.caption)")
     }

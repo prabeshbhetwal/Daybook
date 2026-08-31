@@ -84,6 +84,17 @@ extension SessionStore {
                                 hasPendingDecision: hasUnresolvedAwayDecision,
                                 isAutomatic: isAutoSession)
     }
+
+    var focusOperationFailure: FocusOperationFailureState? {
+        guard pendingAwaySaveError == nil, let correctionError else { return nil }
+        return FocusOperationFailureState(message: correctionError,
+                                          hasOriginBoundRetry: correctionRetry != nil)
+    }
+}
+
+struct FocusOperationFailureState: Equatable {
+    let message: String
+    let hasOriginBoundRetry: Bool
 }
 
 /// The shared operational hero. Desktop and menu-bar surfaces use the same
@@ -98,11 +109,15 @@ struct FocusHero: View {
     private var mode: FocusSurfaceMode { composition.mode }
 
     var body: some View {
-        Group {
+        VStack(alignment: compact ? .leading : .center,
+               spacing: compact ? Tokens.Space.s : Tokens.Space.m) {
             if mode.showsOrdinaryControls {
                 ordinaryBody
             } else {
                 decisionBody
+            }
+            if let failure = store.focusOperationFailure {
+                FocusOperationFailure(store: store, failure: failure)
             }
         }
         .frame(maxWidth: .infinity, alignment: compact ? .leading : .center)
@@ -243,7 +258,7 @@ struct FocusHero: View {
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
-                .accessibilityLabel("Elapsed \(Tokens.duration(store.elapsed))")
+                .accessibilityLabel("Elapsed \(Tokens.preciseDuration(store.elapsed))")
             VStack(alignment: compact ? .leading : .center, spacing: 2) {
                 Text(store.activeIntent)
                     .font(compact ? .callout.weight(.medium) : .title3.weight(.medium))
@@ -354,27 +369,38 @@ struct FocusHero: View {
 
     // MARK: - Goal support
 
-    private var goalSupport: some View {
-        HStack(spacing: Tokens.Space.s) {
-            GoalRing(progress: store.goal.share,
-                     diameter: compact ? 42 : 52,
-                     lineWidth: compact ? 5 : 6,
-                     label: "\(Int((min(store.goal.share, 9.99) * 100).rounded()))%",
-                     isMet: store.goal.isMet)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Today · \(Tokens.duration(store.goal.achieved)) of "
-                     + Tokens.duration(store.goal.goal))
-                    .font(Tokens.Typography.metadata.weight(.medium).monospacedDigit())
-                Text(goalPaceLine)
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(store.goal.isMet
-                                     ? AnyShapeStyle(Tokens.Colour.progress)
-                                     : AnyShapeStyle(.secondary))
+    @ViewBuilder private var goalSupport: some View {
+        if compact {
+            Text("Today · \(Tokens.preciseDuration(store.goal.achieved)) of "
+                 + "\(Tokens.preciseDuration(store.goal.goal)) · \(goalPaceLine)")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(store.goal.isMet
+                                 ? AnyShapeStyle(Tokens.Colour.progress)
+                                 : AnyShapeStyle(.secondary))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel("Daily goal. \(Tokens.preciseDuration(store.goal.achieved)) "
+                                    + "of \(Tokens.preciseDuration(store.goal.goal)). \(goalPaceLine)")
+        } else {
+            HStack(spacing: Tokens.Space.s) {
+                GoalRing(progress: store.goal.share,
+                         diameter: 52,
+                         lineWidth: 6,
+                         label: "\(Int((min(store.goal.share, 9.99) * 100).rounded()))%",
+                         isMet: store.goal.isMet)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Today · \(Tokens.preciseDuration(store.goal.achieved)) of "
+                         + Tokens.preciseDuration(store.goal.goal))
+                        .font(Tokens.Typography.metadata.weight(.medium).monospacedDigit())
+                    Text(goalPaceLine)
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(store.goal.isMet
+                                         ? AnyShapeStyle(Tokens.Colour.progress)
+                                         : AnyShapeStyle(.secondary))
+                }
             }
+            .frame(maxWidth: 360, alignment: .center)
+            .accessibilityElement(children: .combine)
         }
-        .frame(maxWidth: compact || !wide ? .infinity : 360,
-               alignment: compact ? .leading : .center)
-        .accessibilityElement(children: .combine)
     }
 
     private var goalPaceLine: String {
@@ -400,6 +426,36 @@ struct FocusHero: View {
         case nil:
             break
         }
+    }
+}
+
+/// General save/finalisation failures stay in every operational Focus
+/// consumer. The retry remains bound to SessionStore's retained originating
+/// action; this view never reconstructs a target from current state.
+private struct FocusOperationFailure: View {
+    @ObservedObject var store: SessionStore
+    let failure: FocusOperationFailureState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            Label("Change not saved", systemImage: "exclamationmark.triangle")
+                .font(.caption.weight(.semibold))
+            Text(failure.message)
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+            if failure.hasOriginBoundRetry {
+                Button("Retry saving") { store.retryLastCorrection() }
+                    .buttonStyle(.borderless)
+                    .font(.caption.weight(.semibold))
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Tokens.Colour.attention.opacity(0.10),
+                    in: RoundedRectangle(cornerRadius: 9))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Change not saved")
     }
 }
 

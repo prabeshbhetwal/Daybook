@@ -2,12 +2,13 @@ import SwiftUI
 
 /// The application window is the story: one chrome row that says what you are
 /// looking at and what is running. Story, History and Insights are persistent
-/// reading workspaces in the content region; Focus, Awards and Settings remain
-/// attached panels and return to whichever workspace invoked them.
+/// reading workspaces in the content region; session controls expand below the
+/// chrome, while Awards and Settings remain attached panels.
 struct MainWindowView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var settings: SettingsModel
     @ObservedObject var navigation: MainWindowModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var focusScrolls = true
     var todayScrolls = true
     var reviewScrolls = true
@@ -25,6 +26,14 @@ struct MainWindowView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
             Divider()
+            if SessionControlsVisibility.isVisible(
+                expanded: navigation.sessionControlsExpanded,
+                pinned: settings.sessionControlsPinned) {
+                SessionControlStrip(store: store, settings: settings, navigation: navigation)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
+                    .transition(.opacity)
+            }
             readingWorkspace
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .clipped()
@@ -48,6 +57,11 @@ struct MainWindowView: View {
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
         .tint(StoryStyle.action)
+        .animation(Tokens.Motion.animation(Tokens.Motion.selection,
+                                           reduceMotion: reduceMotion),
+                   value: SessionControlsVisibility.isVisible(
+                    expanded: navigation.sessionControlsExpanded,
+                    pinned: settings.sessionControlsPinned))
         .onAppear { navigation.connect(to: store) }
         .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
@@ -87,9 +101,8 @@ struct MainWindowView: View {
         }
     }
 
-    /// Attached panels. History and Insights remain compatibility enum cases,
-    /// but MainWindowModel routes them into the content workspace before this
-    /// presentation boundary.
+    /// Attached panels. Focus, History and Insights remain compatibility enum
+    /// cases, but MainWindowModel routes them before this presentation boundary.
     private func sheetContent(_ presented: StorySheetKind) -> some View {
         StorySheet(title: presented.title, onClose: { navigation.closeSheet() }) {
                 switch presented {
@@ -125,9 +138,7 @@ struct MainWindowView: View {
                 }
         }
         .frame(width: presented == .settings ? 560 : 880,
-               height: presented == .settings
-                ? SettingsLayout.sheetHeight(section: navigation.settingsSection,
-                                              query: navigation.settingsQuery) : 570)
+               height: presented == .settings ? SettingsLayout.sheetHeight : 570)
     }
 }
 
@@ -212,9 +223,15 @@ struct StorySheet<Content: View>: View {
                     Text(title)
                         .font(Tokens.Typography.sectionTitle)
                     Spacer(minLength: Tokens.Space.m)
-                    Button("Done", action: onClose)
-                        .buttonStyle(.bordered)
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .frame(width: AccessibilityMetrics.minimumTargetSize,
+                                   height: AccessibilityMetrics.minimumTargetSize)
+                    }
+                        .buttonStyle(.plain)
                         .keyboardShortcut(.cancelAction)
+                        .help("Close \(title)")
+                        .accessibilityLabel("Close \(title)")
                 }
                 .padding(.horizontal, Tokens.Space.xl)
                 .padding(.vertical, Tokens.Space.m)
