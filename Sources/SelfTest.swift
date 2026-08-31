@@ -7081,11 +7081,11 @@ enum SelfTest {
         let expectedControls: Set<SettingsControlKey> = [
             .opensOn, .dailyGoal, .breakThreshold, .longAwayCap, .fullPromptAfter,
             .reminders, .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
-            .usageRecording, .appearance, .density, .timelineLabels
+            .usageRecording, .appearance, .density, .timelineLabels, .entryDetails
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,
-               "Settings lists exactly the fourteen backed mutable controls", &problems)
+               "Settings lists exactly the fifteen backed mutable controls", &problems)
         expect(listedControls.count == expectedControls.count,
                "no backed mutable control appears in more than one group", &problems)
         expect(Set(listedControls.map(\.modelKeyPath)).count == expectedControls.count,

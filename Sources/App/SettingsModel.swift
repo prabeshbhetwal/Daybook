@@ -19,6 +19,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case appearance
     case density
     case timelineLabels
+    case entryDetails
 
     var modelKeyPath: PartialKeyPath<SettingsModel> {
         switch self {
@@ -36,6 +37,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .appearance: return \SettingsModel.appearancePreference
         case .density: return \SettingsModel.interfaceDensity
         case .timelineLabels: return \SettingsModel.showsTimelineLabels
+        case .entryDetails: return \SettingsModel.expandsEntryDetails
         }
     }
 }
@@ -261,6 +263,14 @@ final class SettingsModel: ObservableObject {
     var defaultStoryScope: StoryScope {
         get { StoryScope(rawValue: store.defaultStoryScopeRawValue) ?? .day }
         set { write { store.defaultStoryScopeRawValue = newValue.rawValue } }
+    }
+
+    /// Whether a session entry opens with its detail already showing. Local
+    /// reading preference: it changes how the story is first drawn, never what
+    /// it says.
+    var expandsEntryDetails: Bool {
+        get { store.expandsEntryDetails }
+        set { write { store.expandsEntryDetails = newValue } }
     }
 
     /// How the rail's tiles are arranged. Stored as names so the order

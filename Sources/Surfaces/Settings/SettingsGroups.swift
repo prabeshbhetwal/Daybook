@@ -179,6 +179,9 @@ struct SettingsGroups: View {
             rowDivider
             Toggle("Show timeline labels", isOn: $model.showsTimelineLabels)
                 .frame(minHeight: layout.rowHeight)
+            rowDivider
+            Toggle("Expand entry details by default", isOn: $model.expandsEntryDetails)
+                .frame(minHeight: layout.rowHeight)
             explanation("System follows the current macOS appearance. Reduce Motion always "
                         + "follows macOS and is never overridden here.")
         }

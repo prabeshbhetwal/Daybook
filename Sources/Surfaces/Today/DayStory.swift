@@ -4,12 +4,23 @@ private struct StoryEntryInitiallyOpenKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct FocusExpandsEntryDetailsKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
-    /// Opens the first session entry on appearance. Snapshot-only: the reader's
-    /// own opening is local state that the product does not remember.
+    /// Opens session entries on appearance. Carries the reader's preference,
+    /// and the snapshot harness sets it to show an opened entry.
     var storyEntryInitiallyOpen: Bool {
         get { self[StoryEntryInitiallyOpenKey.self] }
         set { self[StoryEntryInitiallyOpenKey.self] = newValue }
+    }
+
+    /// The reader's preference for whether entries open with their detail
+    /// already showing.
+    var focusExpandsEntryDetails: Bool {
+        get { self[FocusExpandsEntryDetailsKey.self] }
+        set { self[FocusExpandsEntryDetailsKey.self] = newValue }
     }
 }
 
@@ -24,6 +35,7 @@ struct DayStory: View {
     /// product remembers.
     @StateObject private var opened = SetBox()
     @Environment(\.storyEntryInitiallyOpen) private var entryInitiallyOpen
+    @Environment(\.focusExpandsEntryDetails) private var expandsDetails
 
     /// The gutter that carries the clock times, and the rule beside it.
     private let timeColumn: CGFloat = 62
@@ -39,18 +51,25 @@ struct DayStory: View {
             if store.daySessions.isEmpty && !hasAwayQuestion { empty }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onAppear {
-            guard entryInitiallyOpen, opened.ids.isEmpty else { return }
-            for entry in store.daySessions {
-                if case .session(let session) = entry {
-                    opened.ids.insert(session.id)
-                    return
-                }
-            }
-        }
+        .onAppear(perform: openInitialEntries)
     }
 
     private var hasAwayQuestion: Bool { store.isToday && store.pendingAway != nil }
+
+    /// Opens what the reader asked to see already open. Only on first
+    /// appearance: an entry the reader then closes must stay closed.
+    private func openInitialEntries() {
+        guard opened.ids.isEmpty else { return }
+        let sessions = store.daySessions.compactMap { entry -> DaySession? in
+            if case .session(let session) = entry { return session }
+            return nil
+        }
+        if expandsDetails {
+            opened.ids.formUnion(sessions.map(\.id))
+        } else if entryInitiallyOpen, let first = sessions.first {
+            opened.ids.insert(first.id)
+        }
+    }
 
     // MARK: - One entry
 

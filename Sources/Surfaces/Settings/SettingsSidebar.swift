@@ -63,7 +63,7 @@ extension SettingsSection {
         case .tracking:
             return [.sessionsPerApp, .usageRecording]
         case .appearance:
-            return [.appearance, .density, .timelineLabels]
+            return [.appearance, .density, .timelineLabels, .entryDetails]
         case .data, .advanced:
             return []
         }

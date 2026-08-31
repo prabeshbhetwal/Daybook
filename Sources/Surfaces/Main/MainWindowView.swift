@@ -34,6 +34,7 @@ struct MainWindowView: View {
         .background(Tokens.Colour.ground)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
+        .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
         .preferredColorScheme(settings.preferredColorScheme)
         .accessibilityElement(children: .contain)
     }
