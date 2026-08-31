@@ -8,12 +8,14 @@ import AppKit
     let store: SessionStore
     let navigation: MainWindowModel
     let settings: SettingsModel
+    let opensStoryEntry: Bool
 
     init() {
         let arguments = CommandLine.arguments
         let scenario = arguments.firstIndex(of: "--fixture-window").flatMap { index in
             index + 1 < arguments.count ? SnapshotScenario(rawValue: arguments[index + 1]) : nil
         } ?? .storyDay
+        opensStoryEntry = scenario.opensStoryEntry
         let store = Snapshotter.store(for: scenario)
         self.store = store
         navigation = Snapshotter.navigation(for: scenario, store: store)
@@ -46,6 +48,7 @@ struct StoryFixtureApp: App {
         Window("FocusContinuity — isolated verification", id: "main") {
             MainWindowView(store: context.store, settings: context.settings,
                            navigation: context.navigation)
+                .environment(\.storyEntryInitiallyOpen, context.opensStoryEntry)
         }
         .defaultSize(width: 1_160, height: 780)
         .windowResizability(.contentMinSize)

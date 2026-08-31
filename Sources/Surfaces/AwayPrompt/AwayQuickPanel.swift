@@ -5,6 +5,7 @@ private final class QuickPromptModel: ObservableObject {
     @Published var away: TimeInterval = 0
     @Published var range: (start: Date, end: Date)?
     @Published var note: String?
+    @Published var error: String?
 }
 
 /// Carries the hosted view's measured size back to the panel. A reference
@@ -22,8 +23,9 @@ private struct QuickSizeKey: PreferenceKey {
 private struct QuickPromptView: View {
     @ObservedObject var model: QuickPromptModel
     let relay: SizeRelay
-    let onAnswer: (UserDecision) -> Void
-    let onReason: (String) -> Void
+    let onAnswer: (UserDecision) -> Bool
+    let onReason: (String) -> Bool
+    let onRetry: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,7 +33,8 @@ private struct QuickPromptView: View {
                 .fill(Tokens.Colour.surface)
                 .frame(width: 18, height: 9)
             AwayAnswerGrid(away: model.away, range: model.range, compact: true,
-                           note: model.note, onAnswer: onAnswer, onReason: onReason)
+                           note: model.note, error: model.error, onRetry: onRetry,
+                           onAnswer: onAnswer, onReason: onReason)
                 .padding(Tokens.Space.m)
                 .frame(width: 300, alignment: .leading)
                 .background(Tokens.Colour.surface,
@@ -85,7 +88,8 @@ final class AwayQuickPanel {
     private var generation = 0
     private var lastSize: CGSize?
 
-    init(onAnswer: @escaping (UserDecision) -> Void, onReason: @escaping (String) -> Void) {
+    init(onAnswer: @escaping (UserDecision) -> Bool, onReason: @escaping (String) -> Bool,
+         onRetry: @escaping () -> Void = {}) {
         let panel = QuickAskPanel(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 220),
             styleMask: [.nonactivatingPanel, .borderless],
@@ -102,7 +106,7 @@ final class AwayQuickPanel {
         self.panel = panel
         panel.contentView = FirstMouseHostingView(
             rootView: QuickPromptView(model: model, relay: relay,
-                                      onAnswer: onAnswer, onReason: onReason))
+                                      onAnswer: onAnswer, onReason: onReason, onRetry: onRetry))
         relay.onSize = { [weak self] size in self?.layout(to: size) }
     }
 
@@ -112,14 +116,16 @@ final class AwayQuickPanel {
     static func snapshotView(
         away: TimeInterval,
         range: (start: Date, end: Date)?,
-        note: String? = nil
+        note: String? = nil,
+        error: String? = nil
     ) -> some View {
         let model = QuickPromptModel()
         model.away = away
         model.range = range
         model.note = note
+        model.error = error
         return QuickPromptView(model: model, relay: SizeRelay(),
-                               onAnswer: { _ in }, onReason: { _ in })
+                               onAnswer: { _ in true }, onReason: { _ in true }, onRetry: {})
     }
 
     func show(away: TimeInterval, range: (start: Date, end: Date)?, note: String?) {
@@ -129,6 +135,7 @@ final class AwayQuickPanel {
         model.away = away
         model.range = range
         model.note = note
+        model.error = nil
         // Place it at the last known size now so it appears where it belongs;
         // the preference corrects the size the moment SwiftUI has laid out.
         layout(to: lastSize ?? CGSize(width: 300, height: 220))
@@ -147,6 +154,15 @@ final class AwayQuickPanel {
         }
         fade = item
         DispatchQueue.main.asyncAfter(deadline: .now() + 20, execute: item)
+    }
+
+    func showError(_ error: String) {
+        generation += 1
+        fade?.cancel()
+        fade = nil
+        model.error = error
+        panel.alphaValue = 1
+        panel.orderFrontRegardless()
     }
 
     func dismiss() {

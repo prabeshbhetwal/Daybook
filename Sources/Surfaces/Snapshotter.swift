@@ -2,16 +2,17 @@ import SwiftUI
 import AppKit
 
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
-    case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision
+    case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure
     case todayHistory, todayHistoryExpanded, todayPast
     case reviewWeek, reviewMonth
     case reviewSelectedFirstDay, reviewSelectedLastDay, reviewHistorySelection
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
     case storyDay, storyDayEntry, storyWeek, storyMonth
+    case storyShape, storyMeeting, storyLive, storyDecision
     case settingsGeneral, settingsFocus, settingsAway, settingsAutomatic
     case settingsTracking, settingsAppearance, settingsData, settingsAdvanced
-    case awayQuick, awayFull, rewardEarned
+    case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned
 
     var id: String { rawValue }
 
@@ -21,6 +22,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusRunning: return "Focus — running"
         case .focusPaused: return "Focus — paused"
         case .focusAwaitingDecision: return "Focus — awaiting decision"
+        case .focusSaveFailure: return "Focus — answer not saved"
         case .todayHistory: return "Today — history"
         case .todayHistoryExpanded: return "Today — history expanded recap"
         case .todayPast: return "Today — past day and integrity"
@@ -37,6 +39,10 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .storyDayEntry: return "Story — an entry opened"
         case .storyWeek: return "Story — the week"
         case .storyMonth: return "Story — the month"
+        case .storyShape: return "Story — recorded shape and session actions"
+        case .storyMeeting: return "Story — meeting evidence"
+        case .storyLive: return "Story — current work first"
+        case .storyDecision: return "Story — contextual decision and Undo"
         case .settingsGeneral: return "Settings — General"
         case .settingsFocus: return "Settings — Focus sessions"
         case .settingsAway: return "Settings — Away and breaks"
@@ -47,6 +53,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsAdvanced: return "Settings — Advanced"
         case .awayQuick: return "Away — quick prompt"
         case .awayFull: return "Away — full prompt"
+        case .awayQuickFailure: return "Away — quick prompt save failure"
+        case .awayFullFailure: return "Away — full prompt save failure"
         case .rewardEarned: return "Reward — earned"
         }
     }
@@ -65,11 +73,18 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    var opensStoryEntry: Bool {
+        switch self {
+        case .storyDayEntry, .storyShape, .storyMeeting: return true
+        default: return false
+        }
+    }
+
     var presentations: [SnapshotPresentation] {
         switch self {
-        case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision:
+        case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure:
             return [.minimum, .comfortable, .popover]
-        case .awayQuick, .awayFull, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
             return [.compact]
         default:
             return [.minimum, .comfortable]
@@ -80,7 +95,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     /// every global tab owns a rendered surface.
     var tab: AppTab? {
         switch self {
-        case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision:
+        case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure:
             return .focus
         case .todayHistory, .todayHistoryExpanded, .todayPast:
             return .today
@@ -91,12 +106,13 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .insights
         case .awardsEarned, .awardsEmpty:
             return .awards
-        case .storyDay, .storyDayEntry, .storyWeek, .storyMonth:
+        case .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
+             .storyShape, .storyMeeting, .storyLive, .storyDecision:
             return .story
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
             return .settings
-        case .awayQuick, .awayFull, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
             return nil
         }
     }
@@ -252,7 +268,7 @@ enum Snapshotter {
             .environment(\.colorScheme, item.appearance.scheme)
             .environment(\.todayRecapInitiallyExpanded,
                          item.scenario == .todayHistoryExpanded)
-            .environment(\.storyEntryInitiallyOpen, item.scenario == .storyDayEntry)
+            .environment(\.storyEntryInitiallyOpen, item.scenario.opensStoryEntry)
             // The static renderer cannot draw an AppKit drag source.
             .environment(\.storyTilesAreDraggable, false)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
@@ -280,19 +296,21 @@ enum Snapshotter {
     private static func compactSurface(for item: SnapshotRender) -> AnyView {
         let reference = Date(timeIntervalSince1970: 1_700_000_000)
         switch item.scenario {
-        case .awayQuick:
+        case .awayQuick, .awayQuickFailure:
             let view = AwayQuickPanel.snapshotView(
                 away: 22 * 60,
                 range: (reference.addingTimeInterval(-22 * 60), reference),
-                note: nil)
+                note: nil,
+                error: item.scenario == .awayQuickFailure ? FixtureFactory.decisionSaveError : nil)
                 .environment(\.colorScheme, item.appearance.scheme)
                 .fixedSize(horizontal: false, vertical: true)
             return AnyView(view)
-        case .awayFull:
+        case .awayFull, .awayFullFailure:
             let view = AwayFullPrompt.snapshotView(
                 away: 72 * 60,
                 range: (reference.addingTimeInterval(-72 * 60), reference),
-                note: nil)
+                note: nil,
+                error: item.scenario == .awayFullFailure ? FixtureFactory.decisionSaveError : nil)
                 .environment(\.colorScheme, item.appearance.scheme)
             return AnyView(view)
         case .rewardEarned:
@@ -318,6 +336,8 @@ enum Snapshotter {
             return FixtureFactory.store(for: .paused)
         case .focusAwaitingDecision:
             return FixtureFactory.store(for: .needsResolution)
+        case .focusSaveFailure:
+            return FixtureFactory.failingDecisionStore()
         case .todayHistory, .todayHistoryExpanded:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
@@ -353,6 +373,8 @@ enum Snapshotter {
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
+        case .storyShape, .storyMeeting, .storyLive, .storyDecision:
+            return FixtureFactory.storyInteractionStore(for: scenario)
         case .storyWeek:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
@@ -366,7 +388,7 @@ enum Snapshotter {
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
             return FixtureFactory.store(for: .running)
-        case .awayQuick, .awayFull, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
             return FixtureFactory.store(for: .firstRun)
         }
     }
@@ -384,7 +406,7 @@ enum Snapshotter {
                                    store: SessionStore) -> MainWindowModel {
         let navigation = MainWindowModel(selectedTab: scenario.tab ?? .story, store: store)
         switch scenario {
-        case .storyDay, .storyDayEntry:
+        case .storyDay, .storyDayEntry, .storyShape, .storyMeeting, .storyLive, .storyDecision:
             navigation.storyScope = .day
         case .storyWeek:
             navigation.selectScope(.week)

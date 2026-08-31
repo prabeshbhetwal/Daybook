@@ -25,7 +25,6 @@ struct StoryRail: View {
     /// before the mouse is released.
     @StateObject private var dropTarget = TileBox()
     @StateObject private var selectedApp = TextBox()
-    @StateObject private var allAppsShown = BoolBox()
     @Environment(\.storyTilesAreDraggable) private var tilesAreDraggable
     @Environment(\.focusInterfaceDensity) private var density
 
@@ -294,9 +293,9 @@ struct StoryRail: View {
 
     private var appsTile: some View {
         StoryTile(title: "Apps", tint: Tokens.Palette.app(rank: 5),
-                  trailing: apps.count > 4 && !allAppsShown.value ? "Top 4 of \(apps.count)"
+                  trailing: apps.count > 4 ? "Top 4 of \(apps.count)"
                     : apps.count == 1 ? "1 app" : "\(apps.count) apps") {
-            ForEach(Array(apps.prefix(allAppsShown.value ? apps.count : 4).enumerated()), id: \.element.id) { index, app in
+            ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
                 StoryAppRow(app: app, rank: index) { selectedApp.text = app.bundleID }
                     .popover(isPresented: Binding(
                         get: { selectedApp.text == app.bundleID },
@@ -306,13 +305,6 @@ struct StoryRail: View {
                                            onDismiss: { selectedApp.text = "" })
                         }
                     .onExitCommand { selectedApp.text = "" }
-            }
-            if apps.count > 4 {
-                Button(allAppsShown.value ? "Show fewer apps" : "Show all \(apps.count) apps") {
-                    allAppsShown.value.toggle()
-                }
-                .buttonStyle(.borderless)
-                .font(Tokens.Typography.metadata)
             }
         }
     }

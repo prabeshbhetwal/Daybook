@@ -36,7 +36,7 @@ struct FocusContinuityApp: App {
             PopoverView(
                 store: coordinator.store,
                 settings: coordinator.settings,
-                onOpenFocus: { openMainWindow(on: .focus) },
+                onOpenApplication: { openMainWindow() },
                 onOpenSettings: { openMainWindow(on: .settings) }
             )
         } label: {
@@ -59,8 +59,9 @@ struct FocusContinuityApp: App {
         }
     }
 
-    private func openMainWindow(on tab: AppTab) {
-        coordinator.mainWindow.open(tab: tab)
+    private func openMainWindow(on tab: AppTab? = nil) {
+        if let tab { coordinator.mainWindow.open(tab: tab) }
+        else { coordinator.mainWindow.revealApplication() }
         NSApp.activate(ignoringOtherApps: true)
         openWindow(id: "main")
     }

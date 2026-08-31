@@ -9,6 +9,8 @@ enum StoryStyle {
     static let well = Color(lightHex: 0xF0EFED, darkHex: 0x343437)
     static let focus = Color(lightHex: 0x4E4CCC, darkHex: 0xB6B3FF)
     static let action = Color(lightHex: 0x0071E3, darkHex: 0x75B5FF)
+    static let successInk = Color(lightHex: 0x087C3B, darkHex: 0x73D79A)
+    static let successWash = Color(lightHex: 0xEFF8EF, darkHex: 0x25352B)
     static let line = Color(light: NSColor.black.withAlphaComponent(0.07),
                             dark: NSColor.white.withAlphaComponent(0.09))
     static let columnInsets = EdgeInsets(top: 26, leading: 30, bottom: 34, trailing: 30)
@@ -19,6 +21,16 @@ enum StoryStyle {
     static let tileRadius: CGFloat = 14
     static let headline = Font.system(size: 25, weight: .semibold)
     static let headlineMeasure: CGFloat = 560
+
+    static func workTypeInk(_ type: WorkType) -> Color {
+        switch type {
+        case .deepWork: return focus
+        case .meetings: return Color(lightHex: 0xA35F00, darkHex: 0xFFC575)
+        case .admin: return Color(lightHex: 0x126C7C, darkHex: 0x73D1E2)
+        case .learning: return Color(lightHex: 0xB12650, darkHex: 0xFF91AD)
+        case .breakTime: return .secondary
+        }
+    }
 
     static func columnInsets(for density: InterfaceDensity) -> EdgeInsets {
         density == .compact ? EdgeInsets(top: 20, leading: 24, bottom: 26, trailing: 24) : columnInsets

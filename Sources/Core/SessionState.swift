@@ -110,7 +110,7 @@ enum SessionEvent: Equatable {
     case overrideApplied(bundleID: String)
 }
 
-enum UserDecision: String, Equatable, CaseIterable {
+enum UserDecision: String, Codable, Equatable, CaseIterable {
     /// "I was away." Excluded from the session; nothing is written down.
     case continueSession
     /// "I was working." The gap is added back as work on this session.
@@ -277,7 +277,7 @@ struct DayBar: Identifiable, Equatable {
 }
 
 /// A pinned one-click start, derived from history.
-struct QuickStart: Identifiable, Equatable {
+struct QuickStart: Codable, Identifiable, Equatable {
     let id: String
     let name: String
     let workType: WorkType
@@ -318,6 +318,11 @@ struct PersistedState: Codable, Equatable {
     /// session. Optional so blobs written before it existed still decode; a
     /// missing value means nothing was owed, which is what `?? 0` says.
     var shadowAway: TimeInterval?
+    /// Optional for snapshots written before reversible absence decisions.
+    var awayDecision: AwayDecisionReceipt? = nil
+    var pendingDecisionID: UUID? = nil
+    var awayReturnedAt: Date? = nil
+    var workBeforePendingAway: TimeInterval? = nil
 }
 
 extension PersistedState {

@@ -15,13 +15,16 @@ invokes `swiftc` directly.
 - Tracks declared focus sessions, pauses, away decisions, breaks and threads.
 - Records local foreground app-use stretches, trims unattended idle tails and
   excludes known system processes.
-- Tells the day chronologically, with **Day**, **Week** and **Month** scopes
+- Tells the day newest-first, with **Day**, **Week** and **Month** scopes
   and supporting focus, app-use, rhythm and current-streak tiles.
 - Shows exact tracked time in Week and only evidence-backed statements in
   Insights.
 - Offers searchable History and native sheets for session controls, Insights,
   Awards and Settings, without losing the selected story.
-- Allows durable session-name/type corrections with a visible, field-scoped Undo.
+- Offers editable activity suggestions and remembers recently started names.
+- Allows durable session-name/type corrections and contextual away-decision Undo.
+- Shows recorded app-use shapes in expanded sessions and at most four top apps
+  in the supporting rail.
 - Preserves historical app-use records, qualifying data from before the
   corrected recorder's accuracy epoch instead of silently repairing it.
 - Provides local light/dark snapshot scenarios for product review.
@@ -86,7 +89,8 @@ Keyboard shortcuts:
 | `Command-,` | Settings |
 | Escape | Dismiss a native sheet/app detail or cancel an inline rename |
 
-Click an entry's full header to expand it. Inspect an app from the rail to see
+Current work is at the top of the timeline; earlier work and rest continue
+downwards. Click an entry's full header to expand it. Inspect an app from the rail to see
 its scoped recorded visits. Select a calendar day or Week bar for a preview,
 then use **Open as a story** for that date's full chronology. History rows expand
 in place; **Open this day's story** is an explicit drill-in, not an automatic
@@ -95,6 +99,13 @@ redirect. Drag rail tiles to reorder them, or use their contextual Move actions.
 The compact menu-bar popover intentionally remains Focus-only. It provides the
 current action, up to three continuation choices, quiet break context, and
 **Open FocusContinuity**, **Settings** and **Quit**.
+Opening the app reveals the Story without automatically presenting the session
+sheet; use **Session controls** or `Command-7` when you want that sheet.
+
+When starting focus, choose a suggestion from the activity field's menu or write
+your own name. Choosing an item only fills the draft. Start explicitly to begin
+work; started names are remembered locally for reuse. **Work type** is a separate,
+labelled classification, not a restriction on the name you can enter.
 
 ## Time and evidence model
 
@@ -104,7 +115,7 @@ FocusContinuity keeps related measures separate:
 |---|---|
 | **Focused** | Declared focus-session time, clipped to the relevant day or period |
 | **Focused-active** | Declared focus time that overlaps authoritative hands-on app-use evidence; used for goals and pace |
-| **Tracked / On this Mac** | Local observed app-use time; not presented as deliberate work |
+| **Recorded app use / Tracked** | Local observed app-use time; not presented as deliberate work |
 | **Within / outside session spans** | Temporal membership of observed use; spans can contain pauses and do not themselves establish goal credit |
 | **Focus without app-use coverage** | Credited session work that recording cannot corroborate; never added to the observed Mac-use total |
 | **Break / Away** | Explicit rest or absence; not counted as focus |
@@ -128,14 +139,32 @@ not swallow a break or recording gap. Gaps are not assumed to be work or rest.
 An app-only day still displays its observed use. History states Tracked, Focused
 and Sessions once in its table header, with exact values beneath them.
 
+The headline says time **logged across focus sessions**. That total can exceed
+recorded app use without an arithmetic error: these are independently recorded
+measures, and uncovered session time is disclosed separately. The **Shape of it**
+chart divides a session's span into eight intervals and shows actual app-use
+coverage. Empty intervals stay empty; the chart does not infer typing intensity.
+
 ### Correct a session
 
 Expand its entry and choose **Rename** or **Change type**. These change the whole
 thread, including its stretches on other days, but never alter time boundaries
 or app-use evidence. A failed save leaves the old record intact and exposes Retry.
-**Undo correction** remains outside the row, so changing a session to Break does
-not remove the recovery action. Undo restores only the corrected field and
+The saved-action row sits beside the affected interval, so changing a session to
+Break does not remove its **Undo**. Undo restores only the corrected field and
 preserves later work. Running work retains its type and thread identity on relaunch.
+
+Away decisions also have a green saved-action row with **Undo**. Undo makes that
+interval uncounted and reopens its classification in place; subsequent work is
+unchanged. The latest away receipt survives relaunch. Re-answering can count the
+original interval as focus, record it as a break or leave it uncounted without
+replaying the current-session transition. Conflicting later edits are protected,
+storage failures remain retryable, and interrupted writes cannot insert the same
+interval twice. Historical reclassification does not evict unrelated newer work
+when the archive is full.
+Cross-day actions disclose their full scope before Undo. A failed answer keeps
+the question and typed reason visible, including in the popover and away prompts;
+its Retry cannot save a different correction made elsewhere.
 
 ## Privacy and local storage
 
@@ -216,6 +245,8 @@ The binary also supports review modes:
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --gallery
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window storyMonth
+./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window storyDecision
+./scripts/build-fixture-app.sh storyShape
 ```
 
 These review modes use `SnapshotScenario`, temporary archives and isolated
@@ -227,6 +258,18 @@ days, History, session controls, Settings, Insights, Awards and compact prompts
 through offscreen AppKit hosting, including native controls and real scroll views.
 Its explicit static-sheet composition cannot establish native interaction behaviour.
 Do not treat a successful PNG count as a visual or interaction acceptance result.
+Fixture stores also disable the operational ticker so real idle sampling cannot
+advance or pause their synthetic sessions. `storyShape`, `storyMeeting`,
+`storyLive`, `storyDecision` and `focusSaveFailure` cover the interaction follow-up;
+quick/full failure snapshots check wrapped feedback in the compact prompts.
+
+For native UI automation, use the app emitted by **build-fixture-app.sh**. It has
+a separate bundle identifier and a fixture-only executable; even a relaunch with
+no arguments cannot construct the production coordinator or open normal data.
+The scenario lives in that disposable bundle's metadata. Do not give automation
+tools a copy of the production executable and rely solely on `--fixture-window`:
+Launch Services or the tool may relaunch it without those arguments. The direct
+command remains available for controlled launches that retain the flag.
 
 ## Repository layout
 
@@ -239,7 +282,7 @@ Sources/
   Verification/         Focused regression groups and isolated native-window mode
   SelfTest.swift        Headless verification suite
 build.sh                Direct Swift build, signing, promotion and test entry point
-scripts/                Release-concurrency verification
+scripts/                Release-concurrency and fixture-only native verification
 docs/superpowers/       Approved designs, specifications and implementation plans
 ```
 
@@ -255,6 +298,7 @@ agent scratch reports.
 - [Story remediation plan](docs/superpowers/plans/2026-08-31-story-audit-remediation.md)
 - [Design and behaviour audit](docs/superpowers/reviews/2026-08-31-design-and-behaviour-audit.md)
 - [Story remediation and verification](docs/superpowers/reviews/2026-08-31-story-remediation-verification.md)
+- [Story interaction follow-up and verification](docs/superpowers/reviews/2026-08-31-story-interaction-verification.md)
 - [Stabilisation design](docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md)
 - [Build and repository hardening plan](docs/superpowers/plans/2026-08-28-build-repository-hardening.md)
 

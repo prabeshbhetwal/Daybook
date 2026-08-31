@@ -17,6 +17,7 @@ final class PersistenceStore {
         static let logGrouping = "fc.logGrouping"
         static let threshold = "fc.threshold"
         static let name = "fc.name"
+        static let recentActivities = "fc.recentActivities"
         static let menuSessions = "fc.menuSessions"
         static let menuApps = "fc.menuApps"
         static let trackingDisabled = "fc.trackingDisabled"
@@ -68,6 +69,21 @@ final class PersistenceStore {
 
     func clearState() {
         defaults.removeObject(forKey: Key.state)
+    }
+
+    /// A bounded recent-name list survives short sessions and relaunches. It
+    /// stores only names the user submitted, never an unfinished text draft.
+    var recentActivities: [QuickStart] {
+        guard let data = defaults.data(forKey: Key.recentActivities),
+              let items = try? decoder.decode([QuickStart].self, from: data) else { return [] }
+        return ActivityChoices.merging(items, [])
+    }
+
+    func rememberActivity(name: String, workType: WorkType) {
+        let updated = ActivityChoices.merging(
+            [QuickStart(id: "", name: name, workType: workType)], recentActivities)
+        guard let data = try? encoder.encode(updated) else { return }
+        defaults.set(data, forKey: Key.recentActivities)
     }
 
     // MARK: - Category overrides (D4)

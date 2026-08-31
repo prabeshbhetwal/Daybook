@@ -132,14 +132,13 @@ struct FocusHero: View {
                 Text(mode.primaryPrompt)
                     .font(compact ? Tokens.Typography.sectionTitle
                                   : Tokens.Typography.pageTitle)
-                Text("Start one clear stretch. FocusContinuity keeps the record on this Mac.")
+                Text("Choose an activity or write your own. Start when you're ready.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(compact ? .leading : .center)
             }
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                IntentField(text: $store.intent) { performPrimaryAction() }
-                    .focused(intentFocused)
+                ActivityChooser(store: store, intentFocused: intentFocused, compact: compact) { performPrimaryAction() }
                     .padding(.horizontal, Tokens.Space.m)
                     .padding(.vertical, compact ? 8 : 10)
                     .background(Tokens.Colour.elevated,
@@ -151,12 +150,25 @@ struct FocusHero: View {
                             .strokeBorder(Tokens.Colour.line)
                     )
                 HStack(spacing: Tokens.Space.s) {
-                    WorkTypePicker(selection: $store.workType)
+                    if compact {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Work type").font(.caption).foregroundStyle(.secondary)
+                            WorkTypePicker(selection: $store.workType)
+                        }
+                    } else {
+                        Text("Work type").font(.caption).foregroundStyle(.secondary)
+                        WorkTypePicker(selection: $store.workType)
+                    }
                     Spacer(minLength: Tokens.Space.s)
                     StartButton(title: "Start focus", fills: false) {
                         performPrimaryAction()
                     }
+                    .fixedSize()
                 }
+                Text("Names you start will appear in the activity menu next time.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: Tokens.formMeasure)
             goalSupport
@@ -321,6 +333,7 @@ struct FocusHero: View {
 
     @ViewBuilder private var decisionBody: some View {
         if let away = store.pendingAway {
+            let expectedID = store.engine.pendingDecisionID
             VStack(alignment: .leading, spacing: compact ? Tokens.Space.s : Tokens.Space.m) {
                 Text(mode.primaryPrompt)
                     .font(compact ? Tokens.Typography.sectionTitle
@@ -330,8 +343,10 @@ struct FocusHero: View {
                                showsCaptions: !compact,
                                compact: compact,
                                note: store.continuationNote,
-                               onAnswer: { store.resolve($0) },
-                               onReason: { store.resolve(.tookBreak, label: $0) })
+                               error: store.pendingAwaySaveError,
+                               onRetry: { store.retryPendingAwayDecision(expectedID: expectedID) },
+                               onAnswer: { store.resolve($0, expectedID: expectedID) },
+                               onReason: { store.resolve(.tookBreak, label: $0, expectedID: expectedID) })
             }
             .frame(maxWidth: compact ? .infinity : 720, alignment: .leading)
         }

@@ -236,6 +236,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         selectedTab = .story
     }
 
+    func revealApplication() {
+        // A generic window-open action reveals the reader's existing Story.
+        // Session controls remain a separate, explicitly requested destination.
+        closeSheet()
+    }
+
     func selectStoryDay(_ date: Date, calendar: Calendar = .current) {
         storySelectedDay = calendar.startOfDay(for: date)
     }

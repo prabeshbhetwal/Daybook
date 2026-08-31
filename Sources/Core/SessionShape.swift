@@ -8,6 +8,53 @@ import Foundation
 /// `Core` only — no Design or SwiftUI. The phrasing matches `Tokens.duration`.
 enum SessionShape {
 
+    struct Bin: Equatable, Identifiable {
+        let id: Int
+        let start: Date
+        let end: Date
+        let recordedSeconds: TimeInterval
+        let dominantBundleID: String?
+        var fraction: Double {
+            let span = end.timeIntervalSince(start)
+            return span > 0 ? min(1, max(0, recordedSeconds / span)) : 0
+        }
+    }
+
+    static func bins(segments: [TimelineSegment], in bounds: DateInterval) -> [Bin] {
+        guard bounds.duration > 0, bounds.duration.isFinite else { return [] }
+        let width = bounds.duration / 8
+        return (0..<8).map { index in
+            let start = bounds.start.addingTimeInterval(Double(index) * width)
+            let end = index == 7 ? bounds.end : start.addingTimeInterval(width)
+            var byApp: [String: [DateInterval]] = [:]
+            for segment in segments {
+                let low = max(start, segment.start), high = min(end, segment.end)
+                guard high > low else { continue }
+                byApp[segment.bundleID, default: []].append(DateInterval(start: low, end: high))
+            }
+            var amounts: [(id: String, seconds: TimeInterval)] = []
+            for (id, spans) in byApp { amounts.append((id, coveredSeconds(spans))) }
+            amounts.sort { first, second in
+                first.seconds == second.seconds ? first.id < second.id : first.seconds > second.seconds
+            }
+            return Bin(id: index, start: start, end: end,
+                       recordedSeconds: coveredSeconds(byApp.values.flatMap { $0 }),
+                       dominantBundleID: amounts.first?.id)
+        }
+    }
+
+    /// Coverage describes time observed, not keystrokes. Duplicate or
+    /// overlapping historical records cannot inflate a bar above its interval.
+    private static func coveredSeconds(_ spans: [DateInterval]) -> TimeInterval {
+        var merged: [DateInterval] = []
+        for span in spans.sorted(by: { $0.start < $1.start }) {
+            if let last = merged.last, span.start <= last.end {
+                merged[merged.count - 1] = DateInterval(start: last.start, end: max(last.end, span.end))
+            } else { merged.append(span) }
+        }
+        return merged.reduce(0) { $0 + $1.duration }
+    }
+
     /// One session's evidence, already clipped to that session's stretches.
     struct Input: Equatable {
         /// App stretches that intersect the session, in start order.
@@ -111,8 +158,8 @@ enum SessionShape {
     private static func watchingClause(_ input: Input) -> String? {
         guard input.workType.countsWhileWatching,
               input.segments.contains(where: { $0.endReason == .idle }) else { return nil }
-        return "It is counted in full because \(input.workType.displayName) "
-            + "treats watching as the work itself."
+        return "\(input.workType.displayName) treats watching as the work itself. "
+            + "Recorded app use is shown separately."
     }
 
     /// The session's own coverage. Worked time beyond what app recording saw is

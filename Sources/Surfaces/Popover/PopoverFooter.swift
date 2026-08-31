@@ -2,14 +2,14 @@ import SwiftUI
 import AppKit
 
 /// Text-labelled destinations keep the compact footer explicit. The callbacks
-/// select Focus and Settings before the existing main-window activation path.
+/// reveal the Story or explicitly select Settings before window activation.
 struct PopoverFooter: View {
-    var onOpenFocus: () -> Void
+    var onOpenApplication: () -> Void
     var onOpenSettings: () -> Void
 
     var body: some View {
         HStack(spacing: Tokens.Space.m) {
-            footerButton("Open FocusContinuity", action: onOpenFocus)
+            footerButton("Open FocusContinuity", action: onOpenApplication)
             Spacer(minLength: Tokens.Space.s)
             footerButton("Settings", action: onOpenSettings)
                 .keyboardShortcut(",", modifiers: .command)

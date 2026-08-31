@@ -12,7 +12,7 @@ struct PopoverView: View {
     /// intrinsic height, and this panel is sized to its content, so without
     /// measuring it collapsed to nothing.
     @StateObject private var middleHeight = HeightBox()
-    var onOpenFocus: () -> Void = {}
+    var onOpenApplication: () -> Void = {}
     var onOpenSettings: () -> Void = {}
 
     /// Overridden by the snapshot harness so its output does not depend on the
@@ -38,7 +38,7 @@ struct PopoverView: View {
             HeroCard(store: store, intentFocused: $intentFocused,
                      dense: metrics.dense, twoColumn: metrics.twoColumn)
             middle(cap: metrics.scrollCap, twoColumn: metrics.twoColumn)
-            PopoverFooter(onOpenFocus: onOpenFocus,
+            PopoverFooter(onOpenApplication: onOpenApplication,
                           onOpenSettings: onOpenSettings)
         }
         .padding(settings.interfaceDensity == .compact

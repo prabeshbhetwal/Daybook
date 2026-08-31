@@ -444,6 +444,7 @@ enum SelfTest {
              testAwaySnapshotsRetainProductionPromptChrome)
         ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
+            + StoryInteractionChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -6456,13 +6457,17 @@ enum SelfTest {
             return problems + ["should still be awaiting, got \(relaunched.state)"]
         }
         relaunched.transition(on: .decision(.continueSession))
-        // The closed session: 40m before leaving, plus the 7m and 5m worked
-        // under the card — the successor can only start at the relaunch.
-        // Nothing of the 33m, the 30m or the two hours is in it.
-        expectClose(relaunched.archive.records.last?.workSeconds ?? -1, 52 * 60,
-                    "the closed session holds only worked minutes", &problems)
-        expectClose(relaunched.elapsed, 0,
-                    "and the successor starts from the relaunch", &problems)
+        // Keep the actual return rather than moving the interval to relaunch:
+        // 40m belongs before the first absence; the later 7m + 5m belongs to
+        // its successor. Neither absence nor closed-app time becomes work.
+        expectClose(relaunched.archive.records.last?.workSeconds ?? -1, 40 * 60,
+                    "the closed session retains work before the absence", &problems)
+        expectClose(relaunched.elapsed, 12 * 60,
+                    "the successor retains work after the real return", &problems)
+        expectClose(relaunched.sessionStartDate.timeIntervalSince(base), 73 * 60,
+                    "the successor starts at the real return, not the relaunch", &problems)
+        expectClose((relaunched.archive.records.last?.workSeconds ?? 0) + relaunched.elapsed,
+                    52 * 60, "all fifty-two worked minutes survive", &problems)
 
         // The same, but the second absence is still open at the quit.
         let clock2 = Clock(base)
@@ -7244,15 +7249,17 @@ enum SelfTest {
             var problems: [String] = []
             let required: [SnapshotScenario] = [
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
+                .focusSaveFailure,
                 .todayHistory, .todayHistoryExpanded, .todayPast,
                 .reviewWeek, .reviewMonth,
                 .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
+                .storyShape, .storyMeeting, .storyLive, .storyDecision,
                 .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
                 .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
-                .awayQuick, .awayFull, .rewardEarned
+                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
             ]
 
             expect(SnapshotScenario.allCases == required,
@@ -7295,7 +7302,7 @@ enum SelfTest {
             }
 
             let compactScenarios: Set<SnapshotScenario> = [
-                .awayQuick, .awayFull, .rewardEarned
+                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
             ]
             let shellScenarios = required.filter { !compactScenarios.contains($0) }
             for scenario in shellScenarios {
@@ -7312,7 +7319,7 @@ enum SelfTest {
                 }
             }
 
-            let focusScenarios = Array(required.prefix(4))
+            let focusScenarios = required.filter { $0.tab == .focus }
             for scenario in focusScenarios {
                 for appearance in appearances {
                     expect(matrix.contains(SnapshotRender(

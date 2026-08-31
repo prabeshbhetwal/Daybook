@@ -11,12 +11,14 @@ struct AwayAnswerGrid: View {
     /// What answering means for the work in hand — "Deep work continues — 2h
     /// 14m so far." Falls back to the bare fact when the caller has none.
     var note: String?
-    let onAnswer: (UserDecision) -> Void
+    var error: String?
+    var onRetry: (() -> Void)?
+    let onAnswer: (UserDecision) -> Bool
     /// A name for the break, in the user's words — "dinner", "a call" — so it
     /// reaches the record. Nil hides the field. At most 24 characters: it has
     /// to fit on a timeline label.
-    var onReason: ((String) -> Void)?
-    @StateObject private var reason = ReasonBox()
+    var onReason: ((String) -> Bool)?
+    @StateObject private var reason = AwayReasonDraft()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// One set of metrics for the buttons and the field, so the field is the
@@ -75,7 +77,27 @@ struct AwayAnswerGrid: View {
                 }
             }
             if onReason != nil { reasonField }
+            if let error {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Answer not saved", systemImage: "exclamationmark.triangle")
+                        .font(.caption.weight(.semibold))
+                    Text(error).font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let onRetry {
+                        Button("Retry saving", action: onRetry)
+                            .buttonStyle(.borderless)
+                            .font(.caption.weight(.semibold))
+                            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Tokens.Colour.attention.opacity(0.10), in: RoundedRectangle(cornerRadius: 9))
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Answer not saved")
+            }
         }
+        .onChange(of: range?.start) { _ in reason.text = "" }
     }
 
     /// One line: a word or three for what the break was. Return logs it as a
@@ -121,11 +143,8 @@ struct AwayAnswerGrid: View {
     }
 
     private func submitReason() {
-        let words = reason.text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        let trimmed = String(words.prefix(24)).trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        reason.text = ""
-        onReason?(trimmed)
+        guard let onReason else { return }
+        reason.submit(using: onReason)
     }
 
     private var header: some View {
@@ -145,7 +164,9 @@ struct AwayAnswerGrid: View {
     }
 
     private func button(_ answer: Answer) -> some View {
-        Button { onAnswer(answer.decision) } label: {
+        Button {
+            if onAnswer(answer.decision) { reason.text = "" }
+        } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(answer.title)
                     .font(controlFont)
@@ -179,8 +200,17 @@ struct AwayAnswerGrid: View {
     }
 }
 
-/// The reason field's text. `@State` is unavailable on this toolchain, so even
-/// a single string needs an object behind it.
-private final class ReasonBox: ObservableObject {
+/// A submitted label stays editable unless the owning answer is saved.
+final class AwayReasonDraft: ObservableObject {
     @Published var text = ""
+
+    @discardableResult
+    func submit(using answer: (String) -> Bool) -> Bool {
+        let words = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        let trimmed = String(words.prefix(24)).trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return false }
+        guard answer(trimmed) else { return false }
+        text = ""
+        return true
+    }
 }

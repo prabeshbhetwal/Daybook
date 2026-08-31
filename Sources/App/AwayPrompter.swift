@@ -9,13 +9,18 @@ import Combine
 final class AwayPrompter {
     private let store: SessionStore
     private let fullPromptAfter: () -> TimeInterval?
-    private lazy var quick = AwayQuickPanel(onAnswer: { [weak self] in self?.answer($0) },
-                                            onReason: { [weak self] in self?.reason($0) })
-    private lazy var full = AwayFullPrompt(onAnswer: { [weak self] in self?.answer($0) },
-                                           onReason: { [weak self] in self?.reason($0) },
+    private lazy var quick = AwayQuickPanel(onAnswer: { [weak self] in self?.answer($0) ?? false },
+                                            onReason: { [weak self] in self?.answer(.tookBreak, label: $0) ?? false },
+                                            onRetry: { [weak self] in self?.retry() })
+    private lazy var full = AwayFullPrompt(onAnswer: { [weak self] in self?.answer($0) ?? false },
+                                           onReason: { [weak self] in self?.answer(.tookBreak, label: $0) ?? false },
+                                           onRetry: { [weak self] in self?.retry() },
                                            onLater: { [weak self] in self?.dismiss() })
     private var subscription: AnyCancellable?
     private var wasPending = false
+    private var presentedID: UUID?
+    private var presentedTier: AwayPromptTier?
+    private var isPreview = false
 
     init(store: SessionStore, fullPromptAfter: @escaping () -> TimeInterval?) {
         self.store = store
@@ -45,9 +50,19 @@ final class AwayPrompter {
     private func present(away: TimeInterval) {
         let range = store.pendingAwayRange
         let note = store.continuationNote
-        switch AwayPromptTier.tier(forAbsence: away, fullPromptAfter: fullPromptAfter()) {
+        let tier = AwayPromptTier.tier(forAbsence: away, fullPromptAfter: fullPromptAfter())
+        isPreview = false
+        presentedID = store.engine.pendingDecisionID
+        presentedTier = tier
+        switch tier {
         case .quick: quick.show(away: away, range: range, note: note)
         case .full: full.show(away: away, range: range, note: note)
+        }
+        if let error = store.pendingAwaySaveError {
+            switch tier {
+            case .quick: quick.showError(error)
+            case .full: full.showError(error)
+            }
         }
     }
 
@@ -62,20 +77,44 @@ final class AwayPrompter {
         return true
     }
 
-    private func answer(_ decision: UserDecision) {
-        dismiss()
-        store.resolve(decision)
+    private func answer(_ decision: UserDecision, label: String? = nil) -> Bool {
+        if isPreview { dismiss(); return true }
+        guard let presentedID else { return false }
+        return finish(store.resolve(decision, label: label, expectedID: presentedID))
     }
 
-    /// "Dinner": a break, written down under that name.
-    private func reason(_ label: String) {
-        dismiss()
-        store.resolve(.tookBreak, label: label)
+    private func retry() {
+        guard let presentedID, presentedID == store.engine.pendingDecisionID else { return }
+        guard store.pendingAwaySaveError != nil else {
+            showError("Choose an answer again. The previous retry no longer belongs to this question.")
+            return
+        }
+        _ = finish(store.retryPendingAwayDecision(expectedID: presentedID))
+    }
+
+    /// Failure is not dismissal. Keep the user's answer surface and reason
+    /// draft visible, and stop the quick prompt's automatic fade while retrying.
+    private func finish(_ saved: Bool) -> Bool {
+        if saved { dismiss(); return true }
+        let error = store.correctionError ?? "This interval changed. Reopen its question from session controls."
+        showError(error)
+        return false
+    }
+
+    private func showError(_ error: String) {
+        switch presentedTier {
+        case .quick: quick.showError(error)
+        case .full: full.showError(error)
+        case nil: break
+        }
     }
 
     func dismiss() {
         quick.dismiss()
         full.dismiss()
+        presentedID = nil
+        presentedTier = nil
+        isPreview = false
     }
 
     /// `--preview-away quick|full`: shows the prompt with sample figures so its
@@ -86,6 +125,9 @@ final class AwayPrompter {
         let now = Date()
         let range = (start: now.addingTimeInterval(-6 * 60), end: now)
         let note = "Not counted. Focus session continues — 5h 59m so far."
+        isPreview = true
+        presentedID = nil
+        presentedTier = tier
         switch tier {
         case .quick: quick.show(away: 6 * 60, range: range, note: note)
         case .full: full.show(away: 72 * 60, range: range, note: note)

@@ -217,8 +217,8 @@ struct ResolveCard: View {
     var range: (start: Date, end: Date)?
     var framed: Bool = true
     var note: String?
-    let onAnswer: (UserDecision) -> Void
-    var onReason: ((String) -> Void)?
+    let onAnswer: (UserDecision) -> Bool
+    var onReason: ((String) -> Bool)?
 
     var body: some View {
         let grid = AwayAnswerGrid(away: away, range: range, compact: true, note: note,

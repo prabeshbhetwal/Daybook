@@ -518,32 +518,7 @@ extension SessionStore {
     /// segments that actually intersect it. Nil when nothing was recorded
     /// inside the session, which the surface says in its own words.
     func sessionShape(_ session: DaySession) -> String? {
-        guard let usage, !session.spans.isEmpty else { return nil }
-        // Clipped to the session, not merely intersecting it: a stretch that
-        // starts before the session must contribute only the part inside it,
-        // or the shape would disagree with the app list beside it.
-        var segments: [TimelineSegment] = []
-        for segment in DashboardStats(sessions: engine.archive, usage: usage,
-                                      usageSnapshot: effectiveUsageSnapshot)
-            .timeline(for: selectedDay) {
-            for span in session.spans {
-                let start = max(segment.start, span.start)
-                let end = min(segment.end, span.end)
-                guard end > start else { continue }
-                segments.append(TimelineSegment(id: segment.id,
-                                                bundleID: segment.bundleID,
-                                                appName: segment.appName,
-                                                start: start,
-                                                end: end,
-                                                colorIndex: segment.colorIndex,
-                                                endReason: end == segment.end
-                                                    ? segment.endReason : .appSwitch))
-            }
-        }
-        return SessionShape.paragraph(SessionShape.Input(segments: segments,
-                                                         workType: session.workType,
-                                                         stretches: session.stretches,
-                                                         worked: session.worked))
+        storySessionDetail(session).text
     }
 
     // MARK: - Correcting a recorded session
@@ -578,11 +553,16 @@ extension SessionStore {
             return applyCorrection(threadID: threadID, correction: correction)
         case .undo(let state):
             return undo(state)
+        case .awayUndo(let id):
+            return undoAwayDecision(expectedID: id)
+        case .awayDecision(let decision, let label, let reviewing, let id):
+            return applyAwayDecision(decision, label: label, reviewing: reviewing, expectedID: id)
         }
     }
 
     @discardableResult
     func undoLastCorrection() -> Bool {
+        if engine.lastAwayDecision?.isResolved == true { return undoAwayDecision() }
         guard let state = lastCorrection else { return false }
         return undo(state)
     }
@@ -640,6 +620,7 @@ extension SessionStore {
                                archiveSnapshot: archiveSnapshot,
                                originalFields: originalFields,
                                archiveRecordIDs: archiveRecordIDs)
+        engine.dismissAwayDecisionReceipt()
         publishCanUndoCorrection(true)
         publishCorrectionError(nil)
         correctionRetry = nil

@@ -1,0 +1,99 @@
+import SwiftUI
+
+enum StoryDecisionScope {
+    static func note(visible: DateInterval, full: DateInterval) -> String? {
+        guard visible != full else { return nil }
+        let calendar = Calendar.current
+        let days = max(2, (calendar.dateComponents([.day],
+            from: calendar.startOfDay(for: full.start),
+            to: calendar.startOfDay(for: full.end.addingTimeInterval(-0.001))).day ?? 1) + 1)
+        let scope = days == 2 ? "both days" : "all \(days) days"
+        return "Changes apply to the full \(Tokens.preciseDuration(full.duration)) interval across \(scope)."
+    }
+}
+
+struct StoryDecisionRow: View {
+    @ObservedObject var store: SessionStore
+    let receipt: AwayDecisionReceipt
+    let range: DateInterval
+
+    var body: some View {
+        if receipt.isResolved {
+            StorySavedActionRow(title: receipt.title, range: range,
+                                canUndo: store.engine.canUndoAwayDecision,
+                                scopeNote: StoryDecisionScope.note(visible: range, full: receipt.range)) {
+                store.undoAwayDecision(expectedID: receipt.id)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("How should this interval be recorded?")
+                    .font(Tokens.Typography.rowTitle)
+                Text("\(Tokens.timeRange(range.start, range.end)) · \(Tokens.preciseDuration(range.duration)) is not counted. Later work is unchanged.")
+                    .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button("Count as focus") { answer(.mergeTime) }
+                        .buttonStyle(StoryActionStyle(tint: StoryStyle.focus))
+                    Button("Call it a break") { answer(.tookBreak) }
+                        .buttonStyle(StoryActionStyle())
+                    Button("Leave uncounted") { answer(.continueSession) }
+                        .buttonStyle(StoryActionStyle())
+                }
+                .disabled(store.hasUnresolvedAwayDecision)
+                if let note = StoryDecisionScope.note(visible: range, full: receipt.range) {
+                    Text(note)
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .padding(15)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Tokens.Colour.attention.opacity(0.08), in: RoundedRectangle(cornerRadius: 13))
+            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Tokens.Colour.attention.opacity(0.25)))
+        }
+    }
+
+    private func answer(_ decision: UserDecision) {
+        store.applyAwayDecision(decision, reviewing: true, expectedID: receipt.id)
+    }
+}
+
+struct StorySavedActionRow: View {
+    let title: String
+    let range: DateInterval
+    var canUndo = true
+    var scopeNote: String?
+    let undo: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+          HStack(spacing: 10) {
+            Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(StoryStyle.successInk)
+            Text(title).font(Tokens.Typography.metadata.weight(.semibold))
+            Text(Tokens.timeRange(range.start, range.end))
+                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Button("Undo", action: undo)
+                .buttonStyle(.borderless)
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .foregroundStyle(StoryStyle.action)
+                .frame(minWidth: 36, minHeight: 28)
+                .disabled(!canUndo)
+                .accessibilityLabel("Undo \(title.lowercased())")
+                .accessibilityHint(scopeNote ?? "Reverts only this action; later work is unchanged.")
+          }
+          if let scopeNote {
+              Text(scopeNote).font(.caption).foregroundStyle(.secondary)
+                  .fixedSize(horizontal: false, vertical: true)
+                  .padding(.leading, 22)
+          }
+        }
+        .padding(.horizontal, 15)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LinearGradient(colors: [StoryStyle.successWash, StoryStyle.successWash.opacity(0.45)],
+                                   startPoint: .leading, endPoint: .trailing),
+                    in: RoundedRectangle(cornerRadius: 13))
+        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(StoryStyle.successInk.opacity(0.22)))
+    }
+}

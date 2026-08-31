@@ -24,4 +24,6 @@ struct SessionStoreCorrectionState {
 enum SessionCorrectionRetry {
     case correction(threadID: UUID, correction: SessionCorrection)
     case undo(SessionStoreCorrectionState)
+    case awayUndo(UUID)
+    case awayDecision(UserDecision, label: String?, reviewing: Bool, expectedID: UUID)
 }

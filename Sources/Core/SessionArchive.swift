@@ -70,6 +70,43 @@ final class SessionArchive {
         save()
     }
 
+    /// Saves a scoped edit as one candidate. Expected records act as a
+    /// compare-and-swap guard, so an old Undo cannot overwrite a later edit.
+    /// Replacements retain their array position; unrelated records never move.
+    func edit(removing expected: [SessionRecord] = [], adding additions: [SessionRecord] = [],
+              allowsEviction: Bool = false) -> String? {
+        let expectedIDs = Set(expected.map(\.id))
+        guard expectedIDs.count == expected.count,
+              Set(additions.map(\.id)).count == additions.count else {
+            return "The requested edit contains duplicate records."
+        }
+        for record in expected {
+            guard cache.filter({ $0.id == record.id }).count == 1, cache.contains(record) else {
+                return "This record changed since the action. Its newer evidence was preserved."
+            }
+        }
+        let retainedIDs = Set(cache.map(\.id)).subtracting(expectedIDs)
+        guard !additions.contains(where: { retainedIDs.contains($0.id) }) else {
+            return "The requested record already exists."
+        }
+        let replacements = Dictionary(uniqueKeysWithValues: additions.map { ($0.id, $0) })
+        var candidate = cache.compactMap { record in
+            expectedIDs.contains(record.id) ? replacements[record.id] : record
+        }
+        candidate += additions.filter { !expectedIDs.contains($0.id) }
+        guard candidate != cache else { return nil }
+        if candidate.count > capacity, candidate.count > cache.count {
+            guard allowsEviction else {
+                return "History is full. This correction was not saved because it would remove other records."
+            }
+            candidate.removeFirst(candidate.count - capacity)
+        }
+        switch write(candidate) {
+        case .success: cache = candidate; return nil
+        case .failure(let detail): return detail
+        }
+    }
+
     /// Renames every record in a thread. Segments of one piece of work share a
     /// thread and a name, so renaming a stretch renames the work rather than
     /// splitting it into two differently-named halves. Returns whether anything

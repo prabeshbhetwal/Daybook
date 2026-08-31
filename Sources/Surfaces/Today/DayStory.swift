@@ -52,15 +52,34 @@ struct DayStory: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            let entries = moments
-            ForEach(Array(entries.enumerated()), id: \.element.id) { index, moment in
+            let entries = store.storyTimelineItems
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, item in
+                timelineRow(item, isFirst: index == 0, isLast: index == entries.count - 1)
+            }
+            if entries.isEmpty { empty }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear(perform: openInitialEntries)
+        .onChange(of: store.dayOffset) { _ in
+            opened.ids.removeAll()
+            openInitialEntries()
+        }
+        .onChange(of: expandsDetails) { _ in
+            opened.ids.removeAll()
+            openInitialEntries()
+        }
+        .onChange(of: store.engine.activeThreadID) { _ in openRunningEntry() }
+    }
+
+    @ViewBuilder private func timelineRow(_ item: StoryTimelineItem, isFirst: Bool, isLast: Bool) -> some View {
+        switch item {
+        case .moment(let moment):
                 switch moment {
                 case .entry(let entry):
-                    row(entry, isFirst: index == 0,
-                        isLast: index == entries.count - 1 && !hasAwayQuestion)
+                    row(entry, isFirst: isFirst, isLast: isLast)
                 case .unrecorded(let span):
                     storyRow(time: span.start, tint: .secondary, dotSize: 5,
-                             isFirst: index == 0, isLast: index == entries.count - 1) {
+                             isFirst: isFirst, isLast: isLast) {
                         HStack(alignment: .firstTextBaseline) {
                             Text("No recording in this interval")
                             Spacer(minLength: 8)
@@ -74,27 +93,34 @@ struct DayStory: View {
                     }
                 case .appUse(let span, let seconds):
                     storyRow(time: span.start, tint: Tokens.Palette.app(rank: 1), dotSize: 7,
-                             isFirst: index == 0, isLast: index == entries.count - 1) {
+                             isFirst: isFirst, isLast: isLast) {
                         StoryLooseAppUse(store: store, span: span, seconds: seconds)
                     }
                 }
+        case .pending(let range):
+            if let away = store.pendingAway {
+                let expectedID = store.engine.pendingDecisionID
+                storyRow(time: range.start, tint: Tokens.Colour.attention, dotSize: 9,
+                         isFirst: isFirst, isLast: isLast) {
+                    AwayEntryCard(away: away, range: store.pendingAwayRange, note: store.continuationNote,
+                                  error: store.pendingAwaySaveError,
+                                  onRetry: { store.retryPendingAwayDecision(expectedID: expectedID) },
+                                  onAnswer: { store.resolve($0, expectedID: expectedID) },
+                                  onReason: { store.resolve(.tookBreak, label: $0, expectedID: expectedID) })
+                }
             }
-            if hasAwayQuestion { awayRow }
-            if entries.isEmpty && !hasAwayQuestion { empty }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .onAppear(perform: openInitialEntries)
-        .onChange(of: store.dayOffset) { _ in
-            opened.ids.removeAll()
-            openInitialEntries()
-        }
-        .onChange(of: expandsDetails) { _ in
-            opened.ids.removeAll()
-            openInitialEntries()
+        case .decision(let receipt, let range):
+            storyRow(time: range.start, tint: receipt.isResolved ? StoryStyle.successInk : Tokens.Colour.attention,
+                     dotSize: 8, isFirst: isFirst, isLast: isLast) {
+                StoryDecisionRow(store: store, receipt: receipt, range: range)
+            }
+        case .correction(let title, let range):
+            storyRow(time: range.start, tint: StoryStyle.successInk, dotSize: 8,
+                     isFirst: isFirst, isLast: isLast) {
+                StorySavedActionRow(title: title, range: range) { store.undoLastCorrection() }
+            }
         }
     }
-
-    private var hasAwayQuestion: Bool { store.isToday && store.pendingAway != nil }
 
     /// Opens what the reader asked to see already open. Only on first
     /// appearance: an entry the reader then closes must stay closed.
@@ -108,6 +134,14 @@ struct DayStory: View {
             opened.ids.formUnion(sessions.map { StoryMoment.entry(.session($0)).id })
         } else if entryInitiallyOpen, let first = sessions.first {
             opened.ids.insert(StoryMoment.entry(.session(first)).id)
+        } else { openRunningEntry() }
+    }
+
+    private func openRunningEntry() {
+        for moment in moments {
+            if case .entry(.session(let session)) = moment, session.isRunning {
+                opened.ids.insert(moment.id)
+            }
         }
     }
 
@@ -117,16 +151,20 @@ struct DayStory: View {
         switch entry {
         case .session(let session):
             let key = StoryMoment.entry(entry).id
+            let isOpen = opened.ids.contains(key)
+            let detail = isOpen ? store.storySessionDetail(session) : nil
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
                      dotSize: session.isRunning ? 13 : 11,
                      isFirst: isFirst, isLast: isLast) {
                 SessionEntryCard(session: session,
-                                 apps: store.appRanks(within: session.spans),
-                                 shape: store.sessionShape(session),
+                                 apps: detail?.apps ?? [],
+                                 shape: detail?.text,
+                                 shapeCaption: detail?.caption,
+                                 shapeBins: detail?.bins ?? [],
                                  appColourIndices: store.storyAppColourIndices,
                                  canContinue: store.canContinue(session),
-                                 isOpen: opened.ids.contains(key),
+                                 isOpen: isOpen,
                                  clock: session.isRunning && store.isToday
                                     ? Tokens.clock(session.worked) : nil,
                                  liveStatus: session.isRunning && store.isToday
@@ -151,26 +189,9 @@ struct DayStory: View {
     }
 
     private func canControl(_ session: DaySession) -> Bool {
-        store.isToday && store.engine.state != .idle
+        session.isRunning && store.isToday && store.engine.state != .idle
             && session.threadID == store.engine.activeThreadID
             && !store.hasUnresolvedAwayDecision
-    }
-
-    /// The away question sits in the story where the absence happened, so the
-    /// answer is given in context rather than in a separate surface.
-    @ViewBuilder private var awayRow: some View {
-        if let away = store.pendingAway {
-            storyRow(time: store.pendingAwayRange?.start ?? Date(),
-                     tint: Tokens.Colour.attention,
-                     dotSize: 9,
-                     isFirst: store.daySessions.isEmpty, isLast: true) {
-                AwayEntryCard(away: away,
-                              range: store.pendingAwayRange,
-                              note: store.continuationNote,
-                              onAnswer: { store.resolve($0) },
-                              onReason: { store.resolve(.tookBreak, label: $0) })
-            }
-        }
     }
 
     private func storyRow<Content: View>(time: Date,
@@ -211,7 +232,14 @@ struct DayStory: View {
                 Circle()
                     .fill(tint)
                     .frame(width: dotSize, height: dotSize)
-                    .overlay(Circle().strokeBorder(StoryStyle.canvas, lineWidth: 3))
+                    .background(Circle().fill(StoryStyle.canvas)
+                        .frame(width: dotSize + 6, height: dotSize + 6))
+                    .background {
+                        if dotSize >= 13 {
+                            Circle().fill(tint.opacity(0.16))
+                                .frame(width: dotSize + 12, height: dotSize + 12)
+                        }
+                    }
                     .offset(y: dotCentre - dotSize / 2)
             }
             .frame(maxWidth: .infinity)
@@ -244,6 +272,8 @@ struct SessionEntryCard: View {
     let apps: [AppRank]
     /// What the recording shows, when it shows anything.
     var shape: String?
+    var shapeCaption: String?
+    var shapeBins: [SessionShape.Bin] = []
     var appColourIndices: [String: Int] = [:]
     var canContinue = false
     let isOpen: Bool
@@ -279,7 +309,7 @@ struct SessionEntryCard: View {
                             .font(.callout.weight(clock == nil ? .regular : .semibold)
                                 .monospacedDigit())
                             .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
-                                                          : AnyShapeStyle(tint))
+                                                          : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
                             .contentTransition(.numericText())
                         Image(systemName: isOpen ? "chevron.down" : "chevron.right")
                             .font(.system(size: 10, weight: .semibold))
@@ -290,8 +320,8 @@ struct SessionEntryCard: View {
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(tint.opacity(0.14), in: Capsule())
-                            .foregroundStyle(tint)
+                            .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                            .foregroundStyle(StoryStyle.workTypeInk(session.workType))
                         Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
@@ -313,8 +343,8 @@ struct SessionEntryCard: View {
         .background(StoryStyle.card,
                     in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
-            .strokeBorder(session.isRunning ? tint.opacity(0.45) : Tokens.Colour.line,
-                          lineWidth: session.isRunning ? 1.5 : 1))
+            .strokeBorder(clock != nil ? tint.opacity(0.30) : Tokens.Colour.line,
+                          lineWidth: clock != nil ? 1.5 : 1))
         .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
@@ -334,18 +364,24 @@ struct SessionEntryCard: View {
     @ViewBuilder private var detail: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Divider()
-            if shape != nil {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 16) {
-                        appsDetail.frame(minWidth: 170, maxWidth: .infinity, alignment: .topLeading)
-                        shapeDetail.frame(minWidth: 170, maxWidth: .infinity, alignment: .topLeading)
-                    }
-                    VStack(alignment: .leading, spacing: 14) {
-                        appsDetail
-                        shapeDetail
-                    }
+            if clock != nil {
+                HStack(alignment: .center, spacing: 20) {
+                    Text(shapeCaption ?? "Recording will appear here as the session continues.")
+                        .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    StoryShapeChart(bins: shapeBins, primaryApp: apps.first?.bundleID,
+                                    tint: tint, height: 46, compact: true)
+                        .frame(width: 130)
                 }
-            } else { appsDetail }
+            } else if session.workType == .meetings {
+                meetingDetail
+            } else {
+                HStack(alignment: .top, spacing: 20) {
+                    appsDetail.frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
+                    shapeDetail.frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
             actions
         }
         .padding(.horizontal, 15)
@@ -373,22 +409,39 @@ struct SessionEntryCard: View {
         }
     }
 
-    @ViewBuilder private var shapeDetail: some View {
-            if let shape {
-                VStack(alignment: .leading, spacing: 6) {
-                    sectionLabel("Recording coverage")
-                    Text(shape)
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+    private var shapeDetail: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Shape of it")
+            StoryShapeChart(bins: shapeBins, primaryApp: apps.first?.bundleID, tint: tint)
+            Text(shapeCaption ?? "No app-use data was recorded for this stretch.")
+                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .help(shape ?? "Only recorded app use is shown; no keyboard activity is inferred.")
+    }
+
+    private var meetingDetail: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(shape ?? "No app use was recorded. Meetings can count while watching; keyboard activity is not inferred.")
+                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 16) {
+                ForEach(apps.prefix(3)) { app in
+                    HStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 2).fill(tint).frame(width: 8, height: 8)
+                        Text("\(app.appName) \(Tokens.preciseDuration(app.total))")
+                            .lineLimit(1)
+                    }
                 }
             }
+            .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+        }
     }
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(.secondary)
             .textCase(.uppercase)
     }
 
@@ -396,7 +449,7 @@ struct SessionEntryCard: View {
     /// record, so only the actions the record can actually carry are offered.
     @ViewBuilder private var actions: some View {
         if onRename != nil || onWorkType != nil || onContinue != nil {
-            Divider().padding(.top, Tokens.Space.xs)
+            Color.clear.frame(height: 2)
             if editing.value {
                 renameField
             } else if picking.value, let onWorkType {
@@ -500,9 +553,8 @@ struct SessionEntryCard: View {
 
     private func actionButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .buttonStyle(.plain)
-            .font(Tokens.Typography.metadata.weight(.semibold))
-            .foregroundStyle(Tokens.Colour.focus)
+            .buttonStyle(StoryActionStyle(tint: title == pauseTitle && onPause != nil
+                                          ? StoryStyle.workTypeInk(session.workType) : nil))
     }
 }
 
@@ -545,11 +597,13 @@ struct AwayEntryCard: View {
     let away: TimeInterval
     let range: (start: Date, end: Date)?
     let note: String?
-    let onAnswer: (UserDecision) -> Void
-    let onReason: (String) -> Void
+    var error: String?
+    var onRetry: (() -> Void)?
+    let onAnswer: (UserDecision) -> Bool
+    let onReason: (String) -> Bool
 
     var body: some View {
-        AwayAnswerGrid(away: away, range: range, note: note,
+        AwayAnswerGrid(away: away, range: range, note: note, error: error, onRetry: onRetry,
                        onAnswer: onAnswer, onReason: onReason)
             .padding(Tokens.Space.m)
             .frame(maxWidth: .infinity, alignment: .leading)

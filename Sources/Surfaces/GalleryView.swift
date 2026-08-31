@@ -120,7 +120,7 @@ enum FixtureFactory {
             engine.transition(on: .awayEnded)
         }
 
-        let store = SessionStore(engine: engine, now: { clock.value })
+        let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
 
         // Background app usage, so the per-app history renders with real shapes.
         // First run gets the archive too, just empty: the empty state is only a
@@ -174,6 +174,106 @@ enum FixtureFactory {
         store.attach(tracker: tracker, usage: usageArchive)
 
         store.refresh()
+        return store
+    }
+
+    /// Screenshot-matched interaction states. The bars are derived from these
+    /// isolated app-use intervals, never random heights or production records.
+    static func storyInteractionStore(for scenario: SnapshotScenario) -> SessionStore {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        func time(_ hour: Int, _ minute: Int = 0) -> Date {
+            calendar.date(bySettingHour: hour, minute: minute, second: 0, of: today) ?? today
+        }
+        let clock = Clock(time(12))
+        let preferences = PersistenceStore(defaults: fixtureDefaults(scenario.rawValue))
+        preferences.dailyGoal = 4 * 3_600
+        let directory = scratchDirectory()
+        let archive = SessionArchive(directory: directory, calendar: calendar, now: { clock.value })
+        let engine = SessionEngine(store: preferences, archive: archive,
+            ownBundleID: FocusConstants.bundleIdentifier, schedulesDwell: false, now: { clock.value })
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let envelope = UsageFixtureEnvelope(metadata: AppUsageMetadata(accurateFrom: today), sessions: [])
+        if let bytes = try? JSONEncoder().encode(envelope) {
+            try? bytes.write(to: directory.appendingPathComponent("app-usage.json"), options: .atomic)
+        }
+        let usage = AppUsageArchive(directory: directory, calendar: calendar, now: { clock.value })
+        func use(_ id: String, _ name: String, from start: Date, to end: Date) {
+            usage.record(AppUsageSession(bundleID: id, appName: name, start: start, end: end))
+        }
+        let xcode = "com.apple.dt.Xcode"
+        let shapeStart = time(9, 12)
+        archive.append(SessionRecord(name: "Refactor the parser", workType: .deepWork,
+            start: shapeStart, end: time(10, 48), workSeconds: 80 * 60, detectedApp: xcode))
+        // Eight twelve-minute bins with genuine variation and explicit gaps.
+        for (index, minutes) in [7, 10, 11, 9, 4, 10, 12, 7].enumerated() {
+            let start = shapeStart.addingTimeInterval(Double(index * 12 * 60))
+            let identity: (String, String) = index == 4 ? ("com.apple.Safari", "Safari")
+                : index == 7 ? ("com.apple.Terminal", "Terminal") : (xcode, "Xcode")
+            use(identity.0, identity.1, from: start, to: start.addingTimeInterval(Double(minutes * 60)))
+        }
+        // More than four apps makes the bounded Apps tile visible in the matrix.
+        use("com.apple.iCal", "Calendar", from: time(8), to: time(8, 10))
+        use("com.apple.Notes", "Notes", from: time(8, 10), to: time(8, 25))
+
+        if scenario != .storyShape {
+            archive.append(SessionRecord(name: "Spec review", workType: .meetings,
+                start: time(11, 5), end: time(11, 40), workSeconds: 35 * 60,
+                detectedApp: "us.zoom.xos"))
+            use("us.zoom.xos", "Zoom", from: time(11, 5), to: time(11, 40))
+        }
+        if scenario == .storyLive || scenario == .storyDecision {
+            archive.append(SessionRecord(name: "Lunch", workType: .breakTime,
+                start: time(12, 10), end: time(13), workSeconds: 50 * 60))
+            clock.value = scenario == .storyDecision ? time(13) : time(14, 41)
+            engine.start(workType: .deepWork, intent: "Refactor the parser")
+            if scenario == .storyDecision {
+                use(xcode, "Xcode", from: time(13), to: time(13, 12))
+                clock.value = time(13, 12)
+                engine.transition(on: .awayBegan(trigger: .screenLock))
+                clock.value = time(14, 40)
+                engine.transition(on: .awayEnded)
+                _ = engine.decide(.tookBreak)
+                clock.value.addTimeInterval(43 * 60 + 58)
+            } else {
+                clock.value.addTimeInterval(51 * 60 + 6)
+            }
+            if let span = engine.runningSpan {
+                let width = span.end.timeIntervalSince(span.start) / 8
+                for (index, share) in [0.45, 0.72, 0.95, 0.70, 0.89, 1.0, 0.91, 0.82].enumerated() {
+                    let start = span.start.addingTimeInterval(Double(index) * width)
+                    use(xcode, "Xcode", from: start, to: start.addingTimeInterval(width * share))
+                }
+            }
+        }
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: FocusConstants.bundleIdentifier,
+                                      idle: .disabled, now: { clock.value })
+        let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
+        store.attach(tracker: tracker, usage: usage)
+        store.setDashboardVisible(true)
+        store.refresh()
+        return store
+    }
+
+    static let decisionSaveError = "The session archive is unavailable. Check its folder access or free space, then retry."
+
+    /// A real rejected write, not just a painted error label. The same pending
+    /// decision and retry state drive the operational sheet and menu popover.
+    static func failingDecisionStore() -> SessionStore {
+        let start = Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: Date()) ?? Date()
+        let clock = Clock(start)
+        let archive = SessionArchive(directory: scratchDirectory(), now: { clock.value },
+                                     writeOverride: { _ in decisionSaveError })
+        let engine = SessionEngine(store: PersistenceStore(defaults: fixtureDefaults("failed-answer")),
+            archive: archive, ownBundleID: FocusConstants.bundleIdentifier,
+            schedulesDwell: false, now: { clock.value })
+        engine.start(workType: .deepWork, intent: "Refactor the parser")
+        clock.value.addTimeInterval(600)
+        engine.transition(on: .awayBegan(trigger: .screenLock))
+        clock.value.addTimeInterval(1_200)
+        engine.transition(on: .awayEnded)
+        let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
+        store.resolve(.tookBreak, label: "Walk")
         return store
     }
 
@@ -243,7 +343,7 @@ enum FixtureFactory {
                                       ownBundleID: FocusConstants.bundleIdentifier,
                                       idle: .disabled,
                                       now: { clock.value })
-        let store = SessionStore(engine: engine, now: { clock.value })
+        let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
         store.attach(tracker: tracker, usage: usage)
         store.refreshInsights()
         return store

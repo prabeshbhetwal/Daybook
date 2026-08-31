@@ -7,9 +7,9 @@ enum StoryNarrative {
     static func day(focused: TimeInterval, tracked: TimeInterval, sessions: Int,
                     rest: TimeInterval, isToday: Bool) -> String {
         if focused > 0 {
-            let count = sessions == 1 ? "one session" : "\(sessions) sessions"
-            return "\(isToday ? "You've focused" : "You focused") for "
-                + "\(Tokens.preciseDuration(focused)) in \(count)."
+            let count = sessions == 1 ? "one focus session" : "\(sessions) focus sessions"
+            return "\(isToday ? "You've logged" : "You logged") "
+                + "\(Tokens.preciseDuration(focused)) across \(count)."
         }
         if tracked > 0 {
             return "You recorded \(Tokens.preciseDuration(tracked)) of app use, with no focus session."
@@ -131,7 +131,7 @@ struct DayStoryColumn: View {
     private var facts: [String] {
         var parts: [String] = []
         let tracked = store.isToday ? store.trackedToday : store.trackedForSelectedDay
-        if tracked > 0 { parts.append("\(Tokens.duration(tracked)) on this Mac") }
+        if tracked > 0 { parts.append("\(Tokens.duration(tracked)) recorded app use") }
         let rest = restSeconds
         if rest > 0 { parts.append("\(Tokens.duration(rest)) of rest") }
         let longest = store.storyLongestStretch(on: store.selectedDay)
@@ -153,7 +153,7 @@ struct StoryCorrectionNotice: View {
     @ObservedObject var store: SessionStore
 
     var body: some View {
-        if let error = store.correctionError {
+        if let error = store.correctionError, !store.isToday || store.pendingAwaySaveError == nil {
             VStack(alignment: .leading, spacing: 8) {
                 Text(error).fixedSize(horizontal: false, vertical: true)
                 Button("Retry saving") { store.retryLastCorrection() }
@@ -164,14 +164,6 @@ struct StoryCorrectionNotice: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Tokens.Colour.attention.opacity(0.10),
                         in: RoundedRectangle(cornerRadius: 9))
-        } else if store.canUndoCorrection {
-            HStack {
-                Text("Session correction saved.").foregroundStyle(.secondary)
-                Spacer(minLength: 8)
-                Button("Undo correction") { store.undoLastCorrection() }
-                    .buttonStyle(.borderless)
-            }
-            .font(Tokens.Typography.metadata)
         }
     }
 }

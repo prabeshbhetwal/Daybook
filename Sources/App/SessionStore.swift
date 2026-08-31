@@ -422,6 +422,8 @@ final class SessionStore: ObservableObject {
     var tracker: AppUsageTracker?
     var usage: AppUsageArchive?
     private var ticker: Timer?
+    private let schedulesTicker: Bool
+    var hasScheduledTicker: Bool { ticker != nil }
 
     /// The sole read model for live and historical consumers. Pending tracker
     /// records replace durable records by stable UUID in memory; the archive's
@@ -445,8 +447,10 @@ final class SessionStore: ObservableObject {
     }
 
     init(engine: SessionEngine,
+         schedulesTicker: Bool = true,
          now: @escaping () -> Date = Date.init) {
         self.engine = engine
+        self.schedulesTicker = schedulesTicker
         self.now = now
         engine.threadContextMatcher = { [weak self] app in
             self?.runningThreadUses(app) ?? true
@@ -471,6 +475,7 @@ final class SessionStore: ObservableObject {
 
     private func apply(_ state: SessionState) {
         self.state = state
+        canUndoCorrection = lastCorrection != nil || engine.canUndoAwayDecision
         if case .awaitingUserDecision(let away, _) = state {
             pendingAwayRange = engine.pendingAwayRange
             pendingAway = away
@@ -495,7 +500,7 @@ final class SessionStore: ObservableObject {
     }
 
     private func updateTicker() {
-        ticks ? startTicker() : stopTicker()
+        schedulesTicker && ticks ? startTicker() : stopTicker()
     }
 
     /// Attaches the background usage tracker. Optional: the focus loop works
@@ -614,7 +619,8 @@ final class SessionStore: ObservableObject {
             refreshLiveFigures(at: moment)
 
             weekBars = engine.archive.weekBars()
-            quickStarts = engine.archive.quickStarts(limit: 7)
+            quickStarts = ActivityChoices.merging(engine.store.recentActivities,
+                engine.archive.quickStarts(limit: ActivityChoices.limit))
             workType = engine.activeWorkType
             previousSession = engine.archive.records.last
             isTrackingEnabled = tracker?.isEnabled ?? false
@@ -894,6 +900,7 @@ final class SessionStore: ObservableObject {
         } else {
             engine.start(workType: workType, intent: intent)
         }
+        engine.store.rememberActivity(name: intent, workType: workType)
         intent = ""
         refresh()
     }
@@ -906,6 +913,7 @@ final class SessionStore: ObservableObject {
         } else {
             engine.start(workType: quick.workType, intent: quick.name)
         }
+        engine.store.rememberActivity(name: quick.name, workType: quick.workType)
         intent = ""
         refresh()
     }
@@ -952,8 +960,72 @@ final class SessionStore: ObservableObject {
 
     /// `label` names a break in the user's words ("dinner"); it is ignored for
     /// any other answer.
-    func resolve(_ decision: UserDecision, label: String? = nil) {
-        engine.decide(decision, label: label)
+    @discardableResult
+    func resolve(_ decision: UserDecision, label: String? = nil, expectedID: UUID? = nil) -> Bool {
+        applyAwayDecision(decision, label: label, reviewing: false, expectedID: expectedID)
+    }
+
+    var pendingAwaySaveError: String? {
+        guard case .awayDecision(_, _, let reviewing, let id)? = correctionRetry,
+              !reviewing, engine.pendingDecisionID == id else { return nil }
+        return correctionError
+    }
+
+    @discardableResult
+    func retryPendingAwayDecision(expectedID: UUID?) -> Bool {
+        guard let expectedID, engine.pendingDecisionID == expectedID,
+              case .awayDecision(let decision, let label, let reviewing, let id)? = correctionRetry,
+              !reviewing, id == expectedID else { return false }
+        return applyAwayDecision(decision, label: label, reviewing: false, expectedID: expectedID)
+    }
+
+    @discardableResult
+    func applyAwayDecision(_ decision: UserDecision, label: String? = nil, reviewing: Bool,
+                           expectedID: UUID? = nil) -> Bool {
+        let currentID = reviewing ? engine.lastAwayDecision?.id : engine.pendingDecisionID
+        guard let id = currentID, expectedID == nil || expectedID == id else {
+            if expectedID != nil {
+                publishCorrectionError("That action belongs to an earlier interval. The current record was not changed.")
+                correctionRetry = nil
+            }
+            return false
+        }
+        let saved = reviewing ? engine.reviseAwayDecision(decision, label: label)
+            : engine.decide(decision, label: label)
+        guard saved else {
+            if let error = engine.awayDecisionError {
+                publishCorrectionError(error)
+                correctionRetry = .awayDecision(decision, label: label, reviewing: reviewing, expectedID: id)
+            }
+            return false
+        }
+        lastCorrection = nil
+        correctionRetry = nil
+        publishCorrectionError(nil)
+        publishCanUndoCorrection(engine.lastAwayDecision?.isResolved == true)
+        apply(engine.state)
+        return true
+    }
+
+    @discardableResult
+    func undoAwayDecision(expectedID: UUID? = nil) -> Bool {
+        guard let id = engine.lastAwayDecision?.id, expectedID == nil || expectedID == id else {
+            if expectedID != nil {
+                publishCorrectionError("That Undo belongs to an earlier action. The current record was not changed.")
+                correctionRetry = nil
+            }
+            return false
+        }
+        guard engine.undoAwayDecision() else {
+            publishCorrectionError(engine.awayDecisionError ?? "Finish the current away decision before undoing an earlier one.")
+            correctionRetry = .awayUndo(id)
+            return false
+        }
+        correctionRetry = nil
+        publishCorrectionError(nil)
+        publishCanUndoCorrection(false)
+        apply(engine.state)
+        return true
     }
 
     /// `--preview-away card` only: fakes a pending question so the popover and

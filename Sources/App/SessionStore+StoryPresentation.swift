@@ -25,9 +25,9 @@ extension SessionStore {
         let running = engine.state == .idle ? nil : RunningThread(
             threadID: engine.activeThreadID, name: engine.sessionName,
             workType: engine.activeWorkType, start: engine.sessionStartDate, worked: engine.elapsed)
-        return StoryChronology.build(records: engine.archive.records, running: running,
-                                     usage: effectiveUsageSnapshot?.sessions ?? [],
-                                     day: selectedDay, now: now())
+        return Array(StoryChronology.build(records: engine.archive.records, running: running,
+                                          usage: effectiveUsageSnapshot?.sessions ?? [],
+                                          day: selectedDay, now: now()).reversed())
     }
 
     var storyAppColourIndices: [String: Int] {

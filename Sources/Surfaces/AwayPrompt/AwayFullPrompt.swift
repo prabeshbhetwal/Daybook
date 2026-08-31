@@ -5,12 +5,14 @@ private final class FullPromptModel: ObservableObject {
     @Published var away: TimeInterval = 0
     @Published var range: (start: Date, end: Date)?
     @Published var note: String?
+    @Published var error: String?
 }
 
 private struct FullPromptView: View {
     @ObservedObject var model: FullPromptModel
-    let onAnswer: (UserDecision) -> Void
-    let onReason: (String) -> Void
+    let onAnswer: (UserDecision) -> Bool
+    let onReason: (String) -> Bool
+    let onRetry: () -> Void
     let onLater: () -> Void
 
     var body: some View {
@@ -22,7 +24,8 @@ private struct FullPromptView: View {
                 .onTapGesture(perform: onLater)
             VStack(alignment: .leading, spacing: Tokens.Space.l) {
                 AwayAnswerGrid(away: model.away, range: model.range, showsCaptions: true,
-                               note: model.note, onAnswer: onAnswer, onReason: onReason)
+                               note: model.note, error: model.error, onRetry: onRetry,
+                               onAnswer: onAnswer, onReason: onReason)
                 HStack {
                     Spacer()
                     Button("Later", action: onLater)
@@ -63,15 +66,18 @@ final class AwayFullPrompt {
     /// dismiss: a menu-bar app has no window of its own to leave the user in.
     private var previousApp: NSRunningApplication?
     private let model = FullPromptModel()
-    private let onAnswer: (UserDecision) -> Void
-    private let onReason: (String) -> Void
+    private let onAnswer: (UserDecision) -> Bool
+    private let onReason: (String) -> Bool
+    private let onRetry: () -> Void
     private let onLater: () -> Void
 
-    init(onAnswer: @escaping (UserDecision) -> Void,
-         onReason: @escaping (String) -> Void,
+    init(onAnswer: @escaping (UserDecision) -> Bool,
+         onReason: @escaping (String) -> Bool,
+         onRetry: @escaping () -> Void = {},
          onLater: @escaping () -> Void) {
         self.onAnswer = onAnswer
         self.onReason = onReason
+        self.onRetry = onRetry
         self.onLater = onLater
     }
 
@@ -82,15 +88,18 @@ final class AwayFullPrompt {
     static func snapshotView(
         away: TimeInterval,
         range: (start: Date, end: Date)?,
-        note: String? = nil
+        note: String? = nil,
+        error: String? = nil
     ) -> some View {
         let model = FullPromptModel()
         model.away = away
         model.range = range
         model.note = note
+        model.error = error
         return FullPromptView(model: model,
-                              onAnswer: { _ in },
-                              onReason: { _ in },
+                              onAnswer: { _ in true },
+                              onReason: { _ in true },
+                              onRetry: {},
                               onLater: {})
             .frame(width: 760, height: 620)
     }
@@ -99,6 +108,7 @@ final class AwayFullPrompt {
         model.away = away
         model.range = range
         model.note = note
+        model.error = nil
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
             ?? NSScreen.main ?? NSScreen.screens.first
@@ -119,6 +129,10 @@ final class AwayFullPrompt {
                 window.animator().alphaValue = 1
             }
         }
+    }
+
+    func showError(_ error: String) {
+        model.error = error
     }
 
     func dismiss() {
@@ -159,6 +173,7 @@ final class AwayFullPrompt {
         let hosting = NSHostingView(rootView: FullPromptView(model: model,
                                                              onAnswer: onAnswer,
                                                              onReason: onReason,
+                                                             onRetry: onRetry,
                                                              onLater: onLater))
         hosting.autoresizingMask = [.width, .height]
         blur.addSubview(hosting)
