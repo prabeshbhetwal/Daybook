@@ -175,12 +175,7 @@ enum Tokens {
     /// Sub-minute stretches are common in app usage, where `duration` floors to
     /// "0m" and a real 45-second stretch renders as nothing.
     static func preciseDuration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        if total < 60 { return "\(total)s" }
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        if hours > 0 { return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h" }
-        return "\(minutes)m"
+        DurationText.precise(seconds)
     }
 
     private static let dayFormatter: DateFormatter = {

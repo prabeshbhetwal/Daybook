@@ -21,16 +21,23 @@ enum SessionShape {
     }
 
     static func bins(segments: [TimelineSegment], in bounds: DateInterval) -> [Bin] {
+        bins(activity: RecordedActivity(segments: segments, spans: [bounds]), in: bounds)
+    }
+
+    /// Retains the legacy eight-bin contract for existing consumers while using
+    /// the canonical foreground projection rather than re-summing raw records.
+    static func bins(activity: RecordedActivity, in bounds: DateInterval) -> [Bin] {
         guard bounds.duration > 0, bounds.duration.isFinite else { return [] }
         let width = bounds.duration / 8
         return (0..<8).map { index in
             let start = bounds.start.addingTimeInterval(Double(index) * width)
             let end = index == 7 ? bounds.end : start.addingTimeInterval(width)
             var byApp: [String: [DateInterval]] = [:]
-            for segment in segments {
-                let low = max(start, segment.start), high = min(end, segment.end)
+            for interval in activity.intervals {
+                guard let bundleID = interval.bundleID else { continue }
+                let low = max(start, interval.start), high = min(end, interval.end)
                 guard high > low else { continue }
-                byApp[segment.bundleID, default: []].append(DateInterval(start: low, end: high))
+                byApp[bundleID, default: []].append(DateInterval(start: low, end: high))
             }
             var amounts: [(id: String, seconds: TimeInterval)] = []
             for (id, spans) in byApp { amounts.append((id, coveredSeconds(spans))) }
@@ -66,12 +73,34 @@ enum SessionShape {
         let stretches: Int
         /// Canonical worked seconds for the session.
         let worked: TimeInterval
+        /// Canonical foreground projection, when the caller already knows the
+        /// supplied session spans. Older callers can still provide segments.
+        let activity: RecordedActivity
 
         init(segments: [TimelineSegment],
              workType: WorkType,
              stretches: Int,
              worked: TimeInterval) {
-            self.segments = segments.sorted { $0.start < $1.start }
+            let visible = segments.filter { $0.seconds > 0 }.sorted { $0.start < $1.start }
+            self.segments = visible
+            self.workType = workType
+            self.stretches = stretches
+            self.worked = worked
+            if let first = visible.map(\.start).min(), let last = visible.map(\.end).max(), last > first {
+                // Compatibility callers expose worked time but not the session
+                // spans. Preserve their former missing-recording qualification
+                // without affecting the explicit-span Story projection.
+                let end = max(last, first.addingTimeInterval(max(0, worked)))
+                activity = RecordedActivity(segments: visible, spans: [DateInterval(start: first, end: end)])
+            } else {
+                activity = RecordedActivity(segments: [], spans: [])
+            }
+        }
+
+        init(segments: [TimelineSegment], activity: RecordedActivity,
+             workType: WorkType, stretches: Int, worked: TimeInterval) {
+            self.segments = segments.filter { $0.seconds > 0 }.sorted { $0.start < $1.start }
+            self.activity = activity
             self.workType = workType
             self.stretches = stretches
             self.worked = worked
@@ -102,20 +131,15 @@ enum SessionShape {
     /// against recorded time, never against the session's length, so a partly
     /// recorded session does not read as a mostly idle one.
     private static func frontClause(_ input: Input) -> String? {
-        let recorded = input.segments.reduce(0) { $0 + $1.seconds }
+        let recorded = input.activity.coverage
         guard recorded > 0 else { return nil }
-        var byApp: [String: (name: String, seconds: TimeInterval)] = [:]
-        for segment in input.segments {
-            let existing = byApp[segment.bundleID]
-            byApp[segment.bundleID] = (segment.appName,
-                                       (existing?.seconds ?? 0) + segment.seconds)
+        let ranks = input.activity.appRanks
+        guard let top = ranks.first else { return nil }
+        if ranks.count == 1 {
+            return "\(top.appName) was in front for all \(duration(recorded)) recorded."
         }
-        guard let top = byApp.values.max(by: { $0.seconds < $1.seconds }) else { return nil }
-        if byApp.count == 1 {
-            return "\(top.name) was in front for all \(duration(recorded)) recorded."
-        }
-        return "\(top.name) was in front for \(duration(top.seconds)) of the "
-            + "\(duration(recorded)) recorded, across \(byApp.count) apps."
+        return "\(top.appName) was in front for \(duration(top.total)) of the "
+            + "\(duration(recorded)) recorded, across \(ranks.count) apps."
     }
 
     /// How often the front actually changed. The first app observed is context
@@ -165,8 +189,7 @@ enum SessionShape {
     /// The session's own coverage. Worked time beyond what app recording saw is
     /// stated plainly rather than left as a silent discrepancy.
     private static func recordingGapClause(_ input: Input) -> String? {
-        let recorded = input.segments.reduce(0) { $0 + $1.seconds }
-        let gap = input.worked - recorded
+        let gap = input.activity.gapDuration
         guard gap >= 60 else { return nil }
         return "\(duration(gap)) of this session has no app recording."
     }
@@ -174,10 +197,6 @@ enum SessionShape {
     /// `Core` cannot import the Design layer, so it carries the same phrasing
     /// as `Tokens.duration`: `2h 15m`, `4h`, `15m`.
     private static func duration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        guard hours > 0 else { return "\(minutes)m" }
-        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
+        DurationText.precise(seconds)
     }
 }

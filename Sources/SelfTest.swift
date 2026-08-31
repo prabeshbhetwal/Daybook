@@ -444,7 +444,7 @@ enum SelfTest {
              testAwaySnapshotsRetainProductionPromptChrome)
         ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
-            + StoryInteractionChecks.tests + ContinuationChecks.tests
+            + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {

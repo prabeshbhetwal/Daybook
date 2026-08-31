@@ -1,40 +1,91 @@
 import SwiftUI
 
-/// Eight equal-time columns show observed app-use coverage. An empty interval
-/// stays at the baseline; the graph never claims to measure typing intensity.
+/// A compact elapsed-time strip of the foreground app evidence. It is not a
+/// typing waveform: coloured runs are observed apps and outlined runs are
+/// explicitly named gaps in the supplied session span.
 struct StoryShapeChart: View {
-    let bins: [SessionShape.Bin]
-    let primaryApp: String?
-    let tint: Color
-    var height: CGFloat = 44
+    let activity: RecordedActivity
+    let appColourIndices: [String: Int]
+    var height: CGFloat = 28
     var compact = false
+    @StateObject private var intervalDetailsShown = BoolBox()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .bottom, spacing: 2) {
-                ForEach(bins) { bin in
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(colour(bin))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: max(2, height * bin.fraction))
-                        .frame(height: height, alignment: .bottom)
-                        .help("\(Tokens.timeRange(bin.start, bin.end)): \(Tokens.preciseDuration(bin.recordedSeconds)) recorded app use")
-                        .accessibilityLabel("\(Tokens.timeRange(bin.start, bin.end)), \(Tokens.spent(bin.recordedSeconds)) recorded app use")
+        VStack(alignment: .leading, spacing: 5) {
+            GeometryReader { geometry in
+                let intervals = activity.intervals.filter { $0.duration > 0 }
+                let gaps = max(0, intervals.count - 1)
+                let available = max(0, geometry.size.width - CGFloat(gaps * 2))
+                HStack(spacing: 2) {
+                    ForEach(intervals) { interval in
+                        intervalView(interval)
+                            .frame(width: width(of: interval, available: available))
+                    }
                 }
             }
             .frame(height: height)
-            if !compact {
-                Text("Recorded app use, not typing intensity")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            if !compact, let first = activity.intervals.first, let last = activity.intervals.last {
+                HStack {
+                    Text(Tokens.timeOfDayOnly(first.start))
+                    Spacer(minLength: 8)
+                    Text(Tokens.timeOfDayOnly(last.end))
+                }
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+                Button(intervalDetailsShown.value ? "Hide intervals" : "Show intervals") {
+                    intervalDetailsShown.value.toggle()
+                }
+                .font(Tokens.Typography.metadata)
+                .buttonStyle(StoryActionStyle())
+                .accessibilityHint("Shows exact app activity and recording-gap times")
+                if intervalDetailsShown.value {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(activity.intervals) { interval in
+                            Text(detail(interval))
+                                .font(Tokens.Typography.metadata)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .accessibilityElement(children: .contain)
+                }
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Shape of recorded app use")
+        .accessibilityLabel("App activity: recorded app use, not typing intensity")
     }
 
-    private func colour(_ bin: SessionShape.Bin) -> Color {
-        guard bin.recordedSeconds > 0 else { return StoryStyle.line }
-        return bin.dominantBundleID == primaryApp ? tint : Tokens.Palette.slate
+    private func width(of interval: RecordedActivity.Interval, available: CGFloat) -> CGFloat {
+        guard activity.elapsed > 0 else { return 0 }
+        return max(2, available * CGFloat(interval.duration / activity.elapsed))
+    }
+
+    private func intervalView(_ interval: RecordedActivity.Interval) -> some View {
+        RoundedRectangle(cornerRadius: 3, style: .continuous)
+            .fill(colour(interval))
+            .overlay {
+                if interval.isGap {
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .stroke(Color.secondary.opacity(0.65), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                }
+            }
+            .contentShape(Rectangle())
+            .help(detail(interval))
+            .accessibilityLabel(detail(interval))
+    }
+
+    private func colour(_ interval: RecordedActivity.Interval) -> Color {
+        guard let bundleID = interval.bundleID else { return Tokens.Palette.untracked.opacity(0.22) }
+        return Tokens.Palette.app(rank: appColourIndices[bundleID] ?? interval.colourIndex ?? 6)
+    }
+
+    private func detail(_ interval: RecordedActivity.Interval) -> String {
+        let range = Tokens.timeRange(interval.start, interval.end)
+        if interval.isGap {
+            return "Recording gap, \(range), \(Tokens.preciseDuration(interval.duration)), no app recording"
+        }
+        return "\(interval.appName ?? "Unknown app"), \(range), "
+            + "\(Tokens.preciseDuration(interval.recordedSeconds)) recorded app use"
     }
 }

@@ -161,7 +161,7 @@ struct DayStory: View {
                                  apps: detail?.apps ?? [],
                                  shape: detail?.text,
                                  shapeCaption: detail?.caption,
-                                 shapeBins: detail?.bins ?? [],
+                                 activity: detail?.activity,
                                  appColourIndices: store.storyAppColourIndices,
                                  canContinue: store.canContinue(session),
                                  canStartNewSession: store.canStartNewSession(session),
@@ -275,7 +275,7 @@ struct SessionEntryCard: View {
     /// What the recording shows, when it shows anything.
     var shape: String?
     var shapeCaption: String?
-    var shapeBins: [SessionShape.Bin] = []
+    var activity: RecordedActivity?
     var appColourIndices: [String: Int] = [:]
     var canContinue = false
     var canStartNewSession = false
@@ -299,6 +299,13 @@ struct SessionEntryCard: View {
     @Environment(\.focusInterfaceDensity) private var density
 
     private var tint: Color { Tokens.Palette.workType(session.workType) }
+
+    /// A tiny interval should remain readable as factual text. A chart shorter
+    /// than two minutes turns a few seconds of evidence into visual noise.
+    private var showsActivityStrip: Bool {
+        guard let activity else { return false }
+        return activity.hasRecordedActivity && activity.elapsed >= 120
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -374,17 +381,22 @@ struct SessionEntryCard: View {
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                    StoryShapeChart(bins: shapeBins, primaryApp: apps.first?.bundleID,
-                                    tint: tint, height: 46, compact: true)
-                        .frame(width: 130)
+                    if showsActivityStrip, let activity {
+                        StoryShapeChart(activity: activity, appColourIndices: appColourIndices,
+                                        height: 28, compact: true)
+                            .frame(width: 130)
+                    }
                 }
             } else if session.workType == .meetings {
                 meetingDetail
             } else {
                 HStack(alignment: .top, spacing: 20) {
                     appsDetail.frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
-                    shapeDetail.frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
+                    if showsActivityStrip {
+                        activityDetail.frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
+                    }
                 }
+                if !showsActivityStrip { factualCaption }
             }
             actions
         }
@@ -394,12 +406,8 @@ struct SessionEntryCard: View {
 
     private var appsDetail: some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionLabel("Apps in this stretch")
-            if apps.isEmpty {
-                Text("No app use was recorded inside this session.")
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-            } else {
+            if !apps.isEmpty {
+                sectionLabel("Apps in this stretch")
                 ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
                     StoryAppRow(app: app, rank: appColourIndices[app.bundleID] ?? index)
                 }
@@ -413,22 +421,35 @@ struct SessionEntryCard: View {
         }
     }
 
-    private var shapeDetail: some View {
+    private var activityDetail: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("Shape of it")
-            StoryShapeChart(bins: shapeBins, primaryApp: apps.first?.bundleID, tint: tint)
-            Text(shapeCaption ?? "No app-use data was recorded for this stretch.")
-                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            sectionLabel("App activity")
+            if let activity {
+                StoryShapeChart(activity: activity, appColourIndices: appColourIndices)
+            }
+            factualCaption
         }
         .help(shape ?? "Only recorded app use is shown; no keyboard activity is inferred.")
     }
 
+    @ViewBuilder private var factualCaption: some View {
+        if let shape {
+            Text(shape)
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if let shapeCaption {
+            Text(shapeCaption)
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var meetingDetail: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(shape ?? "No app use was recorded. Meetings can count while watching; keyboard activity is not inferred.")
-                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            factualCaption
             HStack(spacing: 16) {
                 ForEach(apps.prefix(3)) { app in
                     HStack(spacing: 5) {
@@ -577,7 +598,7 @@ struct RestEntryRow: View {
 
     var body: some View {
         HStack(spacing: Tokens.Space.m) {
-            Text("\(rest.name) — rest, not counted as focus")
+            Text("\(rest.name) — recorded break, not counted as focus")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -592,7 +613,7 @@ struct RestEntryRow: View {
         .background(Tokens.Colour.elevated,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(rest.name), rest, \(Tokens.spent(rest.length)), "
+        .accessibilityLabel("\(rest.name), recorded break, \(Tokens.spent(rest.length)), "
                             + Tokens.timeRange(rest.start, rest.end))
     }
 }

@@ -4,6 +4,9 @@ struct StorySessionDetail {
     let apps: [AppRank]
     let text: String?
     let caption: String
+    /// Canonical app/gap timeline. The old bins remain during the chart
+    /// migration, but ranks, captions and prose all use this same evidence.
+    let activity: RecordedActivity
     let bins: [SessionShape.Bin]
 }
 
@@ -39,11 +42,16 @@ enum StoryTimelineItem: Identifiable {
 
 extension SessionStore {
     func storySessionDetail(_ session: DaySession) -> StorySessionDetail {
-        let apps = appRanks(within: session.spans)
+        storySessionDetail(session, on: selectedDay)
+    }
+
+    /// The explicit day keeps historical projections independent of whichever
+    /// Story date happens to be selected by another workspace.
+    func storySessionDetail(_ session: DaySession, on day: Date) -> StorySessionDetail {
         var segments: [TimelineSegment] = []
         if let usage {
             let timeline = DashboardStats(sessions: engine.archive, usage: usage,
-                usageSnapshot: effectiveUsageSnapshot).timeline(for: selectedDay)
+                usageSnapshot: effectiveUsageSnapshot).timeline(for: day)
             for segment in timeline {
                 for span in session.spans {
                     let start = max(segment.start, span.start), end = min(segment.end, span.end)
@@ -55,18 +63,31 @@ extension SessionStore {
                 }
             }
         }
-        let text = SessionShape.paragraph(.init(segments: segments, workType: session.workType,
+        let activity = RecordedActivity(segments: segments, spans: session.spans)
+        let apps = activity.appRanks
+        let text = SessionShape.paragraph(.init(segments: segments, activity: activity,
+                                                workType: session.workType,
                                                 stretches: session.stretches, worked: session.worked))
-        let bins = session.end > session.start ? SessionShape.bins(segments: segments,
-            in: DateInterval(start: session.start, end: session.end)) : []
-        let coverage = bins.reduce(0) { $0 + $1.recordedSeconds }
-        let missing = max(0, session.worked - coverage)
-        var caption = coverage > 0 ? "\(Tokens.preciseDuration(coverage)) of recorded app-use coverage."
-            : "No app-use data was recorded for this stretch."
-        if missing >= 60, coverage > 0 {
-            caption += " \(Tokens.duration(missing)) of logged work has no app recording."
+        let bounds = session.end > session.start ? DateInterval(start: session.start, end: session.end) : nil
+        let bins = bounds.map { SessionShape.bins(activity: activity, in: $0) } ?? []
+        let elapsed = max(0, session.end.timeIntervalSince(session.start))
+        let coverage = activity.coverage
+        var caption: String
+        if coverage > 0 {
+            caption = "Recorded app use: \(Tokens.preciseDuration(coverage)) across "
+                + "\(Tokens.preciseDuration(elapsed)) elapsed; logged focus: "
+                + "\(Tokens.preciseDuration(session.worked))."
+            if activity.gapDuration >= 1 {
+                caption += " \(Tokens.preciseDuration(activity.gapDuration)) of the session span has no app recording."
+            }
+        } else {
+            caption = "Logged focus: \(Tokens.preciseDuration(session.worked)). "
+                + "No app recording was available for this session."
         }
-        return StorySessionDetail(apps: apps, text: text, caption: caption, bins: bins)
+        if activity.hasConflictingForegroundEvidence {
+            caption += " Overlapping source app records were resolved to one foreground strip."
+        }
+        return StorySessionDetail(apps: apps, text: text, caption: caption, activity: activity, bins: bins)
     }
 
     var storyTimelineItems: [StoryTimelineItem] {
