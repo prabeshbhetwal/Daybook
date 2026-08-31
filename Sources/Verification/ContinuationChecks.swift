@@ -10,6 +10,9 @@ enum ContinuationChecks {
         ("Continuation age has inclusive one-hour boundaries", continuationAgeBoundaries),
         ("Active and stale thread actions cannot revive older work", activeAndStaleActions),
         ("Pending absence blocks continuation and midnight preserves recency", pendingAndMidnight),
+        ("Focus projects an eligible prior-day continuation", focusProjectsPriorDayContinuation),
+        ("Focus continuation projection retains every thread stretch", focusProjectionRetainsFullThread),
+        ("Story chronology preserves an overnight continuation source", storyChronologyKeepsOvernightSource),
         ("Starting a different activity creates a new session", differentActivityStartsNewThread)
     ]
 
@@ -146,12 +149,19 @@ enum ContinuationChecks {
                                  end: now.addingTimeInterval(-60), worked: 30)
             let browsing = f.record(name: "Browsing", start: now.addingTimeInterval(-80),
                                    end: now.addingTimeInterval(-20), worked: 60)
+            let cafe = f.record(name: "Cafe", start: now.addingTimeInterval(-70),
+                                end: now.addingTimeInterval(-40), worked: 30)
+            let café = f.record(name: "Café", start: now.addingTimeInterval(-35),
+                                end: now.addingTimeInterval(-10), worked: 25)
             var problems: [String] = []
             if f.store.canContinue(f.row(for: first)) || f.store.canContinue(f.row(for: second)) {
                 problems.append("older normalised Coding threads remained eligible")
             }
             if !f.store.canContinue(f.row(for: third)) || !f.store.canContinue(f.row(for: browsing)) {
                 problems.append("latest independent Coding or Browsing activity was rejected")
+            }
+            if !f.store.canContinue(f.row(for: cafe)) || !f.store.canContinue(f.row(for: café)) {
+                problems.append("Cafe and Café were incorrectly collapsed into one activity")
             }
             return problems
         }
@@ -237,6 +247,81 @@ enum ContinuationChecks {
                 problems.append("a pending absence did not block continuation at the action boundary")
             }
             return problems
+        }
+    }
+
+    /// Drive the same source Focus consumes, not a hand-made DaySession. App
+    /// tracking deliberately remains unattached: manually declared work must
+    /// still offer a continuation on the next calendar day.
+    private static func focusProjectsPriorDayContinuation() -> [String] {
+        MainActor.assumeIsolated {
+            let f = Fixture(); defer { f.close() }
+            let calendar = Calendar.current
+            let midnight = calendar.startOfDay(for: f.clock.value)
+            let thread = UUID()
+            _ = f.record(name: "Night handover", start: midnight.addingTimeInterval(-600),
+                         end: midnight.addingTimeInterval(-60), worked: 540, threadID: thread)
+            f.clock.value = midnight.addingTimeInterval(300)
+            f.store.refresh()
+            let rows = FocusContinuationSource.rows(threads: f.store.continuableThreads,
+                                                    quickStarts: [], limit: 3)
+            guard case .thread(let projected)? = rows.first else {
+                return ["Focus omitted the eligible prior-day continuation"]
+            }
+            return projected.threadID == thread && projected.totalWorked == 540
+                && projected.segments == 1
+                ? [] : ["Focus projected the wrong prior-day continuation summary"]
+        }
+    }
+
+    /// The continuation window limits eligibility, not accounting. An eligible
+    /// latest stretch must retain all prior stretches in the same thread even
+    /// when they began more than six hours ago.
+    private static func focusProjectionRetainsFullThread() -> [String] {
+        MainActor.assumeIsolated {
+            let f = Fixture(); defer { f.close() }
+            let thread = UUID()
+            let first = f.clock.value.addingTimeInterval(-8 * 3_600)
+            for index in 0..<8 {
+                let start = first.addingTimeInterval(TimeInterval(index) * 3_600)
+                _ = f.record(name: "Long-running Coding", start: start,
+                             end: start.addingTimeInterval(600), worked: 600, threadID: thread)
+            }
+            f.clock.value = first.addingTimeInterval(7 * 3_600 + 900)
+            f.store.refresh()
+            let rows = FocusContinuationSource.rows(threads: f.store.continuableThreads,
+                                                    quickStarts: [], limit: 3)
+            guard case .thread(let projected)? = rows.first else {
+                return ["Focus omitted the latest eligible long-running thread"]
+            }
+            return projected.threadID == thread && projected.totalWorked == 4_800
+                && projected.segments == 8
+                ? [] : ["Focus truncated the thread to its recent continuation tail"]
+        }
+    }
+
+    private static func storyChronologyKeepsOvernightSource() -> [String] {
+        MainActor.assumeIsolated {
+            let f = Fixture(); defer { f.close() }
+            let calendar = Calendar.current
+            let midnight = calendar.startOfDay(for: f.clock.value)
+            f.clock.value = midnight.addingTimeInterval(900)
+            let overnight = f.record(name: "Overnight deploy",
+                                     start: midnight.addingTimeInterval(-600),
+                                     end: midnight.addingTimeInterval(600), worked: 900)
+            let moments = StoryChronology.build(records: f.archive.records, running: nil,
+                                                usage: [], day: midnight, now: f.clock.value,
+                                                calendar: calendar)
+            guard case .entry(.session(let visible))? = moments.first else {
+                return ["Story chronology did not project the overnight stretch"]
+            }
+            guard visible.id == overnight.id, visible.start == midnight,
+                  visible.end == overnight.end else {
+                return ["Story chronology did not clip while retaining the source identity"]
+            }
+            f.store.continueSession(visible)
+            return f.engine.state != .idle && f.engine.activeThreadID == overnight.threadID
+                ? [] : ["the clipped overnight Story row could not continue its source stretch"]
         }
     }
 

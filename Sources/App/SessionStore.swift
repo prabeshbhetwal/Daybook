@@ -32,6 +32,9 @@ final class SessionStore: ObservableObject {
     @Published private(set) var weekBars: [DayBar] = []
     @Published private(set) var quickStarts: [QuickStart] = []
     @Published var threadsToday: [ThreadSummary] = []
+    /// Archive-wide summaries for Focus and Continue Today. Eligibility is
+    /// sampled afresh from the paired index when a surface reads them.
+    @Published var continuationCandidates: [ThreadSummary] = []
     @Published private(set) var goal = GoalProgress(
         goal: FocusConstants.defaultDailyGoal, achieved: 0, typical: nil)
     @Published private(set) var sessionsToday = 0
@@ -429,6 +432,9 @@ final class SessionStore: ObservableObject {
     /// Shared clock for live figures and calendar navigation. Production uses
     /// wall time; self-tests advance it without a run loop.
     let now: () -> Date
+    /// Rebuilt with `continuationCandidates` after archive mutations, so Focus
+    /// does not repeatedly scan history while composing its headings and rows.
+    var continuationIndex: ContinuationPolicy.Index?
     var tracker: AppUsageTracker?
     var usage: AppUsageArchive?
     private var ticker: Timer?
@@ -626,6 +632,7 @@ final class SessionStore: ObservableObject {
             let moment = now()
             refreshTypical(at: moment)
             refreshThread()
+            refreshContinuations(at: moment)
             refreshLiveFigures(at: moment)
 
             weekBars = engine.archive.weekBars()

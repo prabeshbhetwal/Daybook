@@ -38,16 +38,15 @@ struct FocusContinuations: View {
     var limit = 3
     var compact = false
 
-    private var rows: [FocusContinuationRow] {
-        FocusContinuationSource.rows(threads: store.continuableThreads,
-                                     quickStarts: store.quickStarts,
-                                     limit: limit)
-    }
-
     var body: some View {
+        let threads = store.continuableThreads
+        let rows = FocusContinuationSource.rows(threads: threads,
+                                                quickStarts: store.quickStarts,
+                                                limit: limit)
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            SectionHeader(title: rowsTitle,
-                          trailing: rows.isEmpty ? nil : rowsCountLabel)
+            SectionHeader(title: rowsTitle(threads: threads),
+                          trailing: rows.isEmpty ? nil : rowsCountLabel(threads: threads,
+                                                                           rows: rows))
             if rows.isEmpty {
                 Text("Start a focus session and useful continuations will stay here on this Mac.")
                     .font(Tokens.Typography.metadata)
@@ -62,14 +61,14 @@ struct FocusContinuations: View {
         }
     }
 
-    private var rowsTitle: String {
-        if !store.continuableThreads.isEmpty { return "Continue" }
+    private func rowsTitle(threads: [ThreadSummary]) -> String {
+        if !threads.isEmpty { return "Continue" }
         if !store.quickStarts.isEmpty { return "Quick start" }
         return "Your next focus"
     }
 
-    private var rowsCountLabel: String {
-        if !store.continuableThreads.isEmpty {
+    private func rowsCountLabel(threads: [ThreadSummary], rows: [FocusContinuationRow]) -> String {
+        if !threads.isEmpty {
             return rows.count == 1 ? "1 session" : "\(rows.count) sessions"
         }
         return rows.count == 1 ? "1 shortcut" : "\(rows.count) shortcuts"

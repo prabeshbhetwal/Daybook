@@ -461,10 +461,30 @@ extension SessionStore {
             .apps(for: thread, on: Date())
     }
 
-    /// Threads which are still valid continuations at this exact action
-    /// boundary. Focus and compact Continue Today both consume this list.
+    /// One archive-wide continuation projection per refresh. The grouped
+    /// summaries and index remain stable until archive evidence changes.
+    func refreshContinuations(at moment: Date) {
+        let records = engine.archive.records
+        let index = ContinuationPolicy.Index(records: records)
+        let active = runningThread()
+        continuationCandidates = ThreadStats(sessions: engine.archive, usage: usage,
+                                             usageSnapshot: effectiveUsageSnapshot,
+                                             purposeOverrides: engine.store.purposeOverrides,
+                                             now: now)
+            .continuationThreads(running: active)
+        continuationIndex = index
+    }
+
+    /// Focus reads grouped summaries, not archive records. Current time and
+    /// active ownership are still evaluated here before anything is displayed.
     var continuableThreads: [ThreadSummary] {
-        threadsToday.filter(canContinue)
+        guard let index = continuationIndex else { return [] }
+        let active = runningThread()
+        let moment = now()
+        return continuationCandidates.filter { thread in
+            guard let canonical = canonicalRecord(for: thread, index: index) else { return false }
+            return index.isEligible(canonical, active: active, now: moment)
+        }
     }
 
     /// Resumes earlier work as a new segment of the same thread, and restores
@@ -473,10 +493,11 @@ extension SessionStore {
     /// launched — reopening an app the user deliberately closed would be worse
     /// than doing nothing.
     func continueThread(_ thread: ThreadSummary) {
+        let records = engine.archive.records
+        let index = ContinuationPolicy.Index(records: records)
         guard !hasUnresolvedAwayDecision, !thread.isRunning,
-              let canonical = canonicalRecord(for: thread),
-              ContinuationPolicy.isEligible(canonical, records: engine.archive.records,
-                                            active: runningThread(), now: now()) else { return }
+              let canonical = canonicalRecord(for: thread, index: index),
+              index.isEligible(canonical, active: runningThread(), now: now()) else { return }
         let primary = threadApps(thread).primary?.bundleID
         engine.start(workType: canonical.workType, intent: canonical.name,
                      threadID: canonical.threadID)
@@ -696,42 +717,46 @@ extension SessionStore {
     /// never bypass the continuation guard by silently retaining its thread.
     func canStartNewSession(_ session: DaySession) -> Bool {
         !hasUnresolvedAwayDecision && !session.isRunning
-            && engine.archive.records.contains(where: { $0.id == session.id })
-            && session.workType.countsAsFocus
+            && newSessionSource(for: session)?.workType.countsAsFocus == true
     }
 
     func startNewSession(from session: DaySession) {
         guard canStartNewSession(session),
-              let source = engine.archive.records.first(where: { $0.id == session.id }) else { return }
+              let source = newSessionSource(for: session) else { return }
         engine.start(workType: source.workType, intent: source.name)
         refresh()
     }
 
-    private func canContinue(_ thread: ThreadSummary) -> Bool {
-        guard !hasUnresolvedAwayDecision, !thread.isRunning,
-              let canonical = canonicalRecord(for: thread) else { return false }
-        return ContinuationPolicy.isEligible(canonical, records: engine.archive.records,
-                                             active: runningThread(), now: now())
+    /// Resolves a displayed Story row to its last actual stretch. A stale row
+    /// carries that stretch's archive ID even when chronology clips it at
+    /// midnight. A legacy grouped row without that ID is accepted only if its
+    /// displayed end/name/type still describe the latest stretch.
+    private func canonicalRecord(for session: DaySession) -> SessionRecord? {
+        let records = engine.archive.records
+        if let direct = records.first(where: {
+            $0.id == session.id && $0.threadID == session.threadID && $0.workType.countsAsFocus
+        }) {
+            return direct
+        }
+        guard let canonical = ContinuationPolicy.latest(records.filter {
+            $0.threadID == session.threadID && $0.workType.countsAsFocus
+        }), session.end == canonical.end, session.workType == canonical.workType,
+           ContinuationPolicy.activityKey(name: session.name, workType: session.workType)
+               == ContinuationPolicy.activityKey(name: canonical.name, workType: canonical.workType)
+        else { return nil }
+        return canonical
     }
 
-    /// Resolves a displayed Story row to its last actual stretch. A stale row
-    /// cannot pass merely because it still names the thread: its displayed
-    /// spans must contain the current last record of that thread.
-    private func canonicalRecord(for session: DaySession) -> SessionRecord? {
-        guard let canonical = ContinuationPolicy.latest(engine.archive.records.filter {
-            $0.threadID == session.threadID && $0.workType.countsAsFocus
-        }), session.spans.contains(where: { span in
-            span.start <= canonical.start && span.end >= canonical.end
-        }) else { return nil }
-        return canonical
+    private func newSessionSource(for session: DaySession) -> SessionRecord? {
+        engine.archive.records.first(where: { $0.id == session.id && $0.threadID == session.threadID })
+            ?? canonicalRecord(for: session)
     }
 
     /// A Focus row is a snapshot. Its summary must still describe the archive's
     /// latest record for that thread before it may be used as an action.
-    private func canonicalRecord(for thread: ThreadSummary) -> SessionRecord? {
-        guard let canonical = ContinuationPolicy.latest(engine.archive.records.filter {
-            $0.threadID == thread.threadID && $0.workType.countsAsFocus
-        }), canonical.end == thread.lastEnd,
+    private func canonicalRecord(for thread: ThreadSummary,
+                                 index: ContinuationPolicy.Index) -> SessionRecord? {
+        guard let canonical = index.latestByThread[thread.threadID], canonical.end == thread.lastEnd,
            canonical.workType == thread.workType,
            ContinuationPolicy.activityKey(name: canonical.name, workType: canonical.workType)
                == ContinuationPolicy.activityKey(name: thread.name, workType: thread.workType)

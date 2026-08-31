@@ -8823,7 +8823,7 @@ enum SelfTest {
     private static func testInsightsExcludePreAccuracyUsage() -> [String] {
         var problems: [String] = []
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: anchoredNow())
+        let today = calendar.startOfDay(for: periodAnchor(calendar: calendar))
         let clock = Clock(today.addingTimeInterval(12 * 3_600))
         guard let accurateDay = calendar.date(byAdding: .day, value: -2, to: today),
               let legacyDay = calendar.date(byAdding: .day, value: -3, to: today) else {

@@ -41,14 +41,14 @@ struct ThreadApps: Equatable {
 struct ThreadStats {
 
     private let sessions: SessionArchive
-    private let usage: AppUsageArchive
+    private let usage: AppUsageArchive?
     private let usageSnapshot: AppUsageSnapshot?
     private let overrides: [String: String]
     private let calendar: Calendar
     private let now: () -> Date
 
     init(sessions: SessionArchive,
-         usage: AppUsageArchive,
+         usage: AppUsageArchive? = nil,
          usageSnapshot: AppUsageSnapshot? = nil,
          purposeOverrides: [String: String] = [:],
          calendar: Calendar = .current,
@@ -74,8 +74,6 @@ struct ThreadStats {
     /// Newest last-end first. The running session, if any, is folded into its
     /// thread — or becomes a thread of its own if it is new work.
     func threads(on day: Date, running: RunningThread?) -> [ThreadSummary] {
-        var order: [UUID] = []
-        var byThread: [UUID: Accumulator] = [:]
         // Recent work, not the calendar day. `records(on:)` returns anything
         // that *overlaps* the day, so just after midnight it offered a session
         // begun the previous evening — and by the following afternoon it was
@@ -85,15 +83,33 @@ struct ThreadStats {
         // Rest is not resumable: a break record stays on the timeline and in
         // the log, but offering to "continue" it would start the Break session
         // the picker deliberately no longer offers.
-        for record in sessions.records(on: day)
-        where record.end >= cutoff && record.workType.countsAsFocus {
+        return summaries(records: sessions.records(on: day).filter {
+            $0.end >= cutoff && $0.workType.countsAsFocus
+        }, running: running)
+    }
+
+    /// Archive-wide threads for the Focus continuation source. Eligibility is
+    /// assessed separately; this deliberately retains every recorded stretch
+    /// in an eligible thread rather than turning the one-hour action window
+    /// into a six-hour accounting cap.
+    func continuationThreads(running: RunningThread?) -> [ThreadSummary] {
+        summaries(records: sessions.records.filter(\.workType.countsAsFocus), running: running)
+    }
+
+    private func summaries(records: [SessionRecord], running: RunningThread?) -> [ThreadSummary] {
+        var order: [UUID] = []
+        var byThread: [UUID: Accumulator] = [:]
+        for record in records.sorted(by: {
+            if $0.end != $1.end { return $0.end < $1.end }
+            if $0.start != $1.start { return $0.start < $1.start }
+            return $0.id.uuidString < $1.id.uuidString
+        }) {
             if var existing = byThread[record.threadID] {
                 existing.worked += record.workSeconds
                 existing.segments += 1
                 existing.first = min(existing.first, record.start)
-                // The most recent segment's name wins: renaming a thread should
-                // stick rather than being overruled by its own history.
-                if record.end >= existing.last { existing.name = record.name }
+                existing.name = record.name
+                existing.workType = record.workType
                 existing.last = max(existing.last, record.end)
                 byThread[record.threadID] = existing
             } else {
@@ -107,13 +123,14 @@ struct ThreadStats {
                                                         live: false)
             }
         }
-
         if let running {
             let end = now()
             if var existing = byThread[running.threadID] {
                 existing.worked += running.worked
                 existing.segments += 1
                 existing.first = min(existing.first, running.start)
+                existing.name = running.name
+                existing.workType = running.workType
                 existing.last = max(existing.last, end)
                 existing.live = true
                 byThread[running.threadID] = existing
@@ -128,7 +145,6 @@ struct ThreadStats {
                                                          live: true)
             }
         }
-
         return order.compactMap { id -> ThreadSummary? in
             guard let entry = byThread[id] else { return nil }
             return ThreadSummary(threadID: id,
@@ -140,7 +156,10 @@ struct ThreadStats {
                                  lastEnd: entry.last,
                                  isRunning: entry.live)
         }
-        .sorted { $0.lastEnd > $1.lastEnd }
+        .sorted {
+            if $0.lastEnd != $1.lastEnd { return $0.lastEnd > $1.lastEnd }
+            return $0.threadID.uuidString > $1.threadID.uuidString
+        }
     }
 
     /// Primary app and side apps for a thread, measured over the union of its
@@ -150,7 +169,7 @@ struct ThreadStats {
         guard !ranges.isEmpty else { return .none }
 
         var totals: [String: (name: String, total: TimeInterval, longest: TimeInterval)] = [:]
-        for session in usageSnapshot?.sessions ?? usage.sessions {
+        for session in usageSnapshot?.sessions ?? usage?.sessions ?? [] {
             var attended: TimeInterval = 0
             var longest: TimeInterval = 0
             for range in ranges {
