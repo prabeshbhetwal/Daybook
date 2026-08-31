@@ -76,6 +76,11 @@ enum MainReadingWorkspace: String, CaseIterable {
     case insights
 }
 
+struct InsightReadingPosition: Equatable {
+    let anchor: Date
+    let pageCount: Int
+}
+
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case focus
@@ -176,8 +181,8 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     @Published private(set) var expandedStoryDay: Date?
     @Published var reviewSection: ReviewSection = .week
     @Published var insightRange: InsightRange = .week
-    @Published var insightAnchor: Date
-    @Published private(set) var insightPageCount = 6
+    @Published private var insightAnchors: [InsightRange: Date]
+    @Published private var insightPageCounts: [InsightRange: Int]
     @Published var settingsSection: SettingsSection = .general
     @Published var settingsQuery: String = ""
     private weak var store: SessionStore?
@@ -190,7 +195,10 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         self.selectedTab = selectedTab
         self.storyScope = storyScope
         self.requestedDate = requestedDate
-        self.insightAnchor = Calendar.current.startOfDay(for: store?.now() ?? Date())
+        let insightToday = Calendar.current.startOfDay(for: store?.now() ?? Date())
+        self.insightAnchors = Dictionary(uniqueKeysWithValues:
+            InsightRange.allCases.map { ($0, insightToday) })
+        self.insightPageCounts = [.day: 14, .week: 6, .month: 3]
         // Construction and selection must agree: a model built on a sheet-backed
         // tab is already presenting that sheet, or restoring one would show the
         // story with no sign of the surface that was asked for.
@@ -397,7 +405,19 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     func selectInsightRange(_ range: InsightRange) {
         insightRange = range
-        insightPageCount = range == .month ? 3 : range == .week ? 6 : 14
+    }
+
+    var insightPosition: InsightReadingPosition {
+        InsightReadingPosition(anchor: insightAnchor, pageCount: insightPageCount)
+    }
+
+    var insightAnchor: Date {
+        get { insightAnchors[insightRange] ?? Calendar.current.startOfDay(for: store?.now() ?? Date()) }
+        set { insightAnchors[insightRange] = newValue }
+    }
+
+    var insightPageCount: Int {
+        insightPageCounts[insightRange] ?? defaultInsightPageCount(for: insightRange)
     }
 
     func stepInsightPeriod(by delta: Int, calendar: Calendar = .current) {
@@ -410,12 +430,14 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         }
         guard let candidate = calendar.date(byAdding: component, value: delta,
                                             to: insightAnchor) else { return }
-        insightAnchor = min(calendar.startOfDay(for: store?.now() ?? Date()), candidate)
+        insightAnchors[insightRange] = min(
+            calendar.startOfDay(for: store?.now() ?? Date()), candidate)
     }
 
     func showEarlierInsights() {
         let increment = insightRange == .day ? 14 : insightRange == .week ? 6 : 3
-        insightPageCount = min(insightMaximumPageCount, insightPageCount + increment)
+        insightPageCounts[insightRange] = min(
+            insightMaximumPageCount, insightPageCount + increment)
     }
 
     var insightCanShowEarlier: Bool {
@@ -424,6 +446,10 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     private var insightMaximumPageCount: Int {
         insightRange == .day ? 42 : insightRange == .week ? 14 : 4
+    }
+
+    private func defaultInsightPageCount(for range: InsightRange) -> Int {
+        range == .day ? 14 : range == .week ? 6 : 3
     }
 
     var insightAnchorLabel: String {

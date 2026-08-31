@@ -1,5 +1,33 @@
 import SwiftUI
 
+enum StoryRenderEvidence: String, Hashable {
+    case dayStory
+    case periodChild
+    case historyDetail
+    case insightPeriod
+    case insightStrongestDay
+    case insightEmptyPeriod
+}
+
+struct StoryRenderEvidenceKey: PreferenceKey {
+    static let defaultValue: Set<StoryRenderEvidence> = []
+    static func reduce(value: inout Set<StoryRenderEvidence>,
+                       nextValue: () -> Set<StoryRenderEvidence>) {
+        value.formUnion(nextValue())
+    }
+}
+
+extension View {
+    /// Deterministic offscreen evidence attached to the actual conditional
+    /// content branch. Production ignores the preference; verification can
+    /// prove the branch rendered without relying on permanent chrome.
+    func storyRenderEvidence(_ evidence: StoryRenderEvidence) -> some View {
+        transformPreference(StoryRenderEvidenceKey.self) { value in
+            value.insert(evidence)
+        }
+    }
+}
+
 /// A period's opening sentence, composed from figures the store already holds.
 /// Every clause is gated on its own evidence, so an empty period says it is
 /// empty rather than reading as a failure.
@@ -127,6 +155,8 @@ struct ProjectedDayStoryColumn: View {
             }
             DayStory(store: store, projection: projection)
         }
+        .accessibilityIdentifier("story-day-content-\(projection.id)")
+        .storyRenderEvidence(.dayStory)
     }
 
     /// A focus-led sentence; the longer evidence narrative remains available
@@ -275,6 +305,8 @@ struct StorySelectedDayCard: View {
             if isExpanded {
                 ProjectedDayStoryColumn(store: store, projection: projection)
                     .id(projection.id)
+                    .accessibilityIdentifier("story-period-child-content-\(projection.id)")
+                    .storyRenderEvidence(.periodChild)
             }
         }
     }

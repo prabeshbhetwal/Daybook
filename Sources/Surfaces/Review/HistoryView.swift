@@ -388,6 +388,9 @@ struct HistoryView: View {
                     }
                     ProjectedDayStoryColumn(store: store, projection: projection)
                         .id(projection.id)
+                        .accessibilityIdentifier(
+                            "history-story-detail-content-\(projection.id)")
+                        .storyRenderEvidence(.historyDetail)
                 }
                 .padding(Tokens.Space.l)
             }

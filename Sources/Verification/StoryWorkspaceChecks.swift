@@ -2,12 +2,23 @@ import Foundation
 import SwiftUI
 import AppKit
 
+private final class StoryRenderEvidenceBox {
+    var values: Set<StoryRenderEvidence> = []
+}
+
+private struct StoryRenderedFrame {
+    let bitmap: NSBitmapImageRep?
+    let evidence: Set<StoryRenderEvidence>
+}
+
 enum StoryWorkspaceChecks {
     static let tests: [(String, () -> [String])] = [
         ("Opening a period child preserves its parent reading context", periodChildPreservesContext),
         ("Explicit day projections use only the requested day's seeded evidence", explicitDayProjection),
         ("History and Insights preserve Story and running-engine context", workspacesPreserveStory),
         ("Insights pages are bounded, newest first and expose every scope", insightPages),
+        ("Insights restores each scope's anchor and page depth", insightScopeRestoration),
+        ("A projected current-day child owns all running presentation state", projectedCurrentDayLiveState),
         ("Receipt-only dates remain searchable without focus or app-use credit", receiptOnlyHistory),
         ("Story workspaces render sparse and dense reading contexts offscreen", offscreenWorkspaceRenders)
     ]
@@ -165,6 +176,57 @@ enum StoryWorkspaceChecks {
         }
     }
 
+    private static func insightScopeRestoration() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: store.now())
+            let navigation = MainWindowModel(store: store)
+            var failures: [String] = []
+
+            navigation.selectInsightRange(.day)
+            navigation.stepInsightPeriod(by: -2)
+            navigation.showEarlierInsights()
+            let dayAnchor = navigation.insightAnchor
+            let dayPages = navigation.insightPageCount
+
+            navigation.selectInsightRange(.week)
+            if !calendar.isDate(navigation.insightAnchor, inSameDayAs: today)
+                || navigation.insightPageCount != 6 {
+                failures.append("Week inherited Day's historical anchor or page depth")
+            }
+            navigation.stepInsightPeriod(by: -1)
+            navigation.showEarlierInsights()
+            let weekAnchor = navigation.insightAnchor
+            let weekPages = navigation.insightPageCount
+
+            navigation.selectInsightRange(.month)
+            if !calendar.isDate(navigation.insightAnchor, inSameDayAs: today)
+                || navigation.insightPageCount != 3 {
+                failures.append("Month inherited Week's historical anchor or page depth")
+            }
+            navigation.stepInsightPeriod(by: -1)
+            navigation.showEarlierInsights()
+            let monthAnchor = navigation.insightAnchor
+            let monthPages = navigation.insightPageCount
+
+            navigation.selectInsightRange(.day)
+            if navigation.insightAnchor != dayAnchor || navigation.insightPageCount != dayPages {
+                failures.append("Day did not restore its anchor and page depth")
+            }
+            navigation.selectInsightRange(.week)
+            if navigation.insightAnchor != weekAnchor || navigation.insightPageCount != weekPages {
+                failures.append("Week did not restore its anchor and page depth")
+            }
+            navigation.selectInsightRange(.month)
+            if navigation.insightAnchor != monthAnchor || navigation.insightPageCount != monthPages {
+                failures.append("Month did not restore its anchor and page depth")
+            }
+            return failures
+        }
+    }
+
     private static func receiptOnlyHistory() -> [String] {
         MainActor.assumeIsolated {
             let store = FixtureFactory.storyInteractionStore(for: .storyDecision)
@@ -181,46 +243,204 @@ enum StoryWorkspaceChecks {
         }
     }
 
+    private static func projectedCurrentDayLiveState() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .running, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            store.selectDay(offset: 1)
+            guard !store.isToday else {
+                return ["Fixture did not move the global Day selection into history"]
+            }
+            let projection = store.storyDayProjection(on: store.now())
+            guard projection.isCurrentDay,
+                  let running = projection.sessions.compactMap({ entry -> DaySession? in
+                      if case .session(let session) = entry, session.isRunning { return session }
+                      return nil
+                  }).first else {
+                return ["Current projected child did not contain the running session"]
+            }
+            let presentation = DayStorySessionPresentation.make(
+                session: running, isCurrentStoryDay: projection.isCurrentDay, store: store)
+            var failures: [String] = []
+            if presentation.clock != Tokens.clock(running.worked) {
+                failures.append("Current projected child lost its live clock")
+            }
+            if presentation.liveStatus != "running now" {
+                failures.append("Current projected child lost running-now status")
+            }
+            if presentation.pauseTitle != "Pause" || !presentation.canControl {
+                failures.append("Current projected child lost pause/end control state")
+            }
+
+            let pausedStore = FixtureFactory.store(for: .paused, accurateUsage: true)
+            pausedStore.selectDay(offset: 1)
+            let pausedProjection = pausedStore.storyDayProjection(on: pausedStore.now())
+            if let pausedSession = pausedProjection.sessions.compactMap({ entry -> DaySession? in
+                if case .session(let session) = entry, session.isRunning { return session }
+                return nil
+            }).first {
+                let paused = DayStorySessionPresentation.make(
+                    session: pausedSession,
+                    isCurrentStoryDay: pausedProjection.isCurrentDay,
+                    store: pausedStore)
+                if paused.clock != Tokens.clock(pausedSession.worked)
+                    || paused.liveStatus != "paused"
+                    || paused.pauseTitle != "Resume"
+                    || !paused.canControl {
+                    failures.append("Current projected child lost paused/Resume presentation")
+                }
+            } else {
+                failures.append("Paused current projected child lost its running-session row")
+            }
+            return failures
+        }
+    }
+
     private static func offscreenWorkspaceRenders() -> [String] {
         MainActor.assumeIsolated {
             var failures: [String] = []
-            func render<V: View>(_ label: String, _ view: V) {
-                let host = NSHostingView(rootView: view)
-                host.frame = NSRect(x: 0, y: 0, width: 980, height: 760)
-                host.layoutSubtreeIfNeeded()
-                if host.fittingSize.width <= 0 || host.fittingSize.height <= 0 {
-                    failures.append("\(label) produced an empty offscreen layout")
+            func requireContent(_ label: String, _ frame: StoryRenderedFrame) {
+                guard let bitmap = frame.bitmap else {
+                    failures.append("\(label) did not produce an offscreen bitmap")
+                    return
+                }
+                let contrast = bitmapContrast(bitmap)
+                if contrast < 0.08 {
+                    failures.append("\(label) content region was effectively blank (contrast \(contrast))")
+                }
+            }
+            func requireEvidence(_ label: String, _ frame: StoryRenderedFrame,
+                                 includes: Set<StoryRenderEvidence>,
+                                 excludes: Set<StoryRenderEvidence> = []) {
+                let missing = includes.subtracting(frame.evidence)
+                if !missing.isEmpty {
+                    failures.append("\(label) missed production content evidence \(missing.map(\.rawValue).sorted())")
+                }
+                let unexpected = excludes.intersection(frame.evidence)
+                if !unexpected.isEmpty {
+                    failures.append("\(label) unexpectedly rendered \(unexpected.map(\.rawValue).sorted())")
                 }
             }
             let dense = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             let navigation = MainWindowModel(storyScope: .day, store: dense)
-            render("Day", DayStoryColumn(store: dense))
+            let denseDay = renderFrame(DayStoryColumn(store: dense), height: 900)
+            requireContent("Day story", denseDay)
+            requireEvidence("Day story", denseDay, includes: [.dayStory])
+
             navigation.selectScope(.week)
-            if let day = dense.reviewDays.first?.date { navigation.openStoryDay(day) }
-            render("Week child", WeekStoryColumn(store: dense, navigation: navigation))
+            if let day = dense.reviewDays.first?.date { navigation.selectStoryDay(day) }
+            let weekClosed = renderFrame(
+                WeekStoryColumn(store: dense, navigation: navigation), height: 1_200)
+            requireEvidence("Closed Week child", weekClosed, includes: [],
+                            excludes: [.periodChild])
+            if let day = navigation.storySelectedDay { navigation.openStoryDay(day) }
+            let weekOpen = renderFrame(
+                WeekStoryColumn(store: dense, navigation: navigation), height: 1_200)
+            requireContent("Week inline child", weekOpen)
+            requireEvidence("Week inline child", weekOpen, includes: [.periodChild, .dayStory])
+
             navigation.selectScope(.month)
-            if let day = dense.reviewDays.first?.date { navigation.openStoryDay(day) }
-            render("Month child", MonthStoryColumn(store: dense, navigation: navigation))
+            if let day = dense.reviewDays.first?.date { navigation.selectStoryDay(day) }
+            let monthClosed = renderFrame(
+                MonthStoryColumn(store: dense, navigation: navigation), height: 1_600)
+            requireEvidence("Closed Month child", monthClosed, includes: [],
+                            excludes: [.periodChild])
+            if let day = navigation.storySelectedDay { navigation.openStoryDay(day) }
+            let monthOpen = renderFrame(
+                MonthStoryColumn(store: dense, navigation: navigation), height: 1_600)
+            requireContent("Month inline child", monthOpen)
+            requireEvidence("Month inline child", monthOpen, includes: [.periodChild, .dayStory])
+
             navigation.open(tab: .review)
+            navigation.clearReviewDay()
+            let historyClosed = renderFrame(
+                HistoryView(store: dense, navigation: navigation), height: 1_400)
+            requireEvidence("Closed History detail", historyClosed, includes: [],
+                            excludes: [.historyDetail])
             if let day = dense.filteredHistoryDays.first?.date { navigation.selectReviewDay(day) }
-            render("History detail", HistoryView(store: dense, navigation: navigation))
-            for scope in InsightRange.allCases {
-                navigation.selectInsightRange(scope)
-                render("Dense Insights \(scope.rawValue)",
-                       InsightsView(store: dense, navigation: navigation, scrolls: false))
-            }
+            let historyOpen = renderFrame(
+                HistoryView(store: dense, navigation: navigation), height: 1_400)
+            requireContent("History full-day detail", historyOpen)
+            requireEvidence("History full-day detail", historyOpen,
+                            includes: [.historyDetail, .dayStory])
             FixtureFactory.cleanUp()
+
+            let insightDense = FixtureFactory.insightsStore(withEvidence: true)
+            let insightDenseNavigation = MainWindowModel(store: insightDense)
             let sparse = FixtureFactory.store(for: .firstRun, accurateUsage: true)
             let sparseNavigation = MainWindowModel(store: sparse)
             for scope in InsightRange.allCases {
+                insightDenseNavigation.selectInsightRange(scope)
                 sparseNavigation.selectInsightRange(scope)
-                render("Sparse Insights \(scope.rawValue)",
-                       InsightsView(store: sparse, navigation: sparseNavigation, scrolls: false))
+                let denseFrame = renderFrame(
+                    InsightsView(store: insightDense,
+                                 navigation: insightDenseNavigation, scrolls: false),
+                    height: 1_100)
+                let sparseFrame = renderFrame(
+                    InsightsView(store: sparse,
+                                 navigation: sparseNavigation, scrolls: false),
+                    height: 1_100)
+                requireContent("Dense Insights \(scope.rawValue)", denseFrame)
+                requireContent("Sparse Insights \(scope.rawValue)", sparseFrame)
+                requireEvidence("Dense Insights \(scope.rawValue)", denseFrame,
+                                includes: [.insightPeriod, .insightStrongestDay])
+                requireEvidence("Sparse Insights \(scope.rawValue)", sparseFrame,
+                                includes: [.insightPeriod, .insightEmptyPeriod],
+                                excludes: [.insightStrongestDay])
             }
             FixtureFactory.cleanUp()
             return failures
         }
     }
+
+    private static func renderFrame<V: View>(_ view: V,
+                                             width: CGFloat = 980,
+                                             height: CGFloat) -> StoryRenderedFrame {
+        let evidence = StoryRenderEvidenceBox()
+        let framed = view.frame(width: width, height: height, alignment: .topLeading)
+            .background(Tokens.Colour.ground)
+            .onPreferenceChange(StoryRenderEvidenceKey.self) {
+                evidence.values = $0
+            }
+        let host = NSHostingView(rootView: framed)
+        host.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.borderless],
+                              backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: .aqua)
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.contentView = host
+        window.orderFront(nil)
+        host.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        host.displayIfNeeded()
+        defer { window.orderOut(nil); window.close() }
+        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
+            return StoryRenderedFrame(bitmap: nil, evidence: evidence.values)
+        }
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        return StoryRenderedFrame(bitmap: bitmap, evidence: evidence.values)
+    }
+
+    private static func bitmapContrast(_ bitmap: NSBitmapImageRep) -> Double {
+        var low = 1.0
+        var high = 0.0
+        let startY = min(bitmap.pixelsHigh - 1, max(0, bitmap.pixelsHigh / 8))
+        for y in stride(from: startY, to: bitmap.pixelsHigh, by: 5) {
+            for x in stride(from: 0, to: bitmap.pixelsWide, by: 5) {
+                guard let colour = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else {
+                    continue
+                }
+                let luminance = 0.2126 * Double(colour.redComponent)
+                    + 0.7152 * Double(colour.greenComponent)
+                    + 0.0722 * Double(colour.blueComponent)
+                low = min(low, luminance)
+                high = max(high, luminance)
+            }
+        }
+        return high - low
+    }
+
 
     private struct SeededFixture {
         let store: SessionStore

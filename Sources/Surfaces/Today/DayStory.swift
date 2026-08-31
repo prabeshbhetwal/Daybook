@@ -12,6 +12,32 @@ private final class StoryDisclosureState: ObservableObject {
     @Published var ids: Set<String> = []
 }
 
+/// The live fields supplied to one session card. Kept as a value so the
+/// explicit projected date and the visible controls cannot drift apart.
+struct DayStorySessionPresentation: Equatable {
+    let clock: String?
+    let liveStatus: String?
+    let pauseTitle: String
+    let canControl: Bool
+
+    static func make(session: DaySession,
+                     isCurrentStoryDay: Bool,
+                     store: SessionStore) -> DayStorySessionPresentation {
+        let showsLiveState = session.isRunning && isCurrentStoryDay
+        let canControl = session.isRunning && isCurrentStoryDay
+            && store.engine.state != .idle
+            && session.threadID == store.engine.activeThreadID
+            && !store.hasUnresolvedAwayDecision
+        return DayStorySessionPresentation(
+            clock: showsLiveState ? Tokens.clock(session.worked) : nil,
+            liveStatus: showsLiveState
+                ? (store.pendingAway != nil ? "awaiting your decision"
+                    : store.isPaused ? "paused" : "running now") : nil,
+            pauseTitle: store.isAway ? "I'm back" : store.isPaused ? "Resume" : "Pause",
+            canControl: canControl)
+    }
+}
+
 extension EnvironmentValues {
     /// Opens session entries on appearance. Carries the reader's preference,
     /// and the snapshot harness sets it to show an opened entry.
@@ -163,6 +189,9 @@ struct DayStory: View {
         case .session(let session):
             let key = StoryMoment.entry(entry).id
             let isOpen = opened.ids.contains(key)
+            let isCurrentStoryDay = projection?.isCurrentDay ?? store.isToday
+            let live = DayStorySessionPresentation.make(
+                session: session, isCurrentStoryDay: isCurrentStoryDay, store: store)
             let detail = isOpen
                 ? (projection?.sessionDetails[session.id] ?? store.storySessionDetail(session,
                     on: projection?.date ?? store.selectedDay))
@@ -181,19 +210,16 @@ struct DayStory: View {
                                  canContinue: store.canContinue(session),
                                  canStartNewSession: store.canStartNewSession(session),
                                  isOpen: isOpen,
-                                 clock: session.isRunning && store.isToday
-                                    ? Tokens.clock(session.worked) : nil,
-                                 liveStatus: session.isRunning && store.isToday
-                                    ? (store.pendingAway != nil ? "awaiting your decision"
-                                        : store.isPaused ? "paused" : "running now") : nil,
+                                 clock: live.clock,
+                                 liveStatus: live.liveStatus,
                                  onToggle: { toggle(key) },
                                  onRename: { store.renameSession(session, to: $0) },
                                  onWorkType: { store.setWorkType($0, for: session) },
                                  onContinue: { store.continueSession(session) },
                                  onStartNewSession: { store.startNewSession(from: session) },
-                                 pauseTitle: store.isAway ? "I'm back" : store.isPaused ? "Resume" : "Pause",
-                                 onPause: canControl(session) ? { store.togglePause() } : nil,
-                                 onEnd: canControl(session) ? { store.stop() } : nil)
+                                 pauseTitle: live.pauseTitle,
+                                 onPause: live.canControl ? { store.togglePause() } : nil,
+                                 onEnd: live.canControl ? { store.stop() } : nil)
             }
         case .rest(let rest):
             storyRow(time: rest.start,
@@ -203,13 +229,6 @@ struct DayStory: View {
                 RestEntryRow(store: store, rest: rest)
             }
         }
-    }
-
-    private func canControl(_ session: DaySession) -> Bool {
-        session.isRunning && (projection?.isCurrentDay ?? store.isToday)
-            && store.engine.state != .idle
-            && session.threadID == store.engine.activeThreadID
-            && !store.hasUnresolvedAwayDecision
     }
 
     private func storyRow<Content: View>(time: Date,

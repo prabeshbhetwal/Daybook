@@ -103,14 +103,27 @@ struct InsightsView: View {
                         periodMetric("Recorded app use", period.tracked)
                         periodMetric("Goal credit", period.goalCredit)
                     }
+                    if period.focused == 0 && period.tracked == 0 && period.goalCredit == 0 {
+                        Text("No logged focus or recorded app use in this period.")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier(
+                                "insights-empty-period-content-\(period.id)")
+                            .storyRenderEvidence(.insightEmptyPeriod)
+                    }
                     if let best = period.days.filter({ $0.focused > 0 })
                         .max(by: { $0.focused < $1.focused }) {
                         Text("Strongest logged-focus day: \(Tokens.longDate(best.date)), \(Tokens.preciseDuration(best.focused)).")
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
+                            .accessibilityIdentifier(
+                                "insights-strongest-day-content-\(period.id)")
+                            .storyRenderEvidence(.insightStrongestDay)
                     }
                 }
                 .id(period.id)
+                .accessibilityIdentifier("insights-period-content-\(period.id)")
+                .storyRenderEvidence(.insightPeriod)
             }
         }
     }
