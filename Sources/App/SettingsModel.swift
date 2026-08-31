@@ -263,6 +263,13 @@ final class SettingsModel: ObservableObject {
         set { write { store.defaultStoryScopeRawValue = newValue.rawValue } }
     }
 
+    /// How the rail's tiles are arranged. Stored as names so the order
+    /// survives a release that adds or removes a tile.
+    var storyTileOrder: [StoryTileKind] {
+        get { StoryTileKind.order(from: store.storyTileOrderRawValue) }
+        set { write { store.storyTileOrderRawValue = StoryTileKind.raw(from: newValue) } }
+    }
+
     var interfaceDensity: InterfaceDensity {
         get { InterfaceDensity(rawValue: store.interfaceDensityRawValue) ?? .comfortable }
         set { write { store.interfaceDensityRawValue = newValue.rawValue } }

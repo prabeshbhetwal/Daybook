@@ -30,6 +30,7 @@ final class PersistenceStore {
         static let period = "fc.period"
         static let defaultAppTabRawValue = "fc.defaultAppTab"
         static let defaultStoryScopeRawValue = "fc.defaultStoryScope"
+        static let storyTileOrderRawValue = "fc.storyTileOrder"
         static let interfaceDensityRawValue = "fc.interfaceDensity"
         static let appearanceRawValue = "fc.appearancePreference"
         static let showsTimelineLabels = "fc.showsTimelineLabels"
@@ -273,6 +274,11 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.defaultStoryScopeRawValue) }
     }
 
+    var storyTileOrderRawValue: String {
+        get { defaults.string(forKey: Key.storyTileOrderRawValue) ?? "" }
+        set { defaults.set(newValue, forKey: Key.storyTileOrderRawValue) }
+    }
+
     /// Stored as raw values so Core does not depend on UI density enums.
     var interfaceDensityRawValue: String {
         get { defaults.string(forKey: Key.interfaceDensityRawValue) ?? "comfortable" }
@@ -304,7 +310,7 @@ final class PersistenceStore {
                     Key.remindersDisabled, Key.workInterval, Key.breakLength,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
-                    Key.defaultStoryScopeRawValue,
+                    Key.defaultStoryScopeRawValue, Key.storyTileOrderRawValue,
                     Key.interfaceDensityRawValue, Key.appearanceRawValue,
                     Key.showsTimelineLabels] {
             defaults.removeObject(forKey: key)

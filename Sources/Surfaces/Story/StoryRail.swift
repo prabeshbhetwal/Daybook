@@ -1,26 +1,102 @@
 import SwiftUI
 
+private struct StoryTilesDraggableKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    /// Whether rail tiles carry their drag affordance. The static snapshot
+    /// renderer cannot draw an AppKit drag source, so it turns this off; the
+    /// product never does.
+    var storyTilesAreDraggable: Bool {
+        get { self[StoryTilesDraggableKey.self] }
+        set { self[StoryTilesDraggableKey.self] = newValue }
+    }
+}
+
 /// The tiles beside the story. Each one follows the scope above it, carries its
 /// own colour, and shows nothing when it has nothing to say — a tile is never a
 /// zero-valued placeholder.
 struct StoryRail: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    @ObservedObject var settings: SettingsModel
+    /// The tile under the pointer during a drag, so the drop target is visible
+    /// before the mouse is released.
+    @StateObject private var dropTarget = TileBox()
+    @Environment(\.storyTilesAreDraggable) private var tilesAreDraggable
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            focusTile
-            macTile
-            if !apps.isEmpty { appsTile }
-            if navigation.storyScope == .day, !store.rhythm.isEmpty { rhythmTile }
-            if store.streak > 0 { streakTile }
-            Text("Tiles follow the scope above. A tile with nothing to say is hidden.")
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
+            ForEach(visibleTiles, id: \.self) { kind in
+                draggable(tile(kind), as: kind)
+            }
+            droppable(footer, before: nil)
         }
         .padding(Tokens.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var footer: some View {
+        Text(tilesAreDraggable
+             ? "Tiles follow the scope above. Drag to reorder; "
+               + "a tile with nothing to say is hidden."
+             : "Tiles follow the scope above. A tile with nothing to say is hidden.")
+            .font(Tokens.Typography.metadata)
+            .foregroundStyle(.tertiary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private func draggable(_ content: some View,
+                                        as kind: StoryTileKind) -> some View {
+        if tilesAreDraggable {
+            droppable(content.opacity(dropTarget.kind == kind ? 0.55 : 1)
+                .onDrag {
+                    dropTarget.dragging = kind
+                    return NSItemProvider(object: kind.rawValue as NSString)
+                }, before: kind)
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder private func droppable(_ content: some View,
+                                        before target: StoryTileKind?) -> some View {
+        if tilesAreDraggable {
+            content.onDrop(of: [.text], delegate: TileDropDelegate(
+                target: target, box: dropTarget,
+                move: { moved, before in move(moved, before: before) }))
+        } else {
+            content
+        }
+    }
+
+    /// Only the tiles that have something to say, in the stored order.
+    private var visibleTiles: [StoryTileKind] {
+        settings.storyTileOrder.filter { kind in
+            switch kind {
+            case .focus, .mac: return true
+            case .apps: return !apps.isEmpty
+            case .rhythm: return navigation.storyScope == .day && !store.rhythm.isEmpty
+            case .streak: return store.streak > 0
+            }
+        }
+    }
+
+    @ViewBuilder private func tile(_ kind: StoryTileKind) -> some View {
+        switch kind {
+        case .focus: focusTile
+        case .mac: macTile
+        case .apps: appsTile
+        case .rhythm: rhythmTile
+        case .streak: streakTile
+        }
+    }
+
+    private func move(_ kind: StoryTileKind, before target: StoryTileKind?) {
+        let order = StoryTileKind.moving(kind, before: target, in: settings.storyTileOrder)
+        guard order != settings.storyTileOrder else { return }
+        settings.storyTileOrder = order
     }
 
     // MARK: - Focus
@@ -257,6 +333,39 @@ struct StoryRail: View {
                     .foregroundStyle(Tokens.Colour.focus)
             }
         }
+    }
+}
+
+/// Which tile is being dragged and which one the pointer is over. `@State` is
+/// unavailable on this toolchain, so the drag needs an object behind it.
+final class TileBox: ObservableObject {
+    @Published var kind: StoryTileKind?
+    var dragging: StoryTileKind?
+}
+
+/// Drops one tile before another. A drop onto the rail's own footer moves the
+/// tile to the end, so the last position is reachable.
+struct TileDropDelegate: DropDelegate {
+    let target: StoryTileKind?
+    let box: TileBox
+    let move: (StoryTileKind, StoryTileKind?) -> Void
+
+    func dropEntered(info: DropInfo) { box.kind = target }
+
+    func dropExited(info: DropInfo) {
+        if box.kind == target { box.kind = nil }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer {
+            box.kind = nil
+            box.dragging = nil
+        }
+        guard let dragged = box.dragging, dragged != target else { return false }
+        move(dragged, target)
+        return true
     }
 }
 

@@ -21,7 +21,8 @@ struct MainWindowView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
             Divider()
-            StoryCanvas(store: store, navigation: navigation, scrolls: reviewScrolls)
+            StoryCanvas(store: store, navigation: navigation, settings: settings,
+                        scrolls: reviewScrolls)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .clipped()
                 .accessibilitySortPriority(1)
@@ -61,6 +62,7 @@ struct MainWindowView: View {
 struct StoryCanvas: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    @ObservedObject var settings: SettingsModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var scrolls = true
 
@@ -78,9 +80,10 @@ struct StoryCanvas: View {
             Divider()
             Group {
                 if scrolls {
-                    ScrollView { StoryRail(store: store, navigation: navigation) }
+                    ScrollView { StoryRail(store: store, navigation: navigation,
+                                       settings: settings) }
                 } else {
-                    StoryRail(store: store, navigation: navigation)
+                    StoryRail(store: store, navigation: navigation, settings: settings)
                         .frame(maxHeight: .infinity, alignment: .top)
                 }
             }

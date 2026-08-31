@@ -256,6 +256,8 @@ enum Snapshotter {
             .environment(\.todayRecapInitiallyExpanded,
                          item.scenario == .todayHistoryExpanded)
             .environment(\.storyEntryInitiallyOpen, item.scenario == .storyDayEntry)
+            // The static renderer cannot draw an AppKit drag source.
+            .environment(\.storyTilesAreDraggable, false)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
             .clipped()
             .background(Tokens.Colour.ground)

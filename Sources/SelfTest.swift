@@ -405,6 +405,14 @@ enum SelfTest {
              testDeclaredAwayAutomaticCorrectionRoutes),
             ("Settings groups contain only backed controls",
              testSettingsGroupsContainOnlyBackedControls),
+            ("A stored tile order is repaired, never trusted verbatim",
+             testStoredTileOrderIsRepaired),
+            ("Correcting a session rewrites its whole thread",
+             testCorrectingASessionRewritesItsThread),
+            ("A session's shape reports only what was recorded",
+             testSessionShapeReportsOnlyRecordedEvidence),
+            ("Unrecorded focus is the focused span usage never saw",
+             testUnrecordedFocusIsTheUncoveredSpan),
             ("The window opens on the story the preference names",
              testWindowOpensOnPreferredStory),
             ("Narrative diagnostics use a full-width status layout",
@@ -6812,6 +6820,176 @@ enum SelfTest {
             settings.closeSheet()
             expect(settings.sheet == nil, "closing the sheet returns the story", &problems)
         }
+        return problems
+    }
+
+    /// A stored arrangement is a preference, not a schema. It must survive a
+    /// release that adds, removes or renames a tile without losing one.
+    private static func testStoredTileOrderIsRepaired() -> [String] {
+        var problems: [String] = []
+        expect(StoryTileKind.order(from: "") == StoryTileKind.allCases,
+               "no stored order yields the shipped order", &problems)
+        expect(StoryTileKind.order(from: "streak,apps") ==
+               [.streak, .apps, .focus, .mac, .rhythm],
+               "a partial order keeps its choices and appends the rest", &problems)
+        expect(StoryTileKind.order(from: "apps,ghost,apps,mac").count
+               == StoryTileKind.allCases.count,
+               "unknown and duplicate names never shrink or grow the rail", &problems)
+        expect(Set(StoryTileKind.order(from: "ghost,ghost")) == Set(StoryTileKind.allCases),
+               "an unusable stored order still yields every tile", &problems)
+
+        let order = StoryTileKind.allCases
+        expect(StoryTileKind.moving(.streak, before: .focus, in: order)
+               == [.streak, .focus, .mac, .apps, .rhythm],
+               "a tile dropped on the first one takes first place", &problems)
+        expect(StoryTileKind.moving(.focus, before: nil, in: order)
+               == [.mac, .apps, .rhythm, .streak, .focus],
+               "a tile dropped past the end takes last place", &problems)
+        expect(StoryTileKind.moving(.mac, before: .mac, in: order) == order,
+               "a tile dropped on itself changes nothing", &problems)
+        expect(StoryTileKind.moving(.apps, before: .rhythm, in: order) == order,
+               "a tile dropped on its own successor changes nothing", &problems)
+        return problems
+    }
+
+    /// Segments of one piece of work share a name and a kind, so a correction
+    /// applies to the thread — otherwise a renamed stretch would split the work
+    /// into two differently-named halves.
+    private static func testCorrectingASessionRewritesItsThread() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(anchoredNow())
+        let thread = UUID()
+        let other = UUID()
+        let base = Calendar.current.startOfDay(for: clock.value).addingTimeInterval(9 * 3_600)
+        let directory = scratchDirectory()
+        try? FileManager.default.createDirectory(at: directory,
+                                                 withIntermediateDirectories: true)
+        let seed = [
+            SessionRecord(name: "Refactor", workType: .deepWork,
+                          start: base, end: base.addingTimeInterval(1_800),
+                          workSeconds: 1_800, threadID: thread),
+            SessionRecord(name: "Refactor", workType: .deepWork,
+                          start: base.addingTimeInterval(3_600),
+                          end: base.addingTimeInterval(5_400),
+                          workSeconds: 1_800, threadID: thread),
+            SessionRecord(name: "Email", workType: .admin,
+                          start: base.addingTimeInterval(7_200),
+                          end: base.addingTimeInterval(8_100),
+                          workSeconds: 900, threadID: other)
+        ]
+        if let data = try? JSONEncoder().encode(seed) {
+            try? data.write(to: directory.appendingPathComponent("sessions.json"),
+                            options: .atomic)
+        }
+        let archive = SessionArchive(directory: directory, now: { clock.value })
+
+        expect(archive.rename(thread: thread, to: "Parser rewrite"),
+               "renaming a thread that needs it reports a change", &problems)
+        let renamed = archive.records.filter { $0.threadID == thread }
+        expect(renamed.count == 2 && renamed.allSatisfy { $0.name == "Parser rewrite" },
+               "every stretch of the thread carries the new name", &problems)
+        expect(archive.records.first { $0.threadID == other }?.name == "Email",
+               "another thread is left alone", &problems)
+        expect(!archive.rename(thread: thread, to: "Parser rewrite"),
+               "renaming to the same name reports no change", &problems)
+        expect(!archive.rename(thread: thread, to: "   "),
+               "an empty name is refused", &problems)
+
+        expect(archive.setWorkType(.breakTime, forThread: thread),
+               "reclassifying a thread that needs it reports a change", &problems)
+        expect(archive.records.filter { $0.threadID == thread }
+            .allSatisfy { $0.workType == .breakTime },
+               "every stretch of the thread carries the new kind", &problems)
+        expect(archive.workSeconds(on: clock.value) == 900,
+               "time corrected to rest leaves the day's focused total", &problems)
+
+        // The correction must survive a reopen: it is a write, not a view.
+        let reopened = SessionArchive(directory: directory, now: { clock.value })
+        expect(reopened.records.filter { $0.threadID == thread }
+            .allSatisfy { $0.name == "Parser rewrite" && $0.workType == .breakTime },
+               "corrections are persisted, not merely held in memory", &problems)
+        return problems
+    }
+
+    /// The shape must describe the recording, never the session. A session with
+    /// no usage evidence has no shape to report.
+    private static func testSessionShapeReportsOnlyRecordedEvidence() -> [String] {
+        var problems: [String] = []
+        let base = anchoredNow()
+        func segment(_ name: String, _ from: TimeInterval, _ to: TimeInterval,
+                     _ reason: UsageEndReason) -> TimelineSegment {
+            TimelineSegment(id: UUID(), bundleID: "com.\(name)", appName: name,
+                            start: base.addingTimeInterval(from),
+                            end: base.addingTimeInterval(to),
+                            colorIndex: 0, endReason: reason)
+        }
+
+        expect(SessionShape.paragraph(SessionShape.Input(
+            segments: [], workType: .deepWork, stretches: 1, worked: 3_600)) == nil,
+               "a session with no recording reports no shape", &problems)
+
+        let mixed = SessionShape.sentences(SessionShape.Input(
+            segments: [segment("Xcode", 0, 1_800, .idle),
+                       segment("Safari", 1_800, 2_400, .appSwitch),
+                       segment("Xcode", 2_400, 3_600, .stillOpen)],
+            workType: .deepWork, stretches: 1, worked: 3_600))
+        let joined = mixed.joined(separator: " ")
+        expect(joined.contains("Xcode was in front for 50m of the 1h recorded"),
+               "the leading app is stated against recorded time", &problems)
+        expect(joined.contains("You moved between apps 2 times."),
+               "only real identity changes count as switches", &problems)
+        expect(joined.contains("input stopped once"),
+               "a recorded idle end is reported", &problems)
+        expect(!joined.contains("watching"),
+               "deep work never claims watching counts as the work", &problems)
+        expect(!joined.contains("no app recording"),
+               "a fully recorded session reports no gap", &problems)
+
+        let meeting = SessionShape.sentences(SessionShape.Input(
+            segments: [segment("Zoom", 0, 1_800, .idle)],
+            workType: .meetings, stretches: 1, worked: 3_600))
+        let meetingText = meeting.joined(separator: " ")
+        expect(meetingText.contains("Zoom was in front for all 30m recorded."),
+               "a single-app session says so plainly", &problems)
+        expect(meetingText.contains("Meetings treats watching as the work itself"),
+               "the watching rule is stated where it applies", &problems)
+        expect(meetingText.contains("30m of this session has no app recording."),
+               "worked time beyond the recording is stated, not hidden", &problems)
+        return problems
+    }
+
+    /// The three parts of the Mac split must be disjoint and sum to the whole,
+    /// or the tile would describe more time than the day can account for.
+    private static func testUnrecordedFocusIsTheUncoveredSpan() -> [String] {
+        var problems: [String] = []
+        let clock = Clock(anchoredNow())
+        let day = Calendar.current.startOfDay(for: clock.value)
+        let start = day.addingTimeInterval(9 * 3_600)
+        let archive = makeArchive(clock, records: [
+            SessionRecord(name: "Refactor", workType: .deepWork,
+                          start: start, end: start.addingTimeInterval(3_600),
+                          workSeconds: 3_600, threadID: UUID())
+        ])
+        // One 15-minute stretch inside the hour, and one entirely outside it.
+        let usage = makeUsageArchive(clock, sessions: [
+            AppUsageSession(bundleID: "com.apple.dt.Xcode", appName: "Xcode",
+                            start: start, end: start.addingTimeInterval(900),
+                            endReason: .appSwitch),
+            AppUsageSession(bundleID: "com.google.Chrome", appName: "Chrome",
+                            start: start.addingTimeInterval(5_400),
+                            end: start.addingTimeInterval(7_200),
+                            endReason: .appSwitch)
+        ], accurateFrom: day)
+        let quality = DashboardStats(sessions: archive, usage: usage).focusQuality(for: day)
+        let tracked: TimeInterval = 900 + 1_800
+        let inside = tracked * quality.insideSessionShare
+        expect(abs(inside - 900) < 1,
+               "only usage inside the session counts as inside it", &problems)
+        expect(abs(quality.unrecordedFocusSeconds - 2_700) < 1,
+               "the focused span usage never saw is 45m", &problems)
+        expect(abs((inside + (tracked - inside) + quality.unrecordedFocusSeconds)
+                   - (tracked + 2_700)) < 1,
+               "the three parts sum to the accounted total", &problems)
         return problems
     }
 
