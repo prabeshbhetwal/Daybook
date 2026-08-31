@@ -5,6 +5,7 @@ import Combine
 enum SessionHotKeyActionResult: Equatable {
     case started
     case stopped
+    case stoppedPendingFinalisation
     case showAwayDecision
     case saveFailed
 }
@@ -201,7 +202,7 @@ final class SessionStore: ObservableObject {
     /// refreshed until its candidate was atomically persisted.
     @Published private(set) var correctionError: String?
     @Published private(set) var canUndoCorrection = false
-    var corrections: [SessionStoreCorrectionState] { engine.decisionHistory.document.fields }
+    var corrections: [SessionStoreCorrectionState] { engine.fieldCorrections }
     var lastCorrection: SessionStoreCorrectionState? { corrections.last }
     var correctionRetry: SessionCorrectionRetry?
 
@@ -241,9 +242,7 @@ final class SessionStore: ObservableObject {
     func startAutomatically(workType: WorkType, name: String, backdatedTo: Date,
                             because: String) {
         guard !hasUnresolvedAwayDecision else { return }
-        guard engine.start(workType: workType, intent: name, isAuto: true) else {
-            retainEndingRetry(); refresh(); return
-        }
+        guard replaceSession(workType: workType, intent: name, isAuto: true) else { return }
         engine.backdate(to: backdatedTo)
         refresh()
     }
@@ -282,7 +281,7 @@ final class SessionStore: ObservableObject {
         if engine.wouldAdopt(workType: workType) {
             engine.adopt(intent: intent)
         } else {
-            engine.start(workType: workType, intent: intent)
+            guard replaceSession(workType: workType, intent: intent) else { return }
         }
         engine.store.rememberActivity(name: intent, workType: workType)
         intent = ""
@@ -436,6 +435,8 @@ final class SessionStore: ObservableObject {
     /// Shared clock for live figures and calendar navigation. Production uses
     /// wall time; self-tests advance it without a run loop.
     let now: () -> Date
+    let applicationIsRunning: (String) -> Bool
+    let activateApplication: (String, Bool) -> Void
     /// Rebuilt with `continuationCandidates` after archive mutations, so Focus
     /// does not repeatedly scan history while composing its headings and rows.
     var continuationIndex: ContinuationPolicy.Index?
@@ -468,10 +469,19 @@ final class SessionStore: ObservableObject {
 
     init(engine: SessionEngine,
          schedulesTicker: Bool = true,
+         applicationIsRunning: @escaping (String) -> Bool = {
+             !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty
+         },
+         activateApplication: @escaping (String, Bool) -> Void = { bundleID, ignoringOtherApps in
+             NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?
+                 .activate(options: ignoringOtherApps ? .activateIgnoringOtherApps : [])
+         },
          now: @escaping () -> Date = Date.init) {
         self.engine = engine
         self.schedulesTicker = schedulesTicker
         self.now = now
+        self.applicationIsRunning = applicationIsRunning
+        self.activateApplication = activateApplication
         engine.threadContextMatcher = { [weak self] app in
             self?.runningThreadUses(app) ?? true
         }
@@ -901,14 +911,16 @@ final class SessionStore: ObservableObject {
     func performSessionHotKeyAction() -> SessionHotKeyActionResult {
         guard !hasUnresolvedAwayDecision else { return .showAwayDecision }
         if engine.state == .idle {
-            engine.start(workType: engine.activeWorkType, intent: "")
+            guard replaceSession(workType: engine.activeWorkType, intent: "") else { return .saveFailed }
             refresh()
             return .started
         }
+        let origin = (engine.activeThreadID, engine.sessionStartDate)
         let stopped = engine.stop()
-        if !stopped { retainEndingRetry() }
+        let finalisationPending = stopped && engine.awayDecisionError != nil
+        if !stopped || finalisationPending { retainEndingRetry(origin: origin) }
         refresh()
-        return stopped ? .stopped : .saveFailed
+        return stopped ? (finalisationPending ? .stoppedPendingFinalisation : .stopped) : .saveFailed
     }
 
     /// Pressing Start continues a session already running on the same kind of
@@ -920,9 +932,7 @@ final class SessionStore: ObservableObject {
         if engine.wouldAdopt(workType: workType, intent: intent) {
             engine.adopt(intent: intent)
         } else {
-            guard engine.start(workType: workType, intent: intent) else {
-                retainEndingRetry(); refresh(); return
-            }
+            guard replaceSession(workType: workType, intent: intent) else { return }
         }
         engine.store.rememberActivity(name: intent, workType: workType)
         intent = ""
@@ -935,9 +945,7 @@ final class SessionStore: ObservableObject {
         if engine.wouldAdopt(workType: quick.workType, intent: quick.name) {
             engine.adopt(intent: quick.name)
         } else {
-            guard engine.start(workType: quick.workType, intent: quick.name) else {
-                retainEndingRetry(); refresh(); return
-            }
+            guard replaceSession(workType: quick.workType, intent: quick.name) else { return }
         }
         engine.store.rememberActivity(name: quick.name, workType: quick.workType)
         intent = ""
@@ -961,9 +969,24 @@ final class SessionStore: ObservableObject {
         refresh()
     }
 
-    private func retainEndingRetry() {
+    private func retainEndingRetry(origin: (threadID: UUID, sessionStart: Date)) {
         publishCorrectionError(engine.awayDecisionError)
-        correctionRetry = .ending(threadID: engine.activeThreadID, sessionStart: engine.sessionStartDate)
+        correctionRetry = .ending(threadID: origin.threadID, sessionStart: origin.sessionStart)
+    }
+
+    /// Every app-level replacement retains the originating save action before
+    /// changing live identity. Callers perform their existing eligibility gate
+    /// first, and only activate apps/clear drafts/backdate after true success.
+    @discardableResult
+    func replaceSession(workType: WorkType, intent: String, threadID: UUID = UUID(), isAuto: Bool = false) -> Bool {
+        let origin = (engine.activeThreadID, engine.sessionStartDate)
+        let started = engine.start(workType: workType, intent: intent, threadID: threadID, isAuto: isAuto)
+        let retry = SessionCorrectionRetry.ending(threadID: origin.0, sessionStart: origin.1)
+        let unfinishedEnding = engine.awayDecisionError != nil
+            && engine.decisionHistory.document.pending.map { retry.matches($0) } == true
+        if !started || unfinishedEnding { retainEndingRetry(origin: origin) }
+        if !started { refresh() }
+        return started
     }
 
     func togglePause() {
@@ -1025,8 +1048,8 @@ final class SessionStore: ObservableObject {
         let currentID = reviewing ? (expectedID.flatMap { engine.awayDecision(id: $0)?.id }
             ?? (expectedID == nil ? engine.lastAwayDecision?.id : nil)) : engine.pendingDecisionID
         guard let id = currentID, expectedID == nil || expectedID == id else {
-            if expectedID != nil {
-                publishCorrectionError("That action belongs to an earlier interval. The current record was not changed.")
+            if reviewing || expectedID != nil {
+                publishCorrectionError("That interval was retired or changed. The current record was not changed.")
                 correctionRetry = nil
             }
             return false

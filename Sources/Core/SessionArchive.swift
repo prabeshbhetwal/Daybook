@@ -62,12 +62,34 @@ final class SessionArchive {
     /// presenting their Privacy settings. It never assumes the live data path.
     var dataDirectoryURL: URL { directory }
 
-    func append(_ record: SessionRecord) {
-        cache.append(record)
-        if cache.count > capacity {
-            cache.removeFirst(cache.count - capacity)
+    /// Production capacity writes belong to SessionEngine, which can journal
+    /// their metadata alongside the exact retired records. A source-only
+    /// standalone archive may still retain independently when no metadata exists.
+    var capacityRetirementHandler: ((SessionRecord) -> String?)?
+
+    @discardableResult
+    func append(_ record: SessionRecord) -> String? {
+        if !capacityRetirements(adding: [record]).isEmpty {
+            if let handler = capacityRetirementHandler { return handler(record) }
+            if FileManager.default.fileExists(atPath: directory.appendingPathComponent("correction-history.json").path) {
+                return "History retirement requires its correction journal owner. No records were removed."
+            }
         }
-        save()
+        // Publish only a durable candidate, including on ordinary append.
+        return edit(adding: [record], allowsEviction: true)
+    }
+
+    /// The exact records the existing capacity rule would drop. This is not
+    /// inferred from missing records, so reversible removal is never retirement.
+    func capacityRetirements(removing expected: [SessionRecord] = [], adding additions: [SessionRecord]) -> [SessionRecord] {
+        let expectedIDs = Set(expected.map(\.id))
+        let replacements = Dictionary(uniqueKeysWithValues: additions.map { ($0.id, $0) })
+        var candidate = cache.compactMap { record in
+            expectedIDs.contains(record.id) ? replacements[record.id] : record
+        }
+        candidate += additions.filter { !expectedIDs.contains($0.id) }
+        guard candidate.count > capacity, candidate.count > cache.count else { return [] }
+        return Array(candidate.prefix(candidate.count - capacity))
     }
 
     /// Saves a scoped edit as one candidate. Expected records act as a
@@ -77,6 +99,10 @@ final class SessionArchive {
               allowsEviction: Bool = false) -> String? {
         if let failure = validateEdit(removing: expected, adding: additions, allowsEviction: allowsEviction) {
             return failure
+        }
+        if allowsEviction, !capacityRetirements(removing: expected, adding: additions).isEmpty,
+           FileManager.default.fileExists(atPath: directory.appendingPathComponent("correction-history.json").path) {
+            return "Capacity edits must use the correction journal. No history was retired."
         }
         let expectedIDs = Set(expected.map(\.id))
         let replacements = Dictionary(uniqueKeysWithValues: additions.map { ($0.id, $0) })
@@ -245,13 +271,6 @@ final class SessionArchive {
             try? FileManager.default.moveItem(at: fileURL, to: aside)
             Diagnostics.log("archive unreadable, moved to \(aside.lastPathComponent): \(error)")
             return []
-        }
-    }
-
-    private func save() {
-        switch write(cache) {
-        case .success: break
-        case .failure(let error): Diagnostics.log("failed to write archive: \(error)")
         }
     }
 

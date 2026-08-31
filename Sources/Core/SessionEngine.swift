@@ -68,13 +68,21 @@ final class SessionEngine {
     let decisionHistory: DecisionHistory
     private var correctionGeneration = 0
     var decisionHistoryRevision: Int { correctionGeneration }
+    var fieldCorrections: [SessionStoreCorrectionState] {
+        if decisionHistory.pendingAfterIsCommitted(in: archive), let pending = decisionHistory.document.pending {
+            return pending.fieldsAfter
+        }
+        return decisionHistory.document.fields
+    }
     var retainedCorrectionRecordIDs: Set<UUID> {
         var ids = Set(awayDecisions.flatMap { receipt in
             [receipt.insertedRecord?.id, receipt.expectedCreditRecord?.id, receipt.legacyOriginalRecord?.id].compactMap { $0 }
         })
-        for field in decisionHistory.document.fields { ids.formUnion(field.archiveRecordIDs) }
+        for field in fieldCorrections { ids.formUnion(field.archiveRecordIDs) }
         if let pending = decisionHistory.document.pending {
-            ids.formUnion((pending.removed + pending.added).map(\.id))
+            let pendingIDs = Set((pending.removed + pending.added).map(\.id))
+            ids.formUnion(decisionHistory.pendingAfterIsCommitted(in: archive)
+                ? pendingIDs.subtracting(pending.retiredRecordIDs ?? []) : pendingIDs)
         }
         return ids
     }
@@ -139,6 +147,14 @@ final class SessionEngine {
         self.schedulesDwell = schedulesDwell
         self.now = now
         self.sessionStartDate = now()
+        self.archive.capacityRetirementHandler = { [weak self] record in
+            guard let self else { return "The correction journal owner is unavailable. No history was retired." }
+            let before = self.snapshot()
+            // Away and Watching also append here. Only correction metadata
+            // changes; this handler must not end or replay the current stretch.
+            return self.commitCorrection(before: before, adding: [record], allowsEviction: true)
+                ? nil : self.awayDecisionError
+        }
     }
 
     deinit {
@@ -1107,12 +1123,12 @@ final class SessionEngine {
                                      threadID: activeThreadID,
                                      isAuto: activeIsAuto)
         if awayDecisions.contains(where: { $0.creditedSeconds > 0 && $0.threadID == record.threadID
-            && $0.sessionStart == record.start }) {
+            && $0.sessionStart == record.start }) || !archive.capacityRetirements(adding: [record]).isEmpty {
             let before = snapshot()
             linkCreditRecords([record])
-            // A closed credited stretch must be recoverable even if the final
-            // preference write is interrupted; the archive and its receipt
-            // expectations are committed through the same journal.
+            // End owns this idle checkpoint, including uncredited endings that
+            // retire older history. The generic Away/Watching append handler
+            // remains metadata-only and never assumes that work is ending.
             var after = snapshot()
             after.kind = .idle
             after.correctionGeneration = correctionGeneration + 1
@@ -1128,7 +1144,11 @@ final class SessionEngine {
                     return false
                 }
             } else { correctionGeneration += 1; awayDecisionError = nil }
-        } else { archive.append(record) }
+            synchroniseCommittedCorrectionMetadata()
+        } else if let error = archive.append(record) {
+            awayDecisionError = error
+            return archive.records.contains(record)
+        }
         return true
     }
 
@@ -1337,18 +1357,24 @@ final class SessionEngine {
             // Once the scoped archive effects landed, retain the live after
             // state too. The pending journal completes finalisation on retry.
             // Before archive commit, restore only our staged in-memory state.
-            let touched = Set((removing + adding).map(\.id))
-            let actual = archive.records.filter { touched.contains($0.id) }
-            let archiveCommitted = decisionHistory.document.pending != nil
-                && actual.count == adding.count && adding.allSatisfy { actual.contains($0) }
+            let archiveCommitted = decisionHistory.pendingAfterIsCommitted(in: archive)
             if !archiveCommitted { applyExactCorrectionState(before) }
+            else { synchroniseCommittedCorrectionMetadata() }
             awayDecisionError = error
             persist()
             return false
         }
+        synchroniseCommittedCorrectionMetadata()
         awayDecisionError = nil
         persist()
         return true
+    }
+
+    private func synchroniseCommittedCorrectionMetadata() {
+        let saved = decisionHistory.pendingAfterIsCommitted(in: archive)
+            ? decisionHistory.document.pending?.after : decisionHistory.document.checkpoint
+        guard let saved, saved.correctionGeneration == correctionGeneration else { return }
+        awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
     }
 
     private func linkCreditRecords(_ records: [SessionRecord]) {

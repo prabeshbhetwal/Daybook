@@ -11,6 +11,8 @@ final class DecisionHistory {
         let added: [SessionRecord]
         let fieldsBefore: [SessionStoreCorrectionState]
         let fieldsAfter: [SessionStoreCorrectionState]
+        /// Optional for sidecars written before durable retention was explicit.
+        var retiredRecordIDs: Set<UUID>? = nil
     }
     struct Document: Codable {
         var version = 1
@@ -68,20 +70,34 @@ final class DecisionHistory {
         // retain ordinary archive retention; historical corrections may not.
         if let failure = archive.validateEdit(removing: removing, adding: adding,
                                                allowsEviction: allowsEviction) { return failure }
-        let transaction = Transaction(id: UUID(), before: before, after: after,
-            removed: removing, added: adding, fieldsBefore: document.fields,
-            fieldsAfter: fields ?? document.fields)
+        let retired = allowsEviction ? archive.capacityRetirements(removing: removing, adding: adding) : []
+        let retiredIDs = Set(retired.map(\.id)), removalIDs = Set(removing.map(\.id))
+        let scopedRemovals = removing + archive.records.filter { retiredIDs.contains($0.id) && !removalIDs.contains($0.id) }
+        let scopedAdditions = adding.filter { !retiredIDs.contains($0.id) }
+        let scopedIDs = Set(scopedRemovals.map(\.id))
+        let surviving = archive.records.filter { !scopedIDs.contains($0.id) } + scopedAdditions
+        let retained = CorrectionRetention.applying(retired, to: after, fields: fields ?? document.fields, surviving: surviving)
+        let transaction = Transaction(id: UUID(), before: before, after: retained.state,
+            removed: scopedRemovals, added: scopedAdditions, fieldsBefore: document.fields,
+            fieldsAfter: retained.fields, retiredRecordIDs: retiredIDs)
         var prepared = document
         prepared.pending = transaction
         if let failure = save(prepared) { return failure }
-        if let failure = archive.edit(removing: removing, adding: adding, allowsEviction: allowsEviction) {
+        if let failure = archive.edit(removing: scopedRemovals, adding: scopedAdditions) {
             return failure
         }
         var committed = prepared
-        committed.checkpoint = after
+        committed.checkpoint = transaction.after
         committed.fields = transaction.fieldsAfter
         committed.pending = nil
         return save(committed)
+    }
+
+    func pendingAfterIsCommitted(in archive: SessionArchive) -> Bool {
+        guard let pending = document.pending else { return false }
+        let ids = Set((pending.removed + pending.added).map(\.id))
+        let actual = archive.records.filter { ids.contains($0.id) }
+        return actual.count == pending.added.count && pending.added.allSatisfy { actual.contains($0) }
     }
 
     private func save(_ next: Document) -> String? {

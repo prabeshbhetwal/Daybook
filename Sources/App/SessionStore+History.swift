@@ -417,7 +417,7 @@ extension SessionStore {
 
     /// Whether an app is running right now, so its session can be continued.
     func isRunning(bundleID: String) -> Bool {
-        !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
+        applicationIsRunning(bundleID)
     }
 
     /// The live session expressed as a thread, or nil when idle. Kept in step
@@ -499,13 +499,10 @@ extension SessionStore {
               let canonical = canonicalRecord(for: thread, index: index),
               index.isEligible(canonical, active: runningThread(), now: now()) else { return }
         let primary = threadApps(thread).primary?.bundleID
-        engine.start(workType: canonical.workType, intent: canonical.name,
-                     threadID: canonical.threadID)
+        guard replaceSession(workType: canonical.workType, intent: canonical.name,
+                             threadID: canonical.threadID) else { return }
         if let primary, isRunning(bundleID: primary) {
-            NSRunningApplication
-                .runningApplications(withBundleIdentifier: primary)
-                .first?
-                .activate(options: .activateIgnoringOtherApps)
+            activateApplication(primary, true)
         }
         refresh()
     }
@@ -516,12 +513,9 @@ extension SessionStore {
     func continueApp(_ summary: AppUsageSummary) {
         guard !hasUnresolvedAwayDecision,
               isRunning(bundleID: summary.bundleID) else { return }
-        NSRunningApplication
-            .runningApplications(withBundleIdentifier: summary.bundleID)
-            .first?
-            .activate(options: [])
-        engine.start(workType: engine.categories.suggestedWorkType(for: summary.bundleID),
-                     intent: summary.appName)
+        guard replaceSession(workType: engine.categories.suggestedWorkType(for: summary.bundleID),
+                             intent: summary.appName) else { return }
+        activateApplication(summary.bundleID, false)
         refresh()
     }
 
@@ -807,9 +801,8 @@ extension SessionStore {
               let canonical = canonicalRecord(for: session),
               ContinuationPolicy.isEligible(canonical, records: engine.archive.records,
                                             active: runningThread(), now: now()) else { return }
-        engine.start(workType: canonical.workType,
-                     intent: canonical.name,
-                     threadID: canonical.threadID)
+        guard replaceSession(workType: canonical.workType, intent: canonical.name,
+                             threadID: canonical.threadID) else { return }
         refresh()
     }
 
@@ -831,7 +824,7 @@ extension SessionStore {
     func startNewSession(from session: DaySession) {
         guard canStartNewSession(session),
               let source = newSessionSource(for: session) else { return }
-        engine.start(workType: source.workType, intent: source.name)
+        guard replaceSession(workType: source.workType, intent: source.name) else { return }
         refresh()
     }
 
