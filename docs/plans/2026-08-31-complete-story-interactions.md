@@ -154,19 +154,19 @@ Use a native segmented-control adapter or equally accessible roving focus implem
 
 **Files:**
 - Create `Sources/Core/SessionMetadata.swift`, `Sources/Core/SessionMetadataArchive.swift`, `Sources/App/PowerSourceMonitor.swift`, `Sources/App/SessionStore+Metadata.swift`, `Sources/Surfaces/Story/SessionNoteEditor.swift`, and `Sources/Verification/SessionMetadataChecks.swift`.
-- Modify `SessionEngine` only to expose stable current stretch identity/boundary hooks where necessary, coordinator/store injection, `DayStory.swift`, export/erase/retention paths, and fixture factory.
+- Modify `SessionEngine` only to expose stable current stretch identity/boundary hooks where necessary, coordinator/store injection, `DayStory.swift`, metadata retention/data-folder disclosure, and fixture factory. There is no existing export/erase UI; do not create an unrequested destructive workflow.
 
 **Interfaces:**
 - `SessionMetadata` keyed by stable recorded-stretch UUID, with optional note and ordered `PowerObservation` values. Absence of metadata means unknown, not a current-system fallback.
 - `PowerObservation` has timestamp, source (battery/external/UPS/unknown), optional percentage, charging state and coverage boundary where appropriate. `PowerSourceMonitor` is injected and not constructed in fixtures.
 - Store note API saves by record ID with a visible result/error and retained draft; power summary accepts the entry's own interval.
 
-- [ ] **Step 1: Write RED metadata tests.** Save/reload one stretch note, continue to another stretch without duplicating it, edit note then Undo classification, simulate failed save with draft retained, erase and export metadata. Use literal battery samples 78→64 and charging 64→81; an old/no-battery fixture must not display current power state. Test mixed sources, unknown percentage, resume gaps and invalid capacity values.
+- [ ] **Step 1: Write RED metadata tests.** Save/reload one stretch note, continue to another stretch without duplicating it, edit note then Undo classification, simulate failed save with draft retained, and prove that copying/removing the complete fixture data directory includes its metadata. Use literal battery samples 78→64 and charging 64→81; an old/no-battery fixture must not display current power state. Test mixed sources, unknown percentage, resume gaps and invalid capacity values.
 - [ ] **Step 2: Run RED** at the new archive/consumer boundary with only the minimal compiling model surface.
 - [ ] **Step 3: Implement atomic compatible metadata and UI.** Prefer a sidecar keyed by stable IDs so note edits do not change exact-record Undo checks. Match the archive's directory and retention/erasure guarantees. A running stretch must keep the same metadata identity when archived. Add local plain-text Add note/Save/Cancel with Command-Return, native editing shortcuts and guarded dismissal; preserve unsaved text through collapse/navigation and show storage errors. No empty note area on ordinary entries.
 
 Use public `IOPSCopyPowerSourcesInfo`, `IOPSCopyPowerSourcesList`, `IOPSGetPowerSourceDescription` and change notification APIs; sample only boundaries/events, never add a polling loop. Distinguish plugged-in from charging, handle no internal battery, clamp valid percent derived from capacity/max, and never backfill historic sessions. Display a small secondary power line under duration and expand mixed/partial context on request. Do not claim battery change is app energy consumption.
-- [ ] **Step 4: Run GREEN**, migration/retention/export/erase, failure and fixture renders. Ensure the fixture-only app neither starts a live power monitor nor writes real metadata.
+- [ ] **Step 4: Run GREEN**, migration/retention/data-folder portability, failure and fixture renders. Ensure the fixture-only app neither starts a live power monitor nor writes real metadata.
 - [ ] **Step 5: Commit** as `feat: add local session notes and observed power context` and report.
 
 ### Task 7: User-owned activity rules, installed-app picker and honest automation
@@ -191,7 +191,7 @@ When enabled, rule-based automation supersedes the heuristic start detector, rat
 ### Task 8: Integration, visual acceptance and release evidence
 
 **Files:**
-- Update `Sources/Verification/FixtureFactory.swift` (resolve actual factory path), `Snapshotter.swift`, interaction checks and fixture-only scenarios for all new states.
+- Update `FixtureFactory` in `Sources/Surfaces/GalleryView.swift`, `Sources/Surfaces/Snapshotter.swift`, interaction checks and fixture-only scenarios for all new states.
 - Update `DESIGN.md`, relevant README behaviour and `docs/superpowers/reviews/2026-08-31-complete-story-interactions-verification.md`.
 
 **Interfaces:** All earlier production boundaries; no second engine, live coordinator, app inventory or power observer in a fixture.

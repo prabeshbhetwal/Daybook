@@ -200,9 +200,12 @@ Keyboard users can reach the editor, save with Command-Return and leave it
 without trapping focus. Avoid a notebook sidebar, rich-text toolbar or separate
 editor window.
 
-Metadata must participate in export, retention and the existing erase-history
-operation. Undoing a classification must not accidentally erase a note, and
-editing a note must not invalidate an unrelated classification receipt.
+Metadata must remain alongside the existing data files, so a complete data-folder
+copy or removal includes it, and follow record retention. Source inspection found
+no existing export or erase-history control; this change does not introduce a new
+destructive workflow. Any future export/erase operation must include metadata.
+Undoing a classification must not accidentally erase a note, and editing a note
+must not invalidate an unrelated classification receipt.
 
 ## 5. Power context, only when actually recorded
 
@@ -281,7 +284,7 @@ drop feedback with a reduced-motion equivalent.
 2. After approval, implement the compact controls, in-window strip, compact month
    and arranging mode as a presentation batch.
 3. Implement notes and observed power context as compatible metadata changes,
-   including retention/export/erase and interrupted-save tests.
+   including retention, complete-folder portability/removal and interrupted-save tests.
 4. Implement the app inventory/rule editor independently of automatic mutation;
    show conflicts before rules can start sessions.
 5. Implement the approved exclusive-assignment detector with injected time and
