@@ -65,9 +65,9 @@ extension SessionStore {
         }
         let activity = RecordedActivity(segments: segments, spans: session.spans)
         let apps = activity.appRanks
-        let text = SessionShape.paragraph(.init(segments: segments, activity: activity,
-                                                workType: session.workType,
-                                                stretches: session.stretches, worked: session.worked))
+        let text = SessionShape.storyProse(.init(segments: segments, activity: activity,
+                                                 workType: session.workType,
+                                                 stretches: session.stretches, worked: session.worked))
         let bounds = session.end > session.start ? DateInterval(start: session.start, end: session.end) : nil
         let bins = bounds.map { SessionShape.bins(activity: activity, in: $0) } ?? []
         let elapsed = max(0, session.end.timeIntervalSince(session.start))

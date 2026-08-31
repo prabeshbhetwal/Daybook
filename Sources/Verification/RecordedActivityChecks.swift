@@ -6,6 +6,8 @@ import Foundation
 enum RecordedActivityChecks {
     static let tests: [(String, () -> [String])] = [
         ("Recorded activity prose keeps finite short observations factual", shortDurationProse),
+        ("Recorded activity prose counts switches from the foreground projection", canonicalSwitchProse),
+        ("Recorded activity duration text marks invalid values unavailable", unavailableDurationText),
         ("Recorded activity prose ignores zero-length app records", zeroLengthEvidence),
         ("Recorded activity coverage never sums overlapping records", overlappingEvidence),
         ("Recorded activity projects gaps without calling them rest", canonicalGaps)
@@ -34,6 +36,30 @@ enum RecordedActivityChecks {
             failures.append("a positive fractional observation was not described as <1s")
         }
         return failures
+    }
+
+    /// Breaks if an overlapping source record that lost the foreground tie is
+    /// still counted as an app switch in the reader-facing prose.
+    private static func canonicalSwitchProse() -> [String] {
+        let xcode = segment("Xcode", 0, 30)
+        let safari = segment("Safari", 10, 40)
+        let chrome = segment("Chrome", 20, 25)
+        let activity = RecordedActivity(segments: [xcode, safari, chrome],
+                                        spans: [DateInterval(start: start, duration: 40)])
+        let paragraph = SessionShape.paragraph(.init(segments: [xcode, safari, chrome], activity: activity,
+                                                     workType: .deepWork, stretches: 1, worked: 40)) ?? ""
+        return paragraph.contains("You moved between apps once.")
+            && !paragraph.contains("2 times")
+            && !paragraph.contains("Chrome")
+            ? [] : ["nested overlapping records added a raw-source app switch to canonical prose"]
+    }
+
+    /// Breaks if corrupt or unrepresentable persisted duration values are
+    /// silently presented as zero seconds rather than unavailable evidence.
+    private static func unavailableDurationText() -> [String] {
+        let invalid: [TimeInterval] = [-1, -.infinity, .infinity, .nan, TimeInterval(Int.max)]
+        return invalid.allSatisfy { DurationText.precise($0) == "—" }
+            ? [] : ["invalid duration evidence was rendered as an ordinary duration"]
     }
 
     /// Breaks if an actual zero-length record becomes a second app or a switch

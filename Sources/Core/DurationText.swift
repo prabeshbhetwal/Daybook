@@ -5,7 +5,7 @@ import Foundation
 /// app observation down to `0m` while SwiftUI showed something else.
 enum DurationText {
     static func precise(_ seconds: TimeInterval) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0s" }
+        guard seconds.isFinite, seconds >= 0 else { return "—" }
         guard seconds < TimeInterval(Int.max) else { return "—" }
         if seconds > 0, seconds < 1 { return "<1s" }
 
