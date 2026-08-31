@@ -443,7 +443,7 @@ enum SelfTest {
              testSimultaneousSnapshotsKeepIsolatedPreferences),
             ("Away snapshots retain production prompt chrome",
              testAwaySnapshotsRetainProductionPromptChrome)
-        ]
+        ] + StoryAccountingChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {

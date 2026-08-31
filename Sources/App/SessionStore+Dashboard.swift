@@ -225,8 +225,9 @@ extension SessionStore {
     }
 
     /// What each day of the month containing `date` amounted to, keyed by start
-    /// of day: tracked from the month rollup, focused and sessions from the
-    /// archive. Built once per shown month, when the calendar asks.
+    /// of day: tracked from the month rollup, with focus and session counts
+    /// from Story's canonical accounting (including a clipped live stretch).
+    /// Built once per shown month, when the calendar asks.
     func dayFacts(inMonthOf date: Date) -> [Date: DayFacts] {
         guard let usage else { return [:] }
         let calendar = Calendar.current
@@ -237,10 +238,10 @@ extension SessionStore {
         var facts: [Date: DayFacts] = [:]
         for day in days {
             let key = calendar.startOfDay(for: day.date)
-            let focused = engine.archive.workSeconds(on: key)
+            let focused = storyFocusedSeconds(on: key)
             let goalAchieved = focusedActiveSeconds(on: key,
                                                     usageSnapshot: usageSnapshot)
-            let sessions = engine.archive.threadCount(on: key)
+            let sessions = storySessionCount(on: key)
             if day.tracked > 0 || focused > 0 || sessions > 0 {
                 facts[key] = DayFacts(tracked: day.tracked, focused: focused,
                                       sessions: sessions, goalAchieved: goalAchieved)
@@ -321,7 +322,7 @@ extension SessionStore {
         if delta < 0, let earliest = earliestDay {
             let calendar = Calendar.current
             guard let candidate = calendar.date(byAdding: .day, value: -proposed,
-                                                to: Date()),
+                                                to: now()),
                   calendar.startOfDay(for: candidate) >= earliest else { return }
         }
         selectDay(offset: proposed)

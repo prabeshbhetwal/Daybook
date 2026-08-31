@@ -64,7 +64,7 @@ extension SessionStore {
             sessionRecords: engine.archive.records,
             usage: snapshot.sessions,
             calendar: calendar)
-        historyDays = rebuiltHistory.days
+        historyDays = storyHistoryDaysIncludingRunning(rebuiltHistory.days)
         historyIntegrityNotices = []
         if snapshot.sessions.contains(where: {
             $0.end > $0.start && $0.start < snapshot.accurateFrom
@@ -122,23 +122,8 @@ extension SessionStore {
             .focusQuality(for: rollup.days.map(\.date))
 
         let bounds = periodStats.bounds(for: reviewPeriod, containing: anchor)
-        reviewFocusSessions = engine.archive.records.compactMap { record in
-            guard record.workType.countsAsFocus else { return nil }
-            let seconds = record.workSeconds(in: (start: bounds.start, end: bounds.end))
-            guard seconds > 0 else { return nil }
-            return ReviewFocusEntry(
-                id: record.id,
-                threadID: record.threadID,
-                name: record.name.isEmpty ? record.workType.displayName : record.name,
-                workType: record.workType,
-                start: max(record.start, bounds.start),
-                end: min(record.end, bounds.end),
-                seconds: seconds)
-        }
-        .sorted { left, right in
-            left.start == right.start ? left.id.uuidString > right.id.uuidString
-                                      : left.start > right.start
-        }
+        reviewFocusSessions = reviewFocusEntries(
+            in: DateInterval(start: bounds.start, end: bounds.end))
         let longestFocus = reviewFocusSessions.max { left, right in
             left.seconds == right.seconds ? left.start > right.start
                                           : left.seconds < right.seconds
@@ -156,39 +141,87 @@ extension SessionStore {
         reviewRefreshPending = false
     }
 
-    /// The selected day's evidence, or nil when Review has no canonical row for
-    /// it. Every field is filtered from already-published state; a View calling
-    /// this never reaches an archive.
+    /// Exact day-scoped usage entries. The already-published period index is
+    /// reused where it applies; a reachable History row outside that period is
+    /// rebuilt from the same effective usage snapshot instead of losing detail.
+    private func reviewAppEntries(on day: Date,
+                                  calendar: Calendar) -> [LogEntry] {
+        if let published = reviewEntriesByDay.first(where: { key, _ in
+            calendar.isDate(key, inSameDayAs: day)
+        })?.value {
+            return published
+        }
+        guard let usage else { return [] }
+        let stats = DashboardStats(sessions: engine.archive, usage: usage,
+                                   usageSnapshot: effectiveUsageSnapshot,
+                                   calendar: calendar, now: now)
+        var entries: [LogEntry] = []
+        for rank in stats.rankedApps(for: day) {
+            entries.append(contentsOf: stats.sessions(for: day, bundleID: rank.bundleID)
+                .map { LogEntry(session: $0, day: calendar.startOfDay(for: day)) })
+        }
+        return entries.sorted { left, right in
+            if left.session.start != right.session.start {
+                return left.session.start > right.session.start
+            }
+            if left.session.end != right.session.end {
+                return left.session.end > right.session.end
+            }
+            return left.session.id > right.session.id
+        }
+    }
+
+    /// Focus stretches for an arbitrary Review/History day. Archive entries
+    /// retain their stored identifiers; an active stretch is a read-only live
+    /// projection keyed by its real thread identity and is never persisted.
+    private func reviewFocusEntries(in interval: DateInterval) -> [ReviewFocusEntry] {
+        var entries = engine.archive.records.compactMap { record -> ReviewFocusEntry? in
+            guard record.workType.countsAsFocus else { return nil }
+            let seconds = record.workSeconds(in: (start: interval.start, end: interval.end))
+            guard seconds > 0 else { return nil }
+            return ReviewFocusEntry(
+                id: record.id,
+                threadID: record.threadID,
+                name: record.name.isEmpty ? record.workType.displayName : record.name,
+                workType: record.workType,
+                start: max(record.start, interval.start),
+                end: min(record.end, interval.end),
+                seconds: seconds)
+        }
+        if let running = storyRunningSpan {
+            let seconds = storyRunningFocusSeconds(in: interval)
+            if seconds > 0 {
+                entries.append(ReviewFocusEntry(
+                    id: engine.activeThreadID,
+                    threadID: engine.activeThreadID,
+                    name: engine.sessionName.isEmpty
+                        ? engine.activeWorkType.displayName : engine.sessionName,
+                    workType: engine.activeWorkType,
+                    start: max(running.start, interval.start),
+                    end: min(running.end, interval.end),
+                    seconds: seconds))
+            }
+        }
+        return entries.sorted { left, right in
+            left.start == right.start ? left.id.uuidString > right.id.uuidString
+                                      : left.start > right.start
+        }
+    }
+
+    /// The selected day's evidence, or nil when Review has no canonical History
+    /// row for it. A History selection may be outside the currently shown
+    /// Week/Month, so its app and focus entries are rebuilt from the same
+    /// authoritative snapshot rather than silently appearing empty.
     func reviewDayDetail(for date: Date, calendar: Calendar = .current) -> ReviewDayDetail? {
         let day = calendar.startOfDay(for: date)
         guard let historyDay = historyDays.first(where: {
             calendar.isDate($0.date, inSameDayAs: day)
         }) else { return nil }
         let periodDay = reviewDays.first { calendar.isDate($0.date, inSameDayAs: day) }
-        let appEntries = reviewEntriesByDay.first { key, _ in
-            calendar.isDate(key, inSameDayAs: day)
-        }?.value ?? []
-        let focusEntries: [ReviewFocusEntry]
-        if let dayEnd = calendar.date(byAdding: .day, value: 1, to: day) {
-            focusEntries = reviewFocusSessions.compactMap { entry in
-                let start = max(entry.start, day)
-                let end = min(entry.end, dayEnd)
-                guard end > start else { return nil }
-                let span = entry.end.timeIntervalSince(entry.start)
-                let seconds = span > 0
-                    ? entry.seconds * end.timeIntervalSince(start) / span
-                    : entry.seconds
-                return ReviewFocusEntry(id: entry.id,
-                                        threadID: entry.threadID,
-                                        name: entry.name,
-                                        workType: entry.workType,
-                                        start: start,
-                                        end: end,
-                                        seconds: seconds)
-            }
-        } else {
-            focusEntries = []
-        }
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: day) else { return nil }
+        let dayInterval = DateInterval(start: day, end: dayEnd)
+        let appEntries = reviewAppEntries(on: day, calendar: calendar)
+        let focusEntries = reviewFocusEntries(in: dayInterval)
         return ReviewDayDetail(day: historyDay,
                                periodDay: periodDay,
                                appEntries: appEntries,
@@ -240,7 +273,7 @@ extension SessionStore {
     /// focused at all.
     var reviewBestDay: (day: Date, focused: TimeInterval)? {
         let ranked = reviewDays
-            .map { (day: $0.date, focused: engine.archive.workSeconds(on: $0.date)) }
+            .map { (day: $0.date, focused: storyFocusedSeconds(on: $0.date)) }
             .filter { $0.focused > 0 }
         return ranked.max { $0.focused < $1.focused }
     }
@@ -254,10 +287,10 @@ extension SessionStore {
             ?? calendar.startOfDay(for: anchor)
     }
 
-    /// Focused seconds across the shown period, from the same per-day archive
-    /// figures History reports.
+    /// Focused seconds across the shown period, including the live local-day
+    /// projection used by Story's Day and Month cell facts.
     var reviewFocusedSeconds: TimeInterval {
-        reviewDays.reduce(0) { $0 + engine.archive.workSeconds(on: $1.date) }
+        storyFocusSummary.focused
     }
 
     var reviewPeriodLabel: String {
@@ -302,7 +335,7 @@ extension SessionStore {
     }
 
     var reviewHasRelevantEvidence: Bool {
-        reviewSummary.tracked > 0 || !reviewFocusSessions.isEmpty || !reviewLog.isEmpty
+        reviewSummary.tracked > 0 || storyFocusSummary.focused > 0 || !reviewLog.isEmpty
     }
 
     var reviewLogRowsOmitted: Int {
