@@ -53,6 +53,10 @@ struct FocusQuality: Equatable {
     let insideSessionShare: Double
     let switchesPerSession: Double
     let sessionCount: Int
+    /// Focus time that no app recording covers — a session ran, but usage was
+    /// not being observed. Derived by subtraction from the same overlap that
+    /// produces `insideSessionShare`, so the two can never disagree.
+    var unrecordedFocusSeconds: TimeInterval = 0
 }
 
 struct WorkTypeShare: Identifiable, Equatable {
@@ -411,6 +415,10 @@ struct DashboardStats {
                 if end > start { inside += end.timeIntervalSince(start) }
             }
         }
+        // The ranges are already merged, so their total is the focused span
+        // counted once. What usage never saw is the remainder.
+        let focusedSpan = focused.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
+        let unrecorded = max(0, focusedSpan - inside)
 
         var byType: [WorkType: TimeInterval] = [:]
         for record in records {
@@ -458,7 +466,8 @@ struct DashboardStats {
             byWorkType: shares,
             insideSessionShare: tracked > 0 ? min(1, inside / tracked) : 0,
             switchesPerSession: count == 0 ? 0 : Double(switches) / Double(count),
-            sessionCount: count)
+            sessionCount: count,
+            unrecordedFocusSeconds: unrecorded)
     }
 
     /// Canonical quality for a multi-day evidence range. Unlike summing daily
@@ -553,6 +562,17 @@ struct DashboardStats {
                 if end > start { inside += end.timeIntervalSince(start) }
             }
         }
+        // Focused time the usage record never saw, clipped to the range so a
+        // thread crossing its edge does not contribute time outside it.
+        var focusedSpan: TimeInterval = 0
+        for range in allFocusRanges {
+            for interval in dayIntervals {
+                let start = max(range.start, interval.start)
+                let end = min(range.end, interval.end)
+                if end > start { focusedSpan += end.timeIntervalSince(start) }
+            }
+        }
+        let unrecorded = max(0, focusedSpan - inside)
 
         var switches = 0
         for ranges in rangesByThread.values {
@@ -573,7 +593,8 @@ struct DashboardStats {
             byWorkType: shares,
             insideSessionShare: tracked > 0 ? min(1, inside / tracked) : 0,
             switchesPerSession: count > 0 ? Double(switches) / Double(count) : 0,
-            sessionCount: count)
+            sessionCount: count,
+            unrecordedFocusSeconds: unrecorded)
     }
 
     private static func mergeRanges(_ ranges: [DateInterval]) -> [DateInterval] {

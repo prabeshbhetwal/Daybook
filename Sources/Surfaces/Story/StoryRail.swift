@@ -97,20 +97,23 @@ struct StoryRail: View {
     private var macTile: some View {
         StoryTile(title: "On this Mac", tint: Tokens.Palette.app(rank: 1), trailing: nil) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                Text(Tokens.duration(trackedValue))
+                Text(Tokens.duration(accountedValue))
                     .font(.title3.weight(.semibold).monospacedDigit())
                 Text("not all of it deliberate")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
-            if trackedValue > 0 {
+            if accountedValue > 0 {
                 GeometryReader { geometry in
                     HStack(spacing: 0) {
                         Rectangle()
                             .fill(Tokens.Palette.app(rank: 1))
-                            .frame(width: geometry.size.width * insideShare)
+                            .frame(width: geometry.size.width * width(of: insideValue))
                         Rectangle()
                             .fill(Tokens.Palette.app(rank: 1).opacity(0.42))
+                            .frame(width: geometry.size.width * width(of: looseValue))
+                        Rectangle()
+                            .fill(Tokens.Colour.line)
                     }
                 }
                 .frame(height: 7)
@@ -118,12 +121,42 @@ struct StoryRail: View {
                 .accessibilityHidden(true)
                 legendRow(colour: Tokens.Palette.app(rank: 1),
                           label: "In a focus session",
-                          value: Tokens.duration(trackedValue * insideShare))
+                          value: Tokens.duration(insideValue))
                 legendRow(colour: Tokens.Palette.app(rank: 1).opacity(0.42),
                           label: "At the Mac, no session",
-                          value: Tokens.duration(trackedValue * (1 - insideShare)))
+                          value: Tokens.duration(looseValue))
+                if unrecordedValue > 0 {
+                    legendRow(colour: Tokens.Colour.line,
+                              label: "Not recorded",
+                              value: Tokens.duration(unrecordedValue))
+                    Text("Focused time no app recording covers.")
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+    }
+
+    /// The three parts are disjoint by construction: observed time splits into
+    /// inside and outside a session, and focused time the recorder never saw is
+    /// the remainder. Their total is what the day can account for.
+    private var accountedValue: TimeInterval { trackedValue + unrecordedValue }
+
+    private var insideValue: TimeInterval { trackedValue * insideShare }
+
+    private var looseValue: TimeInterval { trackedValue * (1 - insideShare) }
+
+    private var unrecordedValue: TimeInterval {
+        switch navigation.storyScope {
+        case .day: return store.focusQuality.unrecordedFocusSeconds
+        case .week, .month: return store.reviewQuality.unrecordedFocusSeconds
+        }
+    }
+
+    private func width(of value: TimeInterval) -> Double {
+        guard accountedValue > 0 else { return 0 }
+        return min(1, max(0, value / accountedValue))
     }
 
     private var trackedValue: TimeInterval {

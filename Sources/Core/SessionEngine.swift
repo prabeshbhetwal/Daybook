@@ -847,6 +847,25 @@ final class SessionEngine {
         persist()
     }
 
+    /// Renames the running session in place. The clock, thread and start are
+    /// untouched — only the label the record will carry changes.
+    func renameActive(to name: String) {
+        guard state != .idle else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        store.sessionName = trimmed
+        persist()
+    }
+
+    /// Reclassifies the running session in place. Correcting the kind of work
+    /// must not restart the clock, or the correction would cost the time it is
+    /// correcting.
+    func reclassifyActive(as workType: WorkType) {
+        guard state != .idle, activeWorkType != workType else { return }
+        activeWorkType = workType
+        persist()
+    }
+
     func start(workType: WorkType, intent: String, threadID: UUID = UUID(),
                isAuto: Bool = false) {
         if state != .idle { stop() }

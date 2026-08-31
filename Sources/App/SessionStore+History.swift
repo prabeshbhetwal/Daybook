@@ -477,4 +477,70 @@ extension SessionStore {
     }
 
     var menuSessionCount: Int { engine.store.menuSessionCount }
+
+    /// What this session's recording shows, as prose composed only from the
+    /// segments that actually intersect it. Nil when nothing was recorded
+    /// inside the session, which the surface says in its own words.
+    func sessionShape(_ session: DaySession) -> String? {
+        guard let usage, !session.spans.isEmpty else { return nil }
+        // Clipped to the session, not merely intersecting it: a stretch that
+        // starts before the session must contribute only the part inside it,
+        // or the shape would disagree with the app list beside it.
+        var segments: [TimelineSegment] = []
+        for segment in DashboardStats(sessions: engine.archive, usage: usage)
+            .timeline(for: selectedDay) {
+            for span in session.spans {
+                let start = max(segment.start, span.start)
+                let end = min(segment.end, span.end)
+                guard end > start else { continue }
+                segments.append(TimelineSegment(id: segment.id,
+                                                bundleID: segment.bundleID,
+                                                appName: segment.appName,
+                                                start: start,
+                                                end: end,
+                                                colorIndex: segment.colorIndex,
+                                                endReason: end == segment.end
+                                                    ? segment.endReason : .appSwitch))
+            }
+        }
+        return SessionShape.paragraph(SessionShape.Input(segments: segments,
+                                                         workType: session.workType,
+                                                         stretches: session.stretches,
+                                                         worked: session.worked))
+    }
+
+    // MARK: - Correcting a recorded session
+
+    /// Renames the work a session belongs to. The name is the thread's, so
+    /// every stretch of that work carries the correction.
+    func renameSession(_ session: DaySession, to name: String) {
+        guard engine.archive.rename(thread: session.threadID, to: name) else { return }
+        if session.isRunning { engine.renameActive(to: name) }
+        refresh()
+    }
+
+    /// Reclassifies the work a session belongs to. Correcting a session to a
+    /// break removes it from focus, which is the point: the record should say
+    /// what happened.
+    func setWorkType(_ workType: WorkType, for session: DaySession) {
+        guard engine.archive.setWorkType(workType, forThread: session.threadID) else { return }
+        if session.isRunning { engine.reclassifyActive(as: workType) }
+        refresh()
+    }
+
+    /// Starts a new stretch of the same work. Continuing never reopens a closed
+    /// record — it starts a new one on the same thread, so a long gap is never
+    /// rendered as worked time.
+    func continueSession(_ session: DaySession) {
+        guard !hasUnresolvedAwayDecision, !session.isRunning else { return }
+        engine.start(workType: session.workType,
+                     intent: session.name,
+                     threadID: session.threadID)
+        refresh()
+    }
+
+    /// Whether this session can be continued right now.
+    func canContinue(_ session: DaySession) -> Bool {
+        !hasUnresolvedAwayDecision && !session.isRunning && session.workType.countsAsFocus
+    }
 }

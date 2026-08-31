@@ -1,5 +1,18 @@
 import SwiftUI
 
+private struct StoryEntryInitiallyOpenKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Opens the first session entry on appearance. Snapshot-only: the reader's
+    /// own opening is local state that the product does not remember.
+    var storyEntryInitiallyOpen: Bool {
+        get { self[StoryEntryInitiallyOpenKey.self] }
+        set { self[StoryEntryInitiallyOpenKey.self] = newValue }
+    }
+}
+
 /// The day told top to bottom: every session, rest and unresolved gap as one
 /// entry on a single rule. A gap is an entry too, so unrecorded time is part of
 /// the day rather than a hole in it. Each entry opens in place — nothing here
@@ -10,6 +23,7 @@ struct DayStory: View {
     /// Entries the reader has opened. Local: it is a reading aid, not state the
     /// product remembers.
     @StateObject private var opened = SetBox()
+    @Environment(\.storyEntryInitiallyOpen) private var entryInitiallyOpen
 
     /// The gutter that carries the clock times, and the rule beside it.
     private let timeColumn: CGFloat = 62
@@ -25,6 +39,15 @@ struct DayStory: View {
             if store.daySessions.isEmpty && !hasAwayQuestion { empty }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear {
+            guard entryInitiallyOpen, opened.ids.isEmpty else { return }
+            for entry in store.daySessions {
+                if case .session(let session) = entry {
+                    opened.ids.insert(session.id)
+                    return
+                }
+            }
+        }
     }
 
     private var hasAwayQuestion: Bool { store.isToday && store.pendingAway != nil }
@@ -40,9 +63,14 @@ struct DayStory: View {
                      isFirst: isFirst, isLast: isLast) {
                 SessionEntryCard(session: session,
                                  apps: store.appRanks(within: session.spans),
+                                 shape: store.sessionShape(session),
+                                 canContinue: store.canContinue(session),
                                  isOpen: opened.ids.contains(session.id),
                                  clock: session.isRunning ? Tokens.clock(store.elapsed) : nil,
-                                 onToggle: { toggle(session.id) })
+                                 onToggle: { toggle(session.id) },
+                                 onRename: { store.renameSession(session, to: $0) },
+                                 onWorkType: { store.setWorkType($0, for: session) },
+                                 onContinue: { store.continueSession(session) })
             }
         case .rest(let rest):
             storyRow(time: rest.start,
@@ -135,9 +163,19 @@ struct DayStory: View {
 struct SessionEntryCard: View {
     let session: DaySession
     let apps: [AppRank]
+    /// What the recording shows, when it shows anything.
+    var shape: String?
+    var canContinue = false
     let isOpen: Bool
     let clock: String?
     let onToggle: () -> Void
+    var onRename: ((String) -> Void)?
+    var onWorkType: ((WorkType) -> Void)?
+    var onContinue: (() -> Void)?
+    /// Renaming happens in the card, in place, rather than in a sheet.
+    @StateObject private var editing = BoolBox()
+    @StateObject private var draft = TextBox()
+    @StateObject private var picking = BoolBox()
 
     private var tint: Color { Tokens.Palette.workType(session.workType) }
 
@@ -216,10 +254,7 @@ struct SessionEntryCard: View {
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             } else {
-                Text("Apps in this session")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .textCase(.uppercase)
+                sectionLabel("Apps in this session")
                 ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
                     AppUsageRow(appName: app.appName, bundleID: app.bundleID,
                                 rank: index, seconds: app.total, share: app.share,
@@ -232,10 +267,122 @@ struct SessionEntryCard: View {
                         .foregroundStyle(.tertiary)
                 }
             }
+            if let shape {
+                sectionLabel("Shape of it")
+                    .padding(.top, Tokens.Space.xs)
+                Text(shape)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            actions
         }
         .padding(.horizontal, Tokens.Space.m)
         .padding(.bottom, Tokens.Space.m)
     }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .textCase(.uppercase)
+    }
+
+    /// The corrections that belong to this entry. Each one writes to the
+    /// record, so only the actions the record can actually carry are offered.
+    @ViewBuilder private var actions: some View {
+        if onRename != nil || onWorkType != nil || onContinue != nil {
+            Divider().padding(.top, Tokens.Space.xs)
+            if editing.value {
+                renameField
+            } else if picking.value, let onWorkType {
+                workTypeChoices(onWorkType)
+            } else {
+                HStack(spacing: Tokens.Space.m) {
+                    if onRename != nil {
+                        actionButton("Rename") {
+                            draft.text = session.name
+                            editing.value = true
+                        }
+                    }
+                    if onWorkType != nil {
+                        actionButton(picking.value ? "Done" : "Change type") {
+                            picking.value.toggle()
+                        }
+                    }
+                    if let onContinue, canContinue {
+                        actionButton("Continue this", action: onContinue)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
+    /// The kinds of work, offered in the card. Correcting a session to a break
+    /// is offered too — the record should be able to say it was not work.
+    private func workTypeChoices(_ pick: @escaping (WorkType) -> Void) -> some View {
+        HStack(spacing: Tokens.Space.xs) {
+            ForEach(WorkType.allCases, id: \.self) { type in
+                let isCurrent = type == session.workType
+                Button {
+                    pick(type)
+                    picking.value = false
+                } label: {
+                    Text(type.displayName)
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(isCurrent ? Tokens.Palette.workType(type).opacity(0.18)
+                                              : Tokens.Colour.elevated,
+                                    in: Capsule())
+                        .foregroundStyle(isCurrent ? AnyShapeStyle(Tokens.Palette.workType(type))
+                                                   : AnyShapeStyle(.secondary))
+                }
+                .buttonStyle(.plain)
+                .disabled(isCurrent)
+                .accessibilityLabel("Record this as \(type.displayName)")
+                .accessibilityAddTraits(isCurrent ? .isSelected : [])
+            }
+            Spacer(minLength: 0)
+            actionButton("Done") { picking.value = false }
+        }
+    }
+
+    private var renameField: some View {
+        HStack(spacing: Tokens.Space.s) {
+            TextField("Name this work", text: $draft.text)
+                .textFieldStyle(.roundedBorder)
+                .font(Tokens.Typography.metadata)
+                .onSubmit(commitRename)
+                .accessibilityLabel("Name this work")
+            Button("Save", action: commitRename)
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("Cancel") { editing.value = false }
+                .font(Tokens.Typography.metadata)
+        }
+    }
+
+    private func commitRename() {
+        let trimmed = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        onRename?(trimmed)
+        editing.value = false
+    }
+
+    private func actionButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.plain)
+            .font(Tokens.Typography.metadata.weight(.semibold))
+            .foregroundStyle(Tokens.Colour.focus)
+    }
+}
+
+/// One editable string. `@State` is unavailable on this toolchain, so even a
+/// single draft needs an object behind it.
+final class TextBox: ObservableObject {
+    @Published var text = ""
 }
 
 /// Rest is not work, so it is a quiet row rather than a card: named where the

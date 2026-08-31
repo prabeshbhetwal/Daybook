@@ -166,6 +166,12 @@ final class SessionStore: ObservableObject {
     @Published var reviewLongestFocusName: String?
     @Published var reviewFocusSessions: [ReviewFocusEntry] = []
     @Published var reviewWorkTypeShares: [WorkTypeShare] = []
+    /// Canonical quality for the reviewed period, so the rail can split the
+    /// period's time the same three ways the day is split.
+    @Published var reviewQuality = FocusQuality(byWorkType: [],
+                                                insideSessionShare: 0,
+                                                switchesPerSession: 0,
+                                                sessionCount: 0)
     @Published var reviewIntegrityNote: String?
 
     // MARK: Insights

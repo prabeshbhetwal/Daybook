@@ -44,6 +44,42 @@ final class SessionArchive {
         save()
     }
 
+    /// Renames every record in a thread. Segments of one piece of work share a
+    /// thread and a name, so renaming a stretch renames the work rather than
+    /// splitting it into two differently-named halves. Returns whether anything
+    /// changed, so a caller can skip a refresh it does not need.
+    @discardableResult
+    func rename(thread: UUID, to name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        var changed = false
+        for index in cache.indices where cache[index].threadID == thread {
+            if cache[index].name != trimmed {
+                cache[index].name = trimmed
+                changed = true
+            }
+        }
+        if changed { save() }
+        return changed
+    }
+
+    /// Reclassifies every record in a thread. This is a correction to the
+    /// record, so it moves the thread's time between the day's totals exactly
+    /// as if it had been logged that way — including out of focus entirely when
+    /// the correction is that it was rest.
+    @discardableResult
+    func setWorkType(_ workType: WorkType, forThread thread: UUID) -> Bool {
+        var changed = false
+        for index in cache.indices where cache[index].threadID == thread {
+            if cache[index].workType != workType {
+                cache[index].workType = workType
+                changed = true
+            }
+        }
+        if changed { save() }
+        return changed
+    }
+
     private func load() -> [SessionRecord] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
         do {

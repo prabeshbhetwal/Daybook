@@ -8,7 +8,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case reviewSelectedFirstDay, reviewSelectedLastDay, reviewHistorySelection
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
-    case storyDay, storyWeek, storyMonth
+    case storyDay, storyDayEntry, storyWeek, storyMonth
     case settingsGeneral, settingsFocus, settingsAway, settingsAutomatic
     case settingsTracking, settingsAppearance, settingsData, settingsAdvanced
     case awayQuick, awayFull, rewardEarned
@@ -34,6 +34,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awardsEarned: return "Awards — earned and in progress"
         case .awardsEmpty: return "Awards — nothing earned yet"
         case .storyDay: return "Story — the day"
+        case .storyDayEntry: return "Story — an entry opened"
         case .storyWeek: return "Story — the week"
         case .storyMonth: return "Story — the month"
         case .settingsGeneral: return "Settings — General"
@@ -90,7 +91,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .insights
         case .awardsEarned, .awardsEmpty:
             return .awards
-        case .storyDay, .storyWeek, .storyMonth:
+        case .storyDay, .storyDayEntry, .storyWeek, .storyMonth:
             return .story
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
@@ -254,6 +255,7 @@ enum Snapshotter {
             .environment(\.colorScheme, item.appearance.scheme)
             .environment(\.todayRecapInitiallyExpanded,
                          item.scenario == .todayHistoryExpanded)
+            .environment(\.storyEntryInitiallyOpen, item.scenario == .storyDayEntry)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
             .clipped()
             .background(Tokens.Colour.ground)
@@ -348,7 +350,7 @@ enum Snapshotter {
             return store
         case .awardsEmpty:
             return FixtureFactory.store(for: .firstRun)
-        case .storyDay:
+        case .storyDay, .storyDayEntry:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
@@ -383,7 +385,7 @@ enum Snapshotter {
                                    store: SessionStore) -> MainWindowModel {
         let navigation = MainWindowModel(selectedTab: scenario.tab ?? .focus)
         switch scenario {
-        case .storyDay:
+        case .storyDay, .storyDayEntry:
             navigation.storyScope = .day
         case .storyWeek:
             navigation.storyScope = .week

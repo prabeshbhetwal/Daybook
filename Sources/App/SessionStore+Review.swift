@@ -117,6 +117,9 @@ extension SessionStore {
         reviewDayTotals = rollup.dayTotals
         reviewSummary = rollup.summary
         reviewWorkTypeShares = Self.reviewWorkTypes(from: rollup.days)
+        // The multi-day form, so a thread crossing midnight is counted once.
+        reviewQuality = DashboardStats(sessions: engine.archive, usage: usage)
+            .focusQuality(for: rollup.days.map(\.date))
 
         let bounds = periodStats.bounds(for: reviewPeriod, containing: anchor)
         reviewFocusSessions = engine.archive.records.compactMap { record in
@@ -424,6 +427,8 @@ extension SessionStore {
         reviewLongestFocusName = nil
         reviewFocusSessions = []
         reviewWorkTypeShares = []
+        reviewQuality = FocusQuality(byWorkType: [], insideSessionShare: 0,
+                                     switchesPerSession: 0, sessionCount: 0)
         reviewIntegrityNote = nil
         historyDays = []
         historyRangeStart = nil

@@ -7011,7 +7011,7 @@ enum SelfTest {
                 .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
-                .storyDay, .storyWeek, .storyMonth,
+                .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
                 .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
                 .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
                 .awayQuick, .awayFull, .rewardEarned
