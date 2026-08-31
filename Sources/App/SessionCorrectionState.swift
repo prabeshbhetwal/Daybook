@@ -30,6 +30,7 @@ enum SessionCorrectionRetry {
     case awayDecision(UserDecision, label: String?, reviewing: Bool, expectedID: UUID)
     case legacy(record: SessionRecord, decision: UserDecision, target: SessionRecord?)
     case ending(threadID: UUID, sessionStart: Date)
+    case discarding(threadID: UUID, sessionStart: Date, resumeTracking: Bool)
 
     func matches(_ transaction: DecisionHistory.Transaction) -> Bool {
         let before = transaction.before.awayDecisions ?? []
@@ -57,7 +58,12 @@ enum SessionCorrectionRetry {
         case .ending(let thread, let start):
             return transaction.before.threadID == thread && transaction.before.sessionStart == start
                 && transaction.before.kind != .idle && transaction.after.kind == .idle
-                && transaction.added.contains { $0.threadID == thread && $0.start == start }
+                && (transaction.operation == .endStretch || (transaction.operation == nil
+                    && transaction.added.contains { $0.threadID == thread && $0.start == start }))
+        case .discarding(let thread, let start, _):
+            return transaction.operation == .discardStretch && transaction.before.threadID == thread
+                && transaction.before.sessionStart == start && transaction.before.kind != .idle
+                && transaction.after.kind == .idle
         }
     }
 }

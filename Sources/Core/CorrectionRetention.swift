@@ -46,7 +46,7 @@ enum CorrectionRetention {
             let remaining = field.archiveRecordIDs.subtracting(ids)
             let originals = field.archiveSnapshot?.fields.filter { !ids.contains($0.recordID) }
             let active = state.kind != .idle && state.threadID == field.threadID
-            let hasSurvivor = surviving.contains { $0.threadID == field.threadID }
+            let hasSurvivor = (surviving + heldSources).contains { $0.threadID == field.threadID }
             guard !remaining.isEmpty || originals?.isEmpty == false || active || hasSurvivor else { return nil }
             let snapshot = field.archiveSnapshot.map {
                 SessionArchiveCorrectionSnapshot(threadID: $0.threadID, correction: $0.correction, fields: originals ?? [])

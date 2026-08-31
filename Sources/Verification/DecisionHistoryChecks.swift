@@ -344,16 +344,29 @@ enum DecisionHistoryChecks {
             var calls = 0
             f.journalFailure = { calls += 1; return calls >= 2 ? "Finalisation unavailable" : nil }
             _ = f.store.undoAwayDecision(expectedID: id)
+            let reviewedID = f.engine.lastAwayDecision!.id
             f.engine.start(workType: .learning, intent: "Later")
-            f.time.addTimeInterval(180); f.engine.stop()
-            let snapshot = f.engine.snapshot()
+            let laterThread = f.engine.activeThreadID, laterStart = f.engine.sessionStartDate
+            f.time.addTimeInterval(180); f.store.stop()
+            guard f.engine.state == .running, f.engine.activeThreadID == laterThread,
+                  f.engine.sessionStartDate == laterStart, f.engine.elapsed == 180,
+                  f.archive.records.count == 1, f.archive.records.first?.workSeconds == 600,
+                  f.store.correctionError != nil else {
+                return ["unwritable journal falsely completed End or lost the newer 180 seconds"]
+            }
             f.journalFailure = nil
+            guard f.store.retryLastCorrection(), f.store.correctionError == nil else {
+                return ["End Retry did not reconcile the prior pending operation and complete newer work"]
+            }
+            let snapshot = f.engine.snapshot()
             let engine = SessionEngine(store: PersistenceStore(defaults: f.defaults),
                 archive: SessionArchive(directory: f.directory, now: { f.time }), schedulesDwell: false, now: { f.time })
             engine.restore(from: snapshot)
             return engine.state == .idle && engine.archive.records.count == 2
                 && engine.archive.records.first?.workSeconds == 600 && engine.archive.records.last?.workSeconds == 180
-                && engine.archive.records.last?.name == "Later" ? [] : ["pending journal rewound or removed later ordinary work"]
+                && engine.archive.records.last?.name == "Later" && engine.archive.records.last?.threadID == laterThread
+                && engine.awayDecision(id: reviewedID)?.isResolved == false && engine.awayDecision(id: id) == nil
+                ? [] : ["pending journal rewound or removed later ordinary work or receipt identity"]
         }
     }
 

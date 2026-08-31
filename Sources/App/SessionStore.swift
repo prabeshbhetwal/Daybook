@@ -252,11 +252,23 @@ final class SessionStore: ObservableObject {
     /// Set by the coordinator so an undone session cannot immediately return.
     var onAutoSessionUndone: (() -> Void)?
 
-    func undoAutoSession() {
-        guard isAutoSession, !hasUnresolvedAwayDecision else { return }
-        engine.discard()
+    @discardableResult
+    func undoAutoSession(resumeTracking: Bool = false) -> Bool {
+        guard isAutoSession, !hasUnresolvedAwayDecision else { return false }
+        let origin = (engine.activeThreadID, engine.sessionStartDate)
+        let discarded = engine.discard()
+        if let error = engine.awayDecisionError {
+            publishCorrectionError(error)
+            correctionRetry = .discarding(threadID: origin.0, sessionStart: origin.1, resumeTracking: resumeTracking)
+        } else {
+            publishCorrectionError(nil)
+            correctionRetry = nil
+        }
+        guard discarded else { refresh(); return false }
         onAutoSessionUndone?()
+        if resumeTracking { onAwayEnded?() }
         refresh()
+        return true
     }
 
     /// The Focus correction controls sit at the App boundary because declared
@@ -295,9 +307,7 @@ final class SessionStore: ObservableObject {
     /// resume the App-level tracker exactly once.
     func undoAutomaticSessionCorrection() {
         guard isAutoSession, !hasUnresolvedAwayDecision else { return }
-        let resumesTracking = isAway
-        undoAutoSession()
-        if resumesTracking { onAwayEnded?() }
+        _ = undoAutoSession(resumeTracking: isAway)
     }
 
     /// Time until the next break nudge, and whether one is overdue.

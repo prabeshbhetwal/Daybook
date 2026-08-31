@@ -67,6 +67,7 @@ final class SessionEngine {
     }
     let decisionHistory: DecisionHistory
     private var correctionGeneration = 0
+    private var liveCorrectionGeneration = 0
     var decisionHistoryRevision: Int { correctionGeneration }
     var fieldCorrections: [SessionStoreCorrectionState] {
         if decisionHistory.pendingAfterIsCommitted(in: archive), let pending = decisionHistory.document.pending {
@@ -152,7 +153,7 @@ final class SessionEngine {
             let before = self.snapshot()
             // Away and Watching also append here. Only correction metadata
             // changes; this handler must not end or replay the current stretch.
-            return self.commitCorrection(before: before, adding: [record], allowsEviction: true)
+            return self.commitCorrection(before: before, adding: [record], allowsEviction: true, operation: .metadataOnly)
                 ? nil : self.awayDecisionError
         }
     }
@@ -1107,8 +1108,7 @@ final class SessionEngine {
         // A start immediately followed by a stop is a misclick, not a session.
         // Nine such records sit in the shipped archive inflating the day's
         // session count and the quick-start tallies.
-        guard elapsed >= FocusConstants.minimumRecordedSession else { return true }
-        let record = SessionRecord(name: sessionName,
+        let record: SessionRecord? = elapsed < FocusConstants.minimumRecordedSession ? nil : SessionRecord(name: sessionName,
                                      workType: activeWorkType,
                                      start: sessionStartDate,
                                      // Clamped both ways. `endingAt` comes from
@@ -1122,30 +1122,40 @@ final class SessionEngine {
                                      detectedApp: activeDetectedApp,
                                      threadID: activeThreadID,
                                      isAuto: activeIsAuto)
-        if awayDecisions.contains(where: { $0.creditedSeconds > 0 && $0.threadID == record.threadID
-            && $0.sessionStart == record.start }) || !archive.capacityRetirements(adding: [record]).isEmpty {
+        let additions = record.map { [$0] } ?? []
+        if decisionHistory.requiresTerminalCheckpoint || awayDecisions.contains(where: {
+            $0.creditedSeconds > 0 && $0.threadID == activeThreadID && $0.sessionStart == sessionStartDate
+        }) || !archive.capacityRetirements(adding: additions).isEmpty {
             let before = snapshot()
-            linkCreditRecords([record])
+            linkCreditRecords(additions)
             // End owns this idle checkpoint, including uncredited endings that
             // retire older history. The generic Away/Watching append handler
             // remains metadata-only and never assumes that work is ending.
             var after = snapshot()
             after.kind = .idle
+            after.pauseStart = nil
+            after.awayStart = nil
+            after.awayTrigger = nil
+            after.decisionStarted = nil
+            after.pendingAway = nil
+            after.awayReturnedAt = nil
+            after.pendingDecisionID = nil
+            after.workBeforePendingAway = nil
+            after.shadowAway = 0
+            after.isAuto = false
             after.correctionGeneration = correctionGeneration + 1
-            if let error = decisionHistory.commit(before: before, after: after, adding: [record],
-                                                  archive: archive, allowsEviction: true) {
-                awayDecisionError = error
-                if archive.records.contains(record) {
-                    // Archive committed, final journal write did not. Ending
-                    // is safe; the pending journal still owns its exact ID.
-                    correctionGeneration += 1
-                } else {
-                    awayDecisions = before.awayDecisions ?? []
-                    return false
-                }
-            } else { correctionGeneration += 1; awayDecisionError = nil }
+            after.liveCorrectionGeneration = after.correctionGeneration
+            let result = decisionHistory.commit(before: before, after: after, adding: additions,
+                archive: archive, allowsEviction: true, operation: .endStretch)
+            awayDecisionError = result.error
+            guard result.didCommit else {
+                awayDecisions = before.awayDecisions ?? []
+                return false
+            }
+            correctionGeneration += 1
+            liveCorrectionGeneration = correctionGeneration
             synchroniseCommittedCorrectionMetadata()
-        } else if let error = archive.append(record) {
+        } else if let record, let error = archive.append(record) {
             awayDecisionError = error
             return archive.records.contains(record)
         }
@@ -1272,8 +1282,11 @@ final class SessionEngine {
     /// Ends a session without writing a record. Used only to undo the app's own
     /// automatic start — a guess the user rejected is not history, and keeping
     /// it would put a session in the archive that never happened.
-    func discard() {
-        guard state != .idle else { return }
+    @discardableResult
+    func discard() -> Bool {
+        guard state != .idle else { return true }
+        let before = snapshot()
+        awayDecisionError = nil
         cancelDwell()
         pauseStartDate = nil
         awayInterval = nil
@@ -1283,8 +1296,14 @@ final class SessionEngine {
         totalPausedDuration = 0
         activeIsAuto = false
         state = .idle
+        if decisionHistory.requiresTerminalCheckpoint,
+           !commitCorrection(before: before, operation: .discardStretch), state != .idle {
+            onStateChanged?(state)
+            return false
+        }
         persist()
         onStateChanged?(state)
+        return true
     }
 
     // MARK: - Dwell guard (D6)
@@ -1332,9 +1351,10 @@ final class SessionEngine {
             awayDecisionError = error; return false
         }
         if let saved = decisionHistory.document.checkpoint,
-           (saved.correctionGeneration ?? 0) > correctionGeneration {
+           liveGeneration(of: saved) > liveCorrectionGeneration {
             applyExactCorrectionState(saved)
         }
+        synchroniseCommittedCorrectionMetadata()
         return true
     }
 
@@ -1349,32 +1369,37 @@ final class SessionEngine {
     @discardableResult
     func commitCorrection(before: PersistedState, removing: [SessionRecord] = [],
                           adding: [SessionRecord] = [], allowsEviction: Bool = false,
-                          fields: [SessionStoreCorrectionState]? = nil) -> Bool {
+                          fields: [SessionStoreCorrectionState]? = nil,
+                          operation: DecisionHistory.Operation = .correction) -> Bool {
         correctionGeneration += 1
+        if operation.updatesLiveState { liveCorrectionGeneration = correctionGeneration }
         let after = snapshot()
-        if let error = decisionHistory.commit(before: before, after: after, removing: removing,
-            adding: adding, fields: fields, archive: archive, allowsEviction: allowsEviction) {
+        let result = decisionHistory.commit(before: before, after: after, removing: removing,
+            adding: adding, fields: fields, archive: archive, allowsEviction: allowsEviction, operation: operation)
+        if let error = result.error {
             // Once the scoped archive effects landed, retain the live after
             // state too. The pending journal completes finalisation on retry.
             // Before archive commit, restore only our staged in-memory state.
-            let archiveCommitted = decisionHistory.pendingAfterIsCommitted(in: archive)
-            if !archiveCommitted { applyExactCorrectionState(before) }
+            if !result.didCommit { applyExactCorrectionState(before) }
             else { synchroniseCommittedCorrectionMetadata() }
             awayDecisionError = error
-            persist()
+            if operation.updatesLiveState { persist() }
             return false
         }
         synchroniseCommittedCorrectionMetadata()
         awayDecisionError = nil
-        persist()
+        if operation.updatesLiveState { persist() }
         return true
     }
 
     private func synchroniseCommittedCorrectionMetadata() {
-        let saved = decisionHistory.pendingAfterIsCommitted(in: archive)
-            ? decisionHistory.document.pending?.after : decisionHistory.document.checkpoint
-        guard let saved, saved.correctionGeneration == correctionGeneration else { return }
-        awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
+        guard let saved = decisionHistory.committedMetadata(in: archive), saved.generation >= correctionGeneration else { return }
+        correctionGeneration = saved.generation
+        awayDecisions = saved.awayDecisions
+    }
+
+    private func liveGeneration(of snapshot: PersistedState) -> Int {
+        snapshot.liveCorrectionGeneration ?? snapshot.correctionGeneration ?? 0
     }
 
     private func linkCreditRecords(_ records: [SessionRecord]) {
@@ -1410,6 +1435,7 @@ final class SessionEngine {
         activeIsAuto = saved.isAuto ?? false
         awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
         correctionGeneration = saved.correctionGeneration ?? 0
+        liveCorrectionGeneration = liveGeneration(of: saved)
     }
 
     func snapshot() -> PersistedState {
@@ -1430,6 +1456,7 @@ final class SessionEngine {
         result.awayDecision = lastAwayDecision
         result.awayDecisions = awayDecisions
         result.correctionGeneration = correctionGeneration
+        result.liveCorrectionGeneration = liveCorrectionGeneration
         result.pendingDecisionID = pendingDecisionID
         result.awayReturnedAt = awayReturnedAt
         result.workBeforePendingAway = workBeforePendingAway
@@ -1447,20 +1474,23 @@ final class SessionEngine {
     ///   40-minute absence was recorded as a 6-minute break.
     func restore(from original: PersistedState, awayAtLaunch: Bool = false) {
         var snapshot = original
+        snapshot.liveCorrectionGeneration = liveGeneration(of: original)
         if let error = decisionHistory.reconcile(archive: archive) { awayDecisionError = error }
         if let saved = decisionHistory.document.checkpoint,
-           (saved.correctionGeneration ?? 0) > (snapshot.correctionGeneration ?? 0) {
-            let replaySavedInitial = original.kind == .awaiting && saved.awayDecisions?.contains(where: {
+           liveGeneration(of: saved) > liveGeneration(of: snapshot) {
+            let receipts = decisionHistory.metadata?.awayDecisions ?? saved.awayDecisions ?? []
+            let replaySavedInitial = original.kind == .awaiting && receipts.contains(where: {
                 $0.id == original.pendingDecisionID && $0.isResolved && $0.decision != .mergeTime
-            }) == true
+            })
             if saved.savedAt >= snapshot.savedAt && !replaySavedInitial { snapshot = saved }
             else {
-                // Later ordinary work owns the live clock. Only correction
-                // identity comes from the newer durable generation.
-                snapshot.awayDecisions = saved.awayDecisions
-                snapshot.awayDecision = saved.awayDecision
-                snapshot.correctionGeneration = saved.correctionGeneration
+                // A newer ordinary snapshot owns its live transition. It has
+                // already superseded this earlier correction authority.
+                snapshot.liveCorrectionGeneration = liveGeneration(of: saved)
             }
+        }
+        if let metadata = decisionHistory.metadata, metadata.generation >= (snapshot.correctionGeneration ?? 0) {
+            snapshot = metadata.applying(to: snapshot)
         }
         store.sessionName = snapshot.name
         sessionStartDate = snapshot.sessionStart
@@ -1474,11 +1504,12 @@ final class SessionEngine {
         activeIsAuto = snapshot.isAuto ?? false
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
         correctionGeneration = snapshot.correctionGeneration ?? 0
+        liveCorrectionGeneration = liveGeneration(of: snapshot)
         pendingDecisionID = nil
         workBeforePendingAway = nil
         awayInterval = nil
         shadowAway = 0
-        let receiptReconciled = decisionHistory.document.checkpoint == nil ? reconcileAwayReceipt() : false
+        let receiptReconciled = decisionHistory.metadata == nil ? reconcileAwayReceipt() : false
 
         switch snapshot.kind {
         case .idle:

@@ -603,6 +603,13 @@ extension SessionStore {
         guard let retry = correctionRetry else { return false }
         if let pending = engine.decisionHistory.document.pending {
             guard retry.matches(pending) else {
+                // A current End/discard can be waiting behind an older action
+                // whose archive effects are already committed. Retry that
+                // exact current intent; its normal write boundary finalises
+                // the older journal before attempting its own terminal write.
+                if engine.decisionHistory.pendingAfterIsCommitted(in: engine.archive),
+                   (pending.after.correctionGeneration ?? 0) <= engine.decisionHistoryRevision,
+                   let completed = retryCurrentTerminalIntent(retry) { return completed }
                 publishCorrectionError("That Retry belongs to a different action. The pending correction was preserved.")
                 return false
             }
@@ -628,6 +635,13 @@ extension SessionStore {
         case .legacy(let record, let decision, let target):
             return reclassifyLegacyBreak(recordID: record.id, decision: decision, focusTargetID: target?.id,
                                         expectedRecord: record, expectedTarget: target)
+        case .ending, .discarding:
+            return retryCurrentTerminalIntent(retry) ?? false
+        }
+    }
+
+    private func retryCurrentTerminalIntent(_ retry: SessionCorrectionRetry) -> Bool? {
+        switch retry {
         case .ending(let thread, let start):
             guard engine.state != .idle, engine.activeThreadID == thread, engine.sessionStartDate == start else {
                 publishCorrectionError("That Retry belongs to an earlier session. Current work was preserved.")
@@ -635,6 +649,13 @@ extension SessionStore {
             }
             stop()
             return engine.state == .idle && engine.awayDecisionError == nil
+        case .discarding(let thread, let start, let resumeTracking):
+            guard engine.state != .idle, engine.activeThreadID == thread, engine.sessionStartDate == start else {
+                publishCorrectionError("That Retry belongs to an earlier automatic session. Current work was preserved.")
+                return false
+            }
+            return undoAutoSession(resumeTracking: resumeTracking)
+        default: return nil
         }
     }
 

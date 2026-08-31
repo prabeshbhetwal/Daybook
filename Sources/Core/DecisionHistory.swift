@@ -3,6 +3,38 @@ import Foundation
 /// A write-ahead journal for narrow corrections. The ordinary session file
 /// remains an array, so existing readers and backups remain compatible.
 final class DecisionHistory {
+    enum Operation: String, Codable {
+        case correction, endStretch, discardStretch, metadataOnly
+        var updatesLiveState: Bool { self != .metadataOnly }
+    }
+    enum CommitResult {
+        case saved, committedAwaitingFinalisation(String), refused(String)
+        var didCommit: Bool {
+            if case .refused = self { return false }; return true
+        }
+        var error: String? {
+            switch self {
+            case .saved: return nil
+            case .committedAwaitingFinalisation(let error), .refused(let error): return error
+            }
+        }
+    }
+    /// Receipt identity has no authority over the live clock or pause state.
+    struct MetadataCheckpoint: Codable {
+        let generation: Int
+        let awayDecisions: [AwayDecisionReceipt]
+        init(_ state: PersistedState) {
+            generation = state.correctionGeneration ?? 0
+            awayDecisions = state.awayDecisions ?? state.awayDecision.map { [$0] } ?? []
+        }
+        func applying(to state: PersistedState) -> PersistedState {
+            var result = state
+            result.correctionGeneration = generation
+            result.awayDecisions = awayDecisions
+            result.awayDecision = awayDecisions.last
+            return result
+        }
+    }
     struct Transaction: Codable {
         let id: UUID
         let before: PersistedState
@@ -13,10 +45,14 @@ final class DecisionHistory {
         let fieldsAfter: [SessionStoreCorrectionState]
         /// Optional for sidecars written before durable retention was explicit.
         var retiredRecordIDs: Set<UUID>? = nil
+        /// Missing means the earlier live-authoritative journal contract.
+        var operation: Operation? = nil
+        var updatesLiveState: Bool { operation?.updatesLiveState ?? true }
     }
     struct Document: Codable {
         var version = 1
         var checkpoint: PersistedState?
+        var metadataCheckpoint: MetadataCheckpoint?
         var fields: [SessionStoreCorrectionState] = []
         var pending: Transaction?
     }
@@ -24,6 +60,10 @@ final class DecisionHistory {
     private let writeOverride: (() -> String?)?
     private(set) var document = Document()
     private(set) var error: String?
+    var metadata: MetadataCheckpoint? {
+        document.metadataCheckpoint ?? document.checkpoint.map(MetadataCheckpoint.init)
+    }
+    var requiresTerminalCheckpoint: Bool { metadata != nil || document.pending != nil || error != nil }
 
     init(directory: URL, writeOverride: (() -> String?)? = nil) {
         url = directory.appendingPathComponent("correction-history.json")
@@ -49,10 +89,12 @@ final class DecisionHistory {
         }
         var next = document
         if matches(pending.added) {
-            next.checkpoint = pending.after
+            if pending.updatesLiveState { next.checkpoint = pending.after }
+            next.metadataCheckpoint = MetadataCheckpoint(pending.after)
             next.fields = pending.fieldsAfter
         } else if matches(pending.removed) {
-            next.checkpoint = pending.before
+            if pending.updatesLiveState { next.checkpoint = pending.before }
+            next.metadataCheckpoint = MetadataCheckpoint(pending.before)
             next.fields = pending.fieldsBefore
         } else {
             return "A pending correction conflicts with newer evidence. No records were replaced."
@@ -64,12 +106,13 @@ final class DecisionHistory {
     func commit(before: PersistedState, after: PersistedState,
                 removing: [SessionRecord] = [], adding: [SessionRecord] = [],
                 fields: [SessionStoreCorrectionState]? = nil,
-                archive: SessionArchive, allowsEviction: Bool = false) -> String? {
-        if let failure = reconcile(archive: archive) { return failure }
+                archive: SessionArchive, allowsEviction: Bool = false,
+                operation: Operation = .correction) -> CommitResult {
+        if let failure = reconcile(archive: archive) { return .refused(failure) }
         // Capacity must be checked before journalling. Initial answers may
         // retain ordinary archive retention; historical corrections may not.
         if let failure = archive.validateEdit(removing: removing, adding: adding,
-                                               allowsEviction: allowsEviction) { return failure }
+                                               allowsEviction: allowsEviction) { return .refused(failure) }
         let retired = allowsEviction ? archive.capacityRetirements(removing: removing, adding: adding) : []
         let retiredIDs = Set(retired.map(\.id)), removalIDs = Set(removing.map(\.id))
         let scopedRemovals = removing + archive.records.filter { retiredIDs.contains($0.id) && !removalIDs.contains($0.id) }
@@ -79,18 +122,20 @@ final class DecisionHistory {
         let retained = CorrectionRetention.applying(retired, to: after, fields: fields ?? document.fields, surviving: surviving)
         let transaction = Transaction(id: UUID(), before: before, after: retained.state,
             removed: scopedRemovals, added: scopedAdditions, fieldsBefore: document.fields,
-            fieldsAfter: retained.fields, retiredRecordIDs: retiredIDs)
+            fieldsAfter: retained.fields, retiredRecordIDs: retiredIDs, operation: operation)
         var prepared = document
         prepared.pending = transaction
-        if let failure = save(prepared) { return failure }
+        if let failure = save(prepared) { return .refused(failure) }
         if let failure = archive.edit(removing: scopedRemovals, adding: scopedAdditions) {
-            return failure
+            return .refused(failure)
         }
         var committed = prepared
-        committed.checkpoint = transaction.after
+        if operation.updatesLiveState { committed.checkpoint = transaction.after }
+        committed.metadataCheckpoint = MetadataCheckpoint(transaction.after)
         committed.fields = transaction.fieldsAfter
         committed.pending = nil
-        return save(committed)
+        if let failure = save(committed) { return .committedAwaitingFinalisation(failure) }
+        return .saved
     }
 
     func pendingAfterIsCommitted(in archive: SessionArchive) -> Bool {
@@ -98,6 +143,13 @@ final class DecisionHistory {
         let ids = Set((pending.removed + pending.added).map(\.id))
         let actual = archive.records.filter { ids.contains($0.id) }
         return actual.count == pending.added.count && pending.added.allSatisfy { actual.contains($0) }
+    }
+
+    func committedMetadata(in archive: SessionArchive) -> MetadataCheckpoint? {
+        if pendingAfterIsCommitted(in: archive), let pending = document.pending {
+            return MetadataCheckpoint(pending.after)
+        }
+        return metadata
     }
 
     private func save(_ next: Document) -> String? {

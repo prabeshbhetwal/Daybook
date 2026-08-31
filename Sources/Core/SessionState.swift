@@ -322,6 +322,8 @@ struct PersistedState: Codable, Equatable {
     var awayDecision: AwayDecisionReceipt? = nil
     var awayDecisions: [AwayDecisionReceipt]? = nil
     var correctionGeneration: Int? = nil
+    /// Metadata-only retention must not advance authority over the live clock.
+    var liveCorrectionGeneration: Int? = nil
     var pendingDecisionID: UUID? = nil
     var awayReturnedAt: Date? = nil
     var workBeforePendingAway: TimeInterval? = nil
