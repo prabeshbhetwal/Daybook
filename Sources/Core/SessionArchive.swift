@@ -5,22 +5,32 @@ import Foundation
 /// week, far too little for streaks. Nothing here is ever transmitted.
 final class SessionArchive {
 
+    private enum WriteResult {
+        case success
+        case failure(String)
+    }
+
     private let directory: URL
     private let fileURL: URL
     private let now: () -> Date
     private let calendar: Calendar
     private let capacity: Int
+    /// Testable write boundary. Normal production instances leave this nil and
+    /// use Foundation's atomic file replacement below.
+    private let writeOverride: (([SessionRecord]) -> String?)?
     private var cache: [SessionRecord]
 
     init(directory: URL = SessionArchive.defaultDirectory,
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init,
-         capacity: Int = FocusConstants.archiveCapacity) {
+         capacity: Int = FocusConstants.archiveCapacity,
+         writeOverride: (([SessionRecord]) -> String?)? = nil) {
         self.directory = directory
         self.fileURL = directory.appendingPathComponent("sessions.json")
         self.now = now
         self.calendar = calendar
         self.capacity = capacity
+        self.writeOverride = writeOverride
         self.cache = []
         self.cache = load()
     }
@@ -50,17 +60,8 @@ final class SessionArchive {
     /// changed, so a caller can skip a refresh it does not need.
     @discardableResult
     func rename(thread: UUID, to name: String) -> Bool {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        var changed = false
-        for index in cache.indices where cache[index].threadID == thread {
-            if cache[index].name != trimmed {
-                cache[index].name = trimmed
-                changed = true
-            }
-        }
-        if changed { save() }
-        return changed
+        if case .applied = apply(.rename(name), toThread: thread) { return true }
+        return false
     }
 
     /// Reclassifies every record in a thread. This is a correction to the
@@ -69,15 +70,95 @@ final class SessionArchive {
     /// the correction is that it was rest.
     @discardableResult
     func setWorkType(_ workType: WorkType, forThread thread: UUID) -> Bool {
+        if case .applied = apply(.workType(workType), toThread: thread) { return true }
+        return false
+    }
+
+    /// Saves a complete candidate before exposing it through `records`. A
+    /// correction therefore cannot claim success, change cache, or trigger a
+    /// derived refresh when the durable write was refused.
+    func apply(_ correction: SessionCorrection,
+               toThread thread: UUID) -> SessionArchiveCorrectionResult {
+        var candidate = cache
+        var fields: [SessionArchiveCorrectionSnapshot.Fields] = []
         var changed = false
-        for index in cache.indices where cache[index].threadID == thread {
-            if cache[index].workType != workType {
-                cache[index].workType = workType
+
+        for index in candidate.indices where candidate[index].threadID == thread {
+            let record = candidate[index]
+            switch correction {
+            case .rename(let proposed):
+                let trimmed = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return .unchanged }
+                guard record.name != trimmed else { continue }
+                fields.append(.init(recordID: record.id, name: record.name,
+                                    workType: record.workType))
+                candidate[index].name = trimmed
+                changed = true
+            case .workType(let proposed):
+                guard record.workType != proposed else { continue }
+                fields.append(.init(recordID: record.id, name: record.name,
+                                    workType: record.workType))
+                candidate[index].workType = proposed
                 changed = true
             }
         }
-        if changed { save() }
-        return changed
+
+        guard changed else { return .unchanged }
+        switch write(candidate) {
+        case .success:
+            cache = candidate
+            return .applied(.init(threadID: thread, correction: correction, fields: fields))
+        case .failure(let error):
+            return .failed(error)
+        }
+    }
+
+    /// Restores the originally corrected records and any later continuations in
+    /// one candidate/write. Only the field the correction touched is changed;
+    /// timing, other fields and unrelated records remain evidence, not state to
+    /// be rolled back.
+    func restore(correction: SessionCorrection, inThread thread: UUID,
+                 snapshot: SessionArchiveCorrectionSnapshot?,
+                 recordsPresentAtCorrection recordIDs: Set<UUID>,
+                 originalFields: (name: String, workType: WorkType))
+        -> SessionArchiveCorrectionResult {
+        let recordedOriginals = Dictionary(uniqueKeysWithValues: (snapshot?.fields ?? []).map {
+            ($0.recordID, $0)
+        })
+        var candidate = cache
+        var fields: [SessionArchiveCorrectionSnapshot.Fields] = []
+        var changed = false
+        for index in candidate.indices where candidate[index].threadID == thread {
+            let record = candidate[index]
+            let restore: SessionArchiveCorrectionSnapshot.Fields?
+            if let original = recordedOriginals[record.id] {
+                restore = original
+            } else if !recordIDs.contains(record.id) {
+                restore = .init(recordID: record.id, name: originalFields.name,
+                                workType: originalFields.workType)
+            } else {
+                restore = nil
+            }
+            guard let restore else { continue }
+            switch correction {
+            case .rename:
+                guard record.name != restore.name else { continue }
+                fields.append(.init(recordID: record.id, name: record.name, workType: record.workType))
+                candidate[index].name = restore.name
+            case .workType:
+                guard record.workType != restore.workType else { continue }
+                fields.append(.init(recordID: record.id, name: record.name, workType: record.workType))
+                candidate[index].workType = restore.workType
+            }
+            changed = true
+        }
+        guard changed else { return .unchanged }
+        switch write(candidate) {
+        case .success:
+            cache = candidate
+            return .applied(.init(threadID: thread, correction: correction, fields: fields))
+        case .failure(let error): return .failed(error)
+        }
     }
 
     private func load() -> [SessionRecord] {
@@ -97,13 +178,22 @@ final class SessionArchive {
     }
 
     private func save() {
+        switch write(cache) {
+        case .success: break
+        case .failure(let error): Diagnostics.log("failed to write archive: \(error)")
+        }
+    }
+
+    private func write(_ candidate: [SessionRecord]) -> WriteResult {
+        if let detail = writeOverride?(candidate) { return .failure(detail) }
         do {
             try FileManager.default.createDirectory(at: directory,
                                                     withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(cache)
+            let data = try JSONEncoder().encode(candidate)
             try data.write(to: fileURL, options: .atomic)
+            return .success
         } catch {
-            Diagnostics.log("failed to write archive: \(error)")
+            return .failure(error.localizedDescription)
         }
     }
 

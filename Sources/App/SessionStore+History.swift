@@ -358,7 +358,7 @@ extension SessionStore {
     /// never land the dashboard on a day it would refuse to step to.
     func selectDate(_ date: Date) {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
+        let today = calendar.startOfDay(for: now())
         var target = calendar.startOfDay(for: date)
         if let earliest = earliestDay, target < earliest { target = earliest }
         if target > today { target = today }
@@ -487,7 +487,8 @@ extension SessionStore {
         // starts before the session must contribute only the part inside it,
         // or the shape would disagree with the app list beside it.
         var segments: [TimelineSegment] = []
-        for segment in DashboardStats(sessions: engine.archive, usage: usage)
+        for segment in DashboardStats(sessions: engine.archive, usage: usage,
+                                      usageSnapshot: effectiveUsageSnapshot)
             .timeline(for: selectedDay) {
             for span in session.spans {
                 let start = max(segment.start, span.start)
@@ -513,19 +514,134 @@ extension SessionStore {
 
     /// Renames the work a session belongs to. The name is the thread's, so
     /// every stretch of that work carries the correction.
-    func renameSession(_ session: DaySession, to name: String) {
-        guard engine.archive.rename(thread: session.threadID, to: name) else { return }
-        if session.isRunning { engine.renameActive(to: name) }
-        refresh()
+    @discardableResult
+    func renameSession(_ session: DaySession, to name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            publishCorrectionError("Enter a session name before saving the correction.")
+            return false
+        }
+        return applyCorrection(threadID: session.threadID, correction: .rename(trimmed))
     }
 
     /// Reclassifies the work a session belongs to. Correcting a session to a
     /// break removes it from focus, which is the point: the record should say
     /// what happened.
-    func setWorkType(_ workType: WorkType, for session: DaySession) {
-        guard engine.archive.setWorkType(workType, forThread: session.threadID) else { return }
-        if session.isRunning { engine.reclassifyActive(as: workType) }
+    @discardableResult
+    func setWorkType(_ workType: WorkType, for session: DaySession) -> Bool {
+        applyCorrection(threadID: session.threadID, correction: .workType(workType))
+    }
+
+    /// Retries either the failed save or a failed undo against the same narrow
+    /// record IDs. No caller needs to reconstruct potentially stale evidence.
+    @discardableResult
+    func retryLastCorrection() -> Bool {
+        guard let retry = correctionRetry else { return false }
+        switch retry {
+        case .correction(let threadID, let correction):
+            return applyCorrection(threadID: threadID, correction: correction)
+        case .undo(let state):
+            return undo(state)
+        }
+    }
+
+    @discardableResult
+    func undoLastCorrection() -> Bool {
+        guard let state = lastCorrection else { return false }
+        return undo(state)
+    }
+
+    private func applyCorrection(threadID: UUID, correction: SessionCorrection) -> Bool {
+        let archiveRecordIDs = Set(engine.archive.records
+            .filter { $0.threadID == threadID }
+            .map(\.id))
+        let activeBefore: SessionStoreCorrectionState.ActiveFields?
+        if engine.state != .idle, engine.activeThreadID == threadID {
+            activeBefore = .init(name: engine.sessionName, workType: engine.activeWorkType)
+        } else {
+            activeBefore = nil
+        }
+
+        let archiveResult = engine.archive.apply(correction, toThread: threadID)
+        if case .failed(let detail) = archiveResult {
+            publishCorrectionError("Could not save the \(correction.retryDescription): \(detail)")
+            correctionRetry = .correction(threadID: threadID, correction: correction)
+            return false
+        }
+
+        let activeChanged: Bool
+        if activeBefore != nil {
+            switch correction {
+            case .rename(let name): activeChanged = engine.renameActive(to: name)
+            case .workType(let workType): activeChanged = engine.reclassifyActive(as: workType)
+            }
+        } else {
+            activeChanged = false
+        }
+
+        let archiveSnapshot: SessionArchiveCorrectionSnapshot?
+        switch archiveResult {
+        case .applied(let snapshot): archiveSnapshot = snapshot
+        case .unchanged: archiveSnapshot = nil
+        case .failed: archiveSnapshot = nil // handled above
+        }
+        guard archiveSnapshot != nil || activeChanged else {
+            publishCorrectionError(nil)
+            correctionRetry = nil
+            return false
+        }
+
+        guard let originalFields = activeBefore ?? archiveSnapshot?.fields.first.map({
+            SessionStoreCorrectionState.ActiveFields(name: $0.name, workType: $0.workType)
+        }) else {
+            // The success branches above necessarily carry a prior field value;
+            // keep this fail-closed guard rather than inventing one for Undo.
+            publishCorrectionError("Could not retain the original correction value.")
+            return false
+        }
+
+        lastCorrection = .init(threadID: threadID, correction: correction,
+                               archiveSnapshot: archiveSnapshot,
+                               originalFields: originalFields,
+                               archiveRecordIDs: archiveRecordIDs)
+        publishCanUndoCorrection(true)
+        publishCorrectionError(nil)
+        correctionRetry = nil
         refresh()
+        return true
+    }
+
+    private func undo(_ state: SessionStoreCorrectionState) -> Bool {
+        let archiveResult = engine.archive.restore(
+            correction: state.correction, inThread: state.threadID,
+            snapshot: state.archiveSnapshot,
+            recordsPresentAtCorrection: state.archiveRecordIDs,
+            originalFields: (state.originalFields.name, state.originalFields.workType))
+        if case .failed(let detail) = archiveResult {
+            publishCorrectionError("Could not save the undo: \(detail)")
+            correctionRetry = .undo(state)
+            return false
+        }
+
+        let activeChanged: Bool
+        if engine.state != .idle, engine.activeThreadID == state.threadID {
+            switch state.correction {
+            case .rename: activeChanged = engine.restoreActiveName(to: state.originalFields.name)
+            case .workType: activeChanged = engine.reclassifyActive(as: state.originalFields.workType)
+            }
+        } else {
+            activeChanged = false
+        }
+        let archiveChanged: Bool
+        if case .applied = archiveResult { archiveChanged = true } else { archiveChanged = false }
+        guard archiveChanged || activeChanged else { return false }
+
+        lastCorrection = nil
+        publishCanUndoCorrection(false)
+        publishCorrectionError(nil)
+        correctionRetry = nil
+        refresh()
+        return true
     }
 
     /// Starts a new stretch of the same work. Continuing never reopens a closed
@@ -541,6 +657,8 @@ extension SessionStore {
 
     /// Whether this session can be continued right now.
     func canContinue(_ session: DaySession) -> Bool {
-        !hasUnresolvedAwayDecision && !session.isRunning && session.workType.countsAsFocus
+        !hasUnresolvedAwayDecision
+            && (engine.state == .idle || engine.activeThreadID != session.threadID)
+            && session.workType.countsAsFocus
     }
 }

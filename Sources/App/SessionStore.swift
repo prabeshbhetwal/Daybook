@@ -193,6 +193,16 @@ final class SessionStore: ObservableObject {
     /// source archive and are counted explicitly rather than disappearing.
     @Published var historyIntegrityNotices: [String] = []
 
+    /// A failed correction stays visible and retryable. The archive is not
+    /// refreshed until its candidate was atomically persisted.
+    @Published private(set) var correctionError: String?
+    @Published private(set) var canUndoCorrection = false
+    var lastCorrection: SessionStoreCorrectionState?
+    var correctionRetry: SessionCorrectionRetry?
+
+    func publishCorrectionError(_ error: String?) { correctionError = error }
+    func publishCanUndoCorrection(_ available: Bool) { canUndoCorrection = available }
+
     var logGrouping: LogGrouping {
         get { engine.store.logGrouping }
         set {

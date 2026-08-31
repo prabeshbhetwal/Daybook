@@ -311,6 +311,8 @@ struct PersistedState: Codable, Equatable {
     var version: Int?
     /// Nil in snapshots written before threads existed.
     var threadID: UUID?
+    /// Nil in snapshots written before active correction state was durable.
+    var activeWorkType: WorkType? = nil
     var isAuto: Bool?
     /// Absence banked while an away card was up and not yet applied to a
     /// session. Optional so blobs written before it existed still decode; a
@@ -331,6 +333,7 @@ extension PersistedState {
          decisionStarted: Date?,
          savedAt: Date,
          threadID: UUID?,
+         activeWorkType: WorkType? = nil,
          isAuto: Bool,
          shadowAway: TimeInterval = 0) {
         var kind: Kind
@@ -375,8 +378,9 @@ extension PersistedState {
                   savedAt: savedAt,
                   lastAppBundleID: lastAppBundleID,
                   decisionStarted: decisionStarted,
-                  version: 1,
+                  version: 2,
                   threadID: threadID,
+                  activeWorkType: activeWorkType,
                   isAuto: isAuto,
                   shadowAway: shadowAway)
     }

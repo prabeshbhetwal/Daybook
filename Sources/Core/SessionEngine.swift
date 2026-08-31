@@ -132,7 +132,7 @@ final class SessionEngine {
     var sessionsToday: Int {
         let today = now()
         let archived = archive.threadCount(on: today)
-        guard state != .idle else { return archived }
+        guard state != .idle, activeWorkType.countsAsFocus else { return archived }
         return archived + (archive.threadWork(activeThreadID, on: today) > 0 ? 0 : 1)
     }
 
@@ -141,7 +141,7 @@ final class SessionEngine {
     var longestToday: TimeInterval {
         let today = now()
         let archived = archive.longestThread(on: today)?.seconds ?? 0
-        guard state != .idle else { return archived }
+        guard state != .idle, activeWorkType.countsAsFocus else { return archived }
         return max(archived, archive.threadWork(activeThreadID, on: today) + elapsedToday())
     }
 
@@ -181,7 +181,7 @@ final class SessionEngine {
     }
 
     func elapsedToday(calendar: Calendar = .current) -> TimeInterval {
-        guard state != .idle else { return 0 }
+        guard state != .idle, activeWorkType.countsAsFocus else { return 0 }
         let moment = now()
         let dayStart = calendar.startOfDay(for: moment)
         guard sessionStartDate < dayStart else { return elapsed }
@@ -849,21 +849,35 @@ final class SessionEngine {
 
     /// Renames the running session in place. The clock, thread and start are
     /// untouched — only the label the record will carry changes.
-    func renameActive(to name: String) {
-        guard state != .idle else { return }
+    @discardableResult
+    func renameActive(to name: String) -> Bool {
+        guard state != .idle else { return false }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, store.sessionName != trimmed else { return false }
         store.sessionName = trimmed
         persist()
+        return true
+    }
+
+    /// Restores a previously valid active name. Unlike new user input, an
+    /// empty value is legitimate: sessions may intentionally begin unnamed.
+    @discardableResult
+    func restoreActiveName(to name: String) -> Bool {
+        guard state != .idle, store.sessionName != name else { return false }
+        store.sessionName = name
+        persist()
+        return true
     }
 
     /// Reclassifies the running session in place. Correcting the kind of work
     /// must not restart the clock, or the correction would cost the time it is
     /// correcting.
-    func reclassifyActive(as workType: WorkType) {
-        guard state != .idle, activeWorkType != workType else { return }
+    @discardableResult
+    func reclassifyActive(as workType: WorkType) -> Bool {
+        guard state != .idle, activeWorkType != workType else { return false }
         activeWorkType = workType
         persist()
+        return true
     }
 
     func start(workType: WorkType, intent: String, threadID: UUID = UUID(),
@@ -976,6 +990,7 @@ final class SessionEngine {
                        decisionStarted: decisionStartDate,
                        savedAt: now(),
                        threadID: activeThreadID,
+                       activeWorkType: activeWorkType,
                        isAuto: activeIsAuto,
                        shadowAway: shadowAway)
     }
@@ -997,6 +1012,7 @@ final class SessionEngine {
         currentAppBundleID = snapshot.lastAppBundleID
         decisionStartDate = snapshot.decisionStarted
         activeThreadID = snapshot.threadID ?? UUID()
+        activeWorkType = snapshot.activeWorkType ?? .deepWork
         activeIsAuto = snapshot.isAuto ?? false
         awayInterval = nil
         shadowAway = 0
