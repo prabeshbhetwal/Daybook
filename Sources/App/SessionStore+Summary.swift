@@ -2,6 +2,42 @@ import Foundation
 
 extension SessionStore {
 
+    /// Concise, factual bullets for an explicit local day. These deliberately
+    /// keep logged focus, recorded app use and qualifying goal credit separate;
+    /// the day headline already owns the total-focus sentence.
+    func storyDaySummaryFacts(entries: [DayEntry], apps: [AppRank],
+                              goalCredit: TimeInterval,
+                              goal: TimeInterval) -> [String] {
+        let sessions = entries.compactMap { entry -> DaySession? in
+            if case .session(let session) = entry { return session }
+            return nil
+        }
+        let breaks = entries.compactMap { entry -> RestEntry? in
+            if case .rest(let rest) = entry { return rest }
+            return nil
+        }
+        var facts: [String] = []
+        if !sessions.isEmpty {
+            let stretchCount = sessions.reduce(0) { $0 + $1.stretches }
+            facts.append("\(sessions.count == 1 ? "One focus session" : "\(sessions.count) focus sessions") across \(stretchCount == 1 ? "one recorded stretch" : "\(stretchCount) recorded stretches").")
+        }
+        if let leading = apps.first, leading.total > 0 {
+            facts.append("Most recorded app use was in \(leading.appName) (\(Tokens.preciseDuration(leading.total))).")
+        }
+        if goalCredit > 0, goal > 0 {
+            facts.append("\(Tokens.preciseDuration(goalCredit)) qualified towards the \(Tokens.preciseDuration(goal)) daily goal.")
+        }
+        if !breaks.isEmpty {
+            let named = breaks.map(\.name).filter { !$0.isEmpty && $0 != "Break" }
+            if named.isEmpty {
+                facts.append("\(breaks.count == 1 ? "One recorded break" : "\(breaks.count) recorded breaks"), not counted as focus.")
+            } else {
+                facts.append("Recorded break: \(named.joined(separator: ", ")); not counted as focus.")
+            }
+        }
+        return facts
+    }
+
     /// The selected day — or week, or month — in words, from the same figures
     /// the rest of the page shows. Rebuilt on every dashboard refresh, so on
     /// today it keeps pace with the clock and on a past day it is that day's.

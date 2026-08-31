@@ -346,10 +346,10 @@ struct HistoryView: View {
 
     /// The same canonical detail a chart selection opens. Nil unless the
     /// selected day survives the active filters.
-    private var selectedDayDetail: ReviewDayDetail? {
+    private var selectedDayProjection: StoryDayProjection? {
         guard let date = navigation.reviewSelectedDate,
               store.reviewDayIsAvailable(date, section: .history) else { return nil }
-        return store.reviewDayDetail(for: date)
+        return store.storyDayProjection(on: date)
     }
 
     /// The measures are named once, here.
@@ -370,18 +370,26 @@ struct HistoryView: View {
 
     @ViewBuilder private func historyDayEntry(_ day: HistoryDay) -> some View {
         let disclosure = HistoryDayDisclosurePresentation(
-            isExpanded: isSelected(day) && selectedDayDetail != nil)
+            isExpanded: isSelected(day) && selectedDayProjection != nil)
         VStack(spacing: 0) {
             // Keep the row in the same structural position when expanded, so
             // keyboard focus does not jump to the following day.
             dayRow(day, disclosure: disclosure)
-            if disclosure.usesJoinedSurface, let detail = selectedDayDetail {
+            if disclosure.usesJoinedSurface, let projection = selectedDayProjection {
                 Divider().padding(.horizontal, Tokens.Space.m)
-                ReviewDayDetailPanel(
-                    detail: detail,
-                    onOpenInToday: { navigation.openStoryDay(detail.day.date) },
-                    onClose: { navigation.clearReviewDay() },
-                    presentation: .joined)
+                VStack(alignment: .leading, spacing: Tokens.Space.l) {
+                    HStack {
+                        Text("Full day story")
+                            .font(Tokens.Typography.metadata.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Hide story") { navigation.clearReviewDay() }
+                            .buttonStyle(.borderless)
+                    }
+                    ProjectedDayStoryColumn(store: store, projection: projection)
+                        .id(projection.id)
+                }
+                .padding(Tokens.Space.l)
             }
         }
         .background(disclosure.usesJoinedSurface ? Tokens.Colour.hover : Color.clear,

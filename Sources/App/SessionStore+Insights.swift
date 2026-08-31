@@ -189,6 +189,7 @@ extension SessionStore {
 
     func refreshInsights() {
         guard let usage else {
+            insightDaySurface = .empty(range: .day)
             insightWeekSurface = .empty(range: .week)
             insightMonthSurface = .empty(range: .month)
             insightsRefreshPending = false
@@ -222,20 +223,15 @@ extension SessionStore {
     }
 
     var insightsShowsRangeSelector: Bool {
-        InsightSurface.showsRangeSelector(week: insightWeekSurface,
-                                          month: insightMonthSurface)
+        true
     }
 
     func insightSurface(for requestedRange: InsightRange) -> InsightSurface {
-        let requested = requestedRange == .week ? insightWeekSurface : insightMonthSurface
-        if !insightsShowsRangeSelector {
-            if insightWeekSurface.hasRangeEvidence { return insightWeekSurface }
-            if insightMonthSurface.hasRangeEvidence { return insightMonthSurface }
+        switch requestedRange {
+        case .day: return insightDaySurface
+        case .week: return insightWeekSurface
+        case .month: return insightMonthSurface
         }
-        if requested.hasEvidence { return requested }
-        if insightWeekSurface.hasEvidence { return insightWeekSurface }
-        if insightMonthSurface.hasEvidence { return insightMonthSurface }
-        return requested
     }
 
     private func makeInsightSurface(range: InsightRange,
@@ -399,6 +395,7 @@ extension SessionStore {
 private extension InsightRange {
     var trackingPeriod: TrackingPeriod {
         switch self {
+        case .day: return .day
         case .week: return .week
         case .month: return .month
         }
@@ -406,6 +403,7 @@ private extension InsightRange {
 
     var periodPhrase: String {
         switch self {
+        case .day: return "on this day"
         case .week: return "this week"
         case .month: return "this month"
         }

@@ -13,10 +13,7 @@ struct StoryChromeBar: View {
             Color.clear
                 .frame(width: MainWindowChrome.trafficLightClearance, height: 1)
                 .accessibilityHidden(true)
-            StoryScopePills(selection: Binding(get: { navigation.storyScope },
-                                               set: { navigation.selectScope($0) }))
-            Spacer(minLength: Tokens.Space.s)
-            periodNavigation
+            workspaceControls
             Spacer(minLength: Tokens.Space.s)
             StorySessionControl(store: store, onDetails: { navigation.openSheet(.focus) })
             Button { navigation.openSheet(.settings) } label: {
@@ -37,6 +34,59 @@ struct StoryChromeBar: View {
         .background(StoryStyle.canvas)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Window chrome")
+    }
+
+    @ViewBuilder private var workspaceControls: some View {
+        switch navigation.workspace {
+        case .story:
+            StoryScopePills(selection: Binding(get: { navigation.storyScope },
+                                               set: { navigation.selectScope($0) }))
+            Spacer(minLength: Tokens.Space.s)
+            periodNavigation
+        case .history:
+            returnToStory
+            Text("History")
+                .font(Tokens.Typography.rowTitle)
+                .accessibilityAddTraits(.isHeader)
+            Text("\(store.filteredHistoryDays.count) dated records")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+        case .insights:
+            returnToStory
+            InsightRangePills(selection: Binding(
+                get: { navigation.insightRange },
+                set: { navigation.selectInsightRange($0) }))
+            insightNavigation
+        }
+    }
+
+    private var returnToStory: some View {
+        Button(action: navigation.returnToStory) {
+            Label("Story", systemImage: "chevron.left")
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(StoryStyle.action)
+        .accessibilityLabel("Return to Story")
+    }
+
+    private var insightNavigation: some View {
+        HStack(spacing: Tokens.Space.s) {
+            IconButton(systemImage: "chevron.left", help: "Earlier Insights period") {
+                navigation.stepInsightPeriod(by: -1)
+            }
+            Text(navigation.insightAnchorLabel)
+                .font(Tokens.Typography.rowTitle)
+                .lineLimit(1)
+                .frame(minWidth: 168)
+                .accessibilityLabel("Insights anchored at \(navigation.insightAnchorLabel)")
+            IconButton(systemImage: "chevron.right", help: "Later Insights period") {
+                navigation.stepInsightPeriod(by: 1)
+            }
+            .disabled(Calendar.current.isDate(navigation.insightAnchor,
+                                              inSameDayAs: store.now()))
+        }
     }
 
     private var periodNavigation: some View {

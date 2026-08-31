@@ -445,7 +445,7 @@ enum SelfTest {
         ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
             + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
-            + DecisionHistoryChecks.tests + DecisionRecoveryChecks.tests
+            + DecisionHistoryChecks.tests + DecisionRecoveryChecks.tests + StoryWorkspaceChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -8726,8 +8726,8 @@ enum SelfTest {
                &problems)
         store.insightWeekSurface = pace
         store.insightMonthSurface = evidenced
-        expect(store.insightSurface(for: .week) == evidenced,
-               "a sole Month period fact is not hidden behind Week-only Pace", &problems)
+        expect(store.insightSurface(for: .week) == pace,
+               "each explicit Insights scope keeps its own evidence", &problems)
 
         var boundaryComponents = DateComponents()
         boundaryComponents.calendar = Calendar.current

@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// The application window is the story: one chrome row that says what you are
-/// looking at and what is running, a story column, and the rail of tiles beside
-/// it. Settings and the two secondary surfaces arrive as a sheet from under the
-/// chrome rather than as separate destinations, so the story is never replaced.
+/// looking at and what is running. Story, History and Insights are persistent
+/// reading workspaces in the content region; Focus, Awards and Settings remain
+/// attached panels and return to whichever workspace invoked them.
 struct MainWindowView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var settings: SettingsModel
@@ -25,8 +25,7 @@ struct MainWindowView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
             Divider()
-            StoryCanvas(store: store, navigation: navigation, settings: settings,
-                        scrolls: reviewScrolls)
+            readingWorkspace
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .clipped()
                 .accessibilitySortPriority(1)
@@ -59,8 +58,38 @@ struct MainWindowView: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// The one overlay. It carries Settings, and the two surfaces the story
-    /// links to rather than contains, so nothing the app can say is lost.
+    @ViewBuilder private var readingWorkspace: some View {
+        switch navigation.workspace {
+        case .story:
+            StoryCanvas(store: store, navigation: navigation, settings: settings,
+                        scrolls: reviewScrolls)
+        case .history:
+            Group {
+                if reviewScrolls {
+                    ScrollView {
+                        HistoryView(store: store, navigation: navigation)
+                            .padding(Tokens.Space.xxl)
+                    }
+                } else {
+                    HistoryView(store: store, navigation: navigation)
+                        .padding(Tokens.Space.xxl)
+                }
+            }
+            .background(Tokens.Colour.ground)
+            .onAppear {
+                store.setReviewVisible(true)
+                store.refreshReview()
+            }
+            .onDisappear { store.setReviewVisible(false) }
+        case .insights:
+            InsightsView(store: store, navigation: navigation,
+                         scrolls: insightsScrolls)
+        }
+    }
+
+    /// Attached panels. History and Insights remain compatibility enum cases,
+    /// but MainWindowModel routes them into the content workspace before this
+    /// presentation boundary.
     private func sheetContent(_ presented: StorySheetKind) -> some View {
         StorySheet(title: presented.title, onClose: { navigation.closeSheet() }) {
                 switch presented {

@@ -24,6 +24,29 @@ struct StoryUsageBreakdown: Equatable {
 
 extension SessionStore {
 
+    /// A reversible classification is itself dated History evidence even when
+    /// its classified record has been removed. It never contributes fabricated
+    /// focus, app use or a session count.
+    func storyHistoryDaysIncludingDecisionReceipts(_ days: [HistoryDay],
+                                                    calendar: Calendar = .current) -> [HistoryDay] {
+        var result = days
+        for receipt in engine.awayDecisions {
+            var day = calendar.startOfDay(for: receipt.range.start)
+            var visited = 0
+            while day < receipt.range.end && visited < HistoryStats.maximumCalendarDaysPerRecord {
+                visited += 1
+                if !result.contains(where: { calendar.isDate($0.date, inSameDayAs: day) }) {
+                    result.append(HistoryDay(date: day, tracked: 0, focused: 0,
+                                             sessions: 0, appBundleIDs: [],
+                                             workTypes: [receipt.workType]))
+                }
+                guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+                day = next
+            }
+        }
+        return result.sorted { $0.date > $1.date }
+    }
+
     /// Declared focus attributable to one local day, including a running
     /// stretch where it intersects that day. The live projection is never
     /// written to `SessionArchive`.

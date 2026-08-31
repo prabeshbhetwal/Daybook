@@ -15,7 +15,7 @@ enum StoryNarrative {
             return "You recorded \(Tokens.preciseDuration(tracked)) of app use, with no focus session."
         }
         if rest > 0 {
-            return "You recorded \(Tokens.preciseDuration(rest)) of rest, with no focus session."
+            return "You recorded \(Tokens.preciseDuration(rest)) as a break, with no focus session."
         }
         return isToday ? "Your day starts here." : "No activity was recorded on this day."
     }
@@ -36,7 +36,8 @@ enum StoryNarrative {
             ? "You focused on \(activeDays) of \(totalDays) days, \(Tokens.preciseDuration(focused)) in total"
             : "You focused for \(Tokens.preciseDuration(focused)) this \(unit)"
         if let best, best.focused > 0 {
-            text += ", and \(Tokens.weekdayName(best.day)) carried the \(unit)"
+            text += "; the strongest day was \(Tokens.longDate(best.day)) "
+                + "with \(Tokens.preciseDuration(best.focused)) logged focus"
         }
         return text + "."
     }
@@ -88,62 +89,70 @@ struct StoryHeadline: View {
 
 struct DayStoryColumn: View {
     @ObservedObject var store: SessionStore
+
+    var body: some View {
+        ProjectedDayStoryColumn(store: store,
+                                projection: store.storyDayProjection(on: store.selectedDay))
+    }
+}
+
+struct ProjectedDayStoryColumn: View {
+    @ObservedObject var store: SessionStore
+    let projection: StoryDayProjection
     @StateObject private var showSummary = BoolBox()
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-            if let note = store.selectedDayIntegrityNote { IntegrityNotice(note) }
-            StoryHeadline(eyebrow: Tokens.longDate(store.selectedDay),
+            if let note = projection.integrityNote { IntegrityNotice(note) }
+            StoryHeadline(eyebrow: Tokens.longDate(projection.date),
                           sentence: sentence,
                           facts: facts,
-                          highlight: Tokens.preciseDuration(focusedToday))
+                          highlight: Tokens.preciseDuration(projection.focused))
             StoryCorrectionNotice(store: store)
-            DayStory(store: store)
-            if !store.summarySentences.isEmpty {
+            if !projection.summaryFacts.isEmpty {
                 StoryDisclosure(title: "About this day", isExpanded: Binding(
                     get: { showSummary.value }, set: { showSummary.value = $0 })) {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(Array(store.summarySentences.enumerated()), id: \.offset) { _, sentence in
-                            Text(SummaryText.plain([sentence]))
+                        ForEach(Array(projection.summaryFacts.enumerated()), id: \.offset) { _, fact in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text("•").accessibilityHidden(true)
+                                Text(fact)
                                 .font(Tokens.Typography.metadata)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
                 }
             }
+            DayStory(store: store, projection: projection)
         }
     }
 
     /// A focus-led sentence; the longer evidence narrative remains available
     /// below the chronology rather than overwhelming the headline.
     private var sentence: String {
-        StoryNarrative.day(focused: focusedToday,
-                           tracked: store.storyUsageBreakdown(on: store.selectedDay).tracked,
-                           sessions: store.storySessionCount(on: store.selectedDay),
-                           rest: restSeconds, isToday: store.isToday)
-    }
-
-    private var focusedToday: TimeInterval {
-        store.storyFocusedSeconds(on: store.selectedDay)
+        StoryNarrative.day(focused: projection.focused,
+                           tracked: projection.tracked,
+                           sessions: projection.focusSessionCount,
+                           rest: projection.recordedBreakSeconds,
+                           isToday: projection.isCurrentDay)
     }
 
     private var facts: [String] {
         var parts: [String] = []
-        let tracked = store.isToday ? store.trackedToday : store.trackedForSelectedDay
-        if tracked > 0 { parts.append("\(Tokens.duration(tracked)) recorded app use") }
-        let rest = restSeconds
-        if rest > 0 { parts.append("\(Tokens.duration(rest)) of rest") }
-        let longest = store.storyLongestStretch(on: store.selectedDay)
+        if projection.tracked > 0 {
+            parts.append("\(Tokens.duration(projection.tracked)) recorded app use")
+        }
+        if projection.recordedBreakSeconds > 0 {
+            parts.append("\(Tokens.duration(projection.recordedBreakSeconds)) recorded break")
+        }
+        let longest = projection.longestFocusStretch
         if longest > 0 { parts.append("longest stretch \(Tokens.preciseDuration(longest))") }
+        if projection.goalCredit > 0 {
+            parts.append("\(Tokens.duration(projection.goalCredit)) goal credit")
+        }
         return parts
-    }
-
-    private var restSeconds: TimeInterval {
-        store.daySessions.compactMap { entry -> TimeInterval? in
-            if case .rest(let rest) = entry { return rest.length }
-            return nil
-        }.reduce(0, +)
     }
 }
 
@@ -226,39 +235,60 @@ struct StorySelectedDayCard: View {
         store.historyDays.first { Calendar.current.isDate($0.date, inSameDayAs: day) }
     }
 
+    private var projection: StoryDayProjection {
+        store.storyDayProjection(on: day)
+    }
+
+    private var isExpanded: Bool {
+        navigation.expandedStoryDay.map {
+            Calendar.current.isDate($0, inSameDayAs: day)
+        } ?? false
+    }
+
     var body: some View {
-        SurfacePanel(showsHeader: false) {
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
-                Text(Tokens.longDate(day))
-                    .font(Tokens.Typography.sectionTitle)
-                Text(Tokens.duration(facts?.focused ?? 0))
-                    .font(Tokens.Typography.metricValue.monospacedDigit())
-                    .foregroundStyle(Tokens.Colour.focus)
-                Spacer(minLength: Tokens.Space.m)
-                if facts != nil {
+        VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            SurfacePanel(showsHeader: false) {
+                HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
+                    Text(Tokens.longDate(day))
+                        .font(Tokens.Typography.sectionTitle)
+                    Text(Tokens.duration(projection.focused))
+                        .font(Tokens.Typography.metricValue.monospacedDigit())
+                        .foregroundStyle(Tokens.Colour.focus)
+                    Spacer(minLength: Tokens.Space.m)
                     Button {
-                        navigation.openStoryDay(day)
+                        navigation.toggleExpandedStoryDay(day)
                     } label: {
-                        Text("Open as a story ›")
+                        Text(isExpanded ? "Hide story" : "Open as a story ›")
                             .font(Tokens.Typography.metadata.weight(.semibold))
                             .foregroundStyle(StoryStyle.action)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Open \(Tokens.longDate(day)) as a story")
+                    .accessibilityLabel(isExpanded
+                        ? "Hide \(Tokens.longDate(day)) story"
+                        : "Open \(Tokens.longDate(day)) as a story")
                 }
+                Text(note)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(note)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if isExpanded {
+                ProjectedDayStoryColumn(store: store, projection: projection)
+                    .id(projection.id)
+            }
         }
     }
 
     private var note: String {
-        guard let facts else { return "Nothing was recorded on this day." }
+        guard facts != nil || !projection.chronology.isEmpty else {
+            return "Nothing was recorded on this day."
+        }
         var parts: [String] = []
-        parts.append(facts.sessions == 1 ? "1 session" : "\(facts.sessions) sessions")
-        if facts.tracked > 0 { parts.append("\(Tokens.duration(facts.tracked)) on this Mac") }
+        parts.append(projection.focusSessionCount == 1
+                     ? "1 session" : "\(projection.focusSessionCount) sessions")
+        if projection.tracked > 0 {
+            parts.append("\(Tokens.duration(projection.tracked)) recorded app use")
+        }
         return parts.joined(separator: " · ")
     }
 }

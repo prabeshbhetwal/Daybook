@@ -12,6 +12,12 @@ struct InsightsView: View {
         store.insightSurface(for: navigation.insightRange)
     }
 
+    private var periods: [StoryPeriodProjection] {
+        store.insightPeriodProjections(scope: navigation.insightRange,
+                                       anchoredAt: navigation.insightAnchor,
+                                       limit: navigation.insightPageCount)
+    }
+
     var body: some View {
         Group {
             if scrolls {
@@ -23,10 +29,6 @@ struct InsightsView: View {
         .background(Tokens.Colour.ground)
         .onAppear {
             store.setInsightsVisible(true)
-            if !store.insightWeekSurface.hasRangeEvidence,
-               store.insightMonthSurface.hasRangeEvidence {
-                navigation.insightRange = .month
-            }
         }
         .onDisappear { store.setInsightsVisible(false) }
     }
@@ -34,9 +36,17 @@ struct InsightsView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
             header
-            if surface.hasEvidence {
+            periodPages
+            if navigation.insightCanShowEarlier {
+                Button("Show earlier periods") { navigation.showEarlierInsights() }
+                    .buttonStyle(.borderless)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            }
+            if showsCurrentPatterns, surface.hasEvidence {
+                Text("Evidence-backed patterns")
+                    .font(Tokens.Typography.sectionTitle)
                 sections
-            } else {
+            } else if showsCurrentPatterns {
                 SurfacePanel(showsHeader: false) {
                     EmptyState(InsightSurface.insufficientEvidenceCopy,
                                icon: "sparkles")
@@ -53,14 +63,83 @@ struct InsightsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Insights")
                     .font(Tokens.Typography.pageTitle)
-                Text("Only patterns supported by your local record appear here.")
+                Text("\(navigation.insightRange.title) summaries, newest first · anchored at \(navigation.insightAnchorLabel).")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: Tokens.Space.l)
-            if store.insightsShowsRangeSelector {
-                InsightRangePills(selection: $navigation.insightRange)
+            InsightRangePills(selection: Binding(
+                get: { navigation.insightRange },
+                set: { navigation.selectInsightRange($0) }))
+        }
+    }
+
+    private var showsCurrentPatterns: Bool {
+        navigation.insightRange != .day
+            && Calendar.current.isDate(navigation.insightAnchor,
+                                       inSameDayAs: store.now())
+    }
+
+    private var periodPages: some View {
+        LazyVStack(alignment: .leading, spacing: Tokens.Space.m) {
+            ForEach(periods) { period in
+                SurfacePanel(showsHeader: false) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(periodLabel(period))
+                            .font(Tokens.Typography.sectionTitle)
+                        if period.isCurrent {
+                            Text("so far")
+                                .font(Tokens.Typography.metadata.weight(.semibold))
+                                .foregroundStyle(StoryStyle.action)
+                        }
+                        Spacer()
+                        Text(period.activeDays == 1 ? "1 active day"
+                             : "\(period.activeDays) active days")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: Tokens.Space.xl) {
+                        periodMetric("Logged focus", period.focused)
+                        periodMetric("Recorded app use", period.tracked)
+                        periodMetric("Goal credit", period.goalCredit)
+                    }
+                    if let best = period.days.filter({ $0.focused > 0 })
+                        .max(by: { $0.focused < $1.focused }) {
+                        Text("Strongest logged-focus day: \(Tokens.longDate(best.date)), \(Tokens.preciseDuration(best.focused)).")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .id(period.id)
             }
+        }
+    }
+
+    private func periodMetric(_ label: String, _ value: TimeInterval) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+            Text(Tokens.preciseDuration(value))
+                .font(.callout.weight(.semibold).monospacedDigit())
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func periodLabel(_ period: StoryPeriodProjection) -> String {
+        switch period.scope {
+        case .day:
+            return Tokens.longDate(period.start)
+        case .month:
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_AU")
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: period.start)
+        case .week:
+            let calendar = Calendar.current
+            let end = calendar.date(byAdding: .day, value: -1, to: period.end) ?? period.start
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_AU")
+            formatter.dateFormat = "d MMM yyyy"
+            return "\(formatter.string(from: period.start))–\(formatter.string(from: end))"
         }
     }
 
@@ -88,7 +167,7 @@ struct InsightsView: View {
     }
 }
 
-private struct InsightRangePills: View {
+struct InsightRangePills: View {
     @Binding var selection: InsightRange
 
     var body: some View {
@@ -123,11 +202,12 @@ private struct InsightRangePills: View {
     }
 }
 
-private extension InsightRange {
+extension InsightRange {
     var title: String {
         switch self {
-        case .week: return "This week"
-        case .month: return "This month"
+        case .day: return "Day"
+        case .week: return "Week"
+        case .month: return "Month"
         }
     }
 }

@@ -91,12 +91,16 @@ extension SessionStore {
     }
 
     var storyTimelineItems: [StoryTimelineItem] {
-        guard let day = Calendar.current.dateInterval(of: .day, for: selectedDay) else { return [] }
+        storyTimelineItems(on: selectedDay)
+    }
+
+    func storyTimelineItems(on selectedDate: Date) -> [StoryTimelineItem] {
+        guard let day = Calendar.current.dateInterval(of: .day, for: selectedDate) else { return [] }
         func clipped(_ range: DateInterval) -> DateInterval? {
             let start = max(day.start, range.start), end = min(day.end, range.end)
             return end > start ? DateInterval(start: start, end: end) : nil
         }
-        var moments = storyMoments
+        var moments = storyMoments(on: selectedDate)
         var notices: [StoryTimelineItem] = []
         for receipt in engine.awayDecisions {
             guard let range = clipped(receipt.range) else { continue }
@@ -141,7 +145,7 @@ extension SessionStore {
                 if case .rest = entry { moments.removeAll { $0.id == match.id } }
             }
         }
-        if isToday, let range = pendingAwayRange,
+        if Calendar.current.isDate(selectedDate, inSameDayAs: now()), let range = pendingAwayRange,
            let visible = clipped(DateInterval(start: range.start, end: max(range.start, range.end))) {
             notices.append(.pending(visible))
         }

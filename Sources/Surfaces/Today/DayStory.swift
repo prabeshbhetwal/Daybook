@@ -34,6 +34,7 @@ extension EnvironmentValues {
 /// navigates away.
 struct DayStory: View {
     @ObservedObject var store: SessionStore
+    var projection: StoryDayProjection? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Entries the reader has opened. Local: it is a reading aid, not state the
     /// product remembers.
@@ -47,12 +48,15 @@ struct DayStory: View {
     private let railColumn: CGFloat = 22
 
     private var moments: [StoryMoment] {
-        store.storyMoments
+        (projection?.chronology ?? store.storyTimelineItems).compactMap { item in
+            if case .moment(let moment) = item { return moment }
+            return nil
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            let entries = store.storyTimelineItems
+            let entries = projection?.chronology ?? store.storyTimelineItems
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, item in
                 timelineRow(item, isFirst: index == 0, isLast: index == entries.count - 1)
             }
@@ -61,6 +65,10 @@ struct DayStory: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: openInitialEntries)
         .onChange(of: store.dayOffset) { _ in
+            opened.ids.removeAll()
+            openInitialEntries()
+        }
+        .onChange(of: projection?.id) { _ in
             opened.ids.removeAll()
             openInitialEntries()
         }
@@ -155,7 +163,10 @@ struct DayStory: View {
         case .session(let session):
             let key = StoryMoment.entry(entry).id
             let isOpen = opened.ids.contains(key)
-            let detail = isOpen ? store.storySessionDetail(session) : nil
+            let detail = isOpen
+                ? (projection?.sessionDetails[session.id] ?? store.storySessionDetail(session,
+                    on: projection?.date ?? store.selectedDay))
+                : nil
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
                      dotSize: session.isRunning ? 13 : 11,
@@ -165,7 +176,8 @@ struct DayStory: View {
                                  shape: detail?.text,
                                  shapeCaption: detail?.caption,
                                  activity: detail?.activity,
-                                 appColourIndices: store.storyAppColourIndices,
+                                 appColourIndices: projection?.appColourIndices
+                                    ?? store.storyAppColourIndices,
                                  canContinue: store.canContinue(session),
                                  canStartNewSession: store.canStartNewSession(session),
                                  isOpen: isOpen,
@@ -194,7 +206,8 @@ struct DayStory: View {
     }
 
     private func canControl(_ session: DaySession) -> Bool {
-        session.isRunning && store.isToday && store.engine.state != .idle
+        session.isRunning && (projection?.isCurrentDay ?? store.isToday)
+            && store.engine.state != .idle
             && session.threadID == store.engine.activeThreadID
             && !store.hasUnresolvedAwayDecision
     }

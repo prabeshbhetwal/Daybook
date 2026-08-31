@@ -200,7 +200,7 @@ enum StoryPresentationChecks {
         if !appDay.contains("15m") || !appDay.contains("app use") || !appWeek.contains("15m") {
             failures.append("Observed app-only evidence was presented as an empty record")
         }
-        if !restDay.contains("10m") || !restDay.contains("rest") {
+        if !restDay.contains("10m") || !restDay.contains("break") {
             failures.append("A rest-only day lost its named recording")
         }
         return failures
@@ -219,7 +219,7 @@ enum StoryPresentationChecks {
             }
             let history = Snapshotter.store(for: .reviewHistorySelection)
             let route = Snapshotter.navigation(for: .reviewHistorySelection, store: history)
-            if route.sheet != .history || route.reviewSelectedDate == nil {
+            if route.workspace != .history || route.reviewSelectedDate == nil {
                 failures.append("History selection snapshot did not actually present a selected History day")
             }
             let past = Snapshotter.store(for: .todayPast)

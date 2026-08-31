@@ -182,6 +182,7 @@ final class SessionStore: ObservableObject {
     // MARK: Insights
     // Week and Month remain separate read models so local range selection never
     // mutates Review's independently selected period.
+    @Published var insightDaySurface = InsightSurface.empty(range: .day)
     @Published var insightWeekSurface = InsightSurface.empty(range: .week)
     @Published var insightMonthSurface = InsightSurface.empty(range: .month)
 
@@ -348,6 +349,11 @@ final class SessionStore: ObservableObject {
     }
     var dashboardEvidenceRevision: EvidenceRevision?
     var reviewEvidenceRevision: EvidenceRevision?
+    /// Explicit-date Story projections are immutable read models. Historical
+    /// values survive ticker frames; current or running dates deliberately
+    /// bypass this bounded cache.
+    var storyProjectionCache: [StoryDayProjectionCacheKey: StoryDayProjection] = [:]
+    var storyProjectionCacheOrder: [StoryDayProjectionCacheKey] = []
     var reviewVisible = false
     var reviewRefreshPending = true
     /// Marks a ticker-only Review update: patch the current live day instead

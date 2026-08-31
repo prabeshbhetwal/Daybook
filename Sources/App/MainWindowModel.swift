@@ -65,8 +65,15 @@ enum ReviewSection: String, CaseIterable {
 }
 
 enum InsightRange: String, CaseIterable {
+    case day
     case week
     case month
+}
+
+enum MainReadingWorkspace: String, CaseIterable {
+    case story
+    case history
+    case insights
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
@@ -106,7 +113,9 @@ enum AppearancePreference: String, CaseIterable {
     }
 }
 
-/// The surfaces that arrive over the story rather than replacing it.
+/// Attached panels plus compatibility routes for the two reading workspaces.
+/// History and Insights are intercepted by `openSheet` and never presented as
+/// modal sheets; Focus, Awards and Settings remain attached.
 enum StorySheetKind: String, CaseIterable, Identifiable {
     case focus, history, insights, awards, settings
 
@@ -146,27 +155,29 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
 @MainActor final class MainWindowModel: ObservableObject {
     @Published var selectedTab: AppTab
+    @Published private(set) var workspace: MainReadingWorkspace = .story
     @Published private(set) var requestedDate: Date?
     /// The day Review is inspecting, or nil when nothing is selected. It is
     /// deliberately separate from `requestedDate`: selecting evidence in Review
     /// explains a day in place, while `requestedDate` moves the user to Today.
     @Published private(set) var reviewSelectedDate: Date?
-    /// Which span the Story surface is telling, and the day drilled into from
-    /// a week bar or a month cell. The selection is inspection: it never leaves
-    /// the surface, and `openStoryDay` is the one action that changes scope.
-    /// The surfaces the story links to rather than contains. Nil is the story
-    /// itself, which is what the window shows.
+    /// Which span the Story surface is telling, the selected period day and the
+    /// independently toggled inline child. Attached-panel state is separate.
     @Published private(set) var sheet: StorySheetKind?
     @Published var storyScope: StoryScope = .day {
         didSet {
             guard storyScope != oldValue else { return }
             storySelectedDay = nil
+            expandedStoryDay = nil
             refreshStoryScope()
         }
     }
     @Published private(set) var storySelectedDay: Date?
+    @Published private(set) var expandedStoryDay: Date?
     @Published var reviewSection: ReviewSection = .week
     @Published var insightRange: InsightRange = .week
+    @Published var insightAnchor: Date
+    @Published private(set) var insightPageCount = 6
     @Published var settingsSection: SettingsSection = .general
     @Published var settingsQuery: String = ""
     private weak var store: SessionStore?
@@ -179,10 +190,21 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         self.selectedTab = selectedTab
         self.storyScope = storyScope
         self.requestedDate = requestedDate
+        self.insightAnchor = Calendar.current.startOfDay(for: store?.now() ?? Date())
         // Construction and selection must agree: a model built on a sheet-backed
         // tab is already presenting that sheet, or restoring one would show the
         // story with no sign of the surface that was asked for.
-        self.sheet = StorySheetKind(tab: selectedTab)
+        switch selectedTab {
+        case .review:
+            self.workspace = .history
+            self.sheet = nil
+        case .insights:
+            self.workspace = .insights
+            self.sheet = nil
+        default:
+            self.workspace = .story
+            self.sheet = StorySheetKind(tab: selectedTab)
+        }
         if let store { connect(to: store) }
     }
 
@@ -192,18 +214,31 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     func open(tab: AppTab) {
         selectedTab = tab
-        sheet = StorySheetKind(tab: tab)
-        if tab == .today {
-            openToday(date: store?.now() ?? Date())
-        } else if tab == .review {
+        switch tab {
+        case .review:
+            workspace = .history
+            sheet = nil
             reviewSection = .history
             store?.refreshReview()
+        case .insights:
+            workspace = .insights
+            sheet = nil
+            store?.refreshInsights()
+        case .story:
+            workspace = .story
+            sheet = nil
+        default:
+            sheet = StorySheetKind(tab: tab)
+        }
+        if tab == .today {
+            openToday(date: store?.now() ?? Date())
         }
     }
 
     func openToday(date: Date) {
         requestedDate = date
         selectedTab = .today
+        workspace = .story
         sheet = nil
         showDay(date)
         storyScope = .day
@@ -228,34 +263,57 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     func openSheet(_ kind: StorySheetKind) {
-        open(tab: kind.tab)
+        switch kind {
+        case .history: open(tab: .review)
+        case .insights: open(tab: .insights)
+        default:
+            selectedTab = kind.tab
+            sheet = kind
+        }
     }
 
     func closeSheet() {
         sheet = nil
-        selectedTab = .story
+        selectedTab = tab(for: workspace)
     }
 
     func revealApplication() {
-        // A generic window-open action reveals the reader's existing Story.
-        // Session controls remain a separate, explicitly requested destination.
+        // A generic window-open action keeps the visible reading workspace.
+        // It only dismisses an attached panel such as Settings.
         closeSheet()
     }
 
     func selectStoryDay(_ date: Date, calendar: Calendar = .current) {
-        storySelectedDay = calendar.startOfDay(for: date)
+        let day = calendar.startOfDay(for: date)
+        storySelectedDay = day
+        if expandedStoryDay != nil { expandedStoryDay = day }
     }
 
     func clearStoryDay() {
         storySelectedDay = nil
+        expandedStoryDay = nil
     }
 
-    /// The named drill-in: the month or week hands its selected day to the day
-    /// story, which is the whole point of choosing a cell.
+    func toggleExpandedStoryDay(_ date: Date, calendar: Calendar = .current) {
+        let day = calendar.startOfDay(for: date)
+        if let expandedStoryDay, calendar.isDate(expandedStoryDay, inSameDayAs: day) {
+            self.expandedStoryDay = nil
+        } else {
+            storySelectedDay = day
+            expandedStoryDay = day
+        }
+    }
+
+    /// Compatibility action for existing period callers. A period day opens
+    /// inline; only an already-Day-scoped caller changes the global Day date.
     func openStoryDay(_ date: Date, calendar: Calendar = .current) {
-        openToday(date: calendar.startOfDay(for: date))
-        storySelectedDay = nil
-        selectedTab = .story
+        if storyScope == .day {
+            workspace = .story
+            showDay(calendar.startOfDay(for: date))
+            selectedTab = .story
+        } else {
+            toggleExpandedStoryDay(date, calendar: calendar)
+        }
     }
 
     /// The navigation model owns the route, while SessionStore owns the day.
@@ -268,15 +326,20 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         store.setDashboardVisible(true)
         if let requestedDate { showDay(requestedDate) }
         periodObservation = store.$reviewDays.sink { [weak self] days in
-            guard let self, let selected = self.storySelectedDay else { return }
-            if !days.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: selected) }) {
+            guard let self else { return }
+            if let selected = self.storySelectedDay,
+               !days.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: selected) }) {
                 self.storySelectedDay = nil
+                self.expandedStoryDay = nil
             }
         }
         refreshStoryScope()
     }
 
     func selectScope(_ scope: StoryScope) {
+        workspace = .story
+        sheet = nil
+        selectedTab = .story
         if scope != storyScope, let store {
             let anchor = storyScope == .day ? store.selectedDay
                 : storySelectedDay ?? store.reviewAnchor ?? store.now()
@@ -286,7 +349,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
                 store.reviewAnchor = Calendar.current.startOfDay(for: anchor)
             }
         }
-        closeSheet()
         storyScope = scope
         refreshStoryScope()
     }
@@ -305,6 +367,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     func stepStoryPeriod(by delta: Int) {
         guard let store else { return }
         storySelectedDay = nil
+        expandedStoryDay = nil
         switch storyScope {
         case .day: store.stepDay(by: delta)
         case .week, .month: store.moveReviewPeriod(by: delta)
@@ -317,7 +380,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             store.setReviewVisible(true)
             store.refreshReview(period: period)
         } else {
-            store.setReviewVisible(sheet == .history)
+            store.setReviewVisible(workspace == .history)
             store.refreshDashboard()
         }
     }
@@ -326,7 +389,74 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         openSheet(.settings)
     }
 
+    func returnToStory() {
+        sheet = nil
+        workspace = .story
+        selectedTab = .story
+    }
+
+    func selectInsightRange(_ range: InsightRange) {
+        insightRange = range
+        insightPageCount = range == .month ? 3 : range == .week ? 6 : 14
+    }
+
+    func stepInsightPeriod(by delta: Int, calendar: Calendar = .current) {
+        guard delta != 0 else { return }
+        let component: Calendar.Component
+        switch insightRange {
+        case .day: component = .day
+        case .week: component = .weekOfYear
+        case .month: component = .month
+        }
+        guard let candidate = calendar.date(byAdding: component, value: delta,
+                                            to: insightAnchor) else { return }
+        insightAnchor = min(calendar.startOfDay(for: store?.now() ?? Date()), candidate)
+    }
+
+    func showEarlierInsights() {
+        let increment = insightRange == .day ? 14 : insightRange == .week ? 6 : 3
+        insightPageCount = min(insightMaximumPageCount, insightPageCount + increment)
+    }
+
+    var insightCanShowEarlier: Bool {
+        insightPageCount < insightMaximumPageCount
+    }
+
+    private var insightMaximumPageCount: Int {
+        insightRange == .day ? 42 : insightRange == .week ? 14 : 4
+    }
+
+    var insightAnchorLabel: String {
+        let calendar = Calendar.current
+        switch insightRange {
+        case .day:
+            return Tokens.longDate(insightAnchor)
+        case .month:
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_AU")
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: insightAnchor)
+        case .week:
+            guard let bounds = calendar.dateInterval(of: .weekOfYear, for: insightAnchor) else {
+                return Tokens.longDate(insightAnchor)
+            }
+            let end = calendar.date(byAdding: .day, value: -1, to: bounds.end) ?? bounds.start
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_AU")
+            formatter.dateFormat = "d MMM"
+            return "\(formatter.string(from: bounds.start))–\(formatter.string(from: end))"
+        }
+    }
+
     func moveTab(by delta: Int) {
         open(tab: selectedTab.moved(by: delta))
+    }
+
+    private func tab(for workspace: MainReadingWorkspace) -> AppTab {
+        switch workspace {
+        case .story: return .story
+        case .history: return .review
+        case .insights: return .insights
+        }
     }
 }

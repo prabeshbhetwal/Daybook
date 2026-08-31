@@ -12,8 +12,8 @@ enum StoryNavigationChecks {
             var failures: [String] = []
             let navigation = MainWindowModel(storyScope: .month)
             navigation.open(tab: .insights)
-            if navigation.sheet != .insights {
-                failures.append("Insights command changed a legacy tab but did not present Insights")
+            if navigation.workspace != .insights || navigation.sheet != nil {
+                failures.append("Insights command did not present its same-window workspace")
             }
             navigation.open(tab: .settings)
             if navigation.sheet != .settings {
@@ -59,15 +59,14 @@ enum StoryNavigationChecks {
                                           idle: .disabled, now: { now })
             store.attach(tracker: tracker, usage: usage)
             let navigation = MainWindowModel(storyScope: .month)
-            // A request can arrive before the window is constructed.
-            navigation.openStoryDay(chosen)
             navigation.connect(to: store)
+            navigation.openStoryDay(chosen)
             var failures: [String] = []
-            func checkDay() {
-                if !calendar.isDate(store.selectedDay, inSameDayAs: chosen) {
-                    failures.append("Opening 21 August displayed \(store.selectedDay), not the selected day")
+            @MainActor func checkDay() {
+                if !calendar.isDate(navigation.expandedStoryDay ?? now, inSameDayAs: chosen) {
+                    failures.append("Opening 21 August did not expand that child in place")
                 }
-                let names = store.daySessions.compactMap { entry -> String? in
+                let names = store.storyDayProjection(on: chosen).sessions.compactMap { entry -> String? in
                     if case .session(let session) = entry { return session.name }; return nil
                 }
                 if names != ["Historical parser work"] {
@@ -77,6 +76,7 @@ enum StoryNavigationChecks {
             checkDay()
             navigation.open(tab: .today)
             if store.dayOffset != 0 { failures.append("Today route did not return to the current local day") }
+            navigation.selectScope(.month)
             navigation.openStoryDay(chosen)
             checkDay()
             navigation.selectScope(.week)
@@ -90,13 +90,13 @@ enum StoryNavigationChecks {
                 failures.append("July retained an August selection")
             }
             navigation.open(tab: .review)
-            if navigation.sheet != .history || store.historyDays.isEmpty {
+            if navigation.workspace != .history || store.historyDays.isEmpty {
                 failures.append("History route did not present searchable evidence")
             }
             let emptyDay = calendar.date(byAdding: .day, value: -1, to: chosen)!
-            navigation.openStoryDay(emptyDay)
-            if !calendar.isDate(store.selectedDay, inSameDayAs: emptyDay) || !store.daySessions.isEmpty {
-                failures.append("An explicitly requested empty day was silently replaced with a recorded date")
+            let emptyProjection = store.storyDayProjection(on: emptyDay)
+            if !emptyProjection.sessions.isEmpty {
+                failures.append("An explicit empty-day projection borrowed another date's evidence")
             }
             store.setDashboardVisible(false)
             store.setReviewVisible(false)

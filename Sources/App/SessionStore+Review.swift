@@ -208,7 +208,8 @@ extension SessionStore {
             let previousOldest = historyDays.last?.date
             let rebuilt = HistoryStats.build(sessionRecords: engine.archive.records,
                                              usage: snapshot.sessions, calendar: calendar)
-            historyDays = storyHistoryDaysIncludingRunning(rebuilt.days)
+            historyDays = storyHistoryDaysIncludingDecisionReceipts(
+                storyHistoryDaysIncludingRunning(rebuilt.days), calendar: calendar)
             historyIntegrityNotices = historyNotices(for: snapshot, rebuilt: rebuilt)
             maintainHistoryRange(previousNewest: previousNewest,
                                  previousOldest: previousOldest, calendar: calendar)
@@ -224,7 +225,8 @@ extension SessionStore {
             calendar: calendar)
         // The builder deliberately clips each source record across all of its
         // days. Keep only the affected keys, then replace them exactly once.
-        let current = storyHistoryDaysIncludingRunning(rebuilt.days).filter {
+        let current = storyHistoryDaysIncludingDecisionReceipts(
+            storyHistoryDaysIncludingRunning(rebuilt.days), calendar: calendar).filter {
             $0.date >= interval.start && $0.date < interval.end
         }
         historyDays.removeAll { $0.date >= interval.start && $0.date < interval.end }
