@@ -1,23 +1,433 @@
 import Foundation
+import Combine
 
 /// Regression coverage for the Story read model. Every fixture uses isolated
 /// preferences and on-disk archives; no test reads or writes the user's data.
 enum StoryAccountingChecks {
 
     static let tests: [(String, () -> [String])] = [
+        ("Repeated overnight ticks retain unique days and full-period stretches", overnightTicksKeepCanonicalEvidence),
+        ("Full refresh requests dominate live requests in either transaction order", refreshPriorityIsMonotonic),
+        ("Live publication does not consume a newer archive revision", livePublicationPreservesNewEvidence),
+        ("Unchanged paused frames do not rebuild reports", unchangedPausedFrame),
+        ("Archive query caches follow corrections and capacity eviction", archiveQueriesFollowChanges),
+        ("Live day figures agree with a full rebuild at the injected clock", liveDashboardMatchesFullRefresh),
         ("Story accounting: running work stays consistent across scopes", runningWorkStaysConsistentAcrossScopes),
         ("Story accounting: focus-only days define focus averages", focusOnlyDaysDefineFocusAverages),
         ("Story accounting: usage intersections reconcile across scopes", usageIntersectionsReconcileAcrossScopes),
         ("Story accounting: paused spans cannot create credited coverage", pausedSpansCannotCreateCreditedCoverage),
         ("Story accounting: paused cross-midnight coverage reconciles across scopes", pausedCrossMidnightCoverageReconcilesAcrossScopes),
         ("Story accounting: cross-midnight running work is clipped and deduplicated", crossMidnightRunningWorkIsClippedAndDeduplicated),
-        ("Story accounting: History detail preserves out-of-period evidence", historyDetailPreservesOutOfPeriodEvidence)
+        ("Story accounting: History detail preserves out-of-period evidence", historyDetailPreservesOutOfPeriodEvidence),
+        ("Visible period evidence follows ticker tails and same-count archive mutations", visiblePeriodFollowsLiveEvidence),
+        ("History detail namespaces legacy and live stretch identities", historyDetailKeepsLegacyAndLiveIdentity),
+        ("Session app ranks include uncheckpointed and live-tail usage", appRanksUseEffectiveLiveUsage),
+        ("Idle visible ticks preserve capacity read models without rebuilding", idleTicksDoNotRebuildCapacityReadModels)
     ]
 
     private final class Clock {
         var value: Date
         init(_ value: Date) { self.value = value }
         func advance(_ seconds: TimeInterval) { value = value.addingTimeInterval(seconds) }
+    }
+
+    private static func overnightTicksKeepCanonicalEvidence() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            for includesStoredSpan in [false, true] {
+                let clock = Clock(date(2026, 8, 19, 23, 50))
+                guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
+                defer { fixture.cleanUp() }
+                fixture.engine.start(workType: .deepWork, intent: "Overnight")
+                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                clock.advance(1_200)
+                if includesStoredSpan {
+                    fixture.engine.archive.append(SessionRecord(name: "Stored overnight", workType: .deepWork,
+                        start: date(2026, 8, 19, 23, 10), end: date(2026, 8, 20, 0, 5),
+                        workSeconds: 3_300))
+                }
+                fixture.store.setDashboardVisible(true)
+                fixture.store.setReviewVisible(true)
+                fixture.store.refreshReview(period: .month)
+                let generation = fixture.store.historyIndexGeneration
+                for tick in 1...3 {
+                    clock.advance(1)
+                    fixture.store.updateTimeDrivenFigures()
+                    let days = fixture.store.historyDays
+                    expect(days.count == 2 && Set(days.map(\.date)).count == 2,
+                           "tick \(tick): overnight data duplicated or lost a History date", &problems)
+                    let expected = Double(1_200 + tick + (includesStoredSpan ? 3_300 : 0))
+                    expectClose(days.reduce(0) { $0 + $1.focused }, expected,
+                                "History does not contain each running contribution exactly once", &problems)
+                    expectClose(fixture.store.reviewFocusSessions.reduce(0) { $0 + $1.seconds }, expected,
+                                "period focus rows lost the prior-day portion", &problems)
+                    expectClose(fixture.store.reviewLongestFocusSeconds,
+                                includesStoredSpan ? 3_300 : Double(1_200 + tick),
+                                "period longest is a day-only slice", &problems)
+                    expect(fixture.store.historyIndexGeneration == generation,
+                           "live update rebuilt stable all-history indexing", &problems)
+                }
+                let partial = fixture.store.historyDays
+                let focus = fixture.store.reviewFocusSessions
+                fixture.store.refreshReview()
+                expect(partial == fixture.store.historyDays && focus == fixture.store.reviewFocusSessions,
+                       "partial overnight evidence differs from a full rebuild", &problems)
+            }
+            return problems
+        }
+    }
+
+    private static func refreshPriorityIsMonotonic() -> [String] {
+        MainActor.assumeIsolated {
+            let clock = Clock(date(2026, 8, 19, 12, 0))
+            guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
+            defer { fixture.cleanUp() }
+            fixture.engine.start(workType: .deepWork, intent: "Live")
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            let past = date(2026, 8, 17, 9, 0)
+            let id = UUID()
+            fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "past", appName: "Past",
+                                                      start: past, end: past.addingTimeInterval(600)))
+            fixture.store.setReviewVisible(true)
+            fixture.store.refreshReview(period: .month)
+            var problems: [String] = []
+            for (tickFirst, duration) in [(false, 900.0), (true, 1_200.0)] {
+                clock.advance(1)
+                fixture.store.withRefreshTransaction {
+                    if tickFirst { fixture.store.updateTimeDrivenFigures() }
+                    fixture.store.withRefreshTransaction {
+                        fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "past", appName: "Past",
+                            start: past, end: past.addingTimeInterval(duration)))
+                    }
+                    if !tickFirst { fixture.store.updateTimeDrivenFigures() }
+                }
+                let row = fixture.store.historyDays.first {
+                    Calendar.current.isDate($0.date, inSameDayAs: past)
+                }
+                expectClose(row?.tracked ?? -1, duration,
+                            "live request erased a full nested historical invalidation", &problems)
+            }
+            var armed = false
+            let observer = fixture.store.$reviewDays.sink { _ in
+                guard armed else { return }
+                armed = false
+                fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "past", appName: "Past",
+                    start: past, end: past.addingTimeInterval(1_500)))
+            }
+            defer { observer.cancel() }
+            armed = true
+            fixture.store.withRefreshTransaction { fixture.store.refreshReview() }
+            expectClose(fixture.store.historyDays.first(where: {
+                Calendar.current.isDate($0.date, inSameDayAs: past)
+            })?.tracked ?? -1, 1_500, "publication erased a newly queued full refresh", &problems)
+            return problems
+        }
+    }
+
+    private static func livePublicationPreservesNewEvidence() -> [String] {
+        MainActor.assumeIsolated {
+            let clock = Clock(date(2026, 8, 19, 12, 0))
+            guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
+            defer { fixture.cleanUp() }
+            fixture.store.setDashboardVisible(true)
+            fixture.store.setReviewVisible(true)
+            let id = UUID()
+            let start = clock.value.addingTimeInterval(-900)
+            fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "editor", appName: "Editor",
+                start: start, end: start.addingTimeInterval(600)))
+            var armed = false
+            let observer = fixture.store.$trackedToday.sink { _ in
+                guard armed else { return }
+                armed = false
+                fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "editor", appName: "Editor",
+                    start: start, end: start.addingTimeInterval(900)))
+            }
+            defer { observer.cancel() }
+            armed = true
+            fixture.store.updateTimeDrivenFigures()
+            // The clock is deliberately unchanged. The pending source revision,
+            // not a minute boundary or an open tracker tail, must trigger this pass.
+            fixture.store.updateTimeDrivenFigures()
+            var problems: [String] = []
+            expect(!armed && fixture.usage.sessions.count == 1,
+                   "the observer must correct the same record during publication", &problems)
+            expectClose(fixture.usage.totalToday(), 900,
+                        "durable correction was not recorded", &problems)
+            expectClose(fixture.store.trackedForSelectedDay, 900,
+                        "selected-day total missed the published correction", &problems)
+            expectClose(fixture.store.trackedToday, 900,
+                        "the frame cache consumed evidence its live values never read", &problems)
+            return problems
+        }
+    }
+
+    private static func unchangedPausedFrame() -> [String] {
+        MainActor.assumeIsolated {
+            let clock = Clock(date(2026, 8, 19, 12, 0))
+            guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
+            defer { fixture.cleanUp() }
+            fixture.engine.start(workType: .deepWork, intent: "Pause")
+            clock.advance(60)
+            fixture.engine.transition(on: .manualPause)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            fixture.store.setDashboardVisible(true)
+            fixture.store.setReviewVisible(true)
+            fixture.store.refreshReview(period: .month)
+            let dashboard = fixture.store.dashboardReadModelGeneration
+            let review = fixture.store.reviewReadModelGeneration
+            for _ in 0..<3 { fixture.store.updateTimeDrivenFigures() }
+            return dashboard == fixture.store.dashboardReadModelGeneration
+                && review == fixture.store.reviewReadModelGeneration ? []
+                : ["A fixed-clock paused frame rebuilt Dashboard or Review without new evidence"]
+        }
+    }
+
+    private static func archiveQueriesFollowChanges() -> [String] {
+        let directory = scratchDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let today = date(2026, 8, 19, 12, 0)
+        let archive = SessionArchive(directory: directory, now: { today }, capacity: 2)
+        let yesterday = date(2026, 8, 18, 9, 0)
+        let thread = UUID()
+        archive.append(SessionRecord(name: "Yesterday", workType: .deepWork,
+            start: yesterday, end: yesterday.addingTimeInterval(1_800), workSeconds: 1_800))
+        archive.append(SessionRecord(name: "Today", workType: .deepWork,
+            start: today.addingTimeInterval(-1_800), end: today, workSeconds: 1_800, threadID: thread))
+        var problems: [String] = []
+        for _ in 0..<3 {
+            expect(archive.currentStreak() == 2 && archive.bestStreak() == 2,
+                   "initial streak queries disagree", &problems)
+            expectClose(archive.workSeconds(on: today), 1_800, "initial day work", &problems)
+            expect(archive.threadCount(on: today) == 1, "initial day count", &problems)
+            _ = archive.longestThread(on: today)
+        }
+        archive.rename(thread: thread, to: "Renamed")
+        expect(archive.longestThread(on: today)?.name == "Renamed",
+               "a warmed query retained the old name", &problems)
+        archive.setWorkType(.breakTime, forThread: thread)
+        expectClose(archive.workSeconds(on: today), 0, "Break correction kept cached focus", &problems)
+        expect(archive.currentStreak() == 1 && archive.bestStreak() == 1,
+               "Break correction kept a cached streak", &problems)
+        archive.append(SessionRecord(name: "New today", workType: .deepWork,
+            start: today, end: today.addingTimeInterval(1_800), workSeconds: 1_800))
+        expect(archive.records.count == 2 && archive.currentStreak() == 1 && archive.bestStreak() == 1,
+               "capacity eviction retained yesterday's cached contribution", &problems)
+        expectClose(archive.workSeconds(on: yesterday), 0, "evicted day retained cached work", &problems)
+        return problems
+    }
+
+    private static func liveDashboardMatchesFullRefresh() -> [String] {
+        MainActor.assumeIsolated {
+            let clock = Clock(date(2026, 8, 19, 12, 0))
+            guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
+            defer { fixture.cleanUp() }
+            fixture.engine.start(workType: .deepWork, intent: "Live day")
+            fixture.store.tracker?.appActivated(bundleID: "editor", name: "Editor")
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            fixture.store.setDashboardVisible(true)
+            let fullGeneration = fixture.store.dashboardArchiveReadModelGeneration
+            clock.advance(80)
+            fixture.store.updateTimeDrivenFigures()
+            var problems: [String] = []
+            expect(fixture.store.dashboardArchiveReadModelGeneration == fullGeneration,
+                   "a live day rebuilt stable dashboard history", &problems)
+            let tracked = fixture.store.trackedForSelectedDay
+            let appTotal = fixture.store.rankedApps.reduce(0) { $0 + $1.total }
+            let worked = fixture.store.daySessions.reduce(0.0) { total, entry in
+                if case .session(let session) = entry { return total + session.worked }
+                return total
+            }
+            expectClose(tracked, 80, "live day tracked value", &problems)
+            expectClose(appTotal, tracked, "live day app rows", &problems)
+            expectClose(worked, 80, "day digest used the wall clock instead of the injected clock", &problems)
+            fixture.store.refreshDashboard()
+            expectClose(fixture.store.trackedForSelectedDay, tracked, "full/live tracked parity", &problems)
+            expectClose(fixture.store.rankedApps.reduce(0) { $0 + $1.total }, appTotal,
+                        "full/live app parity", &problems)
+            return problems
+        }
+    }
+
+    private static func visiblePeriodFollowsLiveEvidence() -> [String] {
+        MainActor.assumeIsolated {
+            let clock = Clock(date(2026, 8, 19, 12, 0))
+            guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
+            defer { fixture.cleanUp() }
+            let start = clock.value
+            fixture.store.setDashboardVisible(true)
+            fixture.store.setReviewVisible(true)
+            fixture.engine.start(workType: .deepWork, intent: "Live period evidence")
+            fixture.store.tracker?.appActivated(bundleID: "com.example.editor", name: "Editor")
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            fixture.store.refreshReview(period: .week)
+            let stableHistoryGeneration = fixture.store.historyIndexGeneration
+            clock.advance(125)
+            fixture.store.updateTimeDrivenFigures()
+            var problems: [String] = []
+            expectClose(fixture.store.reviewSummary.tracked, 125,
+                        "Week bars/average consume the uncheckpointed live tail", &problems)
+            expectClose(fixture.store.historyDays.first?.focused ?? -1, 125,
+                        "An open History sheet advances running work with Day", &problems)
+            expect(fixture.store.historyIndexGeneration == stableHistoryGeneration,
+                   "Live ticker rebuilt stable all-history indexing instead of patching today", &problems)
+            let id = UUID()
+            fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "com.example.previous",
+                                                      appName: "Previous", start: start.addingTimeInterval(-1_200),
+                                                      end: start.addingTimeInterval(-600)))
+            let count = fixture.usage.sessions.count
+            fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "com.example.previous",
+                                                      appName: "Previous", start: start.addingTimeInterval(-1_200),
+                                                      end: start.addingTimeInterval(-300)))
+            expect(fixture.usage.sessions.count == count,
+                   "The mutation fixture must replace, not append, a record", &problems)
+            expectClose(fixture.store.reviewSummary.tracked, 1_025,
+                        "Visible Review reacts to a direct same-count archive mutation", &problems)
+            return problems
+        }
+    }
+
+    /// Catches `record.id == threadID` colliding with the same thread's live
+    /// projection in History detail.
+    private static func historyDetailKeepsLegacyAndLiveIdentity() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(date(2026, 8, 19, 12, 0))
+            guard let fixture = makeStore(clock) else {
+                return ["could not create isolated preferences suite"]
+            }
+            defer { fixture.cleanUp() }
+            let identity = UUID()
+            fixture.engine.archive.append(SessionRecord(
+                id: identity, name: "Legacy", workType: .deepWork,
+                start: clock.value.addingTimeInterval(-1_200),
+                end: clock.value.addingTimeInterval(-600), workSeconds: 600,
+                threadID: identity))
+            fixture.engine.start(workType: .deepWork, intent: "Legacy", threadID: identity)
+            clock.advance(45)
+            fixture.store.refreshReview(period: .week)
+            let entries = fixture.store.reviewDayDetail(for: clock.value)?.focusEntries ?? []
+            expect(entries.count == 2 && Set(entries.map(\.id)).count == 2,
+                   "History detail gave legacy and live stretches the same row identity", &problems)
+            expect(entries.contains(where: { $0.sourceRecordID == identity })
+                    && entries.contains(where: { $0.sourceRecordID == nil }),
+                   "History detail did not retain archive provenance beside the live namespace", &problems)
+            return problems
+        }
+    }
+
+    /// Catches a session/disclosure helper reading only durable usage while the
+    /// Story rail reads the tracker overlay for that same visit.
+    private static func appRanksUseEffectiveLiveUsage() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(date(2026, 8, 19, 12, 0))
+            guard let fixture = makeStore(clock) else {
+                return ["could not create isolated preferences suite"]
+            }
+            defer { fixture.cleanUp() }
+            fixture.store.tracker?.appActivated(bundleID: "com.example.editor", name: "Editor")
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            clock.advance(45)
+            let bounds = DateInterval(start: clock.value.addingTimeInterval(-45), end: clock.value)
+            expectClose(fixture.store.appRanks(within: [bounds]).first?.total ?? -1, 45,
+                        "first uncheckpointed visit is absent from session app ranks", &problems)
+            fixture.store.tracker?.flush()
+            clock.advance(30)
+            let extended = DateInterval(start: clock.value.addingTimeInterval(-75), end: clock.value)
+            expectClose(fixture.store.appRanks(within: [extended]).first?.total ?? -1, 75,
+                        "post-checkpoint live tail is absent from session app ranks", &problems)
+            return problems
+        }
+    }
+
+    /// A capacity-sized test that asserts actual visible read-model behaviour:
+    /// unchanged idle ticks must not publish new dashboard/Review generations.
+    private static func idleTicksDoNotRebuildCapacityReadModels() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let sessionDirectory = scratchDirectory()
+            let usageDirectory = scratchDirectory()
+            let suiteName = "com.prabesh.focuscontinuity.story-capacity.\(UUID().uuidString)"
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                return ["could not create isolated capacity preferences"]
+            }
+            defer {
+                defaults.removePersistentDomain(forName: suiteName)
+                try? FileManager.default.removeItem(at: sessionDirectory)
+                try? FileManager.default.removeItem(at: usageDirectory)
+            }
+            let calendar = Calendar.current
+            let day = calendar.startOfDay(for: clock.value)
+            var records: [SessionRecord] = []
+            var usage: [AppUsageSession] = []
+            for offset in 0..<200 {
+                guard let date = calendar.date(byAdding: .day, value: -offset, to: day) else { continue }
+                for index in 0..<25 {
+                    let start = date.addingTimeInterval(Double(8 * 3_600 + index * 900))
+                    records.append(SessionRecord(name: "Work", workType: .deepWork,
+                                                 start: start, end: start.addingTimeInterval(600),
+                                                 workSeconds: 600))
+                }
+                for index in 0..<100 {
+                    let start = date.addingTimeInterval(Double(8 * 3_600 + index * 240))
+                    usage.append(AppUsageSession(bundleID: "com.example.editor\(index % 5)",
+                                                 appName: "Editor", start: start,
+                                                 end: start.addingTimeInterval(180)))
+                }
+            }
+            struct Envelope: Codable { let metadata: AppUsageMetadata; let sessions: [AppUsageSession] }
+            do {
+                try FileManager.default.createDirectory(at: sessionDirectory, withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(at: usageDirectory, withIntermediateDirectories: true)
+                try JSONEncoder().encode(records).write(to: sessionDirectory.appendingPathComponent("sessions.json"))
+                try JSONEncoder().encode(Envelope(metadata: .init(accurateFrom: day.addingTimeInterval(-201 * 86_400)),
+                                                   sessions: usage))
+                    .write(to: usageDirectory.appendingPathComponent("app-usage.json"))
+            } catch { return ["Could not seed capacity fixture: \(error)"] }
+            let archive = SessionArchive(directory: sessionDirectory, now: { clock.value })
+            let usageArchive = AppUsageArchive(directory: usageDirectory, now: { clock.value })
+            guard archive.records.count == 5_000, usageArchive.sessions.count == 20_000 else {
+                return ["Capacity fixture did not load the required record counts"]
+            }
+            let engine = SessionEngine(store: PersistenceStore(defaults: defaults), archive: archive,
+                                       ownBundleID: "com.example.capacity", schedulesDwell: false,
+                                       now: { clock.value })
+            let tracker = AppUsageTracker(archive: usageArchive, ownBundleID: "com.example.capacity",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, now: { clock.value })
+            store.attach(tracker: tracker, usage: usageArchive)
+            store.setDashboardVisible(true)
+            store.setReviewVisible(true)
+            store.refreshReview(period: .month)
+            let dashboardGeneration = store.dashboardReadModelGeneration
+            let reviewGeneration = store.reviewReadModelGeneration
+            let began = Date()
+            store.updateTimeDrivenFigures()
+            store.updateTimeDrivenFigures()
+            store.updateTimeDrivenFigures()
+            let elapsed = Date().timeIntervalSince(began)
+            expect(store.dashboardReadModelGeneration == dashboardGeneration
+                    && store.reviewReadModelGeneration == reviewGeneration,
+                   "unchanged idle ticks rebuilt capacity-sized dashboard or History read models", &problems)
+            store.tracker?.appActivated(bundleID: "com.example.live", name: "Live editor")
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            let historyGeneration = store.historyIndexGeneration
+            let fullDashboardGeneration = store.dashboardArchiveReadModelGeneration
+            let trackedBeforeLiveTick = store.reviewSummary.tracked
+            clock.advance(1)
+            let liveBegan = Date()
+            store.updateTimeDrivenFigures()
+            let liveElapsed = Date().timeIntervalSince(liveBegan)
+            expect(store.historyIndexGeneration == historyGeneration,
+                   "capacity live tick rebuilt stable all-history indexing", &problems)
+            expect(store.dashboardArchiveReadModelGeneration == fullDashboardGeneration,
+                   "capacity live tick rebuilt stable dashboard history", &problems)
+            expect(store.reviewSummary.tracked > trackedBeforeLiveTick,
+                   "capacity live tick did not advance current Review evidence", &problems)
+            Diagnostics.log("Story capacity idle ticks \(elapsed)s; live tick \(liveElapsed)s")
+            return problems
+        }
     }
 
     private static func scratchDirectory() -> URL {

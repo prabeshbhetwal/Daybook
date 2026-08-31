@@ -11,6 +11,8 @@ enum FixtureState: String {
 }
 
 enum FixtureFactory {
+    private static var directories: [URL] = []
+    private static var preferenceSuites: [String] = []
 
     private struct UsageFixtureEnvelope: Codable {
         let metadata: AppUsageMetadata
@@ -22,9 +24,27 @@ enum FixtureFactory {
         init(_ start: Date) { value = start }
     }
 
-    private static func scratchDirectory() -> URL {
-        FileManager.default.temporaryDirectory
+    static func scratchDirectory() -> URL {
+        let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-gallery-\(UUID().uuidString)", isDirectory: true)
+        directories.append(directory)
+        return directory
+    }
+
+    private static func fixtureDefaults(_ label: String) -> UserDefaults {
+        let suite = "com.prabesh.focuscontinuity.gallery.\(label).\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else {
+            preconditionFailure("Could not create isolated fixture preferences")
+        }
+        preferenceSuites.append(suite)
+        return defaults
+    }
+
+    static func cleanUp() {
+        for directory in directories { try? FileManager.default.removeItem(at: directory) }
+        for suite in preferenceSuites { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        directories.removeAll()
+        preferenceSuites.removeAll()
     }
 
     static func store(for fixture: FixtureState, accurateUsage: Bool = false) -> SessionStore {
@@ -34,12 +54,14 @@ enum FixtureFactory {
         let calendar = Calendar.current
         let anchor = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: Date())
             ?? Date()
-        let clock = Clock(anchor)
-        let defaults = UserDefaults(suiteName: "com.prabesh.focuscontinuity.gallery.\(fixture.rawValue)")
-            ?? .standard
+        // Archived morning work precedes the live stretch. Fixture clocks must
+        // not jump backwards into the archived session when a new one starts.
+        let clock = Clock(anchor.addingTimeInterval(2 * 3_600))
+        let defaults = fixtureDefaults(fixture.rawValue)
         let prefs = PersistenceStore(defaults: defaults)
         prefs.removeAll()
-        let archive = SessionArchive(directory: scratchDirectory(), now: { clock.value })
+        let dataDirectory = scratchDirectory()
+        let archive = SessionArchive(directory: dataDirectory, now: { clock.value })
         let engine = SessionEngine(store: prefs,
                                    archive: archive,
                                    ownBundleID: FocusConstants.bundleIdentifier,
@@ -83,27 +105,27 @@ enum FixtureFactory {
         case .running:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")
-            clock.value = anchor.addingTimeInterval(2_712)
+            clock.value = clock.value.addingTimeInterval(2_712)
         case .paused:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")
-            clock.value = anchor.addingTimeInterval(1_500)
+            clock.value = clock.value.addingTimeInterval(1_500)
             engine.transition(on: .manualPause)
         case .needsResolution:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")
-            clock.value = anchor.addingTimeInterval(600)
+            clock.value = clock.value.addingTimeInterval(600)
             engine.transition(on: .awayBegan(trigger: .screenLock))
-            clock.value = anchor.addingTimeInterval(600 + 1_320)
+            clock.value = clock.value.addingTimeInterval(1_320)
             engine.transition(on: .awayEnded)
         }
 
-        let store = SessionStore(engine: engine)
+        let store = SessionStore(engine: engine, now: { clock.value })
 
         // Background app usage, so the per-app history renders with real shapes.
         // First run gets the archive too, just empty: the empty state is only a
         // real check if it goes through the same code path.
-        let usageDirectory = scratchDirectory()
+        let usageDirectory = dataDirectory
         if accurateUsage {
             try? FileManager.default.createDirectory(at: usageDirectory,
                                                      withIntermediateDirectories: true)
@@ -164,12 +186,11 @@ enum FixtureFactory {
         let today = calendar.startOfDay(for: Date())
         let anchor = today.addingTimeInterval(12 * 3_600)
         let clock = Clock(anchor)
-        let defaults = UserDefaults(
-            suiteName: "com.prabesh.focuscontinuity.gallery.insights.\(withEvidence)"
-        ) ?? .standard
+        let defaults = fixtureDefaults("insights.\(withEvidence)")
         let prefs = PersistenceStore(defaults: defaults)
         prefs.removeAll()
-        let archive = SessionArchive(directory: scratchDirectory(),
+        let dataDirectory = scratchDirectory()
+        let archive = SessionArchive(directory: dataDirectory,
                                      calendar: calendar, now: { clock.value })
         let engine = SessionEngine(store: prefs,
                                    archive: archive,
@@ -177,7 +198,7 @@ enum FixtureFactory {
                                    schedulesDwell: false,
                                    now: { clock.value })
 
-        let usageDirectory = scratchDirectory()
+        let usageDirectory = dataDirectory
         try? FileManager.default.createDirectory(at: usageDirectory,
                                                  withIntermediateDirectories: true)
         let accurateFrom = calendar.date(byAdding: .day, value: -40, to: today) ?? today

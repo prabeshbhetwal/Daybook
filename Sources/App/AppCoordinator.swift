@@ -27,8 +27,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// Its first story comes from the persisted preference exactly once at
     /// launch.
     @MainActor private(set) lazy var mainWindow = MainWindowModel(
-        selectedTab: settings.defaultAppTab,
-        storyScope: settings.defaultStoryScope)
+        selectedTab: .story,
+        storyScope: settings.defaultStoryScope,
+        store: store)
 
     /// Input density, fed only at event boundaries — app activation, lock,
     /// unlock, wake — and never on a timer. A repeating timer would be the only

@@ -14,11 +14,11 @@ struct StoryChromeBar: View {
                 .frame(width: MainWindowChrome.trafficLightClearance, height: 1)
                 .accessibilityHidden(true)
             StoryScopePills(selection: Binding(get: { navigation.storyScope },
-                                               set: { navigation.storyScope = $0 }))
+                                               set: { navigation.selectScope($0) }))
             Spacer(minLength: Tokens.Space.s)
             periodNavigation
             Spacer(minLength: Tokens.Space.s)
-            StorySessionControl(store: store)
+            StorySessionControl(store: store, onDetails: { navigation.openSheet(.focus) })
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13, weight: .medium))
@@ -34,7 +34,7 @@ struct StoryChromeBar: View {
         }
         .padding(.horizontal, Tokens.Space.l)
         .padding(.vertical, Tokens.Space.s)
-        .background(Tokens.Colour.surface)
+        .background(StoryStyle.canvas)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Window chrome")
     }
@@ -80,10 +80,7 @@ struct StoryChromeBar: View {
     }
 
     private func step(_ delta: Int) {
-        switch navigation.storyScope {
-        case .day: store.stepDay(by: delta)
-        case .week, .month: store.moveReviewPeriod(by: delta)
-        }
+        navigation.stepStoryPeriod(by: delta)
     }
 }
 
@@ -92,10 +89,11 @@ struct StoryChromeBar: View {
 /// describe it.
 struct StorySessionControl: View {
     @ObservedObject var store: SessionStore
+    var onDetails: () -> Void = {}
 
     var body: some View {
         if store.isIdle {
-            Button { store.start() } label: {
+            Button(action: onDetails) {
                 HStack(spacing: Tokens.Space.xs) {
                     Image(systemName: "play.fill").font(.system(size: 10, weight: .bold))
                     Text("Start focus").font(Tokens.Typography.metadata.weight(.semibold))
@@ -108,7 +106,7 @@ struct StorySessionControl: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Start a focus session")
         } else {
-            Button { store.togglePause() } label: {
+            Button(action: onDetails) {
                 HStack(spacing: Tokens.Space.s) {
                     Circle()
                         .fill(Tokens.Colour.focus)
@@ -119,7 +117,7 @@ struct StorySessionControl: View {
                         .foregroundStyle(Tokens.Colour.focus)
                         .contentTransition(.numericText())
                     Divider().frame(height: 12)
-                    Text(store.isPaused ? "Resume" : "Pause")
+                    Text(store.pendingAway != nil ? "Review away" : "Session")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                 }
@@ -130,7 +128,7 @@ struct StorySessionControl: View {
             .buttonStyle(.plain)
             .accessibilityLabel("\(Tokens.spent(store.elapsed)) elapsed, "
                                 + (store.isPaused ? "paused" : "running"))
-            .accessibilityHint(store.isPaused ? "Resume the session" : "Pause the session")
+            .accessibilityHint("Open session controls, including pause, resume and end")
         }
     }
 }
@@ -147,8 +145,8 @@ struct StoryScopePills: View {
             }
         }
         .padding(3)
-        .background(Tokens.Colour.elevated, in: Capsule())
-        .overlay(Capsule().strokeBorder(Tokens.Colour.line))
+        .background(StoryStyle.well,
+                    in: RoundedRectangle(cornerRadius: 9, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Story scope")
     }
@@ -158,11 +156,13 @@ struct StoryScopePills: View {
         return Button { selection = scope } label: {
             Text(scope.title)
                 .font(Tokens.Typography.metadata.weight(.semibold))
-                .foregroundStyle(isSelected ? Tokens.Colour.onFocus : Color.secondary)
+                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                 .frame(width: 62, height: AccessibilityMetrics.minimumTargetSize)
-                .background(isSelected ? Tokens.Colour.focus : Color.clear, in: Capsule())
+                .background(isSelected ? StoryStyle.card : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .shadow(color: .black.opacity(isSelected ? 0.10 : 0), radius: 1, y: 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle())
         .accessibilityLabel("\(scope.title), \(isSelected ? "selected" : "not selected")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

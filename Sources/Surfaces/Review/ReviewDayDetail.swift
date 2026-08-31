@@ -183,9 +183,9 @@ struct ReviewDayDetailPanel: View {
 
     private var actions: some View {
         HStack {
-            Button("Open in Today", action: onOpenInToday)
+            Button("Open this day's story", action: onOpenInToday)
                 .buttonStyle(.borderedProminent)
-                .accessibilityHint("Opens \(Tokens.longDate(detail.day.date)) on the Today tab")
+                .accessibilityHint("Opens the complete story for \(Tokens.longDate(detail.day.date))")
             Spacer()
         }
     }

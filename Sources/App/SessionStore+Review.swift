@@ -3,7 +3,11 @@ import Foundation
 /// One archive focus stretch clipped to the selected Review period. This is a
 /// read model only; its source `SessionRecord` is never edited or repaired.
 struct ReviewFocusEntry: Identifiable, Equatable {
-    let id: UUID
+    /// Presentation identity is namespaced so a legacy record whose ID equals
+    /// its thread cannot collide with that thread's live projection.
+    let id: String
+    /// Durable provenance remains available without becoming the view identity.
+    let sourceRecordID: UUID?
     let threadID: UUID
     let name: String
     let workType: WorkType
@@ -31,7 +35,7 @@ extension SessionStore {
 
     func setReviewVisible(_ visible: Bool) {
         reviewVisible = visible
-        if visible && reviewRefreshPending { refreshReview() }
+        if visible && (reviewRefreshPending || reviewLiveTailRefreshPending) { refreshReview() }
     }
 
     func selectReviewSection(_ section: ReviewSection) {
@@ -46,10 +50,33 @@ extension SessionStore {
     /// Rebuilds period Review and canonical History from one authoritative usage
     /// snapshot. The optional period is only the Review-local selection; Today's
     /// `dayOffset` and selected evidence remain untouched.
-    func refreshReview(period requestedPeriod: TrackingPeriod? = nil) {
+    func refreshReview(period requestedPeriod: TrackingPeriod? = nil,
+                       rebuildingHistory: Bool = true) {
+        withRefreshTransaction {
+            rebuildReview(period: requestedPeriod, rebuildingHistory: rebuildingHistory)
+        }
+    }
+
+    private func rebuildReview(period requestedPeriod: TrackingPeriod?, rebuildingHistory: Bool) {
+        // Consume requests before publication. A synchronous observer may queue
+        // a new mutation while these values publish; never erase that request
+        // at the end of the rebuild.
+        reviewRefreshPending = false
+        reviewLiveTailRefreshPending = false
+        let revision = evidenceRevision
+        let canPatch = !rebuildingHistory && reviewEvidenceRevision == revision
+        reviewEvidenceRevision = revision
         if let requestedPeriod, requestedPeriod != .day { reviewPeriod = requestedPeriod }
         guard let usage else {
             clearReviewData()
+            return
+        }
+
+        // A ticker-only live tail changes at most today's evidence. Keep the
+        // stable period/index data and replace that one day rather than walking
+        // every day and every history row on the main actor.
+        if canPatch, requestedPeriod == nil, !reviewDays.isEmpty {
+            refreshReviewLiveTail(usage: usage)
             return
         }
 
@@ -58,46 +85,7 @@ extension SessionStore {
         let anchor = reviewAnchor ?? calendar.startOfDay(for: now())
         reviewAnchor = anchor
 
-        let previousNewest = historyDays.first?.date
-        let previousOldest = historyDays.last?.date
-        let rebuiltHistory = HistoryStats.build(
-            sessionRecords: engine.archive.records,
-            usage: snapshot.sessions,
-            calendar: calendar)
-        historyDays = storyHistoryDaysIncludingRunning(rebuiltHistory.days)
-        historyIntegrityNotices = []
-        if snapshot.sessions.contains(where: {
-            $0.end > $0.start && $0.start < snapshot.accurateFrom
-        }) {
-            historyIntegrityNotices.append(
-                "History includes preserved legacy app usage from before "
-                    + "\(Tokens.longDate(snapshot.accurateFrom)); it may include unattended time.")
-        }
-        if rebuiltHistory.droppedUsageSpans > 0
-            || rebuiltHistory.droppedFocusSpans > 0
-            || rebuiltHistory.droppedRestSpans > 0 {
-            var dropped: [String] = []
-            if rebuiltHistory.droppedUsageSpans > 0 {
-                let count = rebuiltHistory.droppedUsageSpans
-                dropped.append("\(count) app-usage " + (count == 1 ? "record" : "records"))
-            }
-            if rebuiltHistory.droppedFocusSpans > 0 {
-                let count = rebuiltHistory.droppedFocusSpans
-                dropped.append("\(count) focus " + (count == 1 ? "record" : "records"))
-            }
-            if rebuiltHistory.droppedRestSpans > 0 {
-                let count = rebuiltHistory.droppedRestSpans
-                dropped.append("\(count) rest " + (count == 1 ? "record" : "records"))
-            }
-            historyIntegrityNotices.append(
-                "History omitted \(dropped.joined(separator: " and ")) from derived day rows "
-                    + "because each spans at least "
-                    + "\(HistoryStats.maximumCalendarDaysPerRecord) calendar days. "
-                    + "Source records remain preserved in local data.")
-        }
-        maintainHistoryRange(previousNewest: previousNewest,
-                             previousOldest: previousOldest,
-                             calendar: calendar)
+        refreshHistory(snapshot: snapshot, calendar: calendar, fully: true)
 
         var names: [String: String] = [:]
         for session in snapshot.sessions.sorted(by: { $0.end < $1.end }) {
@@ -138,7 +126,7 @@ extension SessionStore {
             ? "App usage from before \(Tokens.longDate(snapshot.accurateFrom)) was preserved "
                 + "and may include unattended time."
             : nil
-        reviewRefreshPending = false
+        noteReviewReadModelRebuild()
     }
 
     /// Exact day-scoped usage entries. The already-published period index is
@@ -180,7 +168,8 @@ extension SessionStore {
             let seconds = record.workSeconds(in: (start: interval.start, end: interval.end))
             guard seconds > 0 else { return nil }
             return ReviewFocusEntry(
-                id: record.id,
+                id: "archive-\(record.id.uuidString)",
+                sourceRecordID: record.id,
                 threadID: record.threadID,
                 name: record.name.isEmpty ? record.workType.displayName : record.name,
                 workType: record.workType,
@@ -192,7 +181,8 @@ extension SessionStore {
             let seconds = storyRunningFocusSeconds(in: interval)
             if seconds > 0 {
                 entries.append(ReviewFocusEntry(
-                    id: engine.activeThreadID,
+                    id: "live-\(engine.activeThreadID.uuidString)",
+                    sourceRecordID: nil,
                     threadID: engine.activeThreadID,
                     name: engine.sessionName.isEmpty
                         ? engine.activeWorkType.displayName : engine.sessionName,
@@ -203,9 +193,129 @@ extension SessionStore {
             }
         }
         return entries.sorted { left, right in
-            left.start == right.start ? left.id.uuidString > right.id.uuidString
+            left.start == right.start ? left.id > right.id
                                       : left.start > right.start
         }
+    }
+
+    /// Stable all-history indexing is rebuilt on evidence/navigation changes.
+    /// A one-second live tail replaces its current-day row only, preserving the
+    /// open History sheet without repeatedly walking every archived day.
+    private func refreshHistory(snapshot: AppUsageSnapshot, calendar: Calendar,
+                                fully: Bool) {
+        if fully {
+            let previousNewest = historyDays.first?.date
+            let previousOldest = historyDays.last?.date
+            let rebuilt = HistoryStats.build(sessionRecords: engine.archive.records,
+                                             usage: snapshot.sessions, calendar: calendar)
+            historyDays = storyHistoryDaysIncludingRunning(rebuilt.days)
+            historyIntegrityNotices = historyNotices(for: snapshot, rebuilt: rebuilt)
+            maintainHistoryRange(previousNewest: previousNewest,
+                                 previousOldest: previousOldest, calendar: calendar)
+            noteHistoryIndexRebuild()
+            return
+        }
+        let previousNewest = historyDays.first?.date
+        let previousOldest = historyDays.last?.date
+        let interval = liveHistoryBounds(calendar: calendar)
+        let rebuilt = HistoryStats.build(
+            sessionRecords: engine.archive.records.filter { $0.end > interval.start && $0.start < interval.end },
+            usage: snapshot.sessions.filter { $0.end > interval.start && $0.start < interval.end },
+            calendar: calendar)
+        // The builder deliberately clips each source record across all of its
+        // days. Keep only the affected keys, then replace them exactly once.
+        let current = storyHistoryDaysIncludingRunning(rebuilt.days).filter {
+            $0.date >= interval.start && $0.date < interval.end
+        }
+        historyDays.removeAll { $0.date >= interval.start && $0.date < interval.end }
+        historyDays.append(contentsOf: current)
+        historyDays.sort { $0.date > $1.date }
+        maintainHistoryRange(previousNewest: previousNewest,
+                             previousOldest: previousOldest, calendar: calendar)
+    }
+
+    /// Every day touched by a changing live projection, not merely today. A
+    /// paused overnight session can redistribute its clipped credit across both
+    /// dates; a tracker tail can also start before midnight.
+    private func liveHistoryBounds(calendar: Calendar) -> DateInterval {
+        let moment = now()
+        let starts = (tracker?.usageOverlaySessions() ?? []).map(\.start)
+            + [storyRunningSpan?.start ?? moment, moment]
+        let first = calendar.startOfDay(for: starts.min() ?? moment)
+        let end = calendar.date(byAdding: .day, value: 1,
+                                to: calendar.startOfDay(for: moment)) ?? moment
+        return DateInterval(start: min(first, end), end: end)
+    }
+
+    private func historyNotices(for snapshot: AppUsageSnapshot,
+                                rebuilt: HistoryBuildResult) -> [String] {
+        var notices: [String] = []
+        if snapshot.sessions.contains(where: { $0.end > $0.start && $0.start < snapshot.accurateFrom }) {
+            notices.append("History includes preserved legacy app usage from before "
+                           + "\(Tokens.longDate(snapshot.accurateFrom)); it may include unattended time.")
+        }
+        if rebuilt.droppedUsageSpans > 0 || rebuilt.droppedFocusSpans > 0 || rebuilt.droppedRestSpans > 0 {
+            var dropped: [String] = []
+            if rebuilt.droppedUsageSpans > 0 { dropped.append("\(rebuilt.droppedUsageSpans) app-usage records") }
+            if rebuilt.droppedFocusSpans > 0 { dropped.append("\(rebuilt.droppedFocusSpans) focus records") }
+            if rebuilt.droppedRestSpans > 0 { dropped.append("\(rebuilt.droppedRestSpans) rest records") }
+            notices.append("History omitted \(dropped.joined(separator: " and ")) from derived day rows because each spans at least \(HistoryStats.maximumCalendarDaysPerRecord) calendar days. Source records remain preserved in local data.")
+        }
+        return notices
+    }
+
+    private func refreshReviewLiveTail(usage: AppUsageArchive) {
+        let calendar = Calendar.current
+        let snapshot = effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage)
+        let anchor = reviewAnchor ?? calendar.startOfDay(for: now())
+        reviewAnchor = anchor
+        let periodStats = PeriodStats(sessions: engine.archive, usage: usage,
+                                      usageSnapshot: snapshot, calendar: calendar, now: now)
+        let bounds = periodStats.bounds(for: reviewPeriod, containing: anchor)
+        refreshHistory(snapshot: snapshot, calendar: calendar, fully: false)
+        let affected = liveHistoryBounds(calendar: calendar)
+        let changedDays = reviewDays.map(\.date).filter {
+            $0 >= affected.start && $0 < affected.end
+        }
+        guard !changedDays.isEmpty else {
+            noteReviewReadModelRebuild()
+            return
+        }
+
+        for date in changedDays {
+            let current = periodStats.rollup(for: .day, containing: date)
+            guard let day = current.days.first else { continue }
+            let priorEntries = reviewEntriesByDay[date] ?? []
+            let newEntries = current.entriesByDay[date] ?? []
+            if let index = reviewDays.firstIndex(where: { $0.date == date }) {
+                reviewDays[index] = day
+            }
+            reviewEntriesByDay[date] = newEntries
+            reviewDayTotals[date] = current.dayTotals[date] ?? 0
+            reviewLogTotalEntries += newEntries.count - priorEntries.count
+            for entry in newEntries { historyAppNames[entry.session.bundleID] = entry.session.appName }
+        }
+
+        let allEntries = reviewEntriesByDay.values.flatMap { $0 }
+        reviewLog = Array(allEntries.sorted { $0.session.start > $1.session.start }.prefix(500))
+        reviewAppGroups = PeriodStats.appGroups(from: allEntries)
+        let tracked = reviewDays.reduce(0) { $0 + $1.tracked }
+        let active = reviewDays.filter { $0.tracked > 0 }
+        reviewSummary = PeriodSummary(
+            tracked: tracked, activeDays: active.count, totalDays: reviewDays.count,
+            averagePerActiveDay: active.isEmpty ? 0 : tracked / Double(active.count),
+            longest: allEntries.map(\.session).max { $0.attended < $1.attended })
+        reviewWorkTypeShares = Self.reviewWorkTypes(from: reviewDays)
+
+        // Period rows retain period bounds. Re-slicing an overnight entry to
+        // today loses its prior-day work, even if the day index stays correct.
+        reviewFocusSessions = reviewFocusEntries(in: DateInterval(start: bounds.start, end: bounds.end))
+        let longestFocus = reviewFocusSessions.max { left, right in
+            left.seconds == right.seconds ? left.start > right.start : left.seconds < right.seconds
+        }
+        reviewLongestFocusSeconds = longestFocus?.seconds ?? 0
+        reviewLongestFocusName = longestFocus?.name
+        noteReviewReadModelRebuild()
     }
 
     /// The selected day's evidence, or nil when Review has no canonical History

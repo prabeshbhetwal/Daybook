@@ -49,7 +49,6 @@ struct PopoverView: View {
         .background(.regularMaterial)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
-        .preferredColorScheme(settings.preferredColorScheme)
         .tipLayer(tips)
         .onAppear {
             store.refresh()

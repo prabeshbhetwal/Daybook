@@ -8,6 +8,10 @@ private struct FocusExpandsEntryDetailsKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private final class StoryDisclosureState: ObservableObject {
+    @Published var ids: Set<String> = []
+}
+
 extension EnvironmentValues {
     /// Opens session entries on appearance. Carries the reader's preference,
     /// and the snapshot harness sets it to show an opened entry.
@@ -33,25 +37,61 @@ struct DayStory: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Entries the reader has opened. Local: it is a reading aid, not state the
     /// product remembers.
-    @StateObject private var opened = SetBox()
+    @StateObject private var opened = StoryDisclosureState()
     @Environment(\.storyEntryInitiallyOpen) private var entryInitiallyOpen
     @Environment(\.focusExpandsEntryDetails) private var expandsDetails
+    @Environment(\.focusShowsTimelineLabels) private var showsTimes
 
     /// The gutter that carries the clock times, and the rule beside it.
     private let timeColumn: CGFloat = 62
     private let railColumn: CGFloat = 22
 
+    private var moments: [StoryMoment] {
+        store.storyMoments
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(store.daySessions.enumerated()), id: \.element.id) { index, entry in
-                row(entry, isFirst: index == 0,
-                    isLast: index == store.daySessions.count - 1 && !hasAwayQuestion)
+            let entries = moments
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, moment in
+                switch moment {
+                case .entry(let entry):
+                    row(entry, isFirst: index == 0,
+                        isLast: index == entries.count - 1 && !hasAwayQuestion)
+                case .unrecorded(let span):
+                    storyRow(time: span.start, tint: .secondary, dotSize: 5,
+                             isFirst: index == 0, isLast: index == entries.count - 1) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text("No recording in this interval")
+                            Spacer(minLength: 8)
+                            Text(Tokens.duration(span.duration)).monospacedDigit()
+                        }
+                        .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                        .padding(.vertical, 10)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("No recording, \(Tokens.timeRange(span.start, span.end)). "
+                                            + "This interval is not assumed to be work or rest.")
+                    }
+                case .appUse(let span, let seconds):
+                    storyRow(time: span.start, tint: Tokens.Palette.app(rank: 1), dotSize: 7,
+                             isFirst: index == 0, isLast: index == entries.count - 1) {
+                        StoryLooseAppUse(store: store, span: span, seconds: seconds)
+                    }
+                }
             }
             if hasAwayQuestion { awayRow }
-            if store.daySessions.isEmpty && !hasAwayQuestion { empty }
+            if entries.isEmpty && !hasAwayQuestion { empty }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: openInitialEntries)
+        .onChange(of: store.dayOffset) { _ in
+            opened.ids.removeAll()
+            openInitialEntries()
+        }
+        .onChange(of: expandsDetails) { _ in
+            opened.ids.removeAll()
+            openInitialEntries()
+        }
     }
 
     private var hasAwayQuestion: Bool { store.isToday && store.pendingAway != nil }
@@ -60,14 +100,14 @@ struct DayStory: View {
     /// appearance: an entry the reader then closes must stay closed.
     private func openInitialEntries() {
         guard opened.ids.isEmpty else { return }
-        let sessions = store.daySessions.compactMap { entry -> DaySession? in
-            if case .session(let session) = entry { return session }
+        let sessions = moments.compactMap { moment -> DaySession? in
+            if case .entry(.session(let session)) = moment { return session }
             return nil
         }
         if expandsDetails {
-            opened.ids.formUnion(sessions.map(\.id))
+            opened.ids.formUnion(sessions.map { StoryMoment.entry(.session($0)).id })
         } else if entryInitiallyOpen, let first = sessions.first {
-            opened.ids.insert(first.id)
+            opened.ids.insert(StoryMoment.entry(.session(first)).id)
         }
     }
 
@@ -76,6 +116,7 @@ struct DayStory: View {
     @ViewBuilder private func row(_ entry: DayEntry, isFirst: Bool, isLast: Bool) -> some View {
         switch entry {
         case .session(let session):
+            let key = StoryMoment.entry(entry).id
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
                      dotSize: session.isRunning ? 13 : 11,
@@ -83,13 +124,21 @@ struct DayStory: View {
                 SessionEntryCard(session: session,
                                  apps: store.appRanks(within: session.spans),
                                  shape: store.sessionShape(session),
+                                 appColourIndices: store.storyAppColourIndices,
                                  canContinue: store.canContinue(session),
-                                 isOpen: opened.ids.contains(session.id),
-                                 clock: session.isRunning ? Tokens.clock(store.elapsed) : nil,
-                                 onToggle: { toggle(session.id) },
+                                 isOpen: opened.ids.contains(key),
+                                 clock: session.isRunning && store.isToday
+                                    ? Tokens.clock(session.worked) : nil,
+                                 liveStatus: session.isRunning && store.isToday
+                                    ? (store.pendingAway != nil ? "awaiting your decision"
+                                        : store.isPaused ? "paused" : "running now") : nil,
+                                 onToggle: { toggle(key) },
                                  onRename: { store.renameSession(session, to: $0) },
                                  onWorkType: { store.setWorkType($0, for: session) },
-                                 onContinue: { store.continueSession(session) })
+                                 onContinue: { store.continueSession(session) },
+                                 pauseTitle: store.isAway ? "I'm back" : store.isPaused ? "Resume" : "Pause",
+                                 onPause: canControl(session) ? { store.togglePause() } : nil,
+                                 onEnd: canControl(session) ? { store.stop() } : nil)
             }
         case .rest(let rest):
             storyRow(time: rest.start,
@@ -99,6 +148,12 @@ struct DayStory: View {
                 RestEntryRow(rest: rest)
             }
         }
+    }
+
+    private func canControl(_ session: DaySession) -> Bool {
+        store.isToday && store.engine.state != .idle
+            && session.threadID == store.engine.activeThreadID
+            && !store.hasUnresolvedAwayDecision
     }
 
     /// The away question sits in the story where the absence happened, so the
@@ -125,12 +180,14 @@ struct DayStory: View {
                                          isLast: Bool,
                                          @ViewBuilder content: () -> Content) -> some View {
         HStack(alignment: .top, spacing: 0) {
-            Text(Tokens.timeOfDayOnly(time))
+            if showsTimes {
+              Text(Tokens.timeOfDayOnly(time))
                 .font(Tokens.Typography.metadata.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: timeColumn, alignment: .trailing)
                 .padding(.top, 14)
                 .accessibilityHidden(true)
+            }
             rail(tint: tint, dotSize: dotSize, isFirst: isFirst, isLast: isLast)
                 .frame(width: railColumn)
             content()
@@ -154,7 +211,7 @@ struct DayStory: View {
                 Circle()
                     .fill(tint)
                     .frame(width: dotSize, height: dotSize)
-                    .overlay(Circle().strokeBorder(Tokens.Colour.surface, lineWidth: 3))
+                    .overlay(Circle().strokeBorder(StoryStyle.canvas, lineWidth: 3))
                     .offset(y: dotCentre - dotSize / 2)
             }
             .frame(maxWidth: .infinity)
@@ -163,13 +220,16 @@ struct DayStory: View {
     }
 
     private var empty: some View {
-        Text("Nothing recorded on this day yet.")
+        Text(store.isToday ? (store.isTrackingEnabled
+                            ? "Start a focus session, or let app recording build the day's story."
+                            : "App recording is off. Start a focus session, or enable recording in Settings.")
+                          : "No sessions or app use were recorded on this day.")
             .font(.callout)
             .foregroundStyle(.secondary)
             .padding(.vertical, Tokens.Space.m)
     }
 
-    private func toggle(_ id: UUID) {
+    private func toggle(_ id: String) {
         withAnimation(Tokens.Motion.animation(Tokens.Motion.rise, reduceMotion: reduceMotion)) {
             if opened.ids.contains(id) { opened.ids.remove(id) } else { opened.ids.insert(id) }
         }
@@ -184,17 +244,25 @@ struct SessionEntryCard: View {
     let apps: [AppRank]
     /// What the recording shows, when it shows anything.
     var shape: String?
+    var appColourIndices: [String: Int] = [:]
     var canContinue = false
     let isOpen: Bool
     let clock: String?
+    var liveStatus: String?
     let onToggle: () -> Void
-    var onRename: ((String) -> Void)?
-    var onWorkType: ((WorkType) -> Void)?
+    var onRename: ((String) -> Bool)?
+    var onWorkType: ((WorkType) -> Bool)?
     var onContinue: (() -> Void)?
+    var pauseTitle = "Pause"
+    var onPause: (() -> Void)?
+    var onEnd: (() -> Void)?
     /// Renaming happens in the card, in place, rather than in a sheet.
     @StateObject private var editing = BoolBox()
     @StateObject private var draft = TextBox()
     @StateObject private var picking = BoolBox()
+    @FocusState private var renameFocused: Bool
+    @FocusState private var renameActionFocused: Bool
+    @Environment(\.focusInterfaceDensity) private var density
 
     private var tint: Color { Tokens.Palette.workType(session.workType) }
 
@@ -205,7 +273,7 @@ struct SessionEntryCard: View {
                     HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                         Text(session.name.isEmpty ? session.workType.displayName : session.name)
                             .font(Tokens.Typography.rowTitle)
-                            .lineLimit(1)
+                            .lineLimit(2)
                         Spacer(minLength: Tokens.Space.s)
                         Text(clock ?? Tokens.preciseDuration(session.worked))
                             .font(.callout.weight(clock == nil ? .regular : .semibold)
@@ -213,10 +281,9 @@ struct SessionEntryCard: View {
                             .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
                                                           : AnyShapeStyle(tint))
                             .contentTransition(.numericText())
-                        Image(systemName: "chevron.down")
+                        Image(systemName: isOpen ? "chevron.down" : "chevron.right")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.tertiary)
-                            .rotationEffect(.degrees(isOpen ? 180 : 0))
                     }
                     HStack(spacing: Tokens.Space.s) {
                         Text(session.workType.displayName)
@@ -225,9 +292,7 @@ struct SessionEntryCard: View {
                             .padding(.vertical, 2)
                             .background(tint.opacity(0.14), in: Capsule())
                             .foregroundStyle(tint)
-                        Text(session.isRunning
-                             ? "running now"
-                             : Tokens.timeRange(session.start, session.end))
+                        Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
                         if session.stretches > 1 {
@@ -237,19 +302,20 @@ struct SessionEntryCard: View {
                         }
                     }
                 }
-                .padding(Tokens.Space.m)
+                .padding(StoryStyle.entryInsets(for: density))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(StoryPressStyle())
 
             if isOpen { detail }
         }
-        .background(Tokens.Colour.surface,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+        .background(StoryStyle.card,
+                    in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
             .strokeBorder(session.isRunning ? tint.opacity(0.45) : Tokens.Colour.line,
                           lineWidth: session.isRunning ? 1.5 : 1))
+        .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isOpen ? "Hide this session's detail" : "Show this session's detail")
@@ -268,16 +334,34 @@ struct SessionEntryCard: View {
     @ViewBuilder private var detail: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Divider()
+            if shape != nil {
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 16) {
+                        appsDetail.frame(minWidth: 170, maxWidth: .infinity, alignment: .topLeading)
+                        shapeDetail.frame(minWidth: 170, maxWidth: .infinity, alignment: .topLeading)
+                    }
+                    VStack(alignment: .leading, spacing: 14) {
+                        appsDetail
+                        shapeDetail
+                    }
+                }
+            } else { appsDetail }
+            actions
+        }
+        .padding(.horizontal, 15)
+        .padding(.bottom, 13)
+    }
+
+    private var appsDetail: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionLabel("Apps in this stretch")
             if apps.isEmpty {
                 Text("No app use was recorded inside this session.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             } else {
-                sectionLabel("Apps in this session")
                 ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
-                    AppUsageRow(appName: app.appName, bundleID: app.bundleID,
-                                rank: index, seconds: app.total, share: app.share,
-                                layout: .compact)
+                    StoryAppRow(app: app, rank: appColourIndices[app.bundleID] ?? index)
                 }
                 if apps.count > 4 {
                     Text("\(apps.count - 4) more app\(apps.count - 4 == 1 ? "" : "s") "
@@ -286,18 +370,19 @@ struct SessionEntryCard: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            if let shape {
-                sectionLabel("Shape of it")
-                    .padding(.top, Tokens.Space.xs)
-                Text(shape)
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            actions
         }
-        .padding(.horizontal, Tokens.Space.m)
-        .padding(.bottom, Tokens.Space.m)
+    }
+
+    @ViewBuilder private var shapeDetail: some View {
+            if let shape {
+                VStack(alignment: .leading, spacing: 6) {
+                    sectionLabel("Recording coverage")
+                    Text(shape)
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
     }
 
     private func sectionLabel(_ text: String) -> some View {
@@ -321,8 +406,11 @@ struct SessionEntryCard: View {
                     if onRename != nil {
                         actionButton("Rename") {
                             draft.text = session.name
+                            renameActionFocused = false
+                            renameFocused = false
                             editing.value = true
                         }
+                        .focused($renameActionFocused)
                     }
                     if onWorkType != nil {
                         actionButton(picking.value ? "Done" : "Change type") {
@@ -333,20 +421,24 @@ struct SessionEntryCard: View {
                         actionButton("Continue this", action: onContinue)
                     }
                     Spacer(minLength: 0)
+                    if let onPause { actionButton(pauseTitle, action: onPause) }
+                    if let onEnd { actionButton("End session", action: onEnd) }
                 }
             }
+            Text("Name and type changes apply to all stretches of this session, including other days.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     /// The kinds of work, offered in the card. Correcting a session to a break
     /// is offered too — the record should be able to say it was not work.
-    private func workTypeChoices(_ pick: @escaping (WorkType) -> Void) -> some View {
+    private func workTypeChoices(_ pick: @escaping (WorkType) -> Bool) -> some View {
         HStack(spacing: Tokens.Space.xs) {
             ForEach(WorkType.allCases, id: \.self) { type in
                 let isCurrent = type == session.workType
                 Button {
-                    pick(type)
-                    picking.value = false
+                    if pick(type) { picking.value = false }
                 } label: {
                     Text(type.displayName)
                         .font(.caption2.weight(.semibold))
@@ -374,20 +466,36 @@ struct SessionEntryCard: View {
                 .textFieldStyle(.roundedBorder)
                 .font(Tokens.Typography.metadata)
                 .onSubmit(commitRename)
+                .focused($renameFocused)
+                .onAppear {
+                    // The field must be installed before requesting focus.
+                    // An eager true value is lost when the Rename button leaves
+                    // the key-view loop during this same update.
+                    DispatchQueue.main.async {
+                        if editing.value { renameFocused = true }
+                    }
+                }
                 .accessibilityLabel("Name this work")
             Button("Save", action: commitRename)
                 .font(Tokens.Typography.metadata.weight(.semibold))
-                .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            Button("Cancel") { editing.value = false }
+                .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                          || draft.text.trimmingCharacters(in: .whitespacesAndNewlines) == session.name)
+            Button("Cancel", action: finishRenaming)
                 .font(Tokens.Typography.metadata)
         }
+        .onExitCommand(perform: finishRenaming)
     }
 
     private func commitRename() {
         let trimmed = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        onRename?(trimmed)
+        if onRename?(trimmed) == true { finishRenaming() }
+    }
+
+    private func finishRenaming() {
+        renameFocused = false
         editing.value = false
+        DispatchQueue.main.async { renameActionFocused = true }
     }
 
     private func actionButton(_ title: String, action: @escaping () -> Void) -> some View {
@@ -414,7 +522,7 @@ struct RestEntryRow: View {
             Text("\(rest.name) — rest, not counted as focus")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Tokens.Space.s)
             Text(Tokens.preciseDuration(rest.length))
                 .font(Tokens.Typography.metadata.monospacedDigit())

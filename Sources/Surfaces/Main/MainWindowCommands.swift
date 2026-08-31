@@ -10,13 +10,24 @@ struct MainWindowCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Navigate") {
-            ForEach(AppTab.allCases) { tab in
-                Button(tab.title) {
-                    route(to: tab)
+            ForEach(Array(StoryScope.allCases.enumerated()), id: \.element.id) { index, scope in
+                Button(scope.title) {
+                    navigation.selectScope(scope)
+                    revealMainWindow()
                 }
-                .keyboardShortcut(KeyEquivalent(Character(String(tab.commandNumber))),
+                .keyboardShortcut(KeyEquivalent(Character(String(index + 1))),
                                   modifiers: [.command])
             }
+            Divider()
+            Button("History") { route(to: .review) }
+                .keyboardShortcut("4", modifiers: [.command])
+            Button("Insights") { route(to: .insights) }
+                .keyboardShortcut("5", modifiers: [.command])
+            Button("Awards") { route(to: .awards) }
+                .keyboardShortcut("6", modifiers: [.command])
+            Divider()
+            Button("Focus session…") { route(to: .focus) }
+                .keyboardShortcut("7", modifiers: [.command])
         }
 
         CommandGroup(replacing: .appSettings) {

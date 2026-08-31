@@ -13,6 +13,10 @@ enum Entry {
             GalleryApp.main()
             return
         }
+        if CommandLine.arguments.contains("--fixture-window") {
+            StoryFixtureApp.main()
+            return
+        }
         if let index = CommandLine.arguments.firstIndex(of: "--snapshot") {
             let path = CommandLine.arguments.count > index + 1
                 ? CommandLine.arguments[index + 1]

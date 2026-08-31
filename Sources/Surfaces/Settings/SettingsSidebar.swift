@@ -1,5 +1,69 @@
 import SwiftUI
 
+/// The eight logical sections keep control ownership precise; five pages make
+/// the native sheet small enough to read without a second, unreachable pane.
+enum SettingsPage: String, CaseIterable, Identifiable {
+    case general
+    case sessions
+    case awayAndBreaks
+    case recording
+    case privacy
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "General"
+        case .sessions: return "Sessions"
+        case .awayAndBreaks: return "Away & Breaks"
+        case .recording: return "Recording"
+        case .privacy: return "Privacy"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: return "gearshape"
+        case .sessions: return "target"
+        case .awayAndBreaks: return "moon.zzz"
+        case .recording: return "rectangle.stack.badge.play"
+        case .privacy: return "lock.shield"
+        }
+    }
+
+    var sections: [SettingsSection] {
+        switch self {
+        case .general: return [.general, .appearance]
+        case .sessions: return [.focus, .automatic]
+        case .awayAndBreaks: return [.away]
+        case .recording: return [.tracking]
+        case .privacy: return [.data, .advanced]
+        }
+    }
+
+    init(section: SettingsSection) {
+        switch section {
+        case .general, .appearance: self = .general
+        case .focus, .automatic: self = .sessions
+        case .away: self = .awayAndBreaks
+        case .tracking: self = .recording
+        case .data, .advanced: self = .privacy
+        }
+    }
+
+    static func matching(_ query: String) -> [SettingsPage] {
+        let matchingSections = Set(SettingsSection.matching(query))
+        return allCases.filter { !$0.sections.filter(matchingSections.contains).isEmpty }
+    }
+
+    func sections(matching query: String) -> [SettingsSection] {
+        let matchingSections = Set(SettingsSection.matching(query))
+        return query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? sections
+            : sections.filter(matchingSections.contains)
+    }
+}
+
 extension SettingsSection {
     var title: String {
         switch self {
@@ -27,28 +91,25 @@ extension SettingsSection {
         }
     }
 
-    /// Literal labels used by the visible rows and controls. Search never
-    /// indexes promises hidden in explanatory copy.
+    /// Literal labels used by visible controls. Search does not promise a
+    /// preference that cannot be reached from the page it returns.
     var controlLabels: [String] {
         switch self {
-        case .general:
-            return ["Default tab"]
-        case .focus:
-            return ["Daily goal"]
+        case .general: return ["Opens on"]
+        case .focus: return ["Daily goal"]
         case .away:
             return ["Ask me after", "End session after", "Full-screen prompt after",
                     "Remind me to take breaks"]
         case .automatic:
             return ["Start sessions for me", "Auto-session gap", "Celebrate milestones"]
-        case .tracking:
-            return ["Sessions per app", "Record app usage"]
+        case .tracking: return ["Recent app visits", "Record app usage"]
         case .appearance:
-            return ["Appearance", "Interface density", "Show timeline labels"]
+            return ["Appearance", "Interface density", "Show Story timestamps",
+                    "Expand entry details by default"]
         case .data:
             return ["Privacy", "Accurate app usage from", "Legacy backup location",
                     "Reveal data folder"]
-        case .advanced:
-            return ["Version", "Build", "Recovery"]
+        case .advanced: return ["Version", "Build", "Recovery"]
         }
     }
 
@@ -56,16 +117,11 @@ extension SettingsSection {
         switch self {
         case .general: return [.opensOn]
         case .focus: return [.dailyGoal]
-        case .away:
-            return [.breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
-        case .automatic:
-            return [.automaticSessions, .automaticGap, .rewards]
-        case .tracking:
-            return [.sessionsPerApp, .usageRecording]
-        case .appearance:
-            return [.appearance, .density, .timelineLabels, .entryDetails]
-        case .data, .advanced:
-            return []
+        case .away: return [.breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
+        case .automatic: return [.automaticSessions, .automaticGap, .rewards]
+        case .tracking: return [.sessionsPerApp, .usageRecording]
+        case .appearance: return [.appearance, .density, .timelineLabels, .entryDetails]
+        case .data, .advanced: return []
         }
     }
 
@@ -80,100 +136,35 @@ extension SettingsSection {
     }
 }
 
-/// Comfortable widths retain the desktop list. The selected group is the only
-/// dominant element in the right pane; this is navigation, not a second form.
-struct SettingsSidebar: View {
-    let sections: [SettingsSection]
-    @Binding var selected: SettingsSection
+/// All five pages remain visible at the native sheet width in one compact tab
+/// row, rather than becoming a second navigation surface.
+struct SettingsPageTabs: View {
+    let pages: [SettingsPage]
+    @Binding var selected: SettingsPage
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            ForEach(sections) { section in
-                Button { selected = section } label: {
-                    HStack(spacing: Tokens.Space.s) {
-                        Image(systemName: section.symbol)
-                            .frame(width: 18)
-                            .symbolRenderingMode(.hierarchical)
-                        Text(section.title)
-                            .lineLimit(1)
-                        Spacer(minLength: Tokens.Space.s)
-                    }
-                    .font(Tokens.Typography.rowTitle)
-                    .padding(.horizontal, Tokens.Space.m)
-                    .frame(minHeight: 36)
-                    .background(selected == section
-                                ? Tokens.Colour.elevated : Color.clear,
-                                in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                                     style: .continuous))
-                    .contentShape(Rectangle())
+        HStack(spacing: Tokens.Space.xs) {
+            ForEach(pages) { page in
+                Button { selected = page } label: {
+                    Text(page.title)
+                        .font(Tokens.Typography.metadata.weight(.medium))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .background(selected == page ? StoryStyle.well : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(section.title), \(selected == section ? "selected" : "not selected")")
-                .accessibilityAddTraits(selected == section ? .isSelected : [])
+                .accessibilityLabel("\(page.title), \(selected == page ? "selected" : "not selected")")
+                .accessibilityAddTraits(selected == page ? .isSelected : [])
             }
         }
-        .frame(width: 240, alignment: .topLeading)
+        .padding(Tokens.Space.xs)
+        .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                                           style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+            .stroke(StoryStyle.line, lineWidth: 1))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Settings groups")
-    }
-}
-
-struct SettingsGroupMenu: View {
-    let sections: [SettingsSection]
-    @Binding var selected: SettingsSection
-
-    var body: some View {
-        Menu {
-            ForEach(sections) { section in
-                Button {
-                    selected = section
-                } label: {
-                    Label(section.title, systemImage: section.symbol)
-                }
-            }
-        } label: {
-            HStack(spacing: Tokens.Space.s) {
-                Image(systemName: selected.symbol)
-                Text(selected.title)
-                Spacer()
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .font(Tokens.Typography.rowTitle)
-            .padding(.horizontal, Tokens.Space.m)
-            .frame(minHeight: 36)
-            .background(Tokens.Colour.elevated, in: Capsule())
-            .overlay(Capsule().stroke(Tokens.Colour.line, lineWidth: 1))
-            .contentShape(Capsule())
-        }
-        .menuStyle(.borderlessButton)
-        .accessibilityLabel("Settings group, \(selected.title), selected")
-        .accessibilityAddTraits(.isSelected)
-    }
-}
-
-/// ImageRenderer cannot host AppKit's menu view service. The snapshot path uses
-/// this inert rendering of the same selected-group chrome; production always
-/// uses SettingsGroupMenu above.
-struct SettingsGroupLabel: View {
-    let selected: SettingsSection
-
-    var body: some View {
-        HStack(spacing: Tokens.Space.s) {
-            Image(systemName: selected.symbol)
-            Text(selected.title)
-            Spacer()
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .font(Tokens.Typography.rowTitle)
-        .padding(.horizontal, Tokens.Space.m)
-        .frame(minHeight: 36)
-        .background(Tokens.Colour.elevated, in: Capsule())
-        .overlay(Capsule().stroke(Tokens.Colour.line, lineWidth: 1))
-        .accessibilityLabel("Settings group, \(selected.title), selected")
-        .accessibilityAddTraits(.isSelected)
+        .accessibilityLabel("Settings pages")
     }
 }

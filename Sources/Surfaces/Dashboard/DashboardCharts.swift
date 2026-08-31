@@ -35,6 +35,7 @@ struct RhythmChart: View {
     var height: CGFloat = 120
     /// A bar clicked: the hour, so the timeline's detail row can open on it.
     var onHourTap: ((Date) -> Void)?
+    var compactLabels = false
 
     var body: some View {
         if hours.allSatisfy({ $0.seconds == 0 }) {
@@ -49,18 +50,30 @@ struct RhythmChart: View {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .fill(hour.seconds > 0 ? AnyShapeStyle(Tokens.Palette.app(rank: hour.colorIndex))
                                                    : AnyShapeStyle(Tokens.Colour.elevated))
-                            .frame(height: max(3, height * CGFloat(min(1, hour.seconds / 3_600))))
+                            .frame(height: max(3, height * CGFloat(hour.seconds / scaleMaximum)))
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
                             .onTapGesture { onHourTap?(hour.hour) }
                             .help("\(DayTimelineView.hourLabel(hour.hour)) · "
                                   + Tokens.preciseDuration(hour.seconds)
                                   + (onHourTap == nil ? "" : " · click to open the hour"))
+                            .accessibilityLabel("\(DayTimelineView.hourLabel(hour.hour)), \(Tokens.spent(hour.seconds)) recorded")
                     }
                 }
                 .frame(height: height, alignment: .bottom)
                 .overlay(alignment: .bottom) { Rectangle().fill(Tokens.Colour.line).frame(height: 1) }
-                HStack(spacing: labelStep == 1 ? 8 : 4) {
+                if compactLabels, let first = hours.first, let last = hours.last {
+                    HStack {
+                        Text(DayTimelineView.hourLabel(first.hour))
+                        Spacer()
+                        if hours.count > 2 { Text(DayTimelineView.hourLabel(hours[hours.count / 2].hour)) }
+                        Spacer()
+                        Text(DayTimelineView.hourLabel(last.hour))
+                    }
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                } else {
+                  HStack(spacing: labelStep == 1 ? 8 : 4) {
                     ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
                         Text(index % labelStep == 0 ? DayTimelineView.hourLabel(hour.hour) : "")
                             .font(Tokens.Typography.metadata)
@@ -68,15 +81,18 @@ struct RhythmChart: View {
                             .lineLimit(1)
                             .frame(maxWidth: .infinity)
                     }
+                  }
                 }
             }
-            .accessibilityLabel("Minutes at the Mac per hour, \(hours.count) hours")
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Recorded app use by hour")
         }
     }
 
     /// One label per bar up to twelve bars; every second or third beyond, so a
     /// 24-hour day does not collide.
     private var labelStep: Int { hours.count <= 12 ? 1 : (hours.count <= 18 ? 2 : 3) }
+    private var scaleMaximum: TimeInterval { max(3_600, hours.map(\.seconds).max() ?? 0) }
 }
 
 /// The work-type split as a ring of arcs with a legend. The centre holds the

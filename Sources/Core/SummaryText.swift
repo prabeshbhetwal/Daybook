@@ -71,7 +71,7 @@ enum SummaryText {
             .compactMap { $0 }
     }
 
-    /// Time at the Mac, focus inside it, and the goal — one sentence.
+    /// Observed Mac use, declared focus, and goal credit — separate measures.
     private static func presence(_ i: DaySummaryInput) -> String {
         let count = Set(i.sessions.map(\.threadID)).count
         let inSessions = count == 0 ? "" : count == 1 ? " in one session" : " in \(count) sessions"
@@ -84,12 +84,9 @@ enum SummaryText {
             }
             if i.focused > 0 {
                 text += ", and focused for **\(duration(i.focused))**\(inSessions)"
-                var tail: [String] = []
-                // A share over 100% (a session clock that ran while the tracker
-                // saw no hands-on time) is not a share; leave it unsaid.
-                if i.focused <= i.tracked { tail.append("\(percent(i.focused / i.tracked)) of that time") }
-                if let goal = goalClause(i) { tail.append(goal) }
-                if !tail.isEmpty { text += " — " + tail.joined(separator: ", ") }
+                // Their quotient is not an overlap, even when below 100%.
+                // The quality sentence uses the actual temporal intersection.
+                if let goal = goalClause(i) { text += " — " + goal }
             } else {
                 text += i.isToday ? ", with no focus session yet" : ", with no focus session"
             }

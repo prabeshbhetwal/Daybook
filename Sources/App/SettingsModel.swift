@@ -185,7 +185,11 @@ final class SettingsModel: ObservableObject {
     private let onTrackingChanged: (Bool) -> Void
     private let onAppearanceChanged: (AppearancePreference) -> Void
     private let onRevealDataFolder: (() -> Void)?
+    private let openDataFolder: ((URL) -> Bool)?
     let diagnostics: SettingsDiagnostics
+    /// The archive directory displayed and revealed by Privacy. Fixtures pass
+    /// their own temporary directory so this surface cannot reach live data.
+    let dataDirectoryURL: URL
     /// Mirrored here because the tracker — not the preference — is the truth
     /// about whether recording is on, and the tracker lives with the store.
     private var trackingEnabled: Bool
@@ -196,14 +200,18 @@ final class SettingsModel: ObservableObject {
          onTrackingChanged: @escaping (Bool) -> Void,
          onAppearanceChanged: @escaping (AppearancePreference) -> Void = { _ in },
          revealDataFolder: (() -> Void)? = nil,
-         diagnostics: SettingsDiagnostics = .unavailable) {
+         diagnostics: SettingsDiagnostics = .unavailable,
+         dataDirectory: URL = SessionArchive.defaultDirectory,
+         openDataFolder: ((URL) -> Bool)? = nil) {
         self.store = store
         self.trackingEnabled = isTrackingEnabled
         self.onChange = onChange
         self.onTrackingChanged = onTrackingChanged
         self.onAppearanceChanged = onAppearanceChanged
         self.onRevealDataFolder = revealDataFolder
+        self.openDataFolder = openDataFolder
         self.diagnostics = diagnostics
+        self.dataDirectoryURL = dataDirectory
     }
 
     private func write(_ body: () -> Void) {
@@ -310,8 +318,6 @@ final class SettingsModel: ObservableObject {
 
     var interfaceLayout: InterfaceDensity.Layout { interfaceDensity.layout }
 
-    var dataDirectoryURL: URL { SessionArchive.defaultDirectory }
-
     var menuSessionCount: Int {
         get { store.menuSessionCount }
         set { write { store.menuSessionCount = newValue } }
@@ -331,8 +337,10 @@ final class SettingsModel: ObservableObject {
     func revealDataFolder() {
         if let onRevealDataFolder {
             onRevealDataFolder()
+        } else if let openDataFolder {
+            Self.revealDataFolder(at: dataDirectoryURL, open: openDataFolder)
         } else {
-            Self.revealDataFolder(at: SessionArchive.defaultDirectory)
+            Self.revealDataFolder(at: dataDirectoryURL)
         }
     }
 

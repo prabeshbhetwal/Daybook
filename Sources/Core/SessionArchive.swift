@@ -18,7 +18,20 @@ final class SessionArchive {
     /// Testable write boundary. Normal production instances leave this nil and
     /// use Foundation's atomic file replacement below.
     private let writeOverride: (([SessionRecord]) -> String?)?
-    private var cache: [SessionRecord]
+    private var cache: [SessionRecord] {
+        didSet {
+            revision &+= 1
+            cachedDayRecords.removeAll(keepingCapacity: true)
+            cachedDailyTotals = nil
+            cachedBestStreak = nil
+            cachedCurrentStreak = nil
+        }
+    }
+    private(set) var revision = 0
+    private var cachedDayRecords: [Date: [SessionRecord]] = [:]
+    private var cachedDailyTotals: [Date: TimeInterval]?
+    private var cachedBestStreak: Int?
+    private var cachedCurrentStreak: (day: Date, qualifiesToday: Bool, count: Int)?
 
     init(directory: URL = SessionArchive.defaultDirectory,
          calendar: Calendar = .current,
@@ -45,6 +58,9 @@ final class SessionArchive {
     // MARK: - Storage
 
     var records: [SessionRecord] { cache }
+    /// The actual archive location, also used by isolated native fixtures when
+    /// presenting their Privacy settings. It never assumes the live data path.
+    var dataDirectoryURL: URL { directory }
 
     func append(_ record: SessionRecord) {
         cache.append(record)
@@ -202,7 +218,14 @@ final class SessionArchive {
     /// Every record with work on this day, not merely those that ended on it.
     /// A session that ran through midnight belongs to both days it touched.
     func records(on date: Date) -> [SessionRecord] {
-        cache.filter { $0.workSeconds(on: date, calendar: calendar) > 0 }
+        let day = calendar.startOfDay(for: date)
+        if let records = cachedDayRecords[day] { return records }
+        let records = cache.filter { $0.workSeconds(on: day, calendar: calendar) > 0 }
+        // Bound queries from arbitrarily wide History navigation. The archive
+        // itself remains authoritative and unchanged by this derived cache.
+        if cachedDayRecords.count >= 128 { cachedDayRecords.removeAll(keepingCapacity: true) }
+        cachedDayRecords[day] = records
+        return records
     }
 
     /// Focused seconds attributable to a day, with cross-midnight sessions split
@@ -210,7 +233,7 @@ final class SessionArchive {
     /// are excluded: they are recorded so a gap can be explained, not so it can
     /// be counted.
     func workSeconds(on date: Date) -> TimeInterval {
-        cache.reduce(0) { total, record in
+        records(on: date).reduce(0) { total, record in
             guard record.workType.countsAsFocus else { return total }
             return total + record.workSeconds(on: date, calendar: calendar)
         }
@@ -287,6 +310,7 @@ final class SessionArchive {
     /// Focused seconds per day across the whole archive, cross-midnight work
     /// split. Built in one pass because the streak walks need every day at once.
     private func dailyTotals() -> [Date: TimeInterval] {
+        if let cachedDailyTotals { return cachedDailyTotals }
         var totals: [Date: TimeInterval] = [:]
         for record in cache where record.workType.countsAsFocus {
             var cursor = calendar.startOfDay(for: record.start)
@@ -303,6 +327,7 @@ final class SessionArchive {
                 cursor = next
             }
         }
+        cachedDailyTotals = totals
         return totals
     }
 
@@ -333,11 +358,14 @@ final class SessionArchive {
     ///   Counted toward today, so the streak does not read 0 while you are working —
     ///   which is demoralising at exactly the moment the number exists to motivate.
     func currentStreak(includingToday inFlight: TimeInterval = 0) -> Int {
-        var totals = dailyTotals()
-        totals[calendar.startOfDay(for: now()), default: 0] += max(0, inFlight)
-
-        var cursor = calendar.startOfDay(for: now())
-        if (totals[cursor] ?? 0) < FocusConstants.streakMinimum {
+        let totals = dailyTotals()
+        let today = calendar.startOfDay(for: now())
+        let qualifies = (totals[today] ?? 0) + max(0, inFlight) >= FocusConstants.streakMinimum
+        if let cached = cachedCurrentStreak, cached.day == today, cached.qualifiesToday == qualifies {
+            return cached.count
+        }
+        var cursor = today
+        if !qualifies {
             guard let yesterday = calendar.date(byAdding: .day, value: -1, to: cursor) else {
                 return 0
             }
@@ -345,11 +373,12 @@ final class SessionArchive {
         }
 
         var streak = 0
-        while (totals[cursor] ?? 0) >= FocusConstants.streakMinimum {
+        while cursor == today ? qualifies : (totals[cursor] ?? 0) >= FocusConstants.streakMinimum {
             streak += 1
             guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
             cursor = previous
         }
+        cachedCurrentStreak = (today, qualifies, streak)
         return streak
     }
 
@@ -358,6 +387,7 @@ final class SessionArchive {
     /// The longest run of qualifying days ever recorded. A streak cannot be
     /// called a record without knowing what the record was.
     func bestStreak() -> Int {
+        if let cachedBestStreak { return cachedBestStreak }
         // The injected calendar, not `Calendar.current`: an archive built for a
         // test in another time zone was silently bucketing by the host's days.
         let totals = dailyTotals()
@@ -379,6 +409,7 @@ final class SessionArchive {
             best = max(best, run)
             previous = day
         }
+        cachedBestStreak = best
         return best
     }
 

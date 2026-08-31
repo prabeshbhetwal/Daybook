@@ -24,26 +24,48 @@ struct StoryRail: View {
     /// The tile under the pointer during a drag, so the drop target is visible
     /// before the mouse is released.
     @StateObject private var dropTarget = TileBox()
+    @StateObject private var selectedApp = TextBox()
+    @StateObject private var allAppsShown = BoolBox()
     @Environment(\.storyTilesAreDraggable) private var tilesAreDraggable
+    @Environment(\.focusInterfaceDensity) private var density
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            ForEach(visibleTiles, id: \.self) { kind in
+        let shownTiles = visibleTiles
+        VStack(alignment: .leading, spacing: density == .compact ? 10 : 14) {
+            ForEach(shownTiles, id: \.self) { kind in
                 draggable(tile(kind), as: kind)
+                    .contextMenu {
+                        Button("Move \(kind.title) up") { moveVertically(kind, by: -1) }
+                            .disabled(shownTiles.first == kind)
+                        Button("Move \(kind.title) down") { moveVertically(kind, by: 1) }
+                            .disabled(shownTiles.last == kind)
+                    }
+                    .accessibilityAction(named: "Move up") { moveVertically(kind, by: -1) }
+                    .accessibilityAction(named: "Move down") { moveVertically(kind, by: 1) }
             }
             droppable(footer, before: nil)
         }
-        .padding(Tokens.Space.l)
+        .padding(StoryStyle.railInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: navigation.storyScope) { _ in selectedApp.text = "" }
+        .onChange(of: store.dayOffset) { _ in selectedApp.text = "" }
+        .onChange(of: store.reviewAnchor) { _ in selectedApp.text = "" }
     }
 
     private var footer: some View {
-        Text(tilesAreDraggable
-             ? "Tiles follow the scope above. Drag to reorder; "
-               + "a tile with nothing to say is hidden."
-             : "Tiles follow the scope above. A tile with nothing to say is hidden.")
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 14) {
+                Button("History") { navigation.openSheet(.history) }
+                Button("Insights") { navigation.openSheet(.insights) }
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(StoryStyle.action)
+            Text(tilesAreDraggable
+                 ? "Drag tiles to reorder, or use their menu. The streak always describes recent days."
+                 : "The streak always describes recent days.")
+        }
             .font(Tokens.Typography.metadata)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -75,7 +97,10 @@ struct StoryRail: View {
     private var visibleTiles: [StoryTileKind] {
         settings.storyTileOrder.filter { kind in
             switch kind {
-            case .focus, .mac: return true
+            case .focus: return focusValue > 0 || navigation.storyScope == .day
+            case .mac:
+                let evidence = breakdown
+                return evidence.tracked > 0 || evidence.uncoveredFocus > 0
             case .apps: return !apps.isEmpty
             case .rhythm: return navigation.storyScope == .day && !store.rhythm.isEmpty
             case .streak: return store.streak > 0
@@ -99,14 +124,23 @@ struct StoryRail: View {
         settings.storyTileOrder = order
     }
 
+    private func moveVertically(_ kind: StoryTileKind, by delta: Int) {
+        let visible = visibleTiles
+        guard let index = visible.firstIndex(of: kind),
+              visible.indices.contains(index + delta) else { return }
+        let target = delta < 0 ? visible[index - 1]
+            : (index + 2 < visible.count ? visible[index + 2] : nil)
+        move(kind, before: target)
+    }
+
     // MARK: - Focus
 
     private var focusTile: some View {
-        StoryTile(title: focusTitle, tint: Tokens.Palette.workType(.deepWork),
+        StoryTile(title: focusTitle, tint: StoryStyle.focus,
                   trailing: scopeLabel) {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                    Text(Tokens.duration(focusValue))
+                    Text(Tokens.preciseDuration(focusValue))
                         .font(Tokens.Typography.metricValue.monospacedDigit())
                     Text(focusNote)
                         .font(Tokens.Typography.metadata)
@@ -119,6 +153,7 @@ struct StoryRail: View {
                              label: "\(Int(((goalShare ?? 0) * 100).rounded()))%",
                              isMet: (goalShare ?? 0) >= 1,
                              labelFont: .system(size: 12, weight: .bold, design: .rounded))
+                        .accessibilityLabel("\(Int(((goalShare ?? 0) * 100).rounded())) per cent of the goal for \(store.dayLabel)")
                 }
             }
         }
@@ -134,7 +169,7 @@ struct StoryRail: View {
 
     private var focusValue: TimeInterval {
         switch navigation.storyScope {
-        case .day: return store.isToday ? store.todayTotal : store.focusedForSelectedDay
+        case .day: return store.storyFocusedSeconds(on: store.selectedDay)
         case .week, .month: return store.reviewFocusedSeconds
         }
     }
@@ -151,14 +186,12 @@ struct StoryRail: View {
         case .day:
             let goal = store.selectedDayGoal
             guard goal.goal > 0 else { return "No daily goal set" }
-            return goal.isMet
-                ? "Goal met"
-                : "\(Tokens.duration(max(0, goal.goal - goal.achieved))) "
-                  + (store.isToday ? "to go" : "short of the goal")
+            let credit = "\(Tokens.duration(goal.achieved)) of \(Tokens.duration(goal.goal)) goal credit"
+            return credit + (goal.isMet ? " · goal met" : " · session work with recorded app use")
         case .week, .month:
-            let summary = store.reviewSummary
-            guard summary.activeDays > 0 else { return "No active days yet" }
-            let dayWord = summary.activeDays == 1 ? "active day" : "active days"
+            let summary = store.storyFocusSummary
+            guard summary.activeDays > 0 else { return "No focus recorded" }
+            let dayWord = summary.activeDays == 1 ? "focused day" : "focused days"
             return "\(summary.activeDays) \(dayWord) · "
                 + "\(Tokens.duration(summary.averagePerActiveDay)) average"
         }
@@ -171,89 +204,64 @@ struct StoryRail: View {
     // MARK: - On this Mac
 
     private var macTile: some View {
-        StoryTile(title: "On this Mac", tint: Tokens.Palette.app(rank: 1), trailing: nil) {
+        // Resolve the relatively expensive interval projection once for this
+        // tile, not again for every label, bar part and denominator.
+        let evidence = breakdown
+        let trackedValue = evidence.tracked
+        let insideValue = evidence.insideSessions
+        let looseValue = evidence.outsideSessions
+        let unrecordedValue = evidence.uncoveredFocus
+        return StoryTile(title: "On this Mac", tint: Tokens.Palette.app(rank: 1), trailing: nil) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                Text(Tokens.duration(accountedValue))
+                Text(Tokens.preciseDuration(trackedValue))
                     .font(.title3.weight(.semibold).monospacedDigit())
-                Text("not all of it deliberate")
+                Text("recorded app use")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
-            if accountedValue > 0 {
+            if trackedValue > 0 {
                 GeometryReader { geometry in
                     HStack(spacing: 0) {
                         Rectangle()
                             .fill(Tokens.Palette.app(rank: 1))
-                            .frame(width: geometry.size.width * width(of: insideValue))
+                            .frame(width: geometry.size.width * width(of: insideValue, total: trackedValue))
                         Rectangle()
                             .fill(Tokens.Palette.app(rank: 1).opacity(0.42))
-                            .frame(width: geometry.size.width * width(of: looseValue))
-                        Rectangle()
-                            .fill(Tokens.Colour.line)
+                            .frame(width: geometry.size.width * width(of: looseValue, total: trackedValue))
                     }
                 }
                 .frame(height: 7)
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
                 legendRow(colour: Tokens.Palette.app(rank: 1),
-                          label: "In a focus session",
+                          label: "Within session spans",
                           value: Tokens.duration(insideValue))
                 legendRow(colour: Tokens.Palette.app(rank: 1).opacity(0.42),
-                          label: "At the Mac, no session",
+                          label: "Outside session spans",
                           value: Tokens.duration(looseValue))
-                if unrecordedValue > 0 {
-                    legendRow(colour: Tokens.Colour.line,
-                              label: "Not recorded",
-                              value: Tokens.duration(unrecordedValue))
-                    Text("Focused time no app recording covers.")
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
+            if unrecordedValue > 0 {
+                    Divider()
+                    Text("\(Tokens.duration(unrecordedValue)) of focused work has no app-use coverage.")
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+            }
+            Text("Session spans may include pauses. Goal credit counts covered focus only.")
+                .font(.caption).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    /// The three parts are disjoint by construction: observed time splits into
-    /// inside and outside a session, and focused time the recorder never saw is
-    /// the remainder. Their total is what the day can account for.
-    private var accountedValue: TimeInterval { trackedValue + unrecordedValue }
-
-    private var insideValue: TimeInterval { trackedValue * insideShare }
-
-    private var looseValue: TimeInterval { trackedValue * (1 - insideShare) }
-
-    private var unrecordedValue: TimeInterval {
-        switch navigation.storyScope {
-        case .day: return store.focusQuality.unrecordedFocusSeconds
-        case .week, .month: return store.reviewQuality.unrecordedFocusSeconds
-        }
+    /// Temporal membership splits observed use. Missing focus coverage is a
+    /// separate measure and is never added to the observed headline or bar.
+    private var breakdown: StoryUsageBreakdown {
+        navigation.storyScope == .day
+            ? store.storyUsageBreakdown(on: store.selectedDay) : store.storyUsageBreakdown
     }
-
-    private func width(of value: TimeInterval) -> Double {
-        guard accountedValue > 0 else { return 0 }
-        return min(1, max(0, value / accountedValue))
-    }
-
-    private var trackedValue: TimeInterval {
-        switch navigation.storyScope {
-        case .day: return store.isToday ? store.trackedToday : store.trackedForSelectedDay
-        case .week, .month: return store.reviewSummary.tracked
-        }
-    }
-
-    /// The day has a measured inside-session share; a period reports its own
-    /// focused time against its own tracked time rather than borrowing the
-    /// selected day's quality figure.
-    private var insideShare: Double {
-        switch navigation.storyScope {
-        case .day:
-            return min(1, max(0, store.focusQuality.insideSessionShare))
-        case .week, .month:
-            let tracked = store.reviewSummary.tracked
-            guard tracked > 0 else { return 0 }
-            return min(1, max(0, store.reviewFocusedSeconds / tracked))
-        }
+    private func width(of value: TimeInterval, total: TimeInterval) -> Double {
+        guard total > 0 else { return 0 }
+        return min(1, max(0, value / total))
     }
 
     private func legendRow(colour: Color, label: String, value: String) -> some View {
@@ -285,11 +293,26 @@ struct StoryRail: View {
     }
 
     private var appsTile: some View {
-        StoryTile(title: "Apps", tint: Tokens.Palette.app(rank: 5), trailing: "Top 4") {
-            ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
-                AppUsageRow(appName: app.appName, bundleID: app.bundleID,
-                            rank: index, seconds: app.total, share: app.share,
-                            layout: .compact)
+        StoryTile(title: "Apps", tint: Tokens.Palette.app(rank: 5),
+                  trailing: apps.count > 4 && !allAppsShown.value ? "Top 4 of \(apps.count)"
+                    : apps.count == 1 ? "1 app" : "\(apps.count) apps") {
+            ForEach(Array(apps.prefix(allAppsShown.value ? apps.count : 4).enumerated()), id: \.element.id) { index, app in
+                StoryAppRow(app: app, rank: index) { selectedApp.text = app.bundleID }
+                    .popover(isPresented: Binding(
+                        get: { selectedApp.text == app.bundleID },
+                        set: { if !$0 && selectedApp.text == app.bundleID { selectedApp.text = "" } })) {
+                            StoryAppDetail(store: store, bundleID: app.bundleID,
+                                           scope: navigation.storyScope,
+                                           onDismiss: { selectedApp.text = "" })
+                        }
+                    .onExitCommand { selectedApp.text = "" }
+            }
+            if apps.count > 4 {
+                Button(allAppsShown.value ? "Show fewer apps" : "Show all \(apps.count) apps") {
+                    allAppsShown.value.toggle()
+                }
+                .buttonStyle(.borderless)
+                .font(Tokens.Typography.metadata)
             }
         }
     }
@@ -298,9 +321,9 @@ struct StoryRail: View {
 
     private var rhythmTile: some View {
         StoryTile(title: "Rhythm", tint: Tokens.Palette.app(rank: 0), trailing: "by hour") {
-            RhythmChart(hours: store.rhythm, height: 54)
+            RhythmChart(hours: store.rhythm, height: 54, compactLabels: true)
             if let peak = store.rhythmPeak {
-                Text("Your best hours are \(peak).")
+                Text("Most recorded app use: \(peak).")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -311,7 +334,7 @@ struct StoryRail: View {
     // MARK: - Streak
 
     private var streakTile: some View {
-        StoryTile(title: "Streak", tint: Tokens.Palette.app(rank: 4),
+        StoryTile(title: "Current streak", tint: Tokens.Palette.app(rank: 4),
                   trailing: store.streak == 1 ? "1 day" : "\(store.streak) days") {
             HStack(spacing: 3) {
                 ForEach(Array(store.streakDays().enumerated()), id: \.offset) { _, entry in
@@ -323,7 +346,7 @@ struct StoryRail: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(store.streak) day streak")
             HStack(spacing: Tokens.Space.xs) {
-                Text("Days with at least "
+                Text("Last 14 days. At least "
                      + "\(Tokens.preciseDuration(FocusConstants.streakMinimum)) of focus.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
@@ -375,6 +398,7 @@ struct StoryTile<Content: View>: View {
     let tint: Color
     let trailing: String?
     @ViewBuilder let content: Content
+    @Environment(\.focusInterfaceDensity) private var density
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
@@ -386,18 +410,19 @@ struct StoryTile<Content: View>: View {
                 if let trailing {
                     Text(trailing)
                         .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
             content
         }
-        .padding(Tokens.Space.l)
+        .padding(StoryStyle.tileInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Tokens.Colour.surface,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
-            .strokeBorder(Tokens.Colour.line))
+        .background(StoryStyle.card,
+                    in: RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous)
+            .strokeBorder(StoryStyle.line))
+        .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
         .accessibilityElement(children: .contain)
     }
 }

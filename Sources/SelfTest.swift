@@ -112,6 +112,7 @@ enum SelfTest {
             try? FileManager.default.removeItem(at: directory)
         }
         scratchDirectories.removeAll()
+        FixtureFactory.cleanUp()
         UserDefaults.standard.removePersistentDomain(forName: suiteName)
     }
 
@@ -423,8 +424,6 @@ enum SelfTest {
              testSettingsPrivacyDisclosure),
             ("Shared panels consume the interface density environment",
              testSharedPanelDensityEnvironment),
-            ("Settings narrow navigation is reachable at the production minimum width",
-             testSettingsProductionBreakpoint),
             ("Settings accuracy epoch always includes its year",
              testSettingsAccuracyEpochYear),
             ("Compact Focus snapshots retain the title and status band",
@@ -443,7 +442,8 @@ enum SelfTest {
              testSimultaneousSnapshotsKeepIsolatedPreferences),
             ("Away snapshots retain production prompt chrome",
              testAwaySnapshotsRetainProductionPromptChrome)
-        ] + StoryAccountingChecks.tests + StoryCorrectionChecks.tests
+        ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests
+            + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -7195,15 +7195,6 @@ enum SelfTest {
         return problems
     }
 
-    private static func testSettingsProductionBreakpoint() -> [String] {
-        var problems: [String] = []
-        expect(!SettingsLayout.usesSidebar(at: 980),
-               "the 980pt production minimum selects the narrow group menu", &problems)
-        expect(SettingsLayout.usesSidebar(at: 1_160),
-               "the 1160pt comfortable production width selects the sidebar", &problems)
-        return problems
-    }
-
     private static func testSettingsAccuracyEpochYear() -> [String] {
         var problems: [String] = []
         let epoch = Date(timeIntervalSince1970: 1_700_000_000)
@@ -8044,7 +8035,7 @@ enum SelfTest {
     }
 
     /// An Insight card states its conclusion first and keeps its method behind
-    /// a literal disclosure. Settings keeps the sidebar only while it fits.
+    /// a literal disclosure, preserving its evidence rather than inventing it.
     private static func testInsightAndSettingsPresentation() -> [String] {
         var problems: [String] = []
         let insight = Insight(id: "pace",
@@ -8059,14 +8050,6 @@ enum SelfTest {
         expect(presentation.provenance == insight.detail,
                "provenance is the insight's own evidence, never invented", &problems)
 
-        expect(SettingsLayout.usesSidebar(at: 1_080),
-               "Settings uses the native-like sidebar at the comfortable threshold", &problems)
-        expect(!SettingsLayout.usesSidebar(at: 1_079),
-               "Settings switches before its sidebar becomes cramped", &problems)
-        expect(!SettingsLayout.usesSidebar(at: 980),
-               "the production minimum uses the compact group menu", &problems)
-        expect(SettingsLayout.detailMeasure == 720,
-               "Settings controls retain a readable measure", &problems)
         return problems
     }
 
@@ -10587,7 +10570,8 @@ enum SelfTest {
 
     /// The summary is the figures in words. A full day names its time, its
     /// sessions, its apps and the day before; an empty day says it is empty;
-    /// a share over 100% is never written; today speaks in the present.
+    /// independent focus/tracked totals are never called an intersection;
+    /// today speaks in the present.
     private static func testSummaryText() -> [String] {
         var problems: [String] = []
         let day = Calendar.current.startOfDay(for: base)
@@ -10617,7 +10601,7 @@ enum SelfTest {
             previousTracked: 9 * 3_600, previousFocused: 3 * 3_600 + 7 * 60)
         let text = SummaryText.plain(SummaryText.day(input))
         for needle in ["You were at the Mac for 8h 6m", "focused for 4h 17m in 2 sessions",
-                       "53% of that time", "goal met",
+                       "goal met",
                        "The longest, Deep work, Refactor the parser, ran", "for 3h 47m in 4 stretches with one break (Lunch 30m)",
                        "Most of the time went to Dia (3h 4m, 38%) and Claude (2h 19m, 29%), across 3 apps in all",
                        "the busiest hours were 1pm–4pm",
@@ -10627,6 +10611,8 @@ enum SelfTest {
             expect(text.contains(needle), "summary says “\(needle)”, got: \(text)", &problems)
         }
         expect(!text.contains("**"), "plain text carries no bold marks", &problems)
+        expect(!text.contains("% of that time"),
+               "raw focused/tracked division is not a temporal share, even below 100%", &problems)
         expect(SummaryText.day(input).count == 5, "five sentences for a full day", &problems)
 
         // Short of the goal, written as a shortfall on a past day.

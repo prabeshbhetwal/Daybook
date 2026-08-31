@@ -19,6 +19,9 @@ struct WeekStoryChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            Text("Tracked by day")
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .foregroundStyle(.secondary)
             HStack(alignment: .bottom, spacing: Tokens.Space.s) {
                 ForEach(days) { day in
                     column(for: day)
@@ -29,7 +32,7 @@ struct WeekStoryChart: View {
                 Text("Bars are tracked time. The active-day average is "
                      + "\(Tokens.duration(average)).")
                     .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
         }
         .accessibilityElement(children: .contain)
@@ -42,7 +45,7 @@ struct WeekStoryChart: View {
         } ?? false
         return Button { onPickDay(day.date) } label: {
             VStack(spacing: Tokens.Space.xs) {
-                Text(day.tracked > 0 ? Tokens.duration(day.tracked) : "—")
+                Text(day.tracked > 0 ? Tokens.preciseDuration(day.tracked) : "—")
                     .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
                     .foregroundStyle(day.tracked > 0 ? .primary : .tertiary)
                     .lineLimit(1)
@@ -68,7 +71,7 @@ struct WeekStoryChart: View {
         .buttonStyle(.plain)
         .animation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion),
                    value: isSelected)
-        .accessibilityLabel("\(Tokens.weekdayName(day.date)), "
+        .accessibilityLabel("\(Tokens.longDate(day.date)), "
                             + (day.tracked > 0 ? Tokens.spent(day.tracked) : "nothing recorded"))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("Show this day")

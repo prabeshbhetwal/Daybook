@@ -371,22 +371,22 @@ struct HistoryView: View {
     @ViewBuilder private func historyDayEntry(_ day: HistoryDay) -> some View {
         let disclosure = HistoryDayDisclosurePresentation(
             isExpanded: isSelected(day) && selectedDayDetail != nil)
-        if disclosure.usesJoinedSurface, let detail = selectedDayDetail {
-            VStack(spacing: 0) {
-                dayRow(day, disclosure: disclosure)
+        VStack(spacing: 0) {
+            // Keep the row in the same structural position when expanded, so
+            // keyboard focus does not jump to the following day.
+            dayRow(day, disclosure: disclosure)
+            if disclosure.usesJoinedSurface, let detail = selectedDayDetail {
                 Divider().padding(.horizontal, Tokens.Space.m)
                 ReviewDayDetailPanel(
                     detail: detail,
-                    onOpenInToday: { navigation.openSelectedReviewDayInToday() },
+                    onOpenInToday: { navigation.openStoryDay(detail.day.date) },
                     onClose: { navigation.clearReviewDay() },
                     presentation: .joined)
             }
-            .background(Tokens.Colour.hover,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                             style: .continuous))
-        } else {
-            dayRow(day, disclosure: disclosure)
         }
+        .background(disclosure.usesJoinedSurface ? Tokens.Colour.hover : Color.clear,
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                         style: .continuous))
     }
 
     private func dayRow(_ day: HistoryDay,
@@ -428,7 +428,7 @@ struct HistoryView: View {
         .accessibilityLabel(rowAccessibilityLabel(day))
         .accessibilityHint(disclosure.isExpanded
                            ? "Hides this day's detail"
-                           : "Shows this day's detail in Review")
+                           : "Shows this day's detail below the row")
         .accessibilityAddTraits(isSelected(day) ? .isSelected : [])
     }
 
@@ -438,7 +438,7 @@ struct HistoryView: View {
         var parts = [Tokens.longDate(day.date),
                      "\(Tokens.duration(day.tracked)) tracked",
                      "\(Tokens.duration(day.focused)) focused",
-                     "\(day.sessions) sessions"]
+                     day.sessions == 1 ? "1 session" : "\(day.sessions) sessions"]
         if isSelected(day) { parts.append("selected") }
         return parts.joined(separator: ", ")
     }

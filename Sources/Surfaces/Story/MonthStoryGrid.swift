@@ -1,9 +1,8 @@
 import SwiftUI
 
 /// The month as a calendar of real days: each cell carries its own focused
-/// figure and is tinted by how much of the goal it reached, with the week's
-/// total on the trailing edge. Clicking a day opens that day's story — the
-/// route the month exists to offer.
+/// figure and is tinted by its focused duration relative to this month's
+/// busiest day. Selection previews a day; its named action opens the story.
 struct MonthStoryGrid: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
@@ -35,7 +34,7 @@ struct MonthStoryGrid: View {
     private var facts: [Date: DayFacts] { store.dayFacts(inMonthOf: store.reviewPeriodStart) }
 
     var body: some View {
-        SurfacePanel(showsHeader: false) {
+        VStack(alignment: .leading, spacing: 8) {
             headerRow
             let table = facts
             ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
@@ -44,17 +43,16 @@ struct MonthStoryGrid: View {
                         if let day {
                             MonthDayCell(day: day,
                                          facts: table[calendar.startOfDay(for: day)],
-                                         goal: store.goal.goal,
+                                         maximumFocus: table.values.map(\.focused).max() ?? 0,
                                          isSelected: isSelected(day),
-                                         isToday: calendar.isDateInToday(day)) {
+                                         isToday: calendar.isDateInToday(day),
+                                         isFuture: day > calendar.startOfDay(for: store.now())) {
                                 navigation.selectStoryDay(day)
                             }
                         } else {
                             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(Tokens.Colour.elevated.opacity(0.4))
-                                .frame(maxWidth: .infinity,
-                                       minHeight: MonthDayCell.height,
-                                       maxHeight: MonthDayCell.height)
+                                .fill(StoryStyle.well.opacity(0.4))
+                                .aspectRatio(1, contentMode: .fit)
                                 .accessibilityHidden(true)
                         }
                     }
@@ -63,6 +61,12 @@ struct MonthStoryGrid: View {
             }
             legend
         }
+        .padding(18)
+        .background(StoryStyle.card,
+                    in: RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous)
+            .strokeBorder(StoryStyle.line))
+        .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
         .animation(Tokens.Motion.animation(Tokens.Motion.rise, reduceMotion: reduceMotion),
                    value: navigation.storySelectedDay)
     }
@@ -73,13 +77,13 @@ struct MonthStoryGrid: View {
                 Text(name.uppercased())
                     .font(.caption2.weight(.bold))
                     .kerning(0.6)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             Text("WEEK")
                 .font(.caption2.weight(.bold))
                 .kerning(0.6)
-                .foregroundStyle(.quaternary)
+                .foregroundStyle(.secondary)
                 .frame(width: 62, alignment: .trailing)
         }
         .accessibilityHidden(true)
@@ -98,21 +102,21 @@ struct MonthStoryGrid: View {
 
     private var legend: some View {
         HStack {
-            Text(store.reviewSummary.activeDays > 0
-                 ? "\(store.reviewSummary.activeDays) of \(store.reviewSummary.totalDays) "
-                   + "days had focus. Click a day to open its story."
+            Text(store.storyFocusSummary.activeDays > 0
+                 ? "\(store.storyFocusSummary.activeDays) of \(store.reviewSummary.totalDays) "
+                   + "days had focus. Select a day to inspect it."
                  : "No focus recorded in this month yet.")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
             Spacer(minLength: Tokens.Space.m)
-            HStack(spacing: Tokens.Space.xs) {
-                Text("Less").font(Tokens.Typography.metadata).foregroundStyle(.tertiary)
+            HStack(spacing: 3) {
+                Text("Less").font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 ForEach([0.16, 0.44, 0.72, 1.0], id: \.self) { level in
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(Tokens.Palette.workType(.deepWork).opacity(level))
                         .frame(width: 12, height: 12)
                 }
-                Text("More").font(Tokens.Typography.metadata).foregroundStyle(.tertiary)
+                Text("More").font(Tokens.Typography.metadata).foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Darker cells mean more focused time")
@@ -126,37 +130,33 @@ struct MonthStoryGrid: View {
     }
 }
 
-/// One day in the month grid. The tint is the day's share of the goal, so the
-/// month reads as a heat map of real progress rather than of raw presence.
+/// One square calendar cell. Goal achievement is not encoded here: it has a
+/// different denominator from focused duration and belongs in the daily ring.
 struct MonthDayCell: View {
-    /// A fixed row height, shared with the empty leading and trailing slots so
-    /// every week in the grid is the same height.
-    static let height: CGFloat = 58
-
     let day: Date
     let facts: DayFacts?
-    let goal: TimeInterval
+    let maximumFocus: TimeInterval
     let isSelected: Bool
     let isToday: Bool
+    var isFuture = false
     let onSelect: () -> Void
+    @Environment(\.colorScheme) private var scheme
 
     private var focused: TimeInterval { facts?.focused ?? 0 }
 
-    /// Nil when the day recorded nothing at all, which is drawn as a quiet well
-    /// rather than as the palest step of the ramp — absence is not a low score.
-    private var level: Double? {
-        guard focused > 0 else { return nil }
-        guard goal > 0 else { return 0.6 }
-        return min(1, max(0.16, focused / goal))
+    private var paint: StoryHeatmap.Paint {
+        StoryHeatmap.paint(seconds: focused, peak: maximumFocus, dark: scheme == .dark)
     }
 
     var body: some View {
         Button(action: onSelect) {
             face
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle())
+        .disabled(isFuture)
+        .opacity(isFuture ? 0.45 : 1)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Open this day as a story")
+        .accessibilityHint("Preview this day below the calendar")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -165,15 +165,17 @@ struct MonthDayCell: View {
     }
 
     private var face: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        shape.fill(Color(NSColor(hex: paint.background)))
+            .aspectRatio(1, contentMode: .fit)
+            .overlay(alignment: .topLeading) {
+              VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 2) {
                 Text(dayNumber)
                     .font(.caption.weight(.bold).monospacedDigit())
                 Spacer(minLength: 0)
                 if isToday {
-                    Text("TODAY")
-                        .font(.system(size: 8, weight: .bold))
-                        .kerning(0.4)
+                    Circle().fill(Color(NSColor(hex: paint.foreground)))
+                        .frame(width: 4, height: 4)
                 }
             }
             Spacer(minLength: 0)
@@ -181,32 +183,17 @@ struct MonthDayCell: View {
                 .font(.system(size: 10).monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-        }
-        .foregroundStyle(readableForeground)
+              }
+        .foregroundStyle(Color(NSColor(hex: paint.foreground)))
         .padding(7)
-        // A fixed row height rather than a square: at seven columns a square
-        // cell is as tall as the column is wide, and the last week of the
-        // month falls out of the window.
-        .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height)
-        .background(background)
-        .overlay(shape.strokeBorder(Tokens.Colour.focus, lineWidth: isSelected ? 2 : 0))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        .overlay(shape.strokeBorder(StoryStyle.action, lineWidth: isSelected ? 2 : 0))
         .contentShape(shape)
     }
 
     private var dayNumber: String {
         "\(Calendar.current.component(.day, from: day))"
-    }
-
-    @ViewBuilder private var background: some View {
-        RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .fill(level.map { Tokens.Palette.workType(.deepWork).opacity($0) }
-                  ?? Tokens.Colour.elevated)
-    }
-
-    /// White only where the fill is dark enough to carry it.
-    private var readableForeground: Color {
-        guard let level, level >= 0.55 else { return .primary }
-        return .white
     }
 
     private var accessibilityLabel: String {

@@ -1,17 +1,28 @@
 import SwiftUI
 
-/// Where Settings switches between the two-pane sidebar and the compact group
-/// menu, and how wide its control column reads. Chosen against the real
-/// 980–1,160 pt production window range.
+/// Dimensions include StorySheet's approximately 49pt title band. The sheet
+/// stays below the 570pt native bound while short pages do not become a large,
+/// empty panel merely because another page has longer diagnostics.
 enum SettingsLayout {
     static let detailMeasure: CGFloat = 720
+    static let sheetMaximumHeight: CGFloat = 570
 
-    static func usesSidebar(at width: CGFloat) -> Bool { width >= 1_080 }
+    static func sheetHeight(section: SettingsSection, query: String) -> CGFloat {
+        guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return sheetMaximumHeight
+        }
+        switch SettingsPage(section: section) {
+        case .general: return 490
+        case .sessions: return 520
+        case .awayAndBreaks, .privacy: return sheetMaximumHeight
+        case .recording: return 440
+        }
+    }
+
 }
 
-/// First-class Settings canvas. Search filters the navigation metadata; the
-/// selected group remains the sole detail surface rather than expanding eight
-/// forms into one exhaustive page.
+/// First-class preferences canvas. Logical settings sections remain precise,
+/// while the presentation has five compact pages that all fit the native sheet.
 struct SettingsView: View {
     @ObservedObject var model: SettingsModel
     @ObservedObject var navigation: MainWindowModel
@@ -23,35 +34,23 @@ struct SettingsView: View {
         self.scrolls = scrolls
     }
 
-    /// Kept as the view's own spelling of the shared contract so existing call
-    /// sites and tests read naturally.
-    static func usesSidebar(at width: CGFloat) -> Bool {
-        SettingsLayout.usesSidebar(at: width)
-    }
-
     var body: some View {
-        GeometryReader { proxy in
-            let sections = SettingsSection.matching(navigation.settingsQuery)
-            VStack(alignment: .leading, spacing: Tokens.Space.l) {
-                search
-                if let section = visibleSection(in: sections) {
-                    if Self.usesSidebar(at: proxy.size.width) {
-                        wide(sections: sections, section: section)
-                    } else {
-                        narrow(sections: sections, section: section)
-                    }
-                } else {
-                    EmptyState("No matching settings",
-                               detail: "Try a control label such as goal, privacy or appearance.",
-                               icon: "magnifyingglass")
-                        .frame(maxHeight: .infinity)
-                }
+        let pages = SettingsPage.matching(navigation.settingsQuery)
+        VStack(alignment: .leading, spacing: Tokens.Space.m) {
+            search
+            if let page = visiblePage(in: pages) {
+                SettingsPageTabs(pages: pages, selected: pageBinding(in: pages))
+                content(for: page)
+            } else {
+                EmptyState("No matching settings",
+                           detail: "Try a control such as goal, visits, timestamps or privacy.",
+                           icon: "magnifyingglass")
+                    .frame(maxHeight: .infinity)
             }
-            .padding(Self.usesSidebar(at: proxy.size.width)
-                     ? Tokens.Space.xxl : Tokens.Space.l)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .background(Tokens.Colour.ground)
+        .padding(Tokens.Space.l)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(StoryStyle.canvas)
     }
 
     private var search: some View {
@@ -63,89 +62,58 @@ struct SettingsView: View {
                 TextField("Search settings", text: $navigation.settingsQuery)
                     .textFieldStyle(.plain)
             } else {
-                Text(navigation.settingsQuery.isEmpty
-                     ? "Search settings" : navigation.settingsQuery)
+                Text(navigation.settingsQuery.isEmpty ? "Search settings" : navigation.settingsQuery)
                     .foregroundStyle(navigation.settingsQuery.isEmpty
-                                     ? AnyShapeStyle(.secondary)
-                                     : AnyShapeStyle(.primary))
+                                     ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .padding(.horizontal, Tokens.Space.m)
         .frame(height: 36)
-        .background(Tokens.Colour.elevated,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                         style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                  style: .continuous)
-            .stroke(Tokens.Colour.line, lineWidth: 1))
-        .frame(maxWidth: 480)
+        .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                                           style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+            .stroke(StoryStyle.line, lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Search settings")
         .accessibilitySortPriority(2)
     }
 
-    private func wide(sections: [SettingsSection], section: SettingsSection) -> some View {
-        HStack(alignment: .top, spacing: Tokens.Space.xl) {
-            if scrolls {
-                ScrollView {
-                    SettingsSidebar(sections: sections,
-                                    selected: selectionBinding(in: sections))
+    @ViewBuilder private func content(for page: SettingsPage) -> some View {
+        let sections = page.sections(matching: navigation.settingsQuery)
+        let detail = VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            ForEach(sections) { section in
+                if !navigation.settingsQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Label("\(page.title) — \(section.title)", systemImage: section.symbol)
+                        .font(Tokens.Typography.sectionTitle)
+                        .foregroundStyle(.secondary)
+                        .accessibilityAddTraits(.isHeader)
                 }
-            } else {
-                SettingsSidebar(sections: sections,
-                                selected: selectionBinding(in: sections))
+                SettingsGroups(model: model, section: section)
             }
-            Divider()
-            detail(section)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: SettingsLayout.detailMeasure, alignment: .topLeading)
         .accessibilitySortPriority(1)
-    }
-
-    private func narrow(sections: [SettingsSection], section: SettingsSection) -> some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.l) {
-            if scrolls {
-                SettingsGroupMenu(sections: sections,
-                                  selected: selectionBinding(in: sections))
-                    .frame(maxWidth: 360)
-            } else {
-                SettingsGroupLabel(selected: section)
-                    .frame(maxWidth: 360)
-            }
-            detail(section)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .accessibilitySortPriority(1)
-    }
-
-    @ViewBuilder private func detail(_ section: SettingsSection) -> some View {
-        let content = VStack(alignment: .leading, spacing: Tokens.Space.l) {
-            Label(section.title, systemImage: section.symbol)
-                .font(Tokens.Typography.pageTitle)
-                .symbolRenderingMode(.hierarchical)
-                .accessibilityAddTraits(.isHeader)
-            SettingsGroups(model: model, section: section)
-                .frame(maxWidth: SettingsLayout.detailMeasure, alignment: .topLeading)
-        }
-        .frame(maxWidth: .infinity, alignment: .topLeading)
 
         if scrolls {
-            ScrollView { content.padding(.bottom, Tokens.Space.xxl) }
+            ScrollView { detail.padding(.bottom, Tokens.Space.l) }
+                // A new page or search result starts at its first control.
+                // The search field lives outside this identity, retaining focus.
+                .id("\(page.rawValue):\(navigation.settingsQuery)")
         } else {
-            content.frame(maxHeight: .infinity, alignment: .top)
+            detail.frame(maxHeight: .infinity, alignment: .top)
         }
     }
 
-    private func visibleSection(in sections: [SettingsSection]) -> SettingsSection? {
-        guard !sections.isEmpty else { return nil }
-        return sections.contains(navigation.settingsSection)
-            ? navigation.settingsSection : sections[0]
+    private func visiblePage(in pages: [SettingsPage]) -> SettingsPage? {
+        guard !pages.isEmpty else { return nil }
+        let selected = SettingsPage(section: navigation.settingsSection)
+        return pages.contains(selected) ? selected : pages[0]
     }
 
-    private func selectionBinding(in sections: [SettingsSection]) -> Binding<SettingsSection> {
+    private func pageBinding(in pages: [SettingsPage]) -> Binding<SettingsPage> {
         Binding(
-            get: { visibleSection(in: sections) ?? navigation.settingsSection },
-            set: { navigation.settingsSection = $0 })
+            get: { visiblePage(in: pages) ?? SettingsPage(section: navigation.settingsSection) },
+            set: { navigation.settingsSection = $0.sections[0] })
     }
 }

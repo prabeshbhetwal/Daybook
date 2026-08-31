@@ -90,7 +90,8 @@ extension SessionStore {
     /// entries independently, so it cannot use the single-selection cache.
     func appRanks(within spans: [DateInterval]) -> [AppRank] {
         guard let usage, !spans.isEmpty else { return [] }
-        return DashboardStats(sessions: engine.archive, usage: usage)
+        return DashboardStats(sessions: engine.archive, usage: usage,
+                              usageSnapshot: effectiveUsageSnapshot)
             .rankedApps(for: selectedDay, within: spans)
     }
 
@@ -149,6 +150,8 @@ extension SessionStore {
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
             insightsRefreshPending = true
+            reviewLiveTailRefreshPending = false
+            reviewRefreshPending = true
         }
     }
 
@@ -165,9 +168,17 @@ extension SessionStore {
             glanceArchiveRefreshPending = false
             rebuildGlance()
         }
-        if dashboardVisible, dashboardArchiveRefreshPending {
+        if dashboardVisible, dashboardArchiveRefreshPending || dashboardLiveTailRefreshPending {
+            let liveOnly = !dashboardArchiveRefreshPending
             dashboardArchiveRefreshPending = false
-            rebuildDashboard()
+            dashboardLiveTailRefreshPending = false
+            rebuildDashboard(liveOnly: liveOnly)
+        }
+        if reviewVisible, reviewRefreshPending || reviewLiveTailRefreshPending {
+            let liveTailOnly = !reviewRefreshPending
+            reviewRefreshPending = false
+            reviewLiveTailRefreshPending = false
+            refreshReview(rebuildingHistory: !liveTailOnly)
         }
         if insightsVisible, insightsRefreshPending {
             insightsRefreshPending = false
@@ -177,7 +188,8 @@ extension SessionStore {
         // A synchronous observer may have requested another pass while values
         // were publishing. Coalesce that work into the next single pass.
         if glanceArchiveRefreshPending
-            || (dashboardVisible && dashboardArchiveRefreshPending)
+            || (dashboardVisible && (dashboardArchiveRefreshPending || dashboardLiveTailRefreshPending))
+            || (reviewVisible && (reviewRefreshPending || reviewLiveTailRefreshPending))
             || (insightsVisible && insightsRefreshPending) {
             consumePendingSurfaceRefreshes()
         }
@@ -205,12 +217,23 @@ extension SessionStore {
 
     /// Rebuilds every full dashboard figure from the two archives in one pass.
     /// Called only by the visibility gate above.
-    private func rebuildDashboard() {
+    private func rebuildDashboard(liveOnly: Bool = false) {
         guard let usage else { return }
+        let day = Calendar.current.startOfDay(for: selectedDay)
+        let live = liveOnly && period == .day && dashboardReadModelDay == day
+            && dashboardEvidenceRevision == evidenceRevision
+        if live, let bounds = SessionRecord.dayBounds(day, calendar: .current) {
+            let changingFocus = engine.runningSpan.map { $0.start < bounds.end && $0.end > bounds.start } ?? false
+            let changingUsage = (tracker?.usageOverlaySessions() ?? []).contains {
+                $0.start < bounds.end && $0.end > bounds.start
+            }
+            guard changingFocus || changingUsage else { return }
+        }
+        dashboardEvidenceRevision = evidenceRevision
+        dashboardReadModelDay = day
         let usageSnapshot = effectiveUsageSnapshot
         let stats = DashboardStats(sessions: engine.archive, usage: usage,
-                                   usageSnapshot: usageSnapshot)
-        let day = selectedDay
+                                   usageSnapshot: usageSnapshot, now: now)
 
         rankedApps = stats.rankedApps(for: day)
         timelineSegments = stats.timeline(for: day)
@@ -226,40 +249,42 @@ extension SessionStore {
             runningSeconds: (state != .idle && dayOffset == 0) ? engine.elapsedToday() : nil,
             runningThreadID: (state != .idle && dayOffset == 0)
                 ? engine.activeThreadID : nil)
-        insights = stats.insights(for: day)
         trackedForSelectedDay = stats.trackedTotal(for: day)
-        trackedYesterday = Calendar.current.date(byAdding: .day, value: -1, to: day)
-            .map { stats.trackedTotal(for: $0) } ?? 0
-        sessionsForSelectedDay = engine.archive.threadCount(on: day)
-        focusedForSelectedDay = engine.archive.workSeconds(on: day)
-        focusedActiveForSelectedDay = focusedActiveSeconds(on: day,
-                                                           usageSnapshot: usageSnapshot)
-        let longest = engine.archive.longestThread(on: day)
-        longestForSelectedDay = longest?.seconds ?? 0
-        // Unnamed work is named by its type, as the Sessions card and the
-        // summary name it.
-        longestNameForSelectedDay = longest.map { $0.name.isEmpty ? $0.workType.displayName : $0.name }
-        earliestDay = stats.earliestRecordedDay()
-        let selectedBounds = PeriodStats(sessions: engine.archive, usage: usage,
-                                         usageSnapshot: usageSnapshot)
-            .bounds(for: period, containing: day)
-        let accuracyEpoch = usageSnapshot?.accurateFrom ?? usage.metadata.accurateFrom
-        if usage.containsUsage(in: DateInterval(start: selectedBounds.start,
-                                                end: selectedBounds.end),
-                                                before: accuracyEpoch) {
-            selectedDayIntegrityNote = "App usage from before "
-                + "\(Tokens.longDate(accuracyEpoch)) was preserved "
-                + "and may include unattended time."
-        } else {
-            selectedDayIntegrityNote = nil
+        focusedActiveForSelectedDay = live && isToday ? goal.achieved
+            : focusedActiveSeconds(on: day, usageSnapshot: usageSnapshot)
+        if !live {
+            insights = stats.insights(for: day)
+            trackedYesterday = Calendar.current.date(byAdding: .day, value: -1, to: day)
+                .map { stats.trackedTotal(for: $0) } ?? 0
+            sessionsForSelectedDay = engine.archive.threadCount(on: day)
+            focusedForSelectedDay = engine.archive.workSeconds(on: day)
+            let longest = engine.archive.longestThread(on: day)
+            longestForSelectedDay = longest?.seconds ?? 0
+            // Unnamed work is named by its type, as the Sessions card and the
+            // summary name it.
+            longestNameForSelectedDay = longest.map { $0.name.isEmpty ? $0.workType.displayName : $0.name }
+            earliestDay = stats.earliestRecordedDay()
+            let selectedBounds = PeriodStats(sessions: engine.archive, usage: usage,
+                                             usageSnapshot: usageSnapshot)
+                .bounds(for: period, containing: day)
+            let accuracyEpoch = usageSnapshot?.accurateFrom ?? usage.metadata.accurateFrom
+            if usage.containsUsage(in: DateInterval(start: selectedBounds.start,
+                                                    end: selectedBounds.end),
+                                                    before: accuracyEpoch) {
+                selectedDayIntegrityNote = "App usage from before "
+                    + "\(Tokens.longDate(accuracyEpoch)) was preserved "
+                    + "and may include unattended time."
+            } else {
+                selectedDayIntegrityNote = nil
+            }
         }
 
         // A month is 31 day-slices, each one pass over the usage array. One
         // rollup call walks them once; asking for the pieces separately walked
         // them three times and cost 16 MB of churn.
         daySessions = SessionDigest.entries(records: engine.archive.records(on: day),
-                                            running: isToday ? runningThread(on: day) : nil,
-                                            now: Date(), day: day)
+                                            running: isToday ? runningThread() : nil,
+                                            now: now(), day: day)
         // A selection that no longer matches the day's rows is stale.
         if let selected = selectedSession,
            !daySessions.contains(where: { $0.id == selected.id }) {
@@ -267,16 +292,18 @@ extension SessionStore {
         }
 
         let rollup = PeriodStats(sessions: engine.archive, usage: usage,
-                                 usageSnapshot: usageSnapshot)
+                                 usageSnapshot: usageSnapshot, now: now)
             .rollup(for: period, containing: day)
         periodDays = rollup.days
         periodLog = rollup.log
         periodAppGroups = PeriodStats.appGroups(from: rollup.log)
         periodDayTotals = rollup.dayTotals
         periodSummary = rollup.summary
-        previousPeriodTracked = PeriodStats(sessions: engine.archive, usage: usage,
-                                            usageSnapshot: usageSnapshot)
-            .previousPeriodTracked(for: period, containing: day)
+        if !live {
+            previousPeriodTracked = PeriodStats(sessions: engine.archive, usage: usage,
+                                                usageSnapshot: usageSnapshot, now: now)
+                .previousPeriodTracked(for: period, containing: day)
+        }
 
         // Charts. The rhythm is the day's segments re-cut by the hour; the
         // sparklines are one figure per day across the period (or the last
@@ -284,6 +311,13 @@ extension SessionStore {
         // selected. All from the same passes the figures above already made.
         rhythm = cachedWindow.map { Rhythm.hours(segments: timelineSegments, window: $0) } ?? []
         rhythmPeak = Rhythm.peakLabel(rhythm) { DayTimelineView.hourLabel($0) }
+        if live {
+            if let last = sparks.tracked.indices.last { sparks.tracked[last] = trackedForSelectedDay }
+            workTypeShares = focusQuality.byWorkType
+            refreshSummary(rollup: rollup, day: day)
+            noteDashboardReadModelRebuild(full: false)
+            return
+        }
         let calendar = Calendar.current
         let sparkDays: [Date] = period == .day
             ? (0..<7).reversed().compactMap { calendar.date(byAdding: .day, value: -$0, to: day) }
@@ -337,6 +371,8 @@ extension SessionStore {
                               sessions: stats.sessions(for: day, bundleID: rank.bundleID)
                                   .sorted { $0.start > $1.start })
             }
+
+        noteDashboardReadModelRebuild()
 
     }
 

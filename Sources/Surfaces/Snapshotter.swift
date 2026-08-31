@@ -195,6 +195,7 @@ enum Snapshotter {
     }
 
     static func run(directory: URL) -> Bool {
+        defer { FixtureFactory.cleanUp() }
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
 
@@ -209,7 +210,7 @@ enum Snapshotter {
         var wrote = 0
         for item in matrix {
             let output = directory.appendingPathComponent(item.filename)
-            if render(view(for: item), to: output) {
+            if render(view(for: item), appearance: item.appearance, to: output) {
                 wrote += 1
                 print("  wrote \(item.filename)")
             } else {
@@ -247,11 +248,7 @@ enum Snapshotter {
         return MainWindowView(store: store,
                               settings: settings,
                               navigation: navigation,
-                              focusScrolls: false,
-                              todayScrolls: false,
-                              reviewScrolls: false,
-                              insightsScrolls: false,
-                              settingsScrolls: false)
+                              presentsNativeSheets: false)
             .environment(\.colorScheme, item.appearance.scheme)
             .environment(\.todayRecapInitiallyExpanded,
                          item.scenario == .todayHistoryExpanded)
@@ -311,7 +308,7 @@ enum Snapshotter {
         }
     }
 
-    private static func store(for scenario: SnapshotScenario) -> SessionStore {
+    static func store(for scenario: SnapshotScenario) -> SessionStore {
         switch scenario {
         case .focusFirstRun:
             return FixtureFactory.store(for: .firstRun)
@@ -383,32 +380,32 @@ enum Snapshotter {
         }
     }
 
-    private static func navigation(for scenario: SnapshotScenario,
+    static func navigation(for scenario: SnapshotScenario,
                                    store: SessionStore) -> MainWindowModel {
-        let navigation = MainWindowModel(selectedTab: scenario.tab ?? .focus)
+        let navigation = MainWindowModel(selectedTab: scenario.tab ?? .story, store: store)
         switch scenario {
         case .storyDay, .storyDayEntry:
             navigation.storyScope = .day
         case .storyWeek:
-            navigation.storyScope = .week
+            navigation.selectScope(.week)
             if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
         case .storyMonth:
-            navigation.storyScope = .month
+            navigation.selectScope(.month)
             if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
         case .reviewWeek:
-            navigation.reviewSection = .week
+            navigation.selectScope(.week)
         case .reviewMonth:
-            navigation.reviewSection = .month
+            navigation.selectScope(.month)
         // The first and last selectable bars: the plot edges are exactly where
         // a clipped mark or a colliding annotation would hide.
         case .reviewSelectedFirstDay:
-            navigation.reviewSection = .week
-            if let day = selectableReviewDays(store).first { navigation.selectReviewDay(day) }
+            navigation.selectScope(.week)
+            if let day = selectableReviewDays(store).first { navigation.selectStoryDay(day) }
         case .reviewSelectedLastDay:
-            navigation.reviewSection = .week
-            if let day = selectableReviewDays(store).last { navigation.selectReviewDay(day) }
+            navigation.selectScope(.week)
+            if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
         case .reviewHistorySelection:
-            navigation.reviewSection = .history
+            navigation.openSheet(.history)
             if let day = store.filteredHistoryDays.first?.date {
                 navigation.selectReviewDay(day)
             }
@@ -428,20 +425,20 @@ enum Snapshotter {
         switch item.scenario.tab {
         case .focus: height = item.presentation == .minimum ? 680 : 780
         case .today: height = 1_100
-        // Review's unscrolled period evidence is intentionally tall. A generous
-        // canvas keeps the fixed shell bands and full log in one artefact;
-        // ImageRenderer cannot rasterise the real ScrollView viewport.
+        // A taller evidence viewport shows the complete Month grid. The real
+        // ScrollViews remain in use: sheets keep their production height and
+        // cannot grow with the document behind them.
         case .review:
             switch item.scenario {
             case .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection:
-                height = 2_800
+                height = 1_100
             default:
-                height = 2_400
+                height = 1_100
             }
         case .insights: height = 780
         case .awards: height = 900
         case .story: height = 1_200
-        case .settings: height = item.presentation == .minimum ? 1_450 : 1_300
+        case .settings: height = 780
         case nil: height = 780
         }
         return CGSize(width: width, height: height)
@@ -461,9 +458,10 @@ enum Snapshotter {
         }
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
+        let dataDirectory = FixtureFactory.scratchDirectory()
         let diagnostics = SettingsDiagnostics(
             usageAccuracyEpoch: Date(timeIntervalSince1970: 1_700_000_000),
-            legacyBackupURL: SessionArchive.defaultDirectory
+            legacyBackupURL: dataDirectory
                 .appendingPathComponent("app-usage-v1-backup-1700000000.json"),
             recoverySummary: "Legacy app usage was migrated only after its original bytes were preserved.",
             version: "1.0.0",
@@ -472,22 +470,38 @@ enum Snapshotter {
                                   isTrackingEnabled: true,
                                   onChange: {},
                                   onTrackingChanged: { _ in },
-                                  diagnostics: diagnostics)
+                                  diagnostics: diagnostics,
+                                  dataDirectory: dataDirectory)
         model.interfaceDensity = density
         model.appearancePreference = item.appearance.preference
         model.showsTimelineLabels = showsTimelineLabels
         return model
     }
 
-    private static func render<V: View>(_ view: V, to url: URL) -> Bool {
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = 2
-        guard let image = renderer.nsImage,
-              let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else {
-            return false
-        }
+    private static func render<V: View>(_ view: V, appearance: SnapshotAppearance,
+                                        to url: URL) -> Bool {
+        // ImageRenderer substitutes yellow prohibition placeholders for native
+        // controls. Host the real AppKit-backed view offscreen instead. This
+        // captures our own view, not the user's screen, and needs no permission.
+        let host = NSHostingView(rootView: view)
+        let size = host.fittingSize
+        guard size.width > 0, size.height > 0 else { return false }
+        let frame = NSRect(origin: .zero, size: size)
+        let window = NSWindow(contentRect: frame, styleMask: [.borderless],
+                              backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: appearance == .dark ? .darkAqua : .aqua)
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.contentView = host
+        host.frame = frame
+        window.orderFront(nil)
+        host.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.015))
+        host.displayIfNeeded()
+        defer { window.orderOut(nil); window.close() }
+        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return false }
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else { return false }
         do {
             try png.write(to: url)
             return true

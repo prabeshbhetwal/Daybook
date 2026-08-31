@@ -15,10 +15,13 @@ invokes `swiftc` directly.
 - Tracks declared focus sessions, pauses, away decisions, breaks and threads.
 - Records local foreground app-use stretches, trims unattended idle tails and
   excludes known system processes.
-- Keeps an evidence-led main window with **Focus**, **Today**, **Review**,
-  **Insights** and **Settings** tabs.
-- Shows exact tracked time in Review and only evidence-backed statements in
+- Tells the day chronologically, with **Day**, **Week** and **Month** scopes
+  and supporting focus, app-use, rhythm and current-streak tiles.
+- Shows exact tracked time in Week and only evidence-backed statements in
   Insights.
+- Offers searchable History and native sheets for session controls, Insights,
+  Awards and Settings, without losing the selected story.
+- Allows durable session-name/type corrections with a visible, field-scoped Undo.
 - Preserves historical app-use records, qualifying data from before the
   corrected recorder's accuracy epoch instead of silently repairing it.
 - Provides local light/dark snapshot scenarios for product review.
@@ -39,7 +42,7 @@ From the repository root:
 ```bash
 ./build.sh          # Build and replace the local app after verification
 ./build.sh --run    # Build, verify and open FocusContinuity.app
-./build.sh --test   # Build, promote the local app and run the headless suite
+./build.sh --test   # Build and test, then promote the verified local app
 ./build.sh --check  # Stage, strictly verify and test without replacing the app
 ```
 
@@ -59,24 +62,35 @@ fixtures under `.build/`; those artefacts are ignored.
 
 ## Use the app
 
-The main window has one persistent tab rail.
+The main window has one persistent scope selector. Scopes retain the date you
+are inspecting; opening a historical story never substitutes today's data.
 
-| Tab | Question it answers | Main content |
+| Surface | Question it answers | Main content |
 |---|---|---|
-| Focus | What should I do now? | Start, pause, away/stop actions, current thread and break context |
-| Today | What happened on this calendar day? | Activity ribbon, selected inspector, sessions, app evidence and recap |
-| Review | How did time change across a period? | Period answer, exact tracked Week/Month bars, selected-day detail and searchable History |
+| Day | What happened on this calendar day? | Focus-led summary, chronological stretches, named rest, app use and honest recording gaps |
+| Week | How did the days compare? | Focus summary, exact tracked bars, focused work-type composition and selected-day preview |
+| Month | How was focus distributed? | Date-and-duration calendar, relative focus intensity, weekly totals and selected-day preview |
+| Session controls | What should I do now? | Intent, work type, Start, Pause, Resume, Away, Stop and pending-away decisions |
+| History | Where is an older record? | Search by date/app/work type, intersection filters and inline day evidence |
 | Insights | What patterns are supported? | Gated pace, rhythm, quality and continuity statements |
+| Awards | What milestones have I earned? | Achievements derived from recorded evidence, with their criteria |
 | Settings | How should the app behave? | Real persisted controls, privacy evidence and diagnostics |
 
 Keyboard shortcuts:
 
 | Shortcut | Action |
 |---|---|
-| `Command-1` … `Command-5` | Select Focus, Today, Review, Insights or Settings |
-| `Command-,` | Open Settings in the main window |
-| Left / Right | Move across the focused tab rail |
-| Escape | Clear Today’s current ribbon/session selection without changing the day |
+| `Command-1`, `Command-2`, `Command-3` | Day, Week, Month |
+| `Command-4`, `Command-5`, `Command-6` | History, Insights, Awards |
+| `Command-7` | Session controls |
+| `Command-,` | Settings |
+| Escape | Dismiss a native sheet/app detail or cancel an inline rename |
+
+Click an entry's full header to expand it. Inspect an app from the rail to see
+its scoped recorded visits. Select a calendar day or Week bar for a preview,
+then use **Open as a story** for that date's full chronology. History rows expand
+in place; **Open this day's story** is an explicit drill-in, not an automatic
+redirect. Drag rail tiles to reorder them, or use their contextual Move actions.
 
 The compact menu-bar popover intentionally remains Focus-only. It provides the
 current action, up to three continuation choices, quiet break context, and
@@ -90,8 +104,11 @@ FocusContinuity keeps related measures separate:
 |---|---|
 | **Focused** | Declared focus-session time, clipped to the relevant day or period |
 | **Focused-active** | Declared focus time that overlaps authoritative hands-on app-use evidence; used for goals and pace |
-| **Tracked / At the Mac** | Local observed app-use time; not presented as deliberate work |
-| **Break / Watching / Away** | Explicit rest or uncertainty states; never silently counted as focus |
+| **Tracked / On this Mac** | Local observed app-use time; not presented as deliberate work |
+| **Within / outside session spans** | Temporal membership of observed use; spans can contain pauses and do not themselves establish goal credit |
+| **Focus without app-use coverage** | Credited session work that recording cannot corroborate; never added to the observed Mac-use total |
+| **Break / Away** | Explicit rest or absence; not counted as focus |
+| **Watching** | Normally pauses focus; Meetings and Learning can continue while watching, without inventing hands-on app use |
 
 An extended absence creates an honest decision rather than guessing. While a
 decision is unresolved, ordinary start/stop/pause/continue actions—including
@@ -99,14 +116,26 @@ the global hotkey—are blocked and route back to the existing decision surface.
 
 Historical sessions and app use are clipped by local calendar day, so a
 cross-midnight session contributes only its proper portion to each day.
-Review bars use exact tracked time; work-type composition is separate.
+Week bars and their average use tracked time; focus averages use focused days.
+The Month heatmap uses focused duration relative to that month's largest value,
+not the current goal. Its numbers remain the source of truth. The daily goal
+ring uses focused-active credit; the current streak is explicitly recent even
+while browsing older periods. Running focus is included in Day, Week, Month
+and History without writing synthetic records into the archive.
 
-Review reads as one workbench: the period answer, then the tracked-by-day
-trend, then the day you select from it. Selecting a bar or a History row
-explains that day inline and keeps you in Review — moving to Today is the
-separate, named **Open in Today** action on the selected-day detail. History
-states its date range in one compact control and names Tracked, Focused and
-Sessions once in a table header rather than beside every value.
+The Story preserves separate stretches of resumed work so a later stretch does
+not swallow a break or recording gap. Gaps are not assumed to be work or rest.
+An app-only day still displays its observed use. History states Tracked, Focused
+and Sessions once in its table header, with exact values beneath them.
+
+### Correct a session
+
+Expand its entry and choose **Rename** or **Change type**. These change the whole
+thread, including its stretches on other days, but never alter time boundaries
+or app-use evidence. A failed save leaves the old record intact and exposes Retry.
+**Undo correction** remains outside the row, so changing a session to Break does
+not remove the recovery action. Undo restores only the corrected field and
+preserves later work. Running work retains its type and thread identity on relaunch.
 
 ## Privacy and local storage
 
@@ -123,22 +152,23 @@ Everything stays on the Mac.
 - App use is stored beside it in `app-usage.json` as a versioned v2 envelope.
 
 The v2 app-use envelope has an `accurateFrom` timestamp. Earlier preserved
-usage is never rewritten; Today, Review, History and Insights qualify or exclude
+usage is never rewritten; Day, Week, Month, History and Insights qualify or exclude
 it where an authoritative claim would otherwise be misleading. Legacy v1 data is
 backed up byte-for-byte before migration and can be located from **Settings →
-Data and privacy**.
+Privacy**.
 
 ## Architecture
 
 ```text
 Core                     App                            Design / Surfaces
 ──────────────────      ───────────────────────────    ──────────────────────────
-SessionEngine            AppCoordinator                 MainWindowView
-AppUsageTracker          SessionStore (+ read models)   Focus / Today / Review
-AppUsageArchive          SettingsModel                  Insights / Settings
-DailyGoal                MainWindowModel                Popover / Away / Reward
-PeriodStats              Persistence wiring             Tokens / reusable controls
-PresenceGate
+SessionEngine            AppCoordinator                 MainWindowView / native sheets
+AppUsageTracker          SessionStore (+ read models)   Story columns / rail / calendar
+AppUsageArchive          SettingsModel                  History / Insights / Awards
+DailyGoal                MainWindowModel                Focus / Settings / Popover
+PeriodStats              Persistence wiring             Tokens / StoryStyle / controls
+PresenceGate             Story scope projections        Away / Reward
+StoryChronology
 ```
 
 - **Core** is UI-free logic and data: the session state machine, usage tracking,
@@ -154,22 +184,23 @@ second repeating timer is introduced by the UI.
 
 ## Settings
 
-Settings exposes only backed controls across eight groups:
+Settings groups the existing backed controls into five compact pages:
 
-1. General
-2. Focus sessions
-3. Away and breaks
-4. Automatic and rewards
-5. Tracking and apps
-6. Appearance
-7. Data and privacy
-8. Advanced
+| Page | Controls and information |
+|---|---|
+| General | Launch scope, System/Light/Dark appearance, density, Story time gutter and entry expansion |
+| Sessions | Daily goal, automatic sessions, automatic gap and milestones |
+| Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
+| Recording | App recording and the number of recent app visits initially shown |
+| Privacy | Local storage, accuracy epoch, preserved backup, Reveal data folder and diagnostics |
 
-Appearance, interface density and timeline labels are persisted preferences
-with real effects in the main window, popover and Today ribbon. **Sessions per
-app** controls the newest grouped session rows shown for the currently selected
-Today app. Advanced is diagnostic and read-only; unsupported launch, export,
-retention, editing and destructive controls are not displayed.
+Each page or changed search result opens at its first control; search retains
+the result's group context. Long paths and recovery text wrap
+and are selectable. System appearance clears the override and follows macOS;
+Reduce Motion always follows the system. The launch-scope preference applies
+on the next app launch. Recent-visit limits never reduce totals, and the app
+detail can reveal its full scoped list. Unsupported sync, export, retention and
+destructive data controls are not presented as working features.
 
 ## Tests and visual review
 
@@ -184,15 +215,18 @@ The binary also supports review modes:
 ```bash
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --gallery
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
+./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window storyMonth
 ```
 
-`--gallery` and `--snapshot` use the same `SnapshotScenario` catalogue. The
-matrix covers Focus, Today, Review (including a selected first day, a selected
-last day and a selected History row), Insights, all Settings groups, compact Away
-and Reward states in light/dark; main-window scenarios also render at minimum
-and comfortable widths. `ImageRenderer` may show placeholder interiors for
-native AppKit fields or menus, so use the live Gallery when native control
-chrome itself needs inspection.
+These review modes use `SnapshotScenario`, temporary archives and isolated
+preferences. `--fixture-window` opens the real production shell with an injected
+fixture clock and no live-history coordinator or system monitors. Use it for
+native sheets, keyboard focus, appearance, corrections and navigation; fixture
+changes are disposable. `--snapshot` renders light/dark Story scopes, selected
+days, History, session controls, Settings, Insights, Awards and compact prompts
+through offscreen AppKit hosting, including native controls and real scroll views.
+Its explicit static-sheet composition cannot establish native interaction behaviour.
+Do not treat a successful PNG count as a visual or interaction acceptance result.
 
 ## Repository layout
 
@@ -202,6 +236,7 @@ Sources/
   App/                  macOS coordination, SessionStore and settings/navigation
   Design/               Semantic tokens and reusable SwiftUI components
   Surfaces/             Product screens, popover, prompts, gallery and snapshots
+  Verification/         Focused regression groups and isolated native-window mode
   SelfTest.swift        Headless verification suite
 build.sh                Direct Swift build, signing, promotion and test entry point
 scripts/                Release-concurrency verification
@@ -215,8 +250,11 @@ agent scratch reports.
 
 ## Project documentation
 
-- [Current interface design](docs/superpowers/specs/2026-08-29-interface-redesign-design.md)
-- [Interface implementation plan](docs/superpowers/plans/2026-08-29-interface-redesign.md)
+- [Current Story design system](DESIGN.md)
+- [Product context and principles](PRODUCT.md)
+- [Story remediation plan](docs/superpowers/plans/2026-08-31-story-audit-remediation.md)
+- [Design and behaviour audit](docs/superpowers/reviews/2026-08-31-design-and-behaviour-audit.md)
+- [Story remediation and verification](docs/superpowers/reviews/2026-08-31-story-remediation-verification.md)
 - [Stabilisation design](docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md)
 - [Build and repository hardening plan](docs/superpowers/plans/2026-08-28-build-repository-hardening.md)
 

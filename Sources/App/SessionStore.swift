@@ -305,11 +305,43 @@ final class SessionStore: ObservableObject {
     /// screen. Hidden changes are coalesced until the next appearance.
     var dashboardVisible = false
     var dashboardArchiveRefreshPending = false
+    var dashboardLiveTailRefreshPending = false
+    var dashboardReadModelDay: Date?
+    struct EvidenceRevision: Equatable {
+        let day: Date
+        let sessions: Int
+        let usageID: ObjectIdentifier?
+        let usage: Int
+        let overlay: Int
+    }
+    var evidenceRevision: EvidenceRevision {
+        EvidenceRevision(day: Calendar.current.startOfDay(for: now()),
+                         sessions: engine.archive.revision,
+                         usageID: usage.map { ObjectIdentifier($0) },
+                         usage: usage?.revision ?? -1, overlay: tracker?.overlayRevision ?? -1)
+    }
+    var dashboardEvidenceRevision: EvidenceRevision?
+    var reviewEvidenceRevision: EvidenceRevision?
     var reviewVisible = false
     var reviewRefreshPending = true
+    /// Marks a ticker-only Review update: patch the current live day instead
+    /// of rebuilding stable all-history evidence.
+    var reviewLiveTailRefreshPending = false
     var insightsVisible = false
     var insightsRefreshPending = true
     var glanceArchiveRefreshPending = false
+    /// Read-model generations change only after a real rebuild. They support
+    /// coalescing diagnostics and keep unchanged ticker frames observable.
+    private(set) var dashboardReadModelGeneration = 0
+    private(set) var dashboardArchiveReadModelGeneration = 0
+    private(set) var reviewReadModelGeneration = 0
+    private(set) var historyIndexGeneration = 0
+    func noteDashboardReadModelRebuild(full: Bool = true) {
+        dashboardReadModelGeneration &+= 1
+        if full { dashboardArchiveReadModelGeneration &+= 1 }
+    }
+    func noteReviewReadModelRebuild() { reviewReadModelGeneration &+= 1 }
+    func noteHistoryIndexRebuild() { historyIndexGeneration &+= 1 }
     /// Nested archive callbacks join the outer refresh and are consumed once
     /// when its final frame exits.
     var refreshTransactionDepth = 0
@@ -317,6 +349,41 @@ final class SessionStore: ObservableObject {
     /// it walks fourteen days of history and moves at local minute boundaries.
     private var cachedTypical: TimeInterval?
     private var cachedTypicalMinute: Date?
+    private struct LiveFrame: Equatable {
+        let day: Date
+        let minute: Date?
+        let archiveRevision: Int
+        let usageID: ObjectIdentifier?
+        let usageRevision: Int
+        let overlayRevision: Int
+        let overlays: [AppUsageSession]
+        let state: SessionState
+        let threadID: UUID?
+        let workType: WorkType
+        let worked: TimeInterval
+        let spanStart: Date?
+        let spanEnd: Date?
+        let goal: TimeInterval
+    }
+    private var lastLiveFrame: LiveFrame?
+
+    private func liveFrame(at moment: Date) -> LiveFrame {
+        let calendar = Calendar.current
+        let span = engine.runningSpan
+        return LiveFrame(day: calendar.startOfDay(for: moment),
+                         minute: calendar.dateInterval(of: .minute, for: moment)?.start,
+                         archiveRevision: engine.archive.revision,
+                         usageID: usage.map { ObjectIdentifier($0) },
+                         usageRevision: usage?.revision ?? -1,
+                         overlayRevision: tracker?.overlayRevision ?? -1,
+                         overlays: tracker?.usageOverlaySessions() ?? [],
+                         state: engine.state,
+                         threadID: engine.state == .idle ? nil : engine.activeThreadID,
+                         workType: engine.activeWorkType,
+                         worked: engine.state == .idle ? 0 : engine.elapsed,
+                         spanStart: span?.start, spanEnd: span?.end,
+                         goal: engine.store.dailyGoal)
+    }
     /// Worked seconds of the running thread's earlier stretches today. Rebuilt
     /// on refresh; the ticker adds the live stretch each second.
     // Internal for SessionStore+Dashboard.swift, which rebuilds it.
@@ -444,6 +511,8 @@ final class SessionStore: ObservableObject {
                 self.glanceArchiveRefreshPending = true
                 self.dashboardArchiveRefreshPending = true
                 self.insightsRefreshPending = true
+                self.reviewLiveTailRefreshPending = false
+                self.reviewRefreshPending = true
             } else {
                 self.archiveUsageDidChange()
             }
@@ -466,7 +535,10 @@ final class SessionStore: ObservableObject {
             updateTicker()
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
-            if reviewVisible { refreshReview() } else { reviewRefreshPending = true }
+            if reviewVisible {
+                reviewLiveTailRefreshPending = false
+                refreshReview()
+            } else { reviewRefreshPending = true }
         }
     }
 
@@ -548,7 +620,10 @@ final class SessionStore: ObservableObject {
             isTrackingEnabled = tracker?.isEnabled ?? false
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
-            if reviewVisible { refreshReview() } else { reviewRefreshPending = true }
+            if reviewVisible {
+                reviewLiveTailRefreshPending = false
+                refreshReview()
+            } else { reviewRefreshPending = true }
             if insightsVisible { refreshInsights() } else { insightsRefreshPending = true }
             refreshBreak()
             updateTicker()
@@ -564,6 +639,9 @@ final class SessionStore: ObservableObject {
     /// beneath it counted on, so the two disagreed by however long you looked.
     private func refreshLiveFigures(at moment: Date? = nil) {
         let moment = moment ?? now()
+        // Subscribers can synchronously correct evidence during publication.
+        // Cache the frame we read, not a newer revision raised by an observer.
+        let consumedFrame = liveFrame(at: moment)
         let usageSnapshot = effectiveUsageSnapshot
         // `engine.state`, not the published mirror: `state` is updated on an
         // async hop, and several callers refresh synchronously right after
@@ -594,6 +672,7 @@ final class SessionStore: ObservableObject {
         if let usageSnapshot {
             trackedToday = usageSnapshot.total(on: moment)
         }
+        lastLiveFrame = consumedFrame
     }
 
     private func refreshTypical(at moment: Date) {
@@ -612,12 +691,27 @@ final class SessionStore: ObservableObject {
     /// recalculated once on each local minute boundary; the inexpensive live
     /// figures continue to move every second.
     func updateTimeDrivenFigures() {
-        let moment = now()
-        let minute = Calendar.current.dateInterval(of: .minute, for: moment)?.start
-        let minuteChanged = minute != cachedTypicalMinute
-        if minuteChanged { refreshTypical(at: moment) }
-        refreshLiveFigures(at: moment)
-        if minuteChanged && insightsVisible { refreshInsights() }
+        withRefreshTransaction {
+            let moment = now()
+            let frame = liveFrame(at: moment)
+            let minute = Calendar.current.dateInterval(of: .minute, for: moment)?.start
+            let minuteChanged = minute != cachedTypicalMinute
+            guard frame != lastLiveFrame || minuteChanged else { return }
+            if minuteChanged { refreshTypical(at: moment) }
+            refreshLiveFigures(at: moment)
+            let revision = evidenceRevision
+            if dashboardEvidenceRevision != revision { dashboardArchiveRefreshPending = true }
+            if reviewEvidenceRevision != revision { reviewRefreshPending = true }
+            // Open tails genuinely advance each second; an idle archive does
+            // not. Keep live data current without republishing large unchanged
+            // Dashboard/History read models at rest.
+            let hasLiveTail = engine.state != .idle || tracker?.currentBundleID != nil
+            if hasLiveTail && dashboardVisible { dashboardLiveTailRefreshPending = true }
+            if hasLiveTail && reviewVisible {
+                reviewLiveTailRefreshPending = true
+            }
+            if minuteChanged && insightsVisible { refreshInsights() }
+        }
     }
 
     // MARK: - Break reminders

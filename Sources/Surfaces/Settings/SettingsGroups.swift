@@ -135,17 +135,17 @@ struct SettingsGroups: View {
 
     private var tracking: some View {
         SurfacePanel(title: "Tracking and apps", layout: layout) {
-            preferenceRow("Sessions per app",
-                          detail: "Controls how many newest grouped app sessions Today shows "
-                            + "after you select an app.") {
-                Picker("Sessions per app", selection: $model.menuSessionCount) {
+            preferenceRow("Recent app visits",
+                          detail: "Limits the newest recorded app visits shown after you open "
+                            + "an app in Story.") {
+                Picker("Recent app visits", selection: $model.menuSessionCount) {
                     ForEach([3, 5, 7, 10], id: \.self) { count in
                         Text("\(count)").tag(count)
                     }
                 }
                 .labelsHidden()
                 .frame(width: 120)
-                .accessibilityLabel("Sessions per app")
+                .accessibilityLabel("Recent app visits")
             }
             rowDivider
             Toggle("Record app usage", isOn: $model.isTrackingEnabled)
@@ -177,7 +177,7 @@ struct SettingsGroups: View {
                 .accessibilityLabel("Interface density")
             }
             rowDivider
-            Toggle("Show timeline labels", isOn: $model.showsTimelineLabels)
+            Toggle("Show Story timestamps", isOn: $model.showsTimelineLabels)
                 .frame(minHeight: layout.rowHeight)
             rowDivider
             Toggle("Expand entry details by default", isOn: $model.expandsEntryDetails)
@@ -201,11 +201,13 @@ struct SettingsGroups: View {
                 rowDivider
                 readOnlyRow("Legacy backup location",
                             value: model.diagnostics.legacyBackupURL?.path ?? "No legacy backup created",
-                            detail: "A backup appears only when older app-usage bytes are migrated.")
+                            detail: "A backup appears only when older app-usage bytes are migrated.",
+                            valueLayout: .statusBlock)
             }
 
             SurfacePanel(title: "Data folder", layout: layout) {
-                readOnlyRow("Location", value: model.dataDirectoryURL.path)
+                readOnlyRow("Location", value: model.dataDirectoryURL.path,
+                            valueLayout: .statusBlock)
                 Button("Reveal data folder") { model.revealDataFolder() }
                     .buttonStyle(.bordered)
                     .controlSize(.large)

@@ -4,16 +4,37 @@ import SwiftUI
 /// Every clause is gated on its own evidence, so an empty period says it is
 /// empty rather than reading as a failure.
 enum StoryNarrative {
+    static func day(focused: TimeInterval, tracked: TimeInterval, sessions: Int,
+                    rest: TimeInterval, isToday: Bool) -> String {
+        if focused > 0 {
+            let count = sessions == 1 ? "one session" : "\(sessions) sessions"
+            return "\(isToday ? "You've focused" : "You focused") for "
+                + "\(Tokens.preciseDuration(focused)) in \(count)."
+        }
+        if tracked > 0 {
+            return "You recorded \(Tokens.preciseDuration(tracked)) of app use, with no focus session."
+        }
+        if rest > 0 {
+            return "You recorded \(Tokens.preciseDuration(rest)) of rest, with no focus session."
+        }
+        return isToday ? "Your day starts here." : "No activity was recorded on this day."
+    }
+
     static func period(activeDays: Int,
                        totalDays: Int,
                        focused: TimeInterval,
+                       tracked: TimeInterval = 0,
                        best: (day: Date, focused: TimeInterval)?,
                        unit: String) -> String {
-        guard activeDays > 0, focused > 0 else {
-            return "Nothing has been recorded this \(unit) yet."
+        guard focused > 0 else {
+            if tracked > 0 {
+                return "You recorded \(Tokens.preciseDuration(tracked)) of app use this \(unit), with no focus session."
+            }
+            return "No focus was recorded this \(unit)."
         }
-        var text = "You focused on \(activeDays) of \(totalDays) days, "
-            + "\(Tokens.duration(focused)) in total"
+        var text = activeDays > 0
+            ? "You focused on \(activeDays) of \(totalDays) days, \(Tokens.preciseDuration(focused)) in total"
+            : "You focused for \(Tokens.preciseDuration(focused)) this \(unit)"
         if let best, best.focused > 0 {
             text += ", and \(Tokens.weekdayName(best.day)) carried the \(unit)"
         }
@@ -35,11 +56,11 @@ struct StoryHeadline: View {
             Text(eyebrow.uppercased())
                 .font(.caption2.weight(.bold))
                 .kerning(0.8)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
             emphasised
-                .font(Tokens.Typography.storyHeadline)
+                .font(StoryStyle.headline)
                 .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 620, alignment: .leading)
+                .frame(maxWidth: StoryStyle.headlineMeasure, alignment: .leading)
             if !facts.isEmpty {
                 Text(facts.joined(separator: "  ·  "))
                     .font(Tokens.Typography.metadata)
@@ -48,7 +69,7 @@ struct StoryHeadline: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(eyebrow). \(sentence)")
+        .accessibilityLabel("\(eyebrow). \(sentence) \(facts.joined(separator: ", "))")
     }
 
     /// The sentence with its key figure in the accent colour. `highlight` is
@@ -58,7 +79,7 @@ struct StoryHeadline: View {
         guard let highlight, !highlight.isEmpty,
               let range = sentence.range(of: highlight) else { return Text(sentence) }
         return Text(String(sentence[sentence.startIndex..<range.lowerBound]))
-            + Text(highlight).foregroundColor(Tokens.Colour.focus)
+            + Text(highlight).foregroundColor(StoryStyle.focus)
             + Text(String(sentence[range.upperBound...]))
     }
 }
@@ -67,46 +88,91 @@ struct StoryHeadline: View {
 
 struct DayStoryColumn: View {
     @ObservedObject var store: SessionStore
+    @StateObject private var showSummary = BoolBox()
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
+            if let note = store.selectedDayIntegrityNote { IntegrityNotice(note) }
             StoryHeadline(eyebrow: Tokens.longDate(store.selectedDay),
                           sentence: sentence,
                           facts: facts,
-                          highlight: Tokens.duration(focusedToday))
+                          highlight: Tokens.preciseDuration(focusedToday))
+            StoryCorrectionNotice(store: store)
             DayStory(store: store)
-            if let note = store.selectedDayIntegrityNote {
-                Text(note)
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, Tokens.Space.s)
+            if !store.summarySentences.isEmpty {
+                StoryDisclosure(title: "About this day", isExpanded: Binding(
+                    get: { showSummary.value }, set: { showSummary.value = $0 })) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(store.summarySentences.enumerated()), id: \.offset) { _, sentence in
+                            Text(SummaryText.plain([sentence]))
+                                .font(Tokens.Typography.metadata)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
             }
         }
     }
 
-    /// The store's own first summary sentence, with its emphasis marks removed.
+    /// A focus-led sentence; the longer evidence narrative remains available
+    /// below the chronology rather than overwhelming the headline.
     private var sentence: String {
-        let recap = DayRecapNarrative(sentences: store.summarySentences)
-        return recap.lead ?? "Nothing has been recorded on this day."
+        StoryNarrative.day(focused: focusedToday,
+                           tracked: store.storyUsageBreakdown(on: store.selectedDay).tracked,
+                           sessions: store.storySessionCount(on: store.selectedDay),
+                           rest: restSeconds, isToday: store.isToday)
     }
 
     private var focusedToday: TimeInterval {
-        store.isToday ? store.todayTotal : store.focusedForSelectedDay
+        store.storyFocusedSeconds(on: store.selectedDay)
     }
 
     private var facts: [String] {
         var parts: [String] = []
         let tracked = store.isToday ? store.trackedToday : store.trackedForSelectedDay
         if tracked > 0 { parts.append("\(Tokens.duration(tracked)) on this Mac") }
-        let rest = store.daySessions.compactMap { entry -> TimeInterval? in
+        let rest = restSeconds
+        if rest > 0 { parts.append("\(Tokens.duration(rest)) of rest") }
+        let longest = store.storyLongestStretch(on: store.selectedDay)
+        if longest > 0 { parts.append("longest stretch \(Tokens.preciseDuration(longest))") }
+        return parts
+    }
+
+    private var restSeconds: TimeInterval {
+        store.daySessions.compactMap { entry -> TimeInterval? in
             if case .rest(let rest) = entry { return rest.length }
             return nil
         }.reduce(0, +)
-        if rest > 0 { parts.append("\(Tokens.duration(rest)) of rest") }
-        let longest = store.isToday ? store.longestToday : store.longestForSelectedDay
-        if longest > 0 { parts.append("longest stretch \(Tokens.preciseDuration(longest))") }
-        return parts
+    }
+}
+
+/// Feedback remains outside the corrected row, so converting it to rest cannot
+/// remove the recovery action along with its former focus controls.
+struct StoryCorrectionNotice: View {
+    @ObservedObject var store: SessionStore
+
+    var body: some View {
+        if let error = store.correctionError {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(error).fixedSize(horizontal: false, vertical: true)
+                Button("Retry saving") { store.retryLastCorrection() }
+                    .buttonStyle(.borderless)
+            }
+            .font(Tokens.Typography.metadata)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Tokens.Colour.attention.opacity(0.10),
+                        in: RoundedRectangle(cornerRadius: 9))
+        } else if store.canUndoCorrection {
+            HStack {
+                Text("Session correction saved.").foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Button("Undo correction") { store.undoLastCorrection() }
+                    .buttonStyle(.borderless)
+            }
+            .font(Tokens.Typography.metadata)
+        }
     }
 }
 
@@ -118,6 +184,7 @@ struct WeekStoryColumn: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
+            if let note = store.reviewIntegrityNote { IntegrityNotice(note) }
             StoryHeadline(eyebrow: store.reviewPeriodLabel,
                           sentence: sentence,
                           facts: facts,
@@ -134,18 +201,19 @@ struct WeekStoryColumn: View {
     }
 
     private var sentence: String {
-        StoryNarrative.period(activeDays: store.reviewSummary.activeDays,
+        StoryNarrative.period(activeDays: store.storyFocusSummary.activeDays,
                               totalDays: store.reviewSummary.totalDays,
                               focused: store.reviewFocusedSeconds,
+                              tracked: store.reviewSummary.tracked,
                               best: store.reviewBestDay,
                               unit: "week")
     }
 
     private var facts: [String] {
         var parts: [String] = []
-        let summary = store.reviewSummary
+        let summary = store.storyFocusSummary
         if summary.activeDays > 0 {
-            parts.append("\(Tokens.duration(summary.averagePerActiveDay)) average per active day")
+            parts.append("\(Tokens.duration(summary.averagePerActiveDay)) per focused day")
         }
         if store.reviewLongestFocusSeconds > 0 {
             parts.append("longest stretch "
@@ -175,15 +243,17 @@ struct StorySelectedDayCard: View {
                     .font(Tokens.Typography.metricValue.monospacedDigit())
                     .foregroundStyle(Tokens.Colour.focus)
                 Spacer(minLength: Tokens.Space.m)
-                Button {
-                    navigation.openStoryDay(day)
-                } label: {
-                    Text("Open as a story ›")
-                        .font(Tokens.Typography.metadata.weight(.semibold))
-                        .foregroundStyle(Tokens.Colour.focus)
+                if facts != nil {
+                    Button {
+                        navigation.openStoryDay(day)
+                    } label: {
+                        Text("Open as a story ›")
+                            .font(Tokens.Typography.metadata.weight(.semibold))
+                            .foregroundStyle(StoryStyle.action)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open \(Tokens.longDate(day)) as a story")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Open \(Tokens.longDate(day)) as a story")
             }
             Text(note)
                 .font(Tokens.Typography.metadata)
@@ -209,6 +279,7 @@ struct MonthStoryColumn: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
+            if let note = store.reviewIntegrityNote { IntegrityNotice(note) }
             StoryHeadline(eyebrow: store.reviewPeriodLabel,
                           sentence: sentence,
                           facts: facts,
@@ -221,20 +292,23 @@ struct MonthStoryColumn: View {
     }
 
     private var sentence: String {
-        StoryNarrative.period(activeDays: store.reviewSummary.activeDays,
+        StoryNarrative.period(activeDays: store.storyFocusSummary.activeDays,
                               totalDays: store.reviewSummary.totalDays,
                               focused: store.reviewFocusedSeconds,
+                              tracked: store.reviewSummary.tracked,
                               best: store.reviewBestDay,
                               unit: "month")
     }
 
     private var facts: [String] {
         var parts: [String] = []
-        let summary = store.reviewSummary
+        let summary = store.storyFocusSummary
         if summary.activeDays > 0 {
-            parts.append("\(Tokens.duration(summary.averagePerActiveDay)) average")
+            parts.append("\(Tokens.duration(summary.averagePerActiveDay)) per focused day")
         }
-        parts.append("\(summary.activeDays) of \(summary.totalDays) days had focus")
+        if summary.longestStretch > 0 {
+            parts.append("longest stretch \(Tokens.preciseDuration(summary.longestStretch))")
+        }
         return parts
     }
 }
