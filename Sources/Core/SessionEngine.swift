@@ -1031,6 +1031,16 @@ final class SessionEngine {
         state != .idle && activeWorkType == workType
     }
 
+    /// An explicit different name is a different activity even where the work
+    /// type happens to match. An empty intent is the existing deliberate
+    /// "continue what is running" affordance, so it keeps its prior behaviour.
+    func wouldAdopt(workType: WorkType, intent: String) -> Bool {
+        guard wouldAdopt(workType: workType) else { return false }
+        let trimmed = intent.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || ContinuationPolicy.activityKey(name: trimmed, workType: workType)
+            == ContinuationPolicy.activityKey(name: sessionName, workType: activeWorkType)
+    }
+
     /// Claims the running session as the user's own without disturbing its
     /// clock. Pressing Start while already doing this kind of work should name
     /// the work, not chop the afternoon into two records with a seam where the

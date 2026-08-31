@@ -269,7 +269,17 @@ final class SessionStore: ObservableObject {
             intent = requestedIntent
             workType = requestedWorkType
         }
-        start()
+        // This is a correction of the detector-owned current stretch, not the
+        // ordinary Start action. It deliberately claims a same-type automatic
+        // stretch even when the person supplies its first real name.
+        if engine.wouldAdopt(workType: workType) {
+            engine.adopt(intent: intent)
+        } else {
+            engine.start(workType: workType, intent: intent)
+        }
+        engine.store.rememberActivity(name: intent, workType: workType)
+        intent = ""
+        refresh()
     }
 
     /// Undo rejects the app's detected session wholesale. Applying
@@ -895,7 +905,7 @@ final class SessionStore: ObservableObject {
     /// either way: app usage is captured all day regardless of sessions.
     func start() {
         guard !hasUnresolvedAwayDecision else { return }
-        if engine.wouldAdopt(workType: workType) {
+        if engine.wouldAdopt(workType: workType, intent: intent) {
             engine.adopt(intent: intent)
         } else {
             engine.start(workType: workType, intent: intent)
@@ -908,7 +918,7 @@ final class SessionStore: ObservableObject {
     func startQuick(_ quick: QuickStart) {
         guard !hasUnresolvedAwayDecision else { return }
         workType = quick.workType
-        if engine.wouldAdopt(workType: quick.workType) {
+        if engine.wouldAdopt(workType: quick.workType, intent: quick.name) {
             engine.adopt(intent: quick.name)
         } else {
             engine.start(workType: quick.workType, intent: quick.name)
@@ -919,7 +929,7 @@ final class SessionStore: ObservableObject {
     }
 
     /// Drives the Start button's label, so the button says what it will do.
-    var startWouldContinue: Bool { engine.wouldAdopt(workType: workType) }
+    var startWouldContinue: Bool { engine.wouldAdopt(workType: workType, intent: intent) }
 
     func stop() {
         guard !hasUnresolvedAwayDecision else { return }

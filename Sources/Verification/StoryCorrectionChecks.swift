@@ -327,13 +327,22 @@ enum StoryCorrectionChecks {
             fixture.engine.start(workType: .deepWork, intent: "Original", threadID: thread)
             clock.advance(600)
             fixture.engine.stop()
-            expect(fixture.store.canContinue(row),
+            let resumedRow = DaySession(id: row.id, threadID: thread, name: "Original",
+                                        workType: .deepWork, start: row.start, end: clock.value,
+                                        worked: 1_200, stretches: 2,
+                                        spans: [DateInterval(start: row.start, end: row.end),
+                                                DateInterval(start: row.end, end: clock.value)],
+                                        isRunning: false)
+            expect(fixture.store.canContinue(resumedRow),
                    "stopped thread was rejected because the engine retained its ID", &problems)
 
-            expect(fixture.store.setWorkType(.admin, for: row),
+            expect(fixture.store.setWorkType(.admin, for: resumedRow),
                    "archive-only correction should succeed", &problems)
-            let correctedRow = session(thread: thread, name: "Original", workType: .admin,
-                                       start: row.start)
+            let correctedRow = DaySession(id: resumedRow.id, threadID: thread, name: "Original",
+                                          workType: .admin, start: resumedRow.start,
+                                          end: resumedRow.end, worked: resumedRow.worked,
+                                          stretches: resumedRow.stretches, spans: resumedRow.spans,
+                                          isRunning: false)
             fixture.store.continueSession(correctedRow)
             expect(fixture.engine.activeWorkType == .admin,
                    "Continue did not adopt the corrected type", &problems)

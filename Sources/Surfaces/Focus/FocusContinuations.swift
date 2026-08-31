@@ -39,7 +39,7 @@ struct FocusContinuations: View {
     var compact = false
 
     private var rows: [FocusContinuationRow] {
-        FocusContinuationSource.rows(threads: store.threadsToday,
+        FocusContinuationSource.rows(threads: store.continuableThreads,
                                      quickStarts: store.quickStarts,
                                      limit: limit)
     }
@@ -63,13 +63,13 @@ struct FocusContinuations: View {
     }
 
     private var rowsTitle: String {
-        if !store.threadsToday.isEmpty { return "Continue" }
+        if !store.continuableThreads.isEmpty { return "Continue" }
         if !store.quickStarts.isEmpty { return "Quick start" }
         return "Your next focus"
     }
 
     private var rowsCountLabel: String {
-        if !store.threadsToday.isEmpty {
+        if !store.continuableThreads.isEmpty {
             return rows.count == 1 ? "1 session" : "\(rows.count) sessions"
         }
         return rows.count == 1 ? "1 shortcut" : "\(rows.count) shortcuts"

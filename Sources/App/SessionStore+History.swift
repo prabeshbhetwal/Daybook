@@ -423,7 +423,7 @@ extension SessionStore {
     /// The live session expressed as a thread, or nil when idle. Kept in step
     /// with `sessionsToday`: a running session counts everywhere or nowhere.
     func runningThread() -> RunningThread? {
-        guard state != .idle else { return nil }
+        guard engine.state != .idle else { return nil }
         return RunningThread(threadID: engine.activeThreadID,
                              name: engine.sessionName,
                              workType: engine.activeWorkType,
@@ -461,16 +461,25 @@ extension SessionStore {
             .apps(for: thread, on: Date())
     }
 
+    /// Threads which are still valid continuations at this exact action
+    /// boundary. Focus and compact Continue Today both consume this list.
+    var continuableThreads: [ThreadSummary] {
+        threadsToday.filter(canContinue)
+    }
+
     /// Resumes earlier work as a new segment of the same thread, and restores
     /// the context it was done in: if the thread's primary app is still
     /// running, it comes forward. If it was quit during the break, nothing is
     /// launched — reopening an app the user deliberately closed would be worse
     /// than doing nothing.
     func continueThread(_ thread: ThreadSummary) {
-        guard !hasUnresolvedAwayDecision, !thread.isRunning else { return }
+        guard !hasUnresolvedAwayDecision, !thread.isRunning,
+              let canonical = canonicalRecord(for: thread),
+              ContinuationPolicy.isEligible(canonical, records: engine.archive.records,
+                                            active: runningThread(), now: now()) else { return }
         let primary = threadApps(thread).primary?.bundleID
-        engine.start(workType: thread.workType, intent: thread.name,
-                     threadID: thread.threadID)
+        engine.start(workType: canonical.workType, intent: canonical.name,
+                     threadID: canonical.threadID)
         if let primary, isRunning(bundleID: primary) {
             NSRunningApplication
                 .runningApplications(withBundleIdentifier: primary)
@@ -665,17 +674,68 @@ extension SessionStore {
     /// record — it starts a new one on the same thread, so a long gap is never
     /// rendered as worked time.
     func continueSession(_ session: DaySession) {
-        guard !hasUnresolvedAwayDecision, !session.isRunning else { return }
-        engine.start(workType: session.workType,
-                     intent: session.name,
-                     threadID: session.threadID)
+        guard !hasUnresolvedAwayDecision, !session.isRunning,
+              let canonical = canonicalRecord(for: session),
+              ContinuationPolicy.isEligible(canonical, records: engine.archive.records,
+                                            active: runningThread(), now: now()) else { return }
+        engine.start(workType: canonical.workType,
+                     intent: canonical.name,
+                     threadID: canonical.threadID)
         refresh()
     }
 
     /// Whether this session can be continued right now.
     func canContinue(_ session: DaySession) -> Bool {
-        !hasUnresolvedAwayDecision
-            && (engine.state == .idle || engine.activeThreadID != session.threadID)
+        guard !hasUnresolvedAwayDecision, !session.isRunning,
+              let canonical = canonicalRecord(for: session) else { return false }
+        return ContinuationPolicy.isEligible(canonical, records: engine.archive.records,
+                                             active: runningThread(), now: now())
+    }
+
+    /// An expired row may still seed an intentionally new session, but it must
+    /// never bypass the continuation guard by silently retaining its thread.
+    func canStartNewSession(_ session: DaySession) -> Bool {
+        !hasUnresolvedAwayDecision && !session.isRunning
+            && engine.archive.records.contains(where: { $0.id == session.id })
             && session.workType.countsAsFocus
+    }
+
+    func startNewSession(from session: DaySession) {
+        guard canStartNewSession(session),
+              let source = engine.archive.records.first(where: { $0.id == session.id }) else { return }
+        engine.start(workType: source.workType, intent: source.name)
+        refresh()
+    }
+
+    private func canContinue(_ thread: ThreadSummary) -> Bool {
+        guard !hasUnresolvedAwayDecision, !thread.isRunning,
+              let canonical = canonicalRecord(for: thread) else { return false }
+        return ContinuationPolicy.isEligible(canonical, records: engine.archive.records,
+                                             active: runningThread(), now: now())
+    }
+
+    /// Resolves a displayed Story row to its last actual stretch. A stale row
+    /// cannot pass merely because it still names the thread: its displayed
+    /// spans must contain the current last record of that thread.
+    private func canonicalRecord(for session: DaySession) -> SessionRecord? {
+        guard let canonical = ContinuationPolicy.latest(engine.archive.records.filter {
+            $0.threadID == session.threadID && $0.workType.countsAsFocus
+        }), session.spans.contains(where: { span in
+            span.start <= canonical.start && span.end >= canonical.end
+        }) else { return nil }
+        return canonical
+    }
+
+    /// A Focus row is a snapshot. Its summary must still describe the archive's
+    /// latest record for that thread before it may be used as an action.
+    private func canonicalRecord(for thread: ThreadSummary) -> SessionRecord? {
+        guard let canonical = ContinuationPolicy.latest(engine.archive.records.filter {
+            $0.threadID == thread.threadID && $0.workType.countsAsFocus
+        }), canonical.end == thread.lastEnd,
+           canonical.workType == thread.workType,
+           ContinuationPolicy.activityKey(name: canonical.name, workType: canonical.workType)
+               == ContinuationPolicy.activityKey(name: thread.name, workType: thread.workType)
+        else { return nil }
+        return canonical
     }
 }

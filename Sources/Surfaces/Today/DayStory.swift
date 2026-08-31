@@ -164,6 +164,7 @@ struct DayStory: View {
                                  shapeBins: detail?.bins ?? [],
                                  appColourIndices: store.storyAppColourIndices,
                                  canContinue: store.canContinue(session),
+                                 canStartNewSession: store.canStartNewSession(session),
                                  isOpen: isOpen,
                                  clock: session.isRunning && store.isToday
                                     ? Tokens.clock(session.worked) : nil,
@@ -174,6 +175,7 @@ struct DayStory: View {
                                  onRename: { store.renameSession(session, to: $0) },
                                  onWorkType: { store.setWorkType($0, for: session) },
                                  onContinue: { store.continueSession(session) },
+                                 onStartNewSession: { store.startNewSession(from: session) },
                                  pauseTitle: store.isAway ? "I'm back" : store.isPaused ? "Resume" : "Pause",
                                  onPause: canControl(session) ? { store.togglePause() } : nil,
                                  onEnd: canControl(session) ? { store.stop() } : nil)
@@ -276,6 +278,7 @@ struct SessionEntryCard: View {
     var shapeBins: [SessionShape.Bin] = []
     var appColourIndices: [String: Int] = [:]
     var canContinue = false
+    var canStartNewSession = false
     let isOpen: Bool
     let clock: String?
     var liveStatus: String?
@@ -283,6 +286,7 @@ struct SessionEntryCard: View {
     var onRename: ((String) -> Bool)?
     var onWorkType: ((WorkType) -> Bool)?
     var onContinue: (() -> Void)?
+    var onStartNewSession: (() -> Void)?
     var pauseTitle = "Pause"
     var onPause: (() -> Void)?
     var onEnd: (() -> Void)?
@@ -472,6 +476,8 @@ struct SessionEntryCard: View {
                     }
                     if let onContinue, canContinue {
                         actionButton("Continue this", action: onContinue)
+                    } else if let onStartNewSession, canStartNewSession {
+                        actionButton("Start new session", action: onStartNewSession)
                     }
                     Spacer(minLength: 0)
                     if let onPause { actionButton(pauseTitle, action: onPause) }

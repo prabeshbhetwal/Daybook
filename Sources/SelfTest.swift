@@ -444,7 +444,7 @@ enum SelfTest {
              testAwaySnapshotsRetainProductionPromptChrome)
         ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
-            + StoryInteractionChecks.tests
+            + StoryInteractionChecks.tests + ContinuationChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -6885,8 +6885,8 @@ enum SelfTest {
                                     spans: renamed.spans, isRunning: false)
             expect(!store.canContinue(asRest),
                    "rest offers nothing to continue", &problems)
-            expect(store.canContinue(renamed),
-                   "work that is not running can be continued", &problems)
+            expect(!store.canContinue(renamed),
+                   "a historical work row does not offer a hidden continuation", &problems)
 
             store.setWorkType(.deepWork, for: renamed)
             expect(abs(store.focusedForSelectedDay - focusedBefore) < 1,
