@@ -116,7 +116,7 @@ Render every eligible receipt at its original interval, de-duplicate its break r
 
 **Files:**
 - Create `Sources/App/StoryDayProjection.swift` and `Sources/Verification/StoryWorkspaceChecks.swift`.
-- Modify `Sources/App/MainWindowModel.swift`, `Sources/App/SessionStore+StoryDetails.swift`, `Sources/App/SessionStore+Summary.swift`, `Sources/App/SessionStore+Insights.swift`, `Sources/Surfaces/Story/StoryColumns.swift`, `Sources/Surfaces/Today/DayStory.swift`, `Sources/Surfaces/Insights/InsightsView.swift`, `Sources/Surfaces/Review/HistoryView.swift`, `Sources/Surfaces/Main/MainWindowView.swift`, `Sources/Surfaces/Main/StoryChromeBar.swift` and commands.
+- Modify `Sources/App/MainWindowModel.swift`, `Sources/App/SessionStore+Story.swift`, `Sources/App/SessionStore+Review.swift`, `Sources/App/SessionStore+StoryDetails.swift`, `Sources/App/SessionStore+Summary.swift`, `Sources/App/SessionStore+Insights.swift`, `Sources/Surfaces/Story/StoryColumns.swift`, `Sources/Surfaces/Today/DayStory.swift`, `Sources/Surfaces/Insights/InsightsView.swift`, `Sources/Surfaces/Review/HistoryView.swift`, `Sources/Surfaces/Main/MainWindowView.swift`, `Sources/Surfaces/Main/StoryChromeBar.swift` and commands.
 
 **Interfaces:**
 - `StoryDayProjection` is a value with explicit date, chronology, factual summary, focus/usage totals and session details. It never owns a SessionEngine/SessionStore.
