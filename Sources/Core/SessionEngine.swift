@@ -68,6 +68,8 @@ final class SessionEngine {
     let decisionHistory: DecisionHistory
     private var correctionGeneration = 0
     private var liveCorrectionGeneration = 0
+    private var transitionRevision: UInt64 = 0
+    private(set) var lastLongAwayTransition: LongAwayTransitionResult?
     var decisionHistoryRevision: Int { correctionGeneration }
     var fieldCorrections: [SessionStoreCorrectionState] {
         if decisionHistory.pendingAfterIsCommitted(in: archive), let pending = decisionHistory.document.pending {
@@ -253,6 +255,8 @@ final class SessionEngine {
     // MARK: - Transition table (§3.1)
 
     func transition(on event: SessionEvent) {
+        transitionRevision &+= 1
+        lastLongAwayTransition = nil
         let previous = state
         var forceEmit = false
 
@@ -370,8 +374,8 @@ final class SessionEngine {
                 // threshold, resumed quietly below it. Touching a work app
                 // after the cap starts a fresh one, as it does from `.idle`.
                 if absenceOutgrewCap() {
-                    endAbsentSession()
-                    if categories.category(for: bundleID) == .work { beginFreshSession() }
+                    _ = completeLongAway(intent: categories.category(for: bundleID) == .work
+                        ? .beginFreshSession : .endOnly)
                 } else {
                     endIdlePause()
                 }
@@ -382,8 +386,7 @@ final class SessionEngine {
                     // app is the same signal that starts one from `.idle`. The
                     // thread carries over, exactly as answering "I was away"
                     // would keep it.
-                    endAbsentSession()
-                    beginFreshSession()
+                    _ = completeLongAway(intent: .beginFreshSession)
                 } else if reason == .away {
                     endDeclaredAway()
                 } else {
@@ -398,8 +401,7 @@ final class SessionEngine {
             }
         case (.paused(let reason), .manualResume):
             if absenceOutgrewCap() {
-                endAbsentSession()
-                beginFreshSession()
+                _ = completeLongAway(intent: .beginFreshSession)
             } else if reason == .away {
                 endDeclaredAway()
             } else {
@@ -428,7 +430,7 @@ final class SessionEngine {
             // surviving session. Same rule as the lock path in `resolve`:
             // ended where input stopped.
             if absenceOutgrewCap() {
-                endAbsentSession()
+                _ = completeLongAway(intent: .endOnly)
             } else if reason == .idle {
                 // Unlocking is the user back. The idle pause ends the way an
                 // observed absence does — asked about past the threshold.
@@ -465,7 +467,7 @@ final class SessionEngine {
             // `resolve(away:)`. This is also the lid-open overnight: no lock,
             // no wake event, only samples.
             if absenceOutgrewCap() {
-                endAbsentSession()
+                _ = completeLongAway(intent: .endOnly)
             } else if reason == .idle, seconds < FocusConstants.idlePauseThreshold {
                 // Only an idle pause lifts itself. A pause the user pressed
                 // stays pressed until they say otherwise — the app must not
@@ -518,6 +520,7 @@ final class SessionEngine {
             break // documented no-op: the alert owns the next transition
         }
 
+        if case .refused = lastLongAwayTransition?.outcome { forceEmit = true }
         if state != previous || forceEmit {
             persist()
             onStateChanged?(state)
@@ -652,9 +655,11 @@ final class SessionEngine {
     /// began — the same shape as the lock path in `resolve(away:)`. `elapsed`
     /// already subtracts the live pause, so the record's work is exactly what
     /// was done before they left.
-    private func endAbsentSession() {
+    private func endAbsentSession() -> LongAwayTransitionOutcome {
         let began = pauseStartDate
-        guard archiveCurrentSession(endingAt: began) else { return }
+        guard archiveCurrentSession(endingAt: began) else {
+            return .refused(awayDecisionError ?? "The terminal checkpoint could not be saved.")
+        }
         cancelDwell()
         pauseStartDate = nil
         awayInterval = nil
@@ -663,6 +668,38 @@ final class SessionEngine {
         awayReturnedAt = nil
         activeIsAuto = false
         state = .idle
+        if let error = awayDecisionError { return .pendingFinalisation(error) }
+        return .completed
+    }
+
+    @discardableResult
+    private func completeLongAway(intent: LongAwayCompletionIntent) -> LongAwayTransitionResult {
+        let request = LongAwayTransitionRequest(threadID: activeThreadID, sessionStart: sessionStartDate,
+            state: state, name: sessionName, workType: activeWorkType, bundleID: currentAppBundleID,
+            transitionRevision: transitionRevision, intent: intent)
+        let outcome = endAbsentSession()
+        if outcome.applied, intent == .beginFreshSession { beginFreshSession() }
+        let result = LongAwayTransitionResult(request: request, outcome: outcome)
+        lastLongAwayTransition = result
+        return result
+    }
+
+    @discardableResult
+    func retryLongAwayTransition(_ request: LongAwayTransitionRequest) -> LongAwayTransitionResult {
+        guard transitionRevision == request.transitionRevision, state == request.state,
+              activeThreadID == request.threadID, sessionStartDate == request.sessionStart,
+              sessionName == request.name, activeWorkType == request.workType,
+              currentAppBundleID == request.bundleID, absenceOutgrewCap() else {
+            let error = "That Retry belongs to an earlier paused stretch. Current work was preserved."
+            awayDecisionError = error
+            let result = LongAwayTransitionResult(request: request, outcome: .refused(error))
+            lastLongAwayTransition = result
+            return result
+        }
+        let result = completeLongAway(intent: request.intent)
+        persist()
+        onStateChanged?(state)
+        return result
     }
 
     private func isSelf(_ bundleID: String?) -> Bool {

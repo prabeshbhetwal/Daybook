@@ -515,6 +515,7 @@ final class SessionStore: ObservableObject {
 
     private func apply(_ state: SessionState) {
         self.state = state
+        _ = applyLongAwayResult()
         canUndoCorrection = lastCorrection != nil || engine.canUndoAwayDecision
         if case .awaitingUserDecision(let away, _) = state {
             pendingAwayRange = engine.pendingAwayRange
@@ -617,6 +618,7 @@ final class SessionStore: ObservableObject {
             if let pendingWakeActivation {
                 engine.transition(on: .appActivated(bundleID: pendingWakeActivation.bundleID,
                                                     name: pendingWakeActivation.name))
+                _ = applyLongAwayResult()
                 self.pendingWakeActivation = nil
             }
             if deferredAutomationPending {
@@ -641,6 +643,7 @@ final class SessionStore: ObservableObject {
             } else {
                 tracker?.appActivated(bundleID: bundleID, name: name)
                 engine.transition(on: .appActivated(bundleID: bundleID, name: name))
+                _ = applyLongAwayResult()
                 delivered = true
             }
         }
@@ -1003,6 +1006,7 @@ final class SessionStore: ObservableObject {
         guard !hasUnresolvedAwayDecision else { return }
         let resumable = !engine.state.isRunning && engine.state != .idle
         engine.transition(on: resumable ? .manualResume : .manualPause)
+        _ = applyLongAwayResult()
     }
 
     /// "I am stepping away." The one thing the app never has to guess at, and
@@ -1020,8 +1024,30 @@ final class SessionStore: ObservableObject {
     /// Mac that was left on a session that has no work app to return to.
     func endAway() {
         engine.transition(on: .manualResume)
-        onAwayEnded?()
+        if applyLongAwayResult(resumeTracking: true) != false { onAwayEnded?() }
         refresh()
+    }
+
+    @discardableResult
+    func applyLongAwayResult(resumeTracking: Bool = false) -> Bool? {
+        guard let result = engine.lastLongAwayTransition else { return nil }
+        let shouldResumeTracking: Bool
+        if case .longAway(let current, let retained)? = correctionRetry, current == result.request {
+            shouldResumeTracking = resumeTracking || retained
+        } else {
+            shouldResumeTracking = resumeTracking
+        }
+        switch result.outcome {
+        case .completed:
+            if case .longAway(let current, _)? = correctionRetry, current == result.request {
+                publishCorrectionError(nil)
+                correctionRetry = nil
+            }
+        case .pendingFinalisation(let error), .refused(let error):
+            publishCorrectionError(error)
+            correctionRetry = .longAway(result.request, resumeTracking: shouldResumeTracking)
+        }
+        return result.outcome.applied
     }
 
     /// True while the user has declared themselves away, as opposed to having

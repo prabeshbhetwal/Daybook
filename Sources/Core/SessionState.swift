@@ -110,6 +110,40 @@ enum SessionEvent: Equatable {
     case overrideApplied(bundleID: String)
 }
 
+enum LongAwayCompletionIntent: Equatable {
+    case endOnly
+    case beginFreshSession
+}
+
+struct LongAwayTransitionRequest: Equatable {
+    let threadID: UUID
+    let sessionStart: Date
+    let state: SessionState
+    let name: String
+    let workType: WorkType
+    let bundleID: String?
+    let transitionRevision: UInt64
+    let intent: LongAwayCompletionIntent
+}
+
+enum LongAwayTransitionOutcome: Equatable {
+    case completed
+    case pendingFinalisation(String)
+    case refused(String)
+
+    var applied: Bool {
+        switch self {
+        case .completed, .pendingFinalisation: return true
+        case .refused: return false
+        }
+    }
+}
+
+struct LongAwayTransitionResult: Equatable {
+    let request: LongAwayTransitionRequest
+    let outcome: LongAwayTransitionOutcome
+}
+
 enum UserDecision: String, Codable, Equatable, CaseIterable {
     /// "I was away." Excluded from the session; nothing is written down.
     case continueSession

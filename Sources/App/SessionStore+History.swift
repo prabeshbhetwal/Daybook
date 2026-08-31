@@ -635,7 +635,7 @@ extension SessionStore {
         case .legacy(let record, let decision, let target):
             return reclassifyLegacyBreak(recordID: record.id, decision: decision, focusTargetID: target?.id,
                                         expectedRecord: record, expectedTarget: target)
-        case .ending, .discarding:
+        case .ending, .discarding, .longAway:
             return retryCurrentTerminalIntent(retry) ?? false
         }
     }
@@ -655,6 +655,12 @@ extension SessionStore {
                 return false
             }
             return undoAutoSession(resumeTracking: resumeTracking)
+        case .longAway(let request, let resumeTracking):
+            _ = engine.retryLongAwayTransition(request)
+            let applied = applyLongAwayResult(resumeTracking: resumeTracking) ?? false
+            if applied && resumeTracking { onAwayEnded?() }
+            refresh()
+            return applied && engine.awayDecisionError == nil
         default: return nil
         }
     }

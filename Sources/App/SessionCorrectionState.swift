@@ -31,6 +31,7 @@ enum SessionCorrectionRetry {
     case legacy(record: SessionRecord, decision: UserDecision, target: SessionRecord?)
     case ending(threadID: UUID, sessionStart: Date)
     case discarding(threadID: UUID, sessionStart: Date, resumeTracking: Bool)
+    case longAway(LongAwayTransitionRequest, resumeTracking: Bool)
 
     func matches(_ transaction: DecisionHistory.Transaction) -> Bool {
         let before = transaction.before.awayDecisions ?? []
@@ -64,6 +65,9 @@ enum SessionCorrectionRetry {
             return transaction.operation == .discardStretch && transaction.before.threadID == thread
                 && transaction.before.sessionStart == start && transaction.before.kind != .idle
                 && transaction.after.kind == .idle
+        case .longAway(let request, _):
+            return transaction.operation == .endStretch && transaction.before.threadID == request.threadID
+                && transaction.before.sessionStart == request.sessionStart && transaction.after.kind == .idle
         }
     }
 }

@@ -12,7 +12,10 @@ enum DecisionRecoveryChecks {
         ("Short End and discard close recovery authority without manufacturing records", shortTerminalRecovery),
         ("Failed automatic discard preserves ownership and defers callbacks until commitment", refusedDiscard),
         ("Legacy sidecar and snapshot fields still recover a real live correction", legacyLiveAuthority),
-        ("An older pending operation cannot impersonate a new short End", pendingShortEnd)
+        ("An older pending operation cannot impersonate a new short End", pendingShortEnd),
+        ("Manual long-away refusal retains exact work and uses origin-bound Retry", manualLongAwayRetry),
+        ("Work-app long-away refusal cannot reset identity and stale Retry fails closed", workAppLongAwayRetry),
+        ("Accepted long-away completion starts fresh and runs tracking callback once", acceptedLongAwayCompletion)
     ]
 
     private final class Fixture {
@@ -280,6 +283,91 @@ enum DecisionRecoveryChecks {
             f.journalFailure = nil
             guard f.engine.stop(), f.restored(beforeEnd).state == .idle, f.archive.records.isEmpty else {
                 return ["short End could not complete once its own journal became writable"]
+            }
+            return []
+        }
+    }
+
+    private static func preparedLongAway(_ f: Fixture) -> Bool {
+        f.engine.start(workType: .learning, intent: "Original")
+        f.time.addTimeInterval(600)
+        let live = SessionRecord(name: "Original", workType: .learning, start: f.engine.sessionStartDate,
+            end: f.time, workSeconds: 600, threadID: f.engine.activeThreadID)
+        guard f.store.renameSession(row(live), to: "Corrected") else { return false }
+        f.store.markAway()
+        f.time.addTimeInterval(f.engine.store.longAwayCap + 60)
+        return f.engine.elapsed == 600
+    }
+
+    private static func manualLongAwayRetry() -> [String] {
+        MainActor.assumeIsolated {
+            let f = Fixture(capacity: 20); defer { f.close() }
+            guard preparedLongAway(f) else { return ["manual long-away setup failed"] }
+            let start = f.engine.sessionStartDate, thread = f.engine.activeThreadID
+            f.journalFailure = { "Terminal journal unavailable" }
+            f.store.togglePause()
+            guard f.engine.state == .paused(reason: .away), f.engine.sessionStartDate == start,
+                  f.engine.activeThreadID == thread, f.engine.elapsed == 600, f.archive.records.isEmpty,
+                  f.store.correctionError != nil else { return ["manual refusal reset or concealed the paused stretch"] }
+            f.journalFailure = nil
+            guard f.store.retryLastCorrection(), f.engine.state == .running,
+                  f.engine.sessionStartDate == f.time, f.engine.activeThreadID == thread,
+                  f.engine.elapsed == 0, f.archive.records.first?.workSeconds == 600 else {
+                return ["manual long-away Retry did not complete and begin fresh work exactly once"]
+            }
+            let newStart = f.engine.sessionStartDate, records = f.archive.records
+            return !f.store.retryLastCorrection() && f.engine.sessionStartDate == newStart && f.archive.records == records
+                ? [] : ["repeated manual Retry duplicated fresh work or archival"]
+        }
+    }
+
+    private static func workAppLongAwayRetry() -> [String] {
+        MainActor.assumeIsolated {
+            let f = Fixture(capacity: 20); defer { f.close() }
+            guard preparedLongAway(f) else { return ["work-app long-away setup failed"] }
+            let start = f.engine.sessionStartDate, thread = f.engine.activeThreadID
+            f.journalFailure = { "Terminal journal unavailable" }
+            f.store.handleApplicationActivation(bundleID: "com.apple.dt.Xcode", name: "Xcode")
+            guard f.engine.state == .paused(reason: .away), f.engine.sessionStartDate == start,
+                  f.engine.activeThreadID == thread, f.engine.elapsed == 600, f.archive.records.isEmpty,
+                  f.store.correctionError != nil else { return ["work-app refusal reset identity or concealed the save error"] }
+            // Any intervening transition invalidates the exact action request,
+            // even when the paused identity itself remains unchanged.
+            f.engine.transition(on: .markedAway)
+            f.journalFailure = nil
+            return !f.store.retryLastCorrection() && f.engine.sessionStartDate == start
+                && f.engine.activeThreadID == thread && f.engine.elapsed == 600 && f.archive.records.isEmpty
+                ? [] : ["stale work-app Retry changed the surviving paused stretch"]
+        }
+    }
+
+    private static func acceptedLongAwayCompletion() -> [String] {
+        MainActor.assumeIsolated {
+            for failWrite in [1, 2] {
+                let f = Fixture(capacity: 20); defer { f.close() }
+                guard preparedLongAway(f) else { return ["accepted long-away setup failed"] }
+                let thread = f.engine.activeThreadID
+                var callbacks = 0, writes = 0
+                f.store.onAwayEnded = { callbacks += 1 }
+                f.journalFailure = { writes += 1; return writes == failWrite ? "Terminal journal unavailable" : nil }
+                f.store.endAway()
+                if failWrite == 1 {
+                    guard f.engine.state == .paused(reason: .away), callbacks == 0 else {
+                        return ["refused explicit return ran tracking callback or began fresh work"]
+                    }
+                } else {
+                    guard f.engine.state == .running, f.engine.activeThreadID == thread,
+                          f.engine.sessionStartDate == f.time, callbacks == 1 else {
+                        return ["committed explicit return did not begin fresh work and callback once"]
+                    }
+                }
+                f.journalFailure = nil
+                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                guard f.store.retryLastCorrection(), callbacks == 1, f.engine.state == .running,
+                      f.engine.activeThreadID == thread, f.engine.sessionStartDate == f.time,
+                      f.archive.records.count == 1, f.archive.records.first?.workSeconds == 600 else {
+                    return ["explicit-return Retry changed accepted work or callback count"]
+                }
             }
             return []
         }
