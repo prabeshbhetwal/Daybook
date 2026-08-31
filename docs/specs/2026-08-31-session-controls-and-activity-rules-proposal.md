@@ -1,7 +1,9 @@
 # Session controls, context and activity rules
 
-Status: researched proposal, not approved implementation and not a completion
-report. The previous interaction model is approved separately in
+Status: written specification approved for implementation in chat on 31 August
+2026, including one primary activity and quiet shared-app choices. Implementation
+and verification are in progress; this is not a completion report. The companion
+interaction model is recorded in
 [Story interaction model](2026-08-31-story-interaction-model-design.md).
 
 Date: 31 August 2026. Code inspected at `73fb2cf` in the main project checkout.
@@ -176,9 +178,9 @@ this**. Automatic starts must not silently merge old threads just because an
 activity name matches. Retain the distinction between starting a new session and
 continuing an eligible previous one.
 
-**Approval needed:** accept the one-primary-activity rule and quiet handling of
-ambiguous shared apps before implementing this detector or changing time
-attribution. Existing automatic behaviour is not silently replaced by this note.
+**Approved policy:** one primary activity with quiet handling of ambiguous shared
+apps. Rule-based automation is opt-in. Existing automatic behaviour must be
+explicitly reconciled with the rule mode, not run as a second competing detector.
 
 ## 4. Optional session notes
 
@@ -246,8 +248,8 @@ instead of eight identical bars. Longer timelines may aggregate tiny consecutive
 runs for rendering, but their exact data remains available and totals stay
 unchanged. The left app list retains its fixed cap and exact duration semantics.
 
-This supersedes the previous prototype's eight decorative-looking bars only if
-the new proposal is accepted. It is a semantic visual change, not a claim that
+This approved change supersedes the previous prototype's eight decorative-looking
+bars. It is a semantic visual change, not a claim that
 the existing chart measures input intensity.
 
 Apply the same clarity review to headings, percentages, denominators, state

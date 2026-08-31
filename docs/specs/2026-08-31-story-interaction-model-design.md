@@ -1,8 +1,8 @@
 # Story interaction model
 
-Status: behaviour model approved in chat on 31 August 2026. This written
-specification records that approval. Implementation and verification are pending;
-it is not a completion report.
+Status: written specification approved for implementation in chat on 31 August
+2026. Implementation and verification are in progress; this is not a completion
+report.
 
 Baseline inspected: `73fb2cf` on the main project checkout.
 
@@ -197,6 +197,20 @@ Enforce eligibility again at the action boundary with fresh canonical state, not
 just through a hidden/disabled button. An unresolved away decision continues to
 block incompatible starts. Starting a different named activity must not silently
 rename current work merely because its work type matches.
+
+### Repeated End and Continue regression
+
+The user's 10:10 pm example is an explicit acceptance case: end the hour-long
+stretch, continue it at 11:11 pm, end that stretch a minute later, then attempt to
+continue from the original 10:10 pm card. The original card must no longer be a
+valid continuation source, even through an already-open menu or stale callback.
+Only the latest 11:11 pm stretch may continue. Once a continuation is running,
+neither closed stretch offers Continue. This is one session with separate
+stretches, and the gaps remain uncounted.
+
+Repeating End and Continue from the latest eligible stretch remains valid. There
+is no newly introduced maximum number of continuations or permanent closure
+flag: those would be different product rules, not the approved recency policy.
 
 Relevant code: `SessionStore.start`, `startQuick`, `continueSession`,
 `canContinue`, `ThreadStats`, `FocusContinuations` and `DayStory`.
