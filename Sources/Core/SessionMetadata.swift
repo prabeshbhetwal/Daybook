@@ -69,6 +69,14 @@ struct SessionMetadata: Codable, Equatable, Identifiable {
     }
 }
 
+/// Durable ownership transfer after an Away answer. Persistence makes a failed
+/// sidecar write replayable even if the process exits before the next refresh.
+struct PendingPowerTransfer: Codable, Equatable {
+    let sourceID: UUID
+    let destinationID: UUID
+    let factualBoundary: Date
+}
+
 enum SessionMetadataWriteResult: Equatable {
     case saved
     case failed(String)

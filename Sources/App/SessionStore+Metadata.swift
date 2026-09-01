@@ -5,6 +5,11 @@ extension SessionStore {
     /// observed start/end. Stored timestamps always remain the sampling clock.
     private static let powerBoundaryTolerance: TimeInterval = 2
 
+    private func persistPowerTransferRecovery() {
+        engine.store.pendingPowerTransfers = pendingPowerTransfers
+        engine.store.pendingPowerMetadataError = powerMetadataError
+    }
+
     func capturePowerObservation(boundary: PowerCoverageBoundary?) {
         guard engine.state != .idle, powerMonitor != nil else { return }
         capturePowerObservation(for: engine.activeRecordID, boundary: boundary)
@@ -15,7 +20,12 @@ extension SessionStore {
         guard let powerMonitor else { return }
         let timestamp = now()
         let observation = powerMonitor.observation(at: timestamp, boundary: boundary)
-        if case .failed(let error) = metadataArchive.appendPower(observation, for: recordID) {
+        switch metadataArchive.appendPower(observation, for: recordID) {
+        case .saved:
+            if pendingPowerTransfers.isEmpty { powerMetadataError = nil }
+        case .failed(let error):
+            powerMetadataError = error
+            persistPowerTransferRecovery()
             for recordID in expandedNoteEditorIDs { sessionNoteErrors[recordID] = error }
         }
     }
@@ -23,19 +33,43 @@ extension SessionStore {
     func reconcilePowerBoundaries() {
         let currentID = engine.state == .idle ? nil : engine.activeRecordID
         let sampleTime = now()
-        if let previousID = lastPowerRecordID, previousID != currentID {
-            if let currentID {
-                if case .failed(let error) = metadataArchive.reassignPower(
-                    from: previousID, to: currentID, atOrAfter: engine.sessionStartDate) {
-                    for recordID in expandedNoteEditorIDs { sessionNoteErrors[recordID] = error }
-                }
+        let firstSource = pendingPowerTransfers.first?.sourceID ?? lastPowerRecordID
+
+        // A later engine transition cannot replace an earlier failed transfer.
+        // Extend the chain from its exact tail and then commit it front-to-back.
+        if let currentID,
+           let tail = pendingPowerTransfers.last?.destinationID ?? lastPowerRecordID,
+           tail != currentID {
+            pendingPowerTransfers.append(PendingPowerTransfer(
+                sourceID: tail, destinationID: currentID,
+                factualBoundary: engine.sessionStartDate))
+            persistPowerTransferRecovery()
+        }
+        while let transfer = pendingPowerTransfers.first {
+            switch metadataArchive.reassignPower(from: transfer.sourceID,
+                to: transfer.destinationID, atOrAfter: transfer.factualBoundary) {
+            case .failed(let error):
+                powerMetadataError = error
+                persistPowerTransferRecovery()
+                for recordID in expandedNoteEditorIDs { sessionNoteErrors[recordID] = error }
+                return
+            case .saved:
+                lastPowerRecordID = transfer.destinationID
+                pendingPowerTransfers.removeFirst()
+                persistPowerTransferRecovery()
             }
+        }
+        powerMetadataError = nil
+        persistPowerTransferRecovery()
+
+        let previousID = currentID == nil ? lastPowerRecordID : firstSource
+        if let previousID, previousID != currentID {
             if let record = engine.archive.records.first(where: { $0.id == previousID }),
                abs(sampleTime.timeIntervalSince(record.end)) <= Self.powerBoundaryTolerance {
                 capturePowerObservation(for: previousID, boundary: .stretchEnded)
             }
         }
-        if let currentID, currentID != lastPowerRecordID {
+        if let currentID, currentID != firstSource {
             let boundary: PowerCoverageBoundary = abs(sampleTime.timeIntervalSince(
                 engine.sessionStartDate)) <= Self.powerBoundaryTolerance
                 ? .stretchStarted : .coverageResumed
@@ -111,6 +145,18 @@ extension SessionStore {
 
     func sessionMetadata(for recordID: UUID) -> SessionMetadata? {
         metadataArchive.metadata(for: recordID)
+    }
+
+    func powerMetadataError(for recordID: UUID) -> String? {
+        guard let powerMetadataError,
+              pendingPowerTransfers.contains(where: {
+                  $0.sourceID == recordID || $0.destinationID == recordID
+              }) else { return nil }
+        return powerMetadataError
+    }
+
+    func powerMetadataError(for recordIDs: [UUID]) -> String? {
+        recordIDs.lazy.compactMap { self.powerMetadataError(for: $0) }.first
     }
 
     func powerSummary(for recordIDs: [UUID], interval: DateInterval) -> PowerContextSummary? {

@@ -22,8 +22,10 @@ final class SessionStore: ObservableObject {
     @Published var sessionNoteErrors: [UUID: String] = [:]
     @Published var expandedNoteEditorIDs: Set<UUID> = []
     @Published var focusedNoteEditorID: UUID?
+    @Published var powerMetadataError: String?
     var lastPowerState: SessionState = .idle
     var lastPowerRecordID: UUID?
+    var pendingPowerTransfers: [PendingPowerTransfer] = []
 
     @Published private(set) var state: SessionState = .idle
     @Published private(set) var elapsed: TimeInterval = 0
@@ -510,6 +512,8 @@ final class SessionStore: ObservableObject {
         self.metadataArchive = metadataArchive
             ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
         self.powerMonitor = powerMonitor
+        self.pendingPowerTransfers = engine.store.pendingPowerTransfers
+        self.powerMetadataError = engine.store.pendingPowerMetadataError
         self.schedulesTicker = schedulesTicker
         self.now = now
         self.applicationIsRunning = applicationIsRunning
@@ -528,8 +532,16 @@ final class SessionStore: ObservableObject {
         }
         powerMonitor?.start { [weak self] observation in
             guard let self, self.engine.state != .idle else { return }
-            _ = self.metadataArchive.appendPower(observation,
-                                                 for: self.engine.activeRecordID)
+            switch self.metadataArchive.appendPower(observation,
+                                                     for: self.engine.activeRecordID) {
+            case .saved:
+                if self.pendingPowerTransfers.isEmpty { self.powerMetadataError = nil }
+            case .failed(let error):
+                self.powerMetadataError = error
+                for recordID in self.expandedNoteEditorIDs {
+                    self.sessionNoteErrors[recordID] = error
+                }
+            }
             self.storyProjectionCache.removeAll(keepingCapacity: true)
             self.storyProjectionCacheOrder.removeAll(keepingCapacity: true)
             self.objectWillChange.send()

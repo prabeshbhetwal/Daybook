@@ -48,6 +48,11 @@ final class SessionMetadataArchive {
     func appendPower(_ observation: PowerObservation,
                      for recordID: UUID) -> SessionMetadataWriteResult {
         var candidate = cache
+        if candidate.contains(where: { owner, metadata in
+            owner != recordID && metadata.power.contains(where: { $0.id == observation.id })
+        }) {
+            return .failed("That power observation already belongs to another session record.")
+        }
         var metadata = candidate[recordID] ?? SessionMetadata(recordID: recordID)
         if !metadata.power.contains(where: { $0.id == observation.id }) {
             metadata.power.append(observation)
@@ -132,10 +137,18 @@ final class SessionMetadataArchive {
 
     private func validated(_ entries: [SessionMetadata]) throws -> [UUID: SessionMetadata] {
         var result: [UUID: SessionMetadata] = [:]
+        var observationOwners: [UUID: (recordID: UUID, observation: PowerObservation)] = [:]
         for entry in entries {
             guard result[entry.recordID] == nil else { throw ValidationError.duplicateRecordID }
             var observations: [UUID: PowerObservation] = [:]
             for observation in entry.power {
+                if let owner = observationOwners[observation.id] {
+                    if owner.recordID != entry.recordID || owner.observation != observation {
+                        throw ValidationError.conflictingObservationID
+                    }
+                } else {
+                    observationOwners[observation.id] = (entry.recordID, observation)
+                }
                 if let existing = observations[observation.id], existing != observation {
                     throw ValidationError.conflictingObservationID
                 }

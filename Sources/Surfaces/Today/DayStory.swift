@@ -571,6 +571,14 @@ struct SessionEntryCard: View {
     private var noteTargetID: UUID? { noteRecordIDs.last }
 
     @ViewBuilder private var metadataDetail: some View {
+        if let metadataStore,
+           let error = metadataStore.powerMetadataError(for: noteRecordIDs) {
+            Label(error, systemImage: "exclamationmark.triangle.fill")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel("Session power metadata error. \(error)")
+        }
         if let detail = powerSummary?.detail {
             Text(detail).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

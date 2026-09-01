@@ -37,6 +37,8 @@ final class PersistenceStore {
         static let interfaceDensityRawValue = "fc.interfaceDensity"
         static let appearanceRawValue = "fc.appearancePreference"
         static let showsTimelineLabels = "fc.showsTimelineLabels"
+        static let pendingPowerTransfers = "fc.pendingPowerTransfers"
+        static let pendingPowerMetadataError = "fc.pendingPowerMetadataError"
     }
 
     private let defaults: UserDefaults
@@ -70,6 +72,32 @@ final class PersistenceStore {
 
     func clearState() {
         defaults.removeObject(forKey: Key.state)
+    }
+
+    var pendingPowerTransfers: [PendingPowerTransfer] {
+        get {
+            guard let data = defaults.data(forKey: Key.pendingPowerTransfers),
+                  let value = try? decoder.decode([PendingPowerTransfer].self, from: data)
+            else { return [] }
+            return value
+        }
+        set {
+            guard !newValue.isEmpty else {
+                defaults.removeObject(forKey: Key.pendingPowerTransfers)
+                return
+            }
+            if let data = try? encoder.encode(newValue) {
+                defaults.set(data, forKey: Key.pendingPowerTransfers)
+            }
+        }
+    }
+
+    var pendingPowerMetadataError: String? {
+        get { defaults.string(forKey: Key.pendingPowerMetadataError) }
+        set {
+            if let newValue { defaults.set(newValue, forKey: Key.pendingPowerMetadataError) }
+            else { defaults.removeObject(forKey: Key.pendingPowerMetadataError) }
+        }
     }
 
     /// A bounded recent-name list survives short sessions and relaunches. It
@@ -345,7 +373,8 @@ final class PersistenceStore {
                     Key.storyTileOrderRawValue,
                     Key.expandsEntryDetails,
                     Key.interfaceDensityRawValue, Key.appearanceRawValue,
-                    Key.showsTimelineLabels] {
+                    Key.showsTimelineLabels, Key.pendingPowerTransfers,
+                    Key.pendingPowerMetadataError] {
             defaults.removeObject(forKey: key)
         }
     }
