@@ -538,9 +538,6 @@ final class SessionStore: ObservableObject {
                 if self.pendingPowerTransfers.isEmpty { self.powerMetadataError = nil }
             case .failed(let error):
                 self.powerMetadataError = error
-                for recordID in self.expandedNoteEditorIDs {
-                    self.sessionNoteErrors[recordID] = error
-                }
             }
             self.storyProjectionCache.removeAll(keepingCapacity: true)
             self.storyProjectionCacheOrder.removeAll(keepingCapacity: true)

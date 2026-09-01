@@ -282,21 +282,23 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Determine unattended launch state and restore the engine before any
+        // lazy SessionStore/prompt/monitor owner can materialise and refresh.
+        screenLocked = AppCoordinator.screenIsLockedNow()
+        let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
+        _ = AppCoordinator.restorePersistedEngine(
+            engine, awayAtLaunch: screenLocked || displayAsleep)
+
+        // From here the store's initial refresh sees the restored active record
+        // and may safely replay metadata recovery without pruning its successor.
+        let store = self.store
+        store.screenLocked = screenLocked
         applyApplicationAppearance(settings.appearancePreference)
         wireMonitor()
         monitor.start()
 
-        // Restore before seeding the frontmost app: from `.idle`, a work-app
-        // activation would start a fresh session and persist over the snapshot
-        // we are about to read.
-        screenLocked = AppCoordinator.screenIsLockedNow()
-        store.screenLocked = screenLocked
-        // A dark display is nobody here as much as a lock is; the wake will
-        // end the absence, as the unlock does behind a lock.
-        let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
-        if let snapshot = engine.store.loadState() {
-            engine.restore(from: snapshot, awayAtLaunch: screenLocked || displayAsleep)
-        }
+        // Restore still precedes frontmost activation: from idle, a work app
+        // could otherwise overwrite the snapshot with a fresh session.
         // Launched behind a lock, nothing is in front of anyone: seeding the
         // frontmost app would record usage nobody is producing.
         if AppCoordinator.permitsInitialUsageSeed(screenLocked: screenLocked,
@@ -445,6 +447,16 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     static func permitsInitialUsageSeed(screenLocked: Bool,
                                         displayAsleep: Bool) -> Bool {
         !screenLocked && !displayAsleep
+    }
+
+    /// Cold-launch restoration boundary. Implemented separately from monitor
+    /// wiring so tests can prove ordering without constructing application UI.
+    @discardableResult
+    static func restorePersistedEngine(_ engine: SessionEngine,
+                                       awayAtLaunch: Bool) -> Bool {
+        guard let snapshot = engine.store.loadState() else { return false }
+        engine.restore(from: snapshot, awayAtLaunch: awayAtLaunch)
+        return true
     }
 
     private func wireMonitor() {

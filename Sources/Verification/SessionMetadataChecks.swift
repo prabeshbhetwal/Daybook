@@ -27,6 +27,7 @@ enum SessionMetadataChecks {
         ("Session metadata: ambiguous duplicate sidecars fail closed byte-for-byte", duplicateSidecarsFailClosed),
         ("Session metadata: failed power transfer retries exact ownership before boundaries", failedPowerTransferRecovery),
         ("Session metadata: pending power transfers complete in identity order", orderedPowerTransferRecovery),
+        ("Session metadata: cold launch restores engine before durable transfer replay", coldLaunchTransferRecovery),
         ("Session metadata: literal battery and charging sequences stay factual", powerSummaries),
         ("Session metadata: mixed, partial and invalid power evidence stays qualified", partialPowerEvidence),
         ("Session metadata: old sessions never acquire current power", oldSessionHasNoPowerFallback)
@@ -825,6 +826,9 @@ enum SessionMetadataChecks {
                 source: .battery, percentage: 78, charging: .notCharging))
             var store: SessionStore? = SessionStore(engine: engine, schedulesTicker: false,
                 metadataArchive: metadata, powerMonitor: monitor, now: { clock.value })
+            let unrelatedEditor = UUID()
+            store?.beginNoteEditing(for: unrelatedEditor)
+            store?.setNoteDraft("Unrelated note draft", for: unrelatedEditor)
             engine.start(workType: .deepWork, intent: "Retry transfer")
             store?.refresh()
             let predecessor = engine.activeRecordID
@@ -859,6 +863,9 @@ enum SessionMetadataChecks {
             expect(store?.powerMetadataError(for: [predecessor, successor])
                    == "One-shot metadata transfer failure.",
                    "affected Story entry IDs did not receive the rendered metadata error", &problems)
+            expect(store?.powerMetadataError(for: unrelatedEditor) == nil
+                   && store?.noteError(for: unrelatedEditor) == nil,
+                   "power failure leaked into an unrelated note editor", &problems)
             expect((try? Data(contentsOf: folder.appendingPathComponent("session-metadata.json"))) == bytesBefore
                    && metadata.allMetadata == cacheBefore,
                    "failed transfer changed sidecar bytes or cache ownership", &problems)
@@ -893,6 +900,8 @@ enum SessionMetadataChecks {
             expect(engine.store.pendingPowerTransfers.isEmpty
                    && engine.store.pendingPowerMetadataError == nil,
                    "successful relaunch retry did not clear durable queue/error", &problems)
+            expect(reloadedStore.noteError(for: unrelatedEditor) == nil,
+                   "durable recovery left a stale unrelated note error", &problems)
             expect(!sourcePower.contains(where: { $0.id == originalEvent.id }),
                    "successful retry left original event on predecessor", &problems)
             expect(destinationPower.filter { $0.id == originalEvent.id }.count == 1,
@@ -952,6 +961,87 @@ enum SessionMetadataChecks {
                    "second transfer did not progress successor evidence in order", &problems)
             expect(metadata.metadata(for: first)?.power.contains(where: { $0.id == firstEvent.id }) == false,
                    "ordered recovery left evidence on the first predecessor", &problems)
+            return problems
+        }
+    }
+
+    private static func coldLaunchTransferRecovery() -> [String] {
+        MainActor.assumeIsolated {
+            let folder = directory()
+            let suite = "com.prabesh.focuscontinuity.metadata.transfer.cold.\(UUID())"
+            defer {
+                try? FileManager.default.removeItem(at: folder)
+                UserDefaults.standard.removePersistentDomain(forName: suite)
+            }
+            guard let defaults = UserDefaults(suiteName: suite) else {
+                return ["could not create cold-launch preferences"]
+            }
+            let clock = Clock(Date(timeIntervalSince1970: 1_788_680_000))
+            var failNext = false
+            var firstArchive: SessionArchive? = SessionArchive(directory: folder, now: { clock.value })
+            var firstEngine: SessionEngine? = SessionEngine(
+                store: PersistenceStore(defaults: defaults), archive: firstArchive,
+                schedulesDwell: false, now: { clock.value })
+            let firstMetadata = SessionMetadataArchive(directory: folder, writeOverride: { _ in
+                if failNext { failNext = false; return "Cold-launch transfer failure." }
+                return nil
+            })
+            let firstMonitor = FakePowerMonitor(sample: PowerObservation(timestamp: clock.value,
+                source: .battery, percentage: 78, charging: .notCharging))
+            var firstStore: SessionStore? = SessionStore(engine: firstEngine!, schedulesTicker: false,
+                metadataArchive: firstMetadata, powerMonitor: firstMonitor, now: { clock.value })
+            firstEngine!.start(workType: .deepWork, intent: "Cold launch")
+            firstStore!.refresh()
+            let predecessor = firstEngine!.activeRecordID
+            clock.advance(600)
+            firstEngine!.transition(on: .awayBegan(trigger: .screenLock))
+            clock.advance(1_200)
+            firstEngine!.transition(on: .awayEnded)
+            let returnedAt = clock.value
+            let event = PowerObservation(timestamp: returnedAt, source: .external,
+                percentage: 64, charging: .notCharging, boundary: .sourceChanged)
+            firstMonitor.handler?(event)
+            clock.advance(300)
+            failNext = true
+            _ = firstStore!.resolve(.continueSession)
+            let successor = firstEngine!.activeRecordID
+            var problems: [String] = []
+            expect(firstEngine!.store.pendingPowerTransfers.count == 1,
+                   "first process did not persist failed transfer", &problems)
+            expect(firstEngine!.snapshot().activeRecordID == successor,
+                   "first process did not persist successor snapshot", &problems)
+            firstStore = nil
+            firstEngine = nil
+            firstArchive = nil
+
+            let freshArchive = SessionArchive(directory: folder, now: { clock.value })
+            let freshEngine = SessionEngine(store: PersistenceStore(defaults: defaults),
+                archive: freshArchive, schedulesDwell: false, now: { clock.value })
+            expect(freshEngine.state == .idle,
+                   "fresh cold-launch engine was not initially idle", &problems)
+            expect(AppCoordinator.restorePersistedEngine(freshEngine, awayAtLaunch: false),
+                   "production restore boundary did not load successor snapshot", &problems)
+            expect(freshEngine.state == .running && freshEngine.activeRecordID == successor,
+                   "restore boundary did not restore successor before store construction", &problems)
+
+            let freshMetadata = SessionMetadataArchive(directory: folder)
+            let freshMonitor = FakePowerMonitor(sample: PowerObservation(timestamp: clock.value,
+                source: .external, percentage: 63, charging: .notCharging))
+            let freshStore = SessionStore(engine: freshEngine, schedulesTicker: false,
+                metadataArchive: freshMetadata, powerMonitor: freshMonitor, now: { clock.value })
+            freshStore.refresh()
+            expect(freshEngine.store.pendingPowerTransfers.isEmpty
+                   && freshEngine.store.pendingPowerMetadataError == nil,
+                   "cold-launch replay did not clear recovery after durable success", &problems)
+            expect(freshMetadata.metadata(for: predecessor)?.power.contains(where: {
+                $0.id == event.id
+            }) == false && freshMetadata.metadata(for: successor)?.power.filter({
+                $0.id == event.id
+            }).count == 1,
+                   "cold-launch replay did not move evidence exactly once", &problems)
+            freshStore.refreshSessionMetadataRetention()
+            expect(SessionMetadataArchive(directory: folder).metadata(for: successor) != nil,
+                   "cold-launch retention pruned recovered active successor metadata", &problems)
             return problems
         }
     }

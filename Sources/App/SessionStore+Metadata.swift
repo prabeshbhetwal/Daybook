@@ -26,7 +26,6 @@ extension SessionStore {
         case .failed(let error):
             powerMetadataError = error
             persistPowerTransferRecovery()
-            for recordID in expandedNoteEditorIDs { sessionNoteErrors[recordID] = error }
         }
     }
 
@@ -51,7 +50,6 @@ extension SessionStore {
             case .failed(let error):
                 powerMetadataError = error
                 persistPowerTransferRecovery()
-                for recordID in expandedNoteEditorIDs { sessionNoteErrors[recordID] = error }
                 return
             case .saved:
                 lastPowerRecordID = transfer.destinationID
@@ -135,12 +133,12 @@ extension SessionStore {
         retained.formUnion(engine.retainedCorrectionRecordIDs)
         retained.formUnion(sessionNoteDrafts.keys)
         retained.formUnion(expandedNoteEditorIDs)
-        if engine.state != .idle { retained.insert(engine.activeRecordID) }
-        if case .failed(let error) = metadataArchive.retain(recordIDs: retained) {
-            // Keep the error visible on every affected open draft. Retention is
-            // conservative: a failed write leaves the prior sidecar untouched.
-            for recordID in expandedNoteEditorIDs { sessionNoteErrors[recordID] = error }
+        for transfer in pendingPowerTransfers {
+            retained.insert(transfer.sourceID)
+            retained.insert(transfer.destinationID)
         }
+        if engine.state != .idle { retained.insert(engine.activeRecordID) }
+        _ = metadataArchive.retain(recordIDs: retained)
     }
 
     func sessionMetadata(for recordID: UUID) -> SessionMetadata? {
