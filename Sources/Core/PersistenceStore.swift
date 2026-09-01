@@ -37,6 +37,7 @@ final class PersistenceStore {
         static let interfaceDensityRawValue = "fc.interfaceDensity"
         static let appearanceRawValue = "fc.appearancePreference"
         static let showsTimelineLabels = "fc.showsTimelineLabels"
+        static let pendingPowerObservations = "fc.pendingPowerObservations"
         static let pendingPowerTransfers = "fc.pendingPowerTransfers"
         static let pendingPowerMetadataError = "fc.pendingPowerMetadataError"
     }
@@ -72,6 +73,24 @@ final class PersistenceStore {
 
     func clearState() {
         defaults.removeObject(forKey: Key.state)
+    }
+
+    var pendingPowerObservations: [PendingPowerObservation] {
+        get {
+            guard let data = defaults.data(forKey: Key.pendingPowerObservations),
+                  let value = try? decoder.decode([PendingPowerObservation].self, from: data)
+            else { return [] }
+            return value
+        }
+        set {
+            guard !newValue.isEmpty else {
+                defaults.removeObject(forKey: Key.pendingPowerObservations)
+                return
+            }
+            if let data = try? encoder.encode(newValue) {
+                defaults.set(data, forKey: Key.pendingPowerObservations)
+            }
+        }
     }
 
     var pendingPowerTransfers: [PendingPowerTransfer] {
@@ -373,7 +392,8 @@ final class PersistenceStore {
                     Key.storyTileOrderRawValue,
                     Key.expandsEntryDetails,
                     Key.interfaceDensityRawValue, Key.appearanceRawValue,
-                    Key.showsTimelineLabels, Key.pendingPowerTransfers,
+                    Key.showsTimelineLabels, Key.pendingPowerObservations,
+                    Key.pendingPowerTransfers,
                     Key.pendingPowerMetadataError] {
             defaults.removeObject(forKey: key)
         }

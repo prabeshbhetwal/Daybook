@@ -5,9 +5,49 @@ extension SessionStore {
     /// observed start/end. Stored timestamps always remain the sampling clock.
     private static let powerBoundaryTolerance: TimeInterval = 2
 
+    private func refreshPowerMetadataError() {
+        powerMetadataError = pendingPowerObservations.lazy.compactMap(\.lastError).first
+            ?? pendingPowerTransferError
+    }
+
+    private func persistPowerObservationRecovery() {
+        engine.store.pendingPowerObservations = pendingPowerObservations
+        refreshPowerMetadataError()
+    }
+
     private func persistPowerTransferRecovery() {
         engine.store.pendingPowerTransfers = pendingPowerTransfers
-        engine.store.pendingPowerMetadataError = powerMetadataError
+        engine.store.pendingPowerMetadataError = pendingPowerTransferError
+        refreshPowerMetadataError()
+    }
+
+    /// Durably queues before touching the sidecar. A callback arriving behind a
+    /// failed front is retained but cannot trigger a retry or overtake it; the
+    /// next refresh (including cold launch) owns replay.
+    func enqueuePowerObservation(_ observation: PowerObservation, for recordID: UUID) {
+        let mayAttemptImmediately = pendingPowerObservations.isEmpty
+        pendingPowerObservations.append(PendingPowerObservation(
+            recordID: recordID, observation: observation, lastError: nil))
+        persistPowerObservationRecovery()
+        if mayAttemptImmediately { _ = replayPendingPowerObservations() }
+    }
+
+    @discardableResult
+    private func replayPendingPowerObservations() -> Bool {
+        while let pending = pendingPowerObservations.first {
+            switch metadataArchive.appendPower(pending.observation, for: pending.recordID) {
+            case .failed(let error):
+                pendingPowerObservations[0] = PendingPowerObservation(
+                    recordID: pending.recordID, observation: pending.observation,
+                    lastError: error)
+                persistPowerObservationRecovery()
+                return false
+            case .saved:
+                pendingPowerObservations.removeFirst()
+                persistPowerObservationRecovery()
+            }
+        }
+        return true
     }
 
     func capturePowerObservation(boundary: PowerCoverageBoundary?) {
@@ -20,16 +60,13 @@ extension SessionStore {
         guard let powerMonitor else { return }
         let timestamp = now()
         let observation = powerMonitor.observation(at: timestamp, boundary: boundary)
-        switch metadataArchive.appendPower(observation, for: recordID) {
-        case .saved:
-            if pendingPowerTransfers.isEmpty { powerMetadataError = nil }
-        case .failed(let error):
-            powerMetadataError = error
-            persistPowerTransferRecovery()
-        }
+        enqueuePowerObservation(observation, for: recordID)
     }
 
     func reconcilePowerBoundaries() {
+        // Recovery must precede ownership transfers and retention. Otherwise a
+        // queued predecessor sample could be appended after its transfer ran.
+        guard replayPendingPowerObservations() else { return }
         let currentID = engine.state == .idle ? nil : engine.activeRecordID
         let sampleTime = now()
         let firstSource = pendingPowerTransfers.first?.sourceID ?? lastPowerRecordID
@@ -48,16 +85,17 @@ extension SessionStore {
             switch metadataArchive.reassignPower(from: transfer.sourceID,
                 to: transfer.destinationID, atOrAfter: transfer.factualBoundary) {
             case .failed(let error):
-                powerMetadataError = error
+                pendingPowerTransferError = error
                 persistPowerTransferRecovery()
                 return
             case .saved:
                 lastPowerRecordID = transfer.destinationID
                 pendingPowerTransfers.removeFirst()
+                pendingPowerTransferError = nil
                 persistPowerTransferRecovery()
             }
         }
-        powerMetadataError = nil
+        pendingPowerTransferError = nil
         persistPowerTransferRecovery()
 
         let previousID = currentID == nil ? lastPowerRecordID : firstSource
@@ -137,6 +175,7 @@ extension SessionStore {
             retained.insert(transfer.sourceID)
             retained.insert(transfer.destinationID)
         }
+        retained.formUnion(pendingPowerObservations.map(\.recordID))
         if engine.state != .idle { retained.insert(engine.activeRecordID) }
         _ = metadataArchive.retain(recordIDs: retained)
     }
@@ -146,11 +185,15 @@ extension SessionStore {
     }
 
     func powerMetadataError(for recordID: UUID) -> String? {
-        guard let powerMetadataError,
-              pendingPowerTransfers.contains(where: {
-                  $0.sourceID == recordID || $0.destinationID == recordID
-              }) else { return nil }
-        return powerMetadataError
+        if let error = pendingPowerObservations.lazy.compactMap({ pending in
+            pending.recordID == recordID ? pending.lastError : nil
+        }).first {
+            return error
+        }
+        guard let transfer = pendingPowerTransfers.first,
+              transfer.sourceID == recordID || transfer.destinationID == recordID
+        else { return nil }
+        return pendingPowerTransferError
     }
 
     func powerMetadataError(for recordIDs: [UUID]) -> String? {

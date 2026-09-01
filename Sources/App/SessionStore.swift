@@ -25,7 +25,9 @@ final class SessionStore: ObservableObject {
     @Published var powerMetadataError: String?
     var lastPowerState: SessionState = .idle
     var lastPowerRecordID: UUID?
+    var pendingPowerObservations: [PendingPowerObservation] = []
     var pendingPowerTransfers: [PendingPowerTransfer] = []
+    var pendingPowerTransferError: String?
 
     @Published private(set) var state: SessionState = .idle
     @Published private(set) var elapsed: TimeInterval = 0
@@ -512,8 +514,13 @@ final class SessionStore: ObservableObject {
         self.metadataArchive = metadataArchive
             ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
         self.powerMonitor = powerMonitor
+        let recoveredObservations = engine.store.pendingPowerObservations
+        let recoveredTransferError = engine.store.pendingPowerMetadataError
+        self.pendingPowerObservations = recoveredObservations
         self.pendingPowerTransfers = engine.store.pendingPowerTransfers
-        self.powerMetadataError = engine.store.pendingPowerMetadataError
+        self.pendingPowerTransferError = recoveredTransferError
+        self.powerMetadataError = recoveredObservations.lazy
+            .compactMap(\.lastError).first ?? recoveredTransferError
         self.schedulesTicker = schedulesTicker
         self.now = now
         self.applicationIsRunning = applicationIsRunning
@@ -532,13 +539,7 @@ final class SessionStore: ObservableObject {
         }
         powerMonitor?.start { [weak self] observation in
             guard let self, self.engine.state != .idle else { return }
-            switch self.metadataArchive.appendPower(observation,
-                                                     for: self.engine.activeRecordID) {
-            case .saved:
-                if self.pendingPowerTransfers.isEmpty { self.powerMetadataError = nil }
-            case .failed(let error):
-                self.powerMetadataError = error
-            }
+            self.enqueuePowerObservation(observation, for: self.engine.activeRecordID)
             self.storyProjectionCache.removeAll(keepingCapacity: true)
             self.storyProjectionCacheOrder.removeAll(keepingCapacity: true)
             self.objectWillChange.send()

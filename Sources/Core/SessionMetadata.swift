@@ -77,6 +77,15 @@ struct PendingPowerTransfer: Codable, Equatable {
     let factualBoundary: Date
 }
 
+/// One exact sidecar append retained outside that sidecar until its observation
+/// UUID is durably present. Queue order prevents a later sample from hiding or
+/// overtaking an earlier failed write.
+struct PendingPowerObservation: Codable, Equatable {
+    let recordID: UUID
+    let observation: PowerObservation
+    let lastError: String?
+}
+
 enum SessionMetadataWriteResult: Equatable {
     case saved
     case failed(String)
