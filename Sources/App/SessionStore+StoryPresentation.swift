@@ -32,7 +32,7 @@ extension SessionStore {
             engine.runningSpan.map { $0.end > interval.start && $0.start < interval.end } ?? false
         } ?? false
         let running = engine.state == .idle ? nil : RunningThread(
-            threadID: engine.activeThreadID, name: engine.sessionName,
+            recordID: engine.activeRecordID, threadID: engine.activeThreadID, name: engine.sessionName,
             workType: engine.activeWorkType, start: engine.sessionStartDate, worked: engine.elapsed)
         return Array(StoryChronology.build(records: engine.archive.records, running: running,
                                           usage: effectiveUsageSnapshot?.sessions ?? [],

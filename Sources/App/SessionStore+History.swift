@@ -424,7 +424,7 @@ extension SessionStore {
     /// with `sessionsToday`: a running session counts everywhere or nowhere.
     func runningThread() -> RunningThread? {
         guard engine.state != .idle else { return nil }
-        return RunningThread(threadID: engine.activeThreadID,
+        return RunningThread(recordID: engine.activeRecordID, threadID: engine.activeThreadID,
                              name: engine.sessionName,
                              workType: engine.activeWorkType,
                              start: engine.sessionStartDate,
@@ -448,7 +448,7 @@ extension SessionStore {
         } else {
             worked = running.worked
         }
-        return RunningThread(threadID: running.threadID, name: running.name,
+        return RunningThread(recordID: running.recordID, threadID: running.threadID, name: running.name,
                              workType: running.workType, start: start, worked: worked)
     }
 

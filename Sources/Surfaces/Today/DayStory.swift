@@ -196,6 +196,9 @@ struct DayStory: View {
                 ? (projection?.sessionDetails[session.id] ?? store.storySessionDetail(session,
                     on: projection?.date ?? store.selectedDay))
                 : nil
+            let recordIDs = session.recordIDs.isEmpty ? [session.id] : session.recordIDs
+            let power = store.powerSummary(for: recordIDs,
+                interval: DateInterval(start: session.start, end: max(session.start, session.end)))
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
                      dotSize: session.isRunning ? 13 : 11,
@@ -212,6 +215,9 @@ struct DayStory: View {
                                  isOpen: isOpen,
                                  clock: live.clock,
                                  liveStatus: live.liveStatus,
+                                 powerSummary: power,
+                                 noteRecordIDs: recordIDs,
+                                 metadataStore: store,
                                  onToggle: { toggle(key) },
                                  onRename: { store.renameSession(session, to: $0) },
                                  onWorkType: { store.setWorkType($0, for: session) },
@@ -317,6 +323,9 @@ struct SessionEntryCard: View {
     let isOpen: Bool
     let clock: String?
     var liveStatus: String?
+    var powerSummary: PowerContextSummary?
+    var noteRecordIDs: [UUID] = []
+    var metadataStore: SessionStore?
     let onToggle: () -> Void
     var onRename: ((String) -> Bool)?
     var onWorkType: ((WorkType) -> Bool)?
@@ -351,12 +360,18 @@ struct SessionEntryCard: View {
                             .font(Tokens.Typography.rowTitle)
                             .lineLimit(2)
                         Spacer(minLength: Tokens.Space.s)
-                        Text(clock ?? Tokens.preciseDuration(session.worked))
-                            .font(.callout.weight(clock == nil ? .regular : .semibold)
-                                .monospacedDigit())
-                            .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
-                                                          : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
-                            .contentTransition(.numericText())
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(clock ?? Tokens.preciseDuration(session.worked))
+                                .font(.callout.weight(clock == nil ? .regular : .semibold)
+                                    .monospacedDigit())
+                                .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
+                                                              : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
+                                .contentTransition(.numericText())
+                            if let powerSummary {
+                                Label(powerSummary.headline, systemImage: powerSummary.symbolName)
+                                    .font(.caption2).foregroundStyle(.tertiary)
+                            }
+                        }
                         Image(systemName: isOpen ? "chevron.down" : "chevron.right")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.tertiary)
@@ -434,6 +449,7 @@ struct SessionEntryCard: View {
                 if !showsActivityStrip { factualCaption }
             }
             actions
+            metadataDetail
         }
         .padding(.horizontal, 15)
         .padding(.bottom, 13)
@@ -508,7 +524,7 @@ struct SessionEntryCard: View {
     /// The corrections that belong to this entry. Each one writes to the
     /// record, so only the actions the record can actually carry are offered.
     @ViewBuilder private var actions: some View {
-        if onRename != nil || onWorkType != nil || onContinue != nil {
+        if onRename != nil || onWorkType != nil || onContinue != nil || noteTargetID != nil {
             Color.clear.frame(height: 2)
             if editing.value {
                 renameField
@@ -535,6 +551,12 @@ struct SessionEntryCard: View {
                     } else if let onStartNewSession, canStartNewSession {
                         actionButton("Start new session", action: onStartNewSession)
                     }
+                    if let recordID = noteTargetID, let metadataStore {
+                        actionButton(metadataStore.sessionMetadata(for: recordID)?.note == nil
+                                     ? "Add note" : "Edit note") {
+                            metadataStore.beginNoteEditing(for: recordID)
+                        }
+                    }
                     Spacer(minLength: 0)
                     if let onPause { actionButton(pauseTitle, action: onPause) }
                     if let onEnd { actionButton("End session", action: onEnd) }
@@ -543,6 +565,35 @@ struct SessionEntryCard: View {
             Text("Name and type changes apply to all stretches of this session, including other days.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var noteTargetID: UUID? { noteRecordIDs.last }
+
+    @ViewBuilder private var metadataDetail: some View {
+        if let detail = powerSummary?.detail {
+            Text(detail).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel("Recorded power context. \(detail)")
+        }
+        if let metadataStore {
+            ForEach(noteRecordIDs, id: \.self) { recordID in
+                if let note = metadataStore.sessionMetadata(for: recordID)?.note,
+                   !metadataStore.expandedNoteEditorIDs.contains(recordID) {
+                    HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
+                        Text(note).font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 4)
+                        Button("Edit") { metadataStore.beginNoteEditing(for: recordID) }
+                            .buttonStyle(.plain).font(.caption2).foregroundStyle(.secondary)
+                            .accessibilityLabel("Edit note for stretch \(noteRecordIDs.firstIndex(of: recordID).map { $0 + 1 } ?? 1)")
+                    }
+                }
+                if metadataStore.expandedNoteEditorIDs.contains(recordID) {
+                    SessionNoteEditor(store: metadataStore, recordID: recordID)
+                }
+            }
         }
     }
 

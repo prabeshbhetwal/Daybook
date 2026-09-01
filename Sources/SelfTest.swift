@@ -446,7 +446,7 @@ enum SelfTest {
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
             + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
             + DecisionHistoryChecks.tests + DecisionRecoveryChecks.tests + StoryWorkspaceChecks.tests
-            + CompactControlsChecks.tests
+            + CompactControlsChecks.tests + SessionMetadataChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {

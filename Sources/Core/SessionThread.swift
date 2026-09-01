@@ -17,6 +17,7 @@ struct ThreadSummary: Identifiable, Equatable {
 /// `Core` stays free of the engine and the tests need no running state. Mirrors
 /// how `focusQuality(for:runningSeconds:)` already takes the in-flight time.
 struct RunningThread: Equatable {
+    var recordID: UUID? = nil
     let threadID: UUID
     let name: String
     let workType: WorkType

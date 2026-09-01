@@ -13,7 +13,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         archive: usage,
         isEnabled: engine.store.isUsageTrackingEnabled)
     private let hotKey = HotKeyMonitor()
-    private(set) lazy var store = SessionStore(engine: engine)
+    private let powerMonitor = PowerSourceMonitor()
+    private(set) lazy var store = SessionStore(engine: engine, powerMonitor: powerMonitor)
     /// The Settings window's model. Writes go to the same preferences the
     /// engine reads; `onChange` refreshes every surface that shows them.
     private(set) lazy var settings = SettingsModel(

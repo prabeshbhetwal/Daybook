@@ -122,6 +122,8 @@ final class SessionEngine {
     /// The thread the running session belongs to. A fresh session gets a fresh
     /// thread; continuing adopts an existing one.
     private(set) var activeThreadID = UUID()
+    /// The identity under which this exact stretch will be archived.
+    private(set) var activeRecordID = UUID()
     /// Whether the running session was started by the detector rather than the
     /// user. Only the app's own guesses may be undone automatically.
     private(set) var activeIsAuto = false
@@ -545,6 +547,7 @@ final class SessionEngine {
         awayReturnedAt = nil
         pendingDecisionID = nil
         workBeforePendingAway = nil
+        activeRecordID = UUID()
         state = .running
     }
 
@@ -847,7 +850,7 @@ final class SessionEngine {
                 additions.append(record)
             }
             if beforeReturn >= FocusConstants.minimumRecordedSession {
-                additions.append(SessionRecord(id: AwayDecisionReceipt.precedingRecordID(for: decisionID),
+                additions.append(SessionRecord(id: activeRecordID,
                     name: originalName, workType: activeWorkType,
                     start: originalStart, end: min(max(awayStarted ?? now(), originalStart), now()),
                     workSeconds: beforeReturn, detectedApp: activeDetectedApp,
@@ -860,7 +863,7 @@ final class SessionEngine {
             return
         }
         if decision == .mergeTime, archive.records.contains(where: {
-            $0.id == AwayDecisionReceipt.precedingRecordID(for: decisionID)
+            $0.id == activeRecordID
         }) {
             awayDecisionError = "The preceding stretch is already saved. Finish the original uncounted answer before changing this interval."
             return
@@ -1145,7 +1148,8 @@ final class SessionEngine {
         // A start immediately followed by a stop is a misclick, not a session.
         // Nine such records sit in the shipped archive inflating the day's
         // session count and the quick-start tallies.
-        let record: SessionRecord? = elapsed < FocusConstants.minimumRecordedSession ? nil : SessionRecord(name: sessionName,
+        let record: SessionRecord? = elapsed < FocusConstants.minimumRecordedSession ? nil : SessionRecord(id: activeRecordID,
+                                     name: sessionName,
                                      workType: activeWorkType,
                                      start: sessionStartDate,
                                      // Clamped both ways. `endingAt` comes from
@@ -1468,6 +1472,7 @@ final class SessionEngine {
         pendingDecisionID = saved.pendingDecisionID
         workBeforePendingAway = saved.workBeforePendingAway
         activeThreadID = saved.threadID ?? activeThreadID
+        activeRecordID = saved.activeRecordID ?? legacyActiveRecordID(for: saved)
         activeWorkType = saved.activeWorkType ?? .deepWork
         activeIsAuto = saved.isAuto ?? false
         awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
@@ -1497,6 +1502,7 @@ final class SessionEngine {
         result.pendingDecisionID = pendingDecisionID
         result.awayReturnedAt = awayReturnedAt
         result.workBeforePendingAway = workBeforePendingAway
+        result.activeRecordID = activeRecordID
         return result
     }
 
@@ -1537,6 +1543,8 @@ final class SessionEngine {
         currentAppBundleID = snapshot.lastAppBundleID
         decisionStartDate = snapshot.decisionStarted
         activeThreadID = snapshot.threadID ?? UUID()
+        activeRecordID = snapshot.activeRecordID ?? legacyActiveRecordID(for: snapshot,
+            pendingDecisionID: original.pendingDecisionID)
         activeWorkType = snapshot.activeWorkType ?? .deepWork
         activeIsAuto = snapshot.isAuto ?? false
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
@@ -1629,5 +1637,31 @@ final class SessionEngine {
         if case .awaitingUserDecision(let away, let app) = state {
             onNeedsDecision?(away, app)
         }
+    }
+
+    /// Stable migration for snapshots written before `activeRecordID`. A
+    /// pending answer already reserved the predecessor effect identity; every
+    /// other legacy live stretch derives one from persisted, repeatable fields.
+    private func legacyActiveRecordID(for snapshot: PersistedState,
+                                      pendingDecisionID: UUID? = nil) -> UUID {
+        if snapshot.kind == .awaiting,
+           let decisionID = snapshot.pendingDecisionID ?? pendingDecisionID {
+            return AwayDecisionReceipt.precedingRecordID(for: decisionID)
+        }
+        var input = Array((snapshot.threadID?.uuidString ?? "legacy").utf8)
+        input.append(contentsOf: String(snapshot.sessionStart.timeIntervalSinceReferenceDate.bitPattern).utf8)
+        func digest(seed: UInt64) -> UInt64 {
+            input.reduce(seed) { value, byte in (value ^ UInt64(byte)) &* 1_099_511_628_211 }
+        }
+        let high = digest(seed: 14_695_981_039_346_656_037)
+        let low = digest(seed: 10_995_116_282_11) ^ 0x9e3779b97f4a7c15
+        let bytes = (0..<16).map { index -> UInt8 in
+            let value = index < 8 ? high : low
+            return UInt8(truncatingIfNeeded: value >> UInt64((index % 8) * 8))
+        }
+        return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3],
+                           bytes[4], bytes[5], bytes[6], bytes[7],
+                           bytes[8], bytes[9], bytes[10], bytes[11],
+                           bytes[12], bytes[13], bytes[14], bytes[15]))
     }
 }

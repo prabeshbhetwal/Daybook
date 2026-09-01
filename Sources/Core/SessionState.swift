@@ -243,9 +243,9 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         self.isAuto = isAuto
     }
 
-    /// Records written before threads existed decode with a fresh thread each,
-    /// so every old session becomes its own single-segment thread — which is
-    /// the truth about it. Same pattern as `AppUsageSession.endReason`.
+    /// Records written before threads existed remain one single-segment thread
+    /// each. Their stable record identity is the deterministic fallback: using
+    /// a new UUID here split the same legacy record differently on every load.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -255,7 +255,7 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         end = try container.decode(Date.self, forKey: .end)
         workSeconds = try container.decode(Double.self, forKey: .workSeconds)
         detectedApp = try container.decodeIfPresent(String.self, forKey: .detectedApp)
-        threadID = try container.decodeIfPresent(UUID.self, forKey: .threadID) ?? UUID()
+        threadID = try container.decodeIfPresent(UUID.self, forKey: .threadID) ?? id
         // Records written before auto sessions existed were all started by hand.
         isAuto = try container.decodeIfPresent(Bool.self, forKey: .isAuto) ?? false
     }
@@ -361,6 +361,9 @@ struct PersistedState: Codable, Equatable {
     var pendingDecisionID: UUID? = nil
     var awayReturnedAt: Date? = nil
     var workBeforePendingAway: TimeInterval? = nil
+    /// Stable identity of the in-flight recorded stretch. Optional for snapshots
+    /// written before record-scoped metadata existed.
+    var activeRecordID: UUID? = nil
 }
 
 extension PersistedState {

@@ -15,6 +15,7 @@ struct DaySession: Identifiable, Equatable {
     /// Each stretch's span, for framing the timeline and for "apps used
     /// inside this session".
     let spans: [DateInterval]
+    var recordIDs: [UUID] = []
     let isRunning: Bool
 }
 
@@ -85,7 +86,7 @@ enum SessionDigest {
         if let running {
             if let clipped = clip(start: running.start, end: now, worked: running.worked) {
                 items.append((clipped.start, clipped.end, running.name, running.workType, clipped.worked,
-                              running.threadID, running.threadID, true))
+                              running.threadID, running.recordID ?? running.threadID, true))
             }
         }
         items.sort { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start }
@@ -111,6 +112,7 @@ enum SessionDigest {
                                   worked: current.worked + item.worked,
                                   stretches: current.stretches + 1,
                                   spans: current.spans + [DateInterval(start: item.start, end: max(item.start, item.end))],
+                                  recordIDs: current.recordIDs + [item.id],
                                   isRunning: current.isRunning || item.running)
             } else {
                 close()
@@ -119,6 +121,7 @@ enum SessionDigest {
                                   start: item.start, end: item.end,
                                   worked: item.worked, stretches: 1,
                                   spans: [DateInterval(start: item.start, end: max(item.start, item.end))],
+                                  recordIDs: [item.id],
                                   isRunning: item.running)
             }
         }

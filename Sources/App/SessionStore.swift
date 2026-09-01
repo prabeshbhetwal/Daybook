@@ -16,6 +16,15 @@ enum SessionHotKeyActionResult: Equatable {
 /// SDK ships no `SwiftUIMacros` plugin, so view state lives in objects like this.
 final class SessionStore: ObservableObject {
 
+    let metadataArchive: SessionMetadataArchive
+    let powerMonitor: PowerSourceMonitoring?
+    @Published var sessionNoteDrafts: [UUID: String] = [:]
+    @Published var sessionNoteErrors: [UUID: String] = [:]
+    @Published var expandedNoteEditorIDs: Set<UUID> = []
+    @Published var focusedNoteEditorID: UUID?
+    var lastPowerState: SessionState = .idle
+    var lastPowerRecordID: UUID?
+
     @Published private(set) var state: SessionState = .idle
     @Published private(set) var elapsed: TimeInterval = 0
     /// The clock the user sees: this piece of work today, across its
@@ -340,12 +349,14 @@ final class SessionStore: ObservableObject {
         let usageID: ObjectIdentifier?
         let usage: Int
         let overlay: Int
+        let metadata: Int
     }
     var evidenceRevision: EvidenceRevision {
         EvidenceRevision(day: Calendar.current.startOfDay(for: now()),
                          sessions: engine.archive.revision,
                          usageID: usage.map { ObjectIdentifier($0) },
-                         usage: usage?.revision ?? -1, overlay: tracker?.overlayRevision ?? -1)
+                         usage: usage?.revision ?? -1, overlay: tracker?.overlayRevision ?? -1,
+                         metadata: metadataArchive.revision)
     }
     var dashboardEvidenceRevision: EvidenceRevision?
     var reviewEvidenceRevision: EvidenceRevision?
@@ -485,6 +496,8 @@ final class SessionStore: ObservableObject {
 
     init(engine: SessionEngine,
          schedulesTicker: Bool = true,
+         metadataArchive: SessionMetadataArchive? = nil,
+         powerMonitor: PowerSourceMonitoring? = nil,
          applicationIsRunning: @escaping (String) -> Bool = {
              !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty
          },
@@ -494,6 +507,9 @@ final class SessionStore: ObservableObject {
          },
          now: @escaping () -> Date = Date.init) {
         self.engine = engine
+        self.metadataArchive = metadataArchive
+            ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
+        self.powerMonitor = powerMonitor
         self.schedulesTicker = schedulesTicker
         self.now = now
         self.applicationIsRunning = applicationIsRunning
@@ -510,11 +526,20 @@ final class SessionStore: ObservableObject {
                 self?.pendingAway = away
             }
         }
+        powerMonitor?.start { [weak self] observation in
+            guard let self, self.engine.state != .idle else { return }
+            _ = self.metadataArchive.appendPower(observation,
+                                                 for: self.engine.activeRecordID)
+            self.storyProjectionCache.removeAll(keepingCapacity: true)
+            self.storyProjectionCacheOrder.removeAll(keepingCapacity: true)
+            self.objectWillChange.send()
+        }
         apply(engine.state)
     }
 
     deinit {
         ticker?.invalidate()
+        powerMonitor?.stop()
     }
 
     // MARK: - Derived state
@@ -667,6 +692,8 @@ final class SessionStore: ObservableObject {
             refreshThread()
             refreshContinuations(at: moment)
             refreshLiveFigures(at: moment)
+            reconcilePowerBoundaries()
+            refreshSessionMetadataRetention()
 
             weekBars = engine.archive.weekBars()
             quickStarts = ActivityChoices.merging(engine.store.recentActivities,

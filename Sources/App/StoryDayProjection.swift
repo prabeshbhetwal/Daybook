@@ -42,6 +42,7 @@ struct StoryDayProjectionCacheKey: Hashable {
     let usageRevision: Int
     let overlayRevision: Int
     let decisionHistoryRevision: Int
+    let metadataRevision: Int
 }
 
 struct StoryPeriodProjection: Identifiable {
@@ -70,7 +71,8 @@ extension SessionStore {
             usageIdentity: revision.usageID,
             usageRevision: revision.usage,
             overlayRevision: -1,
-            decisionHistoryRevision: engine.decisionHistoryRevision)
+            decisionHistoryRevision: engine.decisionHistoryRevision,
+            metadataRevision: revision.metadata)
         let runningTouchesDay = dayBounds.map { bounds in
             engine.runningSpan.map { $0.end > bounds.start && $0.start < bounds.end } ?? false
         } ?? false
