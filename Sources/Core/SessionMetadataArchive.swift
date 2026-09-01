@@ -54,13 +54,17 @@ final class SessionMetadataArchive {
             return .failed("That power observation already belongs to another session record.")
         }
         var metadata = candidate[recordID] ?? SessionMetadata(recordID: recordID)
-        if !metadata.power.contains(where: { $0.id == observation.id }) {
-            metadata.power.append(observation)
-            metadata.power.sort {
-                if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
-                let left = boundaryOrder($0.boundary), right = boundaryOrder($1.boundary)
-                return left == right ? $0.id.uuidString < $1.id.uuidString : left < right
+        if let existing = metadata.power.first(where: { $0.id == observation.id }) {
+            guard existing == observation else {
+                return .failed("That power observation already exists on this session record with different content.")
             }
+            return .saved
+        }
+        metadata.power.append(observation)
+        metadata.power.sort {
+            if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
+            let left = boundaryOrder($0.boundary), right = boundaryOrder($1.boundary)
+            return left == right ? $0.id.uuidString < $1.id.uuidString : left < right
         }
         candidate[recordID] = metadata
         return commit(candidate)
