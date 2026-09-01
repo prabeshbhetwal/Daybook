@@ -78,10 +78,21 @@ struct PowerContextSummary: Equatable {
     let headline: String
     let detail: String?
     let symbolName: String
+    /// Includes a boundary sample taken immediately after a durable commit
+    /// without changing that sample's factual timestamp.
+    private static let boundaryTolerance: TimeInterval = 2
 
     static func make(observations: [PowerObservation], interval: DateInterval) -> PowerContextSummary? {
         let evidence = observations.filter {
-            $0.timestamp >= interval.start && $0.timestamp <= interval.end
+            if $0.timestamp >= interval.start && $0.timestamp <= interval.end { return true }
+            switch $0.boundary {
+            case .stretchStarted:
+                return abs($0.timestamp.timeIntervalSince(interval.start)) <= boundaryTolerance
+            case .stretchEnded:
+                return abs($0.timestamp.timeIntervalSince(interval.end)) <= boundaryTolerance
+            case .sourceChanged, .coverageResumed, nil:
+                return false
+            }
         }.sorted {
             $0.timestamp == $1.timestamp ? $0.id.uuidString < $1.id.uuidString
                 : $0.timestamp < $1.timestamp

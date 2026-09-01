@@ -20,8 +20,11 @@ enum SessionMetadataChecks {
         ("Session metadata: Command-Return targets only the focused note editor", focusedEditorCommand),
         ("Session metadata: legacy identity ignores rename and open drafts retain evidence", identityAndDraftRetentionHardening),
         ("Session metadata: grouped power qualifies partial coverage without losing source", groupedPowerCoverageHardening),
-        ("Session metadata: duplicate entries and equal-time observations load deterministically", duplicateMetadataHardening),
+        ("Session metadata: unique entries and equal-time observations load deterministically", duplicateMetadataHardening),
         ("Session metadata: public IOPS descriptions parse without live sampling", powerDescriptionParser),
+        ("Session metadata: hardware samples use observation time without backfill", factualBoundarySampling),
+        ("Session metadata: Away answer atomically reassigns post-return observations", awayObservationReassignment),
+        ("Session metadata: ambiguous duplicate sidecars fail closed byte-for-byte", duplicateSidecarsFailClosed),
         ("Session metadata: literal battery and charging sequences stay factual", powerSummaries),
         ("Session metadata: mixed, partial and invalid power evidence stays qualified", partialPowerEvidence),
         ("Session metadata: old sessions never acquire current power", oldSessionHasNoPowerFallback)
@@ -332,8 +335,10 @@ enum SessionMetadataChecks {
                 percentage: 63, charging: .notCharging, boundary: .sourceChanged))
             expect(successorID != recordID,
                    "Away split did not rotate the stretch identity", &problems)
-            expect(metadata.metadata(for: recordID)?.power.last?.boundary == .stretchEnded,
-                   "Away split did not close power evidence against its archived predecessor", &problems)
+            expect(metadata.metadata(for: recordID)?.power.contains(where: {
+                $0.boundary == .stretchEnded
+            }) == false,
+                   "Away split manufactured an old predecessor end sample", &problems)
             expect(metadata.metadata(for: successorID)?.power.first?.boundary == .stretchStarted,
                    "Away split did not start power evidence against its successor", &problems)
             expect(metadata.metadata(for: successorID)?.power.last?.percentage == 63,
@@ -528,16 +533,13 @@ enum SessionMetadataChecks {
         let recordID = UUID(), firstID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             secondID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
         let moment = Date(timeIntervalSince1970: 1_788_603_000)
-        let entries = [
-            SessionMetadata(recordID: recordID, note: "First"),
-            SessionMetadata(recordID: recordID, note: "Second")
-        ]
+        let entries = [SessionMetadata(recordID: recordID, note: "Second")]
         let bytes = try? JSONEncoder().encode(DuplicateDocument(version: 1, entries: entries))
         try? bytes?.write(to: folder.appendingPathComponent("session-metadata.json"), options: .atomic)
         let archive = SessionMetadataArchive(directory: folder)
         var problems: [String] = []
         expect(archive.allMetadata.count == 1 && archive.metadata(for: recordID)?.note == "Second",
-               "duplicate record IDs trapped or loaded nondeterministically", &problems)
+               "unique record did not load normally", &problems)
         _ = archive.appendPower(PowerObservation(id: secondID, timestamp: moment, source: .battery,
             percentage: 64, charging: .notCharging, boundary: .sourceChanged), for: recordID)
         _ = archive.appendPower(PowerObservation(id: firstID, timestamp: moment, source: .battery,
@@ -590,6 +592,211 @@ enum SessionMetadataChecks {
         return problems
     }
 
+    private static func makePowerFixture(_ clock: Clock, folder: URL, suite: String,
+                                         sample: PowerObservation) -> (SessionStore, SessionEngine,
+                                            SessionMetadataArchive, FakePowerMonitor) {
+        let archive = SessionArchive(directory: folder, now: { clock.value })
+        let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            archive: archive, ownBundleID: "com.example.metadata.boundary", schedulesDwell: false,
+            now: { clock.value })
+        let metadata = SessionMetadataArchive(directory: folder)
+        let monitor = FakePowerMonitor(sample: sample)
+        let store = SessionStore(engine: engine, schedulesTicker: false,
+            metadataArchive: metadata, powerMonitor: monitor, now: { clock.value })
+        return (store, engine, metadata, monitor)
+    }
+
+    private static func factualBoundarySampling() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+
+            // Ordinary start/end are observed at the contemporaneous injected clock.
+            do {
+                let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.boundary.normal.\(UUID())"
+                defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
+                let clock = Clock(Date(timeIntervalSince1970: 1_788_610_000))
+                let fixture = makePowerFixture(clock, folder: folder, suite: suite,
+                    sample: PowerObservation(timestamp: clock.value, source: .battery,
+                        percentage: 78, charging: .notCharging))
+                fixture.1.start(workType: .deepWork, intent: "Normal")
+                fixture.0.refresh()
+                let id = fixture.1.activeRecordID
+                clock.advance(600)
+                fixture.0.stop()
+                let power = fixture.2.metadata(for: id)?.power ?? []
+                expect(power.first?.timestamp == Date(timeIntervalSince1970: 1_788_610_000)
+                       && power.first?.boundary == .stretchStarted,
+                       "contemporaneous start was not sampled at the injected clock", &problems)
+                expect(power.last?.timestamp == clock.value && power.last?.boundary == .stretchEnded,
+                       "contemporaneous end was not sampled at the injected clock", &problems)
+            }
+
+            // A restored old stretch begins coverage now; it does not fabricate its old start.
+            do {
+                let folder = directory(), sourceSuite = "com.prabesh.focuscontinuity.metadata.boundary.restore.source.\(UUID())"
+                let reloadSuite = sourceSuite + ".reload"
+                defer {
+                    try? FileManager.default.removeItem(at: folder)
+                    UserDefaults.standard.removePersistentDomain(forName: sourceSuite)
+                    UserDefaults.standard.removePersistentDomain(forName: reloadSuite)
+                }
+                let old = Date(timeIntervalSince1970: 1_788_620_000)
+                let sourceClock = Clock(old)
+                let source = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: sourceSuite)!),
+                    archive: SessionArchive(directory: folder, now: { sourceClock.value }),
+                    schedulesDwell: false, now: { sourceClock.value })
+                source.start(workType: .deepWork, intent: "Restored")
+                var snapshot = source.snapshot()
+                let clock = Clock(old.addingTimeInterval(3_600))
+                snapshot.savedAt = clock.value
+                let fixture = makePowerFixture(clock, folder: folder, suite: reloadSuite,
+                    sample: PowerObservation(timestamp: clock.value, source: .battery,
+                        percentage: 72, charging: .notCharging))
+                fixture.1.restore(from: snapshot)
+                fixture.0.refresh()
+                let power = fixture.2.metadata(for: fixture.1.activeRecordID)?.power ?? []
+                expect(power.count == 1 && power[0].timestamp == clock.value
+                       && power[0].boundary == .coverageResumed,
+                       "restored session backfilled a historical start observation", &problems)
+            }
+
+            // Automatic backdating samples now as partial coverage, never at backdatedTo.
+            do {
+                let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.boundary.auto.\(UUID())"
+                defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
+                let clock = Clock(Date(timeIntervalSince1970: 1_788_630_000))
+                let fixture = makePowerFixture(clock, folder: folder, suite: suite,
+                    sample: PowerObservation(timestamp: clock.value, source: .external,
+                        percentage: 64, charging: .charging))
+                let backdated = clock.value.addingTimeInterval(-900)
+                fixture.0.startAutomatically(workType: .deepWork, name: "Automatic",
+                                             backdatedTo: backdated, because: "Observed")
+                let id = fixture.1.activeRecordID
+                let power = fixture.2.metadata(for: id)?.power ?? []
+                expect(power.count == 1 && power[0].timestamp == clock.value
+                       && power[0].boundary == .coverageResumed,
+                       "automatic backdate stamped current hardware at backdatedTo", &problems)
+
+                // A detector ending late must not manufacture a sample at its old record end.
+                clock.advance(600)
+                let delayedEnd = clock.value.addingTimeInterval(-300)
+                _ = fixture.1.stop(endingAt: delayedEnd)
+                fixture.0.refresh()
+                let ended = fixture.2.metadata(for: id)?.power ?? []
+                expect(!ended.contains(where: { $0.boundary == .stretchEnded }),
+                       "delayed automatic end manufactured a historical end sample", &problems)
+                expect(ended.allSatisfy { $0.timestamp != delayedEnd },
+                       "delayed automatic end stored the archived record timestamp as observation time", &problems)
+            }
+            return problems
+        }
+    }
+
+    private static func awayObservationReassignment() -> [String] {
+        MainActor.assumeIsolated {
+            var allProblems: [String] = []
+            let decisions: [(UserDecision, String)] = [
+                (.continueSession, "Continue"), (.tookBreak, "Break"), (.resetTimer, "Reset")
+            ]
+            for (decision, label) in decisions {
+                let folder = directory()
+                let suite = "com.prabesh.focuscontinuity.metadata.boundary.away.\(label).\(UUID())"
+                defer {
+                    try? FileManager.default.removeItem(at: folder)
+                    UserDefaults.standard.removePersistentDomain(forName: suite)
+                }
+                let clock = Clock(Date(timeIntervalSince1970: 1_788_640_000))
+                let fixture = makePowerFixture(clock, folder: folder, suite: suite,
+                    sample: PowerObservation(timestamp: clock.value, source: .battery,
+                        percentage: 78, charging: .notCharging))
+                var problems: [String] = []
+                fixture.1.start(workType: .deepWork, intent: "Away split")
+                fixture.0.refresh()
+                let predecessor = fixture.1.activeRecordID
+                clock.advance(600)
+                fixture.1.transition(on: .awayBegan(trigger: .screenLock))
+                clock.advance(1_200)
+                fixture.1.transition(on: .awayEnded)
+                let returnedAt = clock.value
+                fixture.3.handler?(PowerObservation(timestamp: returnedAt, source: .external,
+                    percentage: 64, charging: .notCharging, boundary: .sourceChanged))
+                expect(fixture.2.metadata(for: predecessor)?.power.contains(where: {
+                    $0.timestamp == returnedAt && $0.boundary == .sourceChanged
+                }) == true, "post-return event was not initially bound to the open predecessor", &problems)
+
+                clock.advance(300)
+                expect(fixture.0.resolve(decision), "Away split fixture could not save \(label)", &problems)
+                let successor = fixture.1.activeRecordID
+                let predecessorPower = fixture.2.metadata(for: predecessor)?.power ?? []
+                let successorPower = fixture.2.metadata(for: successor)?.power ?? []
+                expect(!predecessorPower.contains(where: { $0.timestamp >= returnedAt }),
+                       "Away \(label) left post-return observations on the closed predecessor", &problems)
+                expect(successorPower.contains(where: {
+                    $0.timestamp == returnedAt && $0.boundary == .sourceChanged
+                }), "Away \(label) did not atomically move post-return evidence", &problems)
+                expect(successorPower.contains(where: {
+                    $0.timestamp == clock.value && $0.boundary == .coverageResumed
+                }), "Away \(label) successor did not begin partial coverage at answer time", &problems)
+                expect(!predecessorPower.contains(where: { $0.boundary == .stretchEnded })
+                       && !successorPower.contains(where: { $0.boundary == .stretchStarted }),
+                       "Away \(label) fabricated historical boundaries", &problems)
+                fixture.3.handler?(PowerObservation(timestamp: clock.value.addingTimeInterval(1),
+                    source: .external, percentage: 63, charging: .notCharging,
+                    boundary: .sourceChanged))
+                expect(fixture.2.metadata(for: successor)?.power.last?.percentage == 63,
+                       "post-\(label) callback attached to the stale predecessor", &problems)
+                allProblems.append(contentsOf: problems)
+            }
+            return allProblems
+        }
+    }
+
+    private static func duplicateSidecarsFailClosed() -> [String] {
+        func isFailure(_ result: SessionMetadataWriteResult) -> Bool {
+            if case .failed = result { return true }
+            return false
+        }
+        var problems: [String] = []
+        let recordID = UUID(), observationID = UUID()
+        let moment = Date(timeIntervalSince1970: 1_788_650_000)
+        let duplicateEntries = [SessionMetadata(recordID: recordID, note: "First"),
+                                SessionMetadata(recordID: recordID, note: "Second")]
+        let conflicting = SessionMetadata(recordID: UUID(), power: [
+            PowerObservation(id: observationID, timestamp: moment, source: .battery,
+                             percentage: 78, charging: .notCharging),
+            PowerObservation(id: observationID, timestamp: moment, source: .external,
+                             percentage: 64, charging: .charging)
+        ])
+
+        let payloads: [(String, Data?)] = [
+            ("versioned duplicate records", try? JSONEncoder().encode(
+                DuplicateDocument(version: 1, entries: duplicateEntries))),
+            ("unversioned duplicate records", try? JSONEncoder().encode(duplicateEntries)),
+            ("conflicting duplicate observations", try? JSONEncoder().encode(
+                DuplicateDocument(version: 1, entries: [conflicting])))
+        ]
+        for (label, payload) in payloads {
+            let folder = directory(), file = folder.appendingPathComponent("session-metadata.json")
+            defer { try? FileManager.default.removeItem(at: folder) }
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            guard let payload else { problems.append("could not encode \(label)"); continue }
+            try? payload.write(to: file, options: .atomic)
+            let archive = SessionMetadataArchive(directory: folder)
+            let original = try? Data(contentsOf: file)
+            let note = archive.saveNote("Mutation", for: recordID)
+            let power = archive.appendPower(PowerObservation(timestamp: moment,
+                source: .battery, percentage: 50, charging: .notCharging), for: recordID)
+            let retention = archive.retain(recordIDs: [recordID])
+            expect(isFailure(note) && isFailure(power) && isFailure(retention),
+                   "\(label) did not fail every mutation closed", &problems)
+            expect((try? Data(contentsOf: file)) == original,
+                   "\(label) changed original sidecar bytes", &problems)
+            expect(archive.allMetadata.isEmpty,
+                   "\(label) published ambiguous cache evidence", &problems)
+        }
+        return problems
+    }
+
     private static func powerSummaries() -> [String] {
         let start = Date(timeIntervalSince1970: 1_788_600_000)
         let battery = [
@@ -635,6 +842,16 @@ enum SessionMetadataChecks {
                "charging transition detail lacked ordered relative time and state", &problems)
         expect((transition?.detail ?? "").contains("session energy") == false,
                "power detail implied session energy attribution", &problems)
+        let postCommitBoundary = PowerContextSummary.make(observations: [
+            PowerObservation(timestamp: start, source: .battery, percentage: 78,
+                             charging: .notCharging, boundary: .stretchStarted),
+            PowerObservation(timestamp: interval.end.addingTimeInterval(1), source: .battery,
+                             percentage: 64, charging: .notCharging, boundary: .stretchEnded),
+            PowerObservation(timestamp: interval.end.addingTimeInterval(1), source: .external,
+                             percentage: 64, charging: .notCharging, boundary: .sourceChanged)
+        ], interval: interval)
+        expect(postCommitBoundary?.headline == "Battery · 78% → 64%",
+               "summary grace admitted a post-interval source change", &problems)
         return problems
     }
 

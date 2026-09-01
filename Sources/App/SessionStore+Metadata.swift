@@ -1,14 +1,19 @@
 import Foundation
 
 extension SessionStore {
+    /// Only a genuinely near-simultaneous transition may be labelled as an
+    /// observed start/end. Stored timestamps always remain the sampling clock.
+    private static let powerBoundaryTolerance: TimeInterval = 2
+
     func capturePowerObservation(boundary: PowerCoverageBoundary?) {
         guard engine.state != .idle, powerMonitor != nil else { return }
-        capturePowerObservation(for: engine.activeRecordID, at: now(), boundary: boundary)
+        capturePowerObservation(for: engine.activeRecordID, boundary: boundary)
     }
 
-    private func capturePowerObservation(for recordID: UUID, at timestamp: Date,
+    private func capturePowerObservation(for recordID: UUID,
                                          boundary: PowerCoverageBoundary?) {
         guard let powerMonitor else { return }
+        let timestamp = now()
         let observation = powerMonitor.observation(at: timestamp, boundary: boundary)
         if case .failed(let error) = metadataArchive.appendPower(observation, for: recordID) {
             for recordID in expandedNoteEditorIDs { sessionNoteErrors[recordID] = error }
@@ -17,15 +22,26 @@ extension SessionStore {
 
     func reconcilePowerBoundaries() {
         let currentID = engine.state == .idle ? nil : engine.activeRecordID
-        if let previousID = lastPowerRecordID, previousID != currentID,
-           let record = engine.archive.records.first(where: { $0.id == previousID }) {
-            capturePowerObservation(for: previousID, at: record.end, boundary: .stretchEnded)
+        let sampleTime = now()
+        if let previousID = lastPowerRecordID, previousID != currentID {
+            if let currentID {
+                if case .failed(let error) = metadataArchive.reassignPower(
+                    from: previousID, to: currentID, atOrAfter: engine.sessionStartDate) {
+                    for recordID in expandedNoteEditorIDs { sessionNoteErrors[recordID] = error }
+                }
+            }
+            if let record = engine.archive.records.first(where: { $0.id == previousID }),
+               abs(sampleTime.timeIntervalSince(record.end)) <= Self.powerBoundaryTolerance {
+                capturePowerObservation(for: previousID, boundary: .stretchEnded)
+            }
         }
         if let currentID, currentID != lastPowerRecordID {
-            capturePowerObservation(for: currentID, at: engine.sessionStartDate,
-                                    boundary: .stretchStarted)
+            let boundary: PowerCoverageBoundary = abs(sampleTime.timeIntervalSince(
+                engine.sessionStartDate)) <= Self.powerBoundaryTolerance
+                ? .stretchStarted : .coverageResumed
+            capturePowerObservation(for: currentID, boundary: boundary)
         } else if currentID != nil, case .running = engine.state, lastPowerState.isPaused {
-            capturePowerObservation(for: currentID!, at: now(), boundary: .coverageResumed)
+            capturePowerObservation(for: currentID!, boundary: .coverageResumed)
         }
         lastPowerRecordID = currentID
         lastPowerState = engine.state
