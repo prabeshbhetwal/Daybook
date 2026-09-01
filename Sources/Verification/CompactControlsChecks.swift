@@ -8,6 +8,8 @@ import AppKit
 enum CompactControlsChecks {
     static let tests: [(String, () -> [String])] = [
         ("Focus routes reveal controls without changing reading context", focusRoute),
+        ("Pill toggles while command routes always reveal through one action boundary",
+         sessionControlActionRouting),
         ("Pinned controls survive relaunch without mutating the session", pinPersistence),
         ("Menu-bar controls remain a clamped single column", popoverBounds),
         ("Popover owns one real overflow region and excludes current continuations", popoverComposition),
@@ -19,7 +21,8 @@ enum CompactControlsChecks {
         ("Scope keyboard commands move one coherent selection", scopeKeyboard),
         ("Native scope adapter owns focus, pointer and key selection", nativeScopeAdapter),
         ("Compact Focus consumers retain general save failures and exact Retry", generalFailurePresentation),
-        ("Away Return routing is scoped to its own focused controls", awayReturnScope)
+        ("Away Return routing is scoped to its own focused controls", awayReturnScope),
+        ("Compact goal copy stays quiet at the 340pt menu width", compactGoalLine)
     ]
 
     private static func focusRoute() -> [String] {
@@ -46,6 +49,30 @@ enum CompactControlsChecks {
             navigation.closeSheet()
             if navigation.focusRestorationRequest != .settings {
                 failures.append("Closing Settings did not request focus for its invoking control")
+            }
+            return failures
+        }
+    }
+
+    private static func sessionControlActionRouting() -> [String] {
+        MainActor.assumeIsolated {
+            let navigation = MainWindowModel()
+            var failures: [String] = []
+            navigation.performSessionControlsAction(.timerPill)
+            if !navigation.sessionControlsExpanded {
+                failures.append("First timer-pill activation did not reveal the strip")
+            }
+            navigation.performSessionControlsAction(.timerPill)
+            if navigation.sessionControlsExpanded {
+                failures.append("Second timer-pill activation did not collapse the unpinned strip")
+            }
+            navigation.performSessionControlsAction(.commandOrMenu)
+            if !navigation.sessionControlsExpanded {
+                failures.append("Command route did not reveal a hidden strip")
+            }
+            navigation.performSessionControlsAction(.commandOrMenu)
+            if !navigation.sessionControlsExpanded {
+                failures.append("Repeated command route toggled an already-visible strip closed")
             }
             return failures
         }
@@ -329,9 +356,28 @@ enum CompactControlsChecks {
             }
 
             box.writes = 0
-            control.onKeyboardSelection?(.right)
+            control.keyDown(with: keyEvent(keyCode: 124, modifiers: .numericPad,
+                                           windowNumber: window.windowNumber))
             if box.value != .week || box.writes != 1 || control.selectedSegment != 1 {
                 failures.append("The real Right-key adapter path did not select Week exactly once")
+            }
+
+            for modifiers: NSEvent.ModifierFlags in [.command, .option, .control, .shift,
+                                                       [.command, .numericPad], [.option, .function]] {
+                box.writes = 0
+                let selected = box.value
+                control.keyDown(with: keyEvent(keyCode: 123, modifiers: modifiers,
+                                               windowNumber: window.windowNumber))
+                if box.value != selected || box.writes != 0 {
+                    failures.append("Modified Left with \(modifiers.rawValue) changed Story scope")
+                }
+            }
+
+            box.writes = 0
+            control.keyDown(with: keyEvent(keyCode: 115, modifiers: .function,
+                                           windowNumber: window.windowNumber))
+            if box.value != .day || box.writes != 1 {
+                failures.append("Function-flagged Home did not select Day exactly once")
             }
 
             box.writes = 0
@@ -348,6 +394,26 @@ enum CompactControlsChecks {
         }
     }
 
+    private static func keyEvent(keyCode: UInt16,
+                                 modifiers: NSEvent.ModifierFlags,
+                                 windowNumber: Int) -> NSEvent {
+        let functionKey: Int
+        switch keyCode {
+        case 123: functionKey = NSLeftArrowFunctionKey
+        case 124: functionKey = NSRightArrowFunctionKey
+        case 115: functionKey = NSHomeFunctionKey
+        case 119: functionKey = NSEndFunctionKey
+        default: functionKey = 0
+        }
+        let characters = functionKey > 0
+            ? String(UnicodeScalar(functionKey)!) : "x"
+        return NSEvent.keyEvent(with: .keyDown, location: .zero,
+                        modifierFlags: modifiers, timestamp: 0,
+                        windowNumber: windowNumber, context: nil,
+                        characters: characters, charactersIgnoringModifiers: characters,
+                        isARepeat: false, keyCode: keyCode)!
+    }
+
     @MainActor private static func embeddedScopeControl(in view: NSView)
         -> StoryScopeNSSegmentedControl? {
         if let control = view as? StoryScopeNSSegmentedControl { return control }
@@ -357,19 +423,139 @@ enum CompactControlsChecks {
         return nil
     }
 
+    private final class AwayKeyboardRecorder: ObservableObject {
+        @Published var search = ""
+        var decisions: [UserDecision] = []
+        var reasons: [String] = []
+    }
+
+    private struct AwayKeyboardHarness: View {
+        @ObservedObject var recorder: AwayKeyboardRecorder
+
+        var body: some View {
+            VStack {
+                TextField("History search", text: $recorder.search)
+                AwayAnswerGrid(away: 22 * 60,
+                               range: (Date(timeIntervalSince1970: 1_800_000_000),
+                                       Date(timeIntervalSince1970: 1_800_001_320)),
+                               compact: true,
+                               onAnswer: { recorder.decisions.append($0); return false },
+                               onReason: { recorder.reasons.append($0); return false })
+            }
+            .frame(width: 340)
+            .padding()
+        }
+    }
+
     private static func awayReturnScope() -> [String] {
-        var failures: [String] = []
-        if AwayAnswerDefaultAction.installsShortcut(focus: nil, reasonHasText: false) {
-            failures.append("Return outside the question still activates an away answer")
+        MainActor.assumeIsolated {
+            let recorder = AwayKeyboardRecorder()
+            let host = NSHostingView(rootView: AwayKeyboardHarness(recorder: recorder))
+            let window = NSWindow(contentRect: NSRect(x: -10_000, y: -10_000,
+                                                      width: 380, height: 520),
+                                  styleMask: [.borderless], backing: .buffered, defer: false)
+            window.contentView = host
+            host.frame = window.contentView?.bounds ?? .zero
+            window.makeKeyAndOrderFront(nil)
+
+            func settle() {
+                host.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+            }
+            func dispatch(_ keyCode: UInt16, characters: String) {
+                let event = NSEvent.keyEvent(with: .keyDown, location: .zero,
+                    modifierFlags: keyCode == 49 ? [] : [], timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil,
+                    characters: characters, charactersIgnoringModifiers: characters,
+                    isARepeat: false, keyCode: keyCode)!
+                if let responder = window.firstResponder {
+                    responder.keyDown(with: event)
+                } else {
+                    host.keyDown(with: event)
+                }
+                settle()
+            }
+            var failures: [String] = []
+            settle()
+            let textFields = descendants(in: host, of: NSTextField.self)
+            let answerButtons = descendants(in: host, of: AwayAnswerNSButton.self)
+            guard textFields.count >= 2, answerButtons.count == 4 else {
+                window.orderOut(nil)
+                window.contentView = nil
+                return ["Hosted Away grid did not expose its two editors and four native answers"]
+            }
+            let search = textFields.first { $0.placeholderString == "History search" } ?? textFields[0]
+            let reason = textFields.first { $0.placeholderString?.contains("Name it") == true }
+                ?? textFields[1]
+            window.makeFirstResponder(search)
+            dispatch(36, characters: "\r")
+            if !recorder.decisions.isEmpty || !recorder.reasons.isEmpty {
+                failures.append("Return in unrelated History search answered the away question")
+            }
+
+            window.makeFirstResponder(reason)
+            if let editor = window.firstResponder as? NSTextView {
+                editor.insertText("walk", replacementRange: editor.selectedRange())
+            } else {
+                failures.append("Reason editor did not expose its hosted field editor")
+            }
+            dispatch(36, characters: "\r")
+            if recorder.reasons != ["walk"] || !recorder.decisions.isEmpty {
+                failures.append("Reason-editor Return did not submit only its own reason")
+            }
+
+            for decision in [UserDecision.tookBreak, .mergeTime, .continueSession, .resetTimer] {
+                guard let button = answerButtons.first(where: {
+                    $0.accessibilityLabel()?.hasPrefix(answerTitle(decision)) == true
+                }) else {
+                    failures.append("Could not find native answer for \(decision.rawValue)")
+                    continue
+                }
+                if !button.acceptsFirstResponder || button.focusRingType == .none
+                    || button.accessibilityRole() != .button {
+                    failures.append("Native \(decision.rawValue) answer lost focus ring or Button semantics")
+                }
+                if button.frame.width < 130 || button.frame.height < AccessibilityMetrics.minimumTargetSize {
+                    failures.append("Native \(decision.rawValue) hit target does not cover its answer card")
+                }
+                let pointerBefore = recorder.decisions.count
+                button.performClick(nil)
+                if recorder.decisions.count != pointerBefore + 1
+                    || recorder.decisions.last != decision {
+                    failures.append("Native pointer action for \(decision.rawValue) did not fire exactly once")
+                }
+                for (keyCode, characters) in [(UInt16(36), "\r"), (UInt16(49), " ")] {
+                    let before = recorder.decisions.count
+                    if !window.makeFirstResponder(button) || window.firstResponder !== button {
+                        failures.append("Native \(decision.rawValue) answer could not become first responder")
+                    }
+                    dispatch(keyCode, characters: characters)
+                    if recorder.decisions.count != before + 1
+                        || recorder.decisions.last != decision {
+                        failures.append("Focused \(decision.rawValue) did not activate exactly once with key \(keyCode)")
+                    }
+                }
+            }
+            window.orderOut(nil)
+            window.contentView = nil
+            return failures
         }
-        if AwayAnswerDefaultAction.installsShortcut(focus: .reason, reasonHasText: true) {
-            failures.append("Return in the reason editor still activates the default break button")
+    }
+
+    @MainActor private static func descendants<T: NSView>(in view: NSView,
+                                                           of type: T.Type) -> [T] {
+        var found = view as? T != nil ? [view as! T] : []
+        for child in view.subviews { found.append(contentsOf: descendants(in: child, of: type)) }
+        return found
+    }
+
+    private static func answerTitle(_ decision: UserDecision) -> String {
+        switch decision {
+        case .tookBreak: return "It was a break"
+        case .mergeTime: return "I was working"
+        case .continueSession: return "I was away"
+        case .resetTimer: return "Start fresh"
         }
-        if !AwayAnswerDefaultAction.installsShortcut(
-            focus: .answer(.tookBreak), reasonHasText: false) {
-            failures.append("The focused break answer lost its local Return route")
-        }
-        return failures
     }
 
     private static func generalFailurePresentation() -> [String] {
@@ -398,5 +584,28 @@ enum CompactControlsChecks {
             }
             return failures
         }
+    }
+
+    private static func compactGoalLine() -> [String] {
+        let unavailable = CompactGoalPresentation(
+            GoalProgress(goal: 4 * 3_600, achieved: 31, typical: nil))
+        let behind = CompactGoalPresentation(
+            GoalProgress(goal: 4 * 3_600, achieved: 31, typical: 4 * 3_600))
+        var failures: [String] = []
+        if unavailable.visible != "Today · 31s / 4h · Pace unavailable"
+            || !unavailable.accessibility.contains("Pace comparison appears after enough comparable history") {
+            failures.append("Unavailable pace did not keep short visible copy and complete accessibility detail")
+        }
+        if behind.visible != "Today · 31s / 4h · 3h 59m behind"
+            || !behind.accessibility.contains("3h 59m behind your usual pace") {
+            failures.append("Behind pace did not keep short visible copy and complete accessibility detail")
+        }
+        let width = (behind.visible as NSString).size(withAttributes: [
+            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        ]).width
+        if width > 292 {
+            failures.append("Longest compact goal copy needs \(Int(width))pt at a 292pt content measure")
+        }
+        return failures
     }
 }

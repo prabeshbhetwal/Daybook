@@ -1,18 +1,55 @@
 import SwiftUI
+import AppKit
 
-enum AwayAnswerControlFocus: Hashable {
-    case answer(UserDecision)
-    case reason
+/// Native focus/action target over the existing SwiftUI answer visuals. This
+/// keeps Return and Space local to the focused answer on macOS 13 and avoids a
+/// window-scoped default shortcut that could fire from History search.
+final class AwayAnswerNSButton: NSButton {
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        let commandModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
+        if event.modifierFlags.intersection(commandModifiers).isEmpty,
+           event.keyCode == 36 || event.keyCode == 49 {
+            performClick(nil)
+        } else {
+            super.keyDown(with: event)
+        }
+    }
 }
 
-/// A default Return shortcut is process-window scoped in SwiftUI. Install it
-/// only while this question's break button itself owns focus; native Return or
-/// Space continues to activate every other focused button, and the reason field
-/// retains its own onSubmit route.
-enum AwayAnswerDefaultAction {
-    static func installsShortcut(focus: AwayAnswerControlFocus?,
-                                 reasonHasText: Bool) -> Bool {
-        focus == .answer(.tookBreak) && !reasonHasText
+private struct AwayAnswerNativeButton: NSViewRepresentable {
+    let label: String
+    let help: String
+    let action: () -> Void
+
+    final class Coordinator: NSObject {
+        var action: () -> Void
+        init(action: @escaping () -> Void) { self.action = action }
+        @objc func activate() { action() }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+
+    func makeNSView(context: Context) -> AwayAnswerNSButton {
+        let button = AwayAnswerNSButton(title: "", target: context.coordinator,
+                                        action: #selector(Coordinator.activate))
+        button.isBordered = false
+        button.isTransparent = true
+        button.focusRingType = .default
+        configure(button, coordinator: context.coordinator)
+        return button
+    }
+
+    func updateNSView(_ button: AwayAnswerNSButton, context: Context) {
+        configure(button, coordinator: context.coordinator)
+    }
+
+    private func configure(_ button: AwayAnswerNSButton, coordinator: Coordinator) {
+        coordinator.action = action
+        button.setAccessibilityRole(.button)
+        button.setAccessibilityLabel(label)
+        button.setAccessibilityHelp(help)
     }
 }
 
@@ -35,7 +72,6 @@ struct AwayAnswerGrid: View {
     /// to fit on a timeline label.
     var onReason: ((String) -> Bool)?
     @StateObject private var reason = AwayReasonDraft()
-    @FocusState private var focusedControl: AwayAnswerControlFocus?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// One set of metrics for the buttons and the field, so the field is the
@@ -82,9 +118,6 @@ struct AwayAnswerGrid: View {
             VStack(spacing: Tokens.Space.s) {
                 HStack(spacing: Tokens.Space.s) {
                     button(answers[0])
-                        .keyboardShortcut(AwayAnswerDefaultAction.installsShortcut(
-                            focus: focusedControl,
-                            reasonHasText: !reason.text.isEmpty) ? .defaultAction : nil)
                     button(answers[1])
                 }
                 HStack(spacing: Tokens.Space.s) {
@@ -127,7 +160,6 @@ struct AwayAnswerGrid: View {
             TextField("Name it — dinner, a call, a walk", text: $reason.text)
                 .textFieldStyle(.plain)
                 .font(Font.system(compact ? .callout : .body, design: .rounded))
-                .focused($focusedControl, equals: .reason)
                 .onSubmit(submitReason)
             // Appears with the first character; Return does the same thing.
             if hasText {
@@ -181,9 +213,7 @@ struct AwayAnswerGrid: View {
     }
 
     private func button(_ answer: Answer) -> some View {
-        Button {
-            if onAnswer(answer.decision) { reason.text = "" }
-        } label: {
+        ZStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(answer.title)
                     .font(controlFont)
@@ -210,11 +240,16 @@ struct AwayAnswerGrid: View {
             .foregroundStyle(answer.prominent ? AnyShapeStyle(Tokens.Colour.onFocus)
                                               : AnyShapeStyle(.primary))
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
+            .accessibilityHidden(true)
+            AwayAnswerNativeButton(
+                label: "\(answer.title). \(answer.caption)",
+                help: answer.caption,
+                action: {
+                    if onAnswer(answer.decision) { reason.text = "" }
+                })
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .buttonStyle(.plain)
-        .focused($focusedControl, equals: .answer(answer.decision))
         .help(showsCaptions ? "" : answer.caption)
-        .accessibilityLabel("\(answer.title). \(answer.caption)")
     }
 }
 

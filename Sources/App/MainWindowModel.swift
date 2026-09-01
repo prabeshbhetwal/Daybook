@@ -81,6 +81,11 @@ enum MainWindowFocusTarget: Equatable {
     case settings
 }
 
+enum SessionControlsAction {
+    case timerPill
+    case commandOrMenu
+}
+
 struct InsightReadingPosition: Equatable {
     let anchor: Date
     let pageCount: Int
@@ -235,7 +240,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     func open(tab: AppTab) {
         if tab == .focus {
-            revealSessionControls()
+            performSessionControlsAction(.commandOrMenu)
             return
         }
         selectedTab = tab
@@ -289,7 +294,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     func openSheet(_ kind: StorySheetKind) {
         switch kind {
-        case .focus: revealSessionControls()
+        case .focus: performSessionControlsAction(.commandOrMenu)
         case .history: open(tab: .review)
         case .insights: open(tab: .insights)
         default:
@@ -304,12 +309,14 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         selectedTab = tab(for: workspace)
     }
 
-    func revealSessionControls() {
-        sessionControlsExpanded = true
-    }
-
-    func toggleSessionControls() {
-        sessionControlsExpanded.toggle()
+    /// One source-typed boundary for every session-controls invocation. The
+    /// pill is a disclosure and therefore toggles; commands and menu routes are
+    /// idempotent reveals and can never hide an already-visible strip.
+    func performSessionControlsAction(_ action: SessionControlsAction) {
+        switch action {
+        case .timerPill: sessionControlsExpanded.toggle()
+        case .commandOrMenu: sessionControlsExpanded = true
+        }
     }
 
     func dismissSessionControls() {

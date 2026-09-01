@@ -48,6 +48,11 @@ final class StoryScopeNSSegmentedControl: NSSegmentedControl {
     }
 
     override func keyDown(with event: NSEvent) {
+        let commandModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+        guard event.modifierFlags.intersection(commandModifiers).isEmpty else {
+            super.keyDown(with: event)
+            return
+        }
         let command: StoryScopeKeyCommand?
         switch event.keyCode {
         case 123: command = .left

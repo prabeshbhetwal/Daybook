@@ -97,6 +97,40 @@ struct FocusOperationFailureState: Equatable {
     let hasOriginBoundRetry: Bool
 }
 
+struct CompactGoalPresentation: Equatable {
+    let visible: String
+    let accessibility: String
+
+    init(_ goal: GoalProgress) {
+        let achieved = Tokens.preciseDuration(goal.achieved)
+        let target = Tokens.preciseDuration(goal.goal)
+        let shortPace: String
+        let fullPace: String
+        if goal.isMet {
+            shortPace = "Goal met"
+            fullPace = "Daily goal met"
+        } else if let ahead = goal.aheadBy {
+            if ahead >= 60 {
+                let duration = Tokens.preciseDuration(ahead)
+                shortPace = "\(duration) ahead"
+                fullPace = "\(duration) ahead of your usual pace"
+            } else if ahead <= -60 {
+                let duration = Tokens.preciseDuration(-ahead)
+                shortPace = "\(duration) behind"
+                fullPace = "\(duration) behind your usual pace"
+            } else {
+                shortPace = "Usual pace"
+                fullPace = "On your usual pace"
+            }
+        } else {
+            shortPace = "Pace unavailable"
+            fullPace = "Pace comparison appears after enough comparable history."
+        }
+        visible = "Today · \(achieved) / \(target) · \(shortPace)"
+        accessibility = "Daily goal. \(achieved) of \(target). \(fullPace)"
+    }
+}
+
 /// The shared operational hero. Desktop and menu-bar surfaces use the same
 /// state branches and actions; `compact` changes measure and spacing only.
 struct FocusHero: View {
@@ -371,15 +405,15 @@ struct FocusHero: View {
 
     @ViewBuilder private var goalSupport: some View {
         if compact {
-            Text("Today · \(Tokens.preciseDuration(store.goal.achieved)) of "
-                 + "\(Tokens.preciseDuration(store.goal.goal)) · \(goalPaceLine)")
+            let presentation = CompactGoalPresentation(store.goal)
+            Text(presentation.visible)
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(store.goal.isMet
                                  ? AnyShapeStyle(Tokens.Colour.progress)
                                  : AnyShapeStyle(.secondary))
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel("Daily goal. \(Tokens.preciseDuration(store.goal.achieved)) "
-                                    + "of \(Tokens.preciseDuration(store.goal.goal)). \(goalPaceLine)")
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .accessibilityLabel(presentation.accessibility)
         } else {
             HStack(spacing: Tokens.Space.s) {
                 GoalRing(progress: store.goal.share,

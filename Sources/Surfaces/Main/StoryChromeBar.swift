@@ -23,7 +23,9 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             StorySessionControl(store: store,
                                 focus: $focusedControl,
-                                onDetails: navigation.toggleSessionControls)
+                                onDetails: {
+                                    navigation.performSessionControlsAction(.timerPill)
+                                })
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13, weight: .medium))
