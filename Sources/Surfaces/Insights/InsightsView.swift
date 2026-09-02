@@ -68,9 +68,11 @@ struct InsightsView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: Tokens.Space.l)
-            InsightRangePills(selection: Binding(
-                get: { navigation.insightRange },
-                set: { navigation.selectInsightRange($0) }))
+            ScopePillRow(titles: InsightRange.allCases.map(\.title),
+                         selectedIndex: Binding(
+                            get: { InsightRange.allCases.firstIndex(of: navigation.insightRange) ?? 0 },
+                            set: { navigation.selectInsightRange(InsightRange.allCases[$0]) }),
+                         controlLabel: "Insights range")
         }
     }
 
@@ -177,30 +179,6 @@ struct InsightsView: View {
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18),
                    value: navigation.insightRange)
-    }
-}
-
-struct InsightRangePills: View {
-    @Binding var selection: InsightRange
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(InsightRange.allCases, id: \.rawValue) { range in
-                Button {
-                    selection = range
-                } label: {
-                    Text(range.title)
-                        .scopePillLabel(isSelected: selection == range)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(range.title), "
-                                    + (selection == range ? "selected" : "not selected"))
-                .accessibilityAddTraits(selection == range ? .isSelected : [])
-            }
-        }
-        .scopePillContainer()
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Insights range")
     }
 }
 

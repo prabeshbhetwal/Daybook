@@ -58,15 +58,11 @@ struct StoryChromeBar: View {
     @ViewBuilder private var workspaceControls: some View {
         switch navigation.workspace {
         case .story:
-            ZStack {
-                ScopePills(titles: StoryScope.allCases.map(\.title),
-                           selectedIndex: StoryScope.allCases.firstIndex(of: navigation.storyScope) ?? 0)
-                NativeStoryScopeControl(selection: Binding(get: { navigation.storyScope },
-                                                           set: { navigation.selectScope($0) }))
-            }
-            // Sized by the pills themselves, exactly as the Insights row is,
-            // so the two chromes cannot drift to different widths.
-            .fixedSize()
+            ScopePillRow(titles: StoryScope.allCases.map(\.title),
+                         selectedIndex: Binding(
+                            get: { StoryScope.allCases.firstIndex(of: navigation.storyScope) ?? 0 },
+                            set: { navigation.selectScope(StoryScope.allCases[$0]) }),
+                         controlLabel: "Story scope")
             Spacer(minLength: Tokens.Space.s)
             periodNavigation
         case .history:
@@ -79,9 +75,11 @@ struct StoryChromeBar: View {
                 .foregroundStyle(.secondary)
         case .insights:
             returnToStory
-            InsightRangePills(selection: Binding(
-                get: { navigation.insightRange },
-                set: { navigation.selectInsightRange($0) }))
+            ScopePillRow(titles: InsightRange.allCases.map(\.title),
+                         selectedIndex: Binding(
+                            get: { InsightRange.allCases.firstIndex(of: navigation.insightRange) ?? 0 },
+                            set: { navigation.selectInsightRange(InsightRange.allCases[$0]) }),
+                         controlLabel: "Insights range")
             insightNavigation
         }
     }

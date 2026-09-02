@@ -20,6 +20,7 @@ enum CompactControlsChecks {
         ("Rail ordering is gated, one-step and deliberately dismissible", railArrangement),
         ("Scope keyboard commands move one coherent selection", scopeKeyboard),
         ("Native scope adapter owns focus, pointer and key selection", nativeScopeAdapter),
+        ("Every scope row presents one native keyboard target", scopeRowsShareOneKeyboardTarget),
         ("Compact Focus consumers retain general save failures and exact Retry", generalFailurePresentation),
         ("Away Return routing is scoped to its own focused controls", awayReturnScope),
         ("Compact goal copy stays quiet at the 340pt menu width", compactGoalLine)
@@ -307,6 +308,87 @@ enum CompactControlsChecks {
             failures.append("Could not create isolated rail-order defaults")
         }
         return failures
+    }
+
+    private final class IndexBox { var value = 0; var writes = 0 }
+
+    /// Every scope row — Story, Insights, Review — must present exactly one
+    /// native keyboard target. A row of SwiftUI pills would be one tab stop
+    /// per pill, which is the defect the native control exists to prevent.
+    private static func scopeRowsShareOneKeyboardTarget() -> [String] {
+        MainActor.assumeIsolated {
+            var failures: [String] = []
+            let rows: [(String, [String])] = [
+                ("Story scope", StoryScope.allCases.map(\.title)),
+                ("Insights range", InsightRange.allCases.map(\.title)),
+                ("Review section", ReviewSection.allCases.map(\.title))
+            ]
+            for (label, titles) in rows {
+                let box = IndexBox()
+                let host = NSHostingView(rootView: ScopePillRow(
+                    titles: titles,
+                    selectedIndex: Binding(get: { box.value },
+                                           set: { box.value = $0; box.writes += 1 }),
+                    controlLabel: label))
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 60),
+                                      styleMask: .borderless, backing: .buffered, defer: false)
+                window.contentView = host
+                host.frame = window.contentView?.bounds ?? .zero
+                host.layoutSubtreeIfNeeded()
+                let controls = descendants(in: host, of: ScopeNSSegmentedControl.self)
+                guard controls.count == 1, let control = controls.first else {
+                    failures.append("\(label) exposed \(controls.count) keyboard targets, not one")
+                    window.contentView = nil
+                    continue
+                }
+                if !window.makeFirstResponder(control) || window.firstResponder !== control {
+                    failures.append("\(label) could not become the single first responder")
+                }
+                box.writes = 0
+                control.keyDown(with: keyEvent(keyCode: 124, modifiers: .numericPad,
+                                               windowNumber: window.windowNumber))
+                if box.value != 1 || box.writes != 1 {
+                    failures.append("\(label) Right key did not advance the selection exactly once")
+                }
+                box.writes = 0
+                control.keyDown(with: keyEvent(keyCode: 119, modifiers: .function,
+                                               windowNumber: window.windowNumber))
+                if box.value != titles.count - 1 || box.writes != 1 {
+                    failures.append("\(label) End did not select the last scope exactly once")
+                }
+                if control.accessibilityValue() as? String != "\(titles[titles.count - 1]), selected" {
+                    failures.append("\(label) did not expose its selected value")
+                }
+                window.contentView = nil
+            }
+
+            // The component having one target is not enough: the real chrome
+            // must actually use it. Story and Insights each show a scope row,
+            // and History shows none.
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            for (tab, expected) in [(AppTab.story, 1), (.insights, 1), (.review, 0)] {
+                let navigation = MainWindowModel(store: store)
+                navigation.open(tab: tab)
+                let host = NSHostingView(rootView: StoryChromeBar(store: store,
+                                                                  navigation: navigation)
+                    .frame(width: 1_000))
+                host.frame = NSRect(x: 0, y: 0, width: 1_000, height: 60)
+                let window = NSWindow(contentRect: host.frame, styleMask: .borderless,
+                                      backing: .buffered, defer: false)
+                window.contentView = host
+                host.layoutSubtreeIfNeeded()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+                host.layoutSubtreeIfNeeded()
+                let found = descendants(in: host, of: ScopeNSSegmentedControl.self).count
+                if found != expected {
+                    failures.append("The \(tab.rawValue) chrome presented \(found) native scope "
+                                    + "targets, expected \(expected)")
+                }
+                window.contentView = nil
+            }
+            return failures
+        }
     }
 
     private static func scopeKeyboard() -> [String] {

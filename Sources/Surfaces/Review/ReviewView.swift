@@ -87,7 +87,11 @@ struct ReviewView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: Tokens.Space.l)
-            ReviewSectionPills(selection: sectionBinding)
+            ScopePillRow(titles: ReviewSection.allCases.map(\.title),
+                         selectedIndex: Binding(
+                            get: { ReviewSection.allCases.firstIndex(of: navigation.reviewSection) ?? 0 },
+                            set: { sectionBinding.wrappedValue = ReviewSection.allCases[$0] }),
+                         controlLabel: "Review section")
         }
     }
 
@@ -325,30 +329,6 @@ struct ReviewView: View {
 
 }
 
-private struct ReviewSectionPills: View {
-    @Binding var selection: ReviewSection
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(ReviewSection.allCases, id: \.rawValue) { section in
-                Button {
-                    selection = section
-                } label: {
-                    Text(section.title)
-                        .scopePillLabel(isSelected: selection == section)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(section.title), "
-                                    + (selection == section ? "selected" : "not selected"))
-                .accessibilityAddTraits(selection == section ? .isSelected : [])
-            }
-        }
-        .scopePillContainer()
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Review section")
-    }
-}
-
 private struct ReviewMetric: View {
     let label: String
     let value: String
@@ -373,7 +353,8 @@ private struct ReviewMetric: View {
     }
 }
 
-private extension ReviewSection {
+/// Internal so every scope row and its checks name the sections identically.
+extension ReviewSection {
     var title: String {
         switch self {
         case .week: return "Week"
