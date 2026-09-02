@@ -122,6 +122,14 @@ struct ActivityRulesView: View {
     }
 }
 
+/// Counts the picker rows that actually rendered. Production ignores the
+/// preference; verification reads it to prove a row exists for each published
+/// application, rather than only that a scroll region appeared.
+struct InstalledAppRowCountKey: PreferenceKey {
+    static let defaultValue = 0
+    static func reduce(value: inout Int, nextValue: () -> Int) { value += nextValue() }
+}
+
 struct InstalledAppPicker: View {
     @ObservedObject var catalog: InstalledAppCatalog
     @Binding var query: String
@@ -166,6 +174,7 @@ struct InstalledAppPicker: View {
                                 }
                             }
                         }.toggleStyle(.checkbox).frame(minHeight: 32)
+                        .preference(key: InstalledAppRowCountKey.self, value: 1)
                     }
                 }
             }

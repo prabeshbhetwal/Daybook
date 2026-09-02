@@ -30,7 +30,8 @@ enum ActivityRuleChecks {
         ("Rule editor validates custom dwell and owns a scrollable injected picker", editorConsumer),
         ("Installed-app discovery deduplicates injected local sources", catalogDiscovery),
         ("Run-loop discovery turns the worker's loop rather than blocking it",
-         catalogRunLoopWait)
+         catalogRunLoopWait),
+        ("Installed-app picker renders a row per published application", pickerRows)
     ]
 
     private static let t0 = Date(timeIntervalSince1970: 2_000_000_000)
@@ -874,6 +875,72 @@ enum ActivityRuleChecks {
             return ["The run-loop wait never returned"]
         }
         return box.failures
+    }
+
+    private final class CountBox { var value = 0 }
+
+    /// The picker's rows are SwiftUI-only, so no NSView walk can see them —
+    /// counting `NSButton` descendants returns zero however many applications
+    /// are published. The production row-count preference is read instead, which
+    /// proves a row exists for each application rather than only that a scroll
+    /// region appeared. The catalogue is injected; no application is enumerated.
+    private static func pickerRows() -> [String] {
+        MainActor.assumeIsolated {
+            @MainActor func render(_ count: Int, query: String = "") -> Int {
+                let apps = (0..<count).map {
+                    InstalledApplication(bundleID: "com.example.app\($0)",
+                                         name: "Application \($0)", url: nil)
+                }
+                let catalog = InstalledAppCatalog(discoverStandard: { apps },
+                                                  discoverSpotlight: { [] }, observed: { [] })
+                catalog.refresh()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+                let queryBox = TextBox(); queryBox.text = query
+                let selectionBox = SetBox()
+                let rows = CountBox()
+                let view = InstalledAppPicker(
+                    catalog: catalog,
+                    query: Binding(get: { queryBox.text }, set: { queryBox.text = $0 }),
+                    selection: Binding(get: { Set<String>() }, set: { _ in }))
+                    .frame(width: 520, height: 400)
+                    .onPreferenceChange(InstalledAppRowCountKey.self) { rows.value = $0 }
+                let host = NSHostingView(rootView: view)
+                host.frame = NSRect(x: 0, y: 0, width: 520, height: 400)
+                let window = NSWindow(contentRect: host.frame, styleMask: [.borderless],
+                                      backing: .buffered, defer: false)
+                window.contentView = host
+                window.makeKeyAndOrderFront(nil)
+                host.layoutSubtreeIfNeeded()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+                host.layoutSubtreeIfNeeded()
+                window.orderOut(nil); window.contentView = nil
+                _ = selectionBox
+                return rows.value
+            }
+            var failures: [String] = []
+            let empty = render(0)
+            if empty != 0 {
+                failures.append("An empty catalogue still rendered \(empty) picker rows")
+            }
+            // Four rows fit the picker's own 220-point viewport, so every
+            // published application must appear.
+            let four = render(4)
+            if four != 4 {
+                failures.append("Four published applications rendered \(four) rows")
+            }
+            // Eight exceed the viewport. The list is lazy by design, so more
+            // rows must appear than for four, and never more than were published.
+            let eight = render(8)
+            if eight <= four || eight > 8 {
+                failures.append("Eight published applications rendered \(eight) rows, "
+                    + "outside the expected \(four + 1)...8")
+            }
+            let filtered = render(8, query: "Application 3")
+            if filtered != 1 {
+                failures.append("Searching one application name rendered \(filtered) rows")
+            }
+            return failures
+        }
     }
 
     private static func catalogDiscovery() -> [String] {
