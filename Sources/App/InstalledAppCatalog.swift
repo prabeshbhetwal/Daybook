@@ -17,6 +17,13 @@ struct InstalledApplication: Equatable, Identifiable {
     }
 }
 
+/// One mutable value shared between a run-loop callback and the code waiting
+/// on it. Both touch it on the same thread; the reference exists only because
+/// a callback cannot capture a local `var` without escaping it.
+private final class RunLoopFlag {
+    var isSet = false
+}
+
 final class InstalledAppCatalog: ObservableObject {
     @Published private(set) var applications: [InstalledApplication] = []
     @Published private(set) var isLoading = false
@@ -90,6 +97,34 @@ final class InstalledAppCatalog: ObservableObject {
         }
     }
 
+    /// The Spotlight supplement is bounded in both time and size.
+    private static let spotlightBudget: TimeInterval = 1.5
+    private static let spotlightResultCap = 200
+
+    /// Turns the current thread's run loop until `isSatisfied` holds or the
+    /// budget expires, and reports which happened.
+    ///
+    /// A GCD worker owns a run loop but never runs it. An API that delivers
+    /// through the run loop cannot make progress behind a blocking wait — the
+    /// wait starves the very delivery it is waiting for. A keep-alive timer
+    /// guarantees the loop always has a source, so each turn blocks for input
+    /// rather than spinning.
+    @discardableResult
+    static func turnRunLoop(until isSatisfied: () -> Bool,
+                            timeout: TimeInterval,
+                            now: () -> Date = Date.init) -> Bool {
+        if isSatisfied() { return true }
+        let deadline = now().addingTimeInterval(timeout)
+        let keepAlive = Timer(timeInterval: 0.02, repeats: true) { _ in }
+        RunLoop.current.add(keepAlive, forMode: .default)
+        defer { keepAlive.invalidate() }
+        while now() < deadline {
+            _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02))
+            if isSatisfied() { return true }
+        }
+        return isSatisfied()
+    }
+
     /// Spotlight is intentionally scoped to ordinary application locations
     /// and capped. It supplements the bounded directory pass; it is not a disk
     /// crawler and never reads application content, windows, documents or URLs.
@@ -99,22 +134,24 @@ final class InstalledAppCatalog: ObservableObject {
         query.predicate = NSPredicate(format: "%K == %@",
                                       NSMetadataItemContentTypeKey, "com.apple.application-bundle")
         let centre = NotificationCenter.default
-        let semaphore = DispatchSemaphore(value: 0)
+        let gathered = RunLoopFlag()
         let token = centre.addObserver(forName: .NSMetadataQueryDidFinishGathering,
-                                       object: query, queue: nil) { _ in semaphore.signal() }
-        query.start()
-        _ = semaphore.wait(timeout: .now() + 1.5)
+                                       object: query, queue: nil) { _ in gathered.isSet = true }
+        defer { centre.removeObserver(token) }
+        guard query.start() else { return [] }
+        defer { query.stop() }
+        // Gathering arrives through this thread's run loop, so it is turned
+        // rather than blocked on. A budget that expires yields whatever was
+        // gathered by then; it never yields more than was observed.
+        turnRunLoop(until: { gathered.isSet }, timeout: spotlightBudget)
         query.disableUpdates()
-        let result = query.results.prefix(200).compactMap { item -> InstalledApplication? in
+        return query.results.prefix(spotlightResultCap).compactMap { item -> InstalledApplication? in
             guard let metadata = item as? NSMetadataItem,
                   let path = metadata.value(forAttribute: NSMetadataItemPathKey) as? String else {
                 return nil
             }
             return application(at: URL(fileURLWithPath: path))
         }
-        query.stop()
-        centre.removeObserver(token)
-        return result
     }
 
     static func application(at url: URL) -> InstalledApplication? {

@@ -782,7 +782,7 @@ final class SessionStore: ObservableObject {
             let moment = now()
             refreshTypical(at: moment)
             refreshThread()
-            refreshContinuations(at: moment)
+            refreshContinuations()
             refreshLiveFigures(at: moment)
             reconcilePowerBoundaries()
             refreshSessionMetadataRetention()

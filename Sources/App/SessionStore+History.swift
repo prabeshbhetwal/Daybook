@@ -463,7 +463,7 @@ extension SessionStore {
 
     /// One archive-wide continuation projection per refresh. The grouped
     /// summaries and index remain stable until archive evidence changes.
-    func refreshContinuations(at moment: Date) {
+    func refreshContinuations() {
         let records = engine.archive.records
         let index = ContinuationPolicy.Index(records: records)
         let active = runningThread()

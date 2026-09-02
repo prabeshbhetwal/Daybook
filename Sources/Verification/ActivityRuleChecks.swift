@@ -28,7 +28,9 @@ enum ActivityRuleChecks {
         ("All-off activation records context without starting focus", allOffActivationGate),
         ("Quiet choice renders in both compact control surfaces", quietChoiceConsumers),
         ("Rule editor validates custom dwell and owns a scrollable injected picker", editorConsumer),
-        ("Installed-app discovery deduplicates injected local sources", catalogDiscovery)
+        ("Installed-app discovery deduplicates injected local sources", catalogDiscovery),
+        ("Run-loop discovery turns the worker's loop rather than blocking it",
+         catalogRunLoopWait)
     ]
 
     private static let t0 = Date(timeIntervalSince1970: 2_000_000_000)
@@ -830,6 +832,48 @@ enum ActivityRuleChecks {
     @MainActor private static func descendantCount<T: NSView>(_ type: T.Type,
                                                                in view: NSView) -> Int {
         (view is T ? 1 : 0) + view.subviews.reduce(0) { $0 + descendantCount(type, in: $1) }
+    }
+
+    /// One mutable value shared across the worker boundary. The semaphore
+    /// below orders every write before the read.
+    private final class Box {
+        var flag = false
+        var failures: [String] = []
+    }
+
+    /// The catalogue's Spotlight supplement is delivered through the run loop
+    /// of whichever thread starts it — a GCD worker in production, which owns
+    /// a run loop but never runs it. This proves the wait actually turns that
+    /// loop, which a blocking wait cannot do, and that an unmet wait still
+    /// honours its budget. It uses a synthetic run-loop delivery; no live
+    /// Spotlight query is started and the user's applications are never
+    /// enumerated.
+    private static func catalogRunLoopWait() -> [String] {
+        let box = Box()
+        let finished = DispatchSemaphore(value: 0)
+        DispatchQueue(label: "fc.catalog.runloop.check").async {
+            // Only a turning run loop can ever execute this block.
+            RunLoop.current.perform { box.flag = true }
+            let satisfied = InstalledAppCatalog.turnRunLoop(until: { box.flag }, timeout: 2)
+            if !satisfied || !box.flag {
+                box.failures.append("A run-loop delivery never arrived on a worker thread")
+            }
+
+            let start = Date()
+            let unmet = InstalledAppCatalog.turnRunLoop(until: { false }, timeout: 0.2)
+            let elapsed = Date().timeIntervalSince(start)
+            if unmet {
+                box.failures.append("An unmet condition reported success")
+            }
+            if elapsed > 1.5 {
+                box.failures.append("An unmet wait overran its budget by \(elapsed - 0.2)s")
+            }
+            finished.signal()
+        }
+        guard finished.wait(timeout: .now() + 15) == .success else {
+            return ["The run-loop wait never returned"]
+        }
+        return box.failures
     }
 
     private static func catalogDiscovery() -> [String] {
