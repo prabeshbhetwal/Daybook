@@ -1314,6 +1314,13 @@ final class SessionEngine {
         let evidence = action.evidence
         guard state == .idle, evidence.duration.isFinite, evidence.duration >= 0,
               evidence.start <= evidence.end, evidence.end <= now() else { return false }
+        // Time already written to a record is owned. An evidence window that
+        // begins inside archived work would credit those seconds twice, so it
+        // is refused outright rather than trimmed — a trimmed window would
+        // claim a dwell the app never observed.
+        if let lastEnd = archive.records.map(\.end).max(), evidence.start < lastEnd {
+            return false
+        }
         activeWorkType = action.workType
         activeDetectedApp = currentAppBundleID
         activeThreadID = UUID()

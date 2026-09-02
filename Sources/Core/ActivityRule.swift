@@ -99,21 +99,6 @@ struct AutomaticActivityRecord: Codable, Equatable {
 }
 
 enum ActivityAccounting {
-    static func unionSeconds(_ intervals: [DateInterval]) -> TimeInterval {
-        let valid = intervals.filter { $0.duration.isFinite && $0.duration > 0 }
-            .sorted { lhs, rhs in lhs.start == rhs.start ? lhs.end < rhs.end : lhs.start < rhs.start }
-        guard var current = valid.first else { return 0 }
-        var total: TimeInterval = 0
-        for interval in valid.dropFirst() {
-            if interval.start <= current.end {
-                current = DateInterval(start: current.start, end: max(current.end, interval.end))
-            } else {
-                total += current.duration
-                current = interval
-            }
-        }
-        return total + current.duration
-    }
 
     static func contiguousCoverage(_ intervals: [DateInterval], endingAt end: Date,
                                    tolerance: TimeInterval = 1) -> DateInterval? {

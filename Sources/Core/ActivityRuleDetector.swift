@@ -108,6 +108,26 @@ struct ActivityRuleDetector {
 
     private var run: Run?
     private var nextGeneration: UInt64 = 0
+    /// The ownership the current run began under. A run's evidence is only
+    /// valid for the session context it was observed in: when that context
+    /// ends or changes — a Stop, a manual start, an automatic switch — the time
+    /// before the change already belongs to a record, so the run must begin
+    /// again rather than carry an interval into a new start.
+    private var ownerKey: OwnerKey?
+
+    private enum OwnerKey: Equatable {
+        case none
+        case manual
+        case automatic(UUID)
+
+        init(_ ownership: ActivityOwnership) {
+            switch ownership {
+            case .none: self = .none
+            case .manual: self = .manual
+            case .automatic(_, let recordID): self = .automatic(recordID)
+            }
+        }
+    }
 
     mutating func reset() {
         if run != nil { nextGeneration &+= 1 }
@@ -128,6 +148,10 @@ struct ActivityRuleDetector {
         }
         let matches = enabled.filter { $0.bundleIDs.contains(bundleID) }
             .sorted { $0.id.uuidString < $1.id.uuidString }
+
+        let key = OwnerKey(input.ownership)
+        if let previous = ownerKey, previous != key { reset() }
+        ownerKey = key
 
         switch input.ownership {
         case .manual:

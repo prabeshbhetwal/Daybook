@@ -15,6 +15,8 @@ enum ActivityRuleChecks {
         ("Exclusive automatic switches begin at the exclusive boundary", exclusiveSwitchBoundary),
         ("Rule deadlines fire once without another app activation", oneShotDeadline),
         ("Rule callbacks fail closed after edits, absence and tracking changes", staleDeadlineSafety),
+        ("A Stop mid-dwell never re-credits archived time to a new start", stopMidDwell),
+        ("An automatic start refuses evidence that overlaps archived work", overlapRefusal),
         ("Quiet choices freeze external evidence and reject stale selection", quietChoiceSafety),
         ("Activity rule preferences preserve legacy, opt-in and all-off modes", preferenceModes),
         ("Automatic actions retain exact reason and identity-bound Undo", exactActionIdentity),
@@ -253,6 +255,124 @@ enum ActivityRuleChecks {
             if actions.contains(where: \.isMutation) {
                 failures.append("A stale deadline mutated after \(label)")
             }
+        }
+        return failures
+    }
+
+    /// A qualifying run begun while an automatic session is live must not
+    /// outlive that session's Stop. Time before the Stop is already archived;
+    /// only a run begun after it may qualify.
+    private static func stopMidDwell() -> [String] {
+        let coding = ActivityRule(name: "Coding", workType: .deepWork,
+                                  bundleIDs: ["com.example.code"], startAfter: 60)
+        let research = ActivityRule(name: "Research", workType: .learning,
+                                    bundleIDs: ["com.example.research"], startAfter: 60)
+        let rules = [coding, research]
+        let owner = UUID()
+        var failures: [String] = []
+
+        // Exclusive switch candidacy, then Stop before the dwell elapses.
+        do {
+            let scheduler = TestScheduler()
+            var current = input(at: 0, app: "com.example.research",
+                                ownership: .automatic(ruleID: coding.id, recordID: owner),
+                                customRules: rules)
+            var actions: [ActivityRuleResult] = []
+            let automation = ActivityAutomation(scheduler: scheduler,
+                input: { current }, apply: { actions.append($0) })
+            automation.observe(current)
+            guard let stale = scheduler.scheduled.first?.2 else {
+                return ["The pre-Stop switch run scheduled no deadline"]
+            }
+            // Stop at t=30: ownership is gone, the app stays in front.
+            current = input(at: 30, app: "com.example.research", ownership: .none,
+                            customRules: rules)
+            automation.observe(current)
+            // The pre-Stop deadline fires anyway at its own time. It is stale.
+            current = input(at: 60, app: "com.example.research", ownership: .none,
+                            customRules: rules)
+            stale()
+            if let bad = actions.compactMap({ result -> ActivityAutomaticAction? in
+                if case .start(let action) = result { return action }
+                if case .switchActivity(let action) = result { return action }
+                return nil
+            }).first(where: { $0.evidence.start < t0.addingTimeInterval(30) }) {
+                failures.append("A start after Stop credited time from before the Stop "
+                    + "(evidence began \(bad.evidence.start.timeIntervalSince(t0))s)")
+            }
+            // The run begun after the Stop is legitimate and qualifies at its
+            // own one-shot deadline, with evidence starting at the Stop.
+            current = input(at: 90, app: "com.example.research", ownership: .none,
+                            customRules: rules)
+            scheduler.fireLatest()
+            let post = actions.compactMap { result -> ActivityAutomaticAction? in
+                if case .start(let action) = result { return action }
+                return nil
+            }
+            if !post.contains(where: { $0.evidence.start >= t0.addingTimeInterval(30) }) {
+                failures.append("A run begun after the Stop never qualified")
+            }
+        }
+
+        // Ambiguous run pending, then Stop; the frozen choice must not credit
+        // pre-Stop time either.
+        do {
+            let shared = ActivityRule(name: "Research", workType: .learning,
+                                      bundleIDs: ["com.example.shared"], startAfter: 60)
+            let both = [ActivityRule(name: "Coding", workType: .deepWork,
+                                     bundleIDs: ["com.example.shared"], startAfter: 60), shared]
+            let scheduler = TestScheduler()
+            var current = input(at: 0, app: "com.example.shared",
+                                ownership: .automatic(ruleID: UUID(), recordID: owner),
+                                customRules: both)
+            var actions: [ActivityRuleResult] = []
+            let automation = ActivityAutomation(scheduler: scheduler,
+                input: { current }, apply: { actions.append($0) })
+            automation.observe(current)
+            current = input(at: 30, app: "com.example.shared", ownership: .none,
+                            customRules: both)
+            automation.observe(current)
+            current = input(at: 60, app: "com.example.shared", ownership: .none,
+                            customRules: both)
+            scheduler.fireLatest()
+            if let choice = actions.compactMap({ result -> ActivityQuietChoice? in
+                if case .ambiguous(let choice) = result { return choice }
+                return nil
+            }).first, choice.evidence.start < t0.addingTimeInterval(30) {
+                failures.append("An ambiguous choice after Stop froze evidence from before the Stop")
+            }
+        }
+        return failures
+    }
+
+    /// The engine is the last line: whatever the detector delivers, an
+    /// evidence window that begins inside archived work is refused whole.
+    private static func overlapRefusal() -> [String] {
+        let context = makeConsumer(now: t0)
+        defer { clean(context) }
+        let ruleID = UUID()
+        let archivedEnd = t0.addingTimeInterval(-60)
+        context.archive.append(SessionRecord(name: "Coding", workType: .deepWork,
+            start: t0.addingTimeInterval(-660), end: archivedEnd,
+            workSeconds: 600, threadID: UUID()))
+        var failures: [String] = []
+        let overlapping = action(rule: ruleID, name: "Research", type: .learning,
+            start: t0.addingTimeInterval(-120), end: t0.addingTimeInterval(-30),
+            version: context.persistence.activityRuleVersion, generation: 1)
+        if context.engine.startAutomatically(action: overlapping) {
+            failures.append("An automatic start accepted evidence overlapping an archived record")
+        }
+        if context.engine.state != .idle {
+            failures.append("A refused automatic start still changed engine state")
+        }
+        let clean = action(rule: ruleID, name: "Research", type: .learning,
+            start: archivedEnd, end: t0.addingTimeInterval(-10),
+            version: context.persistence.activityRuleVersion, generation: 2)
+        if !context.engine.startAutomatically(action: clean) {
+            failures.append("An automatic start beginning at the archived end was refused")
+        }
+        if context.engine.sessionStartDate != archivedEnd {
+            failures.append("The accepted start did not begin at its evidence start")
         }
         return failures
     }
