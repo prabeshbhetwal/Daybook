@@ -332,14 +332,22 @@ enum ActivityRuleChecks {
             current = input(at: 30, app: "com.example.shared", ownership: .none,
                             customRules: both)
             automation.observe(current)
-            current = input(at: 60, app: "com.example.shared", ownership: .none,
+            // The run begun at the Stop qualifies at its own deadline (t=90),
+            // and the choice it produces must begin at the Stop, not before.
+            current = input(at: 90, app: "com.example.shared", ownership: .none,
                             customRules: both)
             scheduler.fireLatest()
-            if let choice = actions.compactMap({ result -> ActivityQuietChoice? in
+            let choices = actions.compactMap { result -> ActivityQuietChoice? in
                 if case .ambiguous(let choice) = result { return choice }
                 return nil
-            }).first, choice.evidence.start < t0.addingTimeInterval(30) {
-                failures.append("An ambiguous choice after Stop froze evidence from before the Stop")
+            }
+            guard let choice = choices.last else {
+                failures.append("No ambiguous choice was produced after the Stop")
+                return failures
+            }
+            if choice.evidence.start != t0.addingTimeInterval(30) {
+                failures.append("An ambiguous choice after Stop froze evidence from "
+                    + "\(choice.evidence.start.timeIntervalSince(t0))s, not the Stop at 30s")
             }
         }
         return failures
