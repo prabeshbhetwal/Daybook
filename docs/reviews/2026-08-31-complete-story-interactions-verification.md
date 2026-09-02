@@ -39,6 +39,8 @@ as eight tasks with an independent review and bounded fix rounds per task.
   the compact popover and quick/full prompt captures.
 - `scripts/build-fixture-app.sh activityRuleAmbiguity`: fixture-only app
   built and ad-hoc signed; **not launched**.
+- Post-review cleanup `6116dae` closed both Minor findings of the final
+  whole-change review; `./build.sh --check` 397/397, `git diff --check` clean.
 
 ## Cross-feature regression coverage (Task 8, Step 1)
 
@@ -103,10 +105,15 @@ migration occurred.
 
 - Pointer, VoiceOver traversal, native picker appearance and focus-ring
   visuals: deferred (locked Mac).
-- Live IOKit power sampling and live Spotlight discovery: not exercised. The
-  Spotlight query runs on a worker without a run loop and may yield nothing in
-  production; it fails safe (less discovery, never more) and is recorded as
-  unverified.
+- Live IOKit power sampling and live Spotlight discovery: not exercised.
+  The run-loop defect behind the Spotlight query was subsequently found and
+  fixed (`6116dae`): the query is started on a worker, delivers its gathering
+  notification through that thread's run loop, and the old code blocked on a
+  semaphore instead of turning it, so it always timed out empty. The wait now
+  turns the loop, proven by a check that drives a synthetic run-loop delivery
+  on a worker thread. Whether a real query returns real applications on this
+  Mac is still unverified — the suite starts no live query and enumerates no
+  applications.
 - An in-process accessibility walk cannot see SwiftUI-only elements
   (`NSHostingView` reports zero accessibility children), so render proofs use
   the production evidence seam; assistive-technology exposure of SwiftUI
