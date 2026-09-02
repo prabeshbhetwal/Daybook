@@ -23,7 +23,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         onChange: { [weak self] in self?.store.refresh() },
         onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) },
         onAppearanceChanged: { [weak self] in self?.applyApplicationAppearance($0) },
-        diagnostics: .live(usage: usage))
+        onActivityRulesChanged: { [weak self] in self?.ruleConfigurationChanged() },
+        diagnostics: .live(usage: usage),
+        installedAppCatalog: InstalledAppCatalog(observed: { [weak self] in
+            guard let self else { return [] }
+            var names: [String: String] = [:]
+            for session in self.usage.sessions { names[session.bundleID] = session.appName }
+            return names.map { InstalledApplication(bundleID: $0.key, name: $0.value,
+                                                      url: nil, isInstalled: false) }
+        }))
     /// One route object for the window, menu popover, commands and deep links.
     /// Its first story comes from the persisted preference exactly once at
     /// launch.
@@ -43,6 +51,12 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     // MARK: - Automatic sessions and rewards
 
     private var detector = AutoSessionDetector(breakLength: FocusConstants.defaultBreakLength)
+    private lazy var activityAutomation = ActivityAutomation(
+        scheduler: MainActivityDeadlineScheduler(),
+        input: { [weak self] in self?.activityRuleInput() ?? ActivityRuleInput.disabled },
+        apply: { [weak self] result in
+            Task { @MainActor in self?.applyActivityRuleResult(result) }
+        })
     /// Lazy because `RewardHUD` is main-actor isolated and this delegate is
     /// not; every access below is already on the main thread.
     @MainActor private lazy var hud = RewardHUD()
@@ -52,6 +66,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// display waking behind a lock — a notification, a lid opened to a
     /// password field, a dark wake — is not the user back; the unlock is.
     private var screenLocked = false
+    private var machineSleeping = false
+    private var foregroundGeneration: UInt64 = 0
     /// Puts the away question where the user is. Lazy for the same reason as
     /// the HUD: main-actor isolated, first touched on the main thread.
     @MainActor private lazy var awayPrompter = AwayPrompter(
@@ -117,7 +133,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         detector.startThreshold = PurposeLearner(signals: engine.store.autoStartLearning)
             .startThreshold(for: score.signals.dominantApp)
 
-        if engine.store.autoSessionsEnabled && !decisionPending {
+        if engine.store.automationMode == .activityRules {
+            detector.reset()
+            activityAutomation.observe(activityRuleInput(at: moment))
+        } else {
+            activityAutomation.cancel()
+            store.presentActivityChoice(nil)
+        }
+
+        if engine.store.automationMode == .legacyHeuristic && !decisionPending {
             // `state != .idle` rather than `state.isRunning`: a session the
             // detector paused is still its session, and reporting it as gone
             // would make the detector discard the pause it is timing.
@@ -127,7 +151,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                              sessionWasAutoStarted: engine.activeIsAuto,
                                              enginePaused: engine.state.isPaused)
             apply(decision)
-        } else {
+        } else if engine.store.automationMode != .activityRules {
             // Nothing evaluates while disabled or while a decision is pending,
             // so a qualifying run frozen at switch-off would fire the instant it
             // is switched back on, backdated arbitrarily far — in the pending
@@ -135,6 +159,60 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             detector.reset()
         }
         evaluateRewards(score: score, at: moment, usageSnapshot: usageSnapshot)
+    }
+
+    private func ruleConfigurationChanged() {
+        activityAutomation.cancel()
+        store.presentActivityChoice(nil)
+        scheduleAutomation()
+    }
+
+    private func activityRuleInput(at moment: Date = Date()) -> ActivityRuleInput {
+        let presence: ActivityPresence
+        if screenLocked { presence = .locked }
+        else if machineSleeping { presence = .sleeping }
+        else if case .paused(reason: .away) = engine.state { presence = .away }
+        else { presence = .present }
+        let snapshot = AppUsageSnapshot(archive: usage, tracker: tracker)
+        let coverage = ActivityAccounting.contiguousCoverage(
+            snapshot.sessions.map { DateInterval(start: $0.start, end: $0.end) },
+            endingAt: moment)
+        let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let controlsAreForeground = frontmost == FocusConstants.bundleIdentifier
+        let cooldownAllows = engine.store.activityRuleCooldownUntil.map { moment >= $0 } ?? true
+        return ActivityRuleInput(timestamp: moment,
+            foregroundBundleID: tracker.currentBundleID,
+            foregroundIsActive: frontmost == tracker.currentBundleID,
+            controlsAreForeground: controlsAreForeground,
+            foregroundGeneration: foregroundGeneration,
+            presence: presence, trackingEnabled: tracker.isEnabled,
+            automationEnabled: engine.store.automationMode == .activityRules && cooldownAllows,
+            ruleVersion: engine.store.activityRuleVersion,
+            rules: engine.store.activityRules, ownership: store.activityOwnership,
+            pendingManualState: decisionPending || store.hasPendingManualActivityState,
+            recordingCoverage: coverage)
+    }
+
+    private var decisionPending: Bool {
+        if case .awaitingUserDecision = engine.state { return true }
+        return false
+    }
+
+    @MainActor private func applyActivityRuleResult(_ result: ActivityRuleResult) {
+        switch result {
+        case .ambiguous(let choice):
+            store.presentActivityChoice(choice)
+        case .start(let action), .switchActivity(let action):
+            guard let record = store.applyAutomaticActivity(action) else { return }
+            hud.show(title: "\(action.ruleName) session started", detail: action.reason,
+                     symbolName: "play.circle.fill",
+                     undo: { [weak self] in
+                        _ = self?.store.undoAutomaticActivity(
+                            expectedRecordID: record.resultingRecordID)
+                     })
+        case .none, .deadline:
+            break
+        }
     }
 
     @MainActor private func apply(_ decision: AutoDecision) {
@@ -304,6 +382,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         if AppCoordinator.permitsInitialUsageSeed(screenLocked: screenLocked,
                                                   displayAsleep: displayAsleep),
            let frontmost = NSWorkspace.shared.frontmostApplication {
+            foregroundGeneration &+= 1
             engine.transition(on: .appActivated(bundleID: frontmost.bundleIdentifier,
                                                 name: frontmost.localizedName ?? "Unknown"))
             tracker.appActivated(bundleID: frontmost.bundleIdentifier,
@@ -315,6 +394,12 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         PurposeMap.declaredCategory = { AppCategoryReader.shared.category(for: $0) }
         store.attach(tracker: tracker, usage: usage)
         store.onDeferredAutomationReady = { [weak self] in self?.scheduleAutomation() }
+        store.onAutomationStateChanged = { [weak self] in self?.scheduleAutomation() }
+        store.onActivityChoiceSelected = { [weak self] ruleID in
+            guard let self else { return }
+            _ = self.activityAutomation.choose(ruleID: ruleID,
+                                                using: self.activityRuleInput())
+        }
         store.refresh()
         Task { @MainActor in
             self.awayPrompter.start()
@@ -469,6 +554,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self?.scheduleAutomation()
         }
         monitor.onSystemWillSleep = { [weak self] in
+            self?.machineSleeping = true
             self?.engine.transition(on: .awayBegan(trigger: .systemSleep))
             self?.tracker.suspend()
             self?.sampleInput(absent: true)
@@ -477,6 +563,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         monitor.onScreenUnlocked = { [weak self] in
             let moment = Date()
             self?.screenLocked = false
+            self?.machineSleeping = false
             self?.store.screenLocked = false
             self?.engine.transition(on: .awayEnded)
             let releasedDeferredAutomation = self?.resumeTracking(at: moment) ?? false
@@ -492,6 +579,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // confirms; never here. The refresh restarts the ticker so that
             // confirmation can happen.
             guard let self else { return }
+            self.machineSleeping = false
             self.store.noteMachineWake()
             self.prepareTrackingResume()
             self.store.refresh()
@@ -499,6 +587,12 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
         monitor.onAppActivated = { [weak self] app in
             guard let self else { return }
+            if app.bundleIdentifier == FocusConstants.bundleIdentifier,
+               let choice = self.activityAutomation.freezeChoiceForControls(at: Date()) {
+                self.store.presentActivityChoice(choice)
+            } else {
+                self.foregroundGeneration &+= 1
+            }
             let delivered = self.store.handleApplicationActivation(
                 bundleID: app.bundleIdentifier,
                 name: app.localizedName ?? "Unknown")

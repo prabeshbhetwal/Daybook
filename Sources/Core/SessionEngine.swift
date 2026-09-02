@@ -127,6 +127,7 @@ final class SessionEngine {
     /// Whether the running session was started by the detector rather than the
     /// user. Only the app's own guesses may be undone automatically.
     private(set) var activeIsAuto = false
+    private(set) var activeAutomaticAction: ActivityAutomaticAction?
 
     var breakThreshold: TimeInterval {
         get { store.breakThreshold }
@@ -175,6 +176,18 @@ final class SessionEngine {
         let gross = interval(from: sessionStartDate)
         let live = pauseStartDate.map { interval(from: $0) } ?? 0
         return max(0, gross - totalPausedDuration - live)
+    }
+
+    private func elapsed(endingAt end: Date) -> TimeInterval {
+        let clampedEnd = min(max(end, sessionStartDate), now())
+        let gross = max(0, clampedEnd.timeIntervalSince(sessionStartDate))
+        let livePause: TimeInterval
+        if let pauseStartDate, clampedEnd > pauseStartDate {
+            livePause = clampedEnd.timeIntervalSince(pauseStartDate)
+        } else {
+            livePause = 0
+        }
+        return max(0, gross - totalPausedDuration - livePause)
     }
 
     /// Counts the running session. Showing "42m focused" beside "0 sessions" is
@@ -269,7 +282,11 @@ final class SessionEngine {
             beginFreshSession()
         case (.idle, .appActivated(let bundleID, let name)):
             recordApp(bundleID: bundleID, name: name)
-            if categories.category(for: bundleID) == .work { beginFreshSession() }
+            // Only the explicitly enabled legacy heuristic owns activation-
+            // based starts. Rule automation waits for its evidenced deadline;
+            // all-off records foreground use without starting focus.
+            if store.automationMode == .legacyHeuristic,
+               categories.category(for: bundleID) == .work { beginFreshSession() }
         case (.idle, .resetSession):
             beginFreshSession()
             forceEmit = true
@@ -537,6 +554,7 @@ final class SessionEngine {
     private func beginFreshSession() {
         // A session begun by activation is the user's, not the app's guess.
         activeIsAuto = false
+        activeAutomaticAction = nil
         cancelDwell()
         sessionStartDate = now()
         totalPausedDuration = 0
@@ -670,6 +688,7 @@ final class SessionEngine {
         decisionStartDate = nil
         awayReturnedAt = nil
         activeIsAuto = false
+        activeAutomaticAction = nil
         state = .idle
         if let error = awayDecisionError { return .pendingFinalisation(error) }
         return .completed
@@ -779,6 +798,7 @@ final class SessionEngine {
         if away >= store.longAwayCap {
             guard archiveCurrentSession(endingAt: now().addingTimeInterval(-away)) else { return }
             activeIsAuto = false
+            activeAutomaticAction = nil
             pauseStartDate = nil
             decisionStartDate = nil
             awayReturnedAt = nil
@@ -1148,6 +1168,7 @@ final class SessionEngine {
         // A start immediately followed by a stop is a misclick, not a session.
         // Nine such records sit in the shipped archive inflating the day's
         // session count and the quick-start tallies.
+        let end = min(max(endMoment ?? now(), sessionStartDate), now())
         let record: SessionRecord? = elapsed < FocusConstants.minimumRecordedSession ? nil : SessionRecord(id: activeRecordID,
                                      name: sessionName,
                                      workType: activeWorkType,
@@ -1157,8 +1178,7 @@ final class SessionEngine {
                                      // that predates this session entirely; an
                                      // unclamped value writes end < start and
                                      // lands the record on the wrong day.
-                                     end: min(max(endMoment ?? now(), sessionStartDate),
-                                              now()),
+                                     end: end,
                                      workSeconds: elapsed,
                                      detectedApp: activeDetectedApp,
                                      threadID: activeThreadID,
@@ -1233,6 +1253,7 @@ final class SessionEngine {
         if !trimmed.isEmpty { store.sessionName = trimmed }
         // A deliberate act. From here the app must not end this session itself.
         activeIsAuto = false
+        activeAutomaticAction = nil
         if state.isPaused { transition(on: .manualResume) }
         persist()
     }
@@ -1278,8 +1299,96 @@ final class SessionEngine {
         activeDetectedApp = currentAppBundleID
         activeThreadID = threadID
         activeIsAuto = isAuto
+        activeAutomaticAction = nil
         store.sessionName = intent.trimmingCharacters(in: .whitespacesAndNewlines)
         transition(on: .launch)
+        return true
+    }
+
+    /// Starts one rule-owned thread from exact foreground evidence. A quiet
+    /// choice may be answered after FocusContinuity itself came forward; that
+    /// control interval is represented as excluded pause time rather than
+    /// silently credited.
+    @discardableResult
+    func startAutomatically(action: ActivityAutomaticAction) -> Bool {
+        let evidence = action.evidence
+        guard state == .idle, evidence.duration.isFinite, evidence.duration >= 0,
+              evidence.start <= evidence.end, evidence.end <= now() else { return false }
+        activeWorkType = action.workType
+        activeDetectedApp = currentAppBundleID
+        activeThreadID = UUID()
+        activeRecordID = UUID()
+        activeIsAuto = true
+        activeAutomaticAction = action
+        store.sessionName = action.ruleName
+        sessionStartDate = evidence.start
+        totalPausedDuration = max(0, now().timeIntervalSince(evidence.end))
+        pauseStartDate = nil
+        awayInterval = nil
+        shadowAway = 0
+        decisionStartDate = nil
+        awayReturnedAt = nil
+        pendingDecisionID = nil
+        workBeforePendingAway = nil
+        state = .running
+        persist()
+        onStateChanged?(state)
+        return true
+    }
+
+    /// Atomically closes the established automatic owner at the new activity's
+    /// qualifying boundary and transfers that qualifying interval once. The
+    /// old stretch remains live if archival fails.
+    @discardableResult
+    func switchAutomatically(action: ActivityAutomaticAction,
+                             expectedRecordID: UUID) -> Bool {
+        let evidence = action.evidence
+        guard state == .running, activeIsAuto, activeRecordID == expectedRecordID,
+              evidence.start >= sessionStartDate, evidence.end <= now(),
+              evidence.start <= evidence.end else { return false }
+        guard prepareCorrection() else { onStateChanged?(state); return false }
+        let before = snapshot()
+        let oldWork = elapsed(endingAt: evidence.start)
+        let oldRecord: SessionRecord? = oldWork < FocusConstants.minimumRecordedSession ? nil
+            : SessionRecord(id: activeRecordID, name: sessionName,
+                            workType: activeWorkType, start: sessionStartDate,
+                            end: evidence.start, workSeconds: oldWork,
+                            detectedApp: activeDetectedApp,
+                            threadID: activeThreadID, isAuto: true)
+        activeWorkType = action.workType
+        activeDetectedApp = currentAppBundleID
+        activeThreadID = UUID()
+        activeRecordID = UUID()
+        activeIsAuto = true
+        activeAutomaticAction = action
+        store.sessionName = action.ruleName
+        sessionStartDate = evidence.start
+        totalPausedDuration = max(0, now().timeIntervalSince(evidence.end))
+        pauseStartDate = nil
+        awayInterval = nil
+        shadowAway = 0
+        decisionStartDate = nil
+        awayReturnedAt = nil
+        pendingDecisionID = nil
+        workBeforePendingAway = nil
+        state = .running
+        correctionGeneration += 1
+        liveCorrectionGeneration = correctionGeneration
+        let after = snapshot()
+        let result = decisionHistory.commit(before: before, after: after,
+            adding: oldRecord.map { [$0] } ?? [], archive: archive,
+            allowsEviction: true, operation: .automaticSwitch)
+        if !result.didCommit {
+            applyExactCorrectionState(before)
+            awayDecisionError = result.error
+            persist()
+            onStateChanged?(state)
+            return false
+        }
+        synchroniseCommittedCorrectionMetadata()
+        awayDecisionError = result.error
+        persist()
+        onStateChanged?(state)
         return true
     }
 
@@ -1298,6 +1407,7 @@ final class SessionEngine {
         // one without going through `start(_:)`, and it would inherit this flag
         // and be treated as the app's own guess.
         activeIsAuto = false
+        activeAutomaticAction = nil
         cancelDwell()
         pauseStartDate = nil
         awayInterval = nil
@@ -1336,6 +1446,7 @@ final class SessionEngine {
         awayReturnedAt = nil
         totalPausedDuration = 0
         activeIsAuto = false
+        activeAutomaticAction = nil
         state = .idle
         if decisionHistory.requiresTerminalCheckpoint,
            !commitCorrection(before: before, operation: .discardStretch), state != .idle {
@@ -1475,6 +1586,7 @@ final class SessionEngine {
         activeRecordID = saved.activeRecordID ?? legacyActiveRecordID(for: saved)
         activeWorkType = saved.activeWorkType ?? .deepWork
         activeIsAuto = saved.isAuto ?? false
+        activeAutomaticAction = saved.automaticActivityAction
         awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
         correctionGeneration = saved.correctionGeneration ?? 0
         liveCorrectionGeneration = liveGeneration(of: saved)
@@ -1503,6 +1615,7 @@ final class SessionEngine {
         result.awayReturnedAt = awayReturnedAt
         result.workBeforePendingAway = workBeforePendingAway
         result.activeRecordID = activeRecordID
+        result.automaticActivityAction = activeAutomaticAction
         return result
     }
 
@@ -1547,6 +1660,7 @@ final class SessionEngine {
             pendingDecisionID: original.pendingDecisionID)
         activeWorkType = snapshot.activeWorkType ?? .deepWork
         activeIsAuto = snapshot.isAuto ?? false
+        activeAutomaticAction = snapshot.automaticActivityAction
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
         correctionGeneration = snapshot.correctionGeneration ?? 0
         liveCorrectionGeneration = liveGeneration(of: snapshot)

@@ -446,7 +446,7 @@ enum SelfTest {
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
             + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
             + DecisionHistoryChecks.tests + DecisionRecoveryChecks.tests + StoryWorkspaceChecks.tests
-            + CompactControlsChecks.tests + SessionMetadataChecks.tests
+            + CompactControlsChecks.tests + SessionMetadataChecks.tests + ActivityRuleChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -7081,12 +7081,13 @@ enum SelfTest {
 
         let expectedControls: Set<SettingsControlKey> = [
             .opensOn, .dailyGoal, .breakThreshold, .longAwayCap, .fullPromptAfter,
-            .reminders, .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
+            .reminders, .activityRuleAutomation, .activityRules,
+            .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
             .usageRecording, .appearance, .density, .timelineLabels, .entryDetails
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,
-               "Settings lists exactly the fifteen backed mutable controls", &problems)
+               "Settings lists exactly the seventeen backed mutable controls", &problems)
         expect(listedControls.count == expectedControls.count,
                "no backed mutable control appears in more than one group", &problems)
         expect(Set(listedControls.map(\.modelKeyPath)).count == expectedControls.count,
@@ -7255,6 +7256,8 @@ enum SelfTest {
                 .storyShape, .storyMeeting, .storyLive, .storyDecision,
                 .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
                 .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
+                .settingsActivityRules,
+                .activityRuleAmbiguity, .activityRuleAutomatic,
                 .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
             ]
 

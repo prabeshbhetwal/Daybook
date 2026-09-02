@@ -40,6 +40,11 @@ final class PersistenceStore {
         static let pendingPowerObservations = "fc.pendingPowerObservations"
         static let pendingPowerTransfers = "fc.pendingPowerTransfers"
         static let pendingPowerMetadataError = "fc.pendingPowerMetadataError"
+        static let activityRules = "fc.activityRules"
+        static let activityRuleAutomationEnabled = "fc.activityRuleAutomationEnabled"
+        static let activityRuleVersion = "fc.activityRuleVersion"
+        static let automaticActivityRecord = "fc.automaticActivityRecord"
+        static let activityRuleCooldownUntil = "fc.activityRuleCooldownUntil"
     }
 
     private let defaults: UserDefaults
@@ -153,6 +158,69 @@ final class PersistenceStore {
     var autoSessionsEnabled: Bool {
         get { defaults.object(forKey: Key.autoSessions) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.autoSessions) }
+    }
+
+    var activityRules: [ActivityRule] {
+        get {
+            guard let data = defaults.data(forKey: Key.activityRules),
+                  let decoded = try? decoder.decode([ActivityRule].self, from: data) else { return [] }
+            var seen = Set<UUID>()
+            return decoded.filter { seen.insert($0.id).inserted }
+        }
+        set {
+            var seen = Set<UUID>()
+            let normalised = newValue.compactMap { rule -> ActivityRule? in
+                guard seen.insert(rule.id).inserted else { return nil }
+                return ActivityRule(id: rule.id, name: rule.name, workType: rule.workType,
+                    bundleIDs: rule.bundleIDs, isEnabled: rule.isEnabled,
+                    startAfter: rule.startAfter)
+            }
+            guard let data = try? encoder.encode(normalised) else { return }
+            defaults.set(data, forKey: Key.activityRules)
+            bumpActivityRuleVersion()
+        }
+    }
+
+    var activityRuleAutomationEnabled: Bool {
+        get { defaults.bool(forKey: Key.activityRuleAutomationEnabled) }
+        set {
+            guard newValue != activityRuleAutomationEnabled else { return }
+            defaults.set(newValue, forKey: Key.activityRuleAutomationEnabled)
+            bumpActivityRuleVersion()
+        }
+    }
+
+    var activityRuleVersion: UInt64 {
+        UInt64(max(0, defaults.integer(forKey: Key.activityRuleVersion)))
+    }
+
+    private func bumpActivityRuleVersion() {
+        defaults.set(Int(min(UInt64(Int.max), activityRuleVersion &+ 1)),
+                     forKey: Key.activityRuleVersion)
+    }
+
+    var automationMode: AutomationMode {
+        activityRuleAutomationEnabled ? .activityRules
+            : (autoSessionsEnabled ? .legacyHeuristic : .off)
+    }
+
+    var automaticActivityRecord: AutomaticActivityRecord? {
+        get {
+            guard let data = defaults.data(forKey: Key.automaticActivityRecord) else { return nil }
+            return try? decoder.decode(AutomaticActivityRecord.self, from: data)
+        }
+        set {
+            if let newValue, let data = try? encoder.encode(newValue) {
+                defaults.set(data, forKey: Key.automaticActivityRecord)
+            } else {
+                defaults.removeObject(forKey: Key.automaticActivityRecord)
+            }
+        }
+    }
+
+    var activityRuleCooldownUntil: Date? {
+        get { defaults.object(forKey: Key.activityRuleCooldownUntil) as? Date }
+        set { defaults.set(newValue, forKey: Key.activityRuleCooldownUntil) }
     }
 
     var rewardsEnabled: Bool {
@@ -394,7 +462,9 @@ final class PersistenceStore {
                     Key.interfaceDensityRawValue, Key.appearanceRawValue,
                     Key.showsTimelineLabels, Key.pendingPowerObservations,
                     Key.pendingPowerTransfers,
-                    Key.pendingPowerMetadataError] {
+                    Key.pendingPowerMetadataError, Key.activityRules,
+                    Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
+                    Key.automaticActivityRecord, Key.activityRuleCooldownUntil] {
             defaults.removeObject(forKey: key)
         }
     }

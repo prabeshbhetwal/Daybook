@@ -101,7 +101,8 @@ extension SettingsSection {
             return ["Ask me after", "End session after", "Full-screen prompt after",
                     "Remind me to take breaks"]
         case .automatic:
-            return ["Start sessions for me", "Auto-session gap", "Celebrate milestones"]
+            return ["Use my activity rules", "Use legacy automatic sessions", "Activity rules",
+                    "Start after", "Add application", "Auto-session gap", "Celebrate milestones"]
         case .tracking: return ["Recent app visits", "Record app usage"]
         case .appearance:
             return ["Appearance", "Interface density", "Show Story timestamps",
@@ -118,7 +119,9 @@ extension SettingsSection {
         case .general: return [.opensOn]
         case .focus: return [.dailyGoal]
         case .away: return [.breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
-        case .automatic: return [.automaticSessions, .automaticGap, .rewards]
+        case .automatic:
+            return [.activityRuleAutomation, .activityRules, .automaticSessions,
+                    .automaticGap, .rewards]
         case .tracking: return [.sessionsPerApp, .usageRecording]
         case .appearance: return [.appearance, .density, .timelineLabels, .entryDetails]
         case .data, .advanced: return []

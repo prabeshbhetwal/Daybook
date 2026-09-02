@@ -7,6 +7,7 @@ enum StoryRenderEvidence: String, Hashable {
     case insightPeriod
     case insightStrongestDay
     case insightEmptyPeriod
+    case activityQuietChoice
 }
 
 struct StoryRenderEvidenceKey: PreferenceKey {

@@ -29,7 +29,8 @@ import AppKit
                                     legacyBackupURL: nil,
                                     recoverySummary: "Isolated verification data. Your history is not loaded.",
                                     version: "Verification", build: "local"),
-                                 dataDirectory: store.engine.archive.dataDirectoryURL)
+                                 dataDirectory: store.engine.archive.dataDirectoryURL,
+                                 installedAppCatalog: FixtureFactory.installedAppCatalog())
         settings.appearancePreference = .system
     }
 }

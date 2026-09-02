@@ -12,6 +12,8 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case fullPromptAfter
     case reminders
     case automaticSessions
+    case activityRuleAutomation
+    case activityRules
     case automaticGap
     case rewards
     case sessionsPerApp
@@ -30,6 +32,8 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .fullPromptAfter: return \SettingsModel.fullPromptAfter
         case .reminders: return \SettingsModel.remindersEnabled
         case .automaticSessions: return \SettingsModel.autoSessionsEnabled
+        case .activityRuleAutomation: return \SettingsModel.activityRuleAutomationEnabled
+        case .activityRules: return \SettingsModel.activityRules
         case .automaticGap: return \SettingsModel.breakLength
         case .rewards: return \SettingsModel.rewardsEnabled
         case .sessionsPerApp: return \SettingsModel.menuSessionCount
@@ -184,6 +188,7 @@ final class SettingsModel: ObservableObject {
     private let onChange: () -> Void
     private let onTrackingChanged: (Bool) -> Void
     private let onAppearanceChanged: (AppearancePreference) -> Void
+    private let onActivityRulesChanged: () -> Void
     private let onRevealDataFolder: (() -> Void)?
     private let openDataFolder: ((URL) -> Bool)?
     let diagnostics: SettingsDiagnostics
@@ -193,25 +198,30 @@ final class SettingsModel: ObservableObject {
     /// Mirrored here because the tracker — not the preference — is the truth
     /// about whether recording is on, and the tracker lives with the store.
     private var trackingEnabled: Bool
+    let installedAppCatalog: InstalledAppCatalog
 
     init(store: PersistenceStore,
          isTrackingEnabled: Bool,
          onChange: @escaping () -> Void,
          onTrackingChanged: @escaping (Bool) -> Void,
          onAppearanceChanged: @escaping (AppearancePreference) -> Void = { _ in },
+         onActivityRulesChanged: @escaping () -> Void = {},
          revealDataFolder: (() -> Void)? = nil,
          diagnostics: SettingsDiagnostics = .unavailable,
          dataDirectory: URL = SessionArchive.defaultDirectory,
-         openDataFolder: ((URL) -> Bool)? = nil) {
+         openDataFolder: ((URL) -> Bool)? = nil,
+         installedAppCatalog: InstalledAppCatalog = InstalledAppCatalog()) {
         self.store = store
         self.trackingEnabled = isTrackingEnabled
         self.onChange = onChange
         self.onTrackingChanged = onTrackingChanged
         self.onAppearanceChanged = onAppearanceChanged
+        self.onActivityRulesChanged = onActivityRulesChanged
         self.onRevealDataFolder = revealDataFolder
         self.openDataFolder = openDataFolder
         self.diagnostics = diagnostics
         self.dataDirectoryURL = dataDirectory
+        self.installedAppCatalog = installedAppCatalog
     }
 
     private func write(_ body: () -> Void) {
@@ -227,7 +237,37 @@ final class SettingsModel: ObservableObject {
 
     var autoSessionsEnabled: Bool {
         get { store.autoSessionsEnabled }
-        set { write { store.autoSessionsEnabled = newValue } }
+        set {
+            write { store.autoSessionsEnabled = newValue }
+            onActivityRulesChanged()
+        }
+    }
+
+    var activityRuleAutomationEnabled: Bool {
+        get { store.activityRuleAutomationEnabled }
+        set {
+            write { store.activityRuleAutomationEnabled = newValue }
+            onActivityRulesChanged()
+        }
+    }
+
+    var activityRules: [ActivityRule] {
+        get { store.activityRules }
+        set {
+            write { store.activityRules = newValue }
+            onActivityRulesChanged()
+        }
+    }
+
+    func saveActivityRule(_ rule: ActivityRule) {
+        var rules = activityRules
+        if let index = rules.firstIndex(where: { $0.id == rule.id }) { rules[index] = rule }
+        else { rules.append(rule) }
+        activityRules = rules
+    }
+
+    func removeActivityRule(id: UUID) {
+        activityRules = activityRules.filter { $0.id != id }
     }
 
     var rewardsEnabled: Bool {

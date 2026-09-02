@@ -11,7 +11,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case storyDay, storyDayEntry, storyWeek, storyMonth
     case storyShape, storyMeeting, storyLive, storyDecision
     case settingsGeneral, settingsFocus, settingsAway, settingsAutomatic
-    case settingsTracking, settingsAppearance, settingsData, settingsAdvanced
+    case settingsTracking, settingsAppearance, settingsData, settingsAdvanced, settingsActivityRules
+    case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned
 
     var id: String { rawValue }
@@ -51,6 +52,9 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsAppearance: return "Settings — Appearance"
         case .settingsData: return "Settings — Data and privacy"
         case .settingsAdvanced: return "Settings — Advanced"
+        case .settingsActivityRules: return "Settings — activity-rule editor"
+        case .activityRuleAmbiguity: return "Activity rules — quiet shared-app choice"
+        case .activityRuleAutomatic: return "Activity rules — automatic start"
         case .awayQuick: return "Away — quick prompt"
         case .awayFull: return "Away — full prompt"
         case .awayQuickFailure: return "Away — quick prompt save failure"
@@ -69,6 +73,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsAppearance: return .appearance
         case .settingsData: return .data
         case .settingsAdvanced: return .advanced
+        case .settingsActivityRules: return nil
         default: return nil
         }
     }
@@ -82,7 +87,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
 
     var presentations: [SnapshotPresentation] {
         switch self {
-        case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure:
+        case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
+             .activityRuleAmbiguity, .activityRuleAutomatic:
             return [.minimum, .comfortable, .popover]
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
             return [.compact]
@@ -95,7 +101,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     /// every global tab owns a rendered surface.
     var tab: AppTab? {
         switch self {
-        case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure:
+        case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
+             .activityRuleAmbiguity, .activityRuleAutomatic:
             return .focus
         case .todayHistory, .todayHistoryExpanded, .todayPast:
             return .today
@@ -110,7 +117,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
              .storyShape, .storyMeeting, .storyLive, .storyDecision:
             return .story
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
-             .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
+             .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
+             .settingsActivityRules:
             return .settings
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
             return nil
@@ -338,6 +346,10 @@ enum Snapshotter {
             return FixtureFactory.store(for: .needsResolution)
         case .focusSaveFailure:
             return FixtureFactory.failingDecisionStore()
+        case .activityRuleAmbiguity:
+            return FixtureFactory.activityRuleStore(ambiguous: true)
+        case .activityRuleAutomatic:
+            return FixtureFactory.activityRuleStore(ambiguous: false)
         case .todayHistory, .todayHistoryExpanded:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
@@ -386,7 +398,8 @@ enum Snapshotter {
             store.refreshReview(period: .month)
             return store
         case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
-             .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced:
+             .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
+             .settingsActivityRules:
             return FixtureFactory.store(for: .running)
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
             return FixtureFactory.store(for: .firstRun)
@@ -433,6 +446,10 @@ enum Snapshotter {
             }
         case .insightsEnough, .insightsEmpty:
             navigation.insightRange = .week
+        case .activityRuleAmbiguity, .activityRuleAutomatic:
+            navigation.performSessionControlsAction(.commandOrMenu)
+        case .settingsActivityRules:
+            navigation.settingsSection = .automatic
         default:
             if let section = scenario.settingsSection {
                 navigation.settingsSection = section
@@ -480,6 +497,15 @@ enum Snapshotter {
         }
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
+        if item.scenario == .settingsActivityRules {
+            persistence.activityRules = [
+                ActivityRule(name: "Coding", workType: .deepWork,
+                    bundleIDs: ["com.example.code", "com.example.shared"], startAfter: 180),
+                ActivityRule(name: "Research", workType: .learning,
+                    bundleIDs: ["com.example.shared"], startAfter: 300)
+            ]
+            persistence.activityRuleAutomationEnabled = true
+        }
         let dataDirectory = FixtureFactory.scratchDirectory()
         let diagnostics = SettingsDiagnostics(
             usageAccuracyEpoch: Date(timeIntervalSince1970: 1_700_000_000),
@@ -493,7 +519,8 @@ enum Snapshotter {
                                   onChange: {},
                                   onTrackingChanged: { _ in },
                                   diagnostics: diagnostics,
-                                  dataDirectory: dataDirectory)
+                                  dataDirectory: dataDirectory,
+                                  installedAppCatalog: FixtureFactory.installedAppCatalog())
         model.interfaceDensity = density
         model.appearancePreference = item.appearance.preference
         model.showsTimelineLabels = showsTimelineLabels

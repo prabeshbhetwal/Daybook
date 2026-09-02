@@ -534,6 +534,7 @@ extension SessionStore {
         tracker?.setEnabled(enabled)
         isTrackingEnabled = enabled
         refresh()
+        onAutomationStateChanged?()
     }
 
     var menuSessionCount: Int { engine.store.menuSessionCount }

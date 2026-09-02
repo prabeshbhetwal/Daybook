@@ -67,6 +67,10 @@ final class SessionStore: ObservableObject {
     @Published private(set) var trackedToday: TimeInterval = 0
     @Published private(set) var previousSession: SessionRecord?
     @Published var isTrackingEnabled = true
+    @Published private(set) var pendingActivityChoice: ActivityQuietChoice?
+    @Published private(set) var automaticActivityRecord: AutomaticActivityRecord?
+    @Published private(set) var activityAutomationError: String?
+    var onActivityChoiceSelected: ((UUID) -> Void)?
 
     // MARK: Dashboard
     // Setters below are internal rather than private(set) because
@@ -239,6 +243,79 @@ final class SessionStore: ObservableObject {
     /// True while the running session was started by the detector rather than
     /// by hand — the popover labels it, and only these may be undone.
     var isAutoSession: Bool { state != .idle && engine.activeIsAuto }
+
+    var activityOwnership: ActivityOwnership {
+        guard engine.state != .idle else { return .none }
+        if engine.activeIsAuto,
+           let automaticActivityRecord,
+           automaticActivityRecord.resultingRecordID == engine.activeRecordID {
+            return .automatic(ruleID: automaticActivityRecord.action.ruleID,
+                              recordID: engine.activeRecordID)
+        }
+        return .manual(activityName: engine.sessionName, workType: engine.activeWorkType)
+    }
+
+    var hasPendingManualActivityState: Bool {
+        hasUnresolvedAwayDecision || engine.state.isPaused
+    }
+
+    func presentActivityChoice(_ choice: ActivityQuietChoice?) {
+        pendingActivityChoice = choice
+    }
+
+    func chooseActivity(ruleID: UUID) { onActivityChoiceSelected?(ruleID) }
+
+    @discardableResult
+    func applyAutomaticActivity(_ action: ActivityAutomaticAction) -> AutomaticActivityRecord? {
+        guard !hasUnresolvedAwayDecision,
+              engine.store.automationMode == .activityRules,
+              engine.store.activityRuleVersion == action.ruleVersion,
+              engine.store.activityRuleCooldownUntil.map({ now() >= $0 }) ?? true,
+              engine.store.activityRules.contains(where: {
+                $0.id == action.ruleID && $0.isEnabled && $0.name == action.ruleName
+                    && $0.workType == action.workType
+              }) else { return nil }
+
+        let applied: Bool
+        if let expected = action.expectedRecordID {
+            applied = engine.switchAutomatically(action: action, expectedRecordID: expected)
+        } else {
+            applied = engine.startAutomatically(action: action)
+        }
+        guard applied else {
+            activityAutomationError = engine.awayDecisionError
+                ?? "The automatic activity could not be saved. Current work was preserved."
+            refresh()
+            return nil
+        }
+        let record = AutomaticActivityRecord(action: action,
+                                             resultingRecordID: engine.activeRecordID)
+        automaticActivityRecord = record
+        activityAutomationError = engine.awayDecisionError
+        pendingActivityChoice = nil
+        refresh()
+        return record
+    }
+
+    @discardableResult
+    func undoAutomaticActivity(expectedRecordID: UUID) -> Bool {
+        guard let record = automaticActivityRecord,
+              record.acceptsUndo(for: expectedRecordID),
+              engine.activeRecordID == expectedRecordID,
+              engine.activeIsAuto, !hasUnresolvedAwayDecision else { return false }
+        guard engine.discard() else {
+            activityAutomationError = engine.awayDecisionError
+                ?? "The automatic activity could not be undone. Current work was preserved."
+            refresh()
+            return false
+        }
+        engine.store.activityRuleCooldownUntil = now()
+            .addingTimeInterval(FocusConstants.defaultWorkInterval)
+        automaticActivityRecord = nil
+        activityAutomationError = nil
+        refresh()
+        return true
+    }
 
     /// The authoritative action boundary for every ordinary session mutation.
     /// Views hide controls while an Away question is pending, but global
@@ -460,6 +537,7 @@ final class SessionStore: ObservableObject {
     /// The coordinator evaluates automation through this callback only after a
     /// wake has been matched to genuine presence.
     var onDeferredAutomationReady: (() -> Void)?
+    var onAutomationStateChanged: (() -> Void)?
 
     // Internal for SessionStore+Dashboard.swift; views still never touch this.
     let engine: SessionEngine
@@ -525,6 +603,9 @@ final class SessionStore: ObservableObject {
         self.now = now
         self.applicationIsRunning = applicationIsRunning
         self.activateApplication = activateApplication
+        self.automaticActivityRecord = engine.activeAutomaticAction.map {
+            AutomaticActivityRecord(action: $0, resultingRecordID: engine.activeRecordID)
+        }
         engine.threadContextMatcher = { [weak self] app in
             self?.runningThreadUses(app) ?? true
         }
@@ -566,6 +647,7 @@ final class SessionStore: ObservableObject {
             pendingAway = nil
         }
         refresh()
+        onAutomationStateChanged?()
     }
 
     /// True whenever something on screen is still moving.
@@ -709,6 +791,9 @@ final class SessionStore: ObservableObject {
             quickStarts = ActivityChoices.merging(engine.store.recentActivities,
                 engine.archive.quickStarts(limit: ActivityChoices.limit))
             workType = engine.activeWorkType
+            automaticActivityRecord = engine.activeAutomaticAction.map {
+                AutomaticActivityRecord(action: $0, resultingRecordID: engine.activeRecordID)
+            }
             previousSession = engine.archive.records.last
             isTrackingEnabled = tracker?.isEnabled ?? false
             glanceArchiveRefreshPending = true

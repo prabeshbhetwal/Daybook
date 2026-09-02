@@ -31,6 +31,44 @@ enum FixtureFactory {
         return directory
     }
 
+    static func installedAppCatalog() -> InstalledAppCatalog {
+        InstalledAppCatalog(discoverStandard: {
+            [InstalledApplication(bundleID: "com.example.code", name: "Example Code", url: nil),
+             InstalledApplication(bundleID: "com.example.shared", name: "Shared Assistant", url: nil)]
+        }, discoverSpotlight: { [] }, observed: { [] })
+    }
+
+    static func activityRuleStore(ambiguous: Bool) -> SessionStore {
+        let store = self.store(for: .firstRun, accurateUsage: true)
+        let coding = ActivityRule(name: "Coding", workType: .deepWork,
+            bundleIDs: ["com.example.shared"], startAfter: 60)
+        let research = ActivityRule(name: "Research", workType: .learning,
+            bundleIDs: ["com.example.shared"], startAfter: 60)
+        store.engine.store.activityRules = [coding, research]
+        store.engine.store.activityRuleAutomationEnabled = true
+        let moment = store.engine.snapshot().savedAt
+        if ambiguous {
+            store.presentActivityChoice(ActivityQuietChoice(id: UUID(),
+                candidates: [ActivityCandidate(ruleID: coding.id, name: coding.name,
+                                                workType: coding.workType),
+                             ActivityCandidate(ruleID: research.id, name: research.name,
+                                               workType: research.workType)],
+                evidence: DateInterval(start: moment.addingTimeInterval(-60), end: moment),
+                ruleVersion: store.engine.store.activityRuleVersion, generation: 1,
+                foregroundGeneration: 1))
+        } else {
+            let action = ActivityAutomaticAction(ruleID: coding.id, ruleName: coding.name,
+                workType: coding.workType,
+                evidence: DateInterval(start: moment.addingTimeInterval(-60), end: moment),
+                reason: "Coding after 60 seconds in Example Code",
+                ruleVersion: store.engine.store.activityRuleVersion, generation: 1,
+                expectedRecordID: nil)
+            _ = store.applyAutomaticActivity(action)
+        }
+        store.refresh()
+        return store
+    }
+
     private static func fixtureDefaults(_ label: String) -> UserDefaults {
         let suite = "com.prabesh.focuscontinuity.gallery.\(label).\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else {

@@ -112,24 +112,28 @@ struct SettingsGroups: View {
     }
 
     private var automatic: some View {
-        SurfacePanel(title: "Automatic sessions", layout: layout) {
-            Toggle("Start sessions for me", isOn: $model.autoSessionsEnabled)
-                .frame(minHeight: layout.rowHeight)
-            rowDivider
-            preferenceRow("Auto-session gap") {
-                thresholdPicker("Auto-session gap", selection: $model.breakLength,
-                                options: FocusConstants.breakLengthOptions)
+        VStack(alignment: .leading, spacing: layout.panelSpacing) {
+            SurfacePanel(title: "Automatic sessions", layout: layout) {
+                Toggle("Use my activity rules", isOn: $model.activityRuleAutomationEnabled)
+                    .frame(minHeight: layout.rowHeight)
+                explanation("Rule automation is opt-in. When enabled it replaces the legacy "
+                            + "heuristic; editing a rule alone never starts or changes a session.")
+                rowDivider
+                Toggle("Use legacy automatic sessions", isOn: $model.autoSessionsEnabled)
+                    .frame(minHeight: layout.rowHeight)
+                    .disabled(model.activityRuleAutomationEnabled)
+                rowDivider
+                preferenceRow("Auto-session gap") {
+                    thresholdPicker("Auto-session gap", selection: $model.breakLength,
+                                    options: FocusConstants.breakLengthOptions)
+                }
+                rowDivider
+                Toggle("Celebrate milestones", isOn: $model.rewardsEnabled)
+                    .frame(minHeight: layout.rowHeight)
             }
-            rowDivider
-            Toggle("Celebrate milestones", isOn: $model.rewardsEnabled)
-                .frame(minHeight: layout.rowHeight)
-            explanation("Sessions the app starts can be undone from the notice, and one it "
-                        + "ends on its own ends where the work stopped. The gap is how long a "
-                        + "pause must be before such a session is treated as over.")
-            explanation("Started sessions are named by what you are doing — Browsing in a "
-                        + "browser, Coding, Writing & AI, Design elsewhere. Apps the app does "
-                        + "not know are read from the category they declare about themselves, "
-                        + "when they declare one.")
+            SurfacePanel(title: "Activities and applications", layout: layout) {
+                ActivityRulesView(model: model)
+            }
         }
     }
 

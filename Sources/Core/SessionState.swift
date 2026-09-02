@@ -364,6 +364,9 @@ struct PersistedState: Codable, Equatable {
     /// Stable identity of the in-flight recorded stretch. Optional for snapshots
     /// written before record-scoped metadata existed.
     var activeRecordID: UUID? = nil
+    /// Exact rule action that owns the automatic live stretch. Kept in the
+    /// same snapshot/journal transaction as the record identity.
+    var automaticActivityAction: ActivityAutomaticAction? = nil
 }
 
 extension PersistedState {

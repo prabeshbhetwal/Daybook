@@ -4,7 +4,7 @@ import Foundation
 /// remains an array, so existing readers and backups remain compatible.
 final class DecisionHistory {
     enum Operation: String, Codable {
-        case correction, endStretch, discardStretch, metadataOnly
+        case correction, endStretch, discardStretch, automaticSwitch, metadataOnly
         var updatesLiveState: Bool { self != .metadataOnly }
     }
     enum CommitResult {

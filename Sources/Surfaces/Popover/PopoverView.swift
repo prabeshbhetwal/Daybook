@@ -64,6 +64,13 @@ struct PopoverView: View {
         let content = VStack(alignment: .leading, spacing: metrics.stackSpacing) {
             HeroCard(store: store, intentFocused: $intentFocused,
                      dense: metrics.dense)
+            if let choice = store.pendingActivityChoice {
+                ActivityQuietChoiceView(store: store, choice: choice)
+            }
+            if let error = store.activityAutomationError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(Tokens.Typography.metadata).foregroundStyle(.red)
+            }
             if store.focusSurfaceComposition.showsContinuationSection {
                 ContinueTodaySection(store: store, limit: 3)
                     .frame(maxWidth: .infinity, alignment: .leading)
