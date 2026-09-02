@@ -335,16 +335,7 @@ private struct ReviewSectionPills: View {
                     selection = section
                 } label: {
                     Text(section.title)
-                        .font(Tokens.Typography.metadata.weight(.semibold))
-                        .padding(.horizontal, Tokens.Space.m)
-                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                        .background(selection == section
-                                    ? Tokens.Colour.focus
-                                    : Color.clear,
-                                    in: Capsule())
-                        .foregroundStyle(selection == section
-                                         ? Tokens.Colour.onFocus
-                                         : Color.secondary)
+                        .scopePillLabel(isSelected: selection == section)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(section.title), "
@@ -352,9 +343,7 @@ private struct ReviewSectionPills: View {
                 .accessibilityAddTraits(selection == section ? .isSelected : [])
             }
         }
-        .padding(3)
-        .background(Tokens.Colour.elevated, in: Capsule())
-        .overlay(Capsule().strokeBorder(Tokens.Colour.line))
+        .scopePillContainer()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Review section")
     }

@@ -190,16 +190,7 @@ struct InsightRangePills: View {
                     selection = range
                 } label: {
                     Text(range.title)
-                        .font(Tokens.Typography.metadata.weight(.semibold))
-                        .padding(.horizontal, Tokens.Space.m)
-                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                        .background(selection == range
-                                    ? Tokens.Colour.focus
-                                    : Color.clear,
-                                    in: Capsule())
-                        .foregroundStyle(selection == range
-                                         ? Tokens.Colour.onFocus
-                                         : Color.secondary)
+                        .scopePillLabel(isSelected: selection == range)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(range.title), "
@@ -207,9 +198,7 @@ struct InsightRangePills: View {
                 .accessibilityAddTraits(selection == range ? .isSelected : [])
             }
         }
-        .padding(3)
-        .background(Tokens.Colour.elevated, in: Capsule())
-        .overlay(Capsule().strokeBorder(Tokens.Colour.line))
+        .scopePillContainer()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Insights range")
     }

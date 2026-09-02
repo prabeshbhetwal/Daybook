@@ -68,6 +68,12 @@ final class StoryScopeNSSegmentedControl: NSSegmentedControl {
         }
     }
 
+    /// Draws nothing. `ScopePills` behind this control is the appearance; the
+    /// control remains the single keyboard, pointer and accessibility target,
+    /// so AppKit's own segmented chrome — separators included — must not show
+    /// through the pill it sits on.
+    override func draw(_ dirtyRect: NSRect) {}
+
     func updateIntegratedFocusCue() {
         wantsLayer = true
         layer?.cornerRadius = 7
