@@ -66,6 +66,10 @@ enum FixtureFactory {
             _ = store.applyAutomaticActivity(action)
         }
         store.refresh()
+        // Engine state reaches the store's mirror on the main queue. Let it
+        // turn once, or the controls would render the idle state the engine
+        // has already left.
+        RunLoop.main.run(until: Date().addingTimeInterval(0.02))
         return store
     }
 

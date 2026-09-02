@@ -115,6 +115,39 @@ Pause uses a restrained work-type tint. Hover, pressed, disabled and keyboard
 focus states remain visible. The actions stay in the entry they affect; name
 and type changes explicitly disclose that they apply to the whole thread.
 
+### Notes and power
+
+**Add note** opens a small inline editor inside the expanded entry; there is
+no permanent empty box. The note is saved by exact stretch identity and lives
+in a sidecar beside the session archive, so editing it can never change
+recorded time, session equality or an Undo. Command-Return saves only the
+focused editor. A power line beneath the duration — **Battery · 78% → 64%**,
+**Plugged in · 64% → 81%** — is drawn only from observations made while the
+stretch ran; plugged in and charging are distinct states, a restored or
+backdated start is marked partial, and a stretch with no observation shows
+no power line rather than a placeholder. Percentage change is never presented
+as energy used by an app.
+
+### Activity rules and the quiet choice
+
+Rule automation is opt-in and, when on, replaces the legacy heuristic. The
+quiet choice is a soft well inside the session controls and the menu panel:
+the question naming the candidates (for example **Coding or Research?**), one factual line stating that the
+recorded external-app interval is credited once and that time in
+FocusContinuity is excluded, and bordered answers. It never modally interrupts.
+An automatic start is announced by the HUD with its reason and an **Undo**
+bound to that exact record; Undo carries a cooldown so the same guess cannot
+return at once. The rule editor validates custom dwell in whole seconds and
+scrolls its injected application picker; missing applications are labelled,
+never hidden.
+
+### Arranging the rail
+
+**Arrange cards** is one control for the group. Only while arranging do cards
+accept a drag; each also offers Move up / Move down for the keyboard. The
+stored order is repaired on read — unknown cards dropped, missing ones
+appended — so an arrangement survives a release that adds or removes a card.
+
 ### Decisions and Undo
 
 A successful decision becomes one compact row at the affected interval: green

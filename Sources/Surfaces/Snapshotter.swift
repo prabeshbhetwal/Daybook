@@ -126,11 +126,29 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     }
 }
 
+/// The three acceptance appearances: the two forced schemes and the system
+/// default, where no scheme is forced so the host's own appearance is
+/// exercised. Reduce Motion is not an appearance a still capture can show and
+/// the system flag cannot be forced through the environment; its contract is
+/// verified on `Tokens.Motion` directly.
 enum SnapshotAppearance: String, CaseIterable, Hashable {
-    case light, dark
+    case light, dark, system
 
-    fileprivate var scheme: ColorScheme { self == .light ? .light : .dark }
-    fileprivate var preference: AppearancePreference { self == .light ? .light : .dark }
+    /// Nil for `.system`: the scheme is then whatever the host applies.
+    fileprivate var scheme: ColorScheme? {
+        switch self {
+        case .light: return .light
+        case .dark: return .dark
+        case .system: return nil
+        }
+    }
+    fileprivate var preference: AppearancePreference {
+        switch self {
+        case .light: return .light
+        case .dark: return .dark
+        case .system: return .system
+        }
+    }
 }
 
 enum SnapshotPresentation: String, CaseIterable, Hashable {
@@ -273,7 +291,7 @@ enum Snapshotter {
                               settings: settings,
                               navigation: navigation,
                               presentsNativeSheets: false)
-            .environment(\.colorScheme, item.appearance.scheme)
+            .snapshotAppearance(item.appearance)
             .environment(\.todayRecapInitiallyExpanded,
                          item.scenario == .todayHistoryExpanded)
             .environment(\.storyEntryInitiallyOpen, item.scenario.opensStoryEntry)
@@ -294,7 +312,7 @@ enum Snapshotter {
                                settings: settings,
                                metricsOverride: metrics,
                                scrolls: false)
-            .environment(\.colorScheme, item.appearance.scheme)
+            .snapshotAppearance(item.appearance)
             .frame(width: metrics.width)
             .fixedSize(horizontal: false, vertical: true)
             .background(Tokens.Colour.ground)
@@ -310,7 +328,7 @@ enum Snapshotter {
                 range: (reference.addingTimeInterval(-22 * 60), reference),
                 note: nil,
                 error: item.scenario == .awayQuickFailure ? FixtureFactory.decisionSaveError : nil)
-                .environment(\.colorScheme, item.appearance.scheme)
+                .snapshotAppearance(item.appearance)
                 .fixedSize(horizontal: false, vertical: true)
             return AnyView(view)
         case .awayFull, .awayFullFailure:
@@ -319,7 +337,7 @@ enum Snapshotter {
                 range: (reference.addingTimeInterval(-72 * 60), reference),
                 note: nil,
                 error: item.scenario == .awayFullFailure ? FixtureFactory.decisionSaveError : nil)
-                .environment(\.colorScheme, item.appearance.scheme)
+                .snapshotAppearance(item.appearance)
             return AnyView(view)
         case .rewardEarned:
             let reward = Reward(kind: .goalReached,
@@ -327,7 +345,7 @@ enum Snapshotter {
                                 detail: "You've focused 4h 12m today.",
                                 symbolName: "checkmark.seal.fill")
             return AnyView(RewardHUD.snapshotView(for: reward)
-                .environment(\.colorScheme, item.appearance.scheme)
+                .snapshotAppearance(item.appearance)
                 .fixedSize(horizontal: false, vertical: true))
         default:
             return AnyView(Text("Unsupported compact snapshot"))
@@ -556,6 +574,19 @@ enum Snapshotter {
             return true
         } catch {
             return false
+        }
+    }
+}
+
+
+private extension View {
+    /// Forces a scheme only when the appearance names one; `.system` leaves
+    /// the host's own.
+    @ViewBuilder func snapshotAppearance(_ appearance: SnapshotAppearance) -> some View {
+        if let scheme = appearance.scheme {
+            self.environment(\.colorScheme, scheme)
+        } else {
+            self
         }
     }
 }

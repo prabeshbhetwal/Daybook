@@ -94,7 +94,28 @@ downwards. Click an entry's full header to expand it. Inspect an app from the ra
 its scoped recorded visits. Select a calendar day or Week bar for a preview,
 then use **Open as a story** for that date's full chronology. History rows expand
 in place; **Open this day's story** is an explicit drill-in, not an automatic
-redirect. Drag rail tiles to reorder them, or use their contextual Move actions.
+redirect. Choose **Arrange cards** to reorder the rail; dragging is active only
+while arranging, and each card also offers keyboard Move up / Move down.
+
+An expanded entry offers **Rename**, **Change type**, **Continue this** and
+**Add note**. Notes belong to the exact stretch they were written on and are
+kept beside the session archive, never inside it, so a note can never alter
+recorded time or an Undo. Where power was observed while a stretch ran, the
+entry shows it factually — **Battery · 78% → 64%**, **Plugged in** or
+**Plugged in, charging** — and a stretch with no observation shows no power
+line at all rather than an invented reading.
+
+**Activity rules** (Settings → Sessions) are opt-in. Each rule names an
+activity, a work type, the applications that belong to it and how long an app
+must be in front before the activity begins (30 s to 30 min; 3 min by
+default). When rules are on they replace the legacy heuristic rather than run
+beside it. One activity owns any moment: an app that belongs to several rules
+records its use once and asks a quiet choice — for example **Coding or Research?** — in the session
+controls and the menu panel instead of starting two sessions. An explicit
+activity you started is never relabelled. Every automatic start says why it
+happened and offers **Undo**; the application picker lists installed apps
+from the standard application folders and apps already observed, with
+**Add application…** for anything missed.
 
 The compact menu-bar popover intentionally remains Focus-only. It provides the
 current action, up to three continuation choices, quiet break context, and
@@ -218,7 +239,7 @@ Settings groups the existing backed controls into five compact pages:
 | Page | Controls and information |
 |---|---|
 | General | Launch scope, System/Light/Dark appearance, density, Story time gutter and entry expansion |
-| Sessions | Daily goal, automatic sessions, automatic gap and milestones |
+| Sessions | Daily goal, activity rules and their application picker, legacy automatic sessions, automatic gap and milestones |
 | Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
 | Recording | App recording and the number of recent app visits initially shown |
 | Privacy | Local storage, accuracy epoch, preserved backup, Reveal data folder and diagnostics |
@@ -299,6 +320,7 @@ agent scratch reports.
 - [Design and behaviour audit](docs/superpowers/reviews/2026-08-31-design-and-behaviour-audit.md)
 - [Story remediation and verification](docs/superpowers/reviews/2026-08-31-story-remediation-verification.md)
 - [Story interaction follow-up and verification](docs/superpowers/reviews/2026-08-31-story-interaction-verification.md)
+- [Complete Story interactions — design](docs/superpowers/specs/2026-08-31-story-interaction-model-design.md), [session controls and activity rules proposal](docs/superpowers/specs/2026-08-31-session-controls-and-activity-rules-proposal.md), [plan](docs/superpowers/plans/2026-08-31-complete-story-interactions.md) and [verification](docs/superpowers/reviews/2026-08-31-complete-story-interactions-verification.md)
 - [Stabilisation design](docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md)
 - [Build and repository hardening plan](docs/superpowers/plans/2026-08-28-build-repository-hardening.md)
 
