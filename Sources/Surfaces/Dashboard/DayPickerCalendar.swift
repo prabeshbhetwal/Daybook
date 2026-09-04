@@ -70,7 +70,7 @@ struct DayPickerCalendar: View {
         HStack(alignment: .top, spacing: Tokens.Space.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(monthTitle)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(Tokens.Typography.rowTitle.weight(.semibold))
                     .contentTransition(.numericText())
                 Text(monthSummary)
                     .font(Tokens.Typography.metadata)
@@ -198,7 +198,8 @@ struct DayPickerCalendar: View {
         return Button { if pickable { onPick(day) } } label: {
             VStack(spacing: 2) {
                 Text("\(calendar.component(.day, from: day))")
-                    .font(.system(size: 13, weight: isToday || isSelected ? .semibold : .regular)
+                    .font(Tokens.Typography.tabLabel
+                        .weight(isToday || isSelected ? .semibold : .regular)
                         .monospacedDigit())
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)
                                      : !pickable ? AnyShapeStyle(.quaternary)
@@ -208,7 +209,7 @@ struct DayPickerCalendar: View {
                 // with no session, or nothing at all.
                 Text(facts.focused > 0 ? Tokens.duration(facts.focused)
                      : facts.tracked > 0 ? "·" : " ")
-                    .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
+                    .font(Tokens.Typography.microValue.monospacedDigit())
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
                                      : facts.focused > 0 ? AnyShapeStyle(.secondary)
                                      : AnyShapeStyle(.tertiary))
@@ -231,7 +232,7 @@ struct DayPickerCalendar: View {
             .overlay(alignment: .topTrailing) {
                 if share >= 1 && !isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 6, weight: .heavy))
+                        .font(Tokens.Typography.micro.weight(.heavy))
                         .foregroundStyle(Tokens.Colour.focus)
                         .padding(4)
                 }

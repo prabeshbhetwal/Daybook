@@ -38,7 +38,7 @@ struct StoryAppRow: View {
                     .monospacedDigit().foregroundStyle(.secondary)
                 if onOpen != nil {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(Tokens.Typography.micro)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -154,7 +154,7 @@ struct StoryLooseAppUse: View {
                     Text(Tokens.preciseDuration(seconds))
                         .font(Tokens.Typography.metadata.monospacedDigit())
                     Image(systemName: expanded.value ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.microLabel).foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
             }

@@ -65,7 +65,7 @@ struct AwardCard: View {
                             startPoint: .topLeading, endPoint: .bottomTrailing))
                       : AnyShapeStyle(Tokens.Colour.elevated))
             Image(systemName: award.isEarned ? award.symbolName : "circle.dotted")
-                .font(.system(size: 17, weight: .semibold))
+                .font(Tokens.Typography.sectionTitle)
                 .foregroundStyle(award.isEarned ? AnyShapeStyle(.white)
                                                 : AnyShapeStyle(.tertiary))
         }

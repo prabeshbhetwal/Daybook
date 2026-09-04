@@ -22,6 +22,7 @@ enum CompactControlsChecks {
         ("Native scope adapter owns focus, pointer and key selection", nativeScopeAdapter),
         ("Every scope row presents one native keyboard target", scopeRowsShareOneKeyboardTarget),
         ("One Start focus is offered at a time", oneStartFocusAtATime),
+        ("The type scale stays a scale", typeScaleHoldsItsShape),
         ("Compact Focus consumers retain general save failures and exact Retry", generalFailurePresentation),
         ("Away Return routing is scoped to its own focused controls", awayReturnScope),
         ("Compact goal copy stays quiet at the 340pt menu width", compactGoalLine)
@@ -307,6 +308,36 @@ enum CompactControlsChecks {
             }
         } else {
             failures.append("Could not create isolated rail-order defaults")
+        }
+        return failures
+    }
+
+    /// A scale earns its steps. Nineteen ad-hoc sizes, with four doing one
+    /// job and five more sitting a point apart, is a list rather than a
+    /// hierarchy: sizes that close together do no perceptual work, so the
+    /// reader cannot tell what outranks what.
+    private static func typeScaleHoldsItsShape() -> [String] {
+        var failures: [String] = []
+        let steps = Tokens.Typography.Size.all
+        if steps != steps.sorted() {
+            failures.append("The type scale is not declared in ascending order")
+        }
+        if Set(steps).count != steps.count {
+            failures.append("The type scale repeats a step")
+        }
+        if steps.count > 12 {
+            failures.append("The type scale has grown to \(steps.count) steps")
+        }
+        // Adjacent steps must differ enough to be seen as different. One point
+        // at reading size is not a hierarchy, it is noise.
+        for (small, large) in zip(steps, steps.dropFirst()) {
+            let ratio = large / small
+            if ratio < 1.08 {
+                failures.append("Steps \(small) and \(large) are too close to tell apart")
+            }
+        }
+        if steps.first ?? 0 < 9 {
+            failures.append("The smallest step fell below legible micro-text")
         }
         return failures
     }

@@ -222,7 +222,7 @@ struct SessionsCard: View {
                                         })
                 } label: {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(Tokens.Typography.microLabel)
                         .frame(width: SessionRowInteraction.minimumTargetSize,
                                height: SessionRowInteraction.minimumTargetSize)
                         .contentShape(Rectangle())

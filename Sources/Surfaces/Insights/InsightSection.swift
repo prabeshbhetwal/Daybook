@@ -34,7 +34,7 @@ struct InsightSection: View {
             VStack(alignment: .leading, spacing: Tokens.Space.m) {
                 HStack(spacing: Tokens.Space.s) {
                     Image(systemName: insight.symbolName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(Tokens.Typography.tabLabel.weight(.semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(Tokens.Colour.focus)
                         .frame(width: 24, height: 24)

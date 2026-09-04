@@ -46,7 +46,7 @@ struct StoryChromeBar: View {
             }
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(Tokens.Typography.tabLabel)
                     .symbolRenderingMode(.hierarchical)
                     .frame(width: AccessibilityMetrics.minimumTargetSize,
                            height: AccessibilityMetrics.minimumTargetSize)
@@ -198,7 +198,7 @@ struct StorySessionControl: View {
         if store.isIdle {
             Button(action: onDetails) {
                 HStack(spacing: Tokens.Space.xs) {
-                    Image(systemName: "play.fill").font(.system(size: 10, weight: .bold))
+                    Image(systemName: "play.fill").font(Tokens.Typography.microLabel.weight(.bold))
                     Text("Start focus").font(Tokens.Typography.metadata.weight(.semibold))
                 }
                 .padding(.horizontal, Tokens.Space.m)

@@ -130,7 +130,7 @@ private struct FocusContinuationLabel: View {
     var body: some View {
         HStack(spacing: Tokens.Space.s) {
             Image(systemName: symbol)
-                .font(.system(size: 13, weight: .medium))
+                .font(Tokens.Typography.tabLabel)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
                 .frame(width: 22)

@@ -96,20 +96,51 @@ enum Tokens {
     }
 
     enum Typography {
-        static let liveTimer = Font.system(size: 46, weight: .semibold, design: .rounded)
+        /// Every text size the product may use. Ad-hoc sizes had grown to
+        /// nineteen steps, with 6/7/8/9 doing one job between them and
+        /// 12/13/14/15/16 doing no perceptual work apart — a list, not a
+        /// scale. Each step here earns its place, and `Size` is the only
+        /// source: a font built from a number not in this set is a defect.
+        enum Size {
+            static let micro: CGFloat = 9
+            static let smallLabel: CGFloat = 10
+            static let ring: CGFloat = 11
+            static let metadata: CGFloat = 12
+            static let control: CGFloat = 13
+            static let row: CGFloat = 15
+            static let section: CGFloat = 17
+            static let headline: CGFloat = 23
+            static let page: CGFloat = 26
+            static let metric: CGFloat = 30
+            static let timer: CGFloat = 46
+
+            /// Ascending, for the checks that hold the scale to its shape.
+            static let all: [CGFloat] = [micro, smallLabel, ring, metadata, control,
+                                         row, section, headline, page, metric, timer]
+        }
+
+        static let liveTimer = Font.system(size: Size.timer, weight: .semibold, design: .rounded)
             .monospacedDigit()
-        static let pageTitle = Font.system(size: 26, weight: .semibold, design: .default)
-        static let sectionTitle = Font.system(size: 17, weight: .semibold, design: .default)
+        static let pageTitle = Font.system(size: Size.page, weight: .semibold, design: .default)
+        static let sectionTitle = Font.system(size: Size.section, weight: .semibold, design: .default)
         /// The sentence a story opens with — prose, so it wraps and breathes
         /// rather than shouting like a page title.
-        static let storyHeadline = Font.system(size: 23, weight: .semibold, design: .default)
-        static let metricValue = Font.system(size: 28, weight: .semibold, design: .rounded)
+        static let storyHeadline = Font.system(size: Size.headline, weight: .semibold, design: .default)
+        static let metricValue = Font.system(size: Size.metric, weight: .semibold, design: .rounded)
             .monospacedDigit()
-        static let tabLabel = Font.system(size: 13, weight: .medium, design: .default)
-        static let rowTitle = Font.system(size: 14, weight: .medium, design: .default)
-        static let metadata = Font.system(size: 12, weight: .regular, design: .default)
+        static let tabLabel = Font.system(size: Size.control, weight: .medium, design: .default)
+        static let rowTitle = Font.system(size: Size.row, weight: .medium, design: .default)
+        static let metadata = Font.system(size: Size.metadata, weight: .regular, design: .default)
 
-        static let ringLabel = Font.system(size: 11, weight: .semibold, design: .rounded)
+        static let ringLabel = Font.system(size: Size.ring, weight: .semibold, design: .rounded)
+        /// Decorative micro-text: legend ticks, calendar dots, axis marks.
+        /// One step replaces the four ad-hoc sizes 6, 7, 8 and 9.
+        static let micro = Font.system(size: Size.micro, weight: .semibold, design: .default)
+        /// The smallest text a reader is expected to read: chips and badges.
+        static let microLabel = Font.system(size: Size.smallLabel, weight: .semibold, design: .default)
+        /// The same step for figures, so small numbers align with the rounded
+        /// faces the metric values use.
+        static let microValue = Font.system(size: Size.smallLabel, weight: .medium, design: .rounded)
             .monospacedDigit()
         static let menuBar = Font.system(size: NSFont.systemFontSize).monospacedDigit()
     }

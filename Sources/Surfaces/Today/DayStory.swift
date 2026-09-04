@@ -130,7 +130,7 @@ struct DayStory: View {
                         .foregroundStyle(.secondary)
                     Spacer(minLength: Tokens.Space.xs)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(Tokens.Typography.microLabel)
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
@@ -417,7 +417,7 @@ struct SessionEntryCard: View {
                             }
                         }
                         Image(systemName: isOpen ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(Tokens.Typography.microLabel)
                             .foregroundStyle(.tertiary)
                     }
                     HStack(spacing: Tokens.Space.s) {

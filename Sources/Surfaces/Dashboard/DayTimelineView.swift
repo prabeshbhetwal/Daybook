@@ -339,7 +339,7 @@ struct DayTimelineView: View {
                             .foregroundStyle(.quaternary)
                     }
                 }
-                .font(.system(size: 9))
+                .font(Tokens.Typography.micro.weight(.regular))
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
                 .fixedSize()

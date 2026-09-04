@@ -28,7 +28,7 @@ struct HourlyStrip: View {
                               : AnyShapeStyle(.quaternary))
                         .frame(height: max(2, 26 * bucket.seconds / peak))
                     Text(DayTimelineView.hourLabel(bucket.hour))
-                        .font(.system(size: 7))
+                        .font(Tokens.Typography.micro.weight(.regular))
                         .foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity)

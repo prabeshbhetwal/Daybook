@@ -60,7 +60,7 @@ private struct FocusContinuityMark: View {
                 }
             case .targetFallback:
                 Image(systemName: MainWindowChrome.appMarkFallbackSymbol)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(Tokens.Typography.tabLabel.weight(.semibold))
                     .foregroundStyle(Tokens.Colour.focus)
                     .background(Tokens.Colour.focus.opacity(0.12), in: Circle())
             }

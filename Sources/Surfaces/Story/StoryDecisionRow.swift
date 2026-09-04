@@ -67,7 +67,7 @@ struct StorySavedActionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
           HStack(spacing: 10) {
-            Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold))
+            Image(systemName: "checkmark").font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(StoryStyle.successInk)
             Text(title).font(Tokens.Typography.metadata.weight(.semibold))
             Text(Tokens.timeRange(range.start, range.end))

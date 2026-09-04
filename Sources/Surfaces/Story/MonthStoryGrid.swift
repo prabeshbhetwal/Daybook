@@ -191,7 +191,7 @@ struct MonthDayCell: View {
             }
             Spacer(minLength: 0)
             Text(MonthStoryLayout.durationLabel(for: focused))
-                .font(.system(size: 10).monospacedDigit())
+                .font(Tokens.Typography.microValue.monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
               }

@@ -272,7 +272,7 @@ struct DailyStrip: View {
                               : AnyShapeStyle(.quaternary))
                         .frame(height: max(2, 30 * entry.seconds / peak))
                     Text(Tokens.dayInitial(entry.day))
-                        .font(.system(size: 8))
+                        .font(Tokens.Typography.micro.weight(.regular))
                         .foregroundStyle(.tertiary)
                 }
                 .frame(maxWidth: .infinity)
@@ -538,7 +538,7 @@ struct SessionLogList: View {
     private func detail(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
+                .font(Tokens.Typography.micro)
                 .tracking(0.4)
                 .foregroundStyle(.tertiary)
             Text(value)
