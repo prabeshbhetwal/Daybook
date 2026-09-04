@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@keyframes sRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes sFade{from{opacity:0}to{opacity:1}}
+@keyframes sDraw{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes sWipe{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes sGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes sPop{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:none}}
+@keyframes sHalo{0%,100%{box-shadow:0 3px 12px rgba(94,92,230,.18),0 0 0 .5px rgba(94,92,230,.35),0 0 0 0 rgba(94,92,230,.22)}50%{box-shadow:0 3px 12px rgba(94,92,230,.22),0 0 0 .5px rgba(94,92,230,.45),0 0 0 6px rgba(94,92,230,.07)}}
+body{margin:0;background:#e6e3df;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#0071e3;text-decoration:none}a:hover{color:#0a5cd6}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;padding:26px;background:radial-gradient(110% 80% at 20% 0%,#f3efe9 0%,#e3ded7 55%,#d4cec6 100%);color:#1d1d1f;font-size:13px">
+<div style="max-width:1240px;margin:0 auto">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:16px">
+    <div>
+      <div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(0,0,0,.42);font-weight:700">Focus Continuity · macOS</div>
+      <div style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-top:4px">Day as a story, with the detail alongside</div>
+    </div>
+    <div style="font-size:12px;line-height:1.5;color:rgba(0,0,0,.5);max-width:380px;text-align:right">Click any entry to open it. Answer the away question. Switch Day · Week · Month. ⌘, for Settings, Esc to close.</div>
+  </div>
+
+  <div style="border-radius:14px;overflow:hidden;box-shadow:0 32px 70px rgba(0,0,0,.22),0 0 0 .5px rgba(0,0,0,.12);background:#fbfaf8;position:relative">
+
+    <div style="height:52px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;background:rgba(251,250,248,.86);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:.5px solid rgba(0,0,0,.08);position:relative;z-index:20">
+      <div style="display:flex;align-items:center;gap:9px;width:250px">
+        <span style="width:12px;height:12px;border-radius:50%;background:#FF5F57"></span>
+        <span style="width:12px;height:12px;border-radius:50%;background:#FEBC2E"></span>
+        <span style="width:12px;height:12px;border-radius:50%;background:#28C840"></span>
+        <div style="display:flex;padding:2px;border-radius:9px;background:rgba(0,0,0,.05);font-size:12px;font-weight:600;margin-left:14px;position:relative" data-comment-anchor="5285ebdc9b-div">
+          <div style="position:absolute;top:2px;bottom:2px;width:60px;border-radius:7px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .34s cubic-bezier(.22,1,.36,1);{{ scopeThumb }}"></div>
+          <span onClick="{{ goDay }}" style="position:relative;width:60px;text-align:center;padding:4px 0;cursor:pointer">Day</span>
+          <span onClick="{{ goWeek }}" style="position:relative;width:60px;text-align:center;padding:4px 0;cursor:pointer">Week</span>
+          <span onClick="{{ goMonth }}" style="position:relative;width:60px;text-align:center;padding:4px 0;cursor:pointer">Month</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;font-size:13px;font-weight:600">
+        <span style="cursor:pointer;color:rgba(0,0,0,.4);transition:color .16s ease" style-hover="color:#1d1d1f">‹</span>
+        <span>{{ periodLabel }}</span>
+        <span style="cursor:pointer;color:rgba(0,0,0,.4);transition:color .16s ease" style-hover="color:#1d1d1f">›</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;width:250px;justify-content:flex-end">
+        <div onClick="{{ togglePause }}" style="display:flex;align-items:center;gap:9px;padding:5px 9px 5px 11px;border-radius:9px;background:rgba(94,92,230,.12);cursor:pointer;transition:background .18s ease,transform .18s cubic-bezier(.22,1,.36,1)" style-hover="background:rgba(94,92,230,.2)" style-active="transform:scale(.97)">
+          <span style="width:7px;height:7px;border-radius:50%;background:#5E5CE6;{{ dotAnim }}"></span>
+          <span style="font-family:ui-rounded,-apple-system,system-ui,sans-serif;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;color:#4e4ccc">{{ clock }}</span>
+          <span style="font-size:11.5px;color:rgba(78,76,204,.8);border-left:.5px solid rgba(78,76,204,.3);padding-left:9px">{{ pauseLabel }}</span>
+        </div>
+        <div onClick="{{ openSettings }}" style="width:28px;height:28px;border-radius:8px;background:rgba(0,0,0,.05);display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(0,0,0,.5);transition:background .16s ease" style-hover="background:rgba(0,0,0,.1)">⚙</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 336px;min-height:720px">
+
+      <div style="padding:26px 30px 34px 30px;border-right:.5px solid rgba(0,0,0,.07);overflow:hidden">
+
+        <sc-if value="{{ isDay }}" hint-placeholder-val="{{ true }}">
+        <div style="animation:sFade .28s ease both">
+          <div style="animation:sRise .5s cubic-bezier(.22,1,.36,1) both">
+            <div style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(0,0,0,.38)">Saturday 29 August</div>
+            <div style="font-size:25px;font-weight:600;letter-spacing:-.015em;line-height:1.32;margin-top:8px;max-width:560px;text-wrap:pretty">You've focused for <span style="color:#4e4ccc;font-weight:700">2 hours 25 minutes</span> across three sessions, and you're ahead of your usual Saturday.</div>
+            <div style="display:flex;gap:14px;margin-top:12px;font-size:12.5px;color:rgba(0,0,0,.5)"><span>3h 40m on this Mac</span><span>·</span><span>50m of rest</span><span>·</span><span>longest stretch 1h 20m</span></div>
+          </div>
+
+          <div style="margin-top:28px;position:relative;padding-left:78px">
+            <div style="position:absolute;left:64px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,.05));transform-origin:top;animation:sDraw .85s cubic-bezier(.16,1,.3,1) .08s both"></div>
+
+            <div style="position:relative;margin-bottom:12px;animation:sRise .5s cubic-bezier(.22,1,.36,1) .1s both">
+              <div style="position:absolute;left:-78px;top:15px;width:48px;text-align:right;white-space:nowrap;font-size:11.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">9:12 AM</div>
+              <div style="position:absolute;left:-17px;top:18px;width:11px;height:11px;border-radius:50%;background:#5E5CE6;box-shadow:0 0 0 3px #fbfaf8"></div>
+              <div onClick="{{ toggleOne }}" style="border-radius:13px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.07);cursor:pointer;overflow:hidden;transition:box-shadow .24s ease" style-hover="box-shadow:0 8px 22px rgba(0,0,0,.09),0 0 0 .5px rgba(0,0,0,.07)">
+                <div style="padding:13px 15px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                    <span style="font-size:14.5px;font-weight:600">Refactor the parser</span>
+                    <span style="display:flex;align-items:center;gap:9px"><span style="font-size:13px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.5)">1h 20m</span><span style="font-size:11px;color:rgba(0,0,0,.3);transition:transform .3s cubic-bezier(.22,1,.36,1);{{ oneChevron }}">▾</span></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(0,0,0,.45);margin-top:4px">
+                    <span style="padding:1.5px 7px;border-radius:5px;background:rgba(94,92,230,.12);color:#4e4ccc;font-weight:600;font-size:11px">Deep work</span>
+                    <span>9:12 – 10:48 AM</span>
+                  </div>
+                </div>
+                <div style="{{ oneDetail }}">
+                  <div style="padding:0 15px 14px 15px">
+                    <div style="height:.5px;background:rgba(0,0,0,.08);margin-bottom:12px"></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                      <div>
+                        <div style="font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(0,0,0,.35);margin-bottom:7px">Apps in this session</div>
+                        <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span>Xcode</span><span style="font-variant-numeric:tabular-nums;color:rgba(0,0,0,.5)">58m</span></div>
+                        <div style="height:4px;border-radius:2px;background:rgba(0,0,0,.06);overflow:hidden"><div style="width:73%;height:4px;background:linear-gradient(90deg,#5E5CE6,#0A84FF)"></div></div>
+                        <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0 3px 0"><span>Safari</span><span style="font-variant-numeric:tabular-nums;color:rgba(0,0,0,.5)">14m</span></div>
+                        <div style="height:4px;border-radius:2px;background:rgba(0,0,0,.06);overflow:hidden"><div style="width:18%;height:4px;background:linear-gradient(90deg,#30B0C7,#0A84FF)"></div></div>
+                        <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0 3px 0"><span>Terminal</span><span style="font-variant-numeric:tabular-nums;color:rgba(0,0,0,.5)">8m</span></div>
+                        <div style="height:4px;border-radius:2px;background:rgba(0,0,0,.06);overflow:hidden"><div style="width:10%;height:4px;background:#8E8E93"></div></div>
+                      </div>
+                      <div>
+                        <div style="font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:rgba(0,0,0,.35);margin-bottom:7px">Shape of it</div>
+                        <div style="display:flex;align-items:flex-end;gap:2px;height:44px">
+                          <div style="flex:1;height:60%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:85%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:95%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:70%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:30%;border-radius:2px;background:#30B0C7"></div><div style="flex:1;height:88%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:100%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:55%;border-radius:2px;background:#5E5CE6"></div>
+                        </div>
+                        <div style="font-size:11.5px;color:rgba(0,0,0,.5);line-height:1.45;margin-top:8px">Steady typing throughout, two short breaks away from the keyboard. No app switching after 9:40.</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:12px">
+                      <span style="padding:4px 11px;border-radius:7px;background:rgba(0,0,0,.055);font-size:11.5px;font-weight:600;cursor:pointer;transition:background .16s ease" style-hover="background:rgba(0,0,0,.1)">Rename</span>
+                      <span style="padding:4px 11px;border-radius:7px;background:rgba(0,0,0,.055);font-size:11.5px;font-weight:600;cursor:pointer;transition:background .16s ease" style-hover="background:rgba(0,0,0,.1)">Change type</span>
+                      <span style="padding:4px 11px;border-radius:7px;background:rgba(0,0,0,.055);font-size:11.5px;font-weight:600;cursor:pointer;transition:background .16s ease" style-hover="background:rgba(0,0,0,.1)">Continue this</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="position:relative;margin-bottom:12px;animation:sRise .5s cubic-bezier(.22,1,.36,1) .16s both">
+              <div style="position:absolute;left:-78px;top:15px;width:48px;text-align:right;white-space:nowrap;font-size:11.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">11:05 AM</div>
+              <div style="position:absolute;left:-17px;top:18px;width:11px;height:11px;border-radius:50%;background:#FF9500;box-shadow:0 0 0 3px #fbfaf8"></div>
+              <div onClick="{{ toggleTwo }}" style="border-radius:13px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.07);cursor:pointer;overflow:hidden;transition:box-shadow .24s ease" style-hover="box-shadow:0 8px 22px rgba(0,0,0,.09),0 0 0 .5px rgba(0,0,0,.07)">
+                <div style="padding:13px 15px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                    <span style="font-size:14.5px;font-weight:600">Spec review</span>
+                    <span style="display:flex;align-items:center;gap:9px"><span style="font-size:13px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.5)">35m</span><span style="font-size:11px;color:rgba(0,0,0,.3);transition:transform .3s cubic-bezier(.22,1,.36,1);{{ twoChevron }}">▾</span></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(0,0,0,.45);margin-top:4px">
+                    <span style="padding:1.5px 7px;border-radius:5px;background:rgba(255,149,0,.15);color:#a35f00;font-weight:600;font-size:11px">Meetings</span>
+                    <span>11:05 – 11:40 AM</span>
+                  </div>
+                </div>
+                <div style="{{ twoDetail }}">
+                  <div style="padding:0 15px 14px 15px">
+                    <div style="height:.5px;background:rgba(0,0,0,.08);margin-bottom:12px"></div>
+                    <div style="font-size:12px;line-height:1.55;color:rgba(0,0,0,.6)">Zoom in front for the whole session with no keyboard input for 22 minutes. Counted in full because Meetings treats watching as the work itself.</div>
+                    <div style="display:flex;gap:16px;margin-top:10px;font-size:11.5px;color:rgba(0,0,0,.45)"><span><span style="color:#FF9500;font-weight:700">■</span> Zoom 35m</span><span>3 people</span><span>no interruptions</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="position:relative;margin-bottom:12px;animation:sRise .5s cubic-bezier(.22,1,.36,1) .22s both">
+              <div style="position:absolute;left:-78px;top:11px;width:48px;text-align:right;white-space:nowrap;font-size:11.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">12:10 PM</div>
+              <div style="position:absolute;left:-14px;top:14px;width:7px;height:7px;border-radius:50%;background:#8E8E93;box-shadow:0 0 0 3px #fbfaf8"></div>
+              <div style="padding:10px 15px;border-radius:13px;background:rgba(0,0,0,.035);font-size:12.5px;color:rgba(0,0,0,.55);display:flex;justify-content:space-between"><span>Lunch — rest, not counted as focus</span><span style="font-variant-numeric:tabular-nums">50m</span></div>
+            </div>
+
+            <div style="position:relative;margin-bottom:12px;animation:sRise .5s cubic-bezier(.22,1,.36,1) .28s both">
+              <div style="position:absolute;left:-78px;top:14px;width:48px;text-align:right;white-space:nowrap;font-size:11.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">1:12 PM</div>
+              <div style="position:absolute;left:-14px;top:17px;width:7px;height:7px;border-radius:50%;{{ awayDot }};box-shadow:0 0 0 3px #fbfaf8"></div>
+              <div style="{{ awayCard }}">
+                <sc-if value="{{ awayOpen }}" hint-placeholder-val="{{ true }}">
+                <div style="padding:13px 15px;animation:sFade .3s ease both">
+                  <div style="font-size:13.5px;font-weight:600">Away until 2:40 PM — 1h 28m isn't counted</div>
+                  <div style="font-size:12px;color:rgba(0,0,0,.55);margin-top:3px;line-height:1.45">The Mac was locked and nothing was recorded. Change it if you were working somewhere else.</div>
+                  <div style="display:flex;gap:8px;margin-top:11px">
+                    <span onClick="{{ countAsFocus }}" style="padding:5px 12px;border-radius:8px;background:#0071e3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:transform .16s cubic-bezier(.22,1,.36,1),background .16s ease" style-hover="background:#0a5cd6" style-active="transform:scale(.96)">Count as Focus</span>
+                    <span onClick="{{ countAsBreak }}" style="padding:5px 12px;border-radius:8px;background:rgba(0,0,0,.06);font-size:12px;font-weight:600;cursor:pointer;transition:transform .16s cubic-bezier(.22,1,.36,1),background .16s ease" style-hover="background:rgba(0,0,0,.11)" style-active="transform:scale(.96)">Call it a break</span>
+                    <span onClick="{{ leaveIt }}" style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;color:rgba(0,0,0,.45);cursor:pointer;transition:background .16s ease" style-hover="background:rgba(0,0,0,.05)">Leave it</span>
+                  </div>
+                </div>
+                </sc-if>
+                <sc-if value="{{ awayResolved }}">
+                <div style="padding:11px 15px;display:flex;justify-content:space-between;align-items:center;gap:12px;animation:sFade .3s ease both">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <svg viewBox="0 0 16 16" style="width:14px;height:14px;flex:none"><path d="M3.5 8.6 6.4 11.5 12.6 4.8" fill="none" stroke="#0a7d3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                    <span style="font-size:12.5px;font-weight:600">{{ awayVerdict }}</span>
+                    <span style="font-size:12px;color:rgba(0,0,0,.45)">1:12 – 2:40 PM</span>
+                  </div>
+                  <span onClick="{{ reopenAway }}" style="font-size:11.5px;font-weight:600;color:#0071e3;cursor:pointer">Undo</span>
+                </div>
+                </sc-if>
+              </div>
+            </div>
+
+            <div style="position:relative;animation:sRise .5s cubic-bezier(.22,1,.36,1) .34s both">
+              <div style="position:absolute;left:-78px;top:15px;width:48px;text-align:right;white-space:nowrap;font-size:11.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">2:41 PM</div>
+              <div style="position:absolute;left:-18px;top:17px;width:13px;height:13px;border-radius:50%;background:#5E5CE6;box-shadow:0 0 0 3px #fbfaf8,0 0 0 6px rgba(94,92,230,.16)"></div>
+              <div onClick="{{ toggleLive }}" style="border-radius:13px;background:#fff;cursor:pointer;overflow:hidden;animation:sHalo 3.2s ease-in-out infinite">
+                <div style="padding:13px 15px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                    <span style="font-size:14.5px;font-weight:600">Refactor the parser</span>
+                    <span style="display:flex;align-items:center;gap:9px"><span style="font-family:ui-rounded,-apple-system,system-ui,sans-serif;font-size:14.5px;font-weight:700;font-variant-numeric:tabular-nums;color:#4e4ccc">{{ clock }}</span><span style="font-size:11px;color:rgba(0,0,0,.3);transition:transform .3s cubic-bezier(.22,1,.36,1);{{ liveChevron }}">▾</span></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(0,0,0,.45);margin-top:4px">
+                    <span style="padding:1.5px 7px;border-radius:5px;background:rgba(94,92,230,.12);color:#4e4ccc;font-weight:600;font-size:11px">Deep work</span>
+                    <span>running now · continuing this morning's thread</span>
+                  </div>
+                </div>
+                <div style="{{ liveDetail }}">
+                  <div style="padding:0 15px 14px 15px">
+                    <div style="height:.5px;background:rgba(0,0,0,.08);margin-bottom:12px"></div>
+                    <div style="display:flex;gap:20px;align-items:center">
+                      <div style="flex:1">
+                        <div style="font-size:11.5px;color:rgba(0,0,0,.5);line-height:1.5">Xcode in front for 38 of the last 42 minutes. Next break suggested in 8 minutes.</div>
+                        <div style="display:flex;gap:8px;margin-top:10px">
+                          <span onClick="{{ togglePause }}" style="padding:5px 12px;border-radius:8px;background:rgba(94,92,230,.14);color:#4e4ccc;font-size:12px;font-weight:600;cursor:pointer;transition:transform .16s cubic-bezier(.22,1,.36,1)" style-active="transform:scale(.96)">{{ pauseLabel }}</span>
+                          <span style="padding:5px 12px;border-radius:8px;background:rgba(0,0,0,.06);font-size:12px;font-weight:600;cursor:pointer;transition:background .16s ease" style-hover="background:rgba(0,0,0,.11)">End session</span>
+                        </div>
+                      </div>
+                      <div style="display:flex;align-items:flex-end;gap:2px;height:46px;width:130px">
+                        <div style="flex:1;height:40%;border-radius:2px;background:rgba(94,92,230,.5)"></div><div style="flex:1;height:70%;border-radius:2px;background:rgba(94,92,230,.6)"></div><div style="flex:1;height:90%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:65%;border-radius:2px;background:rgba(94,92,230,.6)"></div><div style="flex:1;height:85%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:100%;border-radius:2px;background:#5E5CE6"></div><div style="flex:1;height:75%;border-radius:2px;background:rgba(94,92,230,.7)"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="font-size:11.5px;color:rgba(0,0,0,.42);margin-top:24px;padding-top:12px;border-top:.5px solid rgba(0,0,0,.07)">Time before 9:12 AM isn't recorded. <a href="#">About this data</a></div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isWeek }}">
+        <div style="animation:sFade .28s ease both">
+          <div style="animation:sRise .5s cubic-bezier(.22,1,.36,1) both">
+            <div style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(0,0,0,.38)">24 – 30 August</div>
+            <div style="font-size:25px;font-weight:600;letter-spacing:-.015em;line-height:1.32;margin-top:8px;max-width:560px;text-wrap:pretty">Five working days, <span style="color:#4e4ccc;font-weight:700">14 hours 10 minutes</span> of focus, and Wednesday carried the week.</div>
+            <div style="display:flex;gap:14px;margin-top:12px;font-size:12.5px;color:rgba(0,0,0,.5)"><span>2h 50m average per active day</span><span>·</span><span>longest stretch 1h 55m</span></div>
+          </div>
+
+          <div style="margin-top:26px;animation:sRise .55s cubic-bezier(.22,1,.36,1) .06s both">
+            <div style="display:flex;align-items:flex-end;gap:12px;height:190px">
+              <div onClick="{{ pickMon }}" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;transition:opacity .2s ease" style-hover="opacity:.75"><div style="font-size:11px;text-align:center;color:rgba(0,0,0,.42);font-variant-numeric:tabular-nums;margin-bottom:5px">2h 10m</div><div style="height:53%;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#7d7bf0,#5E5CE6);transform-origin:bottom;animation:sGrow .7s cubic-bezier(.16,1,.3,1) .1s both"></div></div>
+              <div onClick="{{ pickTue }}" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;transition:opacity .2s ease" style-hover="opacity:.75"><div style="font-size:11px;text-align:center;color:rgba(0,0,0,.42);font-variant-numeric:tabular-nums;margin-bottom:5px">3h 05m</div><div style="height:75%;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#7d7bf0,#5E5CE6);transform-origin:bottom;animation:sGrow .7s cubic-bezier(.16,1,.3,1) .15s both"></div></div>
+              <div onClick="{{ pickWed }}" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;transition:opacity .2s ease" style-hover="opacity:.75"><div style="font-size:11px;text-align:center;color:rgba(0,0,0,.42);font-variant-numeric:tabular-nums;margin-bottom:5px">4h 05m</div><div style="height:100%;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#8f8df5,#4e4ccc);transform-origin:bottom;animation:sGrow .7s cubic-bezier(.16,1,.3,1) .2s both"></div></div>
+              <div onClick="{{ pickThu }}" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;transition:opacity .2s ease" style-hover="opacity:.75"><div style="font-size:11px;text-align:center;color:rgba(0,0,0,.42);font-variant-numeric:tabular-nums;margin-bottom:5px">2h 20m</div><div style="height:57%;border-radius:7px 7px 0 0;background:linear-gradient(180deg,#7d7bf0,#5E5CE6);transform-origin:bottom;animation:sGrow .7s cubic-bezier(.16,1,.3,1) .25s both"></div><div style="height:13%;border-radius:0 0 3px 3px;background:repeating-linear-gradient(45deg,rgba(0,0,0,.11),rgba(0,0,0,.11) 4px,rgba(0,0,0,.035) 4px,rgba(0,0,0,.035) 8px);transform-origin:bottom;animation:sGrow .7s cubic-bezier(.16,1,.3,1) .29s both"></div></div>
+              <div onClick="{{ pickFri }}" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;cursor:pointer;transition:opacity .2s ease" style-hover="opacity:.75"><div style="font-size:11px;text-align:center;color:rgba(0,0,0,.42);font-variant-numeric:tabular-nums;margin-bottom:5px">3h 30m</div><div style="height:86%;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#7d7bf0,#5E5CE6);transform-origin:bottom;animation:sGrow .7s cubic-bezier(.16,1,.3,1) .3s both"></div></div>
+              <div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end"><div style="font-size:11px;text-align:center;color:rgba(0,0,0,.42);font-variant-numeric:tabular-nums;margin-bottom:5px">25m</div><div style="height:10%;border-radius:5px 5px 3px 3px;background:#c9c7d4;transform-origin:bottom;animation:sGrow .7s cubic-bezier(.16,1,.3,1) .35s both"></div></div>
+              <div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end"><div style="font-size:11px;text-align:center;color:rgba(0,0,0,.28);margin-bottom:5px">—</div><div style="height:2px;background:rgba(0,0,0,.12)"></div></div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:8px;font-size:11.5px;color:rgba(0,0,0,.42);font-weight:500"><span style="flex:1;text-align:center">Mon</span><span style="flex:1;text-align:center">Tue</span><span style="flex:1;text-align:center">Wed</span><span style="flex:1;text-align:center">Thu</span><span style="flex:1;text-align:center">Fri</span><span style="flex:1;text-align:center">Sat</span><span style="flex:1;text-align:center">Sun</span></div>
+          </div>
+
+          <div style="margin-top:24px;padding:15px 17px;border-radius:13px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.07);animation:sRise .55s cubic-bezier(.22,1,.36,1) .12s both">
+            <div style="display:flex;justify-content:space-between;align-items:baseline">
+              <div><span style="font-size:16px;font-weight:600">{{ dayName }}</span> <span style="font-family:ui-rounded,-apple-system,system-ui,sans-serif;font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;color:#4e4ccc;margin-left:8px">{{ dayTotal }}</span></div>
+              <span onClick="{{ goDay }}" style="font-size:11.5px;font-weight:600;color:#0071e3;cursor:pointer">Open as a story ›</span>
+            </div>
+            <div style="font-size:12.5px;color:rgba(0,0,0,.52);margin-top:5px;line-height:1.5">{{ dayNote }}</div>
+            <div style="display:flex;height:8px;border-radius:5px;overflow:hidden;margin-top:13px">
+              <div style="flex:58;background:#5E5CE6;transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .2s both"></div>
+              <div style="flex:22;background:#FF9500;transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .24s both"></div>
+              <div style="flex:12;background:#30B0C7;transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .28s both"></div>
+              <div style="flex:8;background:#FF375F;transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .32s both"></div>
+            </div>
+            <div style="display:flex;gap:14px;margin-top:9px;font-size:11.5px;color:rgba(0,0,0,.5)"><span><span style="color:#5E5CE6;font-weight:700">■</span> Deep work 58%</span><span><span style="color:#FF9500;font-weight:700">■</span> Meetings 22%</span><span><span style="color:#30B0C7;font-weight:700">■</span> Admin 12%</span><span><span style="color:#FF375F;font-weight:700">■</span> Learning 8%</span></div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isMonth }}">
+        <div style="animation:sFade .28s ease both">
+          <div style="animation:sRise .5s cubic-bezier(.22,1,.36,1) both">
+            <div style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(0,0,0,.38)">August 2026</div>
+            <div style="font-size:25px;font-weight:600;letter-spacing:-.015em;line-height:1.32;margin-top:8px;max-width:560px;text-wrap:pretty">You focused on 22 of 31 days, <span style="color:#4e4ccc;font-weight:700">62 hours 40 minutes</span> in total — your strongest month so far.</div>
+            <div style="display:flex;gap:14px;margin-top:12px;font-size:12.5px;color:rgba(0,0,0,.5)"><span>2h 51m average</span><span>·</span><span>best week 24–30 Aug</span><span>·</span><span>+7% on July</span></div>
+          </div>
+          <div style="margin-top:26px;padding:18px;border-radius:13px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.07);animation:sRise .55s cubic-bezier(.22,1,.36,1) .06s both" data-comment-anchor="6b435de676-div">
+            <div style="display:grid;grid-template-columns:repeat(7,1fr) 62px;gap:8px;font-size:10px;color:rgba(0,0,0,.38);font-weight:700;letter-spacing:.07em;margin-bottom:8px"><span style="padding-left:2px">MON</span><span style="padding-left:2px">TUE</span><span style="padding-left:2px">WED</span><span style="padding-left:2px">THU</span><span style="padding-left:2px">FRI</span><span style="padding-left:2px">SAT</span><span style="padding-left:2px">SUN</span><span style="text-align:right;color:rgba(0,0,0,.28)">WEEK</span></div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr) 62px;gap:8px">
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.020s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.036s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.052s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.068s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.084s both"></div>
+              <div title="Sat 1 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.035);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.100s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">1</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">—</span></div>
+              <div title="Sun 2 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.035);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.116s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">2</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">—</span></div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-right:2px;font-variant-numeric:tabular-nums"><span style="font-size:11.5px;font-weight:700;color:rgba(0,0,0,.5)">—</span></div>
+              <div title="Mon 3 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.66);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.132s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">3</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">2h 40m</span></div>
+              <div title="Tue 4 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.76);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.148s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">4</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">3h 15m</span></div>
+              <div title="Wed 5 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.80);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.164s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">5</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">3h 30m</span></div>
+              <div title="Thu 6 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.47);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.180s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">6</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">1h 35m</span></div>
+              <div title="Fri 7 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.78);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.196s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">7</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">3h 20m</span></div>
+              <div title="Sat 8 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.035);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.212s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">8</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">—</span></div>
+              <div title="Sun 9 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.035);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.228s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">9</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">—</span></div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-right:2px;font-variant-numeric:tabular-nums"><span style="font-size:11.5px;font-weight:700;color:rgba(0,0,0,.5)">14h 20m</span></div>
+              <div title="Mon 10 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.63);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.244s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">10</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">2h 30m</span></div>
+              <div title="Tue 11 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.73);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.260s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">11</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">3h 05m</span></div>
+              <div title="Wed 12 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.92);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.276s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">12</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">4h 10m</span></div>
+              <div title="Thu 13 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.52);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.292s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">13</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">1h 50m</span></div>
+              <div title="Fri 14 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.70);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.308s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">14</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">2h 55m</span></div>
+              <div title="Sat 15 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.27);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.324s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">15</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">25m</span></div>
+              <div title="Sun 16 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.035);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.340s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">16</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">—</span></div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-right:2px;font-variant-numeric:tabular-nums"><span style="font-size:11.5px;font-weight:700;color:rgba(0,0,0,.5)">14h 55m</span></div>
+              <div title="Mon 17 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.75);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.356s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">17</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">3h 10m</span></div>
+              <div title="Tue 18 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.79);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.372s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">18</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">3h 25m</span></div>
+              <div title="Wed 19 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:repeating-linear-gradient(45deg,rgba(0,0,0,.11),rgba(0,0,0,.11) 3px,rgba(0,0,0,.035) 3px,rgba(0,0,0,.035) 6px);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.388s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">19</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">no data</span></div>
+              <div title="Thu 20 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.66);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.404s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">20</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">2h 40m</span></div>
+              <div title="Fri 21 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.92);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.420s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">21</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">4h 10m</span></div>
+              <div title="Sat 22 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.035);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.436s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">22</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">—</span></div>
+              <div title="Sun 23 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.035);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.452s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">23</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">—</span></div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-right:2px;font-variant-numeric:tabular-nums"><span style="font-size:11.5px;font-weight:700;color:rgba(0,0,0,.5)">13h 25m</span></div>
+              <div title="Mon 24 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.57);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.468s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">24</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">2h 10m</span></div>
+              <div title="Tue 25 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.73);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.484s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">25</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">3h 05m</span></div>
+              <div title="Wed 26 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.91);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.500s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">26</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">4h 05m</span></div>
+              <div title="Thu 27 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.70);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.516s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">27</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">2h 55m</span></div>
+              <div title="Fri 28 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.80);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.532s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">28</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">3h 30m</span></div>
+              <div title="Sat 29 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.62);box-shadow:0 0 0 2px #4e4ccc,0 2px 8px rgba(78,76,204,.25);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.548s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.95)">29</span><span style="font-size:9px;font-weight:700;letter-spacing:.06em;color:rgba(255,255,255,.8)">TODAY</span></span><span style="position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:#5E5CE6;animation:sHalo 2s ease-in-out infinite"></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,.8)">2h 25m</span></div>
+              <div title="Sun 30 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.035);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.564s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">30</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">—</span></div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-right:2px;font-variant-numeric:tabular-nums"><span style="font-size:11.5px;font-weight:700;color:#4e4ccc">18h 10m</span></div>
+              <div title="Mon 31 August 2026" style="position:relative;aspect-ratio:1;border-radius:9px;background:rgba(94,92,230,0.52);padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:transform .22s cubic-bezier(.22,1,.36,1),filter .22s ease;animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.580s both" style-hover="transform:translateY(-2px) scale(1.03);filter:brightness(1.06)"><span style="display:flex;align-items:baseline;justify-content:space-between;gap:4px"><span style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.62)">31</span></span><span style="font-size:9.5px;font-variant-numeric:tabular-nums;color:rgba(0,0,0,.42)">1h 50m</span></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.596s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.612s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.628s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.644s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.660s both"></div>
+              <div style="aspect-ratio:1;border-radius:9px;background:rgba(0,0,0,.02);animation:sPop .45s cubic-bezier(.22,1,.36,1) 0.676s both"></div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding-right:2px;font-variant-numeric:tabular-nums"><span style="font-size:11.5px;font-weight:700;color:rgba(0,0,0,.5)">1h 50m</span></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:11.5px;color:rgba(0,0,0,.45)">
+              <span>22 of 31 days had focus. Wednesdays are consistently your strongest.</span>
+              <span style="display:flex;align-items:center;gap:6px">Less<span style="width:12px;height:12px;border-radius:4px;background:rgba(94,92,230,.16)"></span><span style="width:12px;height:12px;border-radius:4px;background:rgba(94,92,230,.44)"></span><span style="width:12px;height:12px;border-radius:4px;background:rgba(94,92,230,.72)"></span><span style="width:12px;height:12px;border-radius:4px;background:rgba(78,76,204,.96)"></span>More</span>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+      </div>
+
+      <div style="padding:22px 20px 30px 20px;background:rgba(0,0,0,.018);display:flex;flex-direction:column;gap:14px">
+
+        <div style="padding:15px 16px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.06);animation:sPop .5s cubic-bezier(.22,1,.36,1) .04s both;transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s ease" style-hover="transform:translateY(-2px);box-shadow:0 12px 26px rgba(94,92,230,.16),0 0 0 .5px rgba(0,0,0,.06)">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:700;color:#4e4ccc">{{ tileFocusLabel }}</span><span style="font-size:11px;color:rgba(0,0,0,.3)">{{ periodLabel }}</span></div>
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:10px">
+            <div>
+              <div style="font-family:ui-rounded,-apple-system,system-ui,sans-serif;font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums">{{ tileFocusValue }}</div>
+              <div style="font-size:11.5px;color:rgba(0,0,0,.48);margin-top:6px;line-height:1.4">{{ tileFocusNote }}</div>
+            </div>
+            <div style="position:relative;width:56px;height:56px;flex:none">
+              <svg viewBox="0 0 56 56" style="width:56px;height:56px;transform:rotate(-90deg)">
+                <circle cx="28" cy="28" r="23" fill="none" stroke="rgba(0,0,0,.07)" stroke-width="7"></circle>
+                <circle cx="28" cy="28" r="23" fill="none" stroke="url(#sRing)" stroke-width="7" stroke-linecap="round" stroke-dasharray="144.5" style="transition:stroke-dashoffset 1.1s cubic-bezier(.16,1,.3,1);{{ ringOffset }}"></circle>
+                <defs><linearGradient id="sRing" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5E5CE6"></stop><stop offset="100%" stop-color="#0A84FF"></stop></linearGradient></defs>
+              </svg>
+              <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:ui-rounded,-apple-system,system-ui,sans-serif;font-size:12px;font-weight:700">{{ ringLabel }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:15px 16px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.06);animation:sPop .5s cubic-bezier(.22,1,.36,1) .09s both;transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s ease" style-hover="transform:translateY(-2px);box-shadow:0 12px 26px rgba(48,176,199,.18),0 0 0 .5px rgba(0,0,0,.06)">
+          <div style="font-size:12px;font-weight:700;color:#1a8fa3">On this Mac</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:8px"><span style="font-family:ui-rounded,-apple-system,system-ui,sans-serif;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums">{{ tileMacValue }}</span><span style="font-size:11.5px;color:rgba(0,0,0,.45)">not all of it deliberate</span></div>
+          <div style="display:flex;height:7px;border-radius:4px;overflow:hidden;margin-top:11px">
+            <div style="flex:66;background:#30B0C7;transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .3s both"></div>
+            <div style="flex:22;background:rgba(48,176,199,.42);transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .34s both"></div>
+            <div style="flex:12;background:repeating-linear-gradient(45deg,rgba(0,0,0,.12),rgba(0,0,0,.12) 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 6px);transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .38s both"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-top:11px" data-comment-anchor="e98f1f6bc1-div">
+            <div style="display:flex;align-items:center;gap:8px;font-size:11.5px"><span style="width:10px;height:10px;border-radius:3px;background:#30B0C7;flex:none"></span><span style="flex:1;color:rgba(0,0,0,.62)">In a focus session</span><span style="font-variant-numeric:tabular-nums;font-weight:600;color:rgba(0,0,0,.5)">{{ macSession }}</span></div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:11.5px"><span style="width:10px;height:10px;border-radius:3px;background:rgba(48,176,199,.42);flex:none"></span><span style="flex:1;color:rgba(0,0,0,.62)">At the Mac, no session</span><span style="font-variant-numeric:tabular-nums;font-weight:600;color:rgba(0,0,0,.5)">{{ macIdle }}</span></div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:11.5px"><span style="width:10px;height:10px;border-radius:3px;background:repeating-linear-gradient(45deg,rgba(0,0,0,.32),rgba(0,0,0,.32) 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);flex:none"></span><span style="flex:1;color:rgba(0,0,0,.62)">Not recorded</span><span style="font-variant-numeric:tabular-nums;font-weight:600;color:rgba(0,0,0,.5)">{{ macGap }}</span></div>
+          </div>
+        </div>
+
+        <div style="padding:15px 16px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.06);animation:sPop .5s cubic-bezier(.22,1,.36,1) .14s both;transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s ease" style-hover="transform:translateY(-2px);box-shadow:0 12px 26px rgba(175,82,222,.16),0 0 0 .5px rgba(0,0,0,.06)">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:700;color:#9430c0">Apps</span><span style="font-size:11px;color:rgba(0,0,0,.3)">Top 4</span></div>
+          <div style="margin-top:9px;font-size:12px">
+            <div style="display:flex;justify-content:space-between;padding:4px 0"><span>Xcode</span><span style="font-variant-numeric:tabular-nums;color:rgba(0,0,0,.48)">1h 44m</span></div>
+            <div style="height:4px;border-radius:2px;background:rgba(0,0,0,.06);overflow:hidden"><div style="width:78%;height:4px;background:linear-gradient(90deg,#5E5CE6,#0A84FF);transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .34s both"></div></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0 4px 0"><span>Safari</span><span style="font-variant-numeric:tabular-nums;color:rgba(0,0,0,.48)">52m</span></div>
+            <div style="height:4px;border-radius:2px;background:rgba(0,0,0,.06);overflow:hidden"><div style="width:39%;height:4px;background:linear-gradient(90deg,#30B0C7,#0A84FF);transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .38s both"></div></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0 4px 0"><span>Figma</span><span style="font-variant-numeric:tabular-nums;color:rgba(0,0,0,.48)">24m</span></div>
+            <div style="height:4px;border-radius:2px;background:rgba(0,0,0,.06);overflow:hidden"><div style="width:18%;height:4px;background:linear-gradient(90deg,#AF52DE,#FF375F);transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .42s both"></div></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0 4px 0"><span>Mail</span><span style="font-variant-numeric:tabular-nums;color:rgba(0,0,0,.48)">18m</span></div>
+            <div style="height:4px;border-radius:2px;background:rgba(0,0,0,.06);overflow:hidden"><div style="width:13%;height:4px;background:linear-gradient(90deg,#FF9500,#FFCC00);transform-origin:left;animation:sWipe .7s cubic-bezier(.16,1,.3,1) .46s both"></div></div>
+          </div>
+        </div>
+
+        <div style="padding:15px 16px;border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.06);animation:sPop .5s cubic-bezier(.22,1,.36,1) .19s both;transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s ease" style-hover="transform:translateY(-2px);box-shadow:0 12px 26px rgba(10,132,255,.16),0 0 0 .5px rgba(0,0,0,.06)">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:700;color:#0071e3">Rhythm</span><span style="font-size:11px;color:rgba(0,0,0,.3)">by hour</span></div>
+          <div style="display:flex;align-items:flex-end;gap:3px;height:54px;margin-top:11px">
+            <div style="flex:1;height:20%;border-radius:2px;background:rgba(10,132,255,.35);transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .3s both"></div><div style="flex:1;height:52%;border-radius:2px;background:rgba(10,132,255,.5);transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .33s both"></div><div style="flex:1;height:88%;border-radius:2px;background:#0A84FF;transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .36s both"></div><div style="flex:1;height:100%;border-radius:2px;background:#0A84FF;transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .39s both"></div><div style="flex:1;height:44%;border-radius:2px;background:rgba(10,132,255,.5);transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .42s both"></div><div style="flex:1;height:18%;border-radius:2px;background:rgba(10,132,255,.3);transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .45s both"></div><div style="flex:1;height:62%;border-radius:2px;background:rgba(10,132,255,.6);transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .48s both"></div><div style="flex:1;height:80%;border-radius:2px;background:#0A84FF;transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .51s both"></div><div style="flex:1;height:36%;border-radius:2px;background:rgba(10,132,255,.45);transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .54s both"></div><div style="flex:1;height:10%;border-radius:2px;background:rgba(10,132,255,.25);transform-origin:bottom;animation:sGrow .6s cubic-bezier(.16,1,.3,1) .57s both"></div>
+          </div>
+          <div style="font-size:11.5px;color:rgba(0,0,0,.48);margin-top:9px;line-height:1.4">Your best hours are 10 – 11 AM and 3 – 4 PM.</div>
+        </div>
+
+        <div style="padding:15px 16px;border-radius:14px;background:linear-gradient(140deg,#fff,rgba(255,55,95,.07));box-shadow:0 1px 3px rgba(0,0,0,.06),0 0 0 .5px rgba(0,0,0,.06);animation:sPop .5s cubic-bezier(.22,1,.36,1) .24s both">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:700;color:#d1204a">Streak</span><span style="font-size:11px;color:rgba(0,0,0,.3)">12 days</span></div>
+          <div style="display:flex;gap:3px;margin-top:11px">
+            <div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .34s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .36s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .38s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF6482;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .4s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .42s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .44s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF6482;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .46s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .48s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .5s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .52s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF6482;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .54s both"></div><div style="flex:1;height:8px;border-radius:4px;background:#FF375F;transform-origin:left;animation:sWipe .5s cubic-bezier(.16,1,.3,1) .56s both"></div>
+          </div>
+          <div style="font-size:11.5px;color:rgba(0,0,0,.48);margin-top:9px;line-height:1.4">Days with at least 25 minutes of focus. <a href="#">Awards</a></div>
+        </div>
+
+        <div style="margin-top:auto;font-size:11px;color:rgba(0,0,0,.38);line-height:1.5">Tiles follow the scope above. Drag to reorder; a tile with nothing to say is hidden.</div>
+      </div>
+    </div>
+
+    <div style="{{ scrimStyle }}"></div>
+    <div style="{{ sheetStyle }}">
+      <div style="width:520px;border-radius:0 0 14px 14px;background:#f6f6f8;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden">
+        <div style="display:flex;gap:4px;padding:10px 14px;background:rgba(255,255,255,.72);border-bottom:.5px solid rgba(0,0,0,.09);font-size:11.5px;font-weight:500">
+          <span style="padding:5px 10px;border-radius:7px;background:rgba(0,0,0,.07);font-weight:600">General</span>
+          <span style="padding:5px 10px;border-radius:7px;cursor:pointer;transition:background .15s ease" style-hover="background:rgba(0,0,0,.05)">Sessions</span>
+          <span style="padding:5px 10px;border-radius:7px;cursor:pointer;transition:background .15s ease" style-hover="background:rgba(0,0,0,.05)">Away &amp; Breaks</span>
+          <span style="padding:5px 10px;border-radius:7px;cursor:pointer;transition:background .15s ease" style-hover="background:rgba(0,0,0,.05)">Recording</span>
+          <span style="padding:5px 10px;border-radius:7px;cursor:pointer;transition:background .15s ease" style-hover="background:rgba(0,0,0,.05)">Privacy</span>
+        </div>
+        <div style="padding:18px 20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid rgba(0,0,0,.08)"><span style="font-size:12.5px">Daily focus goal</span><span style="font-size:12.5px;padding:4px 9px;border-radius:6px;background:#fff;box-shadow:0 0 0 .5px rgba(0,0,0,.12);font-weight:500">4 hours ⌄</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid rgba(0,0,0,.08)"><div><div style="font-size:12.5px">Start a session with a Focus</div><div style="font-size:11px;color:rgba(0,0,0,.45);margin-top:1px">Turning on Work begins recording</div></div><div style="width:38px;height:22px;border-radius:11px;background:#34C759;position:relative"><div style="position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)"></div></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid rgba(0,0,0,.08)"><span style="font-size:12.5px">Expand entry details by default</span><div style="width:38px;height:22px;border-radius:11px;background:rgba(0,0,0,.16);position:relative"><div style="position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)"></div></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0"><div><div style="font-size:12.5px">Sync with iPhone and iPad</div><div style="font-size:11px;color:rgba(0,0,0,.45);margin-top:1px">End-to-end encrypted in iCloud</div></div><div style="width:38px;height:22px;border-radius:11px;background:#34C759;position:relative"><div style="position:absolute;top:2px;left:18px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25)"></div></div></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px"><div onClick="{{ closeSettings }}" style="padding:6px 16px;border-radius:8px;background:#0071e3;color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;transition:transform .16s cubic-bezier(.22,1,.36,1),background .16s ease" style-hover="background:#0a5cd6" style-active="transform:scale(.97)">Done</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-top:20px;font-size:12px;line-height:1.55;color:rgba(0,0,0,.55)">
+    <div><strong style="color:#1d1d1f">The story</strong><br>One column, one measure, read top to bottom. Gaps are entries too, so an unrecorded hour is part of the day rather than a defect.</div>
+    <div><strong style="color:#1d1d1f">The detail</strong><br>Every entry opens in place: apps, the shape of the input, and the actions that belong to it. Nothing navigates away.</div>
+    <div><strong style="color:#1d1d1f">The rail</strong><br>Expressive tiles follow the scope — focus ring, time on Mac, apps, rhythm, streak — each with its own colour and drill-in.</div>
+    <div><strong style="color:#1d1d1f">Motion</strong><br>The rail draws down, entries rise in sequence, tiles pop with a coloured lift, and the live entry breathes. Reduce Motion drops it all to instant.</div>
+  </div>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1300,&quot;height&quot;:1080},&quot;running&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype state&quot;},&quot;expandFirstEntry&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype state&quot;}}">
+class Component extends DCLogic {
+  state = { view: 'day', elapsed: 2538, running: true, open: {}, away: 'open', settings: false, day: 'wed', ring: 0 };
+
+  componentDidMount() {
+    this.timer = setInterval(() => { if (this.state.running) this.setState(s => ({ elapsed: s.elapsed + 1 })); }, 1000);
+    requestAnimationFrame(() => this.setState({ ring: 0.61 }));
+    this.key = (e) => {
+      if (e.metaKey && e.key === ',') { e.preventDefault(); this.setState({ settings: true }); }
+      if (e.key === 'Escape') this.setState({ settings: false });
+    };
+    window.addEventListener('keydown', this.key);
+    if (this.props.running === false) this.setState({ running: false });
+    if (this.props.expandFirstEntry) this.setState(s => ({ open: Object.assign({}, s.open, { one: true }) }));
+  }
+
+  componentWillUnmount() { clearInterval(this.timer); window.removeEventListener('keydown', this.key); }
+
+  clock() {
+    const t = Math.max(0, Math.floor(this.state.elapsed));
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    const pad = n => String(n).padStart(2, '0');
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  }
+
+  detail(key) {
+    const on = !!this.state.open[key];
+    return on
+      ? 'overflow:hidden;max-height:340px;opacity:1;transition:max-height .5s cubic-bezier(.22,1,.36,1),opacity .35s ease'
+      : 'overflow:hidden;max-height:0;opacity:0;transition:max-height .4s cubic-bezier(.4,0,.2,1),opacity .2s ease';
+  }
+
+  chev(key) { return this.state.open[key] ? 'transform:rotate(180deg)' : 'transform:rotate(0deg)'; }
+
+  toggle(key) { return () => this.setState(s => ({ open: Object.assign({}, s.open, { [key]: !s.open[key] }) })); }
+
+  renderVals() {
+    const v = this.state.view;
+    const scope = { day: 0, week: 60, month: 120 };
+    const periods = { day: 'Today', week: 'This Week', month: 'August' };
+    const days = {
+      mon: { name: 'Monday 24 Aug', total: '2h 10m', note: '3 sessions, longest 55m. 3h 20m on this Mac, and 40 minutes of it unattributed.' },
+      tue: { name: 'Tuesday 25 Aug', total: '3h 05m', note: '4 sessions, longest 1h 10m. Two meetings in the afternoon broke the deep work up.' },
+      wed: { name: 'Wednesday 26 Aug', total: '4h 05m', note: 'Your longest day this week — one 1h 55m stretch in the morning, uninterrupted.' },
+      thu: { name: 'Thursday 27 Aug', total: '2h 20m', note: '2 sessions. 40 minutes around lunch was never recorded, so it is shown as a gap.' },
+      fri: { name: 'Friday 28 Aug', total: '3h 30m', note: '5 shorter sessions, longest 1h 05m. Admin-heavy, and you took every break.' }
+    };
+    const d = days[this.state.day] || days.wed;
+    const pick = k => () => this.setState({ day: k });
+    const tiles = {
+      day: { label: 'Focus time', value: '2h 25m', note: '61% of your 4h goal · ahead of your usual pace', ring: this.state.ring, ringLabel: '61%' },
+      week: { label: 'Focus this week', value: '14h 10m', note: '5 active days · 2h 50m average', ring: this.state.ring ? 0.71 : 0, ringLabel: '71%' },
+      month: { label: 'Focus this month', value: '62h 40m', note: '22 active days · +7% on July', ring: this.state.ring ? 0.83 : 0, ringLabel: '83%' }
+    };
+    const t = tiles[v];
+    const macValues = { day: '3h 40m', week: '22h 05m', month: '96h 30m' };
+    const macSplit = {
+      day: { session: '2h 25m', idle: '49m', gap: '26m' },
+      week: { session: '14h 10m', idle: '5h 20m', gap: '2h 35m' },
+      month: { session: '62h 40m', idle: '23h 15m', gap: '10h 35m' }
+    };
+    const split = macSplit[v];
+    const verdicts = { focus: 'Counted as focus', break: 'Recorded as a break', left: 'Left uncounted' };
+
+    return {
+      clock: this.clock(),
+      isDay: v === 'day', isWeek: v === 'week', isMonth: v === 'month',
+      periodLabel: periods[v],
+      scopeThumb: `transform:translateX(${scope[v]}px)`,
+      dotAnim: this.state.running ? 'animation:sHalo 2s ease-in-out infinite' : 'opacity:.4',
+      pauseLabel: this.state.running ? 'Pause' : 'Resume',
+      oneDetail: this.detail('one'), twoDetail: this.detail('two'), liveDetail: this.detail('live'),
+      oneChevron: this.chev('one'), twoChevron: this.chev('two'), liveChevron: this.chev('live'),
+      toggleOne: this.toggle('one'), toggleTwo: this.toggle('two'), toggleLive: this.toggle('live'),
+      awayOpen: this.state.away === 'open',
+      awayResolved: this.state.away !== 'open',
+      awayVerdict: verdicts[this.state.away] || '',
+      awayDot: this.state.away === 'open' ? 'background:#FF9500' : 'background:#34C759',
+      awayCard: this.state.away === 'open'
+        ? 'border-radius:13px;background:linear-gradient(100deg,rgba(255,149,0,.14),rgba(255,149,0,.05));box-shadow:0 0 0 .5px rgba(255,149,0,.32);transition:background .4s ease,box-shadow .4s ease'
+        : 'border-radius:13px;background:linear-gradient(100deg,rgba(52,199,89,.12),rgba(52,199,89,.04));box-shadow:0 0 0 .5px rgba(52,199,89,.3);transition:background .4s ease,box-shadow .4s ease',
+      countAsFocus: () => this.setState({ away: 'focus' }),
+      countAsBreak: () => this.setState({ away: 'break' }),
+      leaveIt: () => this.setState({ away: 'left' }),
+      reopenAway: () => this.setState({ away: 'open' }),
+      tileFocusLabel: t.label, tileFocusValue: t.value, tileFocusNote: t.note,
+      tileMacValue: macValues[v],
+      macSession: split.session, macIdle: split.idle, macGap: split.gap,
+      ringLabel: t.ringLabel,
+      ringOffset: `stroke-dashoffset:${144.5 * (1 - t.ring)}`,
+      dayName: d.name, dayTotal: d.total, dayNote: d.note,
+      pickMon: pick('mon'), pickTue: pick('tue'), pickWed: pick('wed'), pickThu: pick('thu'), pickFri: pick('fri'),
+      goDay: () => this.setState({ view: 'day' }),
+      goWeek: () => this.setState({ view: 'week' }),
+      goMonth: () => this.setState({ view: 'month' }),
+      togglePause: () => this.setState(s => ({ running: !s.running })),
+      openSettings: () => this.setState({ settings: true }),
+      closeSettings: () => this.setState({ settings: false }),
+      scrimStyle: this.state.settings
+        ? 'position:absolute;inset:0;background:rgba(0,0,0,.16);z-index:40;opacity:1;transition:opacity .3s ease'
+        : 'position:absolute;inset:0;background:rgba(0,0,0,.16);z-index:40;opacity:0;pointer-events:none;transition:opacity .25s ease',
+      sheetStyle: this.state.settings
+        ? 'position:absolute;top:52px;left:0;right:0;display:flex;justify-content:center;z-index:50;transform:translateY(0);opacity:1;transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .3s ease'
+        : 'position:absolute;top:52px;left:0;right:0;display:flex;justify-content:center;z-index:50;transform:translateY(-110%);opacity:0;pointer-events:none;transition:transform .34s cubic-bezier(.4,0,1,1),opacity .3s ease'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-17ae2f67-d149-4c20-81a3-c239a131d59b/styles.css">
+<script src="_ds/modernist-17ae2f67-d149-4c20-81a3-c239a131d59b/_ds_bundle.js"></script>
+<script src="./doc-page.js"></script>
+<style>
+doc-page:not(:defined){visibility:hidden}
+a{color:var(--color-accent-700);text-decoration:none;border-bottom:1px solid var(--color-accent-300)}
+a:hover{color:var(--color-accent);border-bottom-color:var(--color-accent)}
+</style>
+</helmet>
+
+<doc-page margin="0.7in">
+
+<div style="display:flex;justify-content:space-between;align-items:baseline;font-family:var(--font-body);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);padding-bottom:8px" slot="header">
+  <span>Design research</span>
+  <span>Focus Continuity · Apple house style</span>
+</div>
+
+<div style="font-family:var(--font-body);color:var(--color-text)">
+
+<div style="height:2px;background:var(--color-text)"></div>
+<div style="padding:28px 0 0 0">
+  <div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600">Independent design research · 30 August 2026</div>
+  <h1 style="font-family:var(--font-heading);font-size:52px;line-height:0.98;font-weight:700;margin:14px 0 0 0;letter-spacing:-0.02em;max-width:9.5in">If Apple built Focus Continuity</h1>
+  <p style="font-size:15px;line-height:1.5;margin:18px 0 0 0;max-width:5.6in;color:var(--color-neutral-800)">A first-principles reconstruction of the design language, interaction grammar and underlying logic Apple would use for a Mac app that records focus sessions, observes presence, and reports honestly on time — derived from Apple's published guidance and from how Apple's own measurement apps actually behave, not from the existing app's design.</p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:2px solid var(--color-text);border-bottom:2px solid var(--color-text);margin:28px 0 0 0">
+  <div style="padding:14px 16px 14px 0;border-right:1px solid var(--color-neutral-300)">
+    <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Subject</div>
+    <div style="font-size:13px;font-weight:600;margin-top:4px">FocusContinuity for macOS</div>
+  </div>
+  <div style="padding:14px 16px;border-right:1px solid var(--color-neutral-300)">
+    <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Method</div>
+    <div style="font-size:13px;font-weight:600;margin-top:4px">HIG + precedent teardown</div>
+  </div>
+  <div style="padding:14px 16px;border-right:1px solid var(--color-neutral-300)">
+    <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Precedent read</div>
+    <div style="font-size:13px;font-weight:600;margin-top:4px">Screen Time · Reminders · Freeform · Health · Sleep · Fitness</div>
+  </div>
+  <div style="padding:14px 0 14px 16px">
+    <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600)">Scope</div>
+    <div style="font-size:13px;font-weight:600;margin-top:4px">Design + behavioural rules + data model</div>
+  </div>
+</div>
+
+<h2 style="font-family:var(--font-heading);font-size:26px;font-weight:700;margin:36px 0 0 0;letter-spacing:-0.01em">How this was researched, and what it is worth</h2>
+<div style="height:2px;background:var(--color-text);margin:12px 0 16px 0"></div>
+
+<div style="column-count:2;column-gap:32px">
+<p style="font-size:13px;line-height:1.55;margin:0 0 12px 0">Three inputs. First, Apple's published design guidance, which states its own rules plainly: request permission only when the app clearly needs the data, and only at launch when the app cannot function otherwise; <a href="#src">explain the reason in short, specific, sentence-case text</a>; never build a custom screen that imitates a system alert. Second, the observable behaviour of Apple's own measurement products — Screen Time, Health, Sleep, Fitness, Battery, Weather — which are the only real evidence of how Apple designs a product whose entire content is a number it inferred about you. Third, the platform surfaces Apple has built for exactly this shape of app: menu bar extras, Control Center modules, WidgetKit, ActivityKit, App Intents, and the Watch Smart Stack.</p>
+<p style="font-size:13px;line-height:1.55;margin:0 0 12px 0">The reasoning throughout is: what does Apple <em>do</em> when it faces this exact problem, and what does its own documentation forbid? Where a claim rests on published guidance it is cited. Where it is inference from precedent it says so. Nothing here is derived from the current app's visual design; the existing implementation is referenced only in the delta section, which compares the two on purpose.</p>
+<p style="font-size:13px;line-height:1.55;margin:0">One honest caveat: Apple's design pages are rendered client-side and would not serve to a text fetch, so the citations below come from indexed copies of that guidance rather than the live pages. The substance — permission timing, purpose strings, Live Activity interaction rules — is quoted from those copies and is consistent across them.</p>
+</div>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part one</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">The prior question: would Apple ship this as an app at all?</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+
+<p style="font-size:14px;line-height:1.6;margin:0 0 14px 0;max-width:6.6in">Apple's instinct with a measurement product is to make it a <strong>system service with a thin reading surface</strong>, not an application you visit. Screen Time is not an app; it is a pane in Settings with a report. Battery health is a pane. Sleep is a mode of the Watch plus a chart inside Health. Fitness rings are a system-wide accounting that a small app merely displays. The pattern is consistent: the operating system does the recording, and the app is a window onto data the system already had.</p>
+
+<p style="font-size:14px;line-height:1.6;margin:0 0 14px 0;max-width:6.6in">Applied here, that has one large consequence. Apple would not ask you to declare a focus session with a stopwatch. It already ships a declaration of intent — <strong>Focus modes</strong> — and it already knows presence, lock, sleep, idle and which app is frontmost. So Apple's version of this product records a session because a Focus is on and you are at the machine. Pressing Start becomes the exception rather than the rule; the default is that turning on <em>Work</em> starts the recording, and turning it off ends it.</p>
+
+<div style="border:2px solid var(--color-text);padding:18px 20px;margin:22px 0;break-inside:avoid">
+  <div style="font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600">The reframe</div>
+  <p style="font-size:15px;line-height:1.45;margin:8px 0 0 0;font-weight:600;max-width:6in">A focus session is not something you start. It is what the system observed while you were focused. The app's job is to name it, correct it, and remember it.</p>
+</div>
+
+<p style="font-size:14px;line-height:1.6;margin:0 0 14px 0;max-width:6.6in">This is also where the product's name earns its keep. "Continuity" is an Apple word with a specific meaning: one activity, many devices, no seams. An Apple-built Focus Continuity therefore would not be a Mac app that happens to sync. The session would start on the Mac, appear as a Live Activity on the iPhone Lock Screen and in the Watch Smart Stack, be pausable from either, and finish wherever you happened to be. The current app has no story here at all, and it is the single biggest missed opportunity in the brief.</p>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:26px 0 10px 0">What Apple would refuse to build — the negative brief</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--color-text)">
+  <div style="padding:12px 16px 12px 0;border-bottom:1px solid var(--color-neutral-300);border-right:1px solid var(--color-neutral-300)"><div style="font-size:13px;font-weight:600">A blocking decision</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800);margin-top:3px">Nothing in an Apple app holds your other actions hostage to a question about data. An unresolved gap is a note, not a gate.</div></div>
+  <div style="padding:12px 0 12px 16px;border-bottom:1px solid var(--color-neutral-300)"><div style="font-size:13px;font-weight:600">A full-screen takeover</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800);margin-top:3px">Apple takes the whole screen for a phone call, an alarm, and a security decision. Not for "were you working?"</div></div>
+  <div style="padding:12px 16px 12px 0;border-bottom:1px solid var(--color-neutral-300);border-right:1px solid var(--color-neutral-300)"><div style="font-size:13px;font-weight:600">A word like "evidence"</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800);margin-top:3px">The app's internal rigour is admirable and its vocabulary is a lab notebook. Apple ships the rigour and hides the notebook.</div></div>
+  <div style="padding:12px 0 12px 16px;border-bottom:1px solid var(--color-neutral-300)"><div style="font-size:13px;font-weight:600">A score</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800);margin-top:3px">Apple ships rings, streaks and awards — closed loops with rules you can state — never a composite quality number.</div></div>
+  <div style="padding:12px 16px 12px 0;border-bottom:2px solid var(--color-text);border-right:1px solid var(--color-neutral-300)"><div style="font-size:13px;font-weight:600">Five peer tabs</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800);margin-top:3px">Settings is a window opened with ⌘, — never a tab competing with content. That alone removes one of the five.</div></div>
+  <div style="padding:12px 0 12px 16px;border-bottom:2px solid var(--color-text)"><div style="font-size:13px;font-weight:600">A custom accent</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800);margin-top:3px">A Mac app inherits the user's accent colour. Hard-coded blue overrides a preference the person set deliberately.</div></div>
+</div>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part two</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Precedent teardown</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+<p style="font-size:14px;line-height:1.6;margin:0 0 18px 0;max-width:6.6in">Six Apple products, read for the rules they demonstrate rather than the features they have. Each row states what to take.</p>
+
+<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+<thead>
+<tr style="border-bottom:2px solid var(--color-text);text-align:left">
+  <th style="padding:8px 12px 8px 0;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:1.1in">Product</th>
+  <th style="padding:8px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600">What it does that matters here</th>
+  <th style="padding:8px 0 8px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:2.5in">The transferable rule</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top">
+  <td style="padding:11px 12px 11px 0;font-weight:600">Screen Time</td>
+  <td style="padding:11px 12px;line-height:1.5">One stacked bar chart per day, a day/week segmented control, a ranked app list with icons, and a single "last updated" line. No scores, no advice, no celebration. Categories are colour-coded and fixed. Nothing explains itself unless you tap in.</td>
+  <td style="padding:11px 0 11px 12px;line-height:1.5">The whole reporting surface of this app already exists in Apple's grammar: <strong>period control → one chart → ranked list → detail on selection</strong>. Copy it, don't invent.</td>
+</tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top">
+  <td style="padding:11px 12px 11px 0;font-weight:600">Health · Sleep</td>
+  <td style="padding:11px 12px;line-height:1.5">Missing data is drawn as absence, not zero. Inferred figures are labelled where the inference matters. "About this data" links sit at the bottom of a chart, not beside every number.</td>
+  <td style="padding:11px 0 11px 12px;line-height:1.5">Qualify <em>once, at the bottom</em>, in one sentence. The app's per-figure integrity footnotes are the right idea in the wrong place.</td>
+</tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top">
+  <td style="padding:11px 12px 11px 0;font-weight:600">Fitness</td>
+  <td style="padding:11px 12px;line-height:1.5">Rings, streaks and Awards. Motivation is a closed geometric loop with a rule you can recite, and awards are a separate, quiet, retrospective tab — never an interruption during exercise.</td>
+  <td style="padding:11px 0 11px 12px;line-height:1.5">Keep the goal ring, move rewards out of the working surface entirely. Praise is a place you visit, not a thing that arrives.</td>
+</tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top">
+  <td style="padding:11px 12px 11px 0;font-weight:600">Reminders</td>
+  <td style="padding:11px 12px;line-height:1.5">Sidebar of smart lists, one content list, inline editing in the row itself, and a toolbar that changes with context. Creating something is one keystroke and never a modal.</td>
+  <td style="padding:11px 0 11px 12px;line-height:1.5">Naming a session should be inline typing in the row, ⌘N-able, never a dialog. Sidebar carries the periods; the toolbar carries actions.</td>
+</tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top">
+  <td style="padding:11px 12px 11px 0;font-weight:600">Freeform</td>
+  <td style="padding:11px 12px;line-height:1.5">A near-empty first run with no tour: one canvas, one plus button. Chrome is translucent and recedes; content sets the tone. Onboarding is a single sheet you dismiss.</td>
+  <td style="padding:11px 0 11px 12px;line-height:1.5">First run is <strong>one sheet, three lines, Continue</strong> — and the empty states carry the teaching, each an SF Symbol plus one sentence.</td>
+</tr>
+<tr style="border-bottom:2px solid var(--color-text);vertical-align:top">
+  <td style="padding:11px 12px 11px 0;font-weight:600">Focus modes</td>
+  <td style="padding:11px 12px;line-height:1.5">A declared intent, shared across devices, with Focus filters that let apps behave differently while it is on, and a status others can see.</td>
+  <td style="padding:11px 0 11px 12px;line-height:1.5">The session trigger already exists at system level. Bind to it and the app stops asking people to press a button.</td>
+</tr>
+</tbody>
+</table>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part three</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Vocabulary</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+<p style="font-size:14px;line-height:1.6;margin:0 0 18px 0;max-width:6.6in">Apple's writing rule is that the interface says what a person would say. The current model is conceptually correct and verbally unshippable: <em>Focused</em>, <em>Focused-active</em>, <em>Tracked</em>, <em>evidence-backed</em>, <em>authoritative</em>, <em>accuracy epoch</em>, <em>integrity qualification</em>. Apple keeps every one of those distinctions and renames all of them.</p>
+
+<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+<thead>
+<tr style="border-bottom:2px solid var(--color-text);text-align:left">
+  <th style="padding:8px 12px 8px 0;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:1.7in">Current term</th>
+  <th style="padding:8px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:1.7in">Apple would say</th>
+  <th style="padding:8px 0 8px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600">Why</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Focused</td><td style="padding:10px 12px;color:var(--color-accent-700);font-weight:600">Focus time</td><td style="padding:10px 0 10px 12px;line-height:1.5">A noun phrase, matching Screen Time's construction, and it names the thing rather than its adjective.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Tracked / At the Mac</td><td style="padding:10px 12px;color:var(--color-accent-700);font-weight:600">Time on Mac</td><td style="padding:10px 0 10px 12px;line-height:1.5">"At the Mac" is already close. "Tracked" implies surveillance; Apple avoids the word entirely outside advertising contexts.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Focused-active</td><td style="padding:10px 12px;color:var(--color-accent-700);font-weight:600">(not shown)</td><td style="padding:10px 0 10px 12px;line-height:1.5">A necessary internal measure that no user needs named. It should quietly power the goal and the pace sentence and never appear as a label.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Awaiting decision</td><td style="padding:10px 12px;color:var(--color-accent-700);font-weight:600">Away from 1:12 to 2:40 PM</td><td style="padding:10px 0 10px 12px;line-height:1.5">Apple names the fact, not the app's state machine. The state is visible in what the sentence says.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Watching</td><td style="padding:10px 12px;color:var(--color-accent-700);font-weight:600">Watching · not counted</td><td style="padding:10px 0 10px 12px;line-height:1.5">Good word already. Add the consequence, because the consequence is the part people want to know.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Integrity qualification</td><td style="padding:10px 12px;color:var(--color-accent-700);font-weight:600">Some data is missing</td><td style="padding:10px 0 10px 12px;line-height:1.5">Health's phrasing. Plain, unalarming, and it leads to a link rather than a warning icon per row.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Accuracy epoch</td><td style="padding:10px 12px;color:var(--color-accent-700);font-weight:600">Recorded before 12 Aug</td><td style="padding:10px 0 10px 12px;line-height:1.5">State the date. The concept is a date; the jargon adds nothing a date does not.</td></tr>
+<tr style="border-bottom:2px solid var(--color-text);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Threads</td><td style="padding:10px 12px;color:var(--color-accent-700);font-weight:600">Sessions, grouped by name</td><td style="padding:10px 0 10px 12px;line-height:1.5">"Thread" is a Messages/Mail word with a different meaning. The grouping is real; the term borrows badly.</td></tr>
+</tbody>
+</table>
+
+<p style="font-size:13px;line-height:1.55;margin:18px 0 0 0;max-width:6.6in;color:var(--color-neutral-800)">Sentence-level voice: second person, present tense, no exclamation, no encouragement. <em>"You focused for 2 hours 25 minutes today."</em> Not <em>"Great work — 2h 25m focused!"</em> When there is nothing to say, Apple says nothing rather than filling the space.</p>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part four</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Information architecture</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+
+<p style="font-size:14px;line-height:1.6;margin:0 0 14px 0;max-width:6.6in">The current app puts five peer tabs in a centred capsule rail. Two things are wrong with that on a Mac. A centred segmented rail as primary navigation is an iOS/iPadOS shape; a Mac app of this kind uses a <strong>source list on the left</strong> and puts mode switching in the toolbar. And <strong>Settings is not a tab</strong> — a Mac app has a Settings window, opened with ⌘, from the app menu, and putting preferences inside the content area breaks a convention every Mac user relies on without exception.</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;margin:22px 0;break-inside:avoid">
+  <div style="border-top:2px solid var(--color-text);padding-top:12px">
+    <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600">Current</div>
+    <div style="font-size:15px;font-weight:600;margin:6px 0 8px 0">Five peer tabs</div>
+    <div style="font-size:12.5px;line-height:1.55;color:var(--color-neutral-800)">Focus · Today · Review · Insights · Settings. Focus is the live surface; Review contains Week, Month and History as a sub-control; Insights is gated and often empty; Settings is eight groups in a two-pane layout inside the tab.</div>
+  </div>
+  <div style="border-top:2px solid var(--color-accent);padding-top:12px">
+    <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600">Apple's version</div>
+    <div style="font-size:15px;font-weight:600;margin:6px 0 8px 0">A sidebar of periods, one canvas</div>
+    <div style="font-size:12.5px;line-height:1.55;color:var(--color-neutral-800)">Sidebar: <strong>Today</strong>, <strong>This Week</strong>, <strong>This Month</strong>, then a <strong>History</strong> section listing recent months, then <strong>Awards</strong>. Toolbar carries the live session control and a Day/Week/Month scope where relevant. Settings moves to its own window. Insights dissolves into the surfaces it describes.</div>
+  </div>
+</div>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:24px 0 8px 0">Where each of the five tabs goes</h3>
+<div style="border-top:2px solid var(--color-text)">
+  <div style="display:flex;gap:16px;padding:11px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.1in;font-weight:600;font-size:13px;flex:none">Focus</div><div style="font-size:12.5px;line-height:1.5">Becomes the <strong>menu bar item and the toolbar</strong>. A live session is ambient, not a destination — Apple would not make you open a window to see a clock that could sit in the menu bar. The window's Today view shows the running session as the first row of the day, live.</div></div>
+  <div style="display:flex;gap:16px;padding:11px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.1in;font-weight:600;font-size:13px;flex:none">Today</div><div style="font-size:12.5px;line-height:1.5">Stays, as the default sidebar selection. Gains the live session at the top and the day's timeline as its one dominant graphic — a decision the existing design already got right.</div></div>
+  <div style="display:flex;gap:16px;padding:11px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.1in;font-weight:600;font-size:13px;flex:none">Review</div><div style="font-size:12.5px;line-height:1.5">Splits into sidebar items. <em>This Week</em> and <em>This Month</em> become peers; <em>History</em> becomes the sidebar's second section rather than a third chart mode. Selecting a bar selects that day in place, with an <em>Open in Today</em> affordance — as the current design already specifies.</div></div>
+  <div style="display:flex;gap:16px;padding:11px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.1in;font-weight:600;font-size:13px;flex:none">Insights</div><div style="font-size:12.5px;line-height:1.5"><strong>Removed as a tab.</strong> Apple does not build a room for conclusions. Pace belongs under the goal ring in Today; rhythm belongs as a second chart in Week; continuity belongs as a streak line in Awards. A tab that is often empty by design is a tab that teaches people not to open it.</div></div>
+  <div style="display:flex;gap:16px;padding:11px 0;border-bottom:2px solid var(--color-text)"><div style="width:1.1in;font-weight:600;font-size:13px;flex:none">Settings</div><div style="font-size:12.5px;line-height:1.5">Its own window, ⌘, , with a top tab bar of at most five panes — <em>General, Sessions, Away &amp; Breaks, Recording, Privacy</em>. Eight groups is two too many; <em>Appearance</em> is a system preference, and <em>Advanced</em> diagnostics belong behind an Option-click or in the Help menu.</div></div>
+</div>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part five</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Visual language</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+
+<p style="font-size:14px;line-height:1.6;margin:0 0 16px 0;max-width:6.6in">The governing principle is deference: the app is a window onto content, and its chrome should be made of the system's own materials so that it changes when the system changes. A Mac app that ships its own colour tokens for surfaces is, in Apple's terms, fighting the platform.</p>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:22px 0 8px 0">Colour</h3>
+<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+<thead><tr style="border-bottom:2px solid var(--color-text);text-align:left">
+<th style="padding:8px 12px 8px 0;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:1.9in">Role</th>
+<th style="padding:8px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:2.1in">Apple's answer</th>
+<th style="padding:8px 0 8px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600">Instead of</th>
+</tr></thead>
+<tbody>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Window background</td><td style="padding:10px 12px"><code style="font-size:11.5px">windowBackgroundColor</code>, sidebar in a vibrant material</td><td style="padding:10px 0 10px 12px;color:var(--color-neutral-800)">Hard-coded <code style="font-size:11.5px">#F7F6F3</code> / <code style="font-size:11.5px">#1C1919</code> pairs</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Grouped content</td><td style="padding:10px 12px"><code style="font-size:11.5px">.grouped</code> form background + <code style="font-size:11.5px">controlBackgroundColor</code></td><td style="padding:10px 0 10px 12px;color:var(--color-neutral-800)">Custom surface / elevated tokens</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Primary action, selection</td><td style="padding:10px 12px"><code style="font-size:11.5px">.accentColor</code> — the user's chosen accent</td><td style="padding:10px 0 10px 12px;color:var(--color-neutral-800)">A fixed brand blue <code style="font-size:11.5px">#3478F6</code></td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Text</td><td style="padding:10px 12px">label / secondaryLabel / tertiaryLabel</td><td style="padding:10px 0 10px 12px;color:var(--color-neutral-800)">Opacity applied to one ink colour</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Positive / caution</td><td style="padding:10px 12px"><code style="font-size:11.5px">systemGreen</code>, <code style="font-size:11.5px">systemOrange</code></td><td style="padding:10px 0 10px 12px;color:var(--color-neutral-800)">Bespoke teal <code style="font-size:11.5px">#238D7A</code> and amber</td></tr>
+<tr style="border-bottom:2px solid var(--color-text);vertical-align:top"><td style="padding:10px 12px 10px 0;font-weight:600">Unmeasured time</td><td style="padding:10px 12px"><code style="font-size:11.5px">quaternaryLabel</code> fill, or a hatched pattern</td><td style="padding:10px 0 10px 12px;color:var(--color-neutral-800)">A grey from the app palette</td></tr>
+</tbody>
+</table>
+<p style="font-size:12.5px;line-height:1.55;margin:12px 0 0 0;max-width:6.6in;color:var(--color-neutral-800)">The one place a bespoke palette is legitimate is the <strong>category ramp</strong> for work types and apps, because those colours are data keys and must stay stable across every chart. Apple does exactly this in Screen Time. Keep the existing seven-colour ramp; derive it from the system colour set so it survives Increase Contrast, and pair every colour with a label so nothing is encoded by hue alone.</p>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:24px 0 8px 0">Type</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:28px">
+<div>
+<p style="font-size:13px;line-height:1.55;margin:0 0 10px 0">San Francisco, as text styles rather than point sizes: <code style="font-size:11.5px">.largeTitle</code> for the day's headline figure, <code style="font-size:11.5px">.title2</code> for view titles, <code style="font-size:11.5px">.headline</code> for group headers, <code style="font-size:11.5px">.body</code> for rows, <code style="font-size:11.5px">.footnote</code> for qualification. Named styles are what let Dynamic Type and Increase Contrast work; a 26 pt literal does not scale.</p>
+<p style="font-size:13px;line-height:1.55;margin:0">SF Rounded for the live timer is a defensible choice — it is what Timer and Fitness use for a running figure — but Apple would apply it <em>only</em> to the clock and never to metric values in tables, where rounded digits read as decorative. All times use <code style="font-size:11.5px">.monospacedDigit()</code> so numbers do not jitter as they tick.</p>
+</div>
+<div style="border:2px solid var(--color-text);padding:16px">
+<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;margin-bottom:10px">Density and metrics</div>
+<div style="font-size:12.5px;line-height:1.6">Mac row heights of 24–28 pt for list rows, not 44–52. The existing 52 pt row is an iOS touch metric; on a Mac it makes a day of app usage into a scroll. Apple's own Screen Time app list is dense.<br><br>8 pt spacing rhythm: correct, keep it. Corner radius: match the system's control radius rather than 16/12 pt panels — most groupings need a hairline separator, not a card.</div>
+</div>
+</div>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:24px 0 8px 0">Icon and symbols</h3>
+<p style="font-size:13px;line-height:1.55;margin:0;max-width:6.6in">SF Symbols throughout, hierarchical rendering, which the current design already specifies. The menu bar glyph must be a <strong>template image</strong> that inverts with the menu bar's appearance, legible at 16 pt, and distinguishable at a glance between four states — off, running, paused, needs attention — by <em>shape</em>, since the menu bar is monochrome. App icon: a single object on a rounded-rectangle ground, rendered for light, dark and tinted appearances.</p>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part six</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Surfaces</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+<p style="font-size:14px;line-height:1.6;margin:0 0 18px 0;max-width:6.6in">Apple's guidance for the menu bar is that a menu bar extra provides quick access to a frequently used function without opening the app; on macOS 26 these items also sit above windows and receive a slight vibrancy behind them. The design consequence is that the ambient surface should be <em>small, decisive and mostly text</em>.</p>
+
+<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+<thead><tr style="border-bottom:2px solid var(--color-text);text-align:left">
+<th style="padding:8px 12px 8px 0;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:1.5in">Surface</th>
+<th style="padding:8px 12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600">Contents and rules</th>
+</tr></thead>
+<tbody>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:11px 12px 11px 0;font-weight:600">Menu bar item</td><td style="padding:11px 12px;line-height:1.5">Glyph always; elapsed time <em>only while running</em> and only if the person turns it on — a permanently changing number in the menu bar is a distraction, and this is an app about not being distracted. Four glyph states, differentiated by shape.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:11px 12px 11px 0;font-weight:600">Menu (click)</td><td style="padding:11px 12px;line-height:1.5">Apple would prefer a real <strong>menu</strong> over a custom popover: a live header row, one primary command, up to three recent sessions to resume, break status as a disabled informational item, then <em>Open Focus Continuity</em> · <em>Settings…</em> · <em>Quit</em>. A popover is justified only by the goal ring; if the ring goes into the header as a 14 pt inline gauge, the menu wins on speed, keyboard access and system fidelity.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:11px 12px 11px 0;font-weight:600">Control Center module</td><td style="padding:11px 12px;line-height:1.5">A start/stop control, so the app is reachable from the same place as Focus itself. This is the most Apple-native addition available and it costs one <code style="font-size:11.5px">ControlWidget</code>.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:11px 12px 11px 0;font-weight:600">Widgets</td><td style="padding:11px 12px;line-height:1.5">Small: today's ring plus focus total. Medium: seven-day bars. Large: today's timeline. Lock Screen circular and inline on iPhone. Widgets are a timeline of pre-rendered views, so they show the <em>last known</em> figure with its time, never a spinner.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:11px 12px 11px 0;font-weight:600">Live Activity</td><td style="padding:11px 12px;line-height:1.5">The continuity payoff. Compact: glyph + elapsed. Expanded: session name, elapsed, goal progress. Minimal: glyph. Apple's rules are explicit — <strong>no buttons and nothing that looks like a button</strong>, because Lock Screen and Dynamic Island presentations are not interactive, and every tap opens the app; and the system keeps a finished activity on the Lock Screen for up to four hours unless you dismiss it sooner. A finished session should dismiss after about fifteen minutes, long enough to read the total.</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:11px 12px 11px 0;font-weight:600">Watch Smart Stack</td><td style="padding:11px 12px;line-height:1.5">The same Live Activity appears at the top of the Smart Stack on a paired Watch; Apple recommends a custom layout for the wrist rather than accepting the default. One glyph, elapsed time, and the session name truncated to one line.</td></tr>
+<tr style="border-bottom:2px solid var(--color-text);vertical-align:top"><td style="padding:11px 12px 11px 0;font-weight:600">App Intents</td><td style="padding:11px 12px;line-height:1.5"><em>Start focus session</em>, <em>Pause</em>, <em>End</em>, <em>Get today's focus time</em> — exposed to Siri, Shortcuts, Spotlight and Automations. This is how a Focus mode turning on triggers a session without the app watching anything. The current app has none of this and it is the cheapest large win in the report.</td></tr>
+</tbody>
+</table>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part seven</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Charts, and how Apple states uncertainty</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+
+<div style="column-count:2;column-gap:32px">
+<p style="font-size:13px;line-height:1.55;margin:0 0 12px 0">Apple's charting guidance opens on the point that a chart exists to communicate with clarity — which in practice means one measure per chart, a legible axis, and no ornament. Swift Charts is the implementation, and its defaults are the design: bars with system fills, sparse axis marks, a rule mark for the average, and selection by click or drag with a value callout.</p>
+<p style="font-size:13px;line-height:1.55;margin:0 0 12px 0">The current design's strongest call is already Apple-correct: <em>tracked</em> time in the bars, work-type composition kept separate, because composition is a different measure and stacking it would silently redefine the axis. Keep that. Two amendments.</p>
+<p style="font-size:13px;line-height:1.55;margin:0 0 12px 0">First, <strong>draw the gaps</strong>. A day with four hours recorded and two hours unmeasured should show the unmeasured portion as a hatched or quaternary-fill remainder rather than a shorter bar, because a shorter bar is indistinguishable from a shorter day. This is the Sleep chart's move and it converts an integrity footnote into a picture.</p>
+<p style="font-size:13px;line-height:1.55;margin:0 0 12px 0">Second, <strong>qualify at the bottom, once</strong>. One footnote line under the chart — "Some time before 12 August is not recorded. About this data" — replaces per-row amber icons. The link opens a short plain-language sheet: what is measured, what is not, where the file lives.</p>
+<p style="font-size:13px;line-height:1.55;margin:0">Every chart needs its table. Apple's accessibility expectation for a chart is that it carries an equivalent summary a screen reader can read — an audio-graph-style description plus the underlying values. The current design already requires this; it should be a real, visible <em>Show as table</em> affordance, not only an accessibility label.</p>
+</div>
+
+<div style="border:2px solid var(--color-text);padding:18px 20px;margin:24px 0 0 0;break-inside:avoid">
+<div style="font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600">The honesty doctrine, in Apple's terms</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:12px">
+<div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Absence is drawn, not written</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800)">Missing time is a visible hole in the graphic. Zero is a measurement; nothing is not.</div></div>
+<div><div style="font-size:13px;font-weight:600;margin-bottom:4px">The default is the cautious reading</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800)">An unresolved gap is not counted until you say otherwise. The app never asks permission to be careful.</div></div>
+<div><div style="font-size:13px;font-weight:600;margin-bottom:4px">One sentence, then a link</div><div style="font-size:12px;line-height:1.5;color:var(--color-neutral-800)">Explanation is available, never mandatory reading. No warning colour on a data condition.</div></div>
+</div>
+</div>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part eight</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Interruption etiquette</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+
+<p style="font-size:14px;line-height:1.6;margin:0 0 16px 0;max-width:6.6in">This is the area where the current app diverges from Apple most sharply, and the divergence is structural rather than cosmetic. Today, an extended absence creates a decision, and while that decision is unresolved, start, stop, pause, continue and the global hotkey are all blocked and routed back to it. Absences over thirty minutes are asked about on a blurred full-screen prompt.</p>
+
+<p style="font-size:14px;line-height:1.6;margin:0 0 16px 0;max-width:6.6in">Apple would not ship either behaviour. The whole screen is reserved for things that cannot wait — an incoming call, an alarm, a security prompt. And nothing in an Apple app disables unrelated commands to force an answer about historical data. The rule is: <strong>the app decides conservatively, tells you what it did, and lets you change it whenever you like.</strong></p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--color-text);margin-bottom:18px">
+<div style="padding:12px 16px 12px 0;border-right:1px solid var(--color-neutral-300);border-bottom:2px solid var(--color-text)">
+<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600">Now</div>
+<div style="font-size:12.5px;line-height:1.55;margin-top:6px">Blurred full-screen prompt · four actions · everything else blocked until answered · hotkey routed back to the prompt</div>
+</div>
+<div style="padding:12px 0 12px 16px;border-bottom:2px solid var(--color-accent)">
+<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600">Apple</div>
+<div style="font-size:12.5px;line-height:1.55;margin-top:6px">Session already ended at the gap, not counted · one notification with two actions · a correction row at the top of Today that stays until dismissed · nothing blocked, ever</div>
+</div>
+</div>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:0 0 8px 0">The notification rules that apply</h3>
+<div style="border-top:2px solid var(--color-text)">
+<div style="display:flex;gap:16px;padding:10px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.5in;font-weight:600;font-size:12.5px;flex:none">Never time-sensitive</div><div style="font-size:12.5px;line-height:1.5">A question about the past is not urgent, so it must not break through a Focus mode. Standard interruption level, delivered quietly, batched into the scheduled summary if the person uses one.</div></div>
+<div style="display:flex;gap:16px;padding:10px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.5in;font-weight:600;font-size:12.5px;flex:none">Never during a session</div><div style="font-size:12.5px;line-height:1.5">An app that interrupts focus to talk about focus has failed at its own premise. Break reminders are the single exception, and they should be delivered as a quiet banner the person opted into, with a length they chose.</div></div>
+<div style="display:flex;gap:16px;padding:10px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.5in;font-weight:600;font-size:12.5px;flex:none">Actions on the notification</div><div style="font-size:12.5px;line-height:1.5">Two, maximum: <em>Count as focus</em> and <em>Not focus</em>. The four-way choice — continue, merge, break, reset — is a state-machine menu; two of those four are the same arithmetic with a different label and should be one action plus an optional "call it a break" in the app.</div></div>
+<div style="display:flex;gap:16px;padding:10px 0;border-bottom:2px solid var(--color-text)"><div style="width:1.5in;font-weight:600;font-size:12.5px;flex:none">Rewards</div><div style="font-size:12.5px;line-height:1.5">Not notifications at all. Fitness awards are discovered, not announced. Move them to the Awards sidebar item and remove the HUD entirely.</div></div>
+</div>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part nine</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">First run, and the privacy story</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+
+<div style="display:grid;grid-template-columns:1.05fr 1fr;gap:32px">
+<div>
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:0 0 8px 0">Onboarding</h3>
+<p style="font-size:13px;line-height:1.55;margin:0 0 10px 0">One sheet on first launch. A large glyph, a title, three short lines describing what the app records, and <em>Continue</em>. No carousel, no permission gauntlet, no sample data. Apple's pattern is to defer teaching to the moment it is needed, so the empty states carry the rest: each is an SF Symbol, a one-line title and one sentence — and the Today empty state keeps the timeline scaffold visible so the shape of the answer is already on screen.</p>
+<p style="font-size:13px;line-height:1.55;margin:0 0 10px 0">Two setup decisions are worth asking at first run because they change what the app does rather than how it looks: a daily goal, and whether sessions should start automatically with a Focus mode. Both get sensible defaults and both live in Settings afterwards. Everything else — density, timeline labels, appearance — is a preference nobody should be asked about before they have seen a single number.</p>
+<p style="font-size:13px;line-height:1.55;margin:0">Apple would also add a <em>Set up on iPhone</em> step, because Continuity is the promise in the name, and would use the standard device-handoff sheet rather than instructions.</p>
+</div>
+<div>
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:0 0 8px 0">Privacy</h3>
+<p style="font-size:13px;line-height:1.55;margin:0 0 10px 0">The app's position here is already stronger than most: no Accessibility, Automation, Screen Recording or Input Monitoring permission is requested, idle and input density come from system counters rather than event content, and everything is stored locally. Apple's guidance is to request permission only when the app clearly needs it, and only at launch when the app cannot function otherwise; the ideal is to need none. This app meets the ideal.</p>
+<p style="font-size:13px;line-height:1.55;margin:0 0 10px 0">So Apple would <strong>state it, once, where it matters</strong>: a short line in the onboarding sheet — "Recording happens on this Mac. Nothing is sent anywhere." — and a Privacy pane in Settings that names exactly what is stored (app names and time ranges, never content), shows the folder, and offers deletion with an explicit scope.</p>
+<p style="font-size:13px;line-height:1.55;margin:0">What Apple would <em>not</em> do is dress this up. No shield iconography, no "privacy first" badge, no pre-alert screen imitating a system dialog — the guidance explicitly forbids mirroring the system alert's appearance or its Allow button. If sync arrives, the framing changes to end-to-end encrypted iCloud and the same sentence gets one more clause.</p>
+</div>
+</div>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:26px 0 8px 0">Motion</h3>
+<p style="font-size:13px;line-height:1.55;margin:0 0 10px 0;max-width:6.6in">Apple's motion budget for a utility of this kind is almost nothing, and the current design's instinct — motion communicates a state or data transition only — is right. In practice that means four animations in the whole app: a numeric content transition on the live timer, a spring on the goal ring's fill, the standard selection transition in the sidebar, and the sheet presentation. Everything else is instant. Reduce Motion replaces the ring spring and the sheet with cross-fades. No entrance animation on charts: a bar chart that grows from zero every time you open a window is a chart you have to wait for.</p>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part ten</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Wireframes</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 14px 0"></div>
+<p style="font-size:13px;line-height:1.55;margin:0 0 22px 0;max-width:6.6in;color:var(--color-neutral-800)">Low-fidelity sketches, drawn flat and unstyled on purpose: they describe placement, hierarchy and copy, not the system's own materials. Red numbers key to the notes beneath each sketch.</p>
+
+<div style="break-inside:avoid;margin-bottom:30px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--color-text);padding-bottom:6px;margin-bottom:14px">
+<div style="font-family:var(--font-heading);font-size:15px;font-weight:700">01 · Menu bar menu — running and idle</div>
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Ambient surface</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+  <div>
+    <div style="border:2px solid var(--color-text);width:280px">
+      <div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--color-neutral-400);background:var(--color-neutral-200);font-size:11px"><span style="font-weight:600">◔ Deep work · 42:18</span><span style="color:var(--color-accent);font-weight:700">1</span></div>
+      <div style="padding:7px 12px;font-size:11px;border-bottom:1px solid var(--color-neutral-300)">Refactor the parser</div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:600;display:flex;justify-content:space-between"><span>Pause</span><span style="color:var(--color-neutral-600)">⌥⌘P</span></div>
+      <div style="padding:7px 12px;font-size:11px;display:flex;justify-content:space-between;border-bottom:1px solid var(--color-neutral-300)"><span>End Session</span><span style="color:var(--color-neutral-600)">⌥⌘.</span></div>
+      <div style="padding:7px 12px;font-size:10.5px;color:var(--color-neutral-600);border-bottom:1px solid var(--color-neutral-300);display:flex;justify-content:space-between"><span>Break due in 8 min</span><span style="color:var(--color-accent);font-weight:700">2</span></div>
+      <div style="padding:7px 12px;font-size:10.5px;color:var(--color-neutral-600)">1h 52m of 4h today</div>
+      <div style="padding:7px 12px;font-size:11px;border-top:1px solid var(--color-neutral-300)">Open Focus Continuity</div>
+      <div style="padding:7px 12px;font-size:11px">Settings…</div>
+      <div style="padding:7px 12px;font-size:11px">Quit</div>
+    </div>
+  </div>
+  <div>
+    <div style="border:2px solid var(--color-text);width:280px">
+      <div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--color-neutral-400);background:var(--color-neutral-200);font-size:11px"><span style="font-weight:600">○ No session</span><span style="color:var(--color-accent);font-weight:700">3</span></div>
+      <div style="padding:7px 12px;font-size:11px;font-weight:600;display:flex;justify-content:space-between"><span>Start Focus Session</span><span style="color:var(--color-neutral-600)">⌥⌘F</span></div>
+      <div style="padding:7px 12px 4px 12px;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);border-top:1px solid var(--color-neutral-300);display:flex;justify-content:space-between"><span>Continue</span><span style="color:var(--color-accent);font-weight:700">4</span></div>
+      <div style="padding:5px 12px;font-size:11px">Refactor the parser · 1h 20m</div>
+      <div style="padding:5px 12px;font-size:11px">Spec review · 35m</div>
+      <div style="padding:5px 12px 8px 12px;font-size:11px">Inbox · 15m</div>
+      <div style="padding:7px 12px;font-size:11px;border-top:1px solid var(--color-neutral-300)">Open Focus Continuity</div>
+      <div style="padding:7px 12px;font-size:11px">Settings…</div>
+      <div style="padding:7px 12px;font-size:11px">Quit</div>
+    </div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:12px;font-size:11.5px;line-height:1.5">
+<div><span style="color:var(--color-accent);font-weight:700">1</span> A real menu, not a popover. Header row carries state and elapsed; the glyph doubles as the goal gauge.<br><span style="color:var(--color-accent);font-weight:700">2</span> Break context as a disabled informational item — present, unclickable, quiet.</div>
+<div><span style="color:var(--color-accent);font-weight:700">3</span> Idle header states the fact, not "Ready to focus" — an instruction the menu already implies.<br><span style="color:var(--color-accent);font-weight:700">4</span> Three continuations, each one keystroke away. No intent field here; naming happens in the window or by Shortcut.</div>
+</div>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:30px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--color-text);padding-bottom:6px;margin-bottom:14px">
+<div style="font-family:var(--font-heading);font-size:15px;font-weight:700">02 · Main window — Today</div>
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">1160 × 780</div>
+</div>
+<div style="border:2px solid var(--color-text);display:grid;grid-template-columns:1.5in 1fr">
+  <div style="border-right:1px solid var(--color-neutral-400);background:var(--color-neutral-200);padding:10px 0">
+    <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);padding:0 10px 6px">Focus</div>
+    <div style="font-size:11.5px;font-weight:700;padding:5px 10px;background:var(--color-neutral-300)">Today</div>
+    <div style="font-size:11.5px;padding:5px 10px">This Week</div>
+    <div style="font-size:11.5px;padding:5px 10px">This Month</div>
+    <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);padding:12px 10px 6px">History</div>
+    <div style="font-size:11.5px;padding:5px 10px">August 2026</div>
+    <div style="font-size:11.5px;padding:5px 10px">July 2026</div>
+    <div style="font-size:11.5px;padding:14px 10px 5px">Awards</div>
+    <div style="font-size:10px;color:var(--color-accent);font-weight:700;padding:8px 10px">5</div>
+  </div>
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--color-neutral-400);font-size:11px">
+      <span style="font-weight:600">Today</span>
+      <span style="display:flex;gap:10px;align-items:center;color:var(--color-neutral-700)"><span style="border:1px solid var(--color-neutral-500);padding:2px 8px">◔ 42:18 · Pause</span><span>‹ 29 Aug ›</span><span style="color:var(--color-accent);font-weight:700">6</span></span>
+    </div>
+    <div style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--color-neutral-300)">
+        <div><div style="font-size:26px;font-weight:700;letter-spacing:-0.01em">2h 25m</div><div style="font-size:11px;color:var(--color-neutral-700);margin-top:2px">focus time · 3h 40m on Mac · 3 sessions</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div style="width:44px;height:44px;border:3px solid var(--color-neutral-500);border-radius:50%;border-top-color:var(--color-text);border-right-color:var(--color-text)"></div><div style="font-size:11px;line-height:1.4">61% of 4h goal<br><span style="color:var(--color-neutral-700)">ahead of your usual pace</span></div><span style="color:var(--color-accent);font-weight:700;font-size:10px">7</span></div>
+      </div>
+      <div style="padding:14px 0 6px 0">
+        <div style="display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:6px"><span>Day</span><span style="color:var(--color-accent);font-weight:700">8</span></div>
+        <div style="display:flex;height:44px;border:1px solid var(--color-neutral-500)">
+          <div style="flex:2;background:var(--color-neutral-400)"></div>
+          <div style="flex:3;background:var(--color-neutral-700)"></div>
+          <div style="flex:1;background:repeating-linear-gradient(45deg,var(--color-neutral-300),var(--color-neutral-300) 3px,transparent 3px,transparent 6px)"></div>
+          <div style="flex:4;background:var(--color-neutral-800)"></div>
+          <div style="flex:1;background:var(--color-neutral-400)"></div>
+          <div style="flex:2;background:var(--color-neutral-600)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--color-neutral-600);margin-top:4px"><span>9 AM</span><span>12 PM</span><span>3 PM</span><span>6 PM</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px">
+        <div>
+          <div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);border-bottom:1px solid var(--color-neutral-400);padding-bottom:4px">Sessions</div>
+          <div style="font-size:11px;padding:5px 0;border-bottom:1px solid var(--color-neutral-300);display:flex;justify-content:space-between"><span>Refactor the parser</span><span>1h 20m</span></div>
+          <div style="font-size:11px;padding:5px 0;border-bottom:1px solid var(--color-neutral-300);display:flex;justify-content:space-between"><span>Spec review</span><span>35m</span></div>
+          <div style="font-size:11px;padding:5px 0;display:flex;justify-content:space-between;color:var(--color-neutral-700)"><span>Lunch · break</span><span>50m</span></div>
+        </div>
+        <div>
+          <div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);border-bottom:1px solid var(--color-neutral-400);padding-bottom:4px">Apps</div>
+          <div style="font-size:11px;padding:5px 0;border-bottom:1px solid var(--color-neutral-300);display:flex;justify-content:space-between"><span>■ Xcode</span><span>1h 44m</span></div>
+          <div style="font-size:11px;padding:5px 0;border-bottom:1px solid var(--color-neutral-300);display:flex;justify-content:space-between"><span>■ Safari</span><span>52m</span></div>
+          <div style="font-size:11px;padding:5px 0;display:flex;justify-content:space-between"><span>■ Mail</span><span>18m</span></div>
+        </div>
+      </div>
+      <div style="font-size:10.5px;color:var(--color-neutral-700);margin-top:12px;border-top:1px solid var(--color-neutral-300);padding-top:8px">Some time this morning is not recorded. <span style="border-bottom:1px solid var(--color-accent-300);color:var(--color-accent-700)">About this data</span> <span style="color:var(--color-accent);font-weight:700">9</span></div>
+    </div>
+  </div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:12px;font-size:11.5px;line-height:1.5">
+<div><span style="color:var(--color-accent);font-weight:700">5</span> Sidebar carries periods and history. No Settings item; ⌘, opens a window.<br><span style="color:var(--color-accent);font-weight:700">6</span> The live session lives in the toolbar, so it is present on every view without owning a tab.<br><span style="color:var(--color-accent);font-weight:700">7</span> Ring plus one honest pace sentence — the whole of the old Insights tab's Pace section.</div>
+<div><span style="color:var(--color-accent);font-weight:700">8</span> The day is the dominant graphic. Hatched fill is unmeasured time, drawn rather than footnoted.<br><span style="color:var(--color-accent);font-weight:700">9</span> One qualification line at the bottom of the view, linking to a plain-language sheet. Nothing amber, nothing per-row.</div>
+</div>
+</div>
+
+<div style="break-before:page"></div>
+
+<div style="break-inside:avoid;margin-bottom:30px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--color-text);padding-bottom:6px;margin-bottom:14px">
+<div style="font-family:var(--font-heading);font-size:15px;font-weight:700">03 · This Week</div>
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Period reporting</div>
+</div>
+<div style="border:2px solid var(--color-text);padding:14px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline"><div><div style="font-size:22px;font-weight:700">14h 10m</div><div style="font-size:11px;color:var(--color-neutral-700)">focus time · 5 active days · 2h 50m average</div></div><div style="font-size:10.5px;border:1px solid var(--color-neutral-500);padding:2px 8px">Focus time ▾ <span style="color:var(--color-accent);font-weight:700">10</span></div></div>
+  <div style="display:flex;align-items:flex-end;gap:14px;height:110px;margin-top:16px;border-bottom:1px solid var(--color-neutral-500);padding-bottom:0">
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="background:repeating-linear-gradient(45deg,var(--color-neutral-300),var(--color-neutral-300) 3px,transparent 3px,transparent 6px);height:14%"></div><div style="background:var(--color-neutral-700);height:38%"></div></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="background:var(--color-neutral-700);height:64%"></div></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="background:var(--color-text);height:82%"></div></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="background:var(--color-neutral-700);height:46%"></div></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="background:var(--color-neutral-700);height:70%"></div></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"><div style="background:var(--color-neutral-400);height:8%"></div></div>
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%"></div>
+  </div>
+  <div style="display:flex;gap:14px;font-size:9.5px;color:var(--color-neutral-600);margin-top:4px"><span style="flex:1">M</span><span style="flex:1">T</span><span style="flex:1">W</span><span style="flex:1">T</span><span style="flex:1">F</span><span style="flex:1">S</span><span style="flex:1">S</span></div>
+  <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--color-neutral-700);margin-top:10px;border-top:1px solid var(--color-neutral-300);padding-top:8px"><span>Wednesday was your longest day · 4h 05m <span style="color:var(--color-accent);font-weight:700">11</span></span><span style="border-bottom:1px solid var(--color-accent-300);color:var(--color-accent-700)">Show as Table</span></div>
+</div>
+<div style="margin-top:12px;font-size:11.5px;line-height:1.5"><span style="color:var(--color-accent);font-weight:700">10</span> One measure at a time, switched by a menu — never two measures stacked in one bar. Composition gets its own chart below the fold. &nbsp; <span style="color:var(--color-accent);font-weight:700">11</span> The only "insight" that survives: a factual superlative drawn from the series on screen, with no comparison the data cannot support.</div>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:30px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--color-text);padding-bottom:6px;margin-bottom:14px">
+<div style="font-family:var(--font-heading);font-size:15px;font-weight:700">04 · The away correction</div>
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Replaces the full-screen prompt</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1.2fr;gap:24px">
+  <div>
+    <div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:6px">Notification</div>
+    <div style="border:2px solid var(--color-text);padding:10px 12px;width:260px">
+      <div style="font-size:10px;color:var(--color-neutral-600)">Focus Continuity</div>
+      <div style="font-size:11.5px;font-weight:600;margin-top:3px">Session ended at 1:12 PM</div>
+      <div style="font-size:11px;line-height:1.45;margin-top:2px">You were away until 2:40 PM. That time isn't counted.</div>
+      <div style="display:flex;gap:8px;margin-top:8px"><div style="border:1px solid var(--color-neutral-500);padding:3px 8px;font-size:10.5px">Count as Focus</div><div style="border:1px solid var(--color-neutral-500);padding:3px 8px;font-size:10.5px">It Was a Break</div></div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:6px">In-window correction row</div>
+    <div style="border:2px solid var(--color-text);padding:10px 12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div style="font-size:11.5px;line-height:1.45"><strong>1:12 – 2:40 PM not counted.</strong> You were away from the Mac.</div>
+        <div style="display:flex;gap:8px;flex:none"><div style="border:1px solid var(--color-neutral-500);padding:3px 8px;font-size:10.5px">Count as Focus</div><div style="border:1px solid var(--color-neutral-500);padding:3px 8px;font-size:10.5px">Break</div><div style="padding:3px 4px;font-size:11px;color:var(--color-neutral-600)">✕</div></div>
+      </div>
+    </div>
+    <div style="font-size:11.5px;line-height:1.5;margin-top:10px"><span style="color:var(--color-accent);font-weight:700">12</span> Sits at the top of Today until answered or dismissed, and dismissing it is a valid answer — the conservative reading is already applied. Nothing else in the app is disabled meanwhile. Corrections remain possible from the session row for as long as the record exists.</div>
+  </div>
+</div>
+</div>
+
+<div style="break-inside:avoid;margin-bottom:30px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--color-text);padding-bottom:6px;margin-bottom:14px">
+<div style="font-family:var(--font-heading);font-size:15px;font-weight:700">05 · Continuity surfaces</div>
+<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-neutral-600)">Widgets · Live Activity · first run</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">
+  <div>
+    <div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:6px">Widgets</div>
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div style="border:2px solid var(--color-text);width:88px;height:88px;padding:8px;display:flex;flex-direction:column;justify-content:space-between"><div style="width:26px;height:26px;border:3px solid var(--color-neutral-500);border-radius:50%;border-top-color:var(--color-text)"></div><div><div style="font-size:13px;font-weight:700">2h 25m</div><div style="font-size:8.5px;color:var(--color-neutral-600)">of 4h</div></div></div>
+      <div style="border:2px solid var(--color-text);width:110px;height:88px;padding:8px;display:flex;flex-direction:column;justify-content:space-between"><div style="font-size:8.5px;color:var(--color-neutral-600)">THIS WEEK · 14h 10m</div><div style="display:flex;align-items:flex-end;gap:3px;height:38px"><div style="flex:1;background:var(--color-neutral-600);height:40%"></div><div style="flex:1;background:var(--color-neutral-600);height:65%"></div><div style="flex:1;background:var(--color-text);height:85%"></div><div style="flex:1;background:var(--color-neutral-600);height:48%"></div><div style="flex:1;background:var(--color-neutral-600);height:72%"></div><div style="flex:1;background:var(--color-neutral-400);height:10%"></div><div style="flex:1;background:var(--color-neutral-300);height:4%"></div></div></div>
+    </div>
+    <div style="font-size:11px;line-height:1.45;margin-top:8px"><span style="color:var(--color-accent);font-weight:700">13</span> Last known figure with its time; never a loading state.</div>
+  </div>
+  <div>
+    <div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:6px">Live Activity</div>
+    <div style="border:2px solid var(--color-text);padding:8px 10px;margin-bottom:8px;display:flex;justify-content:space-between;font-size:11px"><span>◔ Refactor the parser</span><span style="font-weight:700">42:18</span></div>
+    <div style="border:2px solid var(--color-text);padding:8px 10px;font-size:11px">
+      <div style="display:flex;justify-content:space-between"><span>Focus · Deep work</span><span style="font-weight:700">42:18</span></div>
+      <div style="font-size:10.5px;color:var(--color-neutral-700);margin-top:2px">Refactor the parser</div>
+      <div style="height:4px;background:var(--color-neutral-300);margin-top:8px"><div style="width:61%;height:4px;background:var(--color-text)"></div></div>
+      <div style="font-size:9.5px;color:var(--color-neutral-600);margin-top:3px">1h 52m of 4h today</div>
+    </div>
+    <div style="font-size:11px;line-height:1.45;margin-top:8px"><span style="color:var(--color-accent);font-weight:700">14</span> No buttons and nothing button-shaped: these presentations are not interactive, and a tap opens the app.</div>
+  </div>
+  <div>
+    <div style="font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:6px">First run</div>
+    <div style="border:2px solid var(--color-text);padding:14px 12px">
+      <div style="width:30px;height:30px;border:2px solid var(--color-text);border-radius:50%;margin-bottom:10px"></div>
+      <div style="font-size:13px;font-weight:700;line-height:1.2">Focus Continuity keeps track of your focused time</div>
+      <div style="font-size:10.5px;line-height:1.5;margin-top:8px;color:var(--color-neutral-800)">Sessions start when you turn on a Focus, or whenever you like.<br>Time away, asleep or watching isn't counted as focus.<br>Recording happens on this Mac. Nothing is sent anywhere.</div>
+      <div style="border:2px solid var(--color-text);background:var(--color-text);color:var(--color-neutral-100);font-size:10.5px;padding:4px 10px;display:inline-block;margin-top:12px">Continue</div>
+    </div>
+    <div style="font-size:11px;line-height:1.45;margin-top:8px"><span style="color:var(--color-accent);font-weight:700">15</span> One sheet, three lines, one button. The privacy sentence is a line of copy, not a panel.</div>
+  </div>
+</div>
+</div>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part eleven</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">The logic behind it</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+
+<p style="font-size:14px;line-height:1.6;margin:0 0 16px 0;max-width:6.6in">The existing engine is genuinely good: an exhaustive state machine, a presence gate that knows a wake resets the idle counter, work spread across a session's span rather than filed under the day it ended. Apple's version keeps all of that. What changes is the <em>shape</em> of the model: fewer declared states, more derived ones, and a strict separation between what was observed and what it was interpreted as.</p>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:0 0 8px 0">Two layers, never mixed</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--color-text);margin-bottom:20px">
+<div style="padding:12px 16px 12px 0;border-right:1px solid var(--color-neutral-300);border-bottom:2px solid var(--color-text)">
+<div style="font-size:13px;font-weight:600">Layer 1 — Observations (append-only)</div>
+<div style="font-size:12.5px;line-height:1.55;margin-top:5px">Immutable, timestamped, never rewritten: frontmost-app intervals, idle samples, lock, sleep, wake, display state, Focus mode changes. This is the app's ledger. Corrections never touch it.</div>
+</div>
+<div style="padding:12px 0 12px 16px;border-bottom:2px solid var(--color-text)">
+<div style="font-size:13px;font-weight:600">Layer 2 — Interpretations (rebuildable)</div>
+<div style="font-size:12.5px;line-height:1.55;margin-top:5px">Sessions, breaks, away spans, focus totals, goal progress. Derived by a pure function from Layer 1 plus a small set of user corrections. Deleting the derived store loses nothing.</div>
+</div>
+</div>
+<p style="font-size:13px;line-height:1.55;margin:0 0 20px 0;max-width:6.6in">This is how Health works, and it dissolves the app's hardest current problem. The "accuracy epoch" exists because the recorder changed and old derived data could not be trusted. With a rebuildable interpretation layer, a recorder fix means <em>replaying</em> the ledger under the new rules — the ledger was always accurate; only the interpretation was wrong. Where the ledger itself is genuinely thin, the day shows a hole, which is the truth and needs no epoch vocabulary.</p>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:0 0 8px 0">The state machine, reduced</h3>
+<p style="font-size:13px;line-height:1.55;margin:0 0 12px 0;max-width:6.6in">Seven pause reasons and four user decisions is a rich vocabulary for a small question. Apple's cut: <strong>three states</strong> and <strong>one correction</strong>.</p>
+<pre style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6;border:2px solid var(--color-text);padding:14px;overflow:hidden;white-space:pre-wrap;margin:0 0 8px 0">enum SessionState { case none, active, suspended(Suspension) }
+
+enum Suspension {           // why the clock is not running
+  case byPerson             // you pressed pause, or turned the Focus off
+  case notPresent           // idle, locked, asleep — nobody is here
+  case presentNotWorking    // watching, or a break app in front
+}
+
+struct Correction: Codable {   // the only user-writable interpretation
+  let span: DateInterval
+  let verdict: Verdict         // .focus(WorkType) | .rest | .notCounted
+  let madeAt: Date
+}</pre>
+<p style="font-size:12.5px;line-height:1.55;margin:0 0 20px 0;max-width:6.6in;color:var(--color-neutral-800)">The distinctions the current model draws — sleep versus lock versus idle, away versus break — do not disappear; they move into the observation ledger where they belong as <em>facts</em>, and out of the state machine where they were <em>behaviours</em>. Everything a person can say about a span reduces to one of three verdicts, which is why the notification needs two actions rather than four.</p>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:0 0 8px 0">Behavioural rules</h3>
+<div style="border-top:2px solid var(--color-text)">
+<div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.35in;font-weight:600;font-size:12.5px;flex:none">Never block</div><div style="font-size:12.5px;line-height:1.5">No unresolved state gates any command, hotkey or menu item. Ever. An open question is a row, not a lock.</div></div>
+<div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.35in;font-weight:600;font-size:12.5px;flex:none">Default conservative</div><div style="font-size:12.5px;line-height:1.5">Unattributed time is not focus. The app never asks for permission to under-count, only for permission to count more.</div></div>
+<div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.35in;font-weight:600;font-size:12.5px;flex:none">Correct forever</div><div style="font-size:12.5px;line-height:1.5">Any span is re-attributable for as long as its record exists, from the row it appears in. There is no window during which a correction is possible and after which it is not.</div></div>
+<div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.35in;font-weight:600;font-size:12.5px;flex:none">Automatic is visible</div><div style="font-size:12.5px;line-height:1.5">A session the app started says so, in its row, and is as deletable as one you started. The asymmetric start/stop thresholds that prevent flapping stay — that reasoning is already correct.</div></div>
+<div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--color-neutral-300)"><div style="width:1.35in;font-weight:600;font-size:12.5px;flex:none">Sleep is not away</div><div style="font-size:12.5px;line-height:1.5">A closed lid ends the session at the lid, silently, with no question on return. There is nothing to ask about: the machine recorded the fact.</div></div>
+<div style="display:flex;gap:14px;padding:10px 0;border-bottom:2px solid var(--color-text)"><div style="width:1.35in;font-weight:600;font-size:12.5px;flex:none">Midnight</div><div style="font-size:12.5px;line-height:1.5">Keep the existing per-day clipping. Apple's calendars clip too, and the alternative — filing a session under the day it ended — is the bug the current code already documents.</div></div>
+</div>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:24px 0 8px 0">Data model and API sketch</h3>
+<pre style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.6;border:2px solid var(--color-text);padding:14px;overflow:hidden;white-space:pre-wrap;margin:0 0 12px 0">// ── Layer 1: the ledger ────────────────────────────────────────────
+struct Observation: Codable, Identifiable {   // append-only, per device
+  let id: UUID
+  let interval: DateInterval
+  let kind: Kind
+  enum Kind: Codable {
+    case app(bundleID: String, name: String)
+    case idle(seconds: TimeInterval)
+    case locked, asleep, displayOff
+    case focusMode(identifier: String, on: Bool)
+    case inputDensity(keysPerMinute: Double, clicksPerMinute: Double)
+  }
+}
+
+// ── Layer 2: what it means ─────────────────────────────────────────
+struct FocusSession: Codable, Identifiable {
+  let id: UUID
+  var title: String?              // nil until named; never "Untitled"
+  var workType: WorkType
+  var interval: DateInterval      // wall clock, start to end
+  var focusTime: TimeInterval     // clock time, suspensions removed
+  var origin: Origin              // .person | .focusMode(String) | .detected
+  var deviceOrigin: DeviceKind    // mac | iPhone | iPad
+  var groupID: UUID               // segments of one piece of work
+}
+
+// ── The one pure function everything reads through ─────────────────
+func interpret(_ observations: [Observation],
+               corrections: [Correction],
+               rules: Rules,
+               calendar: Calendar) -> Interpretation
+// Interpretation: sessions, breaks, awaySpans, unmeasured, dayTotals.
+// Deterministic. No I/O. Replayable. The whole test surface.
+
+// ── Reading surfaces ──────────────────────────────────────────────
+protocol FocusStore {                            // the app's only API
+  func day(_ date: Date) async -> DayReport
+  func period(_ range: DateInterval, by: Granularity) async -> PeriodReport
+  var live: AsyncStream&lt;LiveSession?&gt; { get }    // menu bar, widget, LA
+  func start(title: String?, type: WorkType) async throws
+  func suspend(_ reason: Suspension) async
+  func end() async
+  func correct(_ correction: Correction) async
+}</pre>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;font-size:12.5px;line-height:1.55">
+<div><strong>Persistence.</strong> SwiftData or a Core Data store rather than two hand-rolled JSON envelopes, because the ledger will be large and needs indexed range queries, and because migration becomes a schema concern rather than a versioned-envelope concern. The atomic-write discipline in the current code is right; the format is what limits it.
+<br><br><strong>Sync.</strong> CloudKit private database, one zone, ledger records append-only so conflict resolution is trivial — appends never collide. Corrections carry <code style="font-size:11px">madeAt</code> and last-writer-wins is acceptable because a correction is an opinion. Interpretation is per-device and never synced.</div>
+<div><strong>Live surfaces.</strong> One <code style="font-size:11px">AsyncStream</code> of the live session drives the menu bar, the widget timeline reload, the Live Activity update and the Watch. The single one-second ticker in the current design stays, as the stream's source; nothing else in the app owns a timer.
+<br><br><strong>Intents.</strong> Every verb above is an <code style="font-size:11px">AppIntent</code>, which buys Siri, Shortcuts, Spotlight, the Control Center control and Focus-mode automation from one definition. This is the mechanism by which "turning on Work starts a session" needs no new permission and no polling.</div>
+</div>
+
+<div style="break-before:page"></div>
+
+<div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-accent-700);font-weight:600;margin-top:6px">Part twelve</div>
+<h2 style="font-family:var(--font-heading);font-size:34px;font-weight:700;margin:8px 0 0 0;line-height:1.05;letter-spacing:-0.015em">Delta, and what to do first</h2>
+<div style="height:2px;background:var(--color-text);margin:14px 0 18px 0"></div>
+
+<table style="width:100%;border-collapse:collapse;font-size:12px">
+<thead><tr style="border-bottom:2px solid var(--color-text);text-align:left">
+<th style="padding:8px 10px 8px 0;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:2.2in">Change</th>
+<th style="padding:8px 10px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600">Why it is the Apple answer</th>
+<th style="padding:8px 0 8px 10px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600;width:0.8in">Cost</th>
+</tr></thead>
+<tbody>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Stop blocking on an unresolved absence</td><td style="padding:9px 10px;line-height:1.45">No Apple app holds commands hostage to a data question. Highest-severity divergence in the product.</td><td style="padding:9px 0 9px 10px">Low</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Replace the full-screen prompt with a notification + correction row</td><td style="padding:9px 10px;line-height:1.45">Full-screen is for calls, alarms and security. Same information, no takeover.</td><td style="padding:9px 0 9px 10px">Low</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Move Settings to a ⌘, window; cut eight groups to five</td><td style="padding:9px 10px;line-height:1.45">A Mac convention with no exceptions. Frees a tab and removes a two-pane layout inside a tab.</td><td style="padding:9px 0 9px 10px">Low</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Rename the vocabulary</td><td style="padding:9px 10px;line-height:1.45">Every distinction survives; the lab notebook goes. Pure copy work with a large effect on how the app reads.</td><td style="padding:9px 0 9px 10px">Low</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">System colours and text styles instead of bespoke tokens</td><td style="padding:9px 10px;line-height:1.45">Restores the user's accent, Increase Contrast, and appearance fidelity. The category ramp stays.</td><td style="padding:9px 0 9px 10px">Medium</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Draw unmeasured time; qualify once at the bottom</td><td style="padding:9px 10px;line-height:1.45">Turns integrity notices into a picture. Removes amber from the interface almost entirely.</td><td style="padding:9px 0 9px 10px">Medium</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Sidebar navigation; dissolve Insights; add Awards</td><td style="padding:9px 10px;line-height:1.45">Mac shape, and it removes a tab that is empty by design. Conclusions move next to the data they describe.</td><td style="padding:9px 0 9px 10px">Medium</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">App Intents for every verb</td><td style="padding:9px 10px;line-height:1.45">Buys Shortcuts, Siri, Spotlight, Control Center and Focus automation from one definition.</td><td style="padding:9px 0 9px 10px">Medium</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Bind sessions to Focus modes</td><td style="padding:9px 10px;line-height:1.45">The declaration already exists at system level. This is the change that makes the app disappear into the OS.</td><td style="padding:9px 0 9px 10px">High</td></tr>
+<tr style="border-bottom:1px solid var(--color-neutral-300);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Two-layer ledger + pure interpretation</td><td style="padding:9px 10px;line-height:1.45">Retires the accuracy-epoch concept by making recorder fixes replayable instead of destructive.</td><td style="padding:9px 0 9px 10px">High</td></tr>
+<tr style="border-bottom:2px solid var(--color-text);vertical-align:top"><td style="padding:9px 10px 9px 0;font-weight:600">Widgets, Live Activity, Watch, CloudKit</td><td style="padding:9px 10px;line-height:1.45">Delivers the promise in the product's name. Nothing else in this list changes what the app <em>is</em> as much.</td><td style="padding:9px 0 9px 10px">High</td></tr>
+</tbody>
+</table>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:26px 0 8px 0">The kill list</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:2px solid var(--color-text)">
+<div style="padding:10px 14px 10px 0;border-right:1px solid var(--color-neutral-300);border-bottom:1px solid var(--color-neutral-300);font-size:12.5px;line-height:1.5"><strong>The Insights tab.</strong> Its four sections have better homes. A tab that gates itself teaches people not to open it.</div>
+<div style="padding:10px 0 10px 14px;border-bottom:1px solid var(--color-neutral-300);font-size:12.5px;line-height:1.5"><strong>The reward HUD.</strong> Awards are discovered in a list, never announced over your work.</div>
+<div style="padding:10px 14px 10px 0;border-right:1px solid var(--color-neutral-300);border-bottom:1px solid var(--color-neutral-300);font-size:12.5px;line-height:1.5"><strong>Two of the four away decisions.</strong> "Away" and "break" differ in what is written down, not in the arithmetic — so one action plus an optional relabel.</div>
+<div style="padding:10px 0 10px 14px;border-bottom:1px solid var(--color-neutral-300);font-size:12.5px;line-height:1.5"><strong>Interface-density and timeline-label preferences.</strong> Pick the right density and ship it. A setting here is an unmade decision.</div>
+<div style="padding:10px 14px 10px 0;border-right:1px solid var(--color-neutral-300);border-bottom:2px solid var(--color-text);font-size:12.5px;line-height:1.5"><strong>The Appearance group.</strong> Follow the system. An in-app light/dark override contradicts a preference the person already set.</div>
+<div style="padding:10px 0 10px 14px;border-bottom:2px solid var(--color-text);font-size:12.5px;line-height:1.5"><strong>"Advanced" as a visible group.</strong> Diagnostics belong behind Option-click or in Help. Destructive actions keep their confirmation and their isolation.</div>
+</div>
+
+<h3 style="font-family:var(--font-heading);font-size:17px;font-weight:700;margin:26px 0 8px 0">What the current app already does the way Apple would</h3>
+<p style="font-size:13px;line-height:1.55;margin:0 0 0 0;max-width:6.6in">Worth naming, because it is most of the hard part. Spreading a session's work across its span rather than filing it under the day it ended. Refusing to rewrite preserved history. Keeping composition out of the tracked-time bars. Requesting no privacy permission at all and using system counters rather than event content. One ticker for the whole app. Not counting rest as focus. A settings surface with no non-functional controls. Asymmetric auto-start and auto-stop thresholds so an automatic mode does not flap. Naming <em>Watching</em> as presence rather than absence. Each of those is a decision Apple would make and most products get wrong.</p>
+
+<div id="src" style="margin-top:32px;border-top:2px solid var(--color-text);padding-top:12px">
+<div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-neutral-600);font-weight:600">Sources and method</div>
+<p style="font-size:11.5px;line-height:1.55;margin:8px 0 0 0;color:var(--color-neutral-800);max-width:6.6in">Apple's Human Interface Guidelines: <em>Accessing private data</em> and <em>Requesting permission</em> (permission timing, purpose strings, the prohibition on imitating system alerts), <em>Live Activities</em> (presentations, the no-buttons rule, the four-hour Lock Screen dismissal window), <em>The menu bar</em> and menu bar extras, <em>Charting data</em>, and the Foundations pages on colour, typography, materials and motion. Apple Developer, <em>10 questions with the Live Activities team</em>, for the interaction and canvas rules. WWDC24 <em>Design Live Activities for Apple Watch</em> for the Smart Stack layout guidance. Behavioural precedent read directly from Screen Time, Health, Sleep, Fitness, Reminders and Freeform. Product context read from the FocusContinuity repository: <code style="font-size:11px">README.md</code>, the 2026-08-29 interface-redesign design, <code style="font-size:11px">DesignTokens.swift</code>, <code style="font-size:11px">SessionState.swift</code> and <code style="font-size:11px">PresenceGate.swift</code>. Apple's design pages render client-side and would not serve to a text fetch; the guidance quoted above comes from indexed copies of those pages, which agree with each other on every point cited.</p>
+</div>
+
+</div>
+</doc-page>
+
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="#f3f2f2"/><rect x="72" y="72" width="96" height="96" fill="#ec3013"/><rect x="96" y="112" width="48" height="8" fill="#f3f2f2"/><rect x="96" y="128" width="30" height="8" fill="#f3f2f2"/></svg>
+</template>
+
+</x-dc>
+</body>
+</html>
