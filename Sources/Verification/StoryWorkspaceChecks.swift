@@ -384,9 +384,11 @@ enum StoryWorkspaceChecks {
                 requireContent("Sparse Insights \(scope.rawValue)", sparseFrame)
                 requireEvidence("Dense Insights \(scope.rawValue)", denseFrame,
                                 includes: [.insightPeriod, .insightStrongestDay])
+                // A range holding nothing anywhere states that once, instead of
+                // repeating an identical zero card for every period in it.
                 requireEvidence("Sparse Insights \(scope.rawValue)", sparseFrame,
-                                includes: [.insightPeriod, .insightEmptyPeriod],
-                                excludes: [.insightStrongestDay])
+                                includes: [.insightEmptyPeriod],
+                                excludes: [.insightPeriod, .insightStrongestDay])
             }
             FixtureFactory.cleanUp()
             return failures

@@ -77,9 +77,35 @@ struct InsightsView: View {
                                        inSameDayAs: store.now())
     }
 
+    /// Nothing anywhere in the listed range. A column of identical zero cards
+    /// repeats one fact many times; say it once and offer the way out.
+    private var nothingRecorded: Bool {
+        !periods.isEmpty && periods.allSatisfy {
+            $0.focused == 0 && $0.tracked == 0 && $0.goalCredit == 0
+        }
+    }
+
+    private var emptyRange: some View {
+        SurfacePanel(showsHeader: false) {
+            Text("No \(navigation.insightRange.title.lowercased()) summaries yet")
+                .font(Tokens.Typography.sectionTitle)
+            Text("Insights compare one \(navigation.insightRange.title.lowercased()) with the "
+                 + "next, so they appear once two of them hold recorded work.")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Start focus") { navigation.performSessionControlsAction(.commandOrMenu) }
+                .buttonStyle(.borderedProminent)
+                .accessibilityLabel("Start a focus session")
+        }
+        .accessibilityIdentifier("insights-empty-range")
+        .storyRenderEvidence(.insightEmptyPeriod)
+    }
+
     private var periodPages: some View {
         LazyVStack(alignment: .leading, spacing: Tokens.Space.m) {
-            ForEach(periods) { period in
+            if nothingRecorded { emptyRange }
+            ForEach(nothingRecorded ? [] : periods) { period in
                 SurfacePanel(showsHeader: false) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(periodLabel(period))
