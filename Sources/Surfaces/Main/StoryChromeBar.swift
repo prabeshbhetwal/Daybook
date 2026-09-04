@@ -8,9 +8,24 @@ enum StoryChromeFocus: Hashable {
 /// The window's one chrome row, in the design's order: clearance for the native
 /// traffic lights, the scope, the period it resolves to, the live session, and
 /// Settings. It never scrolls and it is the only global navigation.
+enum ChromeSessionControl {
+    /// The chrome's control only reveals the session strip; the strip's own
+    /// button is what starts a session. While the strip is on screen and idle,
+    /// showing both offers the same words — "Start focus" — for two different
+    /// acts, so the chrome stands down. A running session keeps its chrome
+    /// clock, which the strip does not duplicate.
+    static func isShown(stripVisible: Bool, isIdle: Bool) -> Bool {
+        !(stripVisible && isIdle)
+    }
+}
+
 struct StoryChromeBar: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    /// Whether the session strip is on screen. It carries the real Start
+    /// focus; the chrome's only reveals it, so both showing at once offers the
+    /// same words for two different acts.
+    var sessionControlsVisible = false
     @FocusState private var focusedControl: StoryChromeFocus?
 
     var body: some View {
@@ -21,11 +36,14 @@ struct StoryChromeBar: View {
                 .accessibilityHidden(true)
             workspaceControls
             Spacer(minLength: Tokens.Space.s)
-            StorySessionControl(store: store,
-                                focus: $focusedControl,
-                                onDetails: {
-                                    navigation.performSessionControlsAction(.timerPill)
-                                })
+            if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible,
+                                            isIdle: store.isIdle) {
+                StorySessionControl(store: store,
+                                    focus: $focusedControl,
+                                    onDetails: {
+                                        navigation.performSessionControlsAction(.timerPill)
+                                    })
+            }
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
                     .font(.system(size: 13, weight: .medium))

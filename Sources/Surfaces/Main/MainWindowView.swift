@@ -21,14 +21,16 @@ struct MainWindowView: View {
     var body: some View {
       GeometryReader { geometry in
         VStack(spacing: 0) {
-            StoryChromeBar(store: store, navigation: navigation)
+            let stripVisible = SessionControlsVisibility.isVisible(
+                expanded: navigation.sessionControlsExpanded,
+                pinned: settings.sessionControlsPinned)
+            StoryChromeBar(store: store, navigation: navigation,
+                           sessionControlsVisible: stripVisible)
                 .accessibilitySortPriority(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
             Divider()
-            if SessionControlsVisibility.isVisible(
-                expanded: navigation.sessionControlsExpanded,
-                pinned: settings.sessionControlsPinned) {
+            if stripVisible {
                 SessionControlStrip(store: store, settings: settings, navigation: navigation)
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)

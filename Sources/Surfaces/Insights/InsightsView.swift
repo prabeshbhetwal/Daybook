@@ -68,11 +68,6 @@ struct InsightsView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: Tokens.Space.l)
-            ScopePillRow(titles: InsightRange.allCases.map(\.title),
-                         selectedIndex: Binding(
-                            get: { InsightRange.allCases.firstIndex(of: navigation.insightRange) ?? 0 },
-                            set: { navigation.selectInsightRange(InsightRange.allCases[$0]) }),
-                         controlLabel: "Insights range")
         }
     }
 

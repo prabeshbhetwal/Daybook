@@ -21,6 +21,7 @@ enum CompactControlsChecks {
         ("Scope keyboard commands move one coherent selection", scopeKeyboard),
         ("Native scope adapter owns focus, pointer and key selection", nativeScopeAdapter),
         ("Every scope row presents one native keyboard target", scopeRowsShareOneKeyboardTarget),
+        ("One Start focus is offered at a time", oneStartFocusAtATime),
         ("Compact Focus consumers retain general save failures and exact Retry", generalFailurePresentation),
         ("Away Return routing is scoped to its own focused controls", awayReturnScope),
         ("Compact goal copy stays quiet at the 340pt menu width", compactGoalLine)
@@ -310,6 +311,25 @@ enum CompactControlsChecks {
         return failures
     }
 
+    /// Two buttons reading "Start focus" — one revealing the strip, one
+    /// starting the session — is the same words for two different acts.
+    private static func oneStartFocusAtATime() -> [String] {
+        var failures: [String] = []
+        if !ChromeSessionControl.isShown(stripVisible: false, isIdle: true) {
+            failures.append("The chrome offered no way to start when the strip was closed")
+        }
+        if ChromeSessionControl.isShown(stripVisible: true, isIdle: true) {
+            failures.append("Both the chrome and the strip offered Start focus at once")
+        }
+        if !ChromeSessionControl.isShown(stripVisible: true, isIdle: false) {
+            failures.append("A running session lost its chrome clock behind the strip")
+        }
+        if !ChromeSessionControl.isShown(stripVisible: false, isIdle: false) {
+            failures.append("A running session lost its chrome clock")
+        }
+        return failures
+    }
+
     private final class IndexBox { var value = 0; var writes = 0 }
 
     /// Every scope row — Story, Insights, Review — must present exactly one
@@ -387,6 +407,28 @@ enum CompactControlsChecks {
                 }
                 window.contentView = nil
             }
+
+            // The Insights page must not carry a second copy of the scope the
+            // chrome already owns.
+            let insightsNavigation = MainWindowModel(store: store)
+            insightsNavigation.open(tab: .insights)
+            let page = NSHostingView(rootView: InsightsView(store: store,
+                                                            navigation: insightsNavigation,
+                                                            scrolls: false)
+                .frame(width: 1_000, height: 700))
+            page.frame = NSRect(x: 0, y: 0, width: 1_000, height: 700)
+            let pageWindow = NSWindow(contentRect: page.frame, styleMask: .borderless,
+                                      backing: .buffered, defer: false)
+            pageWindow.contentView = page
+            page.layoutSubtreeIfNeeded()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            page.layoutSubtreeIfNeeded()
+            let onPage = descendants(in: page, of: ScopeNSSegmentedControl.self).count
+            if onPage != 0 {
+                failures.append("The Insights page duplicated the chrome's scope control "
+                                + "(\(onPage) found)")
+            }
+            pageWindow.contentView = nil
             return failures
         }
     }
