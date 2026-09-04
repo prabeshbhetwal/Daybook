@@ -159,14 +159,14 @@ struct DayStory: View {
                     storyRow(time: span.start, tint: .secondary, dotSize: 5,
                              isFirst: isFirst, isLast: isLast) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text("No recording in this interval")
+                            Text("Not recorded")
                             Spacer(minLength: 8)
                             Text(Tokens.duration(span.duration)).monospacedDigit()
                         }
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                         .padding(.vertical, 10)
                         .accessibilityElement(children: .combine)
-                        .accessibilityLabel("No recording, \(Tokens.timeRange(span.start, span.end)). "
+                        .accessibilityLabel("Not recorded, \(Tokens.timeRange(span.start, span.end)). "
                                             + "This interval is not assumed to be work or rest.")
                     }
                 case .appUse(let span, let seconds):

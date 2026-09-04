@@ -104,7 +104,9 @@ struct CompactGoalPresentation: Equatable {
     init(_ goal: GoalProgress) {
         let achieved = Tokens.preciseDuration(goal.achieved)
         let target = Tokens.preciseDuration(goal.goal)
-        let shortPace: String
+        // Nil where there is nothing to compare against: a line reading
+        // "Pace unavailable" states an absence the reader cannot act on.
+        let shortPace: String?
         let fullPace: String
         if goal.isMet {
             shortPace = "Goal met"
@@ -123,10 +125,11 @@ struct CompactGoalPresentation: Equatable {
                 fullPace = "On your usual pace"
             }
         } else {
-            shortPace = "Pace unavailable"
+            shortPace = nil
             fullPace = "Pace comparison appears after enough comparable history."
         }
-        visible = "Today · \(achieved) / \(target) · \(shortPace)"
+        visible = shortPace.map { "Today · \(achieved) / \(target) · \($0)" }
+            ?? "Today · \(achieved) / \(target)"
         accessibility = "Daily goal. \(achieved) of \(target). \(fullPace)"
     }
 }

@@ -335,10 +335,10 @@ struct StoryRail: View {
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
                 legendRow(colour: Tokens.Palette.app(rank: 1),
-                          label: "Within session spans",
+                          label: "In a focus session",
                           value: Tokens.duration(insideValue))
                 legendRow(colour: Tokens.Palette.app(rank: 1).opacity(0.42),
-                          label: "Outside session spans",
+                          label: "Outside sessions",
                           value: Tokens.duration(looseValue))
             }
             if unrecordedValue > 0 {
@@ -348,7 +348,7 @@ struct StoryRail: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
             }
-            Text("Session spans may include pauses. Goal credit counts covered focus only.")
+            Text("A session may include pauses. Goal credit counts only focus with recorded app use.")
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

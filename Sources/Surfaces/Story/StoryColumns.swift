@@ -139,7 +139,7 @@ struct ProjectedDayStoryColumn: View {
                           highlight: Tokens.preciseDuration(projection.focused))
             StoryCorrectionNotice(store: store)
             if !projection.summaryFacts.isEmpty {
-                StoryDisclosure(title: "About this day", isExpanded: Binding(
+                StoryDisclosure(title: "How this day was measured", isExpanded: Binding(
                     get: { showSummary.value }, set: { showSummary.value = $0 })) {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(Array(projection.summaryFacts.enumerated()), id: \.offset) { _, fact in
@@ -180,9 +180,6 @@ struct ProjectedDayStoryColumn: View {
         }
         let longest = projection.longestFocusStretch
         if longest > 0 { parts.append("longest stretch \(Tokens.preciseDuration(longest))") }
-        if projection.goalCredit > 0 {
-            parts.append("\(Tokens.duration(projection.goalCredit)) goal credit")
-        }
         return parts
     }
 }

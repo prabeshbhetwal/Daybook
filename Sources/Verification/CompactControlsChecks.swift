@@ -716,9 +716,13 @@ enum CompactControlsChecks {
         let behind = CompactGoalPresentation(
             GoalProgress(goal: 4 * 3_600, achieved: 31, typical: 4 * 3_600))
         var failures: [String] = []
-        if unavailable.visible != "Today · 31s / 4h · Pace unavailable"
+        // With nothing to compare against, the line states the goal and stops.
+        // "Pace unavailable" announced an absence the reader cannot act on,
+        // while the explanation stays available to assistive technology.
+        if unavailable.visible != "Today · 31s / 4h"
+            || unavailable.visible.contains("unavailable")
             || !unavailable.accessibility.contains("Pace comparison appears after enough comparable history") {
-            failures.append("Unavailable pace did not keep short visible copy and complete accessibility detail")
+            failures.append("An uncomparable pace did not fall silent while keeping its explanation")
         }
         if behind.visible != "Today · 31s / 4h · 3h 59m behind"
             || !behind.accessibility.contains("3h 59m behind your usual pace") {
