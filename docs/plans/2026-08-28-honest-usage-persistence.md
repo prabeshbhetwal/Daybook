@@ -13,7 +13,7 @@ a pure `PresenceGate` distinguishes wake resets from actual input.
 
 **Tech Stack:** Swift 5 language mode, Foundation, CoreGraphics, macOS 13.
 
-**Spec:** `docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
+**Spec:** `docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
 
 ## Global constraints
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI (+ Charts), AppKit. `swiftc` via `./build.sh`. macOS 13.
 
-**Spec:** the design canvas `docs/superpowers/design/2026-08-22-day-context/` (Main + SessionSelected artboards, annotations), approved in chat.
+**Spec:** the design canvas `docs/design/2026-08-22-day-context/` (Main + SessionSelected artboards, annotations), approved in chat.
 
 ## Global Constraints
 
@@ -365,5 +365,5 @@ and an overlay label at the top-leading: `if let day = hovered.day, let entry = 
 
 - [ ] **Step 1:** In `DashboardView.column` add `.animation(.easeInOut(duration: 0.25), value: store.dayOffset)` and `.animation(.easeInOut(duration: 0.2), value: store.selectedSession?.id)`.
 - [ ] **Step 2:** Gallery strip: add `SessionsCard(entries: …fixture…, selected: nil, onHover: { _ in }, onSelect: { _ in }).frame(width: 520).card(padding: 12)` with two sessions and one rest built from `Date()`.
-- [ ] **Step 3:** Append to `docs/superpowers/specs/2026-08-22-premium-design-design.md` an addendum "Day context (2026-08-22, later)" summarising §1–4 of the canvas and naming the new store members and views.
+- [ ] **Step 3:** Append to `docs/specs/2026-08-22-premium-design-design.md` an addendum "Day context (2026-08-22, later)" summarising §1–4 of the canvas and naming the new store members and views.
 - [ ] **Step 4:** Build, `92/92`, snapshots opened; relaunch; live: pick a past day (Now strip), hover/click sessions, Esc, rhythm click, week chart hover/click. Files under 500.

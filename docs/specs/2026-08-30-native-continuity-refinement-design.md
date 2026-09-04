@@ -304,7 +304,7 @@ is enabled.
 | Review | `Sources/Surfaces/Review/ReviewView.swift`, `Sources/Surfaces/Review/HistoryView.swift`, `Sources/Surfaces/Review/ReviewDayDetail.swift`, `Sources/App/MainWindowModel.swift` | Remove Review-to-Today action/route. |
 | Settings | `Sources/Surfaces/Settings/SettingsView.swift`, `Sources/Surfaces/Settings/SettingsSidebar.swift`, `Sources/Surfaces/Settings/SettingsGroups.swift` | Continuous document, scroll-aware index, integrated search, narrow jump menu. |
 | Tests/snapshots | `Sources/SelfTest.swift`, `Sources/Surfaces/Snapshotter.swift` | Behaviour contracts and visual-state coverage. |
-| Existing system document | `docs/superpowers/specs/2026-08-30-premium-interface-design-system.md` | Amend the conflicting tabs, Today, Review, and Settings clauses. |
+| Existing system document | `docs/specs/2026-08-30-premium-interface-design-system.md` | Amend the conflicting tabs, Today, Review, and Settings clauses. |
 
 No Core accounting, archive schema, persistence format, build script, or
 generated bundle is in scope.

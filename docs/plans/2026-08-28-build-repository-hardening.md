@@ -13,7 +13,7 @@ self-cleaning.
 
 **Tech Stack:** Bash, `swiftc`, `codesign`, Git, macOS 13+.
 
-**Spec:** `docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
+**Spec:** `docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
 
 ## Global constraints
 
@@ -50,7 +50,7 @@ self-cleaning.
 - Modify: `Sources/Core/DashboardStats.swift`
 - Modify: `Sources/App/AppCoordinator.swift`
 - Modify: `README.md`
-- Modify: `docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
+- Modify: `docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
 
 - [ ] Add an internal archive-capacity injection, defaulted to the production
   capacity, and use a small literal capacity in the ring test.

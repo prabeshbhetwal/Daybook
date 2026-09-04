@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5 language mode, Swift 6.4 compiler, SwiftUI, AppKit, Charts, CoreGraphics, IOKit, macOS 13+, direct `swiftc`, no packages or Xcode project.
 
-**Spec:** `docs/superpowers/specs/2026-08-29-interface-redesign-design.md`
+**Spec:** `docs/specs/2026-08-29-interface-redesign-design.md`
 
 ## Global Constraints
 

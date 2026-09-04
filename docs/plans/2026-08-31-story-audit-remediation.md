@@ -8,7 +8,7 @@ Status: implemented and locally verified; not pushed. See the
 [verification report](../reviews/2026-08-31-story-remediation-verification.md)
 for results and manual-verification limits.
 
-Authority: the user's approval to fix all findings in `docs/superpowers/reviews/2026-08-31-design-and-behaviour-audit.md`.
+Authority: the user's approval to fix all findings in `docs/reviews/2026-08-31-design-and-behaviour-audit.md`.
 
 ## Direction and constraints
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5 language mode, Swift 6.4 compiler, SwiftUI, AppKit, Charts, macOS 13+, direct swiftc, no packages or Xcode project.
 
-**Spec:** docs/superpowers/specs/2026-08-30-premium-interface-design-system.md
+**Spec:** docs/specs/2026-08-30-premium-interface-design-system.md
 
 ## Global Constraints
 
@@ -679,7 +679,7 @@ git commit -m "ui: refine insight and settings presentation"
 - Modify: Sources/Surfaces/Snapshotter.swift
 - Modify: Sources/SelfTest.swift
 - Modify: README.md
-- Modify: docs/superpowers/specs/2026-08-30-premium-interface-design-system.md
+- Modify: docs/specs/2026-08-30-premium-interface-design-system.md
 
 **Interfaces:**
 
@@ -741,7 +741,7 @@ Expected:
 
 ~~~bash
 git add Sources/Surfaces/Snapshotter.swift Sources/SelfTest.swift README.md \
-        docs/superpowers/specs/2026-08-30-premium-interface-design-system.md
+        docs/specs/2026-08-30-premium-interface-design-system.md
 git commit -m "test: verify premium interface system"
 ~~~
 

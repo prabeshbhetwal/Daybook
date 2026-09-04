@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI, AppKit where macOS requires it; `swiftc` via `./build.sh`; no SPM, no Xcode project, no packages. macOS 13.0 target.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-premium-design-design.md`
+**Spec:** `docs/specs/2026-08-22-premium-design-design.md`
 
 ## Global Constraints
 
@@ -2366,12 +2366,12 @@ In `README.md`, update the `Sources/` tree: under `Design/` list `DesignTokens.s
 
 Run build and selftest. Expected: `Build succeeded`, `84/84 passed`. Snapshot; open `components-light.png` and `components-dark.png` and confirm the seven colours are distinct and harmonised in both; open every `*-dark.png` and `*-light.png` once and confirm no collapsed region, no clipping, no hatched gap left, no SF Mono numeral left.
 
-Live verification, with screenshots saved to `docs/superpowers/plans/2026-08-22-premium-design-screens/` (create the directory): popover at 14" light and dark, popover with the away card up, dashboard Today / Yesterday / Week, the Settings window on the *Away and breaks* tab, and the menu bar with a session running, paused, and idle. Confirm: the popover fits with the away card up; the menu-bar ring changes when the goal changes in Settings; `Earlier that day` appears on Yesterday.
+Live verification, with screenshots saved to `docs/plans/2026-08-22-premium-design-screens/` (create the directory): popover at 14" light and dark, popover with the away card up, dashboard Today / Yesterday / Week, the Settings window on the *Away and breaks* tab, and the menu bar with a session running, paused, and idle. Confirm: the popover fits with the away card up; the menu-bar ring changes when the goal changes in Settings; `Earlier that day` appears on Yesterday.
 
 - [ ] **Step 6: Commit** *(recorded, skipped)*
 
 ```bash
-git add Sources/Surfaces/GalleryView.swift Sources/Surfaces/Snapshotter.swift README.md Sources/SelfTest.swift docs/superpowers/plans/2026-08-22-premium-design-screens
+git add Sources/Surfaces/GalleryView.swift Sources/Surfaces/Snapshotter.swift README.md Sources/SelfTest.swift docs/plans/2026-08-22-premium-design-screens
 git commit -m "design: component strip in the gallery and snapshots; README; live verification"
 ```
 

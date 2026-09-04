@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI, Swift Charts for the period bars, `Canvas` for the day timeline.
 
-**Spec:** `docs/superpowers/specs/2026-08-13-periods-and-log-design.md`
+**Spec:** `docs/specs/2026-08-13-periods-and-log-design.md`
 
 ## Global Constraints
 

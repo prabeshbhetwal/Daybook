@@ -49,5 +49,5 @@ literal dates, values, selection state and labels. Copy uses Australian English.
 
 This context condenses the approved project specifications, repository behaviour,
 the supplied research handoff and the 31 August audit. It introduces no new product
-scope. See `docs/superpowers/reviews/2026-08-31-design-and-behaviour-audit.md` and
-`docs/superpowers/plans/2026-08-31-story-audit-remediation.md`.
+scope. See `docs/reviews/2026-08-31-design-and-behaviour-audit.md` and
+`docs/plans/2026-08-31-story-audit-remediation.md`.

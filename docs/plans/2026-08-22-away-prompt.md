@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI, AppKit, Combine. `swiftc` via `./build.sh`. macOS 13.
 
-**Spec:** `docs/superpowers/specs/2026-08-22-away-prompt-design.md`
+**Spec:** `docs/specs/2026-08-22-away-prompt-design.md`
 
 ## Global Constraints
 

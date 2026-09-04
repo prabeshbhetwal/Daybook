@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI, `Canvas`, AppKit.
 
-**Spec:** `docs/superpowers/specs/2026-08-13-app-sessions-design.md`
+**Spec:** `docs/specs/2026-08-13-app-sessions-design.md`
 
 ## Global Constraints
 

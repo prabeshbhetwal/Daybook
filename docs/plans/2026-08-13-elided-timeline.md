@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI `Canvas`.
 
-**Spec:** `docs/superpowers/specs/2026-08-13-elided-timeline-design.md`
+**Spec:** `docs/specs/2026-08-13-elided-timeline-design.md`
 
 ## Global Constraints
 

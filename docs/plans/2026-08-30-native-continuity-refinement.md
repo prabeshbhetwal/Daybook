@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5 language mode, Swift 6.4 compiler, SwiftUI, AppKit, macOS 13+, direct `swiftc`, no packages or Xcode project.
 
-**Spec:** `docs/superpowers/specs/2026-08-30-native-continuity-refinement-design.md`
+**Spec:** `docs/specs/2026-08-30-native-continuity-refinement-design.md`
 
 ## Global Constraints
 
@@ -45,7 +45,7 @@
 | `Sources/Surfaces/Settings/SettingsSidebar.swift` | Index/sidebar and compact jump menu, not pane switching. |
 | `Sources/SelfTest.swift` | Behavioural, accessibility-contract, and presentation-state regression tests. |
 | `Sources/Surfaces/Snapshotter.swift` | Scenarios for every new visible state. |
-| `docs/superpowers/specs/2026-08-30-premium-interface-design-system.md` | Amend clauses that conflict with the approved refinement. |
+| `docs/specs/2026-08-30-premium-interface-design-system.md` | Amend clauses that conflict with the approved refinement. |
 
 ## Task 1: Simplify global chrome and restore product identity
 
@@ -849,8 +849,8 @@ enum SettingsScrollPresentation {
 ## Task 7: Reconcile documentation and perform the final visual gate
 
 **Files:**
-- Modify: `docs/superpowers/specs/2026-08-30-premium-interface-design-system.md`
-- Modify: `docs/superpowers/specs/2026-08-30-native-continuity-refinement-design.md`
+- Modify: `docs/specs/2026-08-30-premium-interface-design-system.md`
+- Modify: `docs/specs/2026-08-30-native-continuity-refinement-design.md`
 - Modify: `README.md` only if it still describes removed Review-to-Today navigation
 
 **Consumes:** Tasks 1–6, snapshot scenarios, `build.sh` verification modes.
@@ -919,8 +919,8 @@ enum SettingsScrollPresentation {
 - [ ] **Step 6: Commit the final documentation alignment**
 
   ```bash
-  git add docs/superpowers/specs/2026-08-30-premium-interface-design-system.md \
-          docs/superpowers/specs/2026-08-30-native-continuity-refinement-design.md \
+  git add docs/specs/2026-08-30-premium-interface-design-system.md \
+          docs/specs/2026-08-30-native-continuity-refinement-design.md \
           Sources/SelfTest.swift README.md
   git commit -m "docs: align interface guidance with native continuity"
   ```

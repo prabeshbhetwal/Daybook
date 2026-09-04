@@ -6,8 +6,8 @@ The final **Focus Continuity - Day as a Story.dc.html** in the supplied research
 handoff is the visual reference. Earlier prototypes are alternatives. Native
 macOS behaviour, accessible contrast and truthful recorded evidence take priority
 over unsupported sample content. This document records the implemented remediation
-language. The [original verification report](docs/superpowers/reviews/2026-08-31-story-remediation-verification.md)
-and [interaction follow-up](docs/superpowers/reviews/2026-08-31-story-interaction-verification.md)
+language. The [original verification report](docs/reviews/2026-08-31-story-remediation-verification.md)
+and [interaction follow-up](docs/reviews/2026-08-31-story-interaction-verification.md)
 record the tested behaviour and remaining manual-verification limits.
 
 ## Composition

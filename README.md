@@ -304,7 +304,7 @@ Sources/
   SelfTest.swift        Headless verification suite
 build.sh                Direct Swift build, signing, promotion and test entry point
 scripts/                Release-concurrency and fixture-only native verification
-docs/superpowers/       Approved designs, specifications and implementation plans
+docs/       Approved designs, specifications and implementation plans
 ```
 
 Generated bundles, build state, snapshots, Codex worktrees and internal
@@ -316,13 +316,13 @@ agent scratch reports.
 
 - [Current Story design system](DESIGN.md)
 - [Product context and principles](PRODUCT.md)
-- [Story remediation plan](docs/superpowers/plans/2026-08-31-story-audit-remediation.md)
-- [Design and behaviour audit](docs/superpowers/reviews/2026-08-31-design-and-behaviour-audit.md)
-- [Story remediation and verification](docs/superpowers/reviews/2026-08-31-story-remediation-verification.md)
-- [Story interaction follow-up and verification](docs/superpowers/reviews/2026-08-31-story-interaction-verification.md)
-- [Complete Story interactions — design](docs/superpowers/specs/2026-08-31-story-interaction-model-design.md), [session controls and activity rules proposal](docs/superpowers/specs/2026-08-31-session-controls-and-activity-rules-proposal.md), [plan](docs/superpowers/plans/2026-08-31-complete-story-interactions.md) and [verification](docs/superpowers/reviews/2026-08-31-complete-story-interactions-verification.md)
-- [Stabilisation design](docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md)
-- [Build and repository hardening plan](docs/superpowers/plans/2026-08-28-build-repository-hardening.md)
+- [Story remediation plan](docs/plans/2026-08-31-story-audit-remediation.md)
+- [Design and behaviour audit](docs/reviews/2026-08-31-design-and-behaviour-audit.md)
+- [Story remediation and verification](docs/reviews/2026-08-31-story-remediation-verification.md)
+- [Story interaction follow-up and verification](docs/reviews/2026-08-31-story-interaction-verification.md)
+- [Complete Story interactions — design](docs/specs/2026-08-31-story-interaction-model-design.md), [session controls and activity rules proposal](docs/specs/2026-08-31-session-controls-and-activity-rules-proposal.md), [plan](docs/plans/2026-08-31-complete-story-interactions.md) and [verification](docs/reviews/2026-08-31-complete-story-interactions-verification.md)
+- [Stabilisation design](docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md)
+- [Build and repository hardening plan](docs/plans/2026-08-28-build-repository-hardening.md)
 
 ## Contributing
 

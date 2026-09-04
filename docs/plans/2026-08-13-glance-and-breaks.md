@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI, `Canvas`, `UNUserNotificationCenter`.
 
-**Spec:** `docs/superpowers/specs/2026-08-13-glance-and-breaks-design.md`
+**Spec:** `docs/specs/2026-08-13-glance-and-breaks-design.md`
 
 ## Global Constraints
 

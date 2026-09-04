@@ -6,3 +6,8 @@
 /.build/
 /snapshots/
 /task-*-report.md
+# Design handoff: the archive and the project snapshot it carries. The
+# artboards under research/ are the part worth reading; the archive is a
+# duplicate and its uploads/ folder is a stale copy of this repository.
+/research/*.zip
+/research/apple-focus-app-design-research/project/uploads/

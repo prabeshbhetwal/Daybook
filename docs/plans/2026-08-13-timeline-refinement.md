@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI `Canvas`, `onContinuousHover`, AppKit for icon rasterisation.
 
-**Spec:** `docs/superpowers/specs/2026-08-13-timeline-refinement-design.md`
+**Spec:** `docs/specs/2026-08-13-timeline-refinement-design.md`
 
 ## Global Constraints
 

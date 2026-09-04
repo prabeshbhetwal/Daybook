@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5 language mode, SwiftUI/AppKit, Foundation, public IOKit power APIs, direct `swiftc`, macOS 13 minimum. Existing headless SelfTest and native fixture-only verification.
 
-**Spec:** `docs/superpowers/specs/2026-08-31-story-interaction-model-design.md` and `docs/superpowers/specs/2026-08-31-session-controls-and-activity-rules-proposal.md`, both approved in chat.
+**Spec:** `docs/specs/2026-08-31-story-interaction-model-design.md` and `docs/specs/2026-08-31-session-controls-and-activity-rules-proposal.md`, both approved in chat.
 
 ## Global Constraints
 
@@ -192,7 +192,7 @@ When enabled, rule-based automation supersedes the heuristic start detector, rat
 
 **Files:**
 - Update `FixtureFactory` in `Sources/Surfaces/GalleryView.swift`, `Sources/Surfaces/Snapshotter.swift`, interaction checks and fixture-only scenarios for all new states.
-- Update `DESIGN.md`, relevant README behaviour and `docs/superpowers/reviews/2026-08-31-complete-story-interactions-verification.md`.
+- Update `DESIGN.md`, relevant README behaviour and `docs/reviews/2026-08-31-complete-story-interactions-verification.md`.
 
 **Interfaces:** All earlier production boundaries; no second engine, live coordinator, app inventory or power observer in a fixture.
 

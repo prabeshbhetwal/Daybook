@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5 language mode, SwiftUI, Swift Charts, AppKit (bridged where needed), Foundation. Built by `swiftc` via `build.sh` — no Xcode project, no SPM.
 
-**Spec:** `docs/superpowers/specs/2026-08-12-focuscontinuity-ui-design.md`
+**Spec:** `docs/specs/2026-08-12-focuscontinuity-ui-design.md`
 
 ## Global Constraints
 

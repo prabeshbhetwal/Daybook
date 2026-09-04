@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5, SwiftUI, `Canvas`, Swift Charts (weekly bars only), AppKit for icons and running-app queries.
 
-**Spec:** `docs/superpowers/specs/2026-08-12-dashboard-design.md`
+**Spec:** `docs/specs/2026-08-12-dashboard-design.md`
 
 ## Global Constraints
 

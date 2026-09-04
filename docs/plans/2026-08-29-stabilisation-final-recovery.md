@@ -8,7 +8,7 @@
 
 **Tech Stack:** Swift 5 language mode, Swift 6.4 compiler, SwiftUI, AppKit, CoreGraphics, IOKit, Bash, macOS 13+, direct `swiftc`, no packages or Xcode project.
 
-**Spec:** `docs/superpowers/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
+**Spec:** `docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
 
 ## Global Constraints
 

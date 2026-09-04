@@ -326,7 +326,7 @@ the menu-bar glyph in all five states.
 
 ## Addendum — day context (2026-08-22, later)
 
-Designed on the canvas `docs/superpowers/design/2026-08-22-day-context/`, approved in chat.
+Designed on the canvas `docs/design/2026-08-22-day-context/`, approved in chat.
 The date is the master context: everything beneath the title follows the selected day.
 On any day but today the hero folds to a one-line **Now** strip (`DashboardHero.nowStrip`)
 with *Back to today*. A **Sessions** card (`SessionsCard`, rows from
