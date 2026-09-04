@@ -79,13 +79,6 @@ struct StoryRail: View {
     var body: some View {
         let shownTiles = visibleTiles
         VStack(alignment: .leading, spacing: density == .compact ? 10 : 14) {
-            HStack {
-                Text("Supporting cards")
-                    .font(Tokens.Typography.metadata.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: Tokens.Space.s)
-                arrangeMenu(shownTiles)
-            }
             ForEach(shownTiles, id: \.self) { kind in
                 arrangedTile(kind, shownTiles: shownTiles)
             }
@@ -152,19 +145,24 @@ struct StoryRail: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 14) {
-                Button("History") { navigation.openSheet(.history) }
-                Button("Insights") { navigation.openSheet(.insights) }
+            arrangeMenu(visibleTiles)
+            if let note = footnote {
+                Text(note)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(StoryStyle.action)
-            Text(arrangement.isArranging && tilesAreDraggable
-                 ? "Drag tiles to reorder, or use their menu. The streak always describes recent days."
-                 : "The streak always describes recent days.")
         }
-            .font(Tokens.Typography.metadata)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Only says what the visible cards need explaining. A note about the
+    /// streak on a rail with no streak card explains nothing.
+    private var footnote: String? {
+        if arrangement.isArranging && tilesAreDraggable {
+            return "Drag cards to reorder, or use their menu."
+        }
+        return visibleTiles.contains(.streak)
+            ? "The streak always describes recent days." : nil
     }
 
     @ViewBuilder private func draggable(_ content: some View,
@@ -239,7 +237,7 @@ struct StoryRail: View {
     // MARK: - Focus
 
     private var focusTile: some View {
-        StoryTile(title: focusTitle, tint: StoryStyle.focus,
+        StoryTile(title: focusTitle,
                   trailing: scopeLabel) {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
@@ -314,7 +312,7 @@ struct StoryRail: View {
         let insideValue = evidence.insideSessions
         let looseValue = evidence.outsideSessions
         let unrecordedValue = evidence.uncoveredFocus
-        return StoryTile(title: "On this Mac", tint: Tokens.Palette.app(rank: 1), trailing: nil) {
+        return StoryTile(title: "On this Mac", trailing: nil) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(Tokens.preciseDuration(trackedValue))
                     .font(.title3.weight(.semibold).monospacedDigit())
@@ -396,7 +394,7 @@ struct StoryRail: View {
     }
 
     private var appsTile: some View {
-        StoryTile(title: "Apps", tint: Tokens.Palette.app(rank: 5),
+        StoryTile(title: "Apps",
                   trailing: apps.count > 4 ? "Top 4 of \(apps.count)"
                     : apps.count == 1 ? "1 app" : "\(apps.count) apps") {
             ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
@@ -416,7 +414,7 @@ struct StoryRail: View {
     // MARK: - Rhythm
 
     private var rhythmTile: some View {
-        StoryTile(title: "Rhythm", tint: Tokens.Palette.app(rank: 0), trailing: "by hour") {
+        StoryTile(title: "Rhythm", trailing: "by hour") {
             RhythmChart(hours: store.rhythm, height: 54, compactLabels: true)
             if let peak = store.rhythmPeak {
                 Text("Most recorded app use: \(peak).")
@@ -430,7 +428,7 @@ struct StoryRail: View {
     // MARK: - Streak
 
     private var streakTile: some View {
-        StoryTile(title: "Current streak", tint: Tokens.Palette.app(rank: 4),
+        StoryTile(title: "Current streak",
                   trailing: store.streak == 1 ? "1 day" : "\(store.streak) days") {
             HStack(spacing: 3) {
                 ForEach(Array(store.streakDays().enumerated()), id: \.offset) { _, entry in
@@ -491,7 +489,6 @@ struct TileDropDelegate: DropDelegate {
 /// One rail tile: a coloured title, an optional scope note, and its content.
 struct StoryTile<Content: View>: View {
     let title: String
-    let tint: Color
     let trailing: String?
     @ViewBuilder let content: Content
     @Environment(\.focusInterfaceDensity) private var density
@@ -501,7 +498,7 @@ struct StoryTile<Content: View>: View {
             HStack {
                 Text(title)
                     .font(Tokens.Typography.metadata.weight(.bold))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(.secondary)
                 Spacer(minLength: Tokens.Space.xs)
                 if let trailing {
                     Text(trailing)

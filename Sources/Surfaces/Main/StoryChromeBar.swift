@@ -65,6 +65,16 @@ struct StoryChromeBar: View {
                          controlLabel: "Story scope")
             Spacer(minLength: Tokens.Space.s)
             periodNavigation
+            Spacer(minLength: Tokens.Space.s)
+            // Navigation belongs in the chrome. These sat below every rail
+            // card, so reaching them meant scrolling past the content first.
+            HStack(spacing: Tokens.Space.m) {
+                Button("History") { navigation.openSheet(.history) }
+                Button("Insights") { navigation.openSheet(.insights) }
+            }
+            .buttonStyle(.borderless)
+            .font(Tokens.Typography.metadata.weight(.semibold))
+            .foregroundStyle(StoryStyle.action)
         case .history:
             returnToStory
             Text("History")
