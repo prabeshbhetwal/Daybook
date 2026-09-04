@@ -222,6 +222,8 @@ struct WeekStoryColumn: View {
                           facts: facts,
                           highlight: Tokens.duration(store.reviewFocusedSeconds))
             WeekStoryChart(days: store.reviewDays,
+                           facts: store.dayFacts(for: .week,
+                                                 containing: store.reviewPeriodStart),
                            average: store.reviewSummary.averagePerActiveDay,
                            selectedDay: navigation.storySelectedDay,
                            onPickDay: { navigation.selectStoryDay($0) })

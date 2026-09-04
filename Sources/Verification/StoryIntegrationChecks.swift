@@ -13,7 +13,8 @@ enum StoryIntegrationChecks {
         ("Power and no-power fixtures render the same story with factual metadata", powerAndNoPower),
         ("Reduce Motion drops every product animation to instant", reduceMotionContract),
         ("An automatic start reaches the session controls once the main queue turns",
-         automaticStartReachesControls)
+         automaticStartReachesControls),
+        ("The week chart and its headline rank the same strongest day", weekChartMatchesHeadline)
     ]
 
     // MARK: - Fixture
@@ -95,6 +96,47 @@ enum StoryIntegrationChecks {
     }
 
     // MARK: - Checks
+
+    /// The headline names a strongest day; the chart draws a tallest bar. They
+    /// must be the same day, or the screen answers "which day was best?" twice
+    /// and disagrees with itself. The bar therefore plots the measure the
+    /// headline ranks — logged focus — not recorded app use.
+    private static func weekChartMatchesHeadline() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            store.setDashboardVisible(true)
+            store.setReviewVisible(true)
+            store.refreshReview(period: .week)
+            var failures: [String] = []
+            guard let best = store.reviewBestDay else {
+                return ["The week fixture published no strongest day to compare"]
+            }
+            let facts = store.dayFacts(for: .week, containing: store.reviewPeriodStart)
+            guard let tallest = facts.max(by: { $0.value.focused < $1.value.focused }) else {
+                return ["The week fixture published no per-day facts"]
+            }
+            let calendar = Calendar.current
+            if !calendar.isDate(tallest.key, inSameDayAs: best.day) {
+                failures.append("The headline names \(Tokens.longDate(best.day)) but the tallest "
+                                + "focus bar is \(Tokens.longDate(tallest.key))")
+            }
+            if abs(tallest.value.focused - best.focused) > 1 {
+                failures.append("The headline says \(best.focused)s but the tallest bar draws "
+                                + "\(tallest.value.focused)s")
+            }
+            // Being busy must not win the day: the most-tracked day only leads
+            // when it also holds the most focus.
+            if let busiest = store.reviewDays.max(by: { $0.tracked < $1.tracked }),
+               !calendar.isDate(busiest.date, inSameDayAs: best.day) {
+                let busiestFocus = facts[calendar.startOfDay(for: busiest.date)]?.focused ?? 0
+                if busiestFocus > tallest.value.focused {
+                    failures.append("The busiest day outranked the most focused one")
+                }
+            }
+            return failures
+        }
+    }
 
     /// The engine's state reaches the store's mirror on the main queue. Every
     /// Focus surface reads that mirror, so a rule-started session must show as

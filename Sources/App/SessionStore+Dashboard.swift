@@ -229,12 +229,19 @@ extension SessionStore {
     /// from Story's canonical accounting (including a clipped live stretch).
     /// Built once per shown month, when the calendar asks.
     func dayFacts(inMonthOf date: Date) -> [Date: DayFacts] {
+        dayFacts(for: .month, containing: date)
+    }
+
+    /// Per-day focus, app use and session count for any period. The Week chart
+    /// and the Month calendar read the same facts, so the two scopes cannot
+    /// describe a day differently.
+    func dayFacts(for period: TrackingPeriod, containing date: Date) -> [Date: DayFacts] {
         guard let usage else { return [:] }
         let calendar = Calendar.current
         let usageSnapshot = effectiveUsageSnapshot
         let days = PeriodStats(sessions: engine.archive, usage: usage,
                                usageSnapshot: usageSnapshot)
-            .days(for: .month, containing: date)
+            .days(for: period, containing: date)
         var facts: [Date: DayFacts] = [:]
         for day in days {
             let key = calendar.startOfDay(for: day.date)

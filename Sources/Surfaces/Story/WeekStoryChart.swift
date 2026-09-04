@@ -1,25 +1,32 @@
 import SwiftUI
 
-/// The week as seven named columns: the figure above each bar, the weekday
-/// under it, and a dash where nothing was recorded. A bar is tracked time and
-/// only tracked time — work-type composition is told separately, never stacked
-/// into the height.
+/// The week as seven named columns. The bar is logged focus — the same measure
+/// the headline ranks its strongest day by, and the same one the Month calendar
+/// tints its cells with — so the three cannot disagree about which day was
+/// best. Recorded app use is drawn behind it as context, never as the height.
 struct WeekStoryChart: View {
     let days: [PeriodDay]
+    /// Focus per day, keyed by local midnight.
+    let facts: [Date: DayFacts]
     let average: TimeInterval
     let selectedDay: Date?
     let onPickDay: (Date) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let calendar = Calendar.current
 
-    /// The tallest bar sets the scale. An empty week has no scale to draw, so
-    /// the column heights stay flat rather than dividing by zero.
+    private func focused(_ day: PeriodDay) -> TimeInterval {
+        facts[calendar.startOfDay(for: day.date)]?.focused ?? 0
+    }
+
+    /// One scale for both series, so the pale app-use bar is comparable with
+    /// the focus bar rather than separately normalised.
     private var peak: TimeInterval {
-        max(days.map(\.tracked).max() ?? 0, 1)
+        max(days.map { max(focused($0), $0.tracked) }.max() ?? 0, 1)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            Text("Tracked by day")
+            Text("Focus by day")
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(.secondary)
             HStack(alignment: .bottom, spacing: Tokens.Space.s) {
@@ -28,37 +35,53 @@ struct WeekStoryChart: View {
                 }
             }
             .frame(height: 208)
-            if average > 0 {
-                Text("Bars are tracked time. The active-day average is "
-                     + "\(Tokens.duration(average)).")
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-            }
+            Text(caption)
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Week by day")
+        .accessibilityLabel("Focus by day")
+    }
+
+    private var caption: String {
+        let base = "Solid bars are logged focus; the pale bar behind is recorded app use."
+        guard average > 0 else { return base }
+        return base + " Focused days average \(Tokens.duration(average))."
     }
 
     private func column(for day: PeriodDay) -> some View {
         let isSelected = selectedDay.map {
-            Calendar.current.isDate($0, inSameDayAs: day.date)
+            calendar.isDate($0, inSameDayAs: day.date)
         } ?? false
+        let focus = focused(day)
         return Button { onPickDay(day.date) } label: {
             VStack(spacing: Tokens.Space.xs) {
-                Text(day.tracked > 0 ? Tokens.preciseDuration(day.tracked) : "—")
+                Text(focus > 0 ? Tokens.preciseDuration(focus) : "—")
                     .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(day.tracked > 0 ? .primary : .tertiary)
+                    .foregroundStyle(focus > 0 ? .primary : .tertiary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 GeometryReader { geometry in
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(fill(isSelected: isSelected, tracked: day.tracked))
-                            .frame(height: max(day.tracked > 0 ? 5 : 3,
-                                               geometry.size.height
-                                                   * (day.tracked / peak)))
+                    ZStack(alignment: .bottom) {
+                        // App use sits behind, so a day with heavy use but
+                        // little focus still reads as a low bar.
+                        if day.tracked > 0 {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(Tokens.Colour.focus.opacity(0.16))
+                                .frame(height: height(day.tracked, in: geometry.size.height))
+                        }
+                        if focus > 0 {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(isSelected ? Tokens.Colour.focus
+                                                 : Tokens.Colour.focus.opacity(0.72))
+                                .frame(height: height(focus, in: geometry.size.height))
+                        } else {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(Tokens.Colour.elevated)
+                                .frame(height: 3)
+                        }
                     }
+                    .frame(maxHeight: .infinity, alignment: .bottom)
                 }
                 Text(Tokens.weekdayName(day.date).prefix(3).uppercased())
                     .font(.caption2.weight(isSelected ? .bold : .semibold))
@@ -71,15 +94,23 @@ struct WeekStoryChart: View {
         .buttonStyle(.plain)
         .animation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion),
                    value: isSelected)
-        .accessibilityLabel("\(Tokens.longDate(day.date)), "
-                            + (day.tracked > 0 ? Tokens.spent(day.tracked) : "nothing recorded"))
+        .accessibilityLabel(label(for: day, focus: focus))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("Show this day")
     }
 
-    private func fill(isSelected: Bool, tracked: TimeInterval) -> Color {
-        guard tracked > 0 else { return Tokens.Colour.elevated }
-        return isSelected ? Tokens.Colour.focus : Tokens.Colour.focus.opacity(0.72)
+    private func height(_ value: TimeInterval, in available: CGFloat) -> CGFloat {
+        max(5, available * CGFloat(min(1, max(0, value / peak))))
+    }
+
+    private func label(for day: PeriodDay, focus: TimeInterval) -> String {
+        guard focus > 0 || day.tracked > 0 else {
+            return "\(Tokens.longDate(day.date)), nothing recorded"
+        }
+        var parts = [Tokens.longDate(day.date)]
+        parts.append(focus > 0 ? "\(Tokens.spent(focus)) focused" : "no logged focus")
+        if day.tracked > 0 { parts.append("\(Tokens.duration(day.tracked)) recorded app use") }
+        return parts.joined(separator: ", ")
     }
 }
 
