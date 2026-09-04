@@ -15,6 +15,13 @@ enum StoryMoment: Identifiable, Equatable {
         }
     }
 
+    var end: Date {
+        switch self {
+        case .entry(let entry): return entry.end
+        case .appUse(let span, _), .unrecorded(let span): return span.end
+        }
+    }
+
     var id: String {
         switch self {
         case .entry(.session(let session)):

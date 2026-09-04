@@ -14,7 +14,8 @@ enum StoryIntegrationChecks {
         ("Reduce Motion drops every product animation to instant", reduceMotionContract),
         ("An automatic start reaches the session controls once the main queue turns",
          automaticStartReachesControls),
-        ("The week chart and its headline rank the same strongest day", weekChartMatchesHeadline)
+        ("The week chart and its headline rank the same strongest day", weekChartMatchesHeadline),
+        ("Quiet intervals fold without losing a minute", quietRunsFoldLosslessly)
     ]
 
     // MARK: - Fixture
@@ -96,6 +97,71 @@ enum StoryIntegrationChecks {
     }
 
     // MARK: - Checks
+
+    /// A light day of work produces far more quiet intervals than sessions, and
+    /// they must not outnumber the work the story is about. Folding may hide
+    /// rows; it may never hide time, reorder the day, or swallow a session.
+    private static func quietRunsFoldLosslessly() -> [String] {
+        var failures: [String] = []
+        let base = Date(timeIntervalSince1970: 1_788_598_000)
+        func span(_ from: TimeInterval, _ to: TimeInterval) -> DateInterval {
+            DateInterval(start: base.addingTimeInterval(from), end: base.addingTimeInterval(to))
+        }
+        func appUse(_ from: TimeInterval, _ to: TimeInterval) -> StoryTimelineItem {
+            .moment(.appUse(span(from, to), seconds: to - from))
+        }
+        func gap(_ from: TimeInterval, _ to: TimeInterval) -> StoryTimelineItem {
+            .moment(.unrecorded(span(from, to)))
+        }
+        func session(_ from: TimeInterval, _ to: TimeInterval) -> StoryTimelineItem {
+            .moment(.entry(.session(DaySession(
+                id: UUID(), threadID: UUID(), name: "Refactor", workType: .deepWork,
+                start: base.addingTimeInterval(from), end: base.addingTimeInterval(to),
+                worked: to - from, stretches: 1,
+                spans: [span(from, to)], isRunning: false))))
+        }
+        func rest(_ from: TimeInterval, _ to: TimeInterval) -> StoryTimelineItem {
+            .moment(.entry(.rest(RestEntry(id: UUID(), name: "Lunch",
+                                           start: base.addingTimeInterval(from),
+                                           end: base.addingTimeInterval(to)))))
+        }
+
+        // A run of three or more folds; a shorter one stays open, because
+        // hiding one interval costs a click and saves nothing.
+        let long = [session(0, 600), appUse(600, 1_200), gap(1_200, 1_500),
+                    appUse(1_500, 2_100), session(2_100, 2_400)]
+        let folded = long.groupingQuietRuns()
+        if !(folded.count == 3) { failures.append("a run of three quiet rows did not fold to one") }
+        let short = [session(0, 600), appUse(600, 1_200), gap(1_200, 1_500), session(1_500, 1_800)]
+        if !(short.groupingQuietRuns().count == 4) { failures.append("a run of two quiet rows folded when it should have stayed open") }
+
+        // Every minute survives the fold.
+        guard case .quiet(let run)? = folded.first(where: { if case .quiet = $0 { return true }
+                                                            return false }) else {
+            return failures + ["the folded run was not produced"]
+        }
+        if !(abs(run.recordedSeconds - 1_200) < 1) { failures.append("folded app use lost time: \(run.recordedSeconds)s of 1200s") }
+        if !(abs(run.unrecordedSeconds - 300) < 1) { failures.append("folded gaps lost time: \(run.unrecordedSeconds)s of 300s") }
+        if !(run.appUseCount == 2 && run.gapCount == 1) { failures.append("the folded run miscounted its intervals") }
+        if !(run.moments.count == 3) { failures.append("the folded run cannot reopen every row") }
+        if !(run.summary.contains("20m outside sessions")
+                   && run.summary.contains("5m not recorded")
+                   && run.summary.contains("3 intervals")) { failures.append("the summary misstates the run: \(run.summary)") }
+
+        // Work is never folded away, and a rest the user named is not noise.
+        let sessions = folded.compactMap { row -> StoryTimelineItem? in
+            if case .item(let item) = row { return item }
+            return nil
+        }
+        if !(sessions.count == 2) { failures.append("folding removed a session from the day") }
+        let withRest = [session(0, 600), rest(600, 1_200), gap(1_200, 1_500)].groupingQuietRuns()
+        if !(withRest.count == 3) { failures.append("a named rest was folded in with the noise") }
+
+        // A day of nothing but quiet still reads as one row, not none.
+        let allQuiet = [appUse(0, 600), gap(600, 900), appUse(900, 1_500)].groupingQuietRuns()
+        if !(allQuiet.count == 1) { failures.append("an entirely quiet day did not fold to one row") }
+        return failures
+    }
 
     /// The headline names a strongest day; the chart draws a tallest bar. They
     /// must be the same day, or the screen answers "which day was best?" twice

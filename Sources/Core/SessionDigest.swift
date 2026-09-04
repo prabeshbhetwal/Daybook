@@ -45,6 +45,13 @@ enum DayEntry: Identifiable, Equatable {
         case .rest(let rest): return rest.start
         }
     }
+
+    var end: Date {
+        switch self {
+        case .session(let session): return session.end
+        case .rest(let rest): return rest.end
+        }
+    }
 }
 
 /// Folds a day's records into the rows the Sessions card shows.

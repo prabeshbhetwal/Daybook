@@ -83,8 +83,16 @@ struct DayStory: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             let entries = projection?.chronology ?? store.storyTimelineItems
-            ForEach(Array(entries.enumerated()), id: \.element.id) { index, item in
-                timelineRow(item, isFirst: index == 0, isLast: index == entries.count - 1)
+            let rows = entries.groupingQuietRuns()
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                let isFirst = index == 0
+                let isLast = index == rows.count - 1
+                switch row {
+                case .item(let item):
+                    timelineRow(item, isFirst: isFirst, isLast: isLast)
+                case .quiet(let run):
+                    quietRow(run, isFirst: isFirst, isLast: isLast)
+                }
             }
             if entries.isEmpty { empty }
         }
@@ -103,6 +111,42 @@ struct DayStory: View {
             openInitialEntries()
         }
         .onChange(of: store.engine.activeThreadID) { _ in openRunningEntry() }
+    }
+
+    /// A run of quiet intervals as one row. Open, it shows every original row
+    /// unchanged — the time is never hidden, only folded.
+    @ViewBuilder private func quietRow(_ run: StoryQuietRun,
+                                       isFirst: Bool, isLast: Bool) -> some View {
+        let key = "quiet-" + run.id
+        let isOpen = opened.ids.contains(key)
+        storyRow(time: run.moments.first?.start ?? store.selectedDay,
+                 tint: .secondary, dotSize: 5, isFirst: isFirst, isLast: isLast) {
+            Button {
+                if isOpen { opened.ids.remove(key) } else { opened.ids.insert(key) }
+            } label: {
+                HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
+                    Text(run.summary)
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: Tokens.Space.xs)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                }
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(run.summary). \(isOpen ? "Showing" : "Hidden")")
+            .accessibilityHint(isOpen ? "Fold these intervals" : "Show these intervals")
+        }
+        if isOpen {
+            ForEach(Array(run.moments.enumerated()), id: \.element.id) { index, moment in
+                timelineRow(.moment(moment), isFirst: false,
+                            isLast: isLast && index == run.moments.count - 1)
+            }
+        }
     }
 
     @ViewBuilder private func timelineRow(_ item: StoryTimelineItem, isFirst: Bool, isLast: Bool) -> some View {

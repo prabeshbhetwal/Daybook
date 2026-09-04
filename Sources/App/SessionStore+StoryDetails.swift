@@ -12,6 +12,60 @@ struct StorySessionDetail {
 
 /// Presentation items keep confirmations in the chronology without inserting
 /// artificial sessions into the evidence archive.
+/// One row of the story: an item shown in full, or a collapsed run of quiet
+/// ones the reader can open.
+enum StoryTimelineRow: Identifiable {
+    case item(StoryTimelineItem)
+    case quiet(StoryQuietRun)
+
+    var id: String {
+        switch self {
+        case .item(let item): return item.id
+        case .quiet(let run): return "quiet-" + run.id
+        }
+    }
+}
+
+extension StoryTimelineItem {
+    /// The quiet moment this row carries, if it is one.
+    var quietMoment: StoryMoment? {
+        guard case .moment(let moment) = self,
+              StoryQuietGrouping.isQuiet(moment) else { return nil }
+        return moment
+    }
+}
+
+extension Array where Element == StoryTimelineItem {
+    /// Groups runs of `minimumRun` or more consecutive quiet rows. A shorter
+    /// run stays expanded: hiding one interval behind a disclosure costs the
+    /// reader a click and saves them nothing.
+    func groupingQuietRuns(minimumRun: Int = 3) -> [StoryTimelineRow] {
+        var rows: [StoryTimelineRow] = []
+        var pending: [StoryTimelineItem] = []
+
+        func flush() {
+            guard !pending.isEmpty else { return }
+            if pending.count >= minimumRun {
+                rows.append(.quiet(StoryQuietGrouping.run(from: pending.compactMap(\.quietMoment))))
+            } else {
+                rows.append(contentsOf: pending.map(StoryTimelineRow.item))
+            }
+            pending = []
+        }
+
+        for item in self {
+            if item.quietMoment != nil {
+                pending.append(item)
+            } else {
+                flush()
+                rows.append(.item(item))
+            }
+        }
+        flush()
+        return rows
+    }
+}
+
 enum StoryTimelineItem: Identifiable {
     case moment(StoryMoment)
     case pending(DateInterval)
