@@ -213,8 +213,24 @@ struct AwayAnswerGrid: View {
     }
 
     private func button(_ answer: Answer) -> some View {
-        ZStack {
-            VStack(alignment: .leading, spacing: 2) {
+        card(answer)
+            // An overlay is sized by what it covers. A ZStack sibling asking
+            // for infinite height would instead let one card absorb whatever
+            // the window offered, which is how a resized prompt spread its
+            // answers down a whole display.
+            .overlay(
+                AwayAnswerNativeButton(
+                    label: "\(answer.title). \(answer.caption)",
+                    help: answer.caption,
+                    action: {
+                        if onAnswer(answer.decision) { reason.text = "" }
+                    })
+            )
+            .help(showsCaptions ? "" : answer.caption)
+    }
+
+    private func card(_ answer: Answer) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
                 Text(answer.title)
                     .font(controlFont)
                 if showsCaptions {
@@ -241,15 +257,6 @@ struct AwayAnswerGrid: View {
                                               : AnyShapeStyle(.primary))
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
             .accessibilityHidden(true)
-            AwayAnswerNativeButton(
-                label: "\(answer.title). \(answer.caption)",
-                help: answer.caption,
-                action: {
-                    if onAnswer(answer.decision) { reason.text = "" }
-                })
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .help(showsCaptions ? "" : answer.caption)
     }
 }
 

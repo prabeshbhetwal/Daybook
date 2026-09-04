@@ -38,6 +38,9 @@ private struct FullPromptView: View {
             }
             .padding(Tokens.Space.xl)
             .frame(width: 520)
+            // The card is its content's size, never the window's. A prompt on
+            // a display a window manager has made tall must still be a card.
+            .fixedSize(horizontal: false, vertical: true)
             .background(Tokens.Colour.surface,
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4,
                                              style: .continuous))
@@ -54,6 +57,40 @@ private struct FullPromptView: View {
 private final class KeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    /// The frame this window insists on while it is shown. A tiling or window
+    /// manager driving the accessibility API can otherwise resize a borderless
+    /// panel into a column; every AppKit resize path lands in `setFrame`, so
+    /// refusing it there covers the manager, the API and our own strays alike.
+    private var lockedFrame: NSRect?
+
+    func lock(to frame: NSRect) {
+        lockedFrame = nil
+        super.setFrame(frame, display: false)
+        lockedFrame = frame
+    }
+
+    func unlock() { lockedFrame = nil }
+
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        super.setFrame(lockedFrame ?? frameRect, display: flag)
+    }
+
+    override func setFrame(_ frameRect: NSRect, display flag: Bool, animate: Bool) {
+        super.setFrame(lockedFrame ?? frameRect, display: flag, animate: animate)
+    }
+
+    override func setContentSize(_ size: NSSize) {
+        if let lockedFrame {
+            super.setFrame(lockedFrame, display: false)
+        } else {
+            super.setContentSize(size)
+        }
+    }
+
+    override func setFrameOrigin(_ point: NSPoint) {
+        super.setFrameOrigin(lockedFrame?.origin ?? point)
+    }
 }
 
 /// The heavy way to ask: the display under the pointer goes soft behind a
@@ -104,6 +141,8 @@ final class AwayFullPrompt {
             .frame(width: 760, height: 620)
     }
 
+    private var screenObserver: NSObjectProtocol?
+
     func show(away: TimeInterval, range: (start: Date, end: Date)?, note: String?) {
         model.away = away
         model.range = range
@@ -115,7 +154,7 @@ final class AwayFullPrompt {
         guard let screen else { return }
 
         let window = self.window ?? makeWindow()
-        window.setFrame(screen.frame, display: false)
+        window.lock(to: screen.frame)
         let front = NSWorkspace.shared.frontmostApplication
         previousApp = front?.bundleIdentifier == Bundle.main.bundleIdentifier ? nil : front
         NSApp.activate(ignoringOtherApps: true)
@@ -139,6 +178,7 @@ final class AwayFullPrompt {
         guard let window, window.isVisible else { return }
         let previous = previousApp
         previousApp = nil
+        window.unlock()
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             window.alphaValue = 0
             window.orderOut(nil)
@@ -164,6 +204,14 @@ final class AwayFullPrompt {
         window.hasShadow = false
         window.isReleasedWhenClosed = false
         window.ignoresMouseEvents = false
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil, queue: .main) { [weak self, weak window] _ in
+                guard let window, window.isVisible,
+                      let screen = window.screen ?? NSScreen.main else { return }
+                window.lock(to: screen.frame)
+                _ = self
+            }
 
         let blur = NSVisualEffectView()
         blur.material = .hudWindow

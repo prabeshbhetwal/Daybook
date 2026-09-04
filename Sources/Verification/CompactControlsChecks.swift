@@ -25,6 +25,8 @@ enum CompactControlsChecks {
         ("The type scale stays a scale", typeScaleHoldsItsShape),
         ("Compact Focus consumers retain general save failures and exact Retry", generalFailurePresentation),
         ("Away Return routing is scoped to its own focused controls", awayReturnScope),
+        ("Away answers keep their size on a window a manager resized",
+         awayAnswersIgnoreWindowHeight),
         ("Compact goal copy stays quiet at the 340pt menu width", compactGoalLine)
     ]
 
@@ -599,6 +601,50 @@ enum CompactControlsChecks {
             }
             .frame(width: 340)
             .padding()
+        }
+    }
+
+    /// A tiling or window manager can resize the borderless prompt through the
+    /// accessibility API. The answers must stay cards when it does — a card
+    /// that absorbs offered height spreads the grid down the whole display.
+    private static func awayAnswersIgnoreWindowHeight() -> [String] {
+        MainActor.assumeIsolated {
+            @MainActor func answerHeights(windowHeight: CGFloat) -> [CGFloat] {
+                let host = NSHostingView(rootView: AwayAnswerGrid(
+                    away: 3_120,
+                    range: (start: Date(timeIntervalSince1970: 1_788_598_000),
+                            end: Date(timeIntervalSince1970: 1_788_601_120)),
+                    showsCaptions: true,
+                    onAnswer: { _ in true },
+                    onReason: { _ in true })
+                    .frame(width: 520))
+                let frame = NSRect(x: 0, y: 0, width: 560, height: windowHeight)
+                let window = NSWindow(contentRect: frame, styleMask: [.borderless],
+                                      backing: .buffered, defer: false)
+                window.contentView = host
+                host.frame = window.contentView?.bounds ?? .zero
+                host.layoutSubtreeIfNeeded()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+                host.layoutSubtreeIfNeeded()
+                let heights = descendants(in: host, of: AwayAnswerNSButton.self)
+                    .map { $0.frame.height }.sorted()
+                window.contentView = nil
+                return heights
+            }
+
+            var failures: [String] = []
+            let short = answerHeights(windowHeight: 620)
+            let tall = answerHeights(windowHeight: 1_600)
+            guard short.count == 4, tall.count == 4 else {
+                return ["The hosted away grid did not expose its four native answers"]
+            }
+            if short != tall {
+                failures.append("Answer heights followed the window: \(short) then \(tall)")
+            }
+            if let tallest = tall.max(), tallest > 200 {
+                failures.append("An answer grew to \(tallest)pt, which is a panel not a card")
+            }
+            return failures
         }
     }
 
