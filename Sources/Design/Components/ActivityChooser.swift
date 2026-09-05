@@ -2,6 +2,12 @@ import SwiftUI
 
 /// An editable activity with a suggestion menu. The menu only fills the draft;
 /// Start remains the single action that begins work.
+///
+/// The control owns its own box. It used to be a bare `HStack` that each caller
+/// padded and framed, which made the visible field 32pt tall while only the
+/// 16pt text view accepted a click — the padding looked like part of the target
+/// and did nothing. Drawing the box here keeps the thing you see and the thing
+/// you can hit the same shape.
 struct ActivityChooser: View {
     @ObservedObject var store: SessionStore
     var intentFocused: FocusState<Bool>.Binding
@@ -9,11 +15,11 @@ struct ActivityChooser: View {
     let onSubmit: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Tokens.Space.s) {
             TextField(compact ? "Choose or type an activity" : "Choose an activity or type your own",
                       text: $store.intent)
                 .textFieldStyle(.plain)
-                .font(compact ? .body : .title3)
+                .font(compact ? Tokens.Typography.control : Tokens.Typography.rowTitle)
                 .focused(intentFocused)
                 .onSubmit(onSubmit)
                 .accessibilityLabel("Activity name")
@@ -34,17 +40,40 @@ struct ActivityChooser: View {
             } label: {
                 Label("Choose an activity", systemImage: "chevron.down")
                     .labelStyle(.iconOnly)
-                    .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
+                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    // A bordered button is sized by its label. At 12pt the
+                    // chevron alone left a 21pt target.
+                    .frame(height: 16)
             }
-            .menuStyle(.borderlessButton)
+            // Same reason as WorkTypePicker: a borderless menu's popup is
+            // 14pt tall and no frame around it changes that. Bordered and
+            // large, it becomes the right-hand half of a combo box.
+            .menuStyle(.button)
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .tint(Color.primary.opacity(0.06))
+            .foregroundStyle(.secondary)
             .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityLabel("Choose an activity")
             .help("Choose a recent activity or suggestion. This does not start a session.")
         }
+        .padding(.leading, Tokens.Space.m)
+        .padding(.trailing, Tokens.Space.xs)
+        .frame(minHeight: fieldHeight)
+        .background(Tokens.Colour.elevated,
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+                .strokeBorder(Tokens.Colour.line)
+        )
+        // The whole box is the field: clicking its padding puts the caret in
+        // the text rather than doing nothing.
+        .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+        .onTapGesture { intentFocused.wrappedValue = true }
     }
+
+    private var fieldHeight: CGFloat { compact ? 34 : 38 }
 
     private func select(name: String, type: WorkType) {
         store.intent = name

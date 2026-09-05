@@ -140,10 +140,17 @@ struct FocusHero: View {
     @ObservedObject var store: SessionStore
     var intentFocused: FocusState<Bool>.Binding
     var compact = false
+    /// Whether this consumer has a window's worth of horizontal room. `compact`
+    /// alone cannot say it: the menu-bar popover is compact and 340pt wide,
+    /// while the window's session strip is compact and never narrower than
+    /// 980pt. The flag existed unread until the strip started using it.
     var wide = true
 
     private var composition: FocusSurfaceComposition { store.focusSurfaceComposition }
     private var mode: FocusSurfaceMode { composition.mode }
+    /// The window's session strip: compact spacing, toolbar layout.
+    private var isStrip: Bool { compact && wide }
+    private var isQuiet: Bool { mode == .paused || mode == .watching }
 
     var body: some View {
         VStack(alignment: compact ? .leading : .center,
@@ -161,18 +168,130 @@ struct FocusHero: View {
     }
 
     @ViewBuilder private var ordinaryBody: some View {
+        if isStrip {
+            stripRow
+        } else {
+            switch mode {
+            case .idle:
+                idleBody
+            case .running:
+                activeBody
+            case .paused:
+                pausedBody
+            case .watching:
+                watchingBody
+            case .awaitingDecision:
+                EmptyView()
+            }
+        }
+    }
+
+    // MARK: - The window strip
+
+    /// The strip is a toolbar, not a page. Stacked, the same content stood
+    /// 225pt tall in a 680pt window and left Pin and Close 468pt away from the
+    /// controls they govern, with nothing in between. One row spends the width
+    /// the window already has instead of height the day's story needs:
+    /// the action cluster anchors the leading edge, the day's standing the
+    /// trailing one, and the slack falls between them where slack belongs.
+    private var stripRow: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            HStack(spacing: Tokens.Space.l) {
+                if mode == .idle { idleRowLead } else { liveRowLead }
+                Spacer(minLength: Tokens.Space.m)
+                goalSupport
+            }
+            stripWrapLines
+        }
+    }
+
+    @ViewBuilder private var idleRowLead: some View {
+        Text(mode.primaryPrompt)
+            .font(Tokens.Typography.rowTitle)
+            .fixedSize()
+        ActivityChooser(store: store, intentFocused: intentFocused, compact: true) {
+            performPrimaryAction()
+        }
+        .frame(maxWidth: Tokens.formMeasure)
+        // No visible "Work type" caption: between the activity and Start, a
+        // named work type with its own symbol reads as what it is, and the
+        // caption was the only 10pt step in the row.
+        WorkTypePicker(selection: $store.workType)
+        StartButton(title: "Start focus", fills: false) { performPrimaryAction() }
+            .fixedSize()
+    }
+
+    @ViewBuilder private var liveRowLead: some View {
+        Text(Tokens.clock(store.elapsed))
+            .font(Tokens.Typography.rowTimer)
+            .contentTransition(.numericText())
+            .foregroundStyle(isQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+            .fixedSize()
+            .accessibilityLabel("Elapsed \(Tokens.preciseDuration(store.elapsed))")
+        VStack(alignment: .leading, spacing: 1) {
+            Text(store.activeIntent)
+                .font(Tokens.Typography.rowTitle)
+                .lineLimit(1)
+            Text(liveSubtitle)
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .layoutPriority(1)
+        HStack(spacing: Tokens.Space.s) { liveControls }
+            .fixedSize()
+    }
+
+    /// A running clock says "running" without a caption. A stopped one is
+    /// ambiguous, so paused, away and watching name themselves.
+    private var liveSubtitle: String {
+        var parts: [String] = []
+        if isQuiet { parts.append(store.isAway ? "Away" : mode.primaryPrompt) }
+        parts.append(store.workType.displayName)
+        if let summary = store.threadSummaryLine { parts.append(summary) }
+        return parts.joined(separator: " · ")
+    }
+
+    @ViewBuilder private var liveControls: some View {
         switch mode {
-        case .idle:
-            idleBody
         case .running:
-            activeBody
-        case .paused:
-            pausedBody
-        case .watching:
-            watchingBody
-        case .awaitingDecision:
+            FocusActionButton(title: "Pause", symbol: "pause.fill", prominent: true) {
+                performPrimaryAction()
+            }
+            FocusActionButton(title: "Away", symbol: "door.right.hand.open") { store.markAway() }
+            FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
+        case .paused, .watching:
+            FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
+                              symbol: "play.fill", prominent: true) {
+                performPrimaryAction()
+            }
+            FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
+        case .idle, .awaitingDecision:
             EmptyView()
         }
+    }
+
+    /// Only the sentences the row cannot carry without truncating them. A
+    /// recording rule the user is being held to must never end in an ellipsis.
+    private var stripDetail: String? {
+        switch mode {
+        case .running: return store.isAutoSession ? "Started automatically" : nil
+        case .paused: return store.isAway ? "Nothing is counted while you are away." : nil
+        case .watching:
+            return "The focus clock is paused while you watch. "
+                + "This time is recorded as Watching, not focus."
+        case .idle, .awaitingDecision: return nil
+        }
+    }
+
+    @ViewBuilder private var stripWrapLines: some View {
+        if let stripDetail {
+            Text(stripDetail)
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if composition.showsAutomaticSessionControls { automaticControls }
     }
 
     // MARK: - Idle
@@ -184,31 +303,31 @@ struct FocusHero: View {
                 Text(mode.primaryPrompt)
                     .font(compact ? Tokens.Typography.sectionTitle
                                   : Tokens.Typography.pageTitle)
-                Text("Choose an activity or write your own. Start when you're ready.")
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(compact ? .leading : .center)
+                // Only a page carries a subtitle. In the popover this sentence
+                // restated the field's own placeholder directly above it.
+                if !compact {
+                    Text("Choose an activity or write your own. Start when you're ready.")
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
             }
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                ActivityChooser(store: store, intentFocused: intentFocused, compact: compact) { performPrimaryAction() }
-                    .padding(.horizontal, Tokens.Space.m)
-                    .padding(.vertical, compact ? 8 : 10)
-                    .background(Tokens.Colour.elevated,
-                                in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                                     style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                         style: .continuous)
-                            .strokeBorder(Tokens.Colour.line)
-                    )
+                ActivityChooser(store: store, intentFocused: intentFocused, compact: compact) {
+                    performPrimaryAction()
+                }
                 HStack(spacing: Tokens.Space.s) {
                     if compact {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Work type").font(.caption).foregroundStyle(.secondary)
+                            Text("Work type")
+                                .font(Tokens.Typography.metadata)
+                                .foregroundStyle(.secondary)
                             WorkTypePicker(selection: $store.workType)
                         }
                     } else {
-                        Text("Work type").font(.caption).foregroundStyle(.secondary)
+                        Text("Work type")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
                         WorkTypePicker(selection: $store.workType)
                     }
                     Spacer(minLength: Tokens.Space.s)
@@ -217,10 +336,15 @@ struct FocusHero: View {
                     }
                     .fixedSize()
                 }
-                Text("Names you start will appear in the activity menu next time.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                // A note about what happens after an action the reader has not
+                // taken yet belongs on the page that has room to explain, not
+                // under the button in a 340pt panel.
+                if !compact {
+                    Text("Names you start will appear in the activity menu next time.")
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .frame(maxWidth: Tokens.formMeasure)
             goalSupport
@@ -298,7 +422,7 @@ struct FocusHero: View {
                 .accessibilityLabel("Elapsed \(Tokens.preciseDuration(store.elapsed))")
             VStack(alignment: compact ? .leading : .center, spacing: 2) {
                 Text(store.activeIntent)
-                    .font(compact ? .callout.weight(.medium) : .title3.weight(.medium))
+                    .font(compact ? Tokens.Typography.rowTitle : Tokens.Typography.sectionTitle)
                     .lineLimit(1)
                 Label(store.workType.displayName, systemImage: store.workType.symbolName)
                     .font(Tokens.Typography.metadata)
@@ -476,14 +600,14 @@ private struct FocusOperationFailure: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Label("Change not saved", systemImage: "exclamationmark.triangle")
-                .font(.caption.weight(.semibold))
+                .font(Tokens.Typography.metadata.weight(.semibold))
             Text(failure.message)
-                .font(.caption)
+                .font(Tokens.Typography.metadata)
                 .fixedSize(horizontal: false, vertical: true)
             if failure.hasOriginBoundRetry {
                 Button("Retry saving") { store.retryLastCorrection() }
                     .buttonStyle(.borderless)
-                    .font(.caption.weight(.semibold))
+                    .font(Tokens.Typography.metadata.weight(.semibold))
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             }
         }
@@ -508,7 +632,7 @@ private struct FocusActionButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: symbol)
-                .font(.callout.weight(prominent ? .semibold : .regular))
+                .font(Tokens.Typography.metadata.weight(prominent ? .semibold : .regular))
                 .lineLimit(1)
                 .fixedSize()
                 .padding(.horizontal, Tokens.Space.m)

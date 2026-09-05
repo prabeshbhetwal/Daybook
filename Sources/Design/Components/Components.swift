@@ -50,10 +50,10 @@ struct StartButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: "play.fill")
-                .font(.callout.weight(.semibold))
-                .frame(maxWidth: fills ? .infinity : nil)
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .frame(maxWidth: fills ? .infinity : nil,
+                       minHeight: AccessibilityMetrics.minimumTargetSize)
                 .padding(.horizontal, Tokens.Space.m)
-                .padding(.vertical, 7)
                 .background(Tokens.Colour.focus,
                             in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
                                                  style: .continuous))
@@ -118,8 +118,21 @@ struct WorkTypePicker: View {
             Label(selection.displayName, systemImage: selection.symbolName)
                 .lineLimit(1)
         }
-        .menuStyle(.borderlessButton)
+        // `.borderlessButton` sizes its AppKit popup to the label's own text:
+        // 18pt tall whatever padding or frame is wrapped around it, well under
+        // the 28pt floor the rest of this app holds itself to. A large bordered
+        // menu button is the only style that clears it, and it stays a
+        // pull-down, so the list still opens whole and downward.
+        .menuStyle(.button)
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        // Neutral on purpose. The window tints its controls, which made the
+        // work type as blue as Start focus beside it — two primaries in a row
+        // that has one.
+        .tint(Color.primary.opacity(0.06))
+        .foregroundStyle(.primary)
         .fixedSize()
+        .help("Work type")
         .accessibilityLabel("Work type, \(selection.displayName)")
     }
 }

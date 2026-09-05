@@ -9,14 +9,12 @@ enum StoryChromeFocus: Hashable {
 /// traffic lights, the scope, the period it resolves to, the live session, and
 /// Settings. It never scrolls and it is the only global navigation.
 enum ChromeSessionControl {
-    /// The chrome's control only reveals the session strip; the strip's own
-    /// button is what starts a session. While the strip is on screen and idle,
-    /// showing both offers the same words — "Start focus" — for two different
-    /// acts, so the chrome stands down. A running session keeps its chrome
-    /// clock, which the strip does not duplicate.
-    static func isShown(stripVisible: Bool, isIdle: Bool) -> Bool {
-        !(stripVisible && isIdle)
-    }
+    /// The chrome's control is a way in to the strip, not a second copy of it.
+    /// Idle, both said "Start focus" for two different acts. Running, both
+    /// ticked the same clock — the chrome's at 12pt and the strip's at 23pt,
+    /// one row apart. Either way the strip is the fuller view, so whenever it
+    /// is on screen the chrome stands down.
+    static func isShown(stripVisible: Bool) -> Bool { !stripVisible }
 }
 
 struct StoryChromeBar: View {
@@ -36,8 +34,7 @@ struct StoryChromeBar: View {
                 .accessibilityHidden(true)
             workspaceControls
             Spacer(minLength: Tokens.Space.s)
-            if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible,
-                                            isIdle: store.isIdle) {
+            if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible) {
                 StorySessionControl(store: store,
                                     focus: $focusedControl,
                                     onDetails: {

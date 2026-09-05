@@ -129,6 +129,14 @@ enum Tokens {
         static let metricValue = Font.system(size: Size.metric, weight: .semibold, design: .rounded)
             .monospacedDigit()
         static let tabLabel = Font.system(size: Size.control, weight: .medium, design: .default)
+        /// The size AppKit gives its own controls, at the weight a field's own
+        /// text is set in. Editable text is not a label and must not be styled
+        /// like one.
+        static let control = Font.system(size: Size.control, weight: .regular, design: .default)
+        /// The live clock in a single-row strip. `liveTimer` is a page element
+        /// at 46pt; in a toolbar row it would set the row's height on its own.
+        static let rowTimer = Font.system(size: Size.headline, weight: .semibold, design: .rounded)
+            .monospacedDigit()
         static let rowTitle = Font.system(size: Size.row, weight: .medium, design: .default)
         static let metadata = Font.system(size: Size.metadata, weight: .regular, design: .default)
 

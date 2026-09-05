@@ -21,7 +21,9 @@ enum CompactControlsChecks {
         ("Scope keyboard commands move one coherent selection", scopeKeyboard),
         ("Native scope adapter owns focus, pointer and key selection", nativeScopeAdapter),
         ("Every scope row presents one native keyboard target", scopeRowsShareOneKeyboardTarget),
-        ("One Start focus is offered at a time", oneStartFocusAtATime),
+        ("One session control is offered at a time", oneSessionControlAtATime),
+        ("The session strip is one row whose chrome sits with its controls",
+         sessionStripIsOneRow),
         ("The type scale stays a scale", typeScaleHoldsItsShape),
         ("Compact Focus consumers retain general save failures and exact Retry", generalFailurePresentation),
         ("Away Return routing is scoped to its own focused controls", awayReturnScope),
@@ -346,19 +348,102 @@ enum CompactControlsChecks {
 
     /// Two buttons reading "Start focus" — one revealing the strip, one
     /// starting the session — is the same words for two different acts.
-    private static func oneStartFocusAtATime() -> [String] {
+    /// The strip is the window's toolbar. Stacked, it stood 225pt tall in a
+    /// 680pt window and pushed Pin and Close 468pt from the controls they
+    /// govern — 1,088pt at 1,600. This pins the row: bounded height that does
+    /// not grow with width, chrome on the same band as the content, and every
+    /// control at or above the target floor the rest of the app holds to.
+    private static func sessionStripIsOneRow() -> [String] {
+        MainActor.assumeIsolated {
+            struct Measured {
+                var height: CGFloat = 0
+                var controls: [(name: String, rect: NSRect)] = []
+            }
+
+            @MainActor func measure(_ state: FixtureState, width: CGFloat) -> Measured {
+                let store = FixtureFactory.store(for: state)
+                let suite = "com.prabesh.focuscontinuity.strip-row.\(UUID().uuidString)"
+                guard let defaults = UserDefaults(suiteName: suite) else { return Measured() }
+                defer { defaults.removePersistentDomain(forName: suite) }
+                let settings = SettingsModel(store: PersistenceStore(defaults: defaults),
+                                             isTrackingEnabled: true,
+                                             onChange: {}, onTrackingChanged: { _ in })
+                let navigation = MainWindowModel(store: store)
+                let host = NSHostingView(rootView:
+                    SessionControlStrip(store: store, settings: settings, navigation: navigation)
+                        .frame(width: width))
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: 600),
+                                      styleMask: [.borderless], backing: .buffered, defer: false)
+                window.contentView = host
+                host.layoutSubtreeIfNeeded()
+                window.layoutIfNeeded()
+                host.layoutSubtreeIfNeeded()
+                var found = Measured(height: host.fittingSize.height)
+                func walk(_ view: NSView) {
+                    let name = String(describing: type(of: view))
+                    let rect = view.convert(view.bounds, to: host)
+                    // Only the platform-backed controls are visible to an
+                    // in-process walk; SwiftUI-drawn text never appears.
+                    if rect.width > 0, rect.height > 0,
+                       name.contains("_FocusRingView") || name.contains("SwiftUIPopupButton") {
+                        found.controls.append((name, rect))
+                    }
+                    view.subviews.forEach(walk)
+                }
+                walk(host)
+                return found
+            }
+
+            var failures: [String] = []
+            defer { FixtureFactory.cleanUp() }
+            // Two supported widths and both operational shapes. The strip must
+            // not grow taller because the window grew wider.
+            for state in [FixtureState.idleWithHistory, .running] {
+                let narrow = measure(state, width: 980)
+                let wide = measure(state, width: 1_600)
+                if narrow.height > sessionStripRowHeightLimit {
+                    failures.append("The \(state.rawValue) strip stood \(Int(narrow.height))pt tall "
+                                    + "at 980pt, over the \(Int(sessionStripRowHeightLimit))pt row limit")
+                }
+                if abs(narrow.height - wide.height) > 1 {
+                    failures.append("The \(state.rawValue) strip changed height with window width: "
+                                    + "\(Int(narrow.height))pt at 980pt, \(Int(wide.height))pt at 1,600pt")
+                }
+                guard narrow.controls.count >= 2 else {
+                    failures.append("The \(state.rawValue) strip presented no measurable controls")
+                    continue
+                }
+                for control in narrow.controls
+                where control.rect.height < AccessibilityMetrics.minimumTargetSize {
+                    failures.append("A \(state.rawValue) strip control was "
+                                    + "\(Int(control.rect.height))pt tall, under the "
+                                    + "\(Int(AccessibilityMetrics.minimumTargetSize))pt floor")
+                }
+                // Pin and Close are the last two controls in reading order.
+                // They must share the row band with the first one, not sit in
+                // a header of their own.
+                let centres = narrow.controls.map(\.rect.midY)
+                if let lowest = centres.min(), let highest = centres.max(), highest - lowest > 8 {
+                    failures.append("The \(state.rawValue) strip spread its controls over "
+                                    + "\(Int(highest - lowest))pt of vertical band, so its chrome "
+                                    + "is not on the row it governs")
+                }
+            }
+            return failures
+        }
+    }
+
+    /// Chrome plus one row of 28–30pt controls, with the strip's own 12pt
+    /// vertical padding. Anything taller is a stack wearing a strip's name.
+    private static let sessionStripRowHeightLimit: CGFloat = 72
+
+    private static func oneSessionControlAtATime() -> [String] {
         var failures: [String] = []
-        if !ChromeSessionControl.isShown(stripVisible: false, isIdle: true) {
-            failures.append("The chrome offered no way to start when the strip was closed")
+        if !ChromeSessionControl.isShown(stripVisible: false) {
+            failures.append("The chrome offered no session control when the strip was closed")
         }
-        if ChromeSessionControl.isShown(stripVisible: true, isIdle: true) {
-            failures.append("Both the chrome and the strip offered Start focus at once")
-        }
-        if !ChromeSessionControl.isShown(stripVisible: true, isIdle: false) {
-            failures.append("A running session lost its chrome clock behind the strip")
-        }
-        if !ChromeSessionControl.isShown(stripVisible: false, isIdle: false) {
-            failures.append("A running session lost its chrome clock")
+        if ChromeSessionControl.isShown(stripVisible: true) {
+            failures.append("The chrome and the strip both presented the session at once")
         }
         return failures
     }
