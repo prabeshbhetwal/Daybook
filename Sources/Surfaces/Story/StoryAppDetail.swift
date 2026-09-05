@@ -141,6 +141,8 @@ struct StoryLooseAppUse: View {
     @StateObject private var expanded = BoolBox()
     @Environment(\.focusInterfaceDensity) private var density
 
+    private var power: PowerContextSummary? { store.ambientPowerSummary(within: span) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button { expanded.value.toggle() } label: {
@@ -148,7 +150,14 @@ struct StoryLooseAppUse: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("App use outside a session").font(Tokens.Typography.metadata.weight(.medium))
                         Text(Tokens.timeRange(span.start, span.end))
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                        // No session covers this block, so the Mac's power is
+                        // the one fact the story can add to it.
+                        if let power {
+                            Label(power.headline, systemImage: power.symbolName)
+                                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                                .accessibilityLabel("Power: \(power.headline)")
+                        }
                     }
                     Spacer(minLength: 8)
                     Text(Tokens.preciseDuration(seconds))
@@ -162,6 +171,10 @@ struct StoryLooseAppUse: View {
             if expanded.value {
                 ForEach(Array(store.appRanks(within: [span]).enumerated()), id: \.element.id) { index, app in
                     StoryAppRow(app: app, rank: store.storyAppColourIndices[app.bundleID] ?? index)
+                }
+                if let detail = power?.detail {
+                    Text(detail).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }

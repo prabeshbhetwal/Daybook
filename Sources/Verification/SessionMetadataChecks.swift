@@ -24,6 +24,7 @@ enum SessionMetadataChecks {
         ("Session metadata: public IOPS descriptions parse without live sampling", powerDescriptionParser),
         ("Session metadata: hardware samples use observation time without backfill", factualBoundarySampling),
         ("Session metadata: Away answer atomically reassigns post-return observations", awayObservationReassignment),
+        ("Session metadata: power between sessions is kept by date and read by span", ambientPowerBetweenSessions),
         ("Resuming a pause the monitor sampled through claims no coverage gap", pauseResumeCoverage),
         ("A power tick is a sample; only a changed source or charging state is a boundary", tickBoundaryTagging),
         ("Session metadata: ambiguous duplicate sidecars fail closed byte-for-byte", duplicateSidecarsFailClosed),
@@ -857,6 +858,93 @@ enum SessionMetadataChecks {
                                            after: sample(.external, 63, .notCharging)) == .sourceChanged,
                "charging beginning was not tagged as a change", &problems)
         return problems
+    }
+
+    /// Readings while idle go to the day's log, not to a record; readings
+    /// while running go to the record, not to the day. Each session boundary
+    /// seeds the quiet side, and a quiet block reads its span.
+    private static func ambientPowerBetweenSessions() -> [String] {
+        MainActor.assumeIsolated {
+            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.ambient.\(UUID())"
+            defer {
+                try? FileManager.default.removeItem(at: folder)
+                UserDefaults.standard.removePersistentDomain(forName: suite)
+            }
+            let clock = Clock(Date(timeIntervalSince1970: 1_788_680_000))
+            let idleStart = clock.value
+            let fixture = makePowerFixture(clock, folder: folder, suite: suite,
+                sample: PowerObservation(timestamp: clock.value, source: .battery,
+                    percentage: 70, charging: .notCharging))
+            let (store, engine, metadata, monitor) = fixture
+            var problems: [String] = []
+
+            store.refresh()
+            monitor.handler?(PowerObservation(timestamp: clock.value, source: .battery,
+                percentage: 70, charging: .notCharging))
+            expect(store.ambientPower.observations.count == 1 && metadata.allMetadata.isEmpty,
+                   "an idle reading was dropped or attached to a record", &problems)
+
+            clock.advance(600)
+            monitor.sample = PowerObservation(timestamp: clock.value, source: .battery,
+                                              percentage: 68, charging: .notCharging)
+            engine.start(workType: .deepWork, intent: "Between")
+            store.refresh()
+            let recordID = engine.activeRecordID
+            let sessionStart = clock.value
+            expect(metadata.metadata(for: recordID)?.power.first?.boundary == .stretchStarted,
+                   "the stretch did not get its own start reading", &problems)
+            expect(store.ambientPower.observations.count == 2
+                   && store.ambientPower.observations.last?.timestamp == sessionStart,
+                   "the quiet block ending at the start was not given a last reading", &problems)
+            let before = store.ambientPowerSummary(within: DateInterval(start: idleStart, end: sessionStart))
+            expect(before?.headline == "Battery · 70% → 68%",
+                   "the quiet block before the session read \(before?.headline ?? "nothing")", &problems)
+
+            clock.advance(600)
+            monitor.handler?(PowerObservation(timestamp: clock.value, source: .battery,
+                percentage: 66, charging: .notCharging))
+            expect(store.ambientPower.observations.count == 2
+                   && metadata.metadata(for: recordID)?.power.contains(where: { $0.percentage == 66 }) == true,
+                   "a running reading went to the day instead of the record", &problems)
+
+            clock.advance(600)
+            monitor.sample = PowerObservation(timestamp: clock.value, source: .external,
+                                              percentage: 66, charging: .charging, adapterWatts: 96)
+            _ = engine.stop(endingAt: clock.value)
+            store.refresh()
+            let sessionEnd = clock.value
+            expect(store.ambientPower.observations.count == 3
+                   && store.ambientPower.observations.last?.timestamp == sessionEnd,
+                   "going idle did not give the next quiet block a first reading", &problems)
+            clock.advance(300)
+            monitor.handler?(PowerObservation(timestamp: clock.value, source: .external,
+                percentage: 67, charging: .charging, adapterWatts: 96))
+            let after = store.ambientPowerSummary(within: DateInterval(start: sessionEnd, end: clock.value))
+            expect(after?.headline == "Plugged in, charging · 96 W · 66% → 67%",
+                   "the quiet block after the session read \(after?.headline ?? "nothing")", &problems)
+            expect(store.ambientPowerSummary(within: DateInterval(start: sessionStart, end: sessionEnd))?
+                    .headline != "Battery · 66% → 66%"
+                   || metadata.metadata(for: recordID)?.power.isEmpty == false,
+                   "a session span was read from the day's log", &problems)
+
+            // Kept by date, reloaded whole, and never lost to a failed write.
+            let reloaded = AmbientPowerLog(directory: folder)
+            expect(reloaded.observations.count == store.ambientPower.observations.count,
+                   "the day's log did not survive a reload", &problems)
+            let stale = PowerObservation(timestamp: clock.value.addingTimeInterval(-31 * 24 * 3_600),
+                                         source: .battery, percentage: 50, charging: .notCharging)
+            store.ambientPower.append(stale, now: clock.value)
+            expect(!store.ambientPower.observations.contains(where: { $0.id == stale.id }),
+                   "a reading older than the retention window was kept", &problems)
+            let blocked = AmbientPowerLog(directory: folder, writeOverride: { _ in "blocked" })
+            let held = PowerObservation(timestamp: clock.value, source: .battery, percentage: 60, charging: .notCharging)
+            if case .saved = blocked.append(held, now: clock.value) {
+                problems.append("a blocked write reported success")
+            }
+            expect(blocked.lastError == "blocked" && blocked.observations.contains(where: { $0.id == held.id }),
+                   "a reading was lost to a failed write", &problems)
+            return problems
+        }
     }
 
     private static func duplicateSidecarsFailClosed() -> [String] {

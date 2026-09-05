@@ -156,10 +156,13 @@ struct DayStory: View {
                 case .entry(let entry):
                     row(entry, isFirst: isFirst, isLast: isLast)
                 case .unrecorded(let span):
+                    let power = store.ambientPowerSummary(within: span)
                     storyRow(time: span.start, tint: .secondary, dotSize: 5,
                              isFirst: isFirst, isLast: isLast) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text("Not recorded")
+                            // Nothing was recorded but the Mac's power, which
+                            // is the one thing the row can honestly add.
+                            Text("Not recorded" + (power.map { " · \($0.headline)" } ?? ""))
                             Spacer(minLength: 8)
                             Text(Tokens.duration(span.duration)).monospacedDigit()
                         }
@@ -167,6 +170,7 @@ struct DayStory: View {
                         .padding(.vertical, 10)
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("Not recorded, \(Tokens.timeRange(span.start, span.end)). "
+                                            + (power.map { "Power: \($0.headline). " } ?? "")
                                             + "This interval is not assumed to be work or rest.")
                     }
                 case .appUse(let span, let seconds):

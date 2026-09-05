@@ -17,6 +17,8 @@ enum SessionHotKeyActionResult: Equatable {
 final class SessionStore: ObservableObject {
 
     let metadataArchive: SessionMetadataArchive
+    /// Readings taken while idle. A quiet block of the story reads its span.
+    let ambientPower: AmbientPowerLog
     let powerMonitor: PowerSourceMonitoring?
     @Published var sessionNoteDrafts: [UUID: String] = [:]
     @Published var sessionNoteErrors: [UUID: String] = [:]
@@ -583,6 +585,7 @@ final class SessionStore: ObservableObject {
     init(engine: SessionEngine,
          schedulesTicker: Bool = true,
          metadataArchive: SessionMetadataArchive? = nil,
+         ambientPower: AmbientPowerLog? = nil,
          powerMonitor: PowerSourceMonitoring? = nil,
          applicationIsRunning: @escaping (String) -> Bool = {
              !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty
@@ -595,6 +598,8 @@ final class SessionStore: ObservableObject {
         self.engine = engine
         self.metadataArchive = metadataArchive
             ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
+        self.ambientPower = ambientPower
+            ?? AmbientPowerLog(directory: engine.archive.dataDirectoryURL)
         self.powerMonitor = powerMonitor
         let recoveredObservations = engine.store.pendingPowerObservations
         let recoveredTransferError = engine.store.pendingPowerMetadataError
@@ -623,8 +628,13 @@ final class SessionStore: ObservableObject {
             }
         }
         powerMonitor?.start { [weak self] observation in
-            guard let self, self.engine.state != .idle else { return }
-            self.enqueuePowerObservation(observation, for: self.engine.activeRecordID)
+            guard let self else { return }
+            // A reading belongs to the running stretch, or to the day.
+            if self.engine.state == .idle {
+                self.ambientPower.append(observation, now: self.now())
+            } else {
+                self.enqueuePowerObservation(observation, for: self.engine.activeRecordID)
+            }
             self.storyProjectionCache.removeAll(keepingCapacity: true)
             self.storyProjectionCacheOrder.removeAll(keepingCapacity: true)
             self.objectWillChange.send()

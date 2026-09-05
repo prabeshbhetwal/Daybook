@@ -63,6 +63,19 @@ extension SessionStore {
         enqueuePowerObservation(observation, for: recordID)
     }
 
+    /// One reading into the day's log at a session boundary, so the quiet
+    /// block on the idle side of it has a sample at its edge even on mains,
+    /// where the level does not tick.
+    private func seedAmbientPower(at time: Date) {
+        guard let powerMonitor else { return }
+        ambientPower.append(powerMonitor.observation(at: time, boundary: nil), now: time)
+    }
+
+    /// What the Mac was on across a quiet block of the story.
+    func ambientPowerSummary(within span: DateInterval) -> PowerContextSummary? {
+        PowerContextSummary.make(observations: ambientPower.observations(in: span), interval: span)
+    }
+
     func reconcilePowerBoundaries() {
         // Recovery must precede ownership transfers and retention. Otherwise a
         // queued predecessor sample could be appended after its transfer ran.
@@ -109,6 +122,8 @@ extension SessionStore {
                abs(sampleTime.timeIntervalSince(record.end)) <= Self.powerBoundaryTolerance {
                 capturePowerObservation(for: previousID, boundary: .stretchEnded)
             }
+            // Idle now: the quiet block that begins here gets its first reading.
+            if currentID == nil { seedAmbientPower(at: sampleTime) }
         }
         if let currentID, currentID != firstSource {
             // First sample for this stretch. At its start it marks the start.
@@ -127,6 +142,8 @@ extension SessionStore {
                 boundary = .coverageResumed
             }
             capturePowerObservation(for: currentID, boundary: boundary)
+            // A stretch beginning now ends a quiet block; give it a last reading.
+            if boundary == .stretchStarted { seedAmbientPower(at: sampleTime) }
         } else if currentID != nil, case .running = engine.state, lastPowerState.isPaused {
             // The monitor samples through a pause; only sleep stops it.
             capturePowerObservation(for: currentID!,
