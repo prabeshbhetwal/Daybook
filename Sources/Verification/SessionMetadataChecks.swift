@@ -1453,8 +1453,10 @@ enum SessionMetadataChecks {
         let transition = PowerContextSummary.make(observations: chargingTransition, interval: interval)
         expect(transition?.headline == "Power changed",
                "a charging-state transition was flattened into one state", &problems)
-        expect(transition?.detail?.contains("15m — Plugged in, charging") == true,
-               "charging transition detail lacked ordered relative time and state", &problems)
+        expect(transition?.detail?.contains("Charging started or stopped") == true,
+               "a charging transition was not qualified beneath its headline", &problems)
+        expect(transition?.detail?.contains("15m —") == false,
+               "power detail enumerated observations instead of summarising them", &problems)
         expect((transition?.detail ?? "").contains("session energy") == false,
                "power detail implied session energy attribution", &problems)
         let postCommitBoundary = PowerContextSummary.make(observations: [
@@ -1491,8 +1493,13 @@ enum SessionMetadataChecks {
                "invalid capacity produced an invented percentage", &problems)
         expect(summary?.headline == "Power changed",
                "mixed or partial sources claimed one continuous source", &problems)
-        expect(summary?.detail?.contains("coverage resumed") == true,
-               "resume gap was not qualified in expanded detail", &problems)
+        expect(summary?.detail?.contains("resumed part-way through") == true,
+               "resume gap was not qualified beneath the headline", &problems)
+        expect(summary?.detail?.contains("Battery level was not recorded") == true,
+               "missing battery levels were not qualified", &problems)
+        // The point of the change: a qualification, not a per-sample log.
+        expect((summary?.detail ?? "").split(separator: "\n").count == 1,
+               "power detail returned to one line per observation", &problems)
         return problems
     }
 

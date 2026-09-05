@@ -141,14 +141,8 @@ struct PowerContextSummary: Equatable {
             }
         }
 
-        let needsDetail = sources.count > 1
-            || chargingStates.count > 1
-            || chargingStates.contains(.unknown)
-            || evidence.contains { $0.boundary == .coverageResumed }
-            || evidence.contains { $0.percentage == nil }
-        let detail = needsDetail ? evidence.map {
-            detailLine($0, relativeTo: interval.start)
-        }.joined(separator: "\n") : nil
+        let lines = qualifications(evidence, sources: sources, chargingStates: chargingStates)
+        let detail = lines.isEmpty ? nil : lines.joined(separator: " ")
         let symbolName: String
         if sources.count > 1 { symbolName = "arrow.triangle.2.circlepath" }
         else {
@@ -166,20 +160,49 @@ struct PowerContextSummary: Equatable {
         "\(Int(percentage.rounded()))%"
     }
 
-    private static func detailLine(_ observation: PowerObservation, relativeTo start: Date) -> String {
-        let source: String
-        switch observation.source {
-        case .battery: source = "Battery"
-        case .external: source = observation.charging == .charging ? "Plugged in, charging" : "Plugged in"
-        case .ups: source = "UPS"
-        case .unknown: source = "Power source unknown"
+    /// What the headline cannot say on its own, as sentences.
+    ///
+    /// This was one line per observation, which is not a summary — it is the
+    /// sampler's log. macOS posts its power notification on every level tick,
+    /// roughly once a minute, and each one was tagged `.sourceChanged`, so an
+    /// hour on battery rendered as forty-odd rows reading "Battery · 100% ·
+    /// source changed" when the source had not changed once. The reader needs
+    /// to know that coverage has a gap or that the source moved, not to read
+    /// every sample that proves it.
+    private static func qualifications(_ evidence: [PowerObservation],
+                                       sources: Set<PowerSourceKind>,
+                                       chargingStates: Set<PowerChargingState>) -> [String] {
+        var lines: [String] = []
+        if sources.count > 1 {
+            var ordered: [PowerSourceKind] = []
+            for observation in evidence where !ordered.contains(observation.source) {
+                ordered.append(observation.source)
+            }
+            lines.append("Power source changed during this session: "
+                         + ordered.map(name).joined(separator: ", ") + ".")
         }
-        var parts = [source]
-        if let percentage = observation.percentage { parts.append(formatted(percentage)) }
-        if observation.charging == .unknown { parts.append("charging state unknown") }
-        if observation.boundary == .coverageResumed { parts.append("coverage resumed") }
-        if observation.boundary == .sourceChanged { parts.append("source changed") }
-        let minutes = max(0, Int(observation.timestamp.timeIntervalSince(start) / 60))
-        return "\(minutes)m — " + parts.joined(separator: " · ")
+        if sources.count == 1, chargingStates.subtracting([.unknown]).count > 1 {
+            lines.append("Charging started or stopped during this session.")
+        }
+        if chargingStates.contains(.unknown) {
+            lines.append("Charging state was not recorded for part of this session.")
+        }
+        if evidence.contains(where: { $0.boundary == .coverageResumed }) {
+            lines.append("Power recording resumed part-way through; "
+                         + "the time before it has no power coverage.")
+        }
+        if evidence.contains(where: { $0.percentage == nil }) {
+            lines.append("Battery level was not recorded for part of this session.")
+        }
+        return lines
+    }
+
+    private static func name(_ source: PowerSourceKind) -> String {
+        switch source {
+        case .battery: return "battery"
+        case .external: return "mains power"
+        case .ups: return "UPS"
+        case .unknown: return "an unrecorded source"
+        }
     }
 }

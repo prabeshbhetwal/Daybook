@@ -213,7 +213,7 @@ extension SessionStore {
             ? "Recorded across \(groups.count) stretches; gaps between stretches are not power coverage."
             : "Recorded for \(groups.count) of \(uniqueRecordIDs.count) stretches; coverage is partial."
         return PowerContextSummary(headline: summary.headline,
-            detail: [qualification, summary.detail].compactMap { $0 }.joined(separator: "\n"),
+            detail: [qualification, summary.detail].compactMap { $0 }.joined(separator: " "),
             symbolName: summary.symbolName)
     }
 }
