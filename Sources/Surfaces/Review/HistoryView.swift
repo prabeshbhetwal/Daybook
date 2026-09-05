@@ -168,7 +168,7 @@ struct HistoryRangeControl: View {
             .background(Tokens.Colour.elevated, in: Capsule())
             .overlay(Capsule().strokeBorder(Tokens.Colour.line))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle())
         .accessibilityLabel(presentation.accessibilityLabel)
         .accessibilityHint("Choose the History date range")
         .popover(isPresented: Binding(get: { shown.value },
@@ -435,7 +435,7 @@ struct HistoryView: View {
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle())
         .accessibilityLabel(rowAccessibilityLabel(day))
         .accessibilityHint(disclosure.isExpanded
                            ? "Hides this day's detail"

@@ -50,7 +50,7 @@ struct StoryChromeBar: View {
                     .background(Tokens.Colour.elevated, in: Circle())
                     .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableStyle())
             .focused($focusedControl, equals: .settings)
             .help("Settings")
             .accessibilityLabel("Settings")
@@ -83,11 +83,16 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             // Navigation belongs in the chrome. These sat below every rail
             // card, so reaching them meant scrolling past the content first.
-            HStack(spacing: Tokens.Space.m) {
-                Button("History") { navigation.openSheet(.history) }
-                Button("Insights") { navigation.openSheet(.insights) }
+            HStack(spacing: Tokens.Space.xs) {
+                ForEach([("History", StorySheetKind.history), ("Insights", .insights)], id: \.0) { title, sheet in
+                    Button { navigation.openSheet(sheet) } label: {
+                        Text(title)
+                            .padding(.horizontal, Tokens.Space.s)
+                            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    }
+                    .buttonStyle(StoryPressStyle(hovers: true))
+                }
             }
-            .buttonStyle(.borderless)
             .font(Tokens.Typography.metadata.weight(.semibold))
             .foregroundStyle(StoryStyle.action)
         case .history:
@@ -115,7 +120,7 @@ struct StoryChromeBar: View {
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle())
         .foregroundStyle(StoryStyle.action)
         .accessibilityLabel("Return to Story")
     }
@@ -203,7 +208,7 @@ struct StorySessionControl: View {
                 .background(Tokens.Colour.focus, in: Capsule())
                 .foregroundStyle(Tokens.Colour.onFocus)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableStyle())
             .focused(focus, equals: .session)
             .accessibilityLabel("Start a focus session")
         } else {
@@ -214,9 +219,9 @@ struct StorySessionControl: View {
                         .frame(width: 7, height: 7)
                         .opacity(store.isPaused ? 0.4 : 1)
                     Text(Tokens.clock(store.elapsed))
-                        .font(.callout.weight(.semibold).monospacedDigit())
+                        .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
                         .foregroundStyle(Tokens.Colour.focus)
-                        .contentTransition(.numericText())
+                        .rollingDigits(store.elapsed)
                     Divider().frame(height: 12)
                     Text(store.pendingAway != nil ? "Review away" : "Session")
                         .font(Tokens.Typography.metadata)
@@ -226,7 +231,7 @@ struct StorySessionControl: View {
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableStyle())
             .focused(focus, equals: .session)
             .accessibilityLabel("\(Tokens.spent(store.elapsed)) elapsed, "
                                 + (store.isPaused ? "paused" : "running"))

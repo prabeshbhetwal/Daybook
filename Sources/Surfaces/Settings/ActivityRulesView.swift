@@ -68,7 +68,7 @@ struct ActivityRulesView: View {
                             Text("\(rule.bundleIDs.count) app\(rule.bundleIDs.count == 1 ? "" : "s") · \(Int(rule.startAfter))s")
                                 .foregroundStyle(.secondary)
                         }.contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityHint("Edit this activity rule")
+                    }.buttonStyle(StoryPressStyle()).accessibilityHint("Edit this activity rule")
                 }
             }
             if editor.selectedID != nil { editorForm }

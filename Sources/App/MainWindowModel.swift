@@ -388,6 +388,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     func selectScope(_ scope: StoryScope) {
+        lastPeriodStep = 0
         workspace = .story
         sheet = nil
         selectedTab = .story
@@ -415,8 +416,13 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         store.selectDay(offset: max(0, offset))
     }
 
+    /// Which way the reader last stepped: +1 forward, -1 back, 0 when the
+    /// scope changed instead. The story's transition reads it.
+    @Published private(set) var lastPeriodStep = 0
+
     func stepStoryPeriod(by delta: Int) {
         guard let store else { return }
+        lastPeriodStep = delta
         storySelectedDay = nil
         expandedStoryDay = nil
         switch storyScope {

@@ -20,7 +20,7 @@ struct PopoverFooter: View {
 
     private func footerButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .buttonStyle(.plain)
+            .buttonStyle(StoryPressStyle())
             .foregroundStyle(.secondary)
             .frame(minHeight: 28)
             .contentShape(Rectangle())

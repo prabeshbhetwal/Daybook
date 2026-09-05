@@ -16,6 +16,7 @@ private struct StoryActionLabel<Label: View>: View {
     let pressed: Bool
     @StateObject private var hovered = BoolBox()
     @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         label
@@ -27,6 +28,10 @@ private struct StoryActionLabel<Label: View>: View {
             .background(fill, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
             .contentShape(Rectangle())
             .opacity(enabled ? 1 : 0.45)
+            .animation(Tokens.Motion.animation(Tokens.Motion.hover, reduceMotion: reduceMotion),
+                       value: hovered.value)
+            .animation(Tokens.Motion.animation(Tokens.Motion.press, reduceMotion: reduceMotion),
+                       value: pressed)
             .onHover { hovered.value = $0 }
     }
 

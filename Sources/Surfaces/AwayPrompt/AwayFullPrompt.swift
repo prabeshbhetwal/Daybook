@@ -29,7 +29,7 @@ private struct FullPromptView: View {
                 HStack {
                     Spacer()
                     Button("Later", action: onLater)
-                        .buttonStyle(.plain)
+                        .buttonStyle(StoryPressStyle())
                         .foregroundStyle(.secondary)
                         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                         .keyboardShortcut(.cancelAction)

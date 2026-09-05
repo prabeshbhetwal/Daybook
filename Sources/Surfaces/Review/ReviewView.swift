@@ -71,7 +71,7 @@ struct ReviewView: View {
         }
         .padding(Tokens.Space.xxl)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18),
+        .animation(reduceMotion ? nil : Tokens.Motion.rise,
                    value: navigation.reviewSection)
     }
 

@@ -86,12 +86,12 @@ struct EarlierTodayList: View {
             }
             if hidden > 0 {
                 Button("+\(hidden) more") { store?.toggleExpanded(app.bundleID) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .font(.caption2)
                     .foregroundStyle(.tint)
             } else if expanded && app.sessions.count > 4 {
                 Button("Show less") { store?.toggleExpanded(app.bundleID) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .font(.caption2)
                     .foregroundStyle(.tint)
             }
@@ -277,7 +277,7 @@ struct TodayAppsList: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle())
         .onHover { inside in
             hover.id = inside ? app.bundleID : nil
             store.highlightApp(inside ? app.bundleID : nil)

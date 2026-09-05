@@ -206,7 +206,7 @@ struct SessionsCard: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(StoryPressStyle())
             .frame(maxWidth: .infinity)
             .accessibilityLabel("\(Tokens.timeRange(session.start, session.end)), "
                                 + "\(displayName), "
@@ -227,7 +227,7 @@ struct SessionsCard: View {
                                height: SessionRowInteraction.minimumTargetSize)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(StoryPressStyle())
                 .foregroundStyle(.secondary)
                 .help(interaction.disclosureAccessibilityLabel)
                 .accessibilityLabel(interaction.disclosureAccessibilityLabel)

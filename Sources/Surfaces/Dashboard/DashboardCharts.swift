@@ -22,7 +22,7 @@ struct Sparkline: View {
             }
         }
         .frame(height: height, alignment: .bottom)
-        .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.85),
+        .animation(reduceMotion ? nil : Tokens.Motion.settle,
                    value: values)
         .accessibilityHidden(true)
     }

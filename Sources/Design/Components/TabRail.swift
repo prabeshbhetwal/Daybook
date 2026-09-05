@@ -62,7 +62,7 @@ struct TabRail: View {
                     tabPill(tab, selected: isSelected, showsIcon: showsIcons,
                             showsLabel: !showsIcons || TabRailPresentation.showsLabelsInIconFallback)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(StoryPressStyle())
                 .keyboardShortcut(KeyEquivalent(Character(String(tab.commandNumber))),
                                   modifiers: [.command])
                 .help(tab.title)
@@ -83,7 +83,7 @@ struct TabRail: View {
         if reduceMotion {
             selectedTab = tab
         } else {
-            withAnimation(.easeInOut(duration: 0.18)) {
+            withAnimation(Tokens.Motion.rise) {
                 selectedTab = tab
             }
         }

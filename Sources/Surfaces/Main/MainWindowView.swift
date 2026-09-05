@@ -29,12 +29,16 @@ struct MainWindowView: View {
                 .accessibilitySortPriority(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
+                // Above the strip, so the strip slides out from beneath it.
+                .zIndex(1)
             Divider()
+                .zIndex(1)
             if stripVisible {
                 SessionControlStrip(store: store, settings: settings, navigation: navigation)
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
-                    .transition(.opacity)
+                    .transition(Tokens.Motion.transition(Tokens.Motion.slideDown,
+                                                         reduceMotion: reduceMotion))
             }
             readingWorkspace
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -59,7 +63,7 @@ struct MainWindowView: View {
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
         .tint(StoryStyle.action)
-        .animation(Tokens.Motion.animation(Tokens.Motion.selection,
+        .animation(Tokens.Motion.animation(Tokens.Motion.reveal,
                                            reduceMotion: reduceMotion),
                    value: SessionControlsVisibility.isVisible(
                     expanded: navigation.sessionControlsExpanded,
@@ -190,16 +194,36 @@ struct StoryCanvas: View {
 
     private var column: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-            switch navigation.storyScope {
-            case .day: DayStoryColumn(store: store)
-            case .week: WeekStoryColumn(store: store, navigation: navigation)
-            case .month: MonthStoryColumn(store: store, navigation: navigation)
+            Group {
+                switch navigation.storyScope {
+                case .day: DayStoryColumn(store: store)
+                case .week: WeekStoryColumn(store: store, navigation: navigation)
+                case .month: MonthStoryColumn(store: store, navigation: navigation)
+                }
             }
+            // A new period is a new reading, so it is a new view: stepping
+            // forward nudges it in from the trailing edge, back from the
+            // leading, and a change of scope settles in place.
+            .id(readingKey)
+            .transition(Tokens.Motion.transition(readingTransition, reduceMotion: reduceMotion))
         }
         .padding(StoryStyle.columnInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .animation(Tokens.Motion.animation(Tokens.Motion.rise, reduceMotion: reduceMotion),
-                   value: navigation.storyScope)
+        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
+                   value: readingKey)
+    }
+
+    private var readingKey: String {
+        let period = navigation.storyScope == .day ? store.dayLabel : store.reviewPeriodLabel
+        return "\(navigation.storyScope)-\(period)"
+    }
+
+    private var readingTransition: AnyTransition {
+        switch navigation.lastPeriodStep {
+        case let step where step > 0: return Tokens.Motion.slide(from: .trailing)
+        case let step where step < 0: return Tokens.Motion.slide(from: .leading)
+        default: return Tokens.Motion.unfold
+        }
     }
 
     private func refresh(for scope: StoryScope) {
@@ -230,7 +254,7 @@ struct StorySheet<Content: View>: View {
                             .frame(width: AccessibilityMetrics.minimumTargetSize,
                                    height: AccessibilityMetrics.minimumTargetSize)
                     }
-                        .buttonStyle(.plain)
+                        .buttonStyle(StoryPressStyle())
                         .keyboardShortcut(.cancelAction)
                         .help("Close \(title)")
                         .accessibilityLabel("Close \(title)")

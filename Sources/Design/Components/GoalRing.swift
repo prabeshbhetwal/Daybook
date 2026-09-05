@@ -24,7 +24,7 @@ struct GoalRing: View {
                 .stroke(Color.accentColor,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8),
+                .animation(Tokens.Motion.animation(Tokens.Motion.settle, reduceMotion: reduceMotion),
                            value: progress)
             if isMet {
                 Image(systemName: "checkmark")
@@ -34,7 +34,7 @@ struct GoalRing: View {
                 Text(label)
                     .font(labelFont)
                     .foregroundStyle(.primary)
-                    .contentTransition(.numericText())
+                    .rollingDigits(label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .padding(.horizontal, lineWidth + 2)

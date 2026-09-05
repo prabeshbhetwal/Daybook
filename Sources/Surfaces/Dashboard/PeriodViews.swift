@@ -342,7 +342,7 @@ struct PeriodAppRowButton: View {
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
                                              style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle())
         .onHover { hover.id = $0 ? group.bundleID : nil }
         .accessibilityLabel(accessibilityLabelText)
         .accessibilityValue(accessibilityValueText)
@@ -435,7 +435,7 @@ struct SessionLogList: View {
                         .foregroundStyle(.secondary)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     if showsMinor {
                         ForEach(Array(split.minor.enumerated()), id: \.element.id) { i, group in

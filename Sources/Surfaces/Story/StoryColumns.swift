@@ -292,7 +292,7 @@ struct StorySelectedDayCard: View {
                             .font(Tokens.Typography.metadata.weight(.semibold))
                             .foregroundStyle(StoryStyle.action)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .accessibilityLabel(isExpanded
                         ? "Hide \(Tokens.longDate(day)) story"
                         : "Open \(Tokens.longDate(day)) as a story")

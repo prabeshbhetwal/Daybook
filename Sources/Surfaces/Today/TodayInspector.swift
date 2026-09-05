@@ -147,7 +147,7 @@ struct TodayInspector: View {
                            height: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.surface, in: Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(StoryPressStyle())
             .foregroundStyle(.secondary)
             .help("Close inspector (Esc)")
         }

@@ -15,6 +15,7 @@ struct StoryShapeChart: View {
     var height: CGFloat = 28
     var compact = false
     @StateObject private var intervalDetailsShown = BoolBox()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Points per cell. Six keeps a run of one cell visible as a mark, not a
     /// hairline, at the strip's 28pt height.
@@ -39,6 +40,8 @@ struct StoryShapeChart: View {
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .animation(Tokens.Motion.animation(Tokens.Motion.settle, reduceMotion: reduceMotion),
+                           value: activity.coverage)
             }
             .frame(height: height)
             if !compact, let first = activity.intervals.first, let last = activity.intervals.last {

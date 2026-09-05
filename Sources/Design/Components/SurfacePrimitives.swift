@@ -112,7 +112,7 @@ struct AppUsageRow: View {
     var body: some View {
         if let onRow {
             Button(action: onRow) { row }
-                .buttonStyle(.plain)
+                .buttonStyle(StoryPressStyle())
         } else {
             row
         }

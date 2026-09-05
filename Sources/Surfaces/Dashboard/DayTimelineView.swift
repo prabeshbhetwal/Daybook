@@ -511,7 +511,7 @@ struct SegmentHourDetail: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button("Close", action: onClose)
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .foregroundStyle(.secondary)
                     .font(.caption)
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)

@@ -77,7 +77,7 @@ struct StatCard: View {
             }
             Text(value)
                 .font(Tokens.Typography.metricValue)
-                .contentTransition(.numericText())
+                .rollingDigits(value)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(context ?? " ")
@@ -173,7 +173,7 @@ struct IconButton: View {
                 .foregroundStyle(prominent ? AnyShapeStyle(Tokens.Colour.focus)
                                            : AnyShapeStyle(.secondary))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle())
         .help(help)
         .accessibilityLabel(help)
     }

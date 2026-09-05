@@ -54,6 +54,7 @@ struct SessionControlStrip: View {
             Toggle(isOn: $settings.sessionControlsPinned) {
                 Label("Pin", systemImage: settings.sessionControlsPinned ? "pin.fill" : "pin")
                     .labelStyle(.iconOnly)
+                    .symbolSwap()
                     .font(Tokens.Typography.metadata.weight(.semibold))
             }
             .toggleStyle(.button)

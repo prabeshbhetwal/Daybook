@@ -70,7 +70,7 @@ struct TodayHeader: View {
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.elevated, in: Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(StoryPressStyle())
             .help("Pick a date")
             .accessibilityLabel("\(Tokens.longDate(store.selectedDay)), selected date")
             .accessibilityAddTraits(.isSelected)
@@ -94,7 +94,7 @@ struct TodayHeader: View {
 
             if presentation.showsTodayReset {
                 Button("Today") { store.goToToday() }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .font(Tokens.Typography.tabLabel)
                     .foregroundStyle(Tokens.Colour.focus)
                     .padding(.horizontal, Tokens.Space.s)

@@ -91,8 +91,8 @@ struct TodayView: View {
         .padding(Tokens.Space.xxl)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .onExitCommand { Self.handleEscape(in: store) }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: store.dayOffset)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.16), value: store.todayInspector)
+        .animation(reduceMotion ? nil : Tokens.Motion.rise, value: store.dayOffset)
+        .animation(reduceMotion ? nil : Tokens.Motion.hover, value: store.todayInspector)
     }
 
     /// The exact action behind Escape. Browsing scope is deliberately distinct

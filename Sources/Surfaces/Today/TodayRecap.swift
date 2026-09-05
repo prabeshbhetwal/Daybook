@@ -82,7 +82,7 @@ struct TodayRecap: View {
                         if reduceMotion {
                             narrativeExpanded.value.toggle()
                         } else {
-                            withAnimation(.easeInOut(duration: 0.18)) {
+                            withAnimation(Tokens.Motion.rise) {
                                 narrativeExpanded.value.toggle()
                             }
                         }
@@ -98,7 +98,7 @@ struct TodayRecap: View {
                                alignment: .leading)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .font(Tokens.Typography.metadata)
                     .accessibilityLabel(presentation.accessibilityLabel)
                     .accessibilityValue(presentation.accessibilityValue)

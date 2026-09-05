@@ -146,6 +146,7 @@ struct FocusHero: View {
     /// 980pt. The flag existed unread until the strip started using it.
     var wide = true
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var composition: FocusSurfaceComposition { store.focusSurfaceComposition }
     private var mode: FocusSurfaceMode { composition.mode }
     /// The window's session strip: compact spacing, toolbar layout.
@@ -165,6 +166,10 @@ struct FocusHero: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: compact ? .leading : .center)
+        // Start, pause, resume: the controls for one state give way to the
+        // controls for the next rather than snapping.
+        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
+                   value: mode)
     }
 
     @ViewBuilder private var ordinaryBody: some View {
@@ -224,7 +229,7 @@ struct FocusHero: View {
     @ViewBuilder private var liveRowLead: some View {
         Text(Tokens.clock(store.elapsed))
             .font(Tokens.Typography.rowTimer)
-            .contentTransition(.numericText())
+            .rollingDigits(store.elapsed)
             .foregroundStyle(isQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
             .fixedSize()
             .accessibilityLabel("Elapsed \(Tokens.preciseDuration(store.elapsed))")
@@ -417,7 +422,7 @@ struct FocusHero: View {
             Text(Tokens.clock(store.elapsed))
                 .font(Tokens.Typography.liveTimer)
                 .monospacedDigit()
-                .contentTransition(.numericText())
+                .rollingDigits(store.elapsed)
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 .accessibilityLabel("Elapsed \(Tokens.preciseDuration(store.elapsed))")
             VStack(alignment: compact ? .leading : .center, spacing: 2) {
@@ -499,7 +504,7 @@ struct FocusHero: View {
         Button(compact ? "Undo automatic session" : "Undo") {
             store.undoAutomaticSessionCorrection()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle())
         .font(Tokens.Typography.metadata)
         .foregroundStyle(.secondary)
         .frame(minHeight: 28)
@@ -644,7 +649,7 @@ private struct FocusActionButton: View {
                 .foregroundStyle(prominent ? AnyShapeStyle(Tokens.Colour.onFocus)
                                            : AnyShapeStyle(.primary))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle())
         .accessibilityLabel(title)
     }
 }

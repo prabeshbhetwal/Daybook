@@ -157,7 +157,7 @@ struct SettingsPageTabs: View {
                                     in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(StoryPressStyle())
                 .accessibilityLabel("\(page.title), \(selected == page ? "selected" : "not selected")")
                 .accessibilityAddTraits(selected == page ? .isSelected : [])
             }

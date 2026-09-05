@@ -191,7 +191,7 @@ struct AwayAnswerGrid: View {
                 .transition(reduceMotion ? .identity : .scale.combined(with: .opacity))
             }
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8),
+        .animation(reduceMotion ? nil : Tokens.Motion.reveal,
                    value: hasText)
         .padding(.horizontal, controlHorizontalPadding)
         // Same vertical room as the buttons (and the same optical shift), less

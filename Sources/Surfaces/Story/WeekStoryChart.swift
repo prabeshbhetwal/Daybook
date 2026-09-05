@@ -82,6 +82,8 @@ struct WeekStoryChart: View {
                         }
                     }
                     .frame(maxHeight: .infinity, alignment: .bottom)
+                    .animation(Tokens.Motion.animation(Tokens.Motion.settle, reduceMotion: reduceMotion),
+                               value: focus)
                 }
                 Text(Tokens.weekdayName(day.date).prefix(3).uppercased())
                     .font(.caption2.weight(isSelected ? .bold : .semibold))
@@ -91,7 +93,7 @@ struct WeekStoryChart: View {
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle(hovers: true))
         .animation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion),
                    value: isSelected)
         .accessibilityLabel(label(for: day, focus: focus))

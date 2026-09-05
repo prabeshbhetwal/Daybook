@@ -323,20 +323,64 @@ enum Tokens {
     /// interruptible and explains a state change; nothing here is decorative,
     /// and `reduceMotion` collapses all of it to an instant cut.
     enum Motion {
+        /// One curve family — ease-out quint — so everything that settles in
+        /// this app decelerates the same way. No bounce, no overshoot: motion
+        /// here says what changed, never that it is animating.
+        private static func out(_ duration: Double) -> Animation {
+            .timingCurve(0.22, 1, 0.36, 1, duration: duration)
+        }
+
+        /// Instant acknowledgement: a press, a toggle.
+        static let press = out(0.12)
+        /// A hover is a tint, never a colour jump.
+        static let hover = out(0.16)
         /// The selection pill travels rather than redrawing, so the eye follows
-        /// one object across the rail.
-        static let selection = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.20)
+        /// one object across the row.
+        static let selection = out(0.20)
+        /// A live figure rolling to its next value: a timer's seconds.
+        static let tick = out(0.20)
         /// Content settling into place after a view change.
-        static let rise = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.22)
+        static let rise = out(0.22)
+        /// One reading replacing another: a scope or period change.
+        static let swap = out(0.24)
+        /// Something opening — the strip, a disclosure, a fold.
+        static let reveal = out(0.26)
+        /// Something closing. Exits are quicker than entrances.
+        static let dismiss = out(0.19)
+        /// A measurement moving to its next measurement — a ring, a bar.
+        /// Critically damped: it arrives, it does not spring past.
+        static let settle = Animation.spring(response: 0.45, dampingFraction: 0.92)
         /// Children enter this far apart, in order.
         static let stagger: Double = 0.06
-        /// A hover is a tint, never a colour jump.
-        static let hover = Animation.easeOut(duration: 0.16)
         /// Pressable things settle back from this scale.
         static let pressedScale: CGFloat = 0.97
 
         static func animation(_ base: Animation, reduceMotion: Bool) -> Animation? {
             reduceMotion ? nil : base
+        }
+
+        static func transition(_ base: AnyTransition, reduceMotion: Bool) -> AnyTransition {
+            reduceMotion ? .identity : base
+        }
+
+        /// Something arriving from beneath an edge: the session strip under
+        /// the chrome.
+        static let slideDown: AnyTransition = .move(edge: .top).combined(with: .opacity)
+        /// Disclosed content: it grows from where its header sits and fades
+        /// straight out.
+        static let unfold: AnyTransition = .asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .top)),
+            removal: .opacity)
+        /// One reading replacing another, nudged the way the reader stepped.
+        /// A nudge, not a page turn: 28 points, so the movement reads as
+        /// direction without the content leaving the window.
+        static func slide(from edge: Edge) -> AnyTransition {
+            let distance: CGFloat = edge == .trailing ? 28 : -28
+            return .asymmetric(
+                insertion: .modifier(active: Nudge(x: distance, opacity: 0),
+                                     identity: Nudge(x: 0, opacity: 1)),
+                removal: .modifier(active: Nudge(x: -distance, opacity: 0),
+                                   identity: Nudge(x: 0, opacity: 1)))
         }
     }
 
@@ -395,4 +439,10 @@ extension Color {
     init(lightHex: UInt32, darkHex: UInt32) {
         self.init(light: NSColor(hex: lightHex), dark: NSColor(hex: darkHex))
     }
+}
+
+private struct Nudge: ViewModifier {
+    let x: CGFloat
+    let opacity: Double
+    func body(content: Content) -> some View { content.offset(x: x).opacity(opacity) }
 }

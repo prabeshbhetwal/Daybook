@@ -11,13 +11,17 @@ struct StoryDisclosure<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                withAnimation(Tokens.Motion.animation(
+                    isExpanded ? Tokens.Motion.dismiss : Tokens.Motion.reveal,
+                    reduceMotion: reduceMotion)) {
                     isExpanded.toggle()
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                    // One glyph that turns, not two that swap.
+                    Image(systemName: "chevron.right")
+                        .font(Tokens.Typography.microLabel)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     Text(title)
                     Spacer(minLength: 0)
                 }
@@ -25,10 +29,13 @@ struct StoryDisclosure<Content: View>: View {
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(StoryPressStyle())
+            .buttonStyle(StoryPressStyle(hovers: true))
             .accessibilityLabel(title)
             .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
-            if isExpanded { content }
+            if isExpanded {
+                content.transition(Tokens.Motion.transition(Tokens.Motion.unfold,
+                                                            reduceMotion: reduceMotion))
+            }
         }
     }
 }

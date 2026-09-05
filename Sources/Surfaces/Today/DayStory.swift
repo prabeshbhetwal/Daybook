@@ -121,9 +121,7 @@ struct DayStory: View {
         let isOpen = opened.ids.contains(key)
         storyRow(time: run.moments.first?.start ?? store.selectedDay,
                  tint: .secondary, dotSize: 5, isFirst: isFirst, isLast: isLast) {
-            Button {
-                if isOpen { opened.ids.remove(key) } else { opened.ids.insert(key) }
-            } label: {
+            Button { toggle(key) } label: {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                     Text(run.summary)
                         .font(Tokens.Typography.metadata)
@@ -137,7 +135,7 @@ struct DayStory: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(StoryPressStyle(hovers: true))
             .accessibilityLabel("\(run.summary). \(isOpen ? "Showing" : "Hidden")")
             .accessibilityHint(isOpen ? "Fold these intervals" : "Show these intervals")
         }
@@ -145,6 +143,8 @@ struct DayStory: View {
             ForEach(Array(run.moments.enumerated()), id: \.element.id) { index, moment in
                 timelineRow(.moment(moment), isFirst: false,
                             isLast: isLast && index == run.moments.count - 1)
+                    .transition(Tokens.Motion.transition(Tokens.Motion.unfold,
+                                                         reduceMotion: reduceMotion))
             }
         }
     }
@@ -352,8 +352,10 @@ struct DayStory: View {
     }
 
     private func toggle(_ id: String) {
-        withAnimation(Tokens.Motion.animation(Tokens.Motion.rise, reduceMotion: reduceMotion)) {
-            if opened.ids.contains(id) { opened.ids.remove(id) } else { opened.ids.insert(id) }
+        let opening = !opened.ids.contains(id)
+        withAnimation(Tokens.Motion.animation(opening ? Tokens.Motion.reveal : Tokens.Motion.dismiss,
+                                              reduceMotion: reduceMotion)) {
+            if opening { opened.ids.insert(id) } else { opened.ids.remove(id) }
         }
     }
 }
@@ -645,7 +647,7 @@ struct SessionEntryCard: View {
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 4)
                         Button("Edit") { metadataStore.beginNoteEditing(for: recordID) }
-                            .buttonStyle(.plain).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                            .buttonStyle(StoryPressStyle()).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                             .accessibilityLabel("Edit note for stretch \(noteRecordIDs.firstIndex(of: recordID).map { $0 + 1 } ?? 1)")
                     }
                 }
@@ -675,7 +677,7 @@ struct SessionEntryCard: View {
                         .foregroundStyle(isCurrent ? AnyShapeStyle(Tokens.Palette.workType(type))
                                                    : AnyShapeStyle(.secondary))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(StoryPressStyle())
                 .disabled(isCurrent)
                 .accessibilityLabel("Record this as \(type.displayName)")
                 .accessibilityAddTraits(isCurrent ? .isSelected : [])

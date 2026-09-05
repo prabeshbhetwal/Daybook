@@ -26,14 +26,33 @@ extension View {
 struct ScopePills: View {
     let titles: [String]
     let selectedIndex: Int
+    @Namespace private var capsule
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 2) {
             ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
-                Text(title).scopePillLabel(isSelected: index == selectedIndex)
+                let isSelected = index == selectedIndex
+                Text(title)
+                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .padding(.horizontal, Tokens.Space.m)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)
+                                                : AnyShapeStyle(Color.secondary))
+                    // One capsule for the row, matched across pills, so a
+                    // change of scope is the capsule sliding to the new word
+                    // rather than one pill going out and another coming on.
+                    .background {
+                        if isSelected {
+                            Capsule().fill(Tokens.Colour.focus)
+                                .matchedGeometryEffect(id: "selected", in: capsule)
+                        }
+                    }
             }
         }
         .scopePillContainer()
+        .animation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion),
+                   value: selectedIndex)
         .accessibilityHidden(true)
     }
 }

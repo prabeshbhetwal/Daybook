@@ -106,7 +106,7 @@ struct FocusContinuations: View {
     ) -> some View {
         if enabled {
             Button(action: action, label: label)
-                .buttonStyle(.plain)
+                .buttonStyle(StoryPressStyle())
         } else {
             label()
         }

@@ -245,9 +245,15 @@ enum StoryIntegrationChecks {
     private static func reduceMotionContract() -> [String] {
         var failures: [String] = []
         let bases: [(String, Animation)] = [
+            ("press", Tokens.Motion.press),
+            ("hover", Tokens.Motion.hover),
             ("selection", Tokens.Motion.selection),
+            ("tick", Tokens.Motion.tick),
             ("rise", Tokens.Motion.rise),
-            ("hover", Tokens.Motion.hover)
+            ("swap", Tokens.Motion.swap),
+            ("reveal", Tokens.Motion.reveal),
+            ("dismiss", Tokens.Motion.dismiss),
+            ("settle", Tokens.Motion.settle)
         ]
         for (name, base) in bases {
             if Tokens.Motion.animation(base, reduceMotion: true) != nil {

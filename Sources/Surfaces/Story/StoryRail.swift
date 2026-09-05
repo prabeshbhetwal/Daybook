@@ -113,6 +113,7 @@ struct StoryRail: View {
                 Label(arrangement.isArranging ? "Done" : "Arrange cards",
                       systemImage: arrangement.isArranging ? "checkmark" : "pencil")
                     .labelStyle(.iconOnly)
+                    .symbolSwap()
                     .font(Tokens.Typography.metadata.weight(.semibold))
                     .frame(width: AccessibilityMetrics.minimumTargetSize,
                            height: AccessibilityMetrics.minimumTargetSize)
@@ -123,12 +124,12 @@ struct StoryRail: View {
                                                              : AnyShapeStyle(.secondary))
                     .contentShape(Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableStyle())
             .help(arrangement.isArranging ? "Save this order" : "Arrange cards")
             .accessibilityLabel(arrangement.isArranging ? "Save card order" : "Arrange cards")
             if arrangement.isArranging {
                 Button("Reset order") { resetOrder() }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
@@ -460,7 +461,7 @@ struct StoryRail: View {
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                 Button("Awards") { navigation.openSheet(.awards) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .font(Tokens.Typography.metadata.weight(.semibold))
                     .foregroundStyle(Tokens.Colour.focus)
             }

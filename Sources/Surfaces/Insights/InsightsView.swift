@@ -198,7 +198,7 @@ struct InsightsView: View {
                 InsightSection(title: "Continuity", insight: continuity)
             }
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18),
+        .animation(reduceMotion ? nil : Tokens.Motion.rise,
                    value: navigation.insightRange)
     }
 }

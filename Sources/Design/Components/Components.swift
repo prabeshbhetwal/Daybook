@@ -59,7 +59,7 @@ struct StartButton: View {
                                                  style: .continuous))
                 .foregroundStyle(Tokens.Colour.onFocus)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableStyle())
         .accessibilityLabel(title)
     }
 }

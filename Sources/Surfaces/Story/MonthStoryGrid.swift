@@ -162,7 +162,7 @@ struct MonthDayCell: View {
         Button(action: onSelect) {
             face
         }
-        .buttonStyle(StoryPressStyle())
+        .buttonStyle(PressableStyle())
         .disabled(isFuture)
         .opacity(isFuture ? 0.45 : 1)
         .accessibilityLabel(accessibilityLabel)

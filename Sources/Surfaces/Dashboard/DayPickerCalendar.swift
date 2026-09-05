@@ -80,7 +80,7 @@ struct DayPickerCalendar: View {
             Spacer(minLength: Tokens.Space.s)
             if !calendar.isDate(shown.month, equalTo: Date(), toGranularity: .month) {
                 Button("Today") { shown.month = calendar.startOfDay(for: Date()) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(StoryPressStyle())
                     .font(.caption.weight(.medium))
                     .foregroundStyle(Tokens.Colour.focus)
                     .padding(.horizontal, Tokens.Space.s)
@@ -239,7 +239,7 @@ struct DayPickerCalendar: View {
             }
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(StoryPressStyle())
         .disabled(!pickable)
         .onHover { hover.id = $0 ? key.description : nil }
         .help(helpText(day, facts, pickable: pickable))

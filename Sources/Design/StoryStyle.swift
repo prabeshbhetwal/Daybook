@@ -52,12 +52,21 @@ enum StoryStyle {
 /// A restrained press treatment, retaining the native Button's keyboard and
 /// accessibility behaviour. It never adds motion when Reduce Motion is enabled.
 struct StoryPressStyle: ButtonStyle {
+    /// Rows and text actions that should also tint under the pointer.
+    var hovers = false
+    var cornerRadius: CGFloat = 6
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .opacity(configuration.isPressed ? 0.72 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12),
-                       value: configuration.isPressed)
+        Group {
+            if hovers {
+                configuration.label.hoverHighlight(cornerRadius: cornerRadius)
+            } else {
+                configuration.label
+            }
+        }
+        .opacity(configuration.isPressed ? 0.72 : 1)
+        .animation(Tokens.Motion.animation(Tokens.Motion.press, reduceMotion: reduceMotion),
+                   value: configuration.isPressed)
     }
 }
