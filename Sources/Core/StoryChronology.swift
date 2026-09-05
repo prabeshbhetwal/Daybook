@@ -3,22 +3,42 @@ import Foundation
 /// Story shows stretches in chronological order. The compact Sessions digest
 /// may fold a resumed thread; doing so here would move the afternoon above the
 /// lunch break and hide the interval between them.
+/// Why a hole in the day's recording is there, when the recording itself
+/// says. The tracker ends a stretch `.idle` after three minutes without
+/// input and `.systemLock` at the lock screen; a hole that begins where one
+/// of those ended has a cause the story can name. Any other hole — the app
+/// closed, the Mac asleep, evidence missing — stays "not recorded".
+enum StoryGapReason: Equatable {
+    case idle
+    case locked
+    case unknown
+
+    /// What the row says. "Not recorded" answered what; the reader asks why.
+    var title: String {
+        switch self {
+        case .idle: return "No input"
+        case .locked: return "Mac locked"
+        case .unknown: return "Not recorded"
+        }
+    }
+}
+
 enum StoryMoment: Identifiable, Equatable {
     case entry(DayEntry)
     case appUse(DateInterval, seconds: TimeInterval)
-    case unrecorded(DateInterval)
+    case unrecorded(DateInterval, reason: StoryGapReason = .unknown)
 
     var start: Date {
         switch self {
         case .entry(let entry): return entry.start
-        case .appUse(let span, _), .unrecorded(let span): return span.start
+        case .appUse(let span, _), .unrecorded(let span, _): return span.start
         }
     }
 
     var end: Date {
         switch self {
         case .entry(let entry): return entry.end
-        case .appUse(let span, _), .unrecorded(let span): return span.end
+        case .appUse(let span, _), .unrecorded(let span, _): return span.end
         }
     }
 
@@ -28,7 +48,7 @@ enum StoryMoment: Identifiable, Equatable {
             return (session.isRunning ? "live-" : "record-") + session.id.uuidString
         case .entry(.rest(let rest)): return "rest-" + rest.id.uuidString
         case .appUse(let span, _): return "app-\(span.start.timeIntervalSince1970)"
-        case .unrecorded(let span): return "gap-\(span.start.timeIntervalSince1970)"
+        case .unrecorded(let span, _): return "gap-\(span.start.timeIntervalSince1970)"
         }
     }
 }
@@ -77,12 +97,22 @@ enum StoryChronology {
         let coverage = merge(occupied + recorded)
         for pair in zip(coverage, coverage.dropFirst()) {
             if pair.1.start.timeIntervalSince(pair.0.end) >= 60 {
-                result.append(.unrecorded(DateInterval(start: pair.0.end, end: pair.1.start)))
+                result.append(.unrecorded(DateInterval(start: pair.0.end, end: pair.1.start),
+                                          reason: gapReason(endingAt: pair.0.end, in: usage)))
             }
         }
         return result.sorted {
             $0.start == $1.start ? $0.id < $1.id : $0.start < $1.start
         }
+    }
+
+    /// The stretch that ended where the hole begins says why it ended. Only
+    /// an idle trim or the lock screen is a cause; anything else is unknown.
+    private static func gapReason(endingAt edge: Date, in usage: [AppUsageSession]) -> StoryGapReason {
+        let ending = usage.filter { abs($0.end.timeIntervalSince(edge)) < 1 }
+        if ending.contains(where: { $0.endReason == .idle }) { return .idle }
+        if ending.contains(where: { $0.endReason == .systemLock }) { return .locked }
+        return .unknown
     }
 
     private static func merge(_ ranges: [DateInterval], bridging: TimeInterval = 0) -> [DateInterval] {

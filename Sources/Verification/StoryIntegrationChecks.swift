@@ -142,6 +142,16 @@ enum StoryIntegrationChecks {
         }
         if !(abs(run.recordedSeconds - 1_200) < 1) { failures.append("folded app use lost time: \(run.recordedSeconds)s of 1200s") }
         if !(abs(run.unrecordedSeconds - 300) < 1) { failures.append("folded gaps lost time: \(run.unrecordedSeconds)s of 300s") }
+        // A hole that begins where input stopped is named for it, and counted
+        // apart from time with no recording at all.
+        let idleRun = StoryQuietGrouping.run(from: [
+            .unrecorded(span(0, 180), reason: .idle),
+            .unrecorded(span(300, 420))
+        ])
+        if !(abs(idleRun.idleSeconds - 180) < 1 && abs(idleRun.unrecordedSeconds - 120) < 1
+             && idleRun.summary.contains("3m no input") && idleRun.summary.contains("2m not recorded")) {
+            failures.append("an idle hole was not told apart from an unrecorded one: \(idleRun.summary)")
+        }
         if !(run.appUseCount == 2 && run.gapCount == 1) { failures.append("the folded run miscounted its intervals") }
         if !(run.moments.count == 3) { failures.append("the folded run cannot reopen every row") }
         if !(run.summary.contains("20m outside sessions")

@@ -97,7 +97,7 @@ enum StoryPresentationChecks {
             failures.append("Chronology collapsed separate stretches or changed credited work")
         }
         let gaps = result.compactMap { item -> DateInterval? in
-            if case .unrecorded(let span) = item { return span }; return nil
+            if case .unrecorded(let span, _) = item { return span }; return nil
         }
         if gaps.count != 1 || gaps[0].duration != 1_800 {
             failures.append("The half-hour unknown interval was hidden or inflated")

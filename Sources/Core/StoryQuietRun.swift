@@ -11,10 +11,22 @@ struct StoryQuietRun: Equatable {
     let moments: [StoryMoment]
     /// App use outside a session, in seconds.
     let recordedSeconds: TimeInterval
+    /// Time the recording ended for want of input, in seconds.
+    let idleSeconds: TimeInterval
     /// Time nothing was recorded at all, in seconds.
     let unrecordedSeconds: TimeInterval
     let appUseCount: Int
     let gapCount: Int
+
+    init(moments: [StoryMoment], recordedSeconds: TimeInterval, idleSeconds: TimeInterval = 0,
+         unrecordedSeconds: TimeInterval, appUseCount: Int, gapCount: Int) {
+        self.moments = moments
+        self.recordedSeconds = recordedSeconds
+        self.idleSeconds = idleSeconds
+        self.unrecordedSeconds = unrecordedSeconds
+        self.appUseCount = appUseCount
+        self.gapCount = gapCount
+    }
 
     var span: DateInterval? {
         guard let first = moments.first, let last = moments.last else { return nil }
@@ -29,6 +41,9 @@ struct StoryQuietRun: Equatable {
         var parts: [String] = []
         if recordedSeconds > 0 {
             parts.append("\(StoryQuietRun.duration(recordedSeconds)) outside sessions")
+        }
+        if idleSeconds > 0 {
+            parts.append("\(StoryQuietRun.duration(idleSeconds)) no input")
         }
         if unrecordedSeconds > 0 {
             parts.append("\(StoryQuietRun.duration(unrecordedSeconds)) not recorded")
@@ -59,6 +74,7 @@ enum StoryQuietGrouping {
 
     static func run(from moments: [StoryMoment]) -> StoryQuietRun {
         var recorded: TimeInterval = 0
+        var idle: TimeInterval = 0
         var unrecorded: TimeInterval = 0
         var appUses = 0
         var gaps = 0
@@ -67,14 +83,14 @@ enum StoryQuietGrouping {
             case .appUse(_, let seconds):
                 recorded += max(0, seconds)
                 appUses += 1
-            case .unrecorded(let span):
-                unrecorded += span.duration
+            case .unrecorded(let span, let reason):
+                if reason == .idle { idle += span.duration } else { unrecorded += span.duration }
                 gaps += 1
             case .entry:
                 continue
             }
         }
-        return StoryQuietRun(moments: moments, recordedSeconds: recorded,
+        return StoryQuietRun(moments: moments, recordedSeconds: recorded, idleSeconds: idle,
                              unrecordedSeconds: unrecorded,
                              appUseCount: appUses, gapCount: gaps)
     }

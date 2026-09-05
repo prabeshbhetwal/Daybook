@@ -165,11 +165,11 @@ extension SessionStore {
                 return false
             }
             moments = moments.flatMap { moment -> [StoryMoment] in
-                guard case .unrecorded(let gap) = moment,
+                guard case .unrecorded(let gap, let reason) = moment,
                       gap.end > range.start, gap.start < range.end else { return [moment] }
                 var fragments: [StoryMoment] = []
-                if gap.start < range.start { fragments.append(.unrecorded(DateInterval(start: gap.start, end: range.start))) }
-                if gap.end > range.end { fragments.append(.unrecorded(DateInterval(start: range.end, end: gap.end))) }
+                if gap.start < range.start { fragments.append(.unrecorded(DateInterval(start: gap.start, end: range.start), reason: reason)) }
+                if gap.end > range.end { fragments.append(.unrecorded(DateInterval(start: range.end, end: gap.end), reason: reason)) }
                 return fragments
             }
             notices.append(.decision(receipt, range))

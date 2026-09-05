@@ -94,35 +94,48 @@ struct StoryRail: View {
         .onExitCommand { arrangement.escape() }
     }
 
-    private func arrangeMenu(_ shownTiles: [StoryTileKind]) -> some View {
-        Menu {
-            if arrangement.isArranging {
-                Button("Finish arranging") { arrangement.finish() }
-                Divider()
-                ForEach(shownTiles, id: \.self) { kind in
-                    Menu(kind.title) {
-                        Button("Move up") { moveVertically(kind, by: -1) }
-                            .disabled(shownTiles.first == kind)
-                        Button("Move down") { moveVertically(kind, by: 1) }
-                            .disabled(shownTiles.last == kind)
-                    }
-                }
-                Divider()
-                Button("Reset card order") { resetOrder() }
-            } else {
-                Button("Arrange cards") {
+    /// One button, two states. This was a menu: open it, choose "Arrange
+    /// cards", and while arranging every move sat two levels down in it —
+    /// though each card already had its own menu, its drag handle and its
+    /// accessibility actions for the same moves. The pencil enters, the tick
+    /// saves and leaves; Reset shows only while there is an order to reset.
+    private func arrangeControl(_ shownTiles: [StoryTileKind]) -> some View {
+        HStack(spacing: Tokens.Space.m) {
+            Button {
+                if arrangement.isArranging {
+                    settings.storyTileOrder = arrangement.order
+                    arrangement.finish()
+                } else {
                     arrangement.synchronise(settings.storyTileOrder)
                     arrangement.begin()
                 }
+            } label: {
+                Label(arrangement.isArranging ? "Done" : "Arrange cards",
+                      systemImage: arrangement.isArranging ? "checkmark" : "pencil")
+                    .labelStyle(.iconOnly)
+                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .frame(width: AccessibilityMetrics.minimumTargetSize,
+                           height: AccessibilityMetrics.minimumTargetSize)
+                    .background(arrangement.isArranging ? AnyShapeStyle(StoryStyle.action)
+                                                        : AnyShapeStyle(Tokens.Colour.elevated),
+                                in: Circle())
+                    .foregroundStyle(arrangement.isArranging ? AnyShapeStyle(Tokens.Colour.onFocus)
+                                                             : AnyShapeStyle(.secondary))
+                    .contentShape(Circle())
             }
-        } label: {
-            Label(arrangement.isArranging ? "Finish arranging" : "Arrange cards",
-                  systemImage: arrangement.isArranging ? "checkmark" : "arrow.up.arrow.down")
-                .font(Tokens.Typography.metadata.weight(.semibold))
+            .buttonStyle(.plain)
+            .help(arrangement.isArranging ? "Save this order" : "Arrange cards")
+            .accessibilityLabel(arrangement.isArranging ? "Save card order" : "Arrange cards")
+            if arrangement.isArranging {
+                Button("Reset order") { resetOrder() }
+                    .buttonStyle(.plain)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    .accessibilityLabel("Reset card order")
+            }
         }
-        .menuStyle(.borderlessButton)
         .fixedSize()
-        .accessibilityLabel(arrangement.isArranging ? "Finish arranging cards" : "Arrange cards")
     }
 
     @ViewBuilder private func arrangedTile(_ kind: StoryTileKind,
@@ -145,7 +158,7 @@ struct StoryRail: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            arrangeMenu(visibleTiles)
+            arrangeControl(visibleTiles)
             if let note = footnote {
                 Text(note)
                     .font(Tokens.Typography.metadata)
@@ -394,9 +407,11 @@ struct StoryRail: View {
     }
 
     private var appsTile: some View {
-        StoryTile(title: "Apps",
-                  trailing: apps.count > 4 ? "Top 4 of \(apps.count)"
-                    : apps.count == 1 ? "1 app" : "\(apps.count) apps") {
+        // The title says what the list is; the trailing figure says how many
+        // it was cut from. "Apps · Top 4 of 10" made the reader assemble that.
+        StoryTile(title: apps.count > 4 ? "Your top 4 apps" : "Your apps",
+                  trailing: apps.isEmpty ? "None recorded"
+                    : apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
             ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
                 StoryAppRow(app: app, rank: index) { selectedApp.text = app.bundleID }
                     .popover(isPresented: Binding(
