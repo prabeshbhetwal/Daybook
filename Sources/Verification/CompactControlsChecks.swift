@@ -170,6 +170,21 @@ enum CompactControlsChecks {
             }) {
                 failures.append("Continue duplicated the current running session")
             }
+            // Running, a quick start for the very activity in progress is not
+            // something to switch to.
+            let current = (name: store.activeIntent, workType: store.workType)
+            let running = FocusContinuationSource.rows(
+                threads: [], quickStarts: [QuickStart(id: "same", name: current.name, workType: current.workType),
+                                           QuickStart(id: "other", name: "Other", workType: current.workType)],
+                limit: 3, excluding: current)
+            if running.contains(where: { row in
+                if case .quickStart(let quick) = row {
+                    return quick.name.caseInsensitiveCompare(current.name) == .orderedSame
+                }
+                return false
+            }) || running.count != 1 {
+                failures.append("The switch list offered the activity already running")
+            }
             return failures
         }
     }

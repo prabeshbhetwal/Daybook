@@ -321,25 +321,25 @@ struct FocusHero: View {
                 ActivityChooser(store: store, intentFocused: intentFocused, compact: compact) {
                     performPrimaryAction()
                 }
-                HStack(spacing: Tokens.Space.s) {
-                    if compact {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Work type")
-                                .font(Tokens.Typography.metadata)
-                                .foregroundStyle(.secondary)
-                            WorkTypePicker(selection: $store.workType)
-                        }
-                    } else {
+                if compact {
+                    // The activity menu's suggestions already set the work
+                    // type. A second picker beneath the field named the same
+                    // choice twice, and drew greyed in the menu bar panel.
+                    // A typed name takes the last type used; Change type
+                    // on the card corrects it.
+                    StartButton(title: "Start focus", fills: true) { performPrimaryAction() }
+                } else {
+                    HStack(spacing: Tokens.Space.s) {
                         Text("Work type")
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
                         WorkTypePicker(selection: $store.workType)
+                        Spacer(minLength: Tokens.Space.s)
+                        StartButton(title: "Start focus", fills: false) {
+                            performPrimaryAction()
+                        }
+                        .fixedSize()
                     }
-                    Spacer(minLength: Tokens.Space.s)
-                    StartButton(title: "Start focus", fills: false) {
-                        performPrimaryAction()
-                    }
-                    .fixedSize()
                 }
                 // A note about what happens after an action the reader has not
                 // taken yet belongs on the page that has room to explain, not

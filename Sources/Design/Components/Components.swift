@@ -9,11 +9,15 @@ import Charts
 struct SectionHeader: View {
     let title: String
     var trailing: String?
+    /// In the menu bar panel the hero's title is the panel's title; a section
+    /// beneath it is a step down, not a rival.
+    var compact = false
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
             Text(title)
-                .font(Tokens.Typography.sectionTitle)
+                .font(compact ? Tokens.Typography.rowTitle.weight(.semibold)
+                              : Tokens.Typography.sectionTitle)
             Spacer(minLength: Tokens.Space.s)
             if let trailing {
                 Text(trailing)

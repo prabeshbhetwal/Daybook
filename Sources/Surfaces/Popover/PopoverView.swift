@@ -18,6 +18,7 @@ struct PopoverView: View {
     /// Overridden by the snapshot harness so its output does not depend on the
     /// display the build machine happens to have attached.
     var metricsOverride: PopoverMetrics?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var metrics: PopoverMetrics {
         metricsOverride
@@ -80,6 +81,8 @@ struct PopoverView: View {
                 .padding(.horizontal, Tokens.Space.xs)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
+                   value: store.isIdle)
 
         if scrolls {
             ScrollView {
