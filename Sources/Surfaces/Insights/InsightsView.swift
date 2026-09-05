@@ -198,8 +198,8 @@ struct InsightsView: View {
                 InsightSection(title: "Continuity", insight: continuity)
             }
         }
-        .animation(reduceMotion ? nil : Tokens.Motion.rise,
-                   value: navigation.insightRange)
+        .id("\(navigation.insightRange)-\(navigation.insightAnchorLabel)")
+        .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
     }
 }
 

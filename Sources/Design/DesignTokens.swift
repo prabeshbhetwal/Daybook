@@ -330,8 +330,11 @@ enum Tokens {
             .timingCurve(0.22, 1, 0.36, 1, duration: duration)
         }
 
-        /// Instant acknowledgement: a press, a toggle.
-        static let press = out(0.12)
+        /// The way down. Faster than a click, or a click never shows it.
+        static let press = out(0.08)
+        /// The way back up: a spring with a hair of give, so a released
+        /// control visibly settles. This is the only overshoot in the app.
+        static let release = Animation.spring(response: 0.32, dampingFraction: 0.72)
         /// A hover is a tint, never a colour jump.
         static let hover = out(0.16)
         /// The selection pill travels rather than redrawing, so the eye follows
@@ -352,8 +355,9 @@ enum Tokens {
         static let settle = Animation.spring(response: 0.45, dampingFraction: 0.92)
         /// Children enter this far apart, in order.
         static let stagger: Double = 0.06
-        /// Pressable things settle back from this scale.
-        static let pressedScale: CGFloat = 0.97
+        /// Pressable things sink to this scale and lift to `hoverScale`.
+        static let pressedScale: CGFloat = 0.94
+        static let hoverScale: CGFloat = 1.03
 
         static func animation(_ base: Animation, reduceMotion: Bool) -> Animation? {
             reduceMotion ? nil : base

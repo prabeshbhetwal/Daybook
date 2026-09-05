@@ -25,6 +25,8 @@ struct StoryChromeBar: View {
     /// same words for two different acts.
     var sessionControlsVisible = false
     @FocusState private var focusedControl: StoryChromeFocus?
+    @StateObject private var gearHovered = BoolBox()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: Tokens.Space.l) {
@@ -40,17 +42,24 @@ struct StoryChromeBar: View {
                                     onDetails: {
                                         navigation.performSessionControlsAction(.timerPill)
                                     })
+                    .transition(Tokens.Motion.transition(
+                        .opacity.combined(with: .scale(scale: 0.9)), reduceMotion: reduceMotion))
             }
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
                     .font(Tokens.Typography.tabLabel)
                     .symbolRenderingMode(.hierarchical)
+                    // A gear that turns a little under the pointer is a gear.
+                    .rotationEffect(.degrees(gearHovered.value ? 30 : 0))
+                    .animation(Tokens.Motion.animation(Tokens.Motion.release, reduceMotion: reduceMotion),
+                               value: gearHovered.value)
                     .frame(width: AccessibilityMetrics.minimumTargetSize,
                            height: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.elevated, in: Circle())
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(PressableStyle())
+            .onHover { gearHovered.value = $0 }
             .focused($focusedControl, equals: .settings)
             .help("Settings")
             .accessibilityLabel("Settings")
@@ -58,6 +67,8 @@ struct StoryChromeBar: View {
         .padding(.horizontal, Tokens.Space.l)
         .padding(.vertical, Tokens.Space.s)
         .background(StoryStyle.canvas)
+        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
+                   value: sessionControlsVisible)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Window chrome")
         .onChange(of: navigation.focusRestorationRequest) { target in

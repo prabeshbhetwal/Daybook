@@ -246,6 +246,7 @@ enum StoryIntegrationChecks {
         var failures: [String] = []
         let bases: [(String, Animation)] = [
             ("press", Tokens.Motion.press),
+            ("release", Tokens.Motion.release),
             ("hover", Tokens.Motion.hover),
             ("selection", Tokens.Motion.selection),
             ("tick", Tokens.Motion.tick),

@@ -30,6 +30,8 @@ struct GoalRing: View {
                 Image(systemName: "checkmark")
                     .font(.system(size: diameter * 0.3, weight: .bold))
                     .foregroundStyle(.tint)
+                    .transition(Tokens.Motion.transition(.scale.combined(with: .opacity),
+                                                         reduceMotion: reduceMotion))
             } else if let label {
                 Text(label)
                     .font(labelFont)
@@ -41,6 +43,8 @@ struct GoalRing: View {
             }
         }
         .frame(width: diameter, height: diameter)
+        .animation(Tokens.Motion.animation(Tokens.Motion.release, reduceMotion: reduceMotion),
+                   value: isMet)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(Int((progress * 100).rounded())) percent of today's goal")
     }

@@ -55,6 +55,7 @@ struct SessionControlStrip: View {
                 Label("Pin", systemImage: settings.sessionControlsPinned ? "pin.fill" : "pin")
                     .labelStyle(.iconOnly)
                     .symbolSwap()
+                    .symbolNod(on: settings.sessionControlsPinned)
                     .font(Tokens.Typography.metadata.weight(.semibold))
             }
             .toggleStyle(.button)

@@ -19,11 +19,15 @@ private struct PressableLabel<Label: View>: View {
 
     var body: some View {
         label
-            .scaleEffect(pressed ? Tokens.Motion.pressedScale : 1)
+            .scaleEffect(pressed ? Tokens.Motion.pressedScale
+                         : hovered.value && enabled ? Tokens.Motion.hoverScale : 1)
             // A hover lifts a filled control a shade; a press settles it.
-            .brightness(!enabled ? 0 : pressed ? -0.06 : hovered.value ? 0.04 : 0)
+            .brightness(!enabled ? 0 : pressed ? -0.08 : hovered.value ? 0.05 : 0)
             .opacity(enabled ? 1 : 0.45)
-            .animation(Tokens.Motion.animation(Tokens.Motion.press, reduceMotion: reduceMotion),
+            // Down is instant; up is the spring. The click is over before a
+            // symmetric ease could show anything.
+            .animation(Tokens.Motion.animation(pressed ? Tokens.Motion.press : Tokens.Motion.release,
+                                               reduceMotion: reduceMotion),
                        value: pressed)
             .animation(Tokens.Motion.animation(Tokens.Motion.hover, reduceMotion: reduceMotion),
                        value: hovered.value)
@@ -50,6 +54,17 @@ extension View {
     @ViewBuilder func symbolSwap() -> some View {
         if #available(macOS 14.0, *) {
             self.contentTransition(.symbolEffect(.replace))
+        } else {
+            self
+        }
+    }
+
+    /// A glyph that acknowledges a change of state with a small dip — the
+    /// pin when pinned, the tick when the order is saved. macOS 14 only; on
+    /// 13 the swap is the acknowledgement.
+    @ViewBuilder func symbolNod<Value: Equatable>(on value: Value) -> some View {
+        if #available(macOS 14.0, *) {
+            self.symbolEffect(.bounce.down.byLayer, value: value)
         } else {
             self
         }

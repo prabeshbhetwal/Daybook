@@ -78,9 +78,10 @@ struct MainWindowView: View {
         .accessibilityElement(children: .contain)
     }
 
-    @ViewBuilder private var readingWorkspace: some View {
-        switch navigation.workspace {
-        case .story:
+    private var readingWorkspace: some View {
+        Group {
+            switch navigation.workspace {
+            case .story:
             StoryCanvas(store: store, navigation: navigation, settings: settings,
                         scrolls: reviewScrolls)
         case .history:
@@ -101,10 +102,12 @@ struct MainWindowView: View {
                 store.refreshReview()
             }
             .onDisappear { store.setReviewVisible(false) }
-        case .insights:
-            InsightsView(store: store, navigation: navigation,
-                         scrolls: insightsScrolls)
+            case .insights:
+                InsightsView(store: store, navigation: navigation,
+                             scrolls: insightsScrolls)
+            }
         }
+        .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
     }
 
     /// Attached panels. Focus, History and Insights remain compatibility enum
@@ -180,6 +183,8 @@ struct StoryCanvas: View {
             }
             .frame(width: StoryLayout.railWidth)
             .background(StoryStyle.rail)
+            .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
+                       value: readingKey)
         }
         .onAppear {
             navigation.connect(to: store)

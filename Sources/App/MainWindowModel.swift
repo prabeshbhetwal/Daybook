@@ -244,21 +244,23 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             return
         }
         selectedTab = tab
-        switch tab {
-        case .review:
-            workspace = .history
-            sheet = nil
-            reviewSection = .history
-            store?.refreshReview()
-        case .insights:
-            workspace = .insights
-            sheet = nil
-            store?.refreshInsights()
-        case .story:
-            workspace = .story
-            sheet = nil
-        default:
-            sheet = StorySheetKind(tab: tab)
+        animated(Tokens.Motion.swap) {
+            switch tab {
+            case .review:
+                workspace = .history
+                sheet = nil
+                reviewSection = .history
+                store?.refreshReview()
+            case .insights:
+                workspace = .insights
+                sheet = nil
+                store?.refreshInsights()
+            case .story:
+                workspace = .story
+                sheet = nil
+            default:
+                sheet = StorySheetKind(tab: tab)
+            }
         }
         if tab == .today {
             openToday(date: store?.now() ?? Date())
@@ -268,10 +270,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     func openToday(date: Date) {
         requestedDate = date
         selectedTab = .today
-        workspace = .story
-        sheet = nil
-        showDay(date)
-        storyScope = .day
+        animated(Tokens.Motion.swap) {
+            workspace = .story
+            sheet = nil
+            showDay(date)
+            storyScope = .day
+        }
     }
 
     /// Inspection, not navigation. The tab and Today's own scope are untouched;
@@ -290,6 +294,19 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     func openSelectedReviewDayInToday() {
         guard let reviewSelectedDate else { return }
         openToday(date: reviewSelectedDate)
+    }
+
+    /// Surfaces transition on these values, and a transition runs only
+    /// inside an animated transaction. A value animation on a container
+    /// animates properties; it does not animate one view being replaced by
+    /// another. Every button, key command and AppKit callback that changes
+    /// these values comes through here, so the transaction is made here.
+    private func animated(_ animation: Animation, _ body: () -> Void) {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            body()
+        } else {
+            withAnimation(animation) { body() }
+        }
     }
 
     func openSheet(_ kind: StorySheetKind) {
@@ -313,14 +330,16 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     /// pill is a disclosure and therefore toggles; commands and menu routes are
     /// idempotent reveals and can never hide an already-visible strip.
     func performSessionControlsAction(_ action: SessionControlsAction) {
-        switch action {
-        case .timerPill: sessionControlsExpanded.toggle()
-        case .commandOrMenu: sessionControlsExpanded = true
+        animated(sessionControlsExpanded ? Tokens.Motion.dismiss : Tokens.Motion.reveal) {
+            switch action {
+            case .timerPill: sessionControlsExpanded.toggle()
+            case .commandOrMenu: sessionControlsExpanded = true
+            }
         }
     }
 
     func dismissSessionControls() {
-        sessionControlsExpanded = false
+        animated(Tokens.Motion.dismiss) { sessionControlsExpanded = false }
         focusRestorationRequest = .sessionControls
     }
 
@@ -389,20 +408,22 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     func selectScope(_ scope: StoryScope) {
         lastPeriodStep = 0
-        workspace = .story
-        sheet = nil
-        selectedTab = .story
-        if scope != storyScope, let store {
-            let anchor = storyScope == .day ? store.selectedDay
-                : storySelectedDay ?? store.reviewAnchor ?? store.now()
-            if scope == .day {
-                showDay(anchor)
-            } else {
-                store.reviewAnchor = Calendar.current.startOfDay(for: anchor)
+        animated(Tokens.Motion.swap) {
+            workspace = .story
+            sheet = nil
+            selectedTab = .story
+            if scope != storyScope, let store {
+                let anchor = storyScope == .day ? store.selectedDay
+                    : storySelectedDay ?? store.reviewAnchor ?? store.now()
+                if scope == .day {
+                    showDay(anchor)
+                } else {
+                    store.reviewAnchor = Calendar.current.startOfDay(for: anchor)
+                }
             }
+            storyScope = scope
+            refreshStoryScope()
         }
-        storyScope = scope
-        refreshStoryScope()
     }
 
     /// Story may deliberately inspect an empty historical date. Do not silently
@@ -425,9 +446,11 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         lastPeriodStep = delta
         storySelectedDay = nil
         expandedStoryDay = nil
-        switch storyScope {
-        case .day: store.stepDay(by: delta)
-        case .week, .month: store.moveReviewPeriod(by: delta)
+        animated(Tokens.Motion.swap) {
+            switch storyScope {
+            case .day: store.stepDay(by: delta)
+            case .week, .month: store.moveReviewPeriod(by: delta)
+            }
         }
     }
 
@@ -447,13 +470,15 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     func returnToStory() {
-        sheet = nil
-        workspace = .story
-        selectedTab = .story
+        animated(Tokens.Motion.swap) {
+            sheet = nil
+            workspace = .story
+            selectedTab = .story
+        }
     }
 
     func selectInsightRange(_ range: InsightRange) {
-        insightRange = range
+        animated(Tokens.Motion.swap) { insightRange = range }
     }
 
     var insightPosition: InsightReadingPosition {

@@ -364,6 +364,11 @@ struct DayStory: View {
 /// opened it shows the apps that made it up and what the app can say about its
 /// shape. A running session carries the live clock instead of a total.
 struct SessionEntryCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private var unfold: AnyTransition {
+        Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion)
+    }
+
     let session: DaySession
     let apps: [AppRank]
     /// What the recording shows, when it shows anything.
@@ -452,7 +457,7 @@ struct SessionEntryCard: View {
             }
             .buttonStyle(StoryPressStyle())
 
-            if isOpen { detail }
+            if isOpen { detail.transition(unfold) }
         }
         .background(StoryStyle.card,
                     in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))

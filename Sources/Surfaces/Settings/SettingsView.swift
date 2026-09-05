@@ -99,6 +99,13 @@ struct SettingsView: View {
     private func pageBinding(in pages: [SettingsPage]) -> Binding<SettingsPage> {
         Binding(
             get: { visiblePage(in: pages) ?? SettingsPage(section: navigation.settingsSection) },
-            set: { navigation.settingsSection = $0.sections[0] })
+            set: { page in
+                // A page change is a view being replaced; give it a transaction.
+                if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                    navigation.settingsSection = page.sections[0]
+                } else {
+                    withAnimation(Tokens.Motion.swap) { navigation.settingsSection = page.sections[0] }
+                }
+            })
     }
 }

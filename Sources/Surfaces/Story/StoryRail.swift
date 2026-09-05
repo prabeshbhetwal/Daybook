@@ -114,6 +114,7 @@ struct StoryRail: View {
                       systemImage: arrangement.isArranging ? "checkmark" : "pencil")
                     .labelStyle(.iconOnly)
                     .symbolSwap()
+                    .symbolNod(on: arrangement.isArranging)
                     .font(Tokens.Typography.metadata.weight(.semibold))
                     .frame(width: AccessibilityMetrics.minimumTargetSize,
                            height: AccessibilityMetrics.minimumTargetSize)
@@ -257,6 +258,7 @@ struct StoryRail: View {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     Text(Tokens.preciseDuration(focusValue))
                         .font(Tokens.Typography.metricValue.monospacedDigit())
+                        .rollingDigits(focusValue)
                     Text(focusNote)
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
@@ -329,6 +331,7 @@ struct StoryRail: View {
         return StoryTile(title: "On this Mac", trailing: nil) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(Tokens.preciseDuration(trackedValue))
+                    .rollingDigits(trackedValue)
                     .font(.title3.weight(.semibold).monospacedDigit())
                 Text("recorded app use")
                     .font(Tokens.Typography.metadata)

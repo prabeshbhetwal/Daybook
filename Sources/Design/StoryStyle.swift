@@ -65,8 +65,11 @@ struct StoryPressStyle: ButtonStyle {
                 configuration.label
             }
         }
-        .opacity(configuration.isPressed ? 0.72 : 1)
-        .animation(Tokens.Motion.animation(Tokens.Motion.press, reduceMotion: reduceMotion),
+        .opacity(configuration.isPressed ? 0.6 : 1)
+        .scaleEffect(configuration.isPressed ? 0.985 : 1)
+        .animation(Tokens.Motion.animation(configuration.isPressed ? Tokens.Motion.press
+                                                                   : Tokens.Motion.release,
+                                           reduceMotion: reduceMotion),
                    value: configuration.isPressed)
     }
 }
