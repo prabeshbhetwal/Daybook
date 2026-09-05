@@ -27,22 +27,28 @@ struct PowerObservation: Codable, Equatable, Identifiable {
     let percentage: Double?
     let charging: PowerChargingState
     let boundary: PowerCoverageBoundary?
+    /// The attached adapter's rating, as macOS reports it — 96 for a 96 W
+    /// charger. Present only on external power; a sidecar written before this
+    /// field existed decodes it as nil.
+    let adapterWatts: Int?
 
     init(id: UUID = UUID(), timestamp: Date, source: PowerSourceKind,
          percentage: Double?, charging: PowerChargingState,
-         boundary: PowerCoverageBoundary? = nil) {
+         boundary: PowerCoverageBoundary? = nil, adapterWatts: Int? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.source = source
         self.percentage = percentage
         self.charging = charging
         self.boundary = boundary
+        self.adapterWatts = adapterWatts
     }
 
     static func normalised(timestamp: Date, source: PowerSourceKind,
                            currentCapacity: Double?, maximumCapacity: Double?,
                            charging: PowerChargingState,
-                           boundary: PowerCoverageBoundary? = nil) -> PowerObservation {
+                           boundary: PowerCoverageBoundary? = nil,
+                           adapterWatts: Int? = nil) -> PowerObservation {
         let percentage: Double?
         if let currentCapacity, let maximumCapacity,
            currentCapacity.isFinite, maximumCapacity.isFinite,
@@ -52,7 +58,7 @@ struct PowerObservation: Codable, Equatable, Identifiable {
             percentage = nil
         }
         return PowerObservation(timestamp: timestamp, source: source, percentage: percentage,
-                         charging: charging, boundary: boundary)
+                                charging: charging, boundary: boundary, adapterWatts: adapterWatts)
     }
 }
 
@@ -122,11 +128,16 @@ struct PowerContextSummary: Equatable {
         if sources.count > 1 || chargingStates.count > 1 {
             headline = "Power changed"
         } else {
-            let label: String
+            var label: String
             switch evidence[0].source {
             case .battery: label = "Battery"
             case .external:
                 label = evidence[0].charging == .charging ? "Plugged in, charging" : "Plugged in"
+                // The charger in use, if macOS named one. The latest reading
+                // is the one plugged in now; a change is qualified below.
+                if let watts = evidence.compactMap(\.adapterWatts).last {
+                    label += " · \(watts) W"
+                }
             case .ups: label = "UPS"
             case .unknown: label = "Power recorded"
             }
@@ -186,6 +197,17 @@ struct PowerContextSummary: Equatable {
         }
         if sources.count == 1, chargingStates.subtracting([.unknown]).count > 1 {
             lines.append("Charging started or stopped during this session.")
+        }
+        var chargers: [Int] = []
+        for watts in evidence.compactMap(\.adapterWatts) where !chargers.contains(watts) {
+            chargers.append(watts)
+        }
+        if chargers.count > 1 {
+            lines.append("Charger changed during this session: "
+                         + chargers.map { "\($0) W" }.joined(separator: ", then ") + ".")
+        } else if let watts = chargers.first, sources.count > 1 {
+            // The headline says "Power changed"; the charger is not in it.
+            lines.append("Plugged into a \(watts) W charger for part of this session.")
         }
         return lines
     }

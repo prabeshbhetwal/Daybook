@@ -1,4 +1,5 @@
 import Foundation
+import IOKit
 import IOKit.ps
 
 protocol PowerSourceMonitoring: AnyObject {
@@ -27,8 +28,19 @@ final class PowerSourceMonitor: PowerSourceMonitoring {
             ? .sourceChanged : nil
     }
 
+    /// The adapter's rating from the battery's registry entry — the dictionary
+    /// `pmset -g ac` and System Information both read. Unplugged, the entry
+    /// keeps an `AdapterDetails` with no `Watts` key at all; some models leave
+    /// a zero. Neither is a charger.
+    static func adapterWatts(registry: [String: Any]) -> Int? {
+        guard let details = registry["AdapterDetails"] as? [String: Any],
+              let watts = (details["Watts"] as? NSNumber)?.intValue, watts > 0 else { return nil }
+        return watts
+    }
+
     static func parse(descriptions: [[String: Any]], at timestamp: Date,
-                      boundary: PowerCoverageBoundary?) -> PowerObservation {
+                      boundary: PowerCoverageBoundary?,
+                      adapterWatts: Int? = nil) -> PowerObservation {
         let selected = descriptions.first(where: {
             ($0[kIOPSTypeKey as String] as? String) == kIOPSInternalBatteryType
         }) ?? descriptions.first(where: {
@@ -49,10 +61,26 @@ final class PowerSourceMonitor: PowerSourceMonitoring {
         if let value = selected[kIOPSIsChargingKey as String] as? Bool {
             charging = value ? .charging : .notCharging
         } else { charging = .unknown }
+        // A reading belongs to the charger in use. On battery there is none,
+        // whatever a stale registry value says.
         return PowerObservation.normalised(timestamp: timestamp, source: source,
             currentCapacity: (selected[kIOPSCurrentCapacityKey as String] as? NSNumber)?.doubleValue,
             maximumCapacity: (selected[kIOPSMaxCapacityKey as String] as? NSNumber)?.doubleValue,
-            charging: charging, boundary: boundary)
+            charging: charging, boundary: boundary,
+            adapterWatts: source == .external ? adapterWatts : nil)
+    }
+
+    /// One registry read per sample: the `AppleSmartBattery` service's
+    /// properties. Absent on a Mac with no battery, which is also no charger.
+    private func registryAdapterWatts() -> Int? {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault,
+                                                  IOServiceMatching("AppleSmartBattery"))
+        guard service != IO_OBJECT_NULL else { return nil }
+        defer { IOObjectRelease(service) }
+        var properties: Unmanaged<CFMutableDictionary>?
+        guard IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+              let registry = properties?.takeRetainedValue() as? [String: Any] else { return nil }
+        return Self.adapterWatts(registry: registry)
     }
 
     func observation(at timestamp: Date,
@@ -72,7 +100,8 @@ final class PowerSourceMonitor: PowerSourceMonitoring {
         let descriptions = sources.compactMap {
             IOPSGetPowerSourceDescription(info, $0)?.takeUnretainedValue() as? [String: Any]
         }
-        return Self.parse(descriptions: descriptions, at: timestamp, boundary: boundary)
+        return Self.parse(descriptions: descriptions, at: timestamp, boundary: boundary,
+                          adapterWatts: registryAdapterWatts())
     }
 
     /// One notification, tagged by what changed since the last observation.
@@ -80,7 +109,8 @@ final class PowerSourceMonitor: PowerSourceMonitoring {
         let raw = read(at: Date(), boundary: nil)
         let tagged = PowerObservation(id: raw.id, timestamp: raw.timestamp, source: raw.source,
                                       percentage: raw.percentage, charging: raw.charging,
-                                      boundary: Self.boundary(for: raw, after: lastEmitted))
+                                      boundary: Self.boundary(for: raw, after: lastEmitted),
+                                      adapterWatts: raw.adapterWatts)
         lastEmitted = tagged
         handler?(tagged)
     }

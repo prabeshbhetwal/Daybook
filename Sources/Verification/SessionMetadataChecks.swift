@@ -596,6 +596,33 @@ enum SessionMetadataChecks {
                "invalid IOPS capacity denominator produced a percentage", &problems)
         expect(empty.source == .unknown && empty.percentage == nil,
                "empty IOPS description fabricated a source", &problems)
+
+        // The charger: read from the battery's registry entry, kept only on
+        // external power, and never a zero.
+        let chargingWith = PowerSourceMonitor.parse(descriptions: [description(
+            state: kIOPSACPowerValue, current: 81, charging: true)], at: moment, boundary: nil,
+            adapterWatts: 96)
+        let batteryWith = PowerSourceMonitor.parse(descriptions: [description(
+            state: kIOPSBatteryPowerValue, current: 78)], at: moment, boundary: nil, adapterWatts: 96)
+        expect(chargingWith.adapterWatts == 96, "the charger rating was dropped on external power", &problems)
+        expect(batteryWith.adapterWatts == nil, "a stale charger rating was kept on battery", &problems)
+        expect(PowerSourceMonitor.adapterWatts(registry: ["AdapterDetails": ["Watts": 96, "Name": "96W USB-C Power Adapter"]]) == 96,
+               "a rated adapter was not read from AdapterDetails", &problems)
+        expect(PowerSourceMonitor.adapterWatts(registry: ["AdapterDetails": ["Watts": NSNumber(value: 140)]]) == 140,
+               "an NSNumber wattage was not read", &problems)
+        // Verbatim from an unplugged MacBook: the dictionary stays, the key goes.
+        expect(PowerSourceMonitor.adapterWatts(registry: ["AdapterDetails": ["FamilyCode": 0]]) == nil,
+               "an unplugged AdapterDetails produced a charger", &problems)
+        expect(PowerSourceMonitor.adapterWatts(registry: ["AdapterDetails": ["Watts": 0]]) == nil
+               && PowerSourceMonitor.adapterWatts(registry: [:]) == nil,
+               "a zero or missing adapter produced a charger", &problems)
+        // A sidecar written before the field existed.
+        let legacy = Data("""
+        {"id":"6F2A1E48-3C34-4B0C-9A4B-0F3D5B1B6C10","timestamp":0,"source":"external","percentage":64,"charging":"charging"}
+        """.utf8)
+        let decoded = try? JSONDecoder().decode(PowerObservation.self, from: legacy)
+        expect(decoded != nil && decoded?.adapterWatts == nil && decoded?.source == .external,
+               "a pre-charger sidecar observation no longer decodes", &problems)
         return problems
     }
 
@@ -1535,6 +1562,43 @@ enum SessionMetadataChecks {
                "power detail enumerated observations instead of summarising them", &problems)
         expect((transition?.detail ?? "").contains("session energy") == false,
                "power detail implied session energy attribution", &problems)
+
+        // The charger sits beside the plugged-in state; a change is a sentence.
+        let chargingWatts = [
+            PowerObservation(timestamp: start, source: .external, percentage: 64,
+                             charging: .charging, boundary: .stretchStarted, adapterWatts: 96),
+            PowerObservation(timestamp: start.addingTimeInterval(1_800), source: .external,
+                             percentage: 81, charging: .charging, boundary: .stretchEnded, adapterWatts: 96)
+        ]
+        let watted = PowerContextSummary.make(observations: chargingWatts, interval: interval)
+        expect(watted?.headline == "Plugged in, charging · 96 W · 64% → 81%",
+               "the charger rating was not shown beside the charging state: \(watted?.headline ?? "nil")",
+               &problems)
+        expect(watted?.detail == nil, "one charger throughout was qualified: \(watted?.detail ?? "")", &problems)
+        let swapped = [
+            PowerObservation(timestamp: start, source: .external, percentage: 64,
+                             charging: .charging, boundary: .stretchStarted, adapterWatts: 30),
+            PowerObservation(timestamp: start.addingTimeInterval(900), source: .external,
+                             percentage: 70, charging: .charging, adapterWatts: 96),
+            PowerObservation(timestamp: start.addingTimeInterval(1_800), source: .external,
+                             percentage: 81, charging: .charging, boundary: .stretchEnded, adapterWatts: 96)
+        ]
+        let swap = PowerContextSummary.make(observations: swapped, interval: interval)
+        expect(swap?.headline == "Plugged in, charging · 96 W · 64% → 81%",
+               "the headline did not name the charger in use now", &problems)
+        expect(swap?.detail == "Charger changed during this session: 30 W, then 96 W.",
+               "a charger change was not qualified: \(swap?.detail ?? "nil")", &problems)
+        let unpluggedLater = [
+            PowerObservation(timestamp: start, source: .external, percentage: 64,
+                             charging: .charging, boundary: .stretchStarted, adapterWatts: 96),
+            PowerObservation(timestamp: start.addingTimeInterval(1_800), source: .battery,
+                             percentage: 81, charging: .notCharging, boundary: .stretchEnded)
+        ]
+        let mixed = PowerContextSummary.make(observations: unpluggedLater, interval: interval)
+        expect(mixed?.headline == "Power changed"
+               && mixed?.detail == "Power source changed during this session: mains power, battery. "
+               + "Plugged into a 96 W charger for part of this session.",
+               "a session that unplugged lost its charger: \(mixed?.detail ?? "nil")", &problems)
         let postCommitBoundary = PowerContextSummary.make(observations: [
             PowerObservation(timestamp: start, source: .battery, percentage: 78,
                              charging: .notCharging, boundary: .stretchStarted),
