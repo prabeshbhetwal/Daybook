@@ -37,13 +37,42 @@ enum StoryScopeKeyboardSelection {
     }
 }
 
+/// How keyboard focus reached a control. A focus cue answers "where will my
+/// next key press land?", which only someone using the keyboard is asking; a
+/// control that draws it after a click is answering a question nobody put.
+enum ControlFocusOrigin {
+    case pointer
+    case keyboard
+}
+
 /// macOS 13-compatible native scope target. AppKit owns pointer selection and
 /// standard focus semantics; this subclass adds Home/End and an integrated,
 /// local focus cue after suppressing only AppKit's detached outer ring.
+///
+/// The control accepts first responder unconditionally so Tab reaches it
+/// without Full Keyboard Access, which means a click focuses it too. The cue
+/// is shown only when focus arrived from the keyboard — the rule Apple's own
+/// controls follow, where a click never draws a ring.
 final class ScopeNSSegmentedControl: NSSegmentedControl {
     var onKeyboardSelection: ((StoryScopeKeyCommand) -> Void)?
+    private(set) var focusOrigin: ControlFocusOrigin = .keyboard
 
     override var acceptsFirstResponder: Bool { true }
+
+    var showsFocusCue: Bool {
+        window?.firstResponder === self && focusOrigin == .keyboard
+    }
+
+    func noteFocus(from origin: ControlFocusOrigin) {
+        focusOrigin = origin
+        updateIntegratedFocusCue()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        noteFocus(from: .pointer)
+        super.mouseDown(with: event)
+        updateIntegratedFocusCue()
+    }
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
@@ -53,11 +82,16 @@ final class ScopeNSSegmentedControl: NSSegmentedControl {
 
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
+        // The next arrival is keyboard unless a click says otherwise.
+        focusOrigin = .keyboard
         updateIntegratedFocusCue()
         return resigned
     }
 
     override func keyDown(with event: NSEvent) {
+        // A key press while focused means the keyboard is in use now, however
+        // focus first arrived.
+        noteFocus(from: .keyboard)
         let commandModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
         guard event.modifierFlags.intersection(commandModifiers).isEmpty else {
             super.keyDown(with: event)
@@ -87,7 +121,7 @@ final class ScopeNSSegmentedControl: NSSegmentedControl {
     func updateIntegratedFocusCue() {
         wantsLayer = true
         layer?.cornerRadius = 7
-        layer?.borderWidth = window?.firstResponder === self ? 2 : 0
+        layer?.borderWidth = showsFocusCue ? 2 : 0
         layer?.borderColor = NSColor.keyboardFocusIndicatorColor.withAlphaComponent(0.75).cgColor
     }
 }

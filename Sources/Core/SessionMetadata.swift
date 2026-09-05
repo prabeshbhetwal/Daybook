@@ -160,15 +160,18 @@ struct PowerContextSummary: Equatable {
         "\(Int(percentage.rounded()))%"
     }
 
-    /// What the headline cannot say on its own, as sentences.
+    /// What the headline cannot say on its own: why it reads "Power changed".
     ///
     /// This was one line per observation, which is not a summary — it is the
     /// sampler's log. macOS posts its power notification on every level tick,
     /// roughly once a minute, and each one was tagged `.sourceChanged`, so an
     /// hour on battery rendered as forty-odd rows reading "Battery · 100% ·
-    /// source changed" when the source had not changed once. The reader needs
-    /// to know that coverage has a gap or that the source moved, not to read
-    /// every sample that proves it.
+    /// source changed" when the source had not changed once.
+    ///
+    /// Sampling gaps are not qualified here. The headline is first and last
+    /// level within the interval and claims nothing about continuity, and the
+    /// first attempt at a gap sentence was false in its first real case: a
+    /// stretch begun after an Away answer is tagged "coverage resumed" at 0m.
     private static func qualifications(_ evidence: [PowerObservation],
                                        sources: Set<PowerSourceKind>,
                                        chargingStates: Set<PowerChargingState>) -> [String] {
@@ -183,16 +186,6 @@ struct PowerContextSummary: Equatable {
         }
         if sources.count == 1, chargingStates.subtracting([.unknown]).count > 1 {
             lines.append("Charging started or stopped during this session.")
-        }
-        if chargingStates.contains(.unknown) {
-            lines.append("Charging state was not recorded for part of this session.")
-        }
-        if evidence.contains(where: { $0.boundary == .coverageResumed }) {
-            lines.append("Power recording resumed part-way through; "
-                         + "the time before it has no power coverage.")
-        }
-        if evidence.contains(where: { $0.percentage == nil }) {
-            lines.append("Battery level was not recorded for part of this session.")
         }
         return lines
     }

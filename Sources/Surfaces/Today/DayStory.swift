@@ -607,7 +607,7 @@ struct SessionEntryCard: View {
                 }
             }
             Text("Name and type changes apply to all stretches of this session, including other days.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -638,7 +638,7 @@ struct SessionEntryCard: View {
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 4)
                         Button("Edit") { metadataStore.beginNoteEditing(for: recordID) }
-                            .buttonStyle(.plain).font(.caption2).foregroundStyle(.secondary)
+                            .buttonStyle(.plain).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                             .accessibilityLabel("Edit note for stretch \(noteRecordIDs.firstIndex(of: recordID).map { $0 + 1 } ?? 1)")
                     }
                 }

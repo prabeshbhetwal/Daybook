@@ -596,6 +596,29 @@ enum CompactControlsChecks {
             if control.focusRingType != .none || control.layer?.borderWidth != 2 {
                 failures.append("The native outer ring was not replaced by the integrated focus cue")
             }
+            // A click focuses the control, because it accepts first responder
+            // so that Tab can reach it; the cue is for the keyboard alone.
+            control.noteFocus(from: .pointer)
+            if control.layer?.borderWidth != 0 {
+                failures.append("Pointer-arrived focus drew the keyboard focus cue")
+            }
+            control.keyDown(with: keyEvent(keyCode: 123, modifiers: .numericPad,
+                                           windowNumber: window.windowNumber))
+            if control.layer?.borderWidth != 2 {
+                failures.append("A key press after a click did not restore the focus cue")
+            }
+            _ = window.makeFirstResponder(nil)
+            control.noteFocus(from: .pointer)
+            _ = window.makeFirstResponder(control)
+            if control.layer?.borderWidth != 0 {
+                failures.append("Resigning focus did not reset the origin for the next arrival")
+            }
+            control.updateIntegratedFocusCue()
+            _ = window.makeFirstResponder(nil)
+            _ = window.makeFirstResponder(control)
+            if control.layer?.borderWidth != 2 {
+                failures.append("Keyboard-arrived focus after a resign lost its cue")
+            }
 
             box.writes = 0
             control.keyDown(with: keyEvent(keyCode: 124, modifiers: .numericPad,

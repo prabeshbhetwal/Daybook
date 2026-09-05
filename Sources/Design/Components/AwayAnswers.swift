@@ -7,7 +7,21 @@ import AppKit
 final class AwayAnswerNSButton: NSButton {
     override var acceptsFirstResponder: Bool { true }
 
+    /// Accepting first responder unconditionally lets Tab reach an answer
+    /// without Full Keyboard Access; it also means a click focuses it. The
+    /// ring is for keyboard-arrived focus only, as with the scope control.
+    override func mouseDown(with event: NSEvent) {
+        focusRingType = .none
+        super.mouseDown(with: event)
+    }
+
+    override func resignFirstResponder() -> Bool {
+        focusRingType = .default
+        return super.resignFirstResponder()
+    }
+
     override func keyDown(with event: NSEvent) {
+        focusRingType = .default
         let commandModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
         if event.modifierFlags.intersection(commandModifiers).isEmpty,
            event.keyCode == 36 || event.keyCode == 49 {

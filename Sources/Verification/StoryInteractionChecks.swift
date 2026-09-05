@@ -15,6 +15,7 @@ enum StoryInteractionChecks {
         ("Away Undo refuses to overwrite a subsequent record edit", newerEditSurvivesUndo),
         ("Activity suggestions deduplicate names without inventing categories", activitySuggestions),
         ("Shape bars retain unknown intervals and clip recorded coverage", shapeBars),
+        ("Activity strip folds intervals into cell runs", shapeRuns),
         ("Opening the application reveals its Story without a session sheet", revealApplication),
         ("Interrupted archived Undo cannot debit the same absence twice", interruptedUndo),
         ("Restoring a pending absence keeps its original interval", restoredInterval),
@@ -264,6 +265,58 @@ enum StoryInteractionChecks {
         let empty = SessionShape.bins(segments: [], in: DateInterval(start: start, duration: 3_600))
         return empty.count == 8 && empty.allSatisfy { $0.recordedSeconds == 0 && $0.dominantBundleID == nil }
             ? [] : ["a session without recording acquired an invented activity shape"]
+    }
+
+    /// The activity strip draws runs over fixed cells. Three hundred ten-second
+    /// switches drew as three hundred slivers that overran the row; as runs
+    /// they are bounded by the cells the strip has, widths sum to the strip,
+    /// a real gap is a gap, and the time between two stretches is neither.
+    private static func shapeRuns() -> [String] {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        func segment(_ app: String, _ a: Double, _ b: Double) -> TimelineSegment {
+            TimelineSegment(id: UUID(), bundleID: app, appName: app,
+                start: start.addingTimeInterval(a), end: start.addingTimeInterval(b),
+                colorIndex: 0, endReason: .appSwitch)
+        }
+        // 0–50m: Editor 8s / Browser 2s, alternating. 50–60m: nothing recorded.
+        var barcode: [TimelineSegment] = []
+        var cursor = 0.0
+        while cursor < 3_000 {
+            barcode.append(segment("Editor", cursor, cursor + 8))
+            barcode.append(segment("Browser", cursor + 8, cursor + 10))
+            cursor += 10
+        }
+        let activity = RecordedActivity(segments: barcode,
+                                        spans: [DateInterval(start: start, duration: 3_600)])
+        var failures: [String] = []
+        if activity.intervals.count < 500 {
+            failures.append("The barcode fixture did not produce a barcode: "
+                            + "\(activity.intervals.count) intervals")
+        }
+        let runs = SessionShape.runs(activity: activity, cellCount: 80)
+        if runs.reduce(0, { $0 + $1.cells }) != 80 {
+            failures.append("Runs did not account for every cell")
+        }
+        if runs.count != 2 || runs.first?.bundleID != "Editor" || runs.last?.isGap != true {
+            failures.append("A dominated hour did not fold to one app run and one gap: "
+                            + runs.map { "\($0.bundleID ?? "gap")×\($0.cells)" }.joined(separator: " "))
+        }
+        if let gap = runs.last, abs(gap.start.timeIntervalSince(start.addingTimeInterval(3_000))) > 60 {
+            failures.append("The gap run did not begin where recording stopped")
+        }
+
+        // Two stretches with an hour between them: cells split by duration,
+        // and no run bridges the unrecorded hour between the spans.
+        let split = RecordedActivity(
+            segments: [segment("Editor", 0, 1_800), segment("Browser", 5_400, 7_200)],
+            spans: [DateInterval(start: start, duration: 1_800),
+                    DateInterval(start: start.addingTimeInterval(5_400), duration: 1_800)])
+        let splitRuns = SessionShape.runs(activity: split, cellCount: 40)
+        if splitRuns.map(\.bundleID) != ["Editor", "Browser"] || splitRuns.map(\.cells) != [20, 20] {
+            failures.append("Two equal stretches did not share the cells equally: "
+                            + splitRuns.map { "\($0.bundleID ?? "gap")×\($0.cells)" }.joined(separator: " "))
+        }
+        return failures
     }
 
     private static func revealApplication() -> [String] {

@@ -26,12 +26,13 @@ enum SessionShape {
 
     /// Retains the legacy eight-bin contract for existing consumers while using
     /// the canonical foreground projection rather than re-summing raw records.
-    static func bins(activity: RecordedActivity, in bounds: DateInterval) -> [Bin] {
-        guard bounds.duration > 0, bounds.duration.isFinite else { return [] }
-        let width = bounds.duration / 8
-        return (0..<8).map { index in
+    /// `count` lets a chart ask for as many cells as it has room to draw.
+    static func bins(activity: RecordedActivity, in bounds: DateInterval, count: Int = 8) -> [Bin] {
+        guard bounds.duration > 0, bounds.duration.isFinite, count > 0 else { return [] }
+        let width = bounds.duration / Double(count)
+        return (0..<count).map { index in
             let start = bounds.start.addingTimeInterval(Double(index) * width)
-            let end = index == 7 ? bounds.end : start.addingTimeInterval(width)
+            let end = index == count - 1 ? bounds.end : start.addingTimeInterval(width)
             var byApp: [String: [DateInterval]] = [:]
             for interval in activity.intervals {
                 guard let bundleID = interval.bundleID else { continue }
@@ -48,6 +49,58 @@ enum SessionShape {
                        recordedSeconds: coveredSeconds(byApp.values.flatMap { $0 }),
                        dominantBundleID: amounts.first?.id)
         }
+    }
+
+    /// A stretch of consecutive cells that agree on what was in front. This is
+    /// what an activity strip draws: a run per change of app, never a sliver
+    /// per interval. Nil `bundleID` means the cells were mostly unrecorded.
+    struct Run: Equatable, Identifiable {
+        let id: Int
+        let start: Date
+        let end: Date
+        let bundleID: String?
+        let cells: Int
+        let recordedSeconds: TimeInterval
+        var isGap: Bool { bundleID == nil }
+    }
+
+    /// The session's app use as runs over a fixed number of cells.
+    ///
+    /// Drawing one rectangle per recorded interval is honest at ten intervals
+    /// and a barcode at three hundred: a busy afternoon switches apps every
+    /// few seconds, each switch became a 2pt sliver plus 2pt of spacing, and
+    /// the row overran its own width so nothing was proportional any more.
+    /// Cells fix the resolution to what the strip can show. Each takes the
+    /// app that held the front for most of it, reads as a gap when less than
+    /// `gapBelow` of it was recorded, and merges with a neighbour that agrees.
+    /// Cells are shared between the session's spans by duration, and runs
+    /// never cross a span, so time between stretches is not drawn as either.
+    static func runs(activity: RecordedActivity, cellCount: Int,
+                     gapBelow: Double = 0.5) -> [Run] {
+        let elapsed = activity.elapsed
+        guard elapsed > 0, elapsed.isFinite, cellCount > 0 else { return [] }
+        var runs: [Run] = []
+        var remaining = cellCount
+        for (index, span) in activity.bounds.enumerated() {
+            let isLast = index == activity.bounds.count - 1
+            let share = isLast ? remaining
+                : Int((Double(cellCount) * span.duration / elapsed).rounded())
+            let cells = max(1, min(remaining, share))
+            remaining -= cells
+            for bin in bins(activity: activity, in: span, count: cells) {
+                let owner = bin.fraction < gapBelow ? nil : bin.dominantBundleID
+                if let last = runs.last, last.end == bin.start, last.bundleID == owner {
+                    runs[runs.count - 1] = Run(id: last.id, start: last.start, end: bin.end,
+                                               bundleID: owner, cells: last.cells + 1,
+                                               recordedSeconds: last.recordedSeconds + bin.recordedSeconds)
+                } else {
+                    runs.append(Run(id: runs.count, start: bin.start, end: bin.end, bundleID: owner,
+                                    cells: 1, recordedSeconds: bin.recordedSeconds))
+                }
+            }
+            if remaining <= 0 { break }
+        }
+        return runs
     }
 
     /// Coverage describes time observed, not keystrokes. Duplicate or

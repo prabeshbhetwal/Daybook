@@ -1493,13 +1493,22 @@ enum SessionMetadataChecks {
                "invalid capacity produced an invented percentage", &problems)
         expect(summary?.headline == "Power changed",
                "mixed or partial sources claimed one continuous source", &problems)
-        expect(summary?.detail?.contains("resumed part-way through") == true,
-               "resume gap was not qualified beneath the headline", &problems)
-        expect(summary?.detail?.contains("Battery level was not recorded") == true,
-               "missing battery levels were not qualified", &problems)
-        // The point of the change: a qualification, not a per-sample log.
-        expect((summary?.detail ?? "").split(separator: "\n").count == 1,
-               "power detail returned to one line per observation", &problems)
+        expect(summary?.detail == "Power source changed during this session: "
+               + "battery, an unrecorded source, UPS.",
+               "the sources behind a changed headline were not named in order", &problems)
+        // A stretch begun after an Away answer is tagged "coverage resumed" at
+        // 0m; a sentence built on that tag claimed a gap that did not exist.
+        let resumedAtStart = PowerContextSummary.make(observations: [
+            PowerObservation(timestamp: start, source: .battery, percentage: 64,
+                             charging: .notCharging, boundary: .coverageResumed),
+            PowerObservation(timestamp: start.addingTimeInterval(5), source: .battery,
+                             percentage: 64, charging: .notCharging, boundary: .sourceChanged),
+            PowerObservation(timestamp: start.addingTimeInterval(90), source: .battery,
+                             percentage: 64, charging: .notCharging, boundary: .sourceChanged)
+        ], interval: DateInterval(start: start, duration: 93))
+        expect(resumedAtStart?.headline == "Battery · 64% → 64%" && resumedAtStart?.detail == nil,
+               "an uninterrupted battery stretch carried a qualification: "
+               + "\(resumedAtStart?.detail ?? "nil")", &problems)
         return problems
     }
 
