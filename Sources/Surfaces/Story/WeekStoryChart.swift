@@ -66,17 +66,17 @@ struct WeekStoryChart: View {
                         // App use sits behind, so a day with heavy use but
                         // little focus still reads as a low bar.
                         if day.tracked > 0 {
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
                                 .fill(Tokens.Colour.focus.opacity(0.16))
                                 .frame(height: height(day.tracked, in: geometry.size.height))
                         }
                         if focus > 0 {
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
                                 .fill(isSelected ? Tokens.Colour.focus
                                                  : Tokens.Colour.focus.opacity(0.72))
                                 .frame(height: height(focus, in: geometry.size.height))
                         } else {
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
                                 .fill(Tokens.Colour.elevated)
                                 .frame(height: 3)
                         }
@@ -86,7 +86,7 @@ struct WeekStoryChart: View {
                                value: focus)
                 }
                 Text(Tokens.weekdayName(day.date).prefix(3).uppercased())
-                    .font(.caption2.weight(isSelected ? .bold : .semibold))
+                    .font(Tokens.Typography.microLabel.weight(isSelected ? .bold : .semibold))
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.focus)
                                                 : AnyShapeStyle(.secondary))
             }
@@ -127,7 +127,7 @@ struct WorkTypeLegend: View {
             HStack(spacing: Tokens.Space.l) {
                 ForEach(shares) { share in
                     HStack(spacing: Tokens.Space.xs) {
-                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous)
                             .fill(Tokens.Palette.workType(share.workType))
                             .frame(width: 10, height: 10)
                         Text(share.workType.displayName)

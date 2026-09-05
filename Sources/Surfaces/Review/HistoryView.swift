@@ -159,7 +159,7 @@ struct HistoryRangeControl: View {
                 Text(presentation.label)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.semibold))
+                    .font(Tokens.Typography.microLabel)
                     .accessibilityHidden(true)
             }
             .font(Tokens.Typography.metadata)
@@ -188,7 +188,7 @@ struct HistoryRangeControl: View {
                     .font(Tokens.Typography.sectionTitle)
                 Spacer(minLength: Tokens.Space.l)
                 Button("All dates", action: onReset)
-                    .buttonStyle(.borderless)
+                    .buttonStyle(StoryLinkStyle())
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             }
             HistoryDateControl(label: "From", selection: $start, range: bounds)
@@ -211,6 +211,16 @@ struct HistoryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            // The workspace names itself here, the way Insights does; the
+            // chrome above holds controls and the way back, never a title.
+            VStack(alignment: .leading, spacing: 2) {
+                Text("History")
+                    .font(Tokens.Typography.pageTitle)
+                    .accessibilityAddTraits(.isHeader)
+                Text("\(store.filteredHistoryDays.count) dated records, newest first.")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+            }
             ForEach(store.historyIntegrityNotices, id: \.self) { notice in
                 IntegrityNotice(notice)
             }
@@ -228,7 +238,7 @@ struct HistoryView: View {
             }
 
             SurfacePanel(showsHeader: false) {
-                SectionHeader(title: "Days", trailing: "newest first")
+                SectionHeader(title: "Days")
                 if store.historyDays.isEmpty {
                     EmptyState("No recorded history yet",
                                detail: "Tracked days and focus sessions will appear here locally.",
@@ -300,7 +310,7 @@ struct HistoryView: View {
     @ViewBuilder private var clearFilters: some View {
         if store.historyFilter.isActive {
             Button("Clear filters") { store.clearHistoryFilters() }
-                .buttonStyle(.borderless)
+                .buttonStyle(StoryLinkStyle())
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         }
     }
@@ -384,7 +394,7 @@ struct HistoryView: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         Button("Hide story") { navigation.clearReviewDay() }
-                            .buttonStyle(.borderless)
+                            .buttonStyle(StoryLinkStyle())
                     }
                     ProjectedDayStoryColumn(store: store, projection: projection)
                         .id(projection.id)
@@ -426,7 +436,7 @@ struct HistoryView: View {
                 HistoryMetric(value: "\(day.sessions)",
                               width: HistoryTableLayout.sessionWidth)
                 Image(systemName: disclosure.chevronSystemName)
-                    .font(.caption.weight(.semibold))
+                    .font(Tokens.Typography.microLabel)
                     .foregroundStyle(.tertiary)
                     .frame(width: HistoryTableLayout.disclosureWidth)
             }
@@ -529,7 +539,7 @@ private struct HistoryMetric: View {
 
     var body: some View {
         Text(value)
-            .font(.callout.weight(.semibold).monospacedDigit())
+            .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
             .frame(width: width, alignment: .trailing)
     }
 }

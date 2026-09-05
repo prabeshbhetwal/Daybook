@@ -45,7 +45,7 @@ struct StreakBadge: View {
 }
 
 struct StartButton: View {
-    var title: String = "Start Focus"
+    var title: String = "Start focus"
     /// The caller decides how wide. It used to force `maxWidth: .infinity`,
     /// which was right in a 320pt panel and absurd in a 560pt one.
     var fills: Bool = true
@@ -80,7 +80,7 @@ struct LiveTimer: View {
                 .foregroundStyle(paused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 .accessibilityLabel("Elapsed \(Tokens.duration(seconds))")
             Text(paused ? "Paused · \(intent)" : intent)
-                .font(.callout)
+                .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -94,7 +94,7 @@ struct IntentField: View {
     var body: some View {
         TextField("What are you working on?", text: $text)
             .textFieldStyle(.plain)
-            .font(.title3)
+            .font(Tokens.Typography.rowTitle)
             .onSubmit(onSubmit)
             .accessibilityLabel("Session intent")
     }
@@ -148,7 +148,7 @@ struct QuickStartRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Text("Quick start")
-                .font(.caption)
+                .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Tokens.Space.s) {
@@ -194,14 +194,14 @@ struct WeekChart: View {
             .chartYAxis(.hidden)
             .chartXAxis {
                 AxisMarks(values: bars.map(\.id)) { _ in
-                    AxisValueLabel(format: .dateTime.weekday(.narrow)).font(.caption2)
+                    AxisValueLabel(format: .dateTime.weekday(.narrow)).font(Tokens.Typography.microLabel.weight(.regular))
                 }
             }
             .frame(height: height)
             .accessibilityLabel("Focused minutes for the last seven days")
         } else {
             Text("No sessions this week yet.")
-                .font(.callout)
+                .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .frame(height: height, alignment: .leading)
         }
@@ -216,7 +216,7 @@ struct StatTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Label(title, systemImage: symbol)
-                .font(.caption)
+                .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(Tokens.Typography.metricValue)

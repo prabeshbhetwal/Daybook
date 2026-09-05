@@ -137,7 +137,7 @@ struct AwardsView: View {
             }
             HStack(spacing: 4) {
                 ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous)
                         .fill(entry.met ? Tokens.Colour.focus : Tokens.Colour.elevated)
                         .frame(height: 8)
                 }

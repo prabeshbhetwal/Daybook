@@ -84,7 +84,7 @@ struct StoryHeadline: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Text(eyebrow.uppercased())
-                .font(.caption2.weight(.bold))
+                .font(Tokens.Typography.microLabel.weight(.bold))
                 .kerning(0.8)
                 .foregroundStyle(.secondary)
             emphasised
@@ -194,13 +194,13 @@ struct StoryCorrectionNotice: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(error).fixedSize(horizontal: false, vertical: true)
                 Button("Retry saving") { store.retryLastCorrection() }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(StoryLinkStyle())
             }
             .font(Tokens.Typography.metadata)
-            .padding(12)
+            .padding(Tokens.Space.m)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Tokens.Colour.attention.opacity(0.10),
-                        in: RoundedRectangle(cornerRadius: 9))
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.well))
         }
     }
 }

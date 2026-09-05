@@ -25,7 +25,7 @@ struct SessionNoteEditor: View {
                 .focused($isFocused)
                 .accessibilityLabel("Session note")
             if let error = store.noteError(for: recordID) {
-                Text(error).font(.caption).foregroundStyle(.red)
+                Text(error).font(Tokens.Typography.metadata).foregroundStyle(Tokens.Colour.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: Tokens.Space.s) {

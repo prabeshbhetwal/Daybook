@@ -332,7 +332,7 @@ struct StoryRail: View {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(Tokens.preciseDuration(trackedValue))
                     .rollingDigits(trackedValue)
-                    .font(.title3.weight(.semibold).monospacedDigit())
+                    .font(Tokens.Typography.rowTitle.weight(.semibold).monospacedDigit())
                 Text("recorded app use")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
@@ -366,7 +366,7 @@ struct StoryRail: View {
                         .fixedSize(horizontal: false, vertical: true)
             }
             Text("A session may include pauses. Goal credit counts only focus with recorded app use.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -384,7 +384,7 @@ struct StoryRail: View {
 
     private func legendRow(colour: Color, label: String, value: String) -> some View {
         HStack(spacing: Tokens.Space.s) {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
+            RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous)
                 .fill(colour)
                 .frame(width: 10, height: 10)
             Text(label)
@@ -451,7 +451,7 @@ struct StoryRail: View {
                   trailing: store.streak == 1 ? "1 day" : "\(store.streak) days") {
             HStack(spacing: 3) {
                 ForEach(Array(store.streakDays().enumerated()), id: \.offset) { _, entry in
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
                         .fill(entry.met ? Tokens.Palette.app(rank: 4) : Tokens.Colour.elevated)
                         .frame(height: 8)
                 }

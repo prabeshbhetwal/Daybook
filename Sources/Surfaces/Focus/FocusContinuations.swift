@@ -113,7 +113,7 @@ struct FocusContinuations: View {
     ) -> some View {
         if enabled {
             Button(action: action, label: label)
-                .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 9))
+                .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
         } else {
             label()
         }
@@ -178,7 +178,7 @@ private struct FocusContinuationLabel: View {
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(Tokens.Colour.focus)
                 .padding(.horizontal, Tokens.Space.m)
-                .frame(minHeight: 26)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
         case .duration(let seconds):
             Text(Tokens.preciseDuration(seconds))

@@ -86,12 +86,21 @@ enum Tokens {
         static let xxxl: CGFloat = 48
     }
 
+    /// Every corner the product draws. Ten literals were in use — 1, 2, 3, 4,
+    /// 5, 6, 7, 8, 9, 13 — where five steps do the work: a bar's end, a small
+    /// mark, a control, a well inside a card, a nested panel. The entry card
+    /// and rail tile keep their reference radii in `StoryStyle`.
     enum Radius {
         static let panel: CGFloat = 16
         static let nested: CGFloat = 12
         static let capsule: CGFloat = 999
-
+        /// A well inside a card: the scope control, a notice, a month cell.
+        static let well: CGFloat = 9
+        /// A button. The reference's 7-point control corner.
+        static let control: CGFloat = 7
         static let swatch: CGFloat = 5
+        /// A small mark: a hover tint behind a row, a chart's clip.
+        static let mark: CGFloat = 4
         static let bar: CGFloat = 3
     }
 

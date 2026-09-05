@@ -54,6 +54,32 @@ is known. Native controls preserve visible keyboard focus.
   and contextual search. Native modal sheets block parent interaction and Escape
   dismisses. History remains searchable and opens historical stories explicitly.
 
+## Chrome bar
+
+One row, the same columns in every workspace: a slot for the way back, the
+workspace's control, the period, the links to the other workspaces, the
+session control, Settings. The slot is the width of one round button and is
+empty on Story; Insights and History put a bare back arrow in it, so the
+scope pills begin at the same point in every view. Both links are always
+present in the same order; the workspace you are in is set in the text
+colour and is not a link. The bar holds controls and the way back, never a
+title: Insights and History name themselves at the top of their page with a
+page title and one line of metadata. The session control never wraps.
+
+## Vocabulary
+
+- Corners: bar 3, mark 4, swatch 5, control 7, well 9, nested 12, panel 16;
+  entry cards 13 and rail tiles 14 keep the reference's own radii.
+- Icon actions are 28-point circles everywhere: the chrome's back, period
+  and Settings buttons, the strip's pin and close.
+- Text actions inside the app — the chrome's links, "Show all visits",
+  "Undo", "Retry" — share one link style: semibold metadata in the action
+  colour with a hover tint. Native bordered buttons remain in native sheets.
+- Type comes only from the scale. Section headers are the section size;
+  labels inside a card are the small-label size in capitals; a page names
+  itself at the page size.
+- Errors and refusals use the danger token, never a raw red.
+
 ## Measurement language
 
 Focus time means logged session work after the state machine excludes pauses and

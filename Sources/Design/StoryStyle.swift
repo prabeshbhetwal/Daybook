@@ -51,6 +51,32 @@ enum StoryStyle {
 
 /// A restrained press treatment, retaining the native Button's keyboard and
 /// accessibility behaviour. It never adds motion when Reduce Motion is enabled.
+/// A text action in the app's own voice: semibold metadata in the action
+/// colour, a hover tint, a press that dims. Every in-app link wears this —
+/// the chrome's History and Insights, "Show all visits", "Undo", "Retry" —
+/// where before half of them were AppKit's borderless text button and half
+/// were this, two vocabularies for one kind of thing.
+struct StoryLinkStyle: ButtonStyle {
+    var tint: Color = StoryStyle.action
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var enabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Tokens.Typography.metadata.weight(.semibold))
+            .foregroundStyle(enabled ? AnyShapeStyle(tint) : AnyShapeStyle(.secondary))
+            .padding(.horizontal, Tokens.Space.s)
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            .contentShape(Rectangle())
+            .hoverHighlight(cornerRadius: Tokens.Radius.control)
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            .animation(Tokens.Motion.animation(configuration.isPressed ? Tokens.Motion.press
+                                                                       : Tokens.Motion.release,
+                                               reduceMotion: reduceMotion),
+                       value: configuration.isPressed)
+    }
+}
+
 struct StoryPressStyle: ButtonStyle {
     /// Rows and text actions that should also tint under the pointer.
     var hovers = false

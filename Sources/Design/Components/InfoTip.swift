@@ -124,17 +124,17 @@ private struct TipBubble: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(tip.title)
-                .font(.caption.weight(.semibold))
+                .font(Tokens.Typography.microLabel)
             Text(tip.detail)
-                .font(.caption)
+                .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .multilineTextAlignment(.leading)
         .padding(.horizontal, Tokens.Space.m)
         .padding(.vertical, Tokens.Space.s)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.quaternary))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Tokens.Radius.control))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control).strokeBorder(.quaternary))
         .shadow(color: .black.opacity(0.28), radius: 10, y: 3)
     }
 }

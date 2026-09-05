@@ -27,6 +27,8 @@ struct StoryChromeBar: View {
     @FocusState private var focusedControl: StoryChromeFocus?
     @StateObject private var gearHovered = BoolBox()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// A scope pill is the target floor plus the container's 3pt inset each side.
+    static let controlRowHeight: CGFloat = AccessibilityMetrics.minimumTargetSize + 6
 
     var body: some View {
         HStack(spacing: Tokens.Space.l) {
@@ -36,7 +38,6 @@ struct StoryChromeBar: View {
                 .accessibilityHidden(true)
             backSlot
             workspaceControls
-            Spacer(minLength: Tokens.Space.s)
             if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible) {
                 StorySessionControl(store: store,
                                     focus: $focusedControl,
@@ -65,6 +66,10 @@ struct StoryChromeBar: View {
             .help("Settings")
             .accessibilityLabel("Settings")
         }
+        // The row is as tall as the scope control whether or not the scope
+        // control is in it. History has none, and the bar shrank by six
+        // points on entry, taking the divider and the page with it.
+        .frame(minHeight: Self.controlRowHeight)
         .padding(.horizontal, Tokens.Space.l)
         .padding(.vertical, Tokens.Space.s)
         .background(StoryStyle.canvas)
@@ -104,8 +109,10 @@ struct StoryChromeBar: View {
                height: AccessibilityMetrics.minimumTargetSize)
     }
 
-    /// Every workspace lays out the same three columns — pills, period, links —
-    /// so a change of workspace changes words, not positions.
+    /// Every workspace lays out the same three columns — context, period,
+    /// links — between the same spacers, and the links sit against the session
+    /// control, so a change of workspace changes words, not positions. The bar
+    /// holds controls and the way back; a workspace names itself in its page.
     @ViewBuilder private var workspaceControls: some View {
         switch navigation.workspace {
         case .story:
@@ -119,12 +126,8 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .history:
-            Text("History")
-                .font(Tokens.Typography.rowTitle)
-                .accessibilityAddTraits(.isHeader)
-            Text("\(store.filteredHistoryDays.count) dated records")
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
+            // History's controls are its filters, which belong together in
+            // the page; the bar keeps only the way back and the links.
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .insights:
@@ -142,29 +145,29 @@ struct StoryChromeBar: View {
 
     /// The other workspaces, as links. Navigation belongs in the chrome; these
     /// sat below every rail card, so reaching them meant scrolling past the
-    /// content first. The column keeps its width whichever links it holds, so
-    /// the period control between the spacers stays centred on the same point.
+    /// content first. Both words are always present in the same order, so
+    /// neither moves when the workspace changes: the one you are in is set in
+    /// the text colour and is not a link, the way a menu marks its own item.
     private var crossLinks: some View {
         HStack(spacing: Tokens.Space.xs) {
-            ForEach(links, id: \.0) { title, sheet in
-                Button { navigation.openSheet(sheet) } label: {
-                    Text(title)
-                        .padding(.horizontal, Tokens.Space.s)
-                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                }
-                .buttonStyle(StoryPressStyle(hovers: true))
-            }
+            crossLink("History", .history, current: navigation.workspace == .history)
+            crossLink("Insights", .insights, current: navigation.workspace == .insights)
         }
-        .font(Tokens.Typography.metadata.weight(.semibold))
-        .foregroundStyle(StoryStyle.action)
-        .frame(minWidth: 132, alignment: .trailing)
     }
 
-    private var links: [(String, StorySheetKind)] {
-        switch navigation.workspace {
-        case .story: return [("History", .history), ("Insights", .insights)]
-        case .history: return [("Insights", .insights)]
-        case .insights: return [("History", .history)]
+    @ViewBuilder private func crossLink(_ title: String, _ sheet: StorySheetKind,
+                                        current: Bool) -> some View {
+        if current {
+            Text(title)
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, Tokens.Space.s)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                .accessibilityAddTraits([.isHeader, .isSelected])
+                .accessibilityLabel("\(title), current")
+        } else {
+            Button(title) { navigation.openSheet(sheet) }
+                .buttonStyle(StoryLinkStyle())
         }
     }
 
@@ -246,6 +249,8 @@ struct StorySessionControl: View {
                     Image(systemName: "play.fill").font(Tokens.Typography.microLabel.weight(.bold))
                     Text("Start focus").font(Tokens.Typography.metadata.weight(.semibold))
                 }
+                .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .background(Tokens.Colour.focus, in: Capsule())
@@ -270,6 +275,8 @@ struct StorySessionControl: View {
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                 }
+                .lineLimit(1)
+                .fixedSize()
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())

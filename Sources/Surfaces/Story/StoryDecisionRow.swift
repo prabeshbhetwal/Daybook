@@ -42,13 +42,13 @@ struct StoryDecisionRow: View {
                 .disabled(store.hasUnresolvedAwayDecision)
                 if let note = StoryDecisionScope.note(visible: range, full: receipt.range) {
                     Text(note)
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 }
             }
             .padding(15)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Tokens.Colour.attention.opacity(0.08), in: RoundedRectangle(cornerRadius: 13))
-            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Tokens.Colour.attention.opacity(0.25)))
+            .background(Tokens.Colour.attention.opacity(0.08), in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
+            .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius).strokeBorder(Tokens.Colour.attention.opacity(0.25)))
         }
     }
 
@@ -74,7 +74,7 @@ struct StorySavedActionRow: View {
                 .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
             Spacer(minLength: 8)
             Button("Undo", action: undo)
-                .buttonStyle(.borderless)
+                .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(StoryStyle.action)
                 .frame(minWidth: 36, minHeight: 28)
@@ -83,17 +83,17 @@ struct StorySavedActionRow: View {
                 .accessibilityHint(scopeNote ?? "Reverts only this action; later work is unchanged.")
           }
           if let scopeNote {
-              Text(scopeNote).font(.caption).foregroundStyle(.secondary)
+              Text(scopeNote).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                   .fixedSize(horizontal: false, vertical: true)
                   .padding(.leading, 22)
           }
         }
         .padding(.horizontal, 15)
-        .padding(.vertical, 8)
+        .padding(.vertical, Tokens.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(LinearGradient(colors: [StoryStyle.successWash, StoryStyle.successWash.opacity(0.45)],
                                    startPoint: .leading, endPoint: .trailing),
-                    in: RoundedRectangle(cornerRadius: 13))
-        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(StoryStyle.successInk.opacity(0.22)))
+                    in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
+        .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius).strokeBorder(StoryStyle.successInk.opacity(0.22)))
     }
 }

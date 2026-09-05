@@ -50,7 +50,7 @@ struct StatCard: View {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
                 if let symbol {
                     Image(systemName: symbol)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(Tokens.Typography.microLabel)
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.secondary)
                 }
@@ -158,13 +158,19 @@ struct IconButton: View {
     let systemImage: String
     let help: String
     var prominent: Bool = false
+    /// Spoken name when the tooltip is a sentence rather than a name.
+    var label: String?
+    /// A toggle's state, so the circle can say it is on.
+    var isOn: Bool?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 13, weight: .medium))
+                .font(Tokens.Typography.control.weight(.medium))
                 .symbolRenderingMode(.hierarchical)
+                .symbolSwap()
+                .symbolNod(on: isOn ?? false)
                 .frame(width: AccessibilityMetrics.minimumTargetSize,
                        height: AccessibilityMetrics.minimumTargetSize)
                 .background(prominent ? AnyShapeStyle(Tokens.Colour.focus.opacity(0.15))
@@ -175,7 +181,8 @@ struct IconButton: View {
         }
         .buttonStyle(PressableStyle())
         .help(help)
-        .accessibilityLabel(help)
+        .accessibilityLabel(label ?? help)
+        .accessibilityAddTraits(isOn == true ? .isSelected : [])
     }
 }
 

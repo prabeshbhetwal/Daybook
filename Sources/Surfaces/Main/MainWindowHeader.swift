@@ -67,7 +67,7 @@ private struct FocusContinuityMark: View {
         }
             .frame(width: MainWindowChrome.appMarkSize,
                    height: MainWindowChrome.appMarkSize)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
             .accessibilityHidden(true)
     }
 }

@@ -346,7 +346,7 @@ struct DayStory: View {
                             ? "Start a focus session, or let app recording build the day's story."
                             : "App recording is off. Start a focus session, or enable recording in Settings.")
                           : "No sessions or app use were recorded on this day.")
-            .font(.callout)
+            .font(Tokens.Typography.metadata)
             .foregroundStyle(.secondary)
             .padding(.vertical, Tokens.Space.m)
     }
@@ -420,14 +420,14 @@ struct SessionEntryCard: View {
                         Spacer(minLength: Tokens.Space.s)
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(clock ?? Tokens.preciseDuration(session.worked))
-                                .font(.callout.weight(clock == nil ? .regular : .semibold)
+                                .font(Tokens.Typography.metadata.weight(clock == nil ? .regular : .semibold)
                                     .monospacedDigit())
                                 .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
                                                               : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
                                 .contentTransition(.numericText())
                             if let powerSummary {
                                 Label(powerSummary.headline, systemImage: powerSummary.symbolName)
-                                    .font(.caption2).foregroundStyle(.tertiary)
+                                    .font(Tokens.Typography.microLabel.weight(.regular)).foregroundStyle(.tertiary)
                             }
                         }
                         Image(systemName: isOpen ? "chevron.down" : "chevron.right")
@@ -436,7 +436,7 @@ struct SessionEntryCard: View {
                     }
                     HStack(spacing: Tokens.Space.s) {
                         Text(session.workType.displayName)
-                            .font(.caption2.weight(.semibold))
+                            .font(Tokens.Typography.microLabel)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
@@ -562,7 +562,7 @@ struct SessionEntryCard: View {
             HStack(spacing: 16) {
                 ForEach(apps.prefix(3)) { app in
                     HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: 2).fill(tint).frame(width: 8, height: 8)
+                        RoundedRectangle(cornerRadius: Tokens.Radius.bar).fill(tint).frame(width: 8, height: 8)
                         Text("\(app.appName) \(Tokens.preciseDuration(app.total))")
                             .lineLimit(1)
                     }
@@ -574,7 +574,7 @@ struct SessionEntryCard: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.caption2.weight(.semibold))
+            .font(Tokens.Typography.microLabel)
             .foregroundStyle(.secondary)
             .textCase(.uppercase)
     }
@@ -633,7 +633,7 @@ struct SessionEntryCard: View {
            let error = metadataStore.powerMetadataError(for: noteRecordIDs) {
             Label(error, systemImage: "exclamationmark.triangle.fill")
                 .font(Tokens.Typography.metadata)
-                .foregroundStyle(.red)
+                .foregroundStyle(Tokens.Colour.danger)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel("Session power metadata error. \(error)")
         }
@@ -673,9 +673,9 @@ struct SessionEntryCard: View {
                     if pick(type) { picking.value = false }
                 } label: {
                     Text(type.displayName)
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .font(Tokens.Typography.microLabel)
+                        .padding(.horizontal, Tokens.Space.s)
+                        .padding(.vertical, Tokens.Space.xs)
                         .background(isCurrent ? Tokens.Palette.workType(type).opacity(0.18)
                                               : Tokens.Colour.elevated,
                                     in: Capsule())

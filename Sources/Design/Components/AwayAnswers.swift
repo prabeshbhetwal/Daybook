@@ -143,19 +143,19 @@ struct AwayAnswerGrid: View {
             if let error {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Answer not saved", systemImage: "exclamationmark.triangle")
-                        .font(.caption.weight(.semibold))
-                    Text(error).font(.caption)
+                        .font(Tokens.Typography.microLabel)
+                    Text(error).font(Tokens.Typography.metadata)
                         .fixedSize(horizontal: false, vertical: true)
                     if let onRetry {
                         Button("Retry saving", action: onRetry)
-                            .buttonStyle(.borderless)
-                            .font(.caption.weight(.semibold))
+                            .buttonStyle(StoryLinkStyle())
+                            .font(Tokens.Typography.microLabel)
                             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     }
                 }
-                .padding(10)
+                .padding(Tokens.Space.m)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Tokens.Colour.attention.opacity(0.10), in: RoundedRectangle(cornerRadius: 9))
+                .background(Tokens.Colour.attention.opacity(0.10), in: RoundedRectangle(cornerRadius: Tokens.Radius.well))
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Answer not saved")
             }
@@ -169,7 +169,7 @@ struct AwayAnswerGrid: View {
         let hasText = !reason.text.trimmingCharacters(in: .whitespaces).isEmpty
         return HStack(spacing: Tokens.Space.s) {
             Image(systemName: "pencil.line")
-                .font(.system(size: compact ? 12 : 13, weight: .medium))
+                .font(compact ? Tokens.Typography.metadata.weight(.medium) : Tokens.Typography.control.weight(.medium))
                 .foregroundStyle(.tertiary)
             TextField("Name it — dinner, a call, a walk", text: $reason.text)
                 .textFieldStyle(.plain)
@@ -179,7 +179,7 @@ struct AwayAnswerGrid: View {
             if hasText {
                 Button(action: submitReason) {
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(Tokens.Typography.ringLabel.weight(.bold))
                         .foregroundStyle(Tokens.Colour.onFocus)
                         .frame(width: AccessibilityMetrics.minimumTargetSize,
                                height: AccessibilityMetrics.minimumTargetSize)
@@ -249,7 +249,7 @@ struct AwayAnswerGrid: View {
                     .font(controlFont)
                 if showsCaptions {
                     Text(answer.caption)
-                        .font(.caption)
+                        .font(Tokens.Typography.metadata)
                         .opacity(0.85)
                         .fixedSize(horizontal: false, vertical: true)
                 }

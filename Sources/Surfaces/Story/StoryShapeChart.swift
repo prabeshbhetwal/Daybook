@@ -39,7 +39,7 @@ struct StoryShapeChart: View {
                         runView(run).frame(width: unit * CGFloat(run.cells))
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous))
                 .animation(Tokens.Motion.animation(Tokens.Motion.settle, reduceMotion: reduceMotion),
                            value: activity.coverage)
             }

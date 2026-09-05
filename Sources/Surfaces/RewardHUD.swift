@@ -21,15 +21,15 @@ private struct RewardHUDView: View {
     var body: some View {
         HStack(alignment: .top, spacing: Tokens.Space.m) {
             Image(systemName: model.symbolName)
-                .font(.title2)
+                .font(Tokens.Typography.sectionTitle)
                 .foregroundStyle(Tokens.Colour.progress)
                 .frame(width: Tokens.Space.xl)
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text(model.title)
-                    .font(.callout.weight(.semibold))
+                    .font(Tokens.Typography.metadata.weight(.semibold))
                     .lineLimit(2)
                 Text(model.detail)
-                    .font(.caption)
+                    .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     // A break prompt carries its reason, which is two sentences.
                     // At two lines the reason was the half that got truncated,
@@ -38,8 +38,8 @@ private struct RewardHUDView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if model.undo != nil {
                     Button("Undo", action: onUndoTapped)
-                        .buttonStyle(.borderless)
-                        .font(.caption.weight(.medium))
+                        .buttonStyle(StoryLinkStyle())
+                        .font(Tokens.Typography.metadata.weight(.medium))
                         .foregroundStyle(Tokens.Colour.focus)
                         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 }

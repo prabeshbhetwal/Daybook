@@ -59,7 +59,7 @@ struct MonthStoryGrid: View {
                                 navigation.selectStoryDay(day)
                             }
                         } else {
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
                                 .fill(StoryStyle.well.opacity(0.4))
                                 .frame(maxWidth: .infinity)
                                 .frame(height: MonthStoryLayout.cellHeight)
@@ -71,7 +71,7 @@ struct MonthStoryGrid: View {
             }
             legend
         }
-        .padding(18)
+        .padding(Tokens.Space.l)
         .background(StoryStyle.card,
                     in: RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous)
@@ -85,13 +85,13 @@ struct MonthStoryGrid: View {
         HStack(spacing: Tokens.Space.s) {
             ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { name in
                 Text(name.uppercased())
-                    .font(.caption2.weight(.bold))
+                    .font(Tokens.Typography.microLabel.weight(.bold))
                     .kerning(0.6)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             Text("WEEK")
-                .font(.caption2.weight(.bold))
+                .font(Tokens.Typography.microLabel.weight(.bold))
                 .kerning(0.6)
                 .foregroundStyle(.secondary)
                 .frame(width: 62, alignment: .trailing)
@@ -122,7 +122,7 @@ struct MonthStoryGrid: View {
             HStack(spacing: 3) {
                 Text("Less").font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 ForEach([0.16, 0.44, 0.72, 1.0], id: \.self) { level in
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
                         .fill(Tokens.Palette.workType(.deepWork).opacity(level))
                         .frame(width: 12, height: 12)
                 }
@@ -171,7 +171,7 @@ struct MonthDayCell: View {
     }
 
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: 9, style: .continuous)
+        RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
     }
 
     private var face: some View {
@@ -182,7 +182,7 @@ struct MonthDayCell: View {
               VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 2) {
                 Text(dayNumber)
-                    .font(.caption.weight(.bold).monospacedDigit())
+                    .font(Tokens.Typography.microLabel.weight(.bold).monospacedDigit())
                 Spacer(minLength: 0)
                 if isToday {
                     Circle().fill(Color(NSColor(hex: paint.foreground)))
@@ -196,7 +196,7 @@ struct MonthDayCell: View {
                 .minimumScaleFactor(0.75)
               }
         .foregroundStyle(Color(NSColor(hex: paint.foreground)))
-        .padding(7)
+        .padding(Tokens.Space.s)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         .overlay(shape.strokeBorder(StoryStyle.action, lineWidth: isSelected ? 2 : 0))

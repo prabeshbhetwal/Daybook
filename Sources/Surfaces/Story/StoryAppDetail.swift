@@ -55,7 +55,7 @@ struct StoryAppRow: View {
         .padding(.vertical, 3)
         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .background(hovered.value && onOpen != nil ? Tokens.Colour.hover : .clear,
-                    in: RoundedRectangle(cornerRadius: 4))
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.mark))
         .contentShape(Rectangle())
     }
 }
@@ -84,11 +84,11 @@ struct StoryAppDetail: View {
                 }
                 Spacer()
                 Text(Tokens.preciseDuration(evidence.total))
-                    .font(.title3.monospacedDigit())
+                    .font(Tokens.Typography.rowTitle.monospacedDigit())
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(StoryLinkStyle())
                 .keyboardShortcut(.cancelAction)
                 .accessibilityLabel("Close app detail")
                 .help("Close app detail")
@@ -116,16 +116,16 @@ struct StoryAppDetail: View {
             .frame(height: min(260, CGFloat(max(1, shown)) * (scope == .day ? 26 : 42)))
             if shown < entries.count {
                 Button("Show all \(entries.count) visits") { showAll.value = true }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(StoryLinkStyle())
             }
             if entries.isEmpty {
                 Text("No app use was recorded in this period.")
                     .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
             }
             Text("Visit limits affect this list only, never the total.")
-                .font(.caption).foregroundStyle(.secondary)
+                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
         }
-        .padding(20)
+        .padding(Tokens.Space.xl)
         .frame(width: 380)
         .background(StoryStyle.card)
         .onExitCommand(perform: onDismiss)

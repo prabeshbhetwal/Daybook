@@ -25,7 +25,7 @@ private struct StoryActionLabel<Label: View>: View {
             .padding(.horizontal, 11)
             .padding(.vertical, 5)
             .frame(minHeight: 28)
-            .background(fill, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .background(fill, in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
             .contentShape(Rectangle())
             .opacity(enabled ? 1 : 0.45)
             .animation(Tokens.Motion.animation(Tokens.Motion.hover, reduceMotion: reduceMotion),

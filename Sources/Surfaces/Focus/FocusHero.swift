@@ -611,15 +611,15 @@ private struct FocusOperationFailure: View {
                 .fixedSize(horizontal: false, vertical: true)
             if failure.hasOriginBoundRetry {
                 Button("Retry saving") { store.retryLastCorrection() }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(StoryLinkStyle())
                     .font(Tokens.Typography.metadata.weight(.semibold))
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             }
         }
-        .padding(10)
+        .padding(Tokens.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Tokens.Colour.attention.opacity(0.10),
-                    in: RoundedRectangle(cornerRadius: 9))
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.well))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Change not saved")
     }
@@ -641,7 +641,7 @@ private struct FocusActionButton: View {
                 .lineLimit(1)
                 .fixedSize()
                 .padding(.horizontal, Tokens.Space.m)
-                .frame(minHeight: 30)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .background(prominent ? AnyShapeStyle(Tokens.Colour.focus)
                                       : AnyShapeStyle(Tokens.Colour.elevated),
                             in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,

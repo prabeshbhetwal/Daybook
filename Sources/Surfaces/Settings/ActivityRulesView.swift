@@ -103,7 +103,7 @@ struct ActivityRulesView: View {
                                query: $editor.appQuery, selection: $editor.bundleIDs)
             if let message = editor.validationMessage {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(Tokens.Typography.metadata).foregroundStyle(.red)
+                    .font(Tokens.Typography.metadata).foregroundStyle(Tokens.Colour.danger)
                     .accessibilityLabel("Rule error: \(message)")
             }
             HStack {

@@ -39,7 +39,7 @@ struct InsightsView: View {
             periodPages
             if navigation.insightCanShowEarlier {
                 Button("Show earlier periods") { navigation.showEarlierInsights() }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(StoryLinkStyle())
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             }
             if showsCurrentPatterns, surface.hasEvidence {
@@ -94,9 +94,11 @@ struct InsightsView: View {
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Start focus") { navigation.performSessionControlsAction(.commandOrMenu) }
-                .buttonStyle(.borderedProminent)
-                .accessibilityLabel("Start a focus session")
+            StartButton(title: "Start focus", fills: false) {
+                navigation.performSessionControlsAction(.commandOrMenu)
+            }
+            .fixedSize()
+            .accessibilityLabel("Start a focus session")
         }
         .accessibilityIdentifier("insights-empty-range")
         .storyRenderEvidence(.insightEmptyPeriod)
@@ -155,7 +157,7 @@ struct InsightsView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
             Text(Tokens.preciseDuration(value))
-                .font(.callout.weight(.semibold).monospacedDigit())
+                .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
         }
         .accessibilityElement(children: .combine)
     }

@@ -154,7 +154,7 @@ struct SettingsPageTabs: View {
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, minHeight: 30)
                         .background(selected == page ? StoryStyle.well : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle())
