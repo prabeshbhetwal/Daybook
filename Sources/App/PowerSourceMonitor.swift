@@ -11,6 +11,21 @@ protocol PowerSourceMonitoring: AnyObject {
 final class PowerSourceMonitor: PowerSourceMonitoring {
     private var handler: ((PowerObservation) -> Void)?
     private var runLoopSource: CFRunLoopSource?
+    /// The last observation handed out, boundary samples included, so a change
+    /// the store already captured at a boundary is not reported twice.
+    private var lastEmitted: PowerObservation?
+
+    /// What a notification means. IOKit posts one on every battery level
+    /// step, about once a minute, and every one was tagged `.sourceChanged`:
+    /// an hour on battery wrote "source changed" forty times when the source
+    /// had not changed once. A different source or charging state is a
+    /// change; a different level is a sample.
+    static func boundary(for next: PowerObservation,
+                         after previous: PowerObservation?) -> PowerCoverageBoundary? {
+        guard let previous else { return nil }
+        return previous.source != next.source || previous.charging != next.charging
+            ? .sourceChanged : nil
+    }
 
     static func parse(descriptions: [[String: Any]], at timestamp: Date,
                       boundary: PowerCoverageBoundary?) -> PowerObservation {
@@ -42,6 +57,12 @@ final class PowerSourceMonitor: PowerSourceMonitoring {
 
     func observation(at timestamp: Date,
                      boundary: PowerCoverageBoundary?) -> PowerObservation {
+        let observation = read(at: timestamp, boundary: boundary)
+        lastEmitted = observation
+        return observation
+    }
+
+    private func read(at timestamp: Date, boundary: PowerCoverageBoundary?) -> PowerObservation {
         guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
               let sources = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
         else {
@@ -54,6 +75,16 @@ final class PowerSourceMonitor: PowerSourceMonitoring {
         return Self.parse(descriptions: descriptions, at: timestamp, boundary: boundary)
     }
 
+    /// One notification, tagged by what changed since the last observation.
+    private func notified() {
+        let raw = read(at: Date(), boundary: nil)
+        let tagged = PowerObservation(id: raw.id, timestamp: raw.timestamp, source: raw.source,
+                                      percentage: raw.percentage, charging: raw.charging,
+                                      boundary: Self.boundary(for: raw, after: lastEmitted))
+        lastEmitted = tagged
+        handler?(tagged)
+    }
+
     func start(_ handler: @escaping (PowerObservation) -> Void) {
         guard runLoopSource == nil else { return }
         self.handler = handler
@@ -61,7 +92,7 @@ final class PowerSourceMonitor: PowerSourceMonitoring {
         guard let source = IOPSNotificationCreateRunLoopSource({ context in
             guard let context else { return }
             let monitor = Unmanaged<PowerSourceMonitor>.fromOpaque(context).takeUnretainedValue()
-            monitor.handler?(monitor.observation(at: Date(), boundary: .sourceChanged))
+            monitor.notified()
         }, context)?.takeRetainedValue() else { return }
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)

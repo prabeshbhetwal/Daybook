@@ -25,6 +25,10 @@ final class SessionStore: ObservableObject {
     @Published var powerMetadataError: String?
     var lastPowerState: SessionState = .idle
     var lastPowerRecordID: UUID?
+    /// Set on machine wake, consumed by the next power reconcile. Sleep is the
+    /// one thing that stops the power monitor while the app is alive; a pause,
+    /// an Away answer or a lock does not, and the sidecar must not say it did.
+    var powerCoverageLapsed = false
     var pendingPowerObservations: [PendingPowerObservation] = []
     var pendingPowerTransfers: [PendingPowerTransfer] = []
     var pendingPowerTransferError: String?
@@ -714,6 +718,7 @@ final class SessionStore: ObservableObject {
     /// Wakes are machine events. Keep sampling on the existing ticker, but do
     /// not let the HID reset count as a return.
     func noteMachineWake() {
+        powerCoverageLapsed = true
         presenceGate.noteMachineWake()
         deferredAutomationPending = true
     }

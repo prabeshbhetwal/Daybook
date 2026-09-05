@@ -69,6 +69,11 @@ extension SessionStore {
         guard replayPendingPowerObservations() else { return }
         let currentID = engine.state == .idle ? nil : engine.activeRecordID
         let sampleTime = now()
+        // Whether the monitor was sampling right up to this call. It was if
+        // this process tracked a stretch before now and the machine has not
+        // slept since. `lastPowerRecordID` is in-memory on purpose: after a
+        // relaunch it is nil however many transfers are queued on disk.
+        let wasSampling = lastPowerRecordID != nil && !powerCoverageLapsed
         let firstSource = pendingPowerTransfers.first?.sourceID ?? lastPowerRecordID
 
         // A later engine transition cannot replace an earlier failed transfer.
@@ -106,13 +111,28 @@ extension SessionStore {
             }
         }
         if let currentID, currentID != firstSource {
-            let boundary: PowerCoverageBoundary = abs(sampleTime.timeIntervalSince(
-                engine.sessionStartDate)) <= Self.powerBoundaryTolerance
-                ? .stretchStarted : .coverageResumed
+            // First sample for this stretch. At its start it marks the start.
+            // Later than that it is a resume only if sampling had stopped —
+            // a relaunch, a wake, an automatic start backdated across idle
+            // time. A stretch that an Away answer split off a tracked
+            // predecessor was sampled straight through the split, and its
+            // first own sample is just a sample: "coverage resumed" here was
+            // written at 0m of every such stretch.
+            let boundary: PowerCoverageBoundary?
+            if abs(sampleTime.timeIntervalSince(engine.sessionStartDate)) <= Self.powerBoundaryTolerance {
+                boundary = .stretchStarted
+            } else if wasSampling {
+                boundary = nil
+            } else {
+                boundary = .coverageResumed
+            }
             capturePowerObservation(for: currentID, boundary: boundary)
         } else if currentID != nil, case .running = engine.state, lastPowerState.isPaused {
-            capturePowerObservation(for: currentID!, boundary: .coverageResumed)
+            // The monitor samples through a pause; only sleep stops it.
+            capturePowerObservation(for: currentID!,
+                                    boundary: powerCoverageLapsed ? .coverageResumed : nil)
         }
+        powerCoverageLapsed = false
         lastPowerRecordID = currentID
         lastPowerState = engine.state
     }

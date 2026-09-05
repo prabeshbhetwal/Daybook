@@ -24,6 +24,8 @@ enum SessionMetadataChecks {
         ("Session metadata: public IOPS descriptions parse without live sampling", powerDescriptionParser),
         ("Session metadata: hardware samples use observation time without backfill", factualBoundarySampling),
         ("Session metadata: Away answer atomically reassigns post-return observations", awayObservationReassignment),
+        ("Resuming a pause the monitor sampled through claims no coverage gap", pauseResumeCoverage),
+        ("A power tick is a sample; only a changed source or charging state is a boundary", tickBoundaryTagging),
         ("Session metadata: ambiguous duplicate sidecars fail closed byte-for-byte", duplicateSidecarsFailClosed),
         ("Session metadata: failed power transfer retries exact ownership before boundaries", failedPowerTransferRecovery),
         ("Session metadata: pending power transfers complete in identity order", orderedPowerTransferRecovery),
@@ -739,9 +741,15 @@ enum SessionMetadataChecks {
                 expect(successorPower.contains(where: {
                     $0.timestamp == returnedAt && $0.boundary == .sourceChanged
                 }), "Away \(label) did not atomically move post-return evidence", &problems)
+                // The process sampled straight through the split — the moved
+                // post-return event proves it — so the successor's first own
+                // sample is a sample, not a resume.
                 expect(successorPower.contains(where: {
-                    $0.timestamp == clock.value && $0.boundary == .coverageResumed
-                }), "Away \(label) successor did not begin partial coverage at answer time", &problems)
+                    $0.timestamp == clock.value && $0.boundary == nil
+                }), "Away \(label) successor was not sampled at answer time", &problems)
+                expect(!successorPower.contains(where: { $0.boundary == .coverageResumed }),
+                       "Away \(label) successor claimed a coverage gap the process sampled through",
+                       &problems)
                 expect(!predecessorPower.contains(where: { $0.boundary == .stretchEnded })
                        && !successorPower.contains(where: { $0.boundary == .stretchStarted }),
                        "Away \(label) fabricated historical boundaries", &problems)
@@ -754,6 +762,74 @@ enum SessionMetadataChecks {
             }
             return allProblems
         }
+    }
+
+    /// The unpause branch wrote "coverage resumed" after every pause. The
+    /// monitor keeps sampling through a pause; only sleep stops it, and the
+    /// store hears about sleep from the coordinator's wake notice.
+    private static func pauseResumeCoverage() -> [String] {
+        MainActor.assumeIsolated {
+            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.boundary.pause.\(UUID())"
+            defer {
+                try? FileManager.default.removeItem(at: folder)
+                UserDefaults.standard.removePersistentDomain(forName: suite)
+            }
+            let clock = Clock(Date(timeIntervalSince1970: 1_788_660_000))
+            let fixture = makePowerFixture(clock, folder: folder, suite: suite,
+                sample: PowerObservation(timestamp: clock.value, source: .battery,
+                    percentage: 70, charging: .notCharging))
+            var problems: [String] = []
+            fixture.1.start(workType: .deepWork, intent: "Paused")
+            fixture.0.refresh()
+            let id = fixture.1.activeRecordID
+
+            clock.advance(600)
+            fixture.0.togglePause()
+            fixture.0.refresh()
+            clock.advance(300)
+            fixture.0.togglePause()
+            fixture.0.refresh()
+            var power = fixture.2.metadata(for: id)?.power ?? []
+            expect(power.last?.timestamp == clock.value && power.last?.boundary == nil,
+                   "resuming a sampled-through pause did not take a plain sample: "
+                   + "\(String(describing: power.last?.boundary))", &problems)
+            expect(!power.contains(where: { $0.boundary == .coverageResumed }),
+                   "a manual pause was written up as a coverage gap", &problems)
+
+            clock.advance(600)
+            fixture.0.togglePause()
+            fixture.0.refresh()
+            clock.advance(3_600)
+            fixture.0.noteMachineWake()
+            fixture.0.togglePause()
+            fixture.0.refresh()
+            power = fixture.2.metadata(for: id)?.power ?? []
+            expect(power.last?.timestamp == clock.value && power.last?.boundary == .coverageResumed,
+                   "resuming after the machine slept did not mark the resume", &problems)
+            expect(power.filter { $0.boundary == .coverageResumed }.count == 1,
+                   "the wake was consumed more than once", &problems)
+            return problems
+        }
+    }
+
+    private static func tickBoundaryTagging() -> [String] {
+        let moment = Date(timeIntervalSince1970: 1_788_665_000)
+        func sample(_ source: PowerSourceKind, _ percentage: Double, _ charging: PowerChargingState) -> PowerObservation {
+            PowerObservation(timestamp: moment, source: source, percentage: percentage, charging: charging)
+        }
+        var problems: [String] = []
+        expect(PowerSourceMonitor.boundary(for: sample(.battery, 64, .notCharging), after: nil) == nil,
+               "a first notification claimed a change from nothing", &problems)
+        expect(PowerSourceMonitor.boundary(for: sample(.battery, 63, .notCharging),
+                                           after: sample(.battery, 64, .notCharging)) == nil,
+               "a battery level step was tagged as a source change", &problems)
+        expect(PowerSourceMonitor.boundary(for: sample(.external, 63, .notCharging),
+                                           after: sample(.battery, 63, .notCharging)) == .sourceChanged,
+               "plugging in was not tagged as a source change", &problems)
+        expect(PowerSourceMonitor.boundary(for: sample(.external, 63, .charging),
+                                           after: sample(.external, 63, .notCharging)) == .sourceChanged,
+               "charging beginning was not tagged as a change", &problems)
+        return problems
     }
 
     private static func duplicateSidecarsFailClosed() -> [String] {
