@@ -29,6 +29,9 @@ struct StoryChromeBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// A scope pill is the target floor plus the container's 3pt inset each side.
     static let controlRowHeight: CGFloat = AccessibilityMetrics.minimumTargetSize + 6
+    /// Holds the chevrons still across "Today", "Wed 30 Sep", "28 Dec – 3 Jan"
+    /// and "September 2026"; a rarer label grows the column for its stay.
+    static let periodLabelWidth: CGFloat = 150
 
     var body: some View {
         HStack(spacing: Tokens.Space.l) {
@@ -160,6 +163,8 @@ struct StoryChromeBar: View {
         if current {
             Text(title)
                 .font(Tokens.Typography.metadata.weight(.semibold))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .foregroundStyle(.primary)
                 .padding(.horizontal, Tokens.Space.s)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
@@ -179,7 +184,7 @@ struct StoryChromeBar: View {
             Text(navigation.insightAnchorLabel)
                 .font(Tokens.Typography.rowTitle)
                 .lineLimit(1)
-                .frame(minWidth: 168)
+                .frame(minWidth: Self.periodLabelWidth)
                 .accessibilityLabel("Insights anchored at \(navigation.insightAnchorLabel)")
             IconButton(systemImage: "chevron.right", help: "Later Insights period") {
                 navigation.stepInsightPeriod(by: 1)
@@ -196,7 +201,7 @@ struct StoryChromeBar: View {
             Text(periodLabel)
                 .font(Tokens.Typography.rowTitle)
                 .lineLimit(1)
-                .frame(minWidth: 168)
+                .frame(minWidth: Self.periodLabelWidth)
                 .accessibilityLabel("\(periodLabel), selected period")
                 .accessibilityAddTraits(.isSelected)
             IconButton(systemImage: "chevron.right", help: stepHelp(back: false)) { step(1) }
@@ -270,10 +275,12 @@ struct StorySessionControl: View {
                         .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
                         .foregroundStyle(Tokens.Colour.focus)
                         .rollingDigits(store.elapsed)
-                    Divider().frame(height: 12)
-                    Text(store.pendingAway != nil ? "Review away" : "Session")
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
+                    if store.pendingAway != nil {
+                        Divider().frame(height: 12)
+                        Text("Review away")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .lineLimit(1)
                 .fixedSize()

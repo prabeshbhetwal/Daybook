@@ -280,6 +280,32 @@ enum Tokens {
         longDateFormatter.string(from: date)
     }
 
+    /// A span of days the way the chrome writes one: `24 – 30 Aug`,
+    /// `31 Aug – 6 Sep`, and the year only when it is not this year —
+    /// `28 Dec 2025 – 3 Jan 2026`. Story wrote `31 Aug–6 September 2026` and
+    /// Insights wrote `31 Aug–6 Sep` for the same week, and the longer one
+    /// cost the bar twenty points at its minimum width.
+    static func dateRange(_ start: Date, _ end: Date, now: Date = Date(),
+                          calendar: Calendar = .current) -> String {
+        func formatter(_ format: String) -> DateFormatter {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_AU")
+            formatter.dateFormat = format
+            return formatter
+        }
+        let thisYear = calendar.component(.year, from: now)
+        let startYear = calendar.component(.year, from: start)
+        let endYear = calendar.component(.year, from: end)
+        let sameMonth = startYear == endYear
+            && calendar.component(.month, from: start) == calendar.component(.month, from: end)
+        if startYear != endYear {
+            return "\(formatter("d MMM yyyy").string(from: start)) – \(formatter("d MMM yyyy").string(from: end))"
+        }
+        let first = formatter(sameMonth ? "d" : "d MMM").string(from: start)
+        let last = formatter(endYear == thisYear ? "d MMM" : "d MMM yyyy").string(from: end)
+        return "\(first) – \(last)"
+    }
+
     // MARK: Palette
 
     enum Palette {

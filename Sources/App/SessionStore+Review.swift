@@ -420,14 +420,7 @@ extension SessionStore {
                                  calendar: calendar, now: now)
             .bounds(for: .week, containing: anchor)
         let finalDay = calendar.date(byAdding: .day, value: -1, to: bounds.end) ?? bounds.start
-        let first = DateFormatter()
-        first.locale = Locale(identifier: "en_AU")
-        first.dateFormat = calendar.component(.month, from: bounds.start)
-            == calendar.component(.month, from: finalDay) ? "d" : "d MMM"
-        let last = DateFormatter()
-        last.locale = Locale(identifier: "en_AU")
-        last.dateFormat = "d MMMM yyyy"
-        return "\(first.string(from: bounds.start))–\(last.string(from: finalDay))"
+        return Tokens.dateRange(bounds.start, finalDay, now: now(), calendar: calendar)
     }
 
     var reviewSummaryLine: String {

@@ -530,7 +530,8 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         let calendar = Calendar.current
         switch insightRange {
         case .day:
-            return Tokens.longDate(insightAnchor)
+            // The same words the Story's period control uses for a day.
+            return Tokens.dayLabel(insightAnchor)
         case .month:
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_AU")
@@ -541,10 +542,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
                 return Tokens.longDate(insightAnchor)
             }
             let end = calendar.date(byAdding: .day, value: -1, to: bounds.end) ?? bounds.start
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_AU")
-            formatter.dateFormat = "d MMM"
-            return "\(formatter.string(from: bounds.start))–\(formatter.string(from: end))"
+            return Tokens.dateRange(bounds.start, end, now: store?.now() ?? Date(), calendar: calendar)
         }
     }
 

@@ -64,6 +64,8 @@ struct StoryLinkStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Tokens.Typography.metadata.weight(.semibold))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(enabled ? AnyShapeStyle(tint) : AnyShapeStyle(.secondary))
             .padding(.horizontal, Tokens.Space.s)
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)

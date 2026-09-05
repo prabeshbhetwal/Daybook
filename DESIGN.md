@@ -79,6 +79,11 @@ page title and one line of metadata. The session control never wraps.
   labels inside a card are the small-label size in capitals; a page names
   itself at the page size.
 - Errors and refusals use the danger token, never a raw red.
+- The chrome's period reads the same in Story and Insights: `Today`,
+  `Yesterday`, `Mon 31 Aug`; `31 Aug – 6 Sep`, with the year only when it
+  is not this year; `September 2026`. The session control is a dot and a
+  clock; it carries a word only when that word names a different act
+  (`Review away`).
 
 ## Measurement language
 
