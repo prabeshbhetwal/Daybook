@@ -7539,9 +7539,12 @@ enum SelfTest {
             return high - low
         }
 
-        // The app mark occupies the reserved leading inset; the tab labels are
-        // centred in the same 60pt chrome band at the production minimum.
-        return contrast(x: 68..<112, y: 0..<60) > 0.08
+        // The chrome's first column is the back slot — empty on Story — so the
+        // scope pills begin at 136pt: 76 of traffic-light clearance, the 28pt
+        // slot, and a 16pt gap either side. That position is the same in every
+        // workspace, which is what the slot is for. The period control is
+        // centred in the same 60pt band at the production minimum.
+        return contrast(x: 136..<180, y: 0..<60) > 0.08
             && contrast(x: 300..<700, y: 0..<60) > 0.08
     }
 

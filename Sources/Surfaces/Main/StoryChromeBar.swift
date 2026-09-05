@@ -34,6 +34,7 @@ struct StoryChromeBar: View {
             Color.clear
                 .frame(width: MainWindowChrome.trafficLightClearance, height: 1)
                 .accessibilityHidden(true)
+            backSlot
             workspaceControls
             Spacer(minLength: Tokens.Space.s)
             if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible) {
@@ -69,6 +70,8 @@ struct StoryChromeBar: View {
         .background(StoryStyle.canvas)
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: sessionControlsVisible)
+        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
+                   value: navigation.workspace)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Window chrome")
         .onChange(of: navigation.focusRestorationRequest) { target in
@@ -81,6 +84,28 @@ struct StoryChromeBar: View {
         }
     }
 
+    /// The way back, in a slot that exists in every workspace. "‹ Story" used
+    /// to be inserted in front of the scope pills on Insights and History, so
+    /// the pills — and everything after them — moved right by its width and
+    /// back again on return. The slot is the width of one round button; Story
+    /// leaves it empty, and the pills sit in the same place in every view.
+    private var backSlot: some View {
+        ZStack {
+            if navigation.workspace != .story {
+                IconButton(systemImage: "chevron.left", help: "Back to Story") {
+                    navigation.returnToStory()
+                }
+                .accessibilityLabel("Return to Story")
+                .transition(Tokens.Motion.transition(
+                    .opacity.combined(with: .scale(scale: 0.8)), reduceMotion: reduceMotion))
+            }
+        }
+        .frame(width: AccessibilityMetrics.minimumTargetSize,
+               height: AccessibilityMetrics.minimumTargetSize)
+    }
+
+    /// Every workspace lays out the same three columns — pills, period, links —
+    /// so a change of workspace changes words, not positions.
     @ViewBuilder private var workspaceControls: some View {
         switch navigation.workspace {
         case .story:
@@ -92,48 +117,55 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             periodNavigation
             Spacer(minLength: Tokens.Space.s)
-            // Navigation belongs in the chrome. These sat below every rail
-            // card, so reaching them meant scrolling past the content first.
-            HStack(spacing: Tokens.Space.xs) {
-                ForEach([("History", StorySheetKind.history), ("Insights", .insights)], id: \.0) { title, sheet in
-                    Button { navigation.openSheet(sheet) } label: {
-                        Text(title)
-                            .padding(.horizontal, Tokens.Space.s)
-                            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                    }
-                    .buttonStyle(StoryPressStyle(hovers: true))
-                }
-            }
-            .font(Tokens.Typography.metadata.weight(.semibold))
-            .foregroundStyle(StoryStyle.action)
+            crossLinks
         case .history:
-            returnToStory
             Text("History")
                 .font(Tokens.Typography.rowTitle)
                 .accessibilityAddTraits(.isHeader)
             Text("\(store.filteredHistoryDays.count) dated records")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
+            Spacer(minLength: Tokens.Space.s)
+            crossLinks
         case .insights:
-            returnToStory
             ScopePillRow(titles: InsightRange.allCases.map(\.title),
                          selectedIndex: Binding(
                             get: { InsightRange.allCases.firstIndex(of: navigation.insightRange) ?? 0 },
                             set: { navigation.selectInsightRange(InsightRange.allCases[$0]) }),
                          controlLabel: "Insights range")
+            Spacer(minLength: Tokens.Space.s)
             insightNavigation
+            Spacer(minLength: Tokens.Space.s)
+            crossLinks
         }
     }
 
-    private var returnToStory: some View {
-        Button(action: navigation.returnToStory) {
-            Label("Story", systemImage: "chevron.left")
-                .font(Tokens.Typography.metadata.weight(.semibold))
-                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+    /// The other workspaces, as links. Navigation belongs in the chrome; these
+    /// sat below every rail card, so reaching them meant scrolling past the
+    /// content first. The column keeps its width whichever links it holds, so
+    /// the period control between the spacers stays centred on the same point.
+    private var crossLinks: some View {
+        HStack(spacing: Tokens.Space.xs) {
+            ForEach(links, id: \.0) { title, sheet in
+                Button { navigation.openSheet(sheet) } label: {
+                    Text(title)
+                        .padding(.horizontal, Tokens.Space.s)
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                }
+                .buttonStyle(StoryPressStyle(hovers: true))
+            }
         }
-        .buttonStyle(PressableStyle())
+        .font(Tokens.Typography.metadata.weight(.semibold))
         .foregroundStyle(StoryStyle.action)
-        .accessibilityLabel("Return to Story")
+        .frame(minWidth: 132, alignment: .trailing)
+    }
+
+    private var links: [(String, StorySheetKind)] {
+        switch navigation.workspace {
+        case .story: return [("History", .history), ("Insights", .insights)]
+        case .history: return [("Insights", .insights)]
+        case .insights: return [("History", .history)]
+        }
     }
 
     private var insightNavigation: some View {
