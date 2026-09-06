@@ -3320,6 +3320,34 @@ enum SelfTest {
                                          now: now, within: 300) == nil,
                "'Unknown' is not an app name", &problems)
 
+        // The morning that wrote "You have been in Vorssaint for 20m": one
+        // app with half the stretch, the rest in three others. The figure
+        // is the Mac's; the app only colours it.
+        func stretch(_ app: String, _ from: Double, _ to: Double) -> AppUsageSession {
+            AppUsageSession(bundleID: "app.\(app)", appName: app,
+                            start: now.addingTimeInterval(-from * 60), end: now.addingTimeInterval(-to * 60))
+        }
+        let login = [stretch("Claude", 20, 17), stretch("Finder", 17, 15), stretch("Vorssaint", 15, 8),
+                     stretch("Dia", 8, 6), stretch("Vorssaint", 6, 1), stretch("Claude", 1, 0)]
+        guard let majority = BreakReminder.prompt(login, now: now, last: nil) else {
+            problems.append("twenty continuous minutes after login is a look-away"); return problems
+        }
+        expect(majority.body.hasPrefix("You have been at the Mac for 20m, mostly in Vorssaint."),
+               "a 60% share was written as the app's own stretch: \(majority.body)", &problems)
+        // Exactly half is not most.
+        let half = [stretch("Claude", 20, 10), stretch("Vorssaint", 10, 0)]
+        expect(BreakReminder.prompt(half, now: now, last: nil)?.body
+                   .hasPrefix("You have been at the Mac for 20m.") == true,
+               "exactly half was called most", &problems)
+        let third = [stretch("Claude", 20, 13), stretch("Dia", 13, 7), stretch("Vorssaint", 7, 0)]
+        expect(BreakReminder.prompt(third, now: now, last: nil)?.body
+                   .hasPrefix("You have been at the Mac for 20m.") == true,
+               "a plurality named an app", &problems)
+        let whole = [stretch("Claude", 20, 19), stretch("Vorssaint", 19, 0)]
+        expect(BreakReminder.prompt(whole, now: now, last: nil)?.body
+                   .hasPrefix("You have been in Vorssaint for 20m.") == true,
+               "nineteen of twenty minutes in one app is that app's stretch", &problems)
+
         // The countdown names the soonest tier. From a standing start that is
         // the eye break.
         expect(BreakReminder.next([run(10)], now: now)?.tier == .micro,
@@ -10613,7 +10641,7 @@ enum SelfTest {
         for needle in ["You were at the Mac for 8h 6m", "focused for 4h 17m in 2 sessions",
                        "goal met",
                        "The longest, Deep work, Refactor the parser, ran", "for 3h 47m in 4 stretches with one break (Lunch 30m)",
-                       "Most of the time went to Dia (3h 4m, 38%) and Claude (2h 19m, 29%), across 3 apps in all",
+                       "The busiest apps were Dia (3h 4m, 38%) and Claude (2h 19m, 29%), across 3 apps in all",
                        "the busiest hours were 1pm–4pm",
                        "45% of the time at the Mac fell inside a session, with about 57 app switches per stretch",
                        "by type, Deep work 94%, Break 6%",

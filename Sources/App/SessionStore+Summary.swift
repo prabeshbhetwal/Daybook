@@ -22,7 +22,10 @@ extension SessionStore {
             facts.append("\(sessions.count == 1 ? "One focus session" : "\(sessions.count) focus sessions") across \(stretchCount == 1 ? "one recorded stretch" : "\(stretchCount) recorded stretches").")
         }
         if let leading = apps.first, leading.total > 0 {
-            facts.append("Most recorded app use was in \(leading.appName) (\(Tokens.preciseDuration(leading.total))).")
+            // Only a majority is "most"; a leader with less is the busiest.
+            facts.append(leading.share > 0.5
+                ? "Most recorded app use was in \(leading.appName) (\(Tokens.preciseDuration(leading.total)))."
+                : "The busiest app was \(leading.appName) (\(Tokens.preciseDuration(leading.total))).")
         }
         if goalCredit > 0, goal > 0 {
             facts.append("\(Tokens.preciseDuration(goalCredit)) qualified towards the \(Tokens.preciseDuration(goal)) daily goal.")

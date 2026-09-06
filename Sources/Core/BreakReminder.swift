@@ -110,27 +110,47 @@ struct BreakPrompt: Equatable {
     /// a reminder that fires late must not claim you have worked less than you
     /// have.
     let worked: TimeInterval
-    /// The app most of that time went to, when one stands out.
+    /// The app that took a majority of that time, when one did.
     let appName: String?
+    /// How much of the stretch that app took, 0…1. Decides whether the app
+    /// can carry the figure or only colour it.
+    var appShare: Double = 1
 
     var title: String { tier.title }
 
-    /// "You have been in Xcode for 52m." The app name is what turns a generic
-    /// alarm into an observation about what you were actually doing.
+    /// The figure is continuous time at the Mac. It belongs to an app only
+    /// when the app had nearly all of it: "You have been in Vorssaint for
+    /// 20m" was written for a stretch Vorssaint had half of, after a login
+    /// during which the person had also been in Dia, Claude and Finder — one
+    /// true number attached to the wrong noun. Now the noun matches the
+    /// number: the whole stretch names the app; a majority names it as
+    /// "mostly"; anything less names the Mac.
     var body: String {
         let spent = BreakPrompt.phrase(worked)
-        let place = appName.map { "in \($0)" } ?? "at this"
         switch tier {
         case .micro:
-            return "You have been \(place) for \(spent). "
+            return "You have been \(place) for \(spent)\(mostly). "
                 + "Look away and stretch for 30 seconds."
         case .cognitive:
-            return "You have been \(place) for \(spent). "
+            return "You have been \(place) for \(spent)\(mostly). "
                 + "A five-minute reset is due."
         case .ultradian:
             return "\(spent.prefix(1).uppercased() + spent.dropFirst()) \(place) "
-                + "without a real break. Step away for 15 minutes."
+                + "without a real break\(mostly). Step away for 15 minutes."
         }
+    }
+
+    /// Nearly all of the stretch in one app is the app's stretch.
+    static let wholeShare = 0.9
+
+    private var place: String {
+        if let appName, appShare >= BreakPrompt.wholeShare { return "in \(appName)" }
+        return "at the Mac"
+    }
+
+    private var mostly: String {
+        guard let appName, appShare < BreakPrompt.wholeShare else { return "" }
+        return ", mostly in \(appName)"
     }
 
     /// Whole minutes, because "52m 13s" is not information anybody wants here.
@@ -243,9 +263,9 @@ struct BreakReminder {
             if since < minimumSpacing { return nil }
             if tier <= last.tier, since < tier.workThreshold { return nil }
         }
+        let leader = dominant(ordered, now: now, within: tier.restGap)
         return BreakPrompt(tier: tier, worked: worked,
-                           appName: dominantApp(ordered, now: now,
-                                                within: tier.restGap))
+                           appName: leader?.name, appShare: leader?.share ?? 0)
     }
 
     // The three below are conveniences over `evaluate`, not second copies of it.
@@ -271,13 +291,19 @@ struct BreakReminder {
         evaluate(stretches, now: now, last: last).prompt
     }
 
-    /// Whichever app took most of the continuous stretch. "You have been in
-    /// Safari for 50m" is only worth saying when it is true of most of it, so a
-    /// scattered stretch with no clear owner names nothing rather than picking
-    /// whatever happened to be frontmost at the instant the timer expired.
+    /// Whichever app took a majority of the continuous stretch, and how much
+    /// of it. A scattered stretch with no majority names nothing rather than
+    /// picking whatever happened to be frontmost when the timer expired — and
+    /// "most" means more than half, not the 40% it used to mean.
     static func dominantApp(_ stretches: [AppUsageSession],
                             now: Date,
                             within rest: TimeInterval) -> String? {
+        dominant(stretches, now: now, within: rest)?.name
+    }
+
+    static func dominant(_ stretches: [AppUsageSession],
+                         now: Date,
+                         within rest: TimeInterval) -> (name: String, share: Double)? {
         let ordered = stretches.sorted { $0.end > $1.end }
         var totals: [String: (name: String, seconds: TimeInterval)] = [:]
         var boundary = now
@@ -296,10 +322,10 @@ struct BreakReminder {
               let top = totals.max(by: {
                   ($0.value.seconds, $1.key) < ($1.value.seconds, $0.key)
               }),
-              top.value.seconds / overall >= 0.4 else { return nil }
+              top.value.seconds / overall > 0.5 else { return nil }
         let name = top.value.name.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty, name.lowercased() != "unknown" else { return nil }
-        return name
+        return (name, top.value.seconds / overall)
     }
 
     /// The next tier to come due and how long until it does — for the menu bar

@@ -166,12 +166,13 @@ extension SessionStore {
                                : nil,
                            spark: sparks.focused, sparkTint: .accentColor,
                            symbol: "scope",
-                           // Unclamped on purpose: a session counts reading and
-                           // thinking, hands-on time does not, so focused can
-                           // exceed tracked — and "100%" would hide that.
-                           badge: tracked > 0 && focused > 0
-                               ? "\(Int((focused / tracked * 100).rounded()))% of tracked"
-                               : nil),
+                           // Focused and tracked do not nest — a session counts
+                           // reading and thinking, hands-on time does not — so
+                           // their quotient is not "a share of tracked", which
+                           // is what "% of tracked" claimed. The quality insight
+                           // states the real intersection; this badge says
+                           // nothing rather than something false.
+                           badge: nil),
                 StatFigure(label: "Sessions", value: "\(sessions)",
                            detail: longestName,
                            spark: sparks.sessions, sparkTint: Tokens.Palette.app(rank: 2),

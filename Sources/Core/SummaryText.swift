@@ -155,10 +155,21 @@ enum SummaryText {
         if i.apps.count == 1 {
             text = "All of the time was in **\(top.appName)**"
         } else {
-            text = "Most of the time went to **\(top.appName)** (\(duration(top.total)), \(percent(top.share)))"
+            // "Most" is a claim about a share, so it is made only when the
+            // share is one. A 38% leader is the busiest app, not most of
+            // the time.
             let second = i.apps[1]
-            if second.total >= 60 {
-                text += " and **\(second.appName)** (\(duration(second.total)), \(percent(second.share)))"
+            let leads = "**\(top.appName)** (\(duration(top.total)), \(percent(top.share)))"
+            if top.share > 0.5 {
+                text = "Most of the time went to " + leads
+                if second.total >= 60 {
+                    text += ", then **\(second.appName)** (\(duration(second.total)), \(percent(second.share)))"
+                }
+            } else if second.total >= 60 {
+                text = "The busiest apps were " + leads
+                    + " and **\(second.appName)** (\(duration(second.total)), \(percent(second.share)))"
+            } else {
+                text = "The busiest app was " + leads
             }
             if i.apps.count > 2 { text += ", across \(i.apps.count) apps in all" }
         }
@@ -253,12 +264,19 @@ enum SummaryText {
         }
 
         if let top = i.apps.first, top.total > 0 {
-            var text = i.apps.count == 1
-                ? "All of the time was in **\(top.name)**"
-                : "Most of the time went to **\(top.name)** (\(duration(top.total)), \(percent(top.share)))"
+            let leads = "**\(top.name)** (\(duration(top.total)), \(percent(top.share)))"
+            var text: String
+            if i.apps.count == 1 {
+                text = "All of the time was in **\(top.name)**"
+            } else if top.share > 0.5 {
+                text = "Most of the time went to " + leads
+            } else {
+                text = "The busiest app was " + leads
+            }
             if i.apps.count > 1 {
                 let second = i.apps[1]
-                text += " and **\(second.name)** (\(duration(second.total)), \(percent(second.share)))"
+                text += (top.share > 0.5 ? ", then " : " and ")
+                    + "**\(second.name)** (\(duration(second.total)), \(percent(second.share)))"
             }
             if i.appCount > 2 { text += ", across \(i.appCount) apps in all" }
             if i.workTypes.count > 1 {
