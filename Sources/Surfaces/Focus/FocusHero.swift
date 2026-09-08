@@ -228,7 +228,7 @@ struct FocusHero: View {
         // gave it 236pt and "Choose or type an activity" lost its last
         // letters behind the menu. The floor fits the prompt; priority makes
         // the row's slack go here before it goes to the spacer.
-        .frame(minWidth: 280, maxWidth: Tokens.formMeasure)
+        .frame(minWidth: 280, idealWidth: 280, maxWidth: Tokens.formMeasure)
         .layoutPriority(1)
         // No visible "Work type" caption: between the activity and Start, a
         // named work type with its own symbol reads as what it is, and the
@@ -558,6 +558,10 @@ struct FocusHero: View {
                 goalText(presentation.short)
                 goalText(presentation.bare)
             }
+            // Outranks the row's spacer. At equal priority the two split the
+            // slack, and the goal was starved to its bare figures with 30pt
+            // of room going spare beside it.
+            .layoutPriority(1)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(presentation.accessibility)
         } else {
