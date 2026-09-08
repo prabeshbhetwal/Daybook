@@ -51,7 +51,6 @@ struct ActivityChooser: View {
             .menuStyle(.button)
             .buttonStyle(.bordered)
             .controlSize(.large)
-            .tint(Color.primary.opacity(0.06))
             .foregroundStyle(.secondary)
             .menuIndicator(.hidden)
             .fixedSize()

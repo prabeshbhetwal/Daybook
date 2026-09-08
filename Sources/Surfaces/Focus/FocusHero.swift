@@ -99,6 +99,8 @@ struct FocusOperationFailureState: Equatable {
 
 struct CompactGoalPresentation: Equatable {
     let visible: String
+    let short: String
+    let bare: String
     let accessibility: String
 
     init(_ goal: GoalProgress) {
@@ -130,6 +132,11 @@ struct CompactGoalPresentation: Equatable {
         }
         visible = shortPace.map { "Today · \(achieved) / \(target) · \($0)" }
             ?? "Today · \(achieved) / \(target)"
+        // The same line with less room: first without the day, then without
+        // the pace. The strip is today by definition, and the pace is in the
+        // spoken label whichever is drawn.
+        short = shortPace.map { "\(achieved) / \(target) · \($0)" } ?? "\(achieved) / \(target)"
+        bare = "\(achieved) / \(target)"
         accessibility = "Daily goal. \(achieved) of \(target). \(fullPace)"
     }
 }
@@ -217,7 +224,12 @@ struct FocusHero: View {
         ActivityChooser(store: store, intentFocused: intentFocused, compact: true) {
             performPrimaryAction()
         }
-        .frame(maxWidth: Tokens.formMeasure)
+        // A text field's ideal width is not its placeholder's, so the row
+        // gave it 236pt and "Choose or type an activity" lost its last
+        // letters behind the menu. The floor fits the prompt; priority makes
+        // the row's slack go here before it goes to the spacer.
+        .frame(minWidth: 280, maxWidth: Tokens.formMeasure)
+        .layoutPriority(1)
         // No visible "Work type" caption: between the activity and Start, a
         // named work type with its own symbol reads as what it is, and the
         // caption was the only 10pt step in the row.
@@ -538,14 +550,16 @@ struct FocusHero: View {
     @ViewBuilder private var goalSupport: some View {
         if compact {
             let presentation = CompactGoalPresentation(store.goal)
-            Text(presentation.visible)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(store.goal.isMet
-                                 ? AnyShapeStyle(Tokens.Colour.progress)
-                                 : AnyShapeStyle(.secondary))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .accessibilityLabel(presentation.accessibility)
+            // Whichever of the three fits: the full line, the line without
+            // "Today", the bare figures. Each is true; none of them is an
+            // ellipsis where the pace should be.
+            ViewThatFits(in: .horizontal) {
+                goalText(presentation.visible)
+                goalText(presentation.short)
+                goalText(presentation.bare)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(presentation.accessibility)
         } else {
             HStack(spacing: Tokens.Space.s) {
                 GoalRing(progress: store.goal.share,
@@ -567,6 +581,16 @@ struct FocusHero: View {
             .frame(maxWidth: 360, alignment: .center)
             .accessibilityElement(children: .combine)
         }
+    }
+
+    private func goalText(_ text: String) -> some View {
+        Text(text)
+            .font(Tokens.Typography.metadata)
+            .foregroundStyle(store.goal.isMet
+                             ? AnyShapeStyle(Tokens.Colour.progress)
+                             : AnyShapeStyle(.secondary))
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     private var goalPaceLine: String {

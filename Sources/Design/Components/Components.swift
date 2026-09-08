@@ -130,10 +130,9 @@ struct WorkTypePicker: View {
         .menuStyle(.button)
         .buttonStyle(.bordered)
         .controlSize(.large)
-        // Neutral on purpose. The window tints its controls, which made the
-        // work type as blue as Start focus beside it — two primaries in a row
-        // that has one.
-        .tint(Color.primary.opacity(0.06))
+        // Neutral on purpose: the platform's own bezel and label. A
+        // near-transparent tint used to stand in for "no tint" and went
+        // invisible the moment the window was inactive.
         .foregroundStyle(.primary)
         .fixedSize()
         .help("Work type")

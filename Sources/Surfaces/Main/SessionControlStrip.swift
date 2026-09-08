@@ -48,34 +48,18 @@ struct SessionControlStrip: View {
 
     private var stripChrome: some View {
         HStack(spacing: Tokens.Space.s) {
-            // A checkbox draws a 16pt target and reads as a form field. In a
-            // toolbar row a pin is a toggle button: the same state, a 28pt
-            // target, and a pressed look that says "held open" without a word.
-            Toggle(isOn: $settings.sessionControlsPinned) {
-                Label("Pin", systemImage: settings.sessionControlsPinned ? "pin.fill" : "pin")
-                    .labelStyle(.iconOnly)
-                    .symbolSwap()
-                    .symbolNod(on: settings.sessionControlsPinned)
-                    .font(Tokens.Typography.metadata.weight(.semibold))
+            // The same round button the chrome uses for its icon actions, one
+            // row up. A pin is a toggle: on, the circle takes the accent. These
+            // were bordered controls with a 6%-alpha tint, which an inactive
+            // window dimmed to nothing.
+            IconButton(systemImage: settings.sessionControlsPinned ? "pin.fill" : "pin",
+                       help: "Keep session controls visible in this window",
+                       prominent: settings.sessionControlsPinned,
+                       label: "Pin session controls",
+                       isOn: settings.sessionControlsPinned) {
+                settings.sessionControlsPinned.toggle()
             }
-            .toggleStyle(.button)
-            .controlSize(.large)
-            .tint(Color.primary.opacity(0.06))
-            .foregroundStyle(settings.sessionControlsPinned ? AnyShapeStyle(StoryStyle.action)
-                                                            : AnyShapeStyle(.secondary))
-            .help("Keep session controls visible in this window")
-            .accessibilityLabel("Pin session controls")
-            Button(action: close) {
-                Image(systemName: "xmark")
-                    .font(Tokens.Typography.metadata.weight(.semibold))
-                    .frame(height: 16)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .tint(Color.primary.opacity(0.06))
-            .foregroundStyle(.secondary)
-            .help("Close session controls")
-            .accessibilityLabel("Close session controls")
+            IconButton(systemImage: "xmark", help: "Close session controls", action: close)
         }
         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .fixedSize()
