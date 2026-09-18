@@ -353,10 +353,20 @@ struct HistoryView: View {
 
     // MARK: - Column
 
-    private var column: some View {
+    /// A search or a filter reaches across the whole archive; otherwise the
+    /// list is the window the chrome is paged to.
+    private var searching: Bool { rangeInChrome && store.historyFilter.isActive }
+
+    private var visibleDays: [HistoryDay] {
         let days = store.filteredHistoryDays
+        guard rangeInChrome, !searching, let window = navigation.historyWindow else { return days }
+        return days.filter { window.contains($0.date) }
+    }
+
+    private var column: some View {
+        let days = visibleDays
         return VStack(alignment: .leading, spacing: Tokens.Space.l) {
-            StoryHeadline(eyebrow: "History", sentence: sentence(days), facts: facts(days),
+            StoryHeadline(eyebrow: eyebrow, sentence: sentence(days), facts: facts(days),
                           highlight: Tokens.duration(days.reduce(0) { $0 + $1.focused }))
             ForEach(store.historyIntegrityNotices, id: \.self) { notice in
                 IntegrityNotice(notice)
@@ -366,10 +376,14 @@ struct HistoryView: View {
                 EmptyState("No recorded history yet",
                            detail: "Tracked days and focus sessions will appear here locally.",
                            icon: "calendar")
-            } else if days.isEmpty {
+            } else if days.isEmpty, searching || !rangeInChrome {
                 EmptyState("No matching days",
-                           detail: "Adjust the date range or clear one of the intersecting filters.",
+                           detail: "Clear one of the intersecting filters or search for something else.",
                            icon: "line.3.horizontal.decrease.circle")
+            } else if days.isEmpty {
+                EmptyState("Nothing recorded in \(navigation.historyWindowLabel)",
+                           detail: "Use the arrows above to page to another period, or search for a day.",
+                           icon: "calendar")
             } else {
                 dayList(days)
             }
@@ -378,16 +392,27 @@ struct HistoryView: View {
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
+    private var eyebrow: String {
+        guard rangeInChrome else { return "History" }
+        if searching { return "History · matches" }
+        return navigation.historyScope == .month ? "History · every month" : "History · \(navigation.historyWindowLabel)"
+    }
+
     private func sentence(_ days: [HistoryDay]) -> String {
         guard !store.historyDays.isEmpty else { return "Your recorded days will gather here." }
-        guard !days.isEmpty else { return "No day matches these filters." }
+        if days.isEmpty {
+            return searching || !rangeInChrome ? "No day matches these filters."
+                : "Nothing was recorded in \(navigation.historyWindowLabel)."
+        }
         let focused = days.reduce(0) { $0 + $1.focused }
         let dayWord = days.count == 1 ? "day" : "days"
         let scope = store.historyFilter.isActive ? "matching " : ""
+        let where_ = rangeInChrome && !searching && navigation.historyScope != .month
+            ? " in \(navigation.historyWindowLabel)" : " on record"
         guard focused > 0 else {
-            return "\(days.count) \(scope)\(dayWord) on record, with no focus session."
+            return "\(days.count) \(scope)\(dayWord)\(where_), with no focus session."
         }
-        return "\(days.count) \(scope)\(dayWord) on record, \(Tokens.duration(focused)) of focus between them."
+        return "\(days.count) \(scope)\(dayWord)\(where_), \(Tokens.duration(focused)) of focus between them."
     }
 
     private func facts(_ days: [HistoryDay]) -> [String] {
@@ -415,12 +440,16 @@ struct HistoryView: View {
             HistoryStripAxis()
             ForEach(months) { month in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(month.title)
-                        .font(Tokens.Typography.metadata.weight(.bold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, Tokens.Space.s)
-                        .padding(.bottom, Tokens.Space.xs)
-                        .accessibilityAddTraits(.isHeader)
+                    // A month name is a landmark in search results that span
+                    // months; a page that is one month already says so above.
+                    if searching || !rangeInChrome {
+                        Text(month.title)
+                            .font(Tokens.Typography.metadata.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, Tokens.Space.s)
+                            .padding(.bottom, Tokens.Space.xs)
+                            .accessibilityAddTraits(.isHeader)
+                    }
                     ForEach(month.days) { day in
                         HistoryDayRow(day: day,
                                       projection: store.storyDayProjection(on: day.date),
@@ -459,8 +488,8 @@ struct HistoryView: View {
                             navigation.historySelectedPeriod == period.start ? nil : period.start
                     }
                 } onOpen: {
-                    navigation.openStory(navigation.historyScope == .week ? .week : .month,
-                                         containing: period.start)
+                    // One level down the ladder; the story is in the rail.
+                    navigation.zoomHistory(into: period.start)
                 }
             }
         }
@@ -594,14 +623,16 @@ struct HistoryView: View {
 
     private var selectedPeriod: HistoryPeriodGroup? {
         guard navigation.historyScope != .day, let start = navigation.historySelectedPeriod else { return nil }
-        return HistoryPeriodGroup.group(store.filteredHistoryDays, scope: navigation.historyScope)
+        return HistoryPeriodGroup.group(visibleDays, scope: navigation.historyScope)
             .first { $0.start == start }
     }
 
     private var rail: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             if let period = selectedPeriod {
-                HistoryPeriodPreview(store: store, period: period) {
+                HistoryPeriodPreview(store: store, period: period,
+                                     zoomTitle: navigation.historyScope == .month ? "Show its weeks" : "Show its days",
+                                     onZoom: { navigation.zoomHistory(into: period.start) }) {
                     navigation.openStory(navigation.historyScope == .week ? .week : .month,
                                          containing: period.start)
                 }
@@ -620,7 +651,8 @@ struct HistoryView: View {
                 StoryTile(title: "Pick a \(unit)", trailing: nil) {
                     Text(navigation.historyScope == .day
                          ? "Select a day to see its sessions, apps and notes here. Double-click one to open it as a story."
-                         : "Select a \(unit) to see its days and apps here. Double-click one to open it as a story.")
+                         : "Select a \(unit) to see its days and apps here. Double-click one to see "
+                           + (navigation.historyScope == .month ? "its weeks." : "its days."))
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

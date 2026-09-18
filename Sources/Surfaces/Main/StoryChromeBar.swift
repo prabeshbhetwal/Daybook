@@ -138,7 +138,7 @@ struct StoryChromeBar: View {
                             set: { navigation.historyScope = InsightRange.allCases[$0] }),
                          controlLabel: "History rows")
             Spacer(minLength: Tokens.Space.s)
-            HistoryChromeRange(store: store)
+            historyNavigation
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .insights:
@@ -183,6 +183,54 @@ struct StoryChromeBar: View {
                 .buttonStyle(StoryLinkStyle())
         }
     }
+
+    /// History pages a month of days or a quarter of weeks; the label opens
+    /// the same calendar the Story's does, and a picked day pages to it.
+    private var historyNavigation: some View {
+        HStack(spacing: Tokens.Space.s) {
+            IconButton(systemImage: "chevron.left", help: "Earlier") {
+                navigation.pageHistory(by: -1)
+            }
+            .disabled(navigation.historyScope == .month)
+            .opacity(navigation.historyScope == .month ? 0.35 : 1)
+            Button { historyCalendarShown.value.toggle() } label: {
+                HStack(spacing: Tokens.Space.xs) {
+                    Text(navigation.historyWindowLabel)
+                        .font(Tokens.Typography.rowTitle)
+                        .lineLimit(1)
+                    if navigation.historyScope != .month {
+                        Image(systemName: "chevron.down")
+                            .font(Tokens.Typography.microLabel.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .padding(.horizontal, Tokens.Space.s)
+                .frame(minWidth: Self.periodLabelWidth, minHeight: AccessibilityMetrics.minimumTargetSize)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(StoryPressStyle())
+            .disabled(navigation.historyScope == .month)
+            .accessibilityLabel("\(navigation.historyWindowLabel), History period. Opens the calendar.")
+            .popover(isPresented: Binding(get: { historyCalendarShown.value },
+                                          set: { historyCalendarShown.value = $0 }),
+                     arrowEdge: .bottom) {
+                DayPickerCalendar(
+                    selected: navigation.historyAnchor,
+                    earliest: store.earliestSelectableDay,
+                    goal: store.goal.goal,
+                    facts: { store.dayFacts(inMonthOf: $0) }) { day in
+                        navigation.jumpHistory(to: day)
+                        historyCalendarShown.value = false
+                    }
+            }
+            IconButton(systemImage: "chevron.right", help: "Later") {
+                navigation.pageHistory(by: 1)
+            }
+            .disabled(!navigation.historyCanPageForward)
+        }
+    }
+
+    @StateObject private var historyCalendarShown = BoolBox()
 
     private var insightNavigation: some View {
         HStack(spacing: Tokens.Space.s) {

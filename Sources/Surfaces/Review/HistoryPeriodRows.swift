@@ -120,7 +120,7 @@ struct HistoryPeriodRow: View {
                             + "\(period.focusedDays) days" + (isSelected ? ", selected" : ""))
         .accessibilityHint(isSelected ? "Clears the preview" : "Previews this period beside the list")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityAction(named: "Open as a story", onOpen)
+        .accessibilityAction(named: period.scope == .month ? "Show its weeks" : "Show its days", onOpen)
     }
 
     private func height(_ day: HistoryDay?) -> CGFloat {
@@ -134,6 +134,8 @@ struct HistoryPeriodRow: View {
 struct HistoryPeriodPreview: View {
     @ObservedObject var store: SessionStore
     let period: HistoryPeriodGroup
+    var zoomTitle: String? = nil
+    var onZoom: (() -> Void)? = nil
     let onOpen: () -> Void
 
     private var projections: [StoryDayProjection] {
@@ -151,14 +153,25 @@ struct HistoryPeriodPreview: View {
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button(action: onOpen) {
-                    Text("Open as a story ›")
-                        .font(Tokens.Typography.metadata.weight(.semibold))
-                        .foregroundStyle(StoryStyle.action)
-                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                HStack(spacing: Tokens.Space.l) {
+                    if let zoomTitle, let onZoom {
+                        Button(action: onZoom) {
+                            Text("\(zoomTitle) ›")
+                                .font(Tokens.Typography.metadata.weight(.semibold))
+                                .foregroundStyle(StoryStyle.action)
+                                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                        }
+                        .buttonStyle(StoryPressStyle())
+                    }
+                    Button(action: onOpen) {
+                        Text("Open as a story ›")
+                            .font(Tokens.Typography.metadata.weight(.semibold))
+                            .foregroundStyle(StoryStyle.action)
+                            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    }
+                    .buttonStyle(StoryPressStyle())
+                    .accessibilityLabel("Open \(period.title) as a story")
                 }
-                .buttonStyle(StoryPressStyle())
-                .accessibilityLabel("Open \(period.title) as a story")
             }
             StoryTile(title: "Days", trailing: period.days.count == 1 ? "1 recorded" : "\(period.days.count) recorded") {
                 ForEach(period.days) { day in
