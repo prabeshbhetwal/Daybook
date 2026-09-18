@@ -64,13 +64,17 @@ struct HistoryYearMap: View {
     @ViewBuilder private func cell(month: Int, day: Int) -> some View {
         if let date = date(month: month, day: day) {
             let key = calendar.startOfDay(for: date)
-            let onRecord = key <= today && (facts.firstDay.map { key >= calendar.startOfDay(for: $0) } ?? true)
+            // Days before the first record still draw, faintly, so each
+            // month keeps its shape; days after today do not exist yet.
+            let past = key <= today
+            let onRecord = past && (facts.firstDay.map { key >= calendar.startOfDay(for: $0) } ?? true)
             let focused = facts.focusByDay[key] ?? 0
             let tracked = facts.trackedByDay[key] ?? 0
             let inSelection = selected?.contains(key) ?? false
             let isHovered = hovered.id == key.description
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(onRecord ? fill(focused: focused, tracked: tracked) : Color.clear)
+                .fill(onRecord ? fill(focused: focused, tracked: tracked)
+                      : past ? Tokens.Colour.elevated.opacity(0.45) : Color.clear)
                 .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .strokeBorder(Tokens.Colour.focus, lineWidth: inSelection || isHovered ? 1.5 : 0))
                 .frame(maxWidth: .infinity)
