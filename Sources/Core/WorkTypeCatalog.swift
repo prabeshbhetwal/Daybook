@@ -281,6 +281,9 @@ final class WorkTypeCatalog: ObservableObject {
                 if base.id != WorkType.breakTime.rawValue {
                     definition.dailyGoal = edit.dailyGoal
                     definition.remindsBreaks = edit.remindsBreaks
+                    // A built-in can be retired like any other category;
+                    // its records keep it, the pickers drop it. Break stays.
+                    definition.isRetired = edit.isRetired
                 }
             }
             byID[base.id] = definition

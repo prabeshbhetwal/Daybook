@@ -188,9 +188,19 @@ enum CategoryChecks {
         if ordered != [.admin, type, .breakTime, WorkType(rawValue: "zz.unknown")] {
             failures.append("Totals ordering dropped a retired or unknown category: \(ordered.map(\.rawValue))")
         }
+        // A built-in retires like any other category, keeps its name for its
+        // records, and can be restored. Break never goes.
         settings.setCategoryRetired(id: WorkType.admin.rawValue, true)
+        if WorkType.allCases.contains(.admin) || WorkType.admin.displayName != "Admin" {
+            failures.append("A built-in could not retire, or forgot its name when it did")
+        }
+        settings.setCategoryRetired(id: WorkType.admin.rawValue, false)
         if !WorkType.allCases.contains(.admin) {
-            failures.append("A built-in was allowed to retire")
+            failures.append("A retired built-in could not be restored")
+        }
+        settings.setCategoryRetired(id: WorkType.breakTime.rawValue, true)
+        if !WorkType.allCases.contains(.breakTime) {
+            failures.append("Break was allowed to retire")
         }
         settings.setCategoryRetired(id: type.rawValue, false)
         if !WorkType.startable.contains(type) {
