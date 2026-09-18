@@ -104,8 +104,7 @@ struct MainWindowView: View {
             StoryCanvas(store: store, navigation: navigation, settings: settings,
                         scrolls: reviewScrolls)
         case .history:
-            HistoryView(store: store, navigation: navigation, scrolls: reviewScrolls,
-                        rangeInChrome: true)
+            HistoryView(store: store, navigation: navigation, scrolls: reviewScrolls)
             .onAppear {
                 store.setReviewVisible(true)
                 store.refreshReview()

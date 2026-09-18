@@ -8,6 +8,8 @@ struct HistoryPeriodGroup: Identifiable {
     let end: Date
     /// Newest first, as History lists them.
     let days: [HistoryDay]
+    /// A span picked by hand has no calendar name of its own.
+    var customTitle: String? = nil
 
     var id: Date { start }
     var focused: TimeInterval { days.reduce(0) { $0 + $1.focused } }
@@ -16,6 +18,7 @@ struct HistoryPeriodGroup: Identifiable {
     var focusedDays: Int { days.filter { $0.focused > 0 }.count }
 
     var title: String {
+        if let customTitle { return customTitle }
         let calendar = Calendar.current
         switch scope {
         case .day: return Tokens.longDate(start)
@@ -70,65 +73,6 @@ struct HistoryPeriodGroup: Identifiable {
     }
 }
 
-/// A week or a month as one row: its name, one small bar per day at the
-/// calendar's position, and its figures. Same marks as the week chart.
-struct HistoryPeriodRow: View {
-    let period: HistoryPeriodGroup
-    let peak: TimeInterval
-    let isSelected: Bool
-    let onSelect: () -> Void
-    let onOpen: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(alignment: .center, spacing: HistoryRowLayout.spacing) {
-                Text(period.title)
-                    .font(Tokens.Typography.rowTitle.weight(.medium))
-                    .lineLimit(1)
-                    .frame(width: period.scope == .week ? 118 : 138, alignment: .leading)
-                HStack(alignment: .bottom, spacing: 2) {
-                    ForEach(Array(period.slots.enumerated()), id: \.offset) { _, day in
-                        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                            .fill((day?.focused ?? 0) > 0 ? Tokens.Colour.focus.opacity(0.75)
-                                                          : StoryStyle.line)
-                            .frame(height: height(day))
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .frame(height: 22, alignment: .bottom)
-                .accessibilityHidden(true)
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(period.focused > 0 ? Tokens.duration(period.focused) : "—")
-                        .font(Tokens.Typography.rowTitle.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(period.focused > 0 ? .primary : .tertiary)
-                    Text(period.focusedDays == 1 ? "1 focused day" : "\(period.focusedDays) focused days")
-                        .font(Tokens.Typography.microLabel)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(width: 92, alignment: .trailing)
-            }
-            .padding(.vertical, Tokens.Space.s)
-            .padding(.horizontal, HistoryRowLayout.inset)
-            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-            .background(isSelected ? Tokens.Colour.focus.opacity(0.12) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.nested))
-        .simultaneousGesture(TapGesture(count: 2).onEnded { onOpen() })
-        .accessibilityLabel("\(period.title), \(Tokens.spent(period.focused)) focused on "
-                            + "\(period.focusedDays) days" + (isSelected ? ", selected" : ""))
-        .accessibilityHint(isSelected ? "Clears the preview" : "Previews this period beside the list")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityAction(named: period.scope == .month ? "Show its weeks" : "Show its days", onOpen)
-    }
-
-    private func height(_ day: HistoryDay?) -> CGFloat {
-        guard let day, day.focused > 0, peak > 0 else { return 3 }
-        return max(4, 22 * CGFloat(min(1, day.focused / peak)))
-    }
-}
-
 /// The picked week or month in the rail: its figures, its days, and the way
 /// into its story.
 struct HistoryPeriodPreview: View {
@@ -174,7 +118,7 @@ struct HistoryPeriodPreview: View {
                 }
             }
             StoryTile(title: "Days", trailing: period.days.count == 1 ? "1 recorded" : "\(period.days.count) recorded") {
-                ForEach(period.days) { day in
+                ForEach(period.days.prefix(14)) { day in
                     HStack(spacing: Tokens.Space.s) {
                         Text(Tokens.dayLabel(day.date))
                             .font(Tokens.Typography.metadata)
@@ -222,5 +166,21 @@ struct HistoryPeriodPreview: View {
         }
         ranks.sort { (a: AppRank, b: AppRank) -> Bool in a.total > b.total }
         return ranks
+    }
+}
+
+/// The category chip a session card wears, for rows that name a session.
+struct WorkTypeChip: View {
+    let workType: WorkType
+
+    var body: some View {
+        Text(workType.displayName)
+            .font(Tokens.Typography.microLabel)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Tokens.Palette.workType(workType).opacity(0.14),
+                        in: RoundedRectangle(cornerRadius: 5))
+            .foregroundStyle(StoryStyle.workTypeInk(workType))
+            .accessibilityHidden(true)
     }
 }

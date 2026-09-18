@@ -449,6 +449,9 @@ final class SessionStore: ObservableObject {
                          metadata: metadataArchive.revision)
     }
     var dashboardEvidenceRevision: EvidenceRevision?
+    /// The archive-wide facts History's map shows, kept until the evidence
+    /// behind them changes.
+    var historyArchiveFactsCache: (revision: EvidenceRevision, facts: HistoryArchiveFacts)?
     var reviewEvidenceRevision: EvidenceRevision?
     /// Explicit-date Story projections are immutable read models. Historical
     /// values survive ticker frames; current or running dates deliberately
