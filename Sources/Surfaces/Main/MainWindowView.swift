@@ -17,6 +17,7 @@ struct MainWindowView: View {
     /// Offscreen bitmap captures cannot include a native child window. They
     /// retain the real scrollable content but compose its sheet in this viewport.
     var presentsNativeSheets = true
+    @StateObject private var windowSize = SizeBox()
 
     var body: some View {
       GeometryReader { geometry in
@@ -66,6 +67,10 @@ struct MainWindowView: View {
             }
         }
         .clipped()
+        // The native sheet is presented outside this reader; it sizes itself
+        // to the window it will cover from the size noted here.
+        .onAppear { windowSize.value = geometry.size }
+        .onChange(of: geometry.size) { windowSize.value = $0 }
       }
         .frame(minWidth: 980, minHeight: 680)
         .background(StoryStyle.canvas)
@@ -90,9 +95,18 @@ struct MainWindowView: View {
         .onAppear { navigation.connect(to: store) }
         .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
-            sheetContent(presented, within: nil)
+            sheetContent(presented, within: windowSize.value == .zero ? nil : windowSize.value)
                 .environment(\.focusInterfaceDensity, settings.interfaceDensity)
                 .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
+                // A native sheet is its own view tree: the panels the window
+                // opens must be reachable from it too, or a category menu in
+                // Settings loses its Add and Edit items.
+                .environment(\.openCategoryEditor) { request in
+                    CategoryEditorPanel.shared.show(request, model: settings) { definition, wasNew in
+                        if wasNew { store.workType = definition.workType }
+                    }
+                }
+                .environment(\.openActivityEditor) { request in ActivityEditorPanel.shared.show(request, store: store) }
         }
         .accessibilityElement(children: .contain)
     }
@@ -277,4 +291,9 @@ struct StorySheet<Content: View>: View {
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isModal)
     }
+}
+
+/// The window's size, for a sheet presented outside its geometry reader.
+final class SizeBox: ObservableObject {
+    @Published var value: CGSize = .zero
 }
