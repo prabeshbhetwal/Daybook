@@ -511,7 +511,7 @@ enum SessionMetadataChecks {
             var partial = store.powerSummary(for: [first, second],
                 interval: DateInterval(start: start, duration: 1_200))
             var problems: [String] = []
-            expect(partial?.headline == "Battery · 78%" && partial?.symbolName == "battery.75percent",
+            expect(partial?.headline == "Using battery · 78%" && partial?.symbolName == "battery.75percent",
                    "partial grouped evidence lost its factual battery source", &problems)
             expect(partial?.detail?.contains("1 of 2 stretches") == true,
                    "partial grouped evidence did not disclose missing stretch coverage", &problems)
@@ -520,7 +520,7 @@ enum SessionMetadataChecks {
                 boundary: .stretchEnded), for: second)
             partial = store.powerSummary(for: [first, second],
                 interval: DateInterval(start: start, duration: 1_200))
-            expect(partial?.headline == "Battery · 78% → 64%"
+            expect(partial?.headline == "Using battery · 78% → 64%"
                    && partial?.symbolName == "battery.75percent",
                    "complete multi-stretch evidence replaced the factual source with a generic headline", &problems)
             expect(partial?.detail?.contains("gaps between stretches are not power coverage") == true,
@@ -897,7 +897,7 @@ enum SessionMetadataChecks {
                    && store.ambientPower.observations.last?.timestamp == sessionStart,
                    "the quiet block ending at the start was not given a last reading", &problems)
             let before = store.ambientPowerSummary(within: DateInterval(start: idleStart, end: sessionStart))
-            expect(before?.headline == "Battery · 70% → 68%",
+            expect(before?.headline == "Using battery · 70% → 68%",
                    "the quiet block before the session read \(before?.headline ?? "nothing")", &problems)
 
             clock.advance(600)
@@ -923,7 +923,7 @@ enum SessionMetadataChecks {
             expect(after?.headline == "Plugged in, charging · 96 W · 66% → 67%",
                    "the quiet block after the session read \(after?.headline ?? "nothing")", &problems)
             expect(store.ambientPowerSummary(within: DateInterval(start: sessionStart, end: sessionEnd))?
-                    .headline != "Battery · 66% → 66%"
+                    .headline != "Using battery · 66% → 66%"
                    || metadata.metadata(for: recordID)?.power.isEmpty == false,
                    "a session span was read from the day's log", &problems)
 
@@ -1634,7 +1634,7 @@ enum SessionMetadataChecks {
         let interval = DateInterval(start: start, duration: 1_800)
         var problems: [String] = []
         expect(PowerContextSummary.make(observations: battery, interval: interval)?.headline
-               == "Battery · 78% → 64%", "battery sequence was not rendered literally", &problems)
+               == "Using battery · 78% → 64%", "battery sequence was not rendered literally", &problems)
         expect(PowerContextSummary.make(observations: charging, interval: interval)?.headline
                == "Plugged in, charging · 64% → 81%",
                "actively charging evidence was not stated", &problems)
@@ -1695,7 +1695,7 @@ enum SessionMetadataChecks {
             PowerObservation(timestamp: interval.end.addingTimeInterval(1), source: .external,
                              percentage: 64, charging: .notCharging, boundary: .sourceChanged)
         ], interval: interval)
-        expect(postCommitBoundary?.headline == "Battery · 78% → 64%",
+        expect(postCommitBoundary?.headline == "Using battery · 78% → 64%",
                "summary grace admitted a post-interval source change", &problems)
         return problems
     }
@@ -1734,7 +1734,7 @@ enum SessionMetadataChecks {
             PowerObservation(timestamp: start.addingTimeInterval(90), source: .battery,
                              percentage: 64, charging: .notCharging, boundary: .sourceChanged)
         ], interval: DateInterval(start: start, duration: 93))
-        expect(resumedAtStart?.headline == "Battery · 64% → 64%" && resumedAtStart?.detail == nil,
+        expect(resumedAtStart?.headline == "Using battery · 64% → 64%" && resumedAtStart?.detail == nil,
                "an uninterrupted battery stretch carried a qualification: "
                + "\(resumedAtStart?.detail ?? "nil")", &problems)
         return problems

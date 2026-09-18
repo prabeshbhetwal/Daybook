@@ -8,8 +8,34 @@ private struct FocusExpandsEntryDetailsKey: EnvironmentKey {
     static let defaultValue = false
 }
 
-private final class StoryDisclosureState: ObservableObject {
+/// Which story rows are open. Owned by the column so the header's Expand all
+/// and the rows' own chevrons move the same set.
+final class StoryDisclosureState: ObservableObject {
     @Published var ids: Set<String> = []
+}
+
+/// One link that opens or closes every session and folded quiet run in the
+/// day. It reads "Collapse all" only when everything it would open is open.
+struct StoryExpandAllControl: View {
+    @ObservedObject var disclosure: StoryDisclosureState
+    let ids: [String]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var allOpen: Bool { !ids.isEmpty && ids.allSatisfy(disclosure.ids.contains) }
+
+    var body: some View {
+        Button(allOpen ? "Collapse all" : "Expand all") {
+            let opening = !allOpen
+            withAnimation(Tokens.Motion.animation(opening ? Tokens.Motion.reveal : Tokens.Motion.dismiss,
+                                                  reduceMotion: reduceMotion)) {
+                if opening { disclosure.ids.formUnion(ids) } else { disclosure.ids.subtract(ids) }
+            }
+        }
+        .buttonStyle(StoryLinkStyle())
+        .disabled(ids.isEmpty)
+        .help(allOpen ? "Close every session in the day" : "Open every session in the day")
+        .accessibilityLabel(allOpen ? "Collapse all sessions" : "Expand all sessions")
+    }
 }
 
 /// The live fields supplied to one session card. Kept as a value so the
@@ -62,9 +88,9 @@ struct DayStory: View {
     @ObservedObject var store: SessionStore
     var projection: StoryDayProjection? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// Entries the reader has opened. Local: it is a reading aid, not state the
-    /// product remembers.
-    @StateObject private var opened = StoryDisclosureState()
+    /// Entries the reader has opened. A reading aid, not state the product
+    /// remembers; the column owns it so its header can open them all.
+    @ObservedObject var opened: StoryDisclosureState
     @Environment(\.storyEntryInitiallyOpen) private var entryInitiallyOpen
     @Environment(\.focusExpandsEntryDetails) private var expandsDetails
     @Environment(\.focusShowsTimelineLabels) private var showsTimes
@@ -77,6 +103,20 @@ struct DayStory: View {
         (projection?.chronology ?? store.storyTimelineItems).compactMap { item in
             if case .moment(let moment) = item { return moment }
             return nil
+        }
+    }
+
+    /// Every row that can be opened: each session, and each folded run of
+    /// quiet rows. The same keys the rows themselves toggle.
+    static func expandableIDs(in entries: [StoryTimelineItem]) -> [String] {
+        entries.groupingQuietRuns().compactMap { row in
+            switch row {
+            case .item(let item):
+                if case .moment(.entry(.session)) = item { return item.id }
+                return nil
+            case .quiet(let run):
+                return "quiet-" + run.id
+            }
         }
     }
 
@@ -262,7 +302,10 @@ struct DayStory: View {
                                  appColourIndices: projection?.appColourIndices
                                     ?? store.storyAppColourIndices,
                                  canContinue: store.canContinue(session),
-                                 canStartNewSession: store.canStartNewSession(session),
+                                 // A stretch of the thread running now is neither continued
+                                 // nor started again: it is already going.
+                                 canStartNewSession: store.canStartNewSession(session)
+                                    && !store.isThreadRunning(session.threadID),
                                  isOpen: isOpen,
                                  clock: live.clock,
                                  liveStatus: live.liveStatus,
@@ -274,6 +317,9 @@ struct DayStory: View {
                                  onWorkType: { store.setWorkType($0, for: session) },
                                  onContinue: { store.continueSession(session) },
                                  onStartNewSession: { store.startNewSession(from: session) },
+                                 onRemove: store.canRemoveSession(session)
+                                    ? { store.removeSession(session) } : nil,
+                                 removeBlockReason: store.removalBlockReason(for: session),
                                  pauseTitle: live.pauseTitle,
                                  onPause: live.canControl ? { store.togglePause() } : nil,
                                  onEnd: live.canControl ? { store.stop() } : nil)
@@ -296,11 +342,13 @@ struct DayStory: View {
                                          @ViewBuilder content: () -> Content) -> some View {
         HStack(alignment: .top, spacing: 0) {
             if showsTimes {
+              // Centred on the same line as the dot, whatever the dot's size,
+              // rather than pushed down by a fixed padding that only matched
+              // the small ones.
               Text(Tokens.timeOfDayOnly(time))
                 .font(Tokens.Typography.metadata.monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: timeColumn, alignment: .trailing)
-                .padding(.top, 14)
+                .frame(width: timeColumn, height: DayStory.dotCentre * 2, alignment: .trailing)
                 .accessibilityHidden(true)
             }
             rail(tint: tint, dotSize: dotSize, isFirst: isFirst, isLast: isLast)
@@ -314,9 +362,13 @@ struct DayStory: View {
     /// One continuous rule down the story, with this entry's dot on it. The
     /// first and last rows stop the rule at their own dot so the line has ends
     /// rather than running into the page.
+    /// Where every dot's centre sits below the row's top, and the line the
+    /// time label is centred on.
+    static let dotCentre: CGFloat = 19
+
     private func rail(tint: Color, dotSize: CGFloat, isFirst: Bool, isLast: Bool) -> some View {
         GeometryReader { geometry in
-            let dotCentre: CGFloat = 19
+            let dotCentre = DayStory.dotCentre
             ZStack(alignment: .top) {
                 Rectangle()
                     .fill(Tokens.Colour.line)
@@ -389,6 +441,9 @@ struct SessionEntryCard: View {
     var onWorkType: ((WorkType) -> Bool)?
     var onContinue: (() -> Void)?
     var onStartNewSession: (() -> Void)?
+    var onRemove: (() -> Void)?
+    /// Set when Remove is shown but cannot act yet; the button says why.
+    var removeBlockReason: String?
     var pauseTitle = "Pause"
     var onPause: (() -> Void)?
     var onEnd: (() -> Void)?
@@ -396,9 +451,13 @@ struct SessionEntryCard: View {
     @StateObject private var editing = BoolBox()
     @StateObject private var draft = TextBox()
     @StateObject private var picking = BoolBox()
+    @StateObject private var confirmingRemoval = BoolBox()
+    @StateObject private var titleWidth = WidthBox()
     @FocusState private var renameFocused: Bool
     @FocusState private var renameActionFocused: Bool
     @Environment(\.focusInterfaceDensity) private var density
+    @Environment(\.openSessionReport) private var openSessionReport
+    @Environment(\.sessionControlsVisible) private var sessionControlsVisible
 
     private var tint: Color { Tokens.Palette.workType(session.workType) }
 
@@ -411,12 +470,68 @@ struct SessionEntryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Button(action: onToggle) {
-                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                    HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
+            HStack(alignment: .top, spacing: 0) {
+                Button(action: onToggle) {
+                    VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                         Text(session.name.isEmpty ? session.workType.displayName : session.name)
                             .font(Tokens.Typography.rowTitle)
                             .lineLimit(2)
+                            // The pencil is placed by this width, so it sits
+                            // at the end of the name and not after the wider
+                            // category line beneath it.
+                            .background(GeometryReader { proxy in
+                                Color.clear.preference(key: TitleWidthKey.self, value: proxy.size.width)
+                            })
+                            // Room for the pencil beside a long name.
+                            .padding(.trailing, isOpen && (onRename != nil || onWorkType != nil) ? 30 : 0)
+                        HStack(spacing: Tokens.Space.s) {
+                            Text(session.workType.displayName)
+                                .font(Tokens.Typography.microLabel)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                                .foregroundStyle(StoryStyle.workTypeInk(session.workType))
+                            Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
+                                .font(Tokens.Typography.metadata)
+                                .foregroundStyle(.secondary)
+                            if session.stretches > 1 {
+                                Text("· \(session.stretches) stretches")
+                                    .font(Tokens.Typography.metadata)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                    .padding(StoryStyle.entryInsets(for: density))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(StoryPressStyle())
+                .onPreferenceChange(TitleWidthKey.self) { titleWidth.value = $0 }
+                // The pencil sits by the name it edits: rename and category
+                // in one place, rather than two buttons in the action row.
+                .overlay(alignment: .topLeading) {
+                    if isOpen, onRename != nil || onWorkType != nil {
+                        let insets = StoryStyle.entryInsets(for: density)
+                        // Quiet: a small secondary glyph that only gains a
+                        // disc under the pointer, so the name stays the
+                        // loudest thing on its line.
+                        Button {
+                            if editing.value { finishRenaming() } else { beginEditing() }
+                        } label: {
+                            Image(systemName: editing.value ? "checkmark.circle.fill" : "pencil")
+                                .font(.system(size: editing.value ? 15 : 12, weight: .medium))
+                                .foregroundStyle(editing.value ? AnyShapeStyle(StoryStyle.action)
+                                                               : AnyShapeStyle(.secondary))
+                                .frame(width: 22, height: 22)
+                        }
+                        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 11))
+                        .offset(x: insets.leading + titleWidth.value + Tokens.Space.xs, y: insets.top - 1)
+                        .help(editing.value ? "Done editing" : "Rename or change the category")
+                        .accessibilityLabel(editing.value ? "Done editing" : "Edit name and category")
+                        .focused($renameActionFocused)
+                    }
+                }
+                Button(action: onToggle) {
+                    HStack(alignment: .top, spacing: Tokens.Space.m) {
                         Spacer(minLength: Tokens.Space.s)
                         VStack(alignment: .trailing, spacing: 2) {
                             Text(clock ?? Tokens.preciseDuration(session.worked))
@@ -434,28 +549,12 @@ struct SessionEntryCard: View {
                             .font(Tokens.Typography.microLabel)
                             .foregroundStyle(.tertiary)
                     }
-                    HStack(spacing: Tokens.Space.s) {
-                        Text(session.workType.displayName)
-                            .font(Tokens.Typography.microLabel)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
-                            .foregroundStyle(StoryStyle.workTypeInk(session.workType))
-                        Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
-                            .font(Tokens.Typography.metadata)
-                            .foregroundStyle(.secondary)
-                        if session.stretches > 1 {
-                            Text("· \(session.stretches) stretches")
-                                .font(Tokens.Typography.metadata)
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
+                    .padding(StoryStyle.entryInsets(for: density))
+                    .contentShape(Rectangle())
                 }
-                .padding(StoryStyle.entryInsets(for: density))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+                .buttonStyle(StoryPressStyle())
             }
-            .buttonStyle(StoryPressStyle())
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if isOpen { detail.transition(unfold) }
         }
@@ -495,8 +594,7 @@ struct SessionEntryCard: View {
                             .frame(width: 130)
                     }
                 }
-            } else if session.workType == .meetings {
-                meetingDetail
+                reportLink()
             } else {
                 HStack(alignment: .top, spacing: 20) {
                     appsDetail.frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
@@ -505,6 +603,7 @@ struct SessionEntryCard: View {
                     }
                 }
                 if !showsActivityStrip { factualCaption }
+                if apps.count <= 4 { reportLink() }
             }
             actions
             metadataDetail
@@ -521,11 +620,32 @@ struct SessionEntryCard: View {
                     StoryAppRow(app: app, rank: appColourIndices[app.bundleID] ?? index)
                 }
                 if apps.count > 4 {
-                    Text("\(apps.count - 4) more app\(apps.count - 4 == 1 ? "" : "s") "
-                         + "used inside this session")
+                    // The one door to the report, put where the question
+                    // comes up: what were the other nine?
+                    reportLink(prefix: "\(apps.count - 4) more app\(apps.count - 4 == 1 ? "" : "s")",
+                               title: "See all")
+                }
+            }
+        }
+    }
+
+    /// The single way into the full report. "See all" when it finishes the
+    /// thought "N more apps"; "See full report" where nothing is cut short,
+    /// so the report is reachable from every kind of card, running included.
+    @ViewBuilder private func reportLink(prefix: String? = nil, title: String = "See full report") -> some View {
+        if let openSessionReport {
+            HStack(spacing: Tokens.Space.xs) {
+                if let prefix {
+                    Text(prefix)
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.tertiary)
+                    Text("·")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.tertiary)
                 }
+                Button(title) { openSessionReport(session) }
+                    .buttonStyle(StoryLinkStyle())
+                    .accessibilityLabel("See the full report for this session")
             }
         }
     }
@@ -556,22 +676,6 @@ struct SessionEntryCard: View {
         }
     }
 
-    private var meetingDetail: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            factualCaption
-            HStack(spacing: 16) {
-                ForEach(apps.prefix(3)) { app in
-                    HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: Tokens.Radius.bar).fill(tint).frame(width: 8, height: 8)
-                        Text("\(app.appName) \(Tokens.preciseDuration(app.total))")
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
-        }
-    }
-
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
             .font(Tokens.Typography.microLabel)
@@ -585,29 +689,18 @@ struct SessionEntryCard: View {
         if onRename != nil || onWorkType != nil || onContinue != nil || noteTargetID != nil {
             Color.clear.frame(height: 2)
             if editing.value {
-                renameField
-            } else if picking.value, let onWorkType {
-                workTypeChoices(onWorkType)
+                // Name and category together: what the pencil opened.
+                VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                    if onRename != nil { renameField }
+                    if let onWorkType { workTypeChoices(onWorkType) }
+                }
             } else {
                 HStack(spacing: Tokens.Space.m) {
-                    if onRename != nil {
-                        actionButton("Rename") {
-                            draft.text = session.name
-                            renameActionFocused = false
-                            renameFocused = false
-                            editing.value = true
-                        }
-                        .focused($renameActionFocused)
-                    }
-                    if onWorkType != nil {
-                        actionButton(picking.value ? "Done" : "Change type") {
-                            picking.value.toggle()
-                        }
-                    }
                     if let onContinue, canContinue {
                         actionButton("Continue this", action: onContinue)
                     } else if let onStartNewSession, canStartNewSession {
-                        actionButton("Start new session", action: onStartNewSession)
+                        actionButton("Start again", action: onStartNewSession)
+                            .help("Starts a fresh session with this name and category.")
                     }
                     if let recordID = noteTargetID, let metadataStore {
                         actionButton(metadataStore.sessionMetadata(for: recordID)?.note == nil
@@ -615,15 +708,48 @@ struct SessionEntryCard: View {
                             metadataStore.beginNoteEditing(for: recordID)
                         }
                     }
+                    if onRemove != nil || removeBlockReason != nil {
+                        Button("Remove") { confirmingRemoval.value = true }
+                            .buttonStyle(StoryActionStyle(tint: Tokens.Colour.danger))
+                            .disabled(onRemove == nil)
+                            .help(removeBlockReason
+                                  ?? "Takes this session out of the record. Its time reads as outside sessions; Undo puts it back.")
+                            .accessibilityHint(removeBlockReason ?? "Removes this session; Undo is offered in the story.")
+                            .confirmationDialog("Remove this session?", isPresented: $confirmingRemoval.value) {
+                                Button("Remove session", role: .destructive) { onRemove?() }
+                                Button("Keep", role: .cancel) {}
+                            } message: {
+                                Text("Every stretch of “\(session.name.isEmpty ? session.workType.displayName : session.name)” "
+                                     + "leaves the record and its time reads as outside sessions. "
+                                     + "App use stays. Undo is offered in the story.")
+                            }
+                    }
                     Spacer(minLength: 0)
-                    if let onPause { actionButton(pauseTitle, action: onPause) }
-                    if let onEnd { actionButton("End session", action: onEnd) }
+                    // The strip, when it is up, already has these two.
+                    if !sessionControlsVisible {
+                        if let onPause { actionButton(pauseTitle, action: onPause) }
+                        if let onEnd {
+                            actionButton("Stop", action: onEnd)
+                                .help("Ends this session and records it. A stretch under "
+                                      + "\(Int(FocusConstants.minimumRecordedSession)) seconds is not kept.")
+                        }
+                    }
                 }
             }
-            Text("Name and type changes apply to all stretches of this session, including other days.")
+            Text(editing.value
+                 ? "Name and category changes apply to all stretches of this session, including other days."
+                 : "Changes apply to all stretches of this session, including other days.")
                 .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private func beginEditing() {
+        draft.text = session.name
+        renameActionFocused = false
+        renameFocused = false
+        editing.value = true
+        picking.value = true
     }
 
     private var noteTargetID: UUID? { noteRecordIDs.last }
@@ -667,12 +793,12 @@ struct SessionEntryCard: View {
     /// is offered too — the record should be able to say it was not work.
     private func workTypeChoices(_ pick: @escaping (WorkType) -> Bool) -> some View {
         HStack(spacing: Tokens.Space.xs) {
-            ForEach(WorkType.allCases, id: \.self) { type in
+            ForEach(WorkType.allCases) { type in
                 let isCurrent = type == session.workType
                 Button {
-                    if pick(type) { picking.value = false }
+                    _ = pick(type)
                 } label: {
-                    Text(type.displayName)
+                    Label(type.displayName, systemImage: type.symbolName)
                         .font(Tokens.Typography.microLabel)
                         .padding(.horizontal, Tokens.Space.s)
                         .padding(.vertical, Tokens.Space.xs)
@@ -688,7 +814,6 @@ struct SessionEntryCard: View {
                 .accessibilityAddTraits(isCurrent ? .isSelected : [])
             }
             Spacer(minLength: 0)
-            actionButton("Done") { picking.value = false }
         }
     }
 
@@ -708,11 +833,11 @@ struct SessionEntryCard: View {
                     }
                 }
                 .accessibilityLabel("Name this work")
-            Button("Save", action: commitRename)
+            Button("Save name", action: commitRename)
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                           || draft.text.trimmingCharacters(in: .whitespacesAndNewlines) == session.name)
-            Button("Cancel", action: finishRenaming)
+            Button("Done", action: finishRenaming)
                 .font(Tokens.Typography.metadata)
         }
         .onExitCommand(perform: finishRenaming)
@@ -721,12 +846,14 @@ struct SessionEntryCard: View {
     private func commitRename() {
         let trimmed = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        if onRename?(trimmed) == true { finishRenaming() }
+        // A saved name keeps the editor open: the category may be next.
+        if onRename?(trimmed) == true { draft.text = trimmed }
     }
 
     private func finishRenaming() {
         renameFocused = false
         editing.value = false
+        picking.value = false
         DispatchQueue.main.async { renameActionFocused = true }
     }
 
@@ -741,6 +868,16 @@ struct SessionEntryCard: View {
 /// single draft needs an object behind it.
 final class TextBox: ObservableObject {
     @Published var text = ""
+}
+
+/// A measured width, for placing one view at the end of another's text.
+final class WidthBox: ObservableObject {
+    @Published var value: CGFloat = 0
+}
+
+private struct TitleWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
 }
 
 /// Rest is not work, so it is a quiet row rather than a card: named where the

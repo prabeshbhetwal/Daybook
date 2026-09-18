@@ -83,14 +83,35 @@ final class CategoryManager {
     }
 
     /// Falls back to deep work: the most common case, and the least annoying
-    /// thing to correct if wrong.
+    /// thing to correct if wrong. What the user chose for this app recently
+    /// comes first; the fixed map is the guess for an app never started from.
     func suggestedWorkType(for bundleID: String?) -> WorkType {
         guard let bundleID else { return .deepWork }
         if let raw = store.overrides[bundleID], let override = AppCategory(rawValue: raw) {
             // An explicit Break override should suggest a break session too.
             if override == .breakTime { return .breakTime }
         }
+        if let learned = learnedWorkType(for: bundleID) { return learned }
         return CategoryManager.suggestedWorkTypes[bundleID] ?? .deepWork
+    }
+
+    /// The category chosen most often in the last three starts from this
+    /// app, the most recent winning a tie. Nil when never started from, or
+    /// when the remembered category has since been retired.
+    func learnedWorkType(for bundleID: String?) -> WorkType? {
+        guard let bundleID, let recent = store.categoryChoices[bundleID], !recent.isEmpty else { return nil }
+        return CategoryManager.majority(of: recent.map(WorkType.init(rawValue:)))
+    }
+
+    static func majority(of choices: [WorkType]) -> WorkType? {
+        let startable = Set(WorkType.startable)
+        let usable = choices.filter(startable.contains)
+        guard !usable.isEmpty else { return nil }
+        var counts: [WorkType: Int] = [:]
+        for choice in usable { counts[choice, default: 0] += 1 }
+        let best = counts.values.max() ?? 0
+        // Newest last: walk backwards for the most recent of the leaders.
+        return usable.reversed().first { counts[$0] == best }
     }
 
     func category(for bundleID: String?) -> AppCategory {

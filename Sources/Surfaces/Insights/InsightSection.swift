@@ -17,56 +17,102 @@ struct InsightPresentation: Equatable {
     }
 }
 
-/// One plain statement, with its method behind a disclosure so the conclusion
-/// is what the reader meets first. The card never owns a fallback value: only a
-/// present `Insight` reaches this view.
+/// One finding as a rail tile: the title the rail uses, a chart where the
+/// finding has one, the sentence, and the method behind a disclosure. The
+/// tile never owns a fallback value: only a present `Insight` reaches it.
 struct InsightSection: View {
     let title: String
     let insight: Insight
+    /// Hour bars, for Rhythm.
+    var rhythm: [RhythmHour]? = nil
+    /// Category shares, for Focus quality and By category.
+    var shares: [WorkTypeShare]? = nil
     @StateObject private var expanded = BoolBox()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var presentation: InsightPresentation {
         InsightPresentation(title: title, insight: insight)
     }
 
     var body: some View {
-        SurfacePanel(showsHeader: false) {
-            VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                HStack(spacing: Tokens.Space.s) {
-                    Image(systemName: insight.symbolName)
-                        .font(Tokens.Typography.tabLabel.weight(.semibold))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(Tokens.Colour.focus)
-                        .frame(width: 24, height: 24)
-                        .background(Tokens.Colour.elevated, in: Circle())
-                        .accessibilityHidden(true)
-                    Text(presentation.title)
-                        .font(Tokens.Typography.sectionTitle)
+        StoryTile(title: presentation.title, trailing: nil) {
+            VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                if let rhythm, rhythm.contains(where: { $0.seconds > 0 }) {
+                    RhythmChart(hours: rhythm, height: 44, compactLabels: true)
                 }
-
+                if let shares, !shares.isEmpty {
+                    CategoryShareBar(shares: shares)
+                }
                 Text(presentation.headline)
-                    .font(Tokens.Typography.metricValue)
+                    .font(Tokens.Typography.sectionTitle)
                     .fixedSize(horizontal: false, vertical: true)
-
-                // Collapsed by default: the method is available on demand
-                // instead of permanently consuming half the card.
-                DisclosureGroup(isExpanded: Binding(get: { expanded.value },
-                                                    set: { expanded.value = $0 })) {
+                if expanded.value {
                     Text(presentation.provenance)
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, Tokens.Space.xs)
-                } label: {
-                    Text(presentation.disclosureLabel)
-                        .font(Tokens.Typography.metadata.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
                 }
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(presentation.title). \(presentation.headline). "
-                            + presentation.provenance)
+        // The method sits on the title's line, at the tile's corner: one quiet
+        // mark where a sentence-long link used to take a row of every tile.
+        .overlay(alignment: .topTrailing) { methodButton }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var methodButton: some View {
+        Button {
+            withAnimation(Tokens.Motion.animation(
+                expanded.value ? Tokens.Motion.dismiss : Tokens.Motion.reveal,
+                reduceMotion: reduceMotion)) { expanded.value.toggle() }
+        } label: {
+            Image(systemName: expanded.value ? "info.circle.fill" : "info.circle")
+                .font(Tokens.Typography.control)
+                .foregroundStyle(expanded.value ? AnyShapeStyle(StoryStyle.action)
+                                                : AnyShapeStyle(.tertiary))
+                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                       height: AccessibilityMetrics.minimumTargetSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(StoryPressStyle())
+        .padding(.top, 4)
+        .padding(.trailing, 4)
+        .help(expanded.value ? "Hide how this is calculated" : presentation.disclosureLabel)
+        .accessibilityLabel(expanded.value ? "Hide how \(presentation.title) is calculated"
+                                           : "\(presentation.disclosureLabel): \(presentation.title)")
+    }
+}
+
+/// One bar split by category, with the legend the week chart uses.
+struct CategoryShareBar: View {
+    let shares: [WorkTypeShare]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            GeometryReader { geometry in
+                HStack(spacing: 2) {
+                    ForEach(shares) { share in
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(Tokens.Palette.workType(share.workType))
+                            .frame(width: max(2, geometry.size.width * share.share))
+                    }
+                }
+            }
+            .frame(height: 8)
+            .accessibilityHidden(true)
+            ChipFlow(spacing: Tokens.Space.m) {
+                ForEach(shares) { share in
+                    HStack(spacing: Tokens.Space.xs) {
+                        Circle().fill(Tokens.Palette.workType(share.workType))
+                            .frame(width: 8, height: 8)
+                        Text("\(share.workType.displayName) \(Int((share.share * 100).rounded()))%")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
     }
 }

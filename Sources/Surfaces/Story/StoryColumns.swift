@@ -129,10 +129,19 @@ struct ProjectedDayStoryColumn: View {
     @ObservedObject var store: SessionStore
     let projection: StoryDayProjection
     @StateObject private var showSummary = BoolBox()
+    @StateObject private var disclosure = StoryDisclosureState()
 
     var body: some View {
+        let expandable = DayStory.expandableIDs(in: projection.chronology)
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
             if let note = projection.integrityNote { IntegrityNotice(note) }
+            if !store.isTrackingEnabled, Calendar.current.isDateInToday(projection.date) {
+                // Sessions are still logged, but nothing says which apps they
+                // were in. Said here, once, rather than left to be inferred
+                // from every card reading "no app recording".
+                IntegrityNotice("App recording is off, so today's sessions carry no app evidence. "
+                                + "Turn on Record app usage in Settings › Recording.")
+            }
             StoryHeadline(eyebrow: Tokens.longDate(projection.date),
                           sentence: sentence,
                           facts: facts,
@@ -153,8 +162,21 @@ struct ProjectedDayStoryColumn: View {
                         }
                     }
                 }
+                // On the header's line, at the far edge: the one control that
+                // opens or closes the whole day.
+                .overlay(alignment: .topTrailing) {
+                    if !expandable.isEmpty {
+                        StoryExpandAllControl(disclosure: disclosure, ids: expandable)
+                            .frame(height: AccessibilityMetrics.minimumTargetSize)
+                    }
+                }
+            } else if !expandable.isEmpty {
+                HStack {
+                    Spacer(minLength: 0)
+                    StoryExpandAllControl(disclosure: disclosure, ids: expandable)
+                }
             }
-            DayStory(store: store, projection: projection)
+            DayStory(store: store, projection: projection, opened: disclosure)
         }
         .accessibilityIdentifier("story-day-content-\(projection.id)")
         .storyRenderEvidence(.dayStory)

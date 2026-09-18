@@ -19,9 +19,16 @@ struct StoryDecisionRow: View {
 
     var body: some View {
         if receipt.isResolved {
-            StorySavedActionRow(title: receipt.title, range: range,
+            // A named break reads by its name; an unnamed one keeps the plain
+            // statement and offers the field the away prompt has.
+            let name = store.breakName(for: receipt)
+            StorySavedActionRow(title: name ?? receipt.title, range: range,
+                                kind: name == nil ? nil : "Break",
                                 canUndo: store.engine.canUndoAwayDecision(expectedID: receipt.id),
-                                scopeNote: StoryDecisionScope.note(visible: range, full: receipt.range)) {
+                                scopeNote: StoryDecisionScope.note(visible: range, full: receipt.range),
+                                currentName: name,
+                                onName: store.canNameBreak(for: receipt)
+                                    ? { store.nameBreak(for: receipt, to: $0) } : nil) {
                 store.undoAwayDecision(expectedID: receipt.id)
             }
         } else {
@@ -60,9 +67,17 @@ struct StoryDecisionRow: View {
 struct StorySavedActionRow: View {
     let title: String
     let range: DateInterval
+    /// What the row is, when its title is a name rather than a statement.
+    var kind: String?
     var canUndo = true
     var scopeNote: String?
+    var currentName: String?
+    /// Present when the row stands for a break that can be named.
+    var onName: ((String) -> Bool)?
     let undo: () -> Void
+    @StateObject private var editing = BoolBox()
+    @StateObject private var draft = TextBox()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -70,9 +85,23 @@ struct StorySavedActionRow: View {
             Image(systemName: "checkmark").font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(StoryStyle.successInk)
             Text(title).font(Tokens.Typography.metadata.weight(.semibold))
-            Text(Tokens.timeRange(range.start, range.end))
+                .lineLimit(1)
+            Text((kind.map { "\($0) · " } ?? "") + Tokens.timeRange(range.start, range.end))
                 .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                .lineLimit(1)
             Spacer(minLength: 8)
+            if onName != nil, !editing.value {
+                Button(currentName == nil ? "Name it" : "Rename") {
+                    draft.text = currentName ?? ""
+                    withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) {
+                        editing.value = true
+                    }
+                }
+                .buttonStyle(StoryLinkStyle())
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .frame(minHeight: 28)
+                .accessibilityLabel(currentName == nil ? "Name this break" : "Rename this break")
+            }
             Button("Undo", action: undo)
                 .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.metadata.weight(.semibold))
@@ -81,6 +110,11 @@ struct StorySavedActionRow: View {
                 .disabled(!canUndo)
                 .accessibilityLabel("Undo \(title.lowercased())")
                 .accessibilityHint(scopeNote ?? "Reverts only this action; later work is unchanged.")
+          }
+          if editing.value, onName != nil {
+              nameField
+                  .padding(.leading, 22)
+                  .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
           }
           if let scopeNote {
               Text(scopeNote).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
@@ -91,9 +125,46 @@ struct StorySavedActionRow: View {
         .padding(.horizontal, 15)
         .padding(.vertical, Tokens.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onExitCommand { editing.value = false }
         .background(LinearGradient(colors: [StoryStyle.successWash, StoryStyle.successWash.opacity(0.45)],
                                    startPoint: .leading, endPoint: .trailing),
                     in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius).strokeBorder(StoryStyle.successInk.opacity(0.22)))
+    }
+
+    /// The away prompt's own field, for a break that was answered without it.
+    private var nameField: some View {
+        HStack(spacing: Tokens.Space.s) {
+            Image(systemName: "pencil.line")
+                .font(Tokens.Typography.metadata.weight(.medium))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+            TextField("Name it: dinner, a call, a walk", text: $draft.text)
+                .textFieldStyle(.plain)
+                .font(Tokens.Typography.metadata)
+                .onSubmit(save)
+                .accessibilityLabel("Break name")
+            Button("Save", action: save)
+                .buttonStyle(StoryLinkStyle())
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .disabled(draft.text.trimmingCharacters(in: .whitespaces).isEmpty)
+            Button("Cancel") { editing.value = false }
+                .buttonStyle(StoryLinkStyle())
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, Tokens.Space.m)
+        .frame(minHeight: 30)
+        .background(Tokens.Colour.elevated,
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
+            .strokeBorder(Tokens.Colour.line))
+    }
+
+    private func save() {
+        guard let onName, !draft.text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        if onName(draft.text) || draft.text.trimmingCharacters(in: .whitespaces) == currentName {
+            editing.value = false
+        }
     }
 }

@@ -143,6 +143,9 @@ struct HistoryRangeControl: View {
     @Binding var end: Date
     let bounds: ClosedRange<Date>
     let onReset: () -> Void
+    var goal: TimeInterval = 0
+    var facts: (Date) -> [Date: DayFacts] = { _ in [:] }
+    var chrome = false
     @StateObject private var shown = BoolBox()
 
     private var presentation: HistoryRangePresentation {
@@ -153,20 +156,37 @@ struct HistoryRangeControl: View {
         Button {
             shown.value.toggle()
         } label: {
-            HStack(spacing: Tokens.Space.xs) {
-                Image(systemName: "calendar")
-                    .accessibilityHidden(true)
-                Text(presentation.label)
-                    .lineLimit(1)
-                Image(systemName: "chevron.down")
-                    .font(Tokens.Typography.microLabel)
-                    .accessibilityHidden(true)
+            // In the chrome it is the period label every workspace has, in
+            // the same place and the same type; in a page it is a pill.
+            if chrome {
+                HStack(spacing: Tokens.Space.xs) {
+                    Text(presentation.label)
+                        .font(Tokens.Typography.rowTitle)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(Tokens.Typography.microLabel.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, Tokens.Space.s)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                .contentShape(Rectangle())
+            } else {
+                HStack(spacing: Tokens.Space.xs) {
+                    Image(systemName: "calendar")
+                        .accessibilityHidden(true)
+                    Text(presentation.label)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(Tokens.Typography.microLabel)
+                        .accessibilityHidden(true)
+                }
+                .font(Tokens.Typography.metadata)
+                .padding(.horizontal, Tokens.Space.m)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                .background(Tokens.Colour.elevated, in: Capsule())
+                .overlay(Capsule().strokeBorder(Tokens.Colour.line))
             }
-            .font(Tokens.Typography.metadata)
-            .padding(.horizontal, Tokens.Space.m)
-            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-            .background(Tokens.Colour.elevated, in: Capsule())
-            .overlay(Capsule().strokeBorder(Tokens.Colour.line))
         }
         .buttonStyle(StoryPressStyle())
         .accessibilityLabel(presentation.accessibilityLabel)
@@ -178,92 +198,268 @@ struct HistoryRangeControl: View {
         }
     }
 
-    /// A temporary choice surface: a reset, two native date targets, and the
-    /// selected range in words. Native controls apply immediately, so there is
-    /// nothing to stage behind an Apply action.
     private var popoverContent: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            HStack {
-                Text("Date range")
-                    .font(Tokens.Typography.sectionTitle)
-                Spacer(minLength: Tokens.Space.l)
-                Button("All dates", action: onReset)
-                    .buttonStyle(StoryLinkStyle())
-                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-            }
-            HistoryDateControl(label: "From", selection: $start, range: bounds)
-            HistoryDateControl(label: "To", selection: $end, range: bounds)
-            Text(presentation.accessibilityLabel)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(Tokens.Space.l)
-        .frame(minWidth: 260)
+        HistoryRangePopover(start: $start, end: $end, bounds: bounds, onReset: onReset,
+                            goal: goal, facts: facts)
     }
 }
 
-/// Search and intersection filters over canonical day rows. Controls only
-/// select evidence; there are deliberately no edit, repair or export actions.
+/// The History range, chosen on the app's own calendar: the one the chrome
+/// opens to jump to a day, here picking a first and a last day. Quick spans
+/// sit above it; everything applies as it is picked.
+struct HistoryRangePopover: View {
+    @Binding var start: Date
+    @Binding var end: Date
+    let bounds: ClosedRange<Date>
+    let onReset: () -> Void
+    var goal: TimeInterval = 0
+    var facts: (Date) -> [Date: DayFacts] = { _ in [:] }
+    @StateObject private var revision = HistoryRangeRevision()
+
+    private var presentation: HistoryRangePresentation {
+        HistoryRangePresentation(start: start, end: end)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(presentation.label)
+                        .font(Tokens.Typography.sectionTitle)
+                        .contentTransition(.numericText())
+                    Spacer(minLength: Tokens.Space.l)
+                    Button("All dates") {
+                        onReset()
+                        revision.value += 1
+                    }
+                    .buttonStyle(StoryLinkStyle())
+                }
+                ChipFlow(spacing: Tokens.Space.xs) {
+                    ForEach(HistoryRangePreset.allCases) { preset in
+                        presetChip(preset)
+                    }
+                }
+            }
+            .padding([.top, .horizontal], Tokens.Space.l)
+            DayPickerCalendar(range: min(start, end)...max(start, end),
+                              earliest: bounds.lowerBound, goal: goal, facts: facts) { first, last in
+                start = first
+                end = last
+            }
+            // Rebuilt only when a preset moves the range, so it opens on that
+            // month; picking days must not rebuild the grid under the pointer.
+            .id(revision.value)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(presentation.accessibilityLabel)
+    }
+
+    private func presetChip(_ preset: HistoryRangePreset) -> some View {
+        let range = preset.range(within: bounds)
+        let isCurrent = Calendar.current.isDate(range.lowerBound, inSameDayAs: min(start, end))
+            && Calendar.current.isDate(range.upperBound, inSameDayAs: max(start, end))
+        return Button(preset.title) {
+            start = range.lowerBound
+            end = range.upperBound
+            revision.value += 1
+        }
+        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14))
+        .font(Tokens.Typography.metadata.weight(isCurrent ? .semibold : .regular))
+        .padding(.horizontal, Tokens.Space.m)
+        .frame(minHeight: 28)
+        .background(isCurrent ? Tokens.Colour.focus.opacity(0.14) : Tokens.Colour.elevated, in: Capsule())
+        .foregroundStyle(isCurrent ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.primary))
+        .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+}
+
+/// Counts preset applications, which are the only reason to rebuild the grid.
+final class HistoryRangeRevision: ObservableObject {
+    @Published var value = 0
+}
+
+/// The spans people actually ask for, clamped to the days History has.
+enum HistoryRangePreset: String, CaseIterable, Identifiable {
+    case week, month, thisMonth, lastMonth
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .week: return "Last 7 days"
+        case .month: return "Last 30 days"
+        case .thisMonth: return "This month"
+        case .lastMonth: return "Last month"
+        }
+    }
+
+    func range(within bounds: ClosedRange<Date>, now: Date = Date(),
+               calendar: Calendar = .current) -> ClosedRange<Date> {
+        let today = calendar.startOfDay(for: now)
+        let raw: (Date, Date)
+        switch self {
+        case .week:
+            raw = (calendar.date(byAdding: .day, value: -6, to: today) ?? today, today)
+        case .month:
+            raw = (calendar.date(byAdding: .day, value: -29, to: today) ?? today, today)
+        case .thisMonth:
+            let first = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
+            raw = (first, today)
+        case .lastMonth:
+            let first = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
+            let previous = calendar.date(byAdding: .month, value: -1, to: first) ?? first
+            let last = calendar.date(byAdding: .day, value: -1, to: first) ?? first
+            raw = (previous, last)
+        }
+        let lower = min(max(raw.0, bounds.lowerBound), bounds.upperBound)
+        let upper = min(max(raw.1, lower), bounds.upperBound)
+        return lower...upper
+    }
+}
+
+/// Search and intersection filters over canonical day rows, laid out as the
+/// story window is: the days to scan in the column, the picked day in the
+/// rail. Controls only select evidence; nothing here edits, repairs or exports.
 struct HistoryView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    @Environment(\.focusInterfaceDensity) private var density
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var scrolls = true
+    /// The main window's bar carries the range where every workspace keeps
+    /// its period; a sheet has no such bar and keeps the control in the page.
+    var rangeInChrome = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.l) {
-            // The workspace names itself here, the way Insights does; the
-            // chrome above holds controls and the way back, never a title.
-            VStack(alignment: .leading, spacing: 2) {
-                Text("History")
-                    .font(Tokens.Typography.pageTitle)
-                    .accessibilityAddTraits(.isHeader)
-                Text("\(store.filteredHistoryDays.count) dated records, newest first.")
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-            }
+        HStack(alignment: .top, spacing: 0) {
+            pane { column }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .background(StoryStyle.canvas)
+            Divider()
+            pane { rail }
+                .frame(width: StoryLayout.railWidth)
+                .background(StoryStyle.rail)
+        }
+        .background(Tokens.Colour.ground)
+    }
+
+    @ViewBuilder private func pane<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if scrolls {
+            ScrollView { content() }
+        } else {
+            content().frame(maxHeight: .infinity, alignment: .top)
+        }
+    }
+
+    // MARK: - Column
+
+    private var column: some View {
+        let days = store.filteredHistoryDays
+        return VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            StoryHeadline(eyebrow: "History", sentence: sentence(days), facts: facts(days),
+                          highlight: Tokens.duration(days.reduce(0) { $0 + $1.focused }))
             ForEach(store.historyIntegrityNotices, id: \.self) { notice in
                 IntegrityNotice(notice)
             }
-            SurfacePanel(showsHeader: false) {
-                SectionHeader(title: "History filters",
-                              trailing: resultLabel)
-                filterBar
-                if let activeFilterSummary {
-                    Text(activeFilterSummary)
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
+            filterBar
+            if store.historyDays.isEmpty {
+                EmptyState("No recorded history yet",
+                           detail: "Tracked days and focus sessions will appear here locally.",
+                           icon: "calendar")
+            } else if days.isEmpty {
+                EmptyState("No matching days",
+                           detail: "Adjust the date range or clear one of the intersecting filters.",
+                           icon: "line.3.horizontal.decrease.circle")
+            } else {
+                dayList(days)
             }
+        }
+        .padding(StoryStyle.columnInsets(for: density))
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
 
-            SurfacePanel(showsHeader: false) {
-                SectionHeader(title: "Days")
-                if store.historyDays.isEmpty {
-                    EmptyState("No recorded history yet",
-                               detail: "Tracked days and focus sessions will appear here locally.",
-                               icon: "calendar")
-                } else if store.filteredHistoryDays.isEmpty {
-                    EmptyState("No matching days",
-                               detail: "Adjust the date range or clear one of the intersecting filters.",
-                               icon: "line.3.horizontal.decrease.circle")
-                } else {
-                    tableHeader
-                    ForEach(Array(store.filteredHistoryDays.enumerated()),
-                            id: \.element.id) { index, day in
-                        if index > 0 { Divider() }
-                        historyDayEntry(day)
+    private func sentence(_ days: [HistoryDay]) -> String {
+        guard !store.historyDays.isEmpty else { return "Your recorded days will gather here." }
+        guard !days.isEmpty else { return "No day matches these filters." }
+        let focused = days.reduce(0) { $0 + $1.focused }
+        let dayWord = days.count == 1 ? "day" : "days"
+        let scope = store.historyFilter.isActive ? "matching " : ""
+        guard focused > 0 else {
+            return "\(days.count) \(scope)\(dayWord) on record, with no focus session."
+        }
+        return "\(days.count) \(scope)\(dayWord) on record, \(Tokens.duration(focused)) of focus between them."
+    }
+
+    private func facts(_ days: [HistoryDay]) -> [String] {
+        guard let newest = days.first?.date, let oldest = days.last?.date else { return [] }
+        var parts = [Tokens.dateRange(oldest, newest)]
+        let sessions = days.reduce(0) { $0 + $1.sessions }
+        if sessions > 0 { parts.append(sessions == 1 ? "1 session" : "\(sessions) sessions") }
+        return parts
+    }
+
+    /// Days under the month they fall in, newest first. Each month states its
+    /// own total, so a long list still has landmarks.
+    private func dayList(_ days: [HistoryDay]) -> some View {
+        let months = HistoryMonthGroup.group(days)
+        return LazyVStack(alignment: .leading, spacing: Tokens.Space.l, pinnedViews: []) {
+            HistoryStripAxis()
+            ForEach(months) { month in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(month.title)
+                            .font(Tokens.Typography.metadata.weight(.bold))
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: Tokens.Space.m)
+                        Text("\(Tokens.duration(month.focused)) focused")
+                            .font(Tokens.Typography.metadata.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, Tokens.Space.s)
+                    .padding(.bottom, Tokens.Space.xs)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isHeader)
+                    ForEach(month.days) { day in
+                        HistoryDayRow(day: day,
+                                      projection: store.storyDayProjection(on: day.date),
+                                      context: dayContext(day),
+                                      isSelected: isSelected(day)) {
+                            withAnimation(Tokens.Motion.animation(Tokens.Motion.selection,
+                                                                  reduceMotion: reduceMotion)) {
+                                if isSelected(day) {
+                                    navigation.clearReviewDay()
+                                } else {
+                                    ReviewDayRoute.select(store: store, navigation: navigation)(day.date)
+                                }
+                            }
+                        } onOpen: {
+                            navigation.openStory(.day, containing: day.date)
+                        }
                     }
                 }
             }
         }
+        .onMoveCommand { direction in moveSelection(direction, in: days) }
+    }
+
+    /// Up and down walk the picked day through the list, as a native list does.
+    private func moveSelection(_ direction: MoveCommandDirection, in days: [HistoryDay]) {
+        guard direction == .up || direction == .down, !days.isEmpty else { return }
+        let current = days.firstIndex(where: isSelected)
+        let next: Int
+        if let current {
+            next = min(days.count - 1, max(0, current + (direction == .down ? 1 : -1)))
+        } else {
+            next = 0
+        }
+        ReviewDayRoute.select(store: store, navigation: navigation)(days[next].date)
     }
 
     private var filterBar: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Tokens.Space.s) {
                 searchField
-                rangeControl
+                if !rangeInChrome { rangeControl }
                 appMenu
                 workTypeMenu
                 clearFilters
@@ -271,7 +467,7 @@ struct HistoryView: View {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 searchField
                 HStack(spacing: Tokens.Space.s) {
-                    rangeControl
+                    if !rangeInChrome { rangeControl }
                     appMenu
                     workTypeMenu
                     clearFilters
@@ -284,7 +480,9 @@ struct HistoryView: View {
         if !store.historyDays.isEmpty {
             HistoryRangeControl(start: startBinding, end: endBinding,
                                 bounds: dateBounds,
-                                onReset: { store.resetHistoryRange() })
+                                onReset: { store.resetHistoryRange() },
+                                goal: store.goal.goal,
+                                facts: { store.dayFacts(inMonthOf: $0) })
         }
     }
 
@@ -293,7 +491,7 @@ struct HistoryView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-            TextField("Search date, app or work type", text: queryBinding)
+            TextField("Search date, app or category", text: queryBinding)
                 .textFieldStyle(.plain)
         }
         .padding(.horizontal, Tokens.Space.m)
@@ -338,21 +536,29 @@ struct HistoryView: View {
 
     private var workTypeMenu: some View {
         Menu {
-            Button("All work types") { store.setHistoryWorkType(nil) }
+            Button { store.setHistoryWorkType(nil) } label: {
+                Label("All categories", systemImage: "square.grid.2x2")
+                    .labelStyle(.titleAndIcon)
+            }
             Divider()
-            ForEach(WorkType.allCases, id: \.rawValue) { type in
-                Button(type.displayName) { store.setHistoryWorkType(type) }
+            ForEach(WorkType.allCases) { type in
+                Button { store.setHistoryWorkType(type) } label: {
+                    Label(type.displayName, systemImage: type.symbolName)
+                        .labelStyle(.titleAndIcon)
+                }
             }
         } label: {
-            Label(store.historyFilter.workType?.displayName ?? "All work types",
-                  systemImage: "square.grid.2x2")
+            Label(store.historyFilter.workType?.displayName ?? "All categories",
+                  systemImage: store.historyFilter.workType?.symbolName ?? "square.grid.2x2")
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-        .accessibilityLabel("Work type filter, selected "
-                            + (store.historyFilter.workType?.displayName ?? "all work types"))
+        .accessibilityLabel("Category filter, selected "
+                            + (store.historyFilter.workType?.displayName ?? "all categories"))
     }
+
+    // MARK: - Rail
 
     /// The same canonical detail a chart selection opens. Nil unless the
     /// selected day survives the active filters.
@@ -362,106 +568,28 @@ struct HistoryView: View {
         return store.storyDayProjection(on: date)
     }
 
-    /// The measures are named once, here.
-    private var tableHeader: some View {
-        HStack(alignment: .center, spacing: Tokens.Space.l) {
-            TableColumnHeader(title: "Day and context", alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            TableColumnHeader(title: "Tracked", width: HistoryTableLayout.trackedWidth)
-            TableColumnHeader(title: "Focused", width: HistoryTableLayout.focusedWidth)
-            TableColumnHeader(title: "Sessions", width: HistoryTableLayout.sessionWidth)
-            Spacer().frame(width: HistoryTableLayout.disclosureWidth)
-        }
-        .padding(.horizontal, Tokens.Space.xs)
-        .padding(.bottom, Tokens.Space.xs)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Columns: day and context, tracked, focused, sessions")
-    }
-
-    @ViewBuilder private func historyDayEntry(_ day: HistoryDay) -> some View {
-        let disclosure = HistoryDayDisclosurePresentation(
-            isExpanded: isSelected(day) && selectedDayProjection != nil)
-        VStack(spacing: 0) {
-            // Keep the row in the same structural position when expanded, so
-            // keyboard focus does not jump to the following day.
-            dayRow(day, disclosure: disclosure)
-            if disclosure.usesJoinedSurface, let projection = selectedDayProjection {
-                Divider().padding(.horizontal, Tokens.Space.m)
-                VStack(alignment: .leading, spacing: Tokens.Space.l) {
-                    HStack {
-                        Text("Full day story")
-                            .font(Tokens.Typography.metadata.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Hide story") { navigation.clearReviewDay() }
-                            .buttonStyle(StoryLinkStyle())
-                    }
-                    ProjectedDayStoryColumn(store: store, projection: projection)
-                        .id(projection.id)
-                        .accessibilityIdentifier(
-                            "history-story-detail-content-\(projection.id)")
-                        .storyRenderEvidence(.historyDetail)
+    private var rail: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.m) {
+            if let projection = selectedDayProjection {
+                HistoryDayPreview(store: store, projection: projection) {
+                    navigation.openStory(.day, containing: projection.date)
                 }
-                .padding(Tokens.Space.l)
-            }
-        }
-        .background(disclosure.usesJoinedSurface ? Tokens.Colour.hover : Color.clear,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                         style: .continuous))
-    }
-
-    private func dayRow(_ day: HistoryDay,
-                        disclosure: HistoryDayDisclosurePresentation) -> some View {
-        Button {
-            if disclosure.isExpanded {
-                navigation.clearReviewDay()
-            } else {
-                ReviewDayRoute.select(store: store, navigation: navigation)(day.date)
-            }
-        } label: {
-            HStack(alignment: .center, spacing: Tokens.Space.l) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Tokens.longDate(day.date))
-                        .font(Tokens.Typography.rowTitle)
-                    Text(dayContext(day))
+                .id(projection.id)
+                .accessibilityIdentifier("history-story-detail-content-\(projection.id)")
+                .storyRenderEvidence(.historyDetail)
+                .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
+            } else if !store.filteredHistoryDays.isEmpty {
+                StoryTile(title: "Pick a day", trailing: nil) {
+                    Text("Select a day to see its sessions, apps and notes here. "
+                         + "Double-click one to open it as a story.")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: Tokens.Space.l)
-                HistoryMetric(value: Tokens.duration(day.tracked),
-                              width: HistoryTableLayout.trackedWidth)
-                HistoryMetric(value: Tokens.duration(day.focused),
-                              width: HistoryTableLayout.focusedWidth)
-                HistoryMetric(value: "\(day.sessions)",
-                              width: HistoryTableLayout.sessionWidth)
-                Image(systemName: disclosure.chevronSystemName)
-                    .font(Tokens.Typography.microLabel)
-                    .foregroundStyle(.tertiary)
-                    .frame(width: HistoryTableLayout.disclosureWidth)
             }
-            .padding(.vertical, Tokens.Space.s)
-            .padding(.horizontal, Tokens.Space.xs)
-            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(StoryPressStyle())
-        .accessibilityLabel(rowAccessibilityLabel(day))
-        .accessibilityHint(disclosure.isExpanded
-                           ? "Hides this day's detail"
-                           : "Shows this day's detail below the row")
-        .accessibilityAddTraits(isSelected(day) ? .isSelected : [])
-    }
-
-    /// Built outside the view builder: a long chain of interpolated fragments
-    /// inside the body defeats the type checker.
-    private func rowAccessibilityLabel(_ day: HistoryDay) -> String {
-        var parts = [Tokens.longDate(day.date),
-                     "\(Tokens.duration(day.tracked)) tracked",
-                     "\(Tokens.duration(day.focused)) focused",
-                     day.sessions == 1 ? "1 session" : "\(day.sessions) sessions"]
-        if isSelected(day) { parts.append("selected") }
-        return parts.joined(separator: ", ")
+        .padding(StoryStyle.railInsets(for: density))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func isSelected(_ day: HistoryDay) -> Bool {
@@ -492,25 +620,6 @@ struct HistoryView: View {
         return [typeText, appText].compactMap { $0 }.joined(separator: " · ")
     }
 
-    private var activeFilterSummary: String? {
-        var parts: [String] = []
-        let query = store.historyFilter.query
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if !query.isEmpty { parts.append("Matching “\(query)”") }
-        if let bundleID = store.historyFilter.appBundleID {
-            parts.append("App: \(store.historyAppName(for: bundleID))")
-        }
-        if let workType = store.historyFilter.workType {
-            parts.append("Work type: \(workType.displayName)")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private var resultLabel: String {
-        let count = store.filteredHistoryDays.count
-        return count == 1 ? "1 day" : "\(count) days"
-    }
-
     private var queryBinding: Binding<String> {
         Binding(get: { store.historyFilter.query }, set: store.setHistoryQuery)
     }
@@ -532,14 +641,29 @@ struct HistoryView: View {
     }
 }
 
-/// A value only: the column header above it already names the measure.
-private struct HistoryMetric: View {
-    let value: String
-    let width: CGFloat
+/// History's range where the Story keeps its period: the bar's centre, opening
+/// the same calendar.
+struct HistoryChromeRange: View {
+    @ObservedObject var store: SessionStore
+
+    private var bounds: ClosedRange<Date> {
+        let oldest = store.historyDays.last?.date ?? Date()
+        let newest = store.historyDays.first?.date ?? oldest
+        return oldest...newest
+    }
 
     var body: some View {
-        Text(value)
-            .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
-            .frame(width: width, alignment: .trailing)
+        if !store.historyDays.isEmpty {
+            HistoryRangeControl(
+                start: Binding(get: { store.historyRangeStart ?? bounds.lowerBound },
+                               set: { store.historyRangeStart = $0 }),
+                end: Binding(get: { store.historyRangeEnd ?? bounds.upperBound },
+                             set: { store.historyRangeEnd = $0 }),
+                bounds: bounds,
+                onReset: { store.resetHistoryRange() },
+                goal: store.goal.goal,
+                facts: { store.dayFacts(inMonthOf: $0) },
+                chrome: true)
+        }
     }
 }

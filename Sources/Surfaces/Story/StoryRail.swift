@@ -273,6 +273,56 @@ struct StoryRail: View {
                         .accessibilityLabel("\(Int(((goalShare ?? 0) * 100).rounded())) per cent of the goal for \(store.dayLabel)")
                 }
             }
+            if navigation.storyScope == .day, !categoryGoals.isEmpty {
+                categoryGoalRows
+            }
+        }
+    }
+
+    /// Categories with a goal of their own, with the day's seconds against it.
+    private var categoryGoals: [(type: WorkType, goal: TimeInterval, achieved: TimeInterval)] {
+        let seconds = store.storyCategorySeconds(on: store.selectedDay)
+        return WorkType.startable.compactMap { type in
+            guard let goal = type.dailyGoal, goal > 0 else { return nil }
+            return (type, goal, seconds[type] ?? 0)
+        }
+    }
+
+    /// One quiet line per category goal: mark, name, figure, a thin bar. The
+    /// ring above stays the day's; these are its slices.
+    private var categoryGoalRows: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            Divider()
+            ForEach(categoryGoals, id: \.type) { item in
+                let share = min(1, item.achieved / item.goal)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: Tokens.Space.xs) {
+                        Image(systemName: item.type.symbolName)
+                            .font(Tokens.Typography.microLabel)
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundStyle(Tokens.Palette.workType(item.type))
+                            .frame(width: 14)
+                        Text(item.type.displayName)
+                            .font(Tokens.Typography.metadata)
+                        Spacer(minLength: Tokens.Space.s)
+                        Text("\(Tokens.duration(item.achieved)) of \(Tokens.duration(item.goal))"
+                             + (share >= 1 ? " · met" : ""))
+                            .font(Tokens.Typography.metadata.monospacedDigit())
+                            .foregroundStyle(share >= 1 ? AnyShapeStyle(StoryStyle.successInk)
+                                                        : AnyShapeStyle(.secondary))
+                    }
+                    GeometryReader { geometry in
+                        Capsule().fill(StoryStyle.line)
+                            .overlay(alignment: .leading) {
+                                Capsule().fill(Tokens.Palette.workType(item.type))
+                                    .frame(width: geometry.size.width * share)
+                            }
+                    }
+                    .frame(height: 3)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(item.type.displayName): \(Tokens.duration(item.achieved)) of a \(Tokens.duration(item.goal)) goal")
+            }
         }
     }
 

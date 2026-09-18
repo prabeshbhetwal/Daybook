@@ -582,7 +582,7 @@ extension SessionStore {
             for share in day.byWorkType { seconds[share.workType, default: 0] += share.seconds }
         }
         let total = seconds.values.reduce(0, +)
-        return WorkType.allCases.compactMap { type in
+        return WorkType.ordered(seconds.keys).compactMap { type in
             guard let value = seconds[type], value > 0 else { return nil }
             return WorkTypeShare(workType: type, seconds: value,
                                  share: total > 0 ? value / total : 0)

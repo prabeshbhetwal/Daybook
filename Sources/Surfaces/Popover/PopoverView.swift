@@ -14,6 +14,10 @@ struct PopoverView: View {
     @StateObject private var contentHeight = HeightBox()
     var onOpenApplication: () -> Void = {}
     var onOpenSettings: () -> Void = {}
+    /// Nil when nothing can route to Settings — the snapshot harness — so the
+    /// pickers do not offer a door that opens on nothing.
+    var onOpenCategoryEditor: ((CategoryEditorRequest) -> Void)? = nil
+    var onOpenActivityEditor: ((ActivityEditorRequest) -> Void)? = nil
 
     /// Overridden by the snapshot harness so its output does not depend on the
     /// display the build machine happens to have attached.
@@ -48,6 +52,8 @@ struct PopoverView: View {
         .background(.regularMaterial)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
+        .environment(\.openCategoryEditor, onOpenCategoryEditor)
+        .environment(\.openActivityEditor, onOpenActivityEditor)
         .tipLayer(tips)
         .onAppear {
             store.refresh()

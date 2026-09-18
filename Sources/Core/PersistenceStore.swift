@@ -45,6 +45,9 @@ final class PersistenceStore {
         static let activityRuleVersion = "fc.activityRuleVersion"
         static let automaticActivityRecord = "fc.automaticActivityRecord"
         static let activityRuleCooldownUntil = "fc.activityRuleCooldownUntil"
+        static let workTypes = "fc.workTypes"
+        static let savedActivities = "fc.savedActivities"
+        static let categoryChoices = "fc.categoryChoices"
     }
 
     private let defaults: UserDefaults
@@ -53,6 +56,76 @@ final class PersistenceStore {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        // The catalogue is process-wide and this store is its only writer, so
+        // a new store installs what it holds — including nothing, which puts
+        // every built-in back to its default.
+        WorkTypeCatalog.shared.apply(customisations: workTypeDefinitions)
+    }
+
+    // MARK: - Learned category choices
+
+    /// The last few categories chosen when a session was started with each
+    /// app in front, newest last. What the app suggests next time it sees
+    /// that app, ahead of its fixed guesses.
+    var categoryChoices: [String: [String]] {
+        get { defaults.dictionary(forKey: Key.categoryChoices) as? [String: [String]] ?? [:] }
+        set {
+            if newValue.isEmpty { defaults.removeObject(forKey: Key.categoryChoices) }
+            else { defaults.set(newValue, forKey: Key.categoryChoices) }
+        }
+    }
+
+    static let categoryChoiceMemory = 3
+
+    func rememberCategoryChoice(_ workType: WorkType, for bundleID: String?) {
+        guard let bundleID, !bundleID.isEmpty, workType.countsAsFocus else { return }
+        var choices = categoryChoices
+        var recent = choices[bundleID] ?? []
+        recent.append(workType.rawValue)
+        choices[bundleID] = Array(recent.suffix(PersistenceStore.categoryChoiceMemory))
+        categoryChoices = choices
+    }
+
+    // MARK: - Saved activities
+
+    /// The user's pinned activities, in their order.
+    var savedActivities: [SavedActivity] {
+        get {
+            guard let data = defaults.data(forKey: Key.savedActivities),
+                  let decoded = try? decoder.decode([SavedActivity].self, from: data) else { return [] }
+            return SavedActivities.normalised(decoded)
+        }
+        set {
+            let normalised = SavedActivities.normalised(newValue)
+            if normalised.isEmpty {
+                defaults.removeObject(forKey: Key.savedActivities)
+            } else if let data = try? encoder.encode(normalised) {
+                defaults.set(data, forKey: Key.savedActivities)
+            }
+        }
+    }
+
+    // MARK: - Categories
+
+    /// The user's half of the category catalogue: edits to built-ins, stored
+    /// under the built-in's identifier, and the categories they made. Writing
+    /// here is what changes what every surface shows.
+    var workTypeDefinitions: [WorkTypeDefinition] {
+        get {
+            guard let data = defaults.data(forKey: Key.workTypes),
+                  let decoded = try? decoder.decode([WorkTypeDefinition].self, from: data) else { return [] }
+            return decoded
+        }
+        set {
+            var seen = Set<String>()
+            let normalised = newValue.filter { seen.insert($0.id).inserted }
+            if normalised.isEmpty {
+                defaults.removeObject(forKey: Key.workTypes)
+            } else if let data = try? encoder.encode(normalised) {
+                defaults.set(data, forKey: Key.workTypes)
+            }
+            WorkTypeCatalog.shared.apply(customisations: normalised)
+        }
     }
 
     // MARK: - Live state
@@ -464,8 +537,10 @@ final class PersistenceStore {
                     Key.pendingPowerTransfers,
                     Key.pendingPowerMetadataError, Key.activityRules,
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
-                    Key.automaticActivityRecord, Key.activityRuleCooldownUntil] {
+                    Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
+                    Key.workTypes, Key.savedActivities, Key.categoryChoices] {
             defaults.removeObject(forKey: key)
         }
+        WorkTypeCatalog.shared.apply(customisations: [])
     }
 }

@@ -23,6 +23,7 @@ struct SettingsGroups: View {
         switch section {
         case .general: general
         case .focus: focus
+        case .categories: categories
         case .away: away
         case .automatic: automatic
         case .tracking: tracking
@@ -69,17 +70,20 @@ struct SettingsGroups: View {
     private var away: some View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Stepping away", layout: layout) {
-                preferenceRow("Ask me after") {
+                preferenceRow("Ask me after",
+                              detail: "Shorter absences are left out of the session without a question.") {
                     thresholdPicker("Ask me after", selection: $model.breakThreshold,
                                     options: FocusConstants.thresholdOptions)
                 }
                 rowDivider
-                preferenceRow("End session after") {
+                preferenceRow("End session after",
+                              detail: "Longer than this, the session ends where you left rather than waiting.") {
                     thresholdPicker("End session after", selection: $model.longAwayCap,
                                     options: FocusConstants.longAwayCapOptions)
                 }
                 rowDivider
-                preferenceRow("Full-screen prompt after") {
+                preferenceRow("Full-screen prompt after",
+                              detail: "How long the away question stays in the menu bar before it fills the screen.") {
                     Picker("Full-screen prompt after", selection: $model.fullPromptAfter) {
                         ForEach(FocusConstants.fullPromptAfterOptions, id: \.self) { seconds in
                             Text(Tokens.duration(seconds)).tag(seconds)
@@ -94,8 +98,10 @@ struct SettingsGroups: View {
             }
 
             SurfacePanel(title: "Breaks", layout: layout) {
-                Toggle("Remind me to take breaks", isOn: $model.remindersEnabled)
-                    .frame(minHeight: layout.rowHeight)
+                toggleRow("Remind me to take breaks",
+                          detail: "A notice after a long stretch of continuous use, timed from your typing "
+                            + "and clicking rather than from sessions.",
+                          isOn: $model.remindersEnabled)
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     ForEach(BreakTier.allCases, id: \.rawValue) { tier in
                         Text("\(Int(tier.workThreshold / 60)) minutes working → "
@@ -111,25 +117,39 @@ struct SettingsGroups: View {
         }
     }
 
+    private var categories: some View {
+        SurfacePanel(title: "Categories", layout: layout) {
+            CategoriesView(model: model)
+        }
+    }
+
     private var automatic: some View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Automatic sessions", layout: layout) {
-                Toggle("Use my activity rules", isOn: $model.activityRuleAutomationEnabled)
-                    .frame(minHeight: layout.rowHeight)
-                explanation("Rule automation is opt-in. When enabled it replaces the legacy "
-                            + "heuristic; editing a rule alone never starts or changes a session.")
+                toggleRow("Use my activity rules",
+                          detail: "Start and switch sessions from the rules below, going by which apps "
+                            + "you are in. Editing a rule never starts a session by itself.",
+                          isOn: $model.activityRuleAutomationEnabled)
                 rowDivider
-                Toggle("Use legacy automatic sessions", isOn: $model.autoSessionsEnabled)
-                    .frame(minHeight: layout.rowHeight)
+                toggleRow("Use legacy automatic sessions",
+                          detail: "Without rules, guess from the app in front: a work app starts a "
+                            + "session, a break app pauses it. Turned off while rules are on. "
+                            + "The category is the one you chose the last few times you started "
+                            + "from that app.",
+                          isOn: $model.autoSessionsEnabled)
                     .disabled(model.activityRuleAutomationEnabled)
                 rowDivider
-                preferenceRow("Auto-session gap") {
+                preferenceRow("Auto-session gap",
+                              detail: "How long an automatic session can sit paused before it ends "
+                                + "instead of picking up where it left off.") {
                     thresholdPicker("Auto-session gap", selection: $model.breakLength,
                                     options: FocusConstants.breakLengthOptions)
                 }
                 rowDivider
-                Toggle("Celebrate milestones", isOn: $model.rewardsEnabled)
-                    .frame(minHeight: layout.rowHeight)
+                toggleRow("Celebrate milestones",
+                          detail: "A short notice in the corner when you reach the daily goal, keep a "
+                            + "streak going or beat your usual pace.",
+                          isOn: $model.rewardsEnabled)
             }
             SurfacePanel(title: "Activities and applications", layout: layout) {
                 ActivityRulesView(model: model)
@@ -152,15 +172,18 @@ struct SettingsGroups: View {
                 .accessibilityLabel("Recent app visits")
             }
             rowDivider
-            Toggle("Record app usage", isOn: $model.isTrackingEnabled)
-                .frame(minHeight: layout.rowHeight)
+            toggleRow("Record app usage",
+                      detail: "Which app was in front and for how long. Off, the story shows your "
+                        + "sessions alone.",
+                      isOn: $model.isTrackingEnabled)
             explanation(SettingsPrivacyDisclosure.current.storageDetail)
         }
     }
 
     private var appearance: some View {
         SurfacePanel(title: "Interface", layout: layout) {
-            preferenceRow("Appearance") {
+            preferenceRow("Appearance",
+                          detail: "System follows macOS, including its schedule.") {
                 Picker("Appearance", selection: $model.appearancePreference) {
                     Text("System").tag(AppearancePreference.system)
                     Text("Light").tag(AppearancePreference.light)
@@ -171,7 +194,8 @@ struct SettingsGroups: View {
                 .accessibilityLabel("Appearance")
             }
             rowDivider
-            preferenceRow("Interface density") {
+            preferenceRow("Interface density",
+                          detail: "Compact fits more rows into the same space.") {
                 Picker("Interface density", selection: $model.interfaceDensity) {
                     Text("Comfortable").tag(InterfaceDensity.comfortable)
                     Text("Compact").tag(InterfaceDensity.compact)
@@ -181,13 +205,14 @@ struct SettingsGroups: View {
                 .accessibilityLabel("Interface density")
             }
             rowDivider
-            Toggle("Show Story timestamps", isOn: $model.showsTimelineLabels)
-                .frame(minHeight: layout.rowHeight)
+            toggleRow("Show Story timestamps",
+                      detail: "Times down the left edge of the day's timeline.",
+                      isOn: $model.showsTimelineLabels)
             rowDivider
-            Toggle("Expand entry details by default", isOn: $model.expandsEntryDetails)
-                .frame(minHeight: layout.rowHeight)
-            explanation("System follows the current macOS appearance. Reduce Motion always "
-                        + "follows macOS and is never overridden here.")
+            toggleRow("Expand entry details by default",
+                      detail: "Open each session's apps and notes without a click.",
+                      isOn: $model.expandsEntryDetails)
+            explanation("Reduce Motion always follows macOS and is never overridden here.")
         }
     }
 
@@ -301,6 +326,25 @@ struct SettingsGroups: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel([title, value, detail].compactMap { $0 }.joined(separator: ", "))
         }
+    }
+
+    /// A switch whose label says what it does, not only what it is called.
+    /// The description sits under the switch and is not part of its target:
+    /// reading it must not flip it, and the whole row used to.
+    private func toggleRow(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Toggle(isOn: isOn) {
+                Text(title).font(Tokens.Typography.rowTitle)
+            }
+            .accessibilityHint(detail)
+            Text(detail)
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 22)
+                .accessibilityHidden(true)
+        }
+        .frame(minHeight: layout.rowHeight, alignment: .leading)
     }
 
     private func thresholdPicker(_ label: String, selection: Binding<TimeInterval>,

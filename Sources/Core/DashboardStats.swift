@@ -431,7 +431,7 @@ struct DashboardStats {
             byType[activeWorkType, default: 0] += runningSeconds
         }
         let typeTotal = byType.values.reduce(0, +)
-        let shares = WorkType.allCases.compactMap { type -> WorkTypeShare? in
+        let shares = WorkType.ordered(byType.keys).compactMap { type -> WorkTypeShare? in
             guard let seconds = byType[type], seconds > 0 else { return nil }
             return WorkTypeShare(workType: type,
                                  seconds: seconds,
@@ -525,7 +525,7 @@ struct DashboardStats {
         }
 
         let typeTotal = byType.values.reduce(0, +)
-        let shares = WorkType.allCases.compactMap { type -> WorkTypeShare? in
+        let shares = WorkType.ordered(byType.keys).compactMap { type -> WorkTypeShare? in
             guard let seconds = byType[type], seconds > 0 else { return nil }
             return WorkTypeShare(workType: type, seconds: seconds,
                                  share: typeTotal > 0 ? seconds / typeTotal : 0)

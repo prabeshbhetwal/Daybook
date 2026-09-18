@@ -7,6 +7,7 @@ import AppKit
 enum SettingsControlKey: String, CaseIterable, Hashable {
     case opensOn
     case dailyGoal
+    case categories
     case breakThreshold
     case longAwayCap
     case fullPromptAfter
@@ -27,6 +28,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         switch self {
         case .opensOn: return \SettingsModel.defaultStoryScope
         case .dailyGoal: return \SettingsModel.dailyGoal
+        case .categories: return \SettingsModel.workTypeDefinitions
         case .breakThreshold: return \SettingsModel.breakThreshold
         case .longAwayCap: return \SettingsModel.longAwayCap
         case .fullPromptAfter: return \SettingsModel.fullPromptAfter
@@ -249,6 +251,41 @@ final class SettingsModel: ObservableObject {
             write { store.activityRuleAutomationEnabled = newValue }
             onActivityRulesChanged()
         }
+    }
+
+    /// The user's half of the category catalogue. Writing it re-resolves every
+    /// category name, icon and colour in the app.
+    var workTypeDefinitions: [WorkTypeDefinition] {
+        get { store.workTypeDefinitions }
+        set { write { store.workTypeDefinitions = newValue } }
+    }
+
+    /// Keeps one entry per category: an edited built-in or a made category is
+    /// replaced in place, a new one is appended.
+    func saveCategory(_ definition: WorkTypeDefinition) {
+        var definitions = workTypeDefinitions
+        if let index = definitions.firstIndex(where: { $0.id == definition.id }) {
+            definitions[index] = definition
+        } else {
+            definitions.append(definition)
+        }
+        workTypeDefinitions = definitions
+    }
+
+    /// A made category leaves every picker but keeps describing its records.
+    func setCategoryRetired(id: String, _ retired: Bool) {
+        guard WorkType(rawValue: id).isBuiltIn == false else { return }
+        var definitions = workTypeDefinitions
+        guard let index = definitions.firstIndex(where: { $0.id == id }) else { return }
+        definitions[index].isRetired = retired
+        workTypeDefinitions = definitions
+    }
+
+    /// Drops the edit to a built-in, returning it to its shipped name, icon
+    /// and colour.
+    func resetCategory(id: String) {
+        guard WorkType(rawValue: id).isBuiltIn else { return }
+        workTypeDefinitions = workTypeDefinitions.filter { $0.id != id }
     }
 
     var activityRules: [ActivityRule] {

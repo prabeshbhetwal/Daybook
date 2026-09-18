@@ -15,7 +15,14 @@ struct DayFacts: Equatable {
 private final class MonthBox: ObservableObject {
     @Published var month: Date
     @Published var facts: [Date: DayFacts] = [:]
+    /// The day under the pointer, for previewing a range being drawn.
+    @Published var hovered: Date?
     init(month: Date) { self.month = month }
+}
+
+/// The first day of a range being picked, until the second click lands.
+private final class RangeAnchorBox: ObservableObject {
+    @Published var day: Date?
 }
 
 /// A month grid in the app's own vocabulary, for jumping the dashboard to a
@@ -31,9 +38,14 @@ struct DayPickerCalendar: View {
     /// day. Called when the shown month changes, never per cell.
     let facts: (Date) -> [Date: DayFacts]
     let onPick: (Date) -> Void
+    /// Range mode, for History: the span currently chosen. The same grid, the
+    /// same figures; two clicks pick a first and a last day instead of one.
+    let range: ClosedRange<Date>?
+    let onPickRange: ((Date, Date) -> Void)?
 
     @StateObject private var shown: MonthBox
     @StateObject private var hover = HoverBox()
+    @StateObject private var anchor = RangeAnchorBox()
     private let calendar = Calendar.current
 
     init(selected: Date, earliest: Date?, goal: TimeInterval,
@@ -44,7 +56,46 @@ struct DayPickerCalendar: View {
         self.goal = goal
         self.facts = facts
         self.onPick = onPick
+        self.range = nil
+        self.onPickRange = nil
         _shown = StateObject(wrappedValue: MonthBox(month: Calendar.current.startOfDay(for: selected)))
+    }
+
+    /// The calendar as a range picker. It opens on the month the range ends in.
+    init(range: ClosedRange<Date>, earliest: Date?, goal: TimeInterval,
+         facts: @escaping (Date) -> [Date: DayFacts],
+         onPickRange: @escaping (Date, Date) -> Void) {
+        self.selected = range.upperBound
+        self.earliest = earliest
+        self.goal = goal
+        self.facts = facts
+        self.onPick = { _ in }
+        self.range = range
+        self.onPickRange = onPickRange
+        _shown = StateObject(wrappedValue: MonthBox(month: Calendar.current.startOfDay(for: range.upperBound)))
+    }
+
+    /// What the grid paints as chosen: the stored range, or while a first day
+    /// is held, the span from it to the day under the pointer.
+    private var paintedRange: ClosedRange<Date>? {
+        guard range != nil else { return nil }
+        if let start = anchor.day {
+            let other = shown.hovered ?? start
+            return min(start, other)...max(start, other)
+        }
+        return range.map { calendar.startOfDay(for: $0.lowerBound)...calendar.startOfDay(for: $0.upperBound) }
+    }
+
+    private func pick(_ day: Date) {
+        guard let onPickRange else { onPick(day); return }
+        let key = calendar.startOfDay(for: day)
+        if let start = anchor.day {
+            anchor.day = nil
+            onPickRange(min(start, key), max(start, key))
+        } else {
+            anchor.day = key
+            onPickRange(key, key)
+        }
     }
 
     private let cellWidth: CGFloat = 44
@@ -187,7 +238,10 @@ struct DayPickerCalendar: View {
     private func dayCell(_ day: Date) -> some View {
         let key = calendar.startOfDay(for: day)
         let facts = shown.facts[key] ?? DayFacts()
-        let isSelected = calendar.isDate(day, inSameDayAs: selected)
+        let painted = paintedRange
+        let isSelected = painted.map { key == $0.lowerBound || key == $0.upperBound }
+            ?? calendar.isDate(day, inSameDayAs: selected)
+        let inRange = painted.map { $0.contains(key) } ?? false
         let isToday = calendar.isDateInToday(day)
         let tooLate = key > calendar.startOfDay(for: Date())
         let tooEarly = earliest.map { key < calendar.startOfDay(for: $0) } ?? false
@@ -195,7 +249,7 @@ struct DayPickerCalendar: View {
         let hovered = hover.id == key.description
         let share = goal > 0 ? (facts.goalAchieved ?? facts.focused) / goal : 0
 
-        return Button { if pickable { onPick(day) } } label: {
+        return Button { if pickable { pick(day) } } label: {
             VStack(spacing: 2) {
                 Text("\(calendar.component(.day, from: day))")
                     .font(Tokens.Typography.tabLabel
@@ -218,7 +272,9 @@ struct DayPickerCalendar: View {
             }
             .frame(width: cellWidth, height: cellHeight)
             .background(isSelected ? AnyShapeStyle(Tokens.Colour.focus)
-                        : AnyShapeStyle(Tokens.Colour.focus.opacity(pickable ? tint(share) : 0)),
+                        : inRange ? AnyShapeStyle(Tokens.Colour.focus.opacity(0.30))
+                        : AnyShapeStyle(Tokens.Colour.focus.opacity(
+                            pickable ? tint(share) * (range == nil ? 1 : 0.5) : 0)),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
@@ -241,7 +297,10 @@ struct DayPickerCalendar: View {
         }
         .buttonStyle(StoryPressStyle())
         .disabled(!pickable)
-        .onHover { hover.id = $0 ? key.description : nil }
+        .onHover { inside in
+            hover.id = inside ? key.description : nil
+            if range != nil { shown.hovered = inside && pickable ? key : (shown.hovered == key ? nil : shown.hovered) }
+        }
         .help(helpText(day, facts, pickable: pickable))
         .accessibilityLabel(dateAccessibilityLabel(day, facts, pickable: pickable,
                                                    selected: isSelected))
@@ -288,7 +347,20 @@ struct DayPickerCalendar: View {
         }
     }
 
-    private var legend: some View {
+    @ViewBuilder private var legend: some View {
+        if range != nil {
+            Text(anchor.day == nil
+                 ? "Click the first day, then the last."
+                 : "Now click the last day of the range.")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(anchor.day == nil ? AnyShapeStyle(.tertiary)
+                                                   : AnyShapeStyle(Tokens.Colour.focus))
+        } else {
+            goalLegend
+        }
+    }
+
+    private var goalLegend: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             HStack(spacing: Tokens.Space.m) {
                 Label("Below half", systemImage: "circle")

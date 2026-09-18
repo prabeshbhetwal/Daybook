@@ -22,13 +22,23 @@ enum StoryStyle {
     static let headline = Font.system(size: 25, weight: .semibold)
     static let headlineMeasure: CGFloat = 560
 
-    static func workTypeInk(_ type: WorkType) -> Color {
-        switch type {
-        case .deepWork: return focus
-        case .meetings: return Color(lightHex: 0xA35F00, darkHex: 0xFFC575)
-        case .admin: return Color(lightHex: 0x126C7C, darkHex: 0x73D1E2)
-        case .learning: return Color(lightHex: 0xB12650, darkHex: 0xFF91AD)
-        case .breakTime: return .secondary
+    /// Text-weight colour for a category: darker than its swatch in light
+    /// mode, lighter in dark, so a name set in it still reads on the canvas.
+    static func workTypeInk(_ type: WorkType) -> Color { ink(type.hue) }
+
+    static func ink(_ hue: WorkTypeHue) -> Color {
+        switch hue {
+        case .indigo: return focus
+        case .orange: return Color(lightHex: 0xA35F00, darkHex: 0xFFC575)
+        case .teal: return Color(lightHex: 0x126C7C, darkHex: 0x73D1E2)
+        case .pink: return Color(lightHex: 0xB12650, darkHex: 0xFF91AD)
+        case .blue: return Color(lightHex: 0x0059B3, darkHex: 0x7DB8FF)
+        case .purple: return Color(lightHex: 0x7A2FB5, darkHex: 0xD69BFF)
+        case .green: return Color(lightHex: 0x1E7A3A, darkHex: 0x7EDC9A)
+        case .yellow: return Color(lightHex: 0x8A6D00, darkHex: 0xFFE070)
+        case .red: return Color(lightHex: 0xB3261E, darkHex: 0xFF8A80)
+        case .brown: return Color(lightHex: 0x6B5236, darkHex: 0xD3B48F)
+        case .grey: return .secondary
         }
     }
 

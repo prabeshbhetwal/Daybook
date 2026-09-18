@@ -9,10 +9,17 @@ struct InsightSurface: Equatable {
     let rhythm: Insight?
     let quality: Insight?
     let continuity: Insight?
+    /// Where each category lands in the day: "Deep work 9 am–11 am; Meetings
+    /// 2 pm–4 pm". Nil until a category has half an hour of evidence.
+    var categories: Insight? = nil
+    /// What the tiles draw beside their sentence: the hour bars behind
+    /// Rhythm, the category shares behind Focus quality and By category.
+    var rhythmHours: [RhythmHour] = []
+    var categoryTotals: [WorkTypeShare] = []
     private let rangeEvidence: Bool
 
     var hasEvidence: Bool {
-        pace != nil || rhythm != nil || quality != nil || continuity != nil
+        pace != nil || rhythm != nil || quality != nil || continuity != nil || categories != nil
     }
 
     var hasRangeEvidence: Bool { rangeEvidence }
@@ -38,7 +45,9 @@ struct InsightSurface: Equatable {
                      activeDays: Int,
                      totalDays: Int,
                      tracked: TimeInterval,
-                     comparableTracked: TimeInterval?) -> InsightSurface {
+                     comparableTracked: TimeInterval?,
+                     categoryHours: [WorkType: [Int: TimeInterval]] = [:],
+                     calendar: Calendar = .current) -> InsightSurface {
         let rhythmInsight = rhythmInsight(hours: rhythm, peak: rhythmPeak)
         let qualityInsight = qualityInsight(quality)
         return InsightSurface(
@@ -53,7 +62,59 @@ struct InsightSurface: Equatable {
                 totalDays: totalDays,
                 tracked: tracked,
                 comparableTracked: comparableTracked),
+            categories: categoryInsight(byHour: categoryHours, days: activeDays, calendar: calendar),
+            rhythmHours: rhythm,
+            categoryTotals: quality.byWorkType,
             rangeEvidence: rhythmInsight != nil || qualityInsight != nil || activeDays > 0)
+    }
+
+    /// Where each category's focus lands in the day, from focused seconds per
+    /// clock hour. Each category with at least half an hour gets its best
+    /// two-hour window; the two largest lead the headline.
+    static func categoryInsight(byHour: [WorkType: [Int: TimeInterval]], days: Int,
+                                calendar: Calendar) -> Insight? {
+        struct Placed { let type: WorkType; let total: TimeInterval; let startHour: Int }
+        var placed: [Placed] = []
+        for (type, hours) in byHour {
+            let total: TimeInterval = hours.values.reduce(0, +)
+            guard total >= 1_800, type.countsAsFocus else { continue }
+            var bestStart = 9
+            var bestSum: TimeInterval = -1
+            for start in 0..<23 {
+                let sum: TimeInterval = (hours[start] ?? 0) + (hours[start + 1] ?? 0)
+                if sum > bestSum { bestSum = sum; bestStart = start }
+            }
+            placed.append(Placed(type: type, total: total, startHour: bestStart))
+        }
+        placed.sort { $0.total > $1.total }
+        guard !placed.isEmpty else { return nil }
+        func window(_ start: Int) -> String {
+            "\(clockHour(start, calendar))–\(clockHour(start + 2, calendar))"
+        }
+        let leaders = placed.prefix(2).map { "\($0.type.displayName) \(window($0.startHour))" }
+        let rest = placed.dropFirst(2)
+        let detail = placed.map { "\($0.type.displayName) \(Tokens.duration($0.total))" }
+            .joined(separator: ", ")
+        let more = rest.isEmpty ? "."
+            : ". \(rest.count == 1 ? "One more category has" : "\(rest.count) more categories have") its own window."
+        return Insight(
+            id: "categories",
+            headline: leaders.joined(separator: "; "),
+            detail: "Where each category's focus mostly falls, by clock hour across "
+                + "\(days) \(days == 1 ? "day" : "days"): " + detail + more,
+            symbolName: "tag")
+    }
+
+    private static func clockHour(_ hour: Int, _ calendar: Calendar) -> String {
+        var components = DateComponents()
+        components.calendar = calendar
+        components.year = 2001; components.month = 1; components.day = 15
+        components.hour = min(24, hour) % 24
+        guard let date = calendar.date(from: components) else { return "\(hour)" }
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.setLocalizedDateFormatFromTemplate("j")
+        return formatter.string(from: date).lowercased()
     }
 
     static func showsRangeSelector(week: InsightSurface,
@@ -260,6 +321,7 @@ extension SessionStore {
         let comparable = comparablePreviousTracked(
             period: period, periodStats: periodStats, stats: stats,
             snapshot: snapshot, moment: moment, calendar: calendar)
+        let categoryHours = categoryHours(days: authoritativeDays, calendar: calendar)
         return InsightSurface.make(
             range: range,
             goal: goal,
@@ -270,7 +332,36 @@ extension SessionStore {
             activeDays: activeDays,
             totalDays: authoritativeDays.count,
             tracked: authoritativeDays.reduce(0) { $0 + $1.tracked },
-            comparableTracked: comparable)
+            comparableTracked: comparable,
+            categoryHours: categoryHours,
+            calendar: calendar)
+    }
+
+    /// Focused seconds per category per clock hour over the given days, each
+    /// record spread over the hours it spans.
+    private func categoryHours(days: [PeriodDay], calendar: Calendar) -> [WorkType: [Int: TimeInterval]] {
+        var result: [WorkType: [Int: TimeInterval]] = [:]
+        for day in days {
+            guard let bounds = SessionRecord.dayBounds(day.date, calendar: calendar) else { continue }
+            for record in engine.archive.records where record.workType.countsAsFocus {
+                let start = max(record.start, bounds.start), end = min(record.end, bounds.end)
+                guard end > start else { continue }
+                let span = end.timeIntervalSince(start)
+                let workShare = record.workSeconds(in: (start: start, end: end)) / max(span, 1)
+                var cursor = start
+                while cursor < end {
+                    let hour = calendar.component(.hour, from: cursor)
+                    let nextHour = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: cursor)
+                        .flatMap { calendar.date(byAdding: .hour, value: 1, to: $0) } ?? end
+                    let sliceEnd = min(end, nextHour)
+                    let slice = sliceEnd.timeIntervalSince(cursor)
+                    guard slice > 0 else { break }
+                    result[record.workType, default: [:]][hour, default: 0] += slice * workShare
+                    cursor = sliceEnd
+                }
+            }
+        }
+        return result
     }
 
     private func insightRhythm(stats: DashboardStats,

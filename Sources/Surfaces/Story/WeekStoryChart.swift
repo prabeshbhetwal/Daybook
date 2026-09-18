@@ -143,7 +143,7 @@ struct WorkTypeLegend: View {
                 Spacer(minLength: 0)
             }
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("Focus by work type")
+            .accessibilityLabel("Focus by category")
         }
     }
 }

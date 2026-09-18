@@ -130,7 +130,7 @@ struct PowerContextSummary: Equatable {
         } else {
             var label: String
             switch evidence[0].source {
-            case .battery: label = "Battery"
+            case .battery: label = "Using battery"
             case .external:
                 label = evidence[0].charging == .charging ? "Plugged in, charging" : "Plugged in"
                 // The charger in use, if macOS named one. The latest reading

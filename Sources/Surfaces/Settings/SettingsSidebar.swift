@@ -31,10 +31,33 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The colour of the page's sidebar icon: the system's own way of
+    /// telling settings pages apart at a glance.
+    var hue: WorkTypeHue {
+        switch self {
+        case .general: return .grey
+        case .sessions: return .blue
+        case .awayAndBreaks: return .indigo
+        case .recording: return .orange
+        case .privacy: return .green
+        }
+    }
+
+    /// What the page is about, under its title in the detail.
+    var summary: String {
+        switch self {
+        case .general: return "How the window opens and how the app looks."
+        case .sessions: return "Your goal, the categories work is filed under, and what starts a session by itself."
+        case .awayAndBreaks: return "What happens when you step away, and when to be reminded to rest."
+        case .recording: return "What is recorded about the apps you use."
+        case .privacy: return "Where your data lives, and the facts about this build."
+        }
+    }
+
     var sections: [SettingsSection] {
         switch self {
         case .general: return [.general, .appearance]
-        case .sessions: return [.focus, .automatic]
+        case .sessions: return [.focus, .categories, .automatic]
         case .awayAndBreaks: return [.away]
         case .recording: return [.tracking]
         case .privacy: return [.data, .advanced]
@@ -44,7 +67,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     init(section: SettingsSection) {
         switch section {
         case .general, .appearance: self = .general
-        case .focus, .automatic: self = .sessions
+        case .focus, .categories, .automatic: self = .sessions
         case .away: self = .awayAndBreaks
         case .tracking: self = .recording
         case .data, .advanced: self = .privacy
@@ -69,6 +92,7 @@ extension SettingsSection {
         switch self {
         case .general: return "General"
         case .focus: return "Focus sessions"
+        case .categories: return "Categories"
         case .away: return "Away and breaks"
         case .automatic: return "Automatic and rewards"
         case .tracking: return "Tracking and apps"
@@ -82,6 +106,7 @@ extension SettingsSection {
         switch self {
         case .general: return "gearshape"
         case .focus: return "target"
+        case .categories: return "tag"
         case .away: return "moon.zzz"
         case .automatic: return "wand.and.stars"
         case .tracking: return "rectangle.stack.badge.play"
@@ -97,6 +122,7 @@ extension SettingsSection {
         switch self {
         case .general: return ["Opens on"]
         case .focus: return ["Daily goal"]
+        case .categories: return ["Categories", "New category", "Category name", "Icon", "Colour"]
         case .away:
             return ["Ask me after", "End session after", "Full-screen prompt after",
                     "Remind me to take breaks"]
@@ -118,6 +144,7 @@ extension SettingsSection {
         switch self {
         case .general: return [.opensOn]
         case .focus: return [.dailyGoal]
+        case .categories: return [.categories]
         case .away: return [.breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
         case .automatic:
             return [.activityRuleAutomation, .activityRules, .automaticSessions,
@@ -139,34 +166,41 @@ extension SettingsSection {
     }
 }
 
-/// All five pages remain visible at the native sheet width in one compact tab
-/// row, rather than becoming a second navigation surface.
-struct SettingsPageTabs: View {
+/// The pages down the left, the way System Settings and Xcode list theirs: a
+/// tinted icon and a name per row, the open page held. One navigation
+/// surface, so search sits above it rather than beside a second one.
+struct SettingsSidebarList: View {
     let pages: [SettingsPage]
     @Binding var selected: SettingsPage
 
     var body: some View {
-        HStack(spacing: Tokens.Space.xs) {
+        VStack(alignment: .leading, spacing: 2) {
             ForEach(pages) { page in
                 Button { selected = page } label: {
-                    Text(page.title)
-                        .font(Tokens.Typography.metadata.weight(.medium))
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, minHeight: 30)
-                        .background(selected == page ? StoryStyle.well : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
-                        .contentShape(Rectangle())
+                    HStack(spacing: Tokens.Space.s) {
+                        Image(systemName: page.symbol)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 24, height: 24)
+                            .background(Tokens.Palette.hue(page.hue),
+                                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .accessibilityHidden(true)
+                        Text(page.title)
+                            .font(Tokens.Typography.control.weight(selected == page ? .semibold : .regular))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, Tokens.Space.s)
+                    .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+                    .background(selected == page ? StoryStyle.well : Color.clear,
+                                in: RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous))
+                    .contentShape(Rectangle())
                 }
-                .buttonStyle(StoryPressStyle())
+                .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
                 .accessibilityLabel("\(page.title), \(selected == page ? "selected" : "not selected")")
                 .accessibilityAddTraits(selected == page ? .isSelected : [])
             }
         }
-        .padding(Tokens.Space.xs)
-        .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                                           style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
-            .stroke(StoryStyle.line, lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Settings pages")
     }

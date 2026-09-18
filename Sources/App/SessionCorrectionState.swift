@@ -21,6 +21,17 @@ struct SessionStoreCorrectionState: Codable, Identifiable, Equatable {
     /// restored through the same atomic archive candidate without changing
     /// evidence that pre-dated the correction.
     let archiveRecordIDs: Set<UUID>
+    /// For `.removed`: the records taken out, whole, so Undo restores them
+    /// as they were. Nil on every other correction and on older journals.
+    var removedRecords: [SessionRecord]? = nil
+
+    /// The span the correction concerns when its records are no longer in
+    /// the archive to say so.
+    var removedRange: DateInterval? {
+        guard let records = removedRecords, let first = records.map(\.start).min(),
+              let last = records.map(\.end).max(), last > first else { return nil }
+        return DateInterval(start: first, end: last)
+    }
 }
 
 enum SessionCorrectionRetry {

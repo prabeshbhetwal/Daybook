@@ -2,10 +2,15 @@ import SwiftUI
 
 /// Dimensions include StorySheet's title band. Every category and search result
 /// shares this bounded frame; only genuinely overflowing page content scrolls.
+/// Sized like a settings window rather than a dialog: wide enough for a
+/// sidebar beside a reading measure, and as tall as the smallest window
+/// allows with a margin around it.
 enum SettingsLayout {
-    static let detailMeasure: CGFloat = 720
-    static let sheetHeight: CGFloat = 560
-    static let sheetMaximumHeight: CGFloat = 600
+    static let sheetWidth: CGFloat = 900
+    static let sidebarWidth: CGFloat = 196
+    static let detailMeasure: CGFloat = 640
+    static let sheetHeight: CGFloat = 640
+    static let sheetMaximumHeight: CGFloat = 660
 
     static func sheetHeight(section: SettingsSection, query: String) -> CGFloat {
         sheetHeight
@@ -28,36 +33,54 @@ struct SettingsView: View {
 
     var body: some View {
         let pages = SettingsPage.matching(navigation.settingsQuery)
-        VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            search
-            if let page = visiblePage(in: pages) {
-                SettingsPageTabs(pages: pages, selected: pageBinding(in: pages))
-                content(for: page)
-            } else {
-                EmptyState("No matching settings",
-                           detail: "Try a control such as goal, visits, timestamps or privacy.",
-                           icon: "magnifyingglass")
-                    .frame(maxHeight: .infinity)
+        HStack(spacing: 0) {
+            sidebar(pages: pages)
+                .frame(width: SettingsLayout.sidebarWidth)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .background(StoryStyle.rail)
+            Divider()
+            Group {
+                if let page = visiblePage(in: pages) {
+                    content(for: page)
+                } else {
+                    EmptyState("No matching settings",
+                               detail: "Try a control such as goal, visits, timestamps or privacy.",
+                               icon: "magnifyingglass")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(Tokens.Space.l)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(StoryStyle.canvas)
+        .environment(\.categoryEditorRequest, navigation.categoryEditorRequest)
+    }
+
+    private func sidebar(pages: [SettingsPage]) -> some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.m) {
+            search
+            if !pages.isEmpty {
+                SettingsSidebarList(pages: pages, selected: pageBinding(in: pages))
+            }
+        }
+        .padding(Tokens.Space.m)
     }
 
     private var search: some View {
-        HStack(spacing: Tokens.Space.s) {
+        HStack(spacing: Tokens.Space.xs) {
             Image(systemName: "magnifyingglass")
+                .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-            TextField("Search settings", text: $navigation.settingsQuery)
+            TextField("Search", text: $navigation.settingsQuery)
                 .textFieldStyle(.plain)
+                .font(Tokens.Typography.control)
         }
-        .padding(.horizontal, Tokens.Space.m)
-        .frame(height: 36)
-        .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+        .padding(.horizontal, Tokens.Space.s)
+        .frame(height: 30)
+        .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: Tokens.Radius.well,
                                                            style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
             .stroke(StoryStyle.line, lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Search settings")
@@ -65,23 +88,28 @@ struct SettingsView: View {
     }
 
     @ViewBuilder private func content(for page: SettingsPage) -> some View {
+        let query = navigation.settingsQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let sections = page.sections(matching: navigation.settingsQuery)
         let detail = VStack(alignment: .leading, spacing: Tokens.Space.l) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(query.isEmpty ? page.title : "\(page.title) · matching “\(query)”")
+                    .font(Tokens.Typography.pageTitle)
+                    .accessibilityAddTraits(.isHeader)
+                Text(page.summary)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             ForEach(sections) { section in
-                if !navigation.settingsQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Label("\(page.title) — \(section.title)", systemImage: section.symbol)
-                        .font(Tokens.Typography.sectionTitle)
-                        .foregroundStyle(.secondary)
-                        .accessibilityAddTraits(.isHeader)
-                }
                 SettingsGroups(model: model, section: section)
             }
         }
-        .frame(maxWidth: SettingsLayout.detailMeasure, alignment: .topLeading)
+        .padding(Tokens.Space.xl)
+        .frame(maxWidth: SettingsLayout.detailMeasure + Tokens.Space.xl * 2, alignment: .topLeading)
         .accessibilitySortPriority(1)
 
         if scrolls {
-            ScrollView { detail.padding(.bottom, Tokens.Space.l) }
+            ScrollView { detail }
                 // A new page or search result starts at its first control.
                 // The search field lives outside this identity, retaining focus.
                 .id("\(page.rawValue):\(navigation.settingsQuery)")

@@ -129,8 +129,10 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .history:
-            // History's controls are its filters, which belong together in
-            // the page; the bar keeps only the way back and the links.
+            // The range sits where the Story keeps its period and opens the
+            // same calendar; search and the filters stay in the page.
+            Spacer(minLength: Tokens.Space.s)
+            HistoryChromeRange(store: store)
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .insights:
@@ -198,16 +200,43 @@ struct StoryChromeBar: View {
         HStack(spacing: Tokens.Space.s) {
             IconButton(systemImage: "chevron.left", help: stepHelp(back: true)) { step(-1) }
                 .disabled(!canStepBack)
-            Text(periodLabel)
-                .font(Tokens.Typography.rowTitle)
-                .lineLimit(1)
-                .frame(minWidth: Self.periodLabelWidth)
-                .accessibilityLabel("\(periodLabel), selected period")
-                .accessibilityAddTraits(.isSelected)
+            // The period's name is the way to the calendar: click it and the
+            // month opens, the same map the day picker draws, with each day's
+            // focus under its date. Picking a day reads that day.
+            Button { calendarShown.value.toggle() } label: {
+                HStack(spacing: Tokens.Space.xs) {
+                    Text(periodLabel)
+                        .font(Tokens.Typography.rowTitle)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(Tokens.Typography.microLabel.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, Tokens.Space.s)
+                .frame(minWidth: Self.periodLabelWidth, minHeight: AccessibilityMetrics.minimumTargetSize)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
+            .help("Open the calendar")
+            .accessibilityLabel("\(periodLabel), selected period. Opens the calendar.")
+            .popover(isPresented: Binding(get: { calendarShown.value },
+                                          set: { calendarShown.value = $0 }),
+                     arrowEdge: .bottom) {
+                DayPickerCalendar(
+                    selected: store.selectedDay,
+                    earliest: store.earliestSelectableDay,
+                    goal: store.goal.goal,
+                    facts: { store.dayFacts(inMonthOf: $0) }) { day in
+                        navigation.jumpToDay(day)
+                        calendarShown.value = false
+                    }
+            }
             IconButton(systemImage: "chevron.right", help: stepHelp(back: false)) { step(1) }
                 .disabled(!canStepForward)
         }
     }
+
+    @StateObject private var calendarShown = BoolBox()
 
     private var periodLabel: String {
         switch navigation.storyScope {

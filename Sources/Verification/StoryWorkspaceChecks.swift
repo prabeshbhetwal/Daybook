@@ -354,15 +354,17 @@ enum StoryWorkspaceChecks {
             navigation.open(tab: .review)
             navigation.clearReviewDay()
             let historyClosed = renderFrame(
-                HistoryView(store: dense, navigation: navigation), height: 1_400)
+                HistoryView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
             requireEvidence("Closed History detail", historyClosed, includes: [],
                             excludes: [.historyDetail])
             if let day = dense.filteredHistoryDays.first?.date { navigation.selectReviewDay(day) }
             let historyOpen = renderFrame(
-                HistoryView(store: dense, navigation: navigation), height: 1_400)
-            requireContent("History full-day detail", historyOpen)
-            requireEvidence("History full-day detail", historyOpen,
-                            includes: [.historyDetail, .dayStory])
+                HistoryView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
+            requireContent("History day preview", historyOpen)
+            // The picked day previews in the rail; its full story is one
+            // action away, not unfolded inside the list.
+            requireEvidence("History day preview", historyOpen,
+                            includes: [.historyDetail], excludes: [.dayStory])
             FixtureFactory.cleanUp()
 
             let insightDense = FixtureFactory.insightsStore(withEvidence: true)

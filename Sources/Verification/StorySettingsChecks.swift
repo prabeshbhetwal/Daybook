@@ -13,7 +13,7 @@ enum StorySettingsChecks {
         var failures: [String] = []
         let expectedPages: [(SettingsPage, [SettingsSection])] = [
             (.general, [.general, .appearance]),
-            (.sessions, [.focus, .automatic]),
+            (.sessions, [.focus, .categories, .automatic]),
             (.awayAndBreaks, [.away]),
             (.recording, [.tracking]),
             (.privacy, [.data, .advanced])
@@ -32,6 +32,9 @@ enum StorySettingsChecks {
         }
         if SettingsPage.matching("recovery") != [.privacy] {
             failures.append("Searching recovery did not retain Privacy context")
+        }
+        if SettingsPage.matching("new category") != [.sessions] {
+            failures.append("Searching new category did not retain Sessions context")
         }
         let listed = SettingsPage.allCases.flatMap(\.sections).flatMap(\.mutableControlKeys)
         if Set(listed) != Set(SettingsControlKey.allCases) || Set(listed).count != listed.count {

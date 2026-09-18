@@ -327,19 +327,30 @@ enum Tokens {
         }
 
         static let untracked = ramp[ramp.count - 1]
+        /// How many named colours precede the neutral "other" grey.
+        static let distinctAppColourCount = ramp.count - 1
         static let slate = Color(lightHex: 0x30B0C7, darkHex: 0x40C8E0)
         static let warmGrey = Color(lightHex: 0x8E8E93, darkHex: 0x98989D)
 
         /// Fixed identities, matching the approved design's composition legend:
         /// deep work indigo, meetings orange, admin teal, learning pink, rest
-        /// neutral grey. Rest must never look like work.
-        static func workType(_ type: WorkType) -> Color {
-            switch type {
-            case .deepWork: return ramp[3]
-            case .meetings: return ramp[2]
-            case .admin: return ramp[1]
-            case .learning: return ramp[4]
-            case .breakTime: return warmGrey
+        /// neutral grey. Rest must never look like work. A category the user
+        /// makes wears whichever hue they chose for it.
+        static func workType(_ type: WorkType) -> Color { hue(type.hue) }
+
+        static func hue(_ hue: WorkTypeHue) -> Color {
+            switch hue {
+            case .blue: return ramp[0]
+            case .teal: return ramp[1]
+            case .orange: return ramp[2]
+            case .indigo: return ramp[3]
+            case .pink: return ramp[4]
+            case .purple: return ramp[5]
+            case .green: return Color(lightHex: 0x34C759, darkHex: 0x30D158)
+            case .yellow: return Color(lightHex: 0xFFCC00, darkHex: 0xFFD60A)
+            case .red: return Color(lightHex: 0xFF3B30, darkHex: 0xFF453A)
+            case .brown: return Color(lightHex: 0xA2845E, darkHex: 0xAC8E68)
+            case .grey: return warmGrey
             }
         }
 

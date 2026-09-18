@@ -18,10 +18,15 @@ invokes `swiftc` directly.
 - Tells the day newest-first, with **Day**, **Week** and **Month** scopes
   and supporting focus, app-use, rhythm and current-streak tiles.
 - Shows exact tracked time in Week and only evidence-backed statements in
-  Insights.
-- Offers searchable History and native sheets for session controls, Insights,
-  Awards and Settings, without losing the selected story.
-- Offers editable activity suggestions and remembers recently started names.
+  Insights: a focus trend per day, week or month, a when-you-focus grid,
+  category shares and per-category goal rates.
+- Offers a searchable History with a day strip per row and a preview rail,
+  and native sheets for session controls, Awards and Settings, without losing
+  the selected story.
+- Lets you define your own categories (name, SF Symbol or letter icon, colour,
+  daily goal, break reminders) and pins the activities you start most.
+- Offers a full session report, session notes with in-app dictation, and
+  names for recorded breaks.
 - Allows durable session-name/type corrections and contextual away-decision Undo.
 - Shows recorded app-use shapes in expanded sessions and at most four top apps
   in the supporting rail.
@@ -74,8 +79,8 @@ are inspecting; opening a historical story never substitutes today's data.
 | Week | How did the days compare? | Focus summary, exact tracked bars, focused work-type composition and selected-day preview |
 | Month | How was focus distributed? | Date-and-duration calendar, relative focus intensity, weekly totals and selected-day preview |
 | Session controls | What should I do now? | Intent, work type, Start, Pause, Resume, Away, Stop and pending-away decisions |
-| History | Where is an older record? | Search by date/app/work type, intersection filters and inline day evidence |
-| Insights | What patterns are supported? | Gated pace, rhythm, quality and continuity statements |
+| History | Where is an older record? | Days grouped by month with a strip of each day's sessions; search, app and category filters; the picked day previews in the rail |
+| Insights | What patterns are supported? | Focus by day, week or month; a when-you-focus grid; category shares and goal rates; gated pace, quality and continuity statements |
 | Awards | What milestones have I earned? | Achievements derived from recorded evidence, with their criteria |
 | Settings | How should the app behave? | Real persisted controls, privacy evidence and diagnostics |
 
@@ -92,13 +97,14 @@ Keyboard shortcuts:
 Current work is at the top of the timeline; earlier work and rest continue
 downwards. Click an entry's full header to expand it. Inspect an app from the rail to see
 its scoped recorded visits. Select a calendar day or Week bar for a preview,
-then use **Open as a story** for that date's full chronology. History rows expand
-in place; **Open this day's story** is an explicit drill-in, not an automatic
-redirect. Choose **Arrange cards** to reorder the rail; dragging is active only
+then use **Open as a story** for that date's full chronology. In History a row
+previews its day in the rail; double-click it, or use **Open as a story**, to
+read the full day. In Insights a picked bar or month unfolds in place. Choose **Arrange cards** to reorder the rail; dragging is active only
 while arranging, and each card also offers keyboard Move up / Move down.
 
-An expanded entry offers **Rename**, **Change type**, **Continue this** and
-**Add note**. Notes belong to the exact stretch they were written on and are
+An expanded entry offers a pencil for renaming and changing category,
+**Continue this**, **Add note** (typed or dictated in the app), **Remove** and
+**See full report**. Notes belong to the exact stretch they were written on and are
 kept beside the session archive, never inside it, so a note can never alter
 recorded time or an Undo. Where power was observed while a stretch ran, the
 entry shows it factually — **Battery · 78% → 64%**, **Plugged in** or
@@ -157,8 +163,9 @@ and History without writing synthetic records into the archive.
 
 The Story preserves separate stretches of resumed work so a later stretch does
 not swallow a break or recording gap. Gaps are not assumed to be work or rest.
-An app-only day still displays its observed use. History states Tracked, Focused
-and Sessions once in its table header, with exact values beneath them.
+An app-only day still displays its observed use. Each History row states its
+focused time and session count; the rail preview adds recorded app use and the
+longest stretch.
 
 The headline says time **logged across focus sessions**. That total can exceed
 recorded app use without an arithmetic error: these are independently recorded
@@ -175,7 +182,8 @@ The saved-action row sits beside the affected interval, so changing a session to
 Break does not remove its **Undo**. Undo restores only the corrected field and
 preserves later work. Running work retains its type and thread identity on relaunch.
 
-Away decisions also have a green saved-action row with **Undo**. Undo makes that
+Away decisions also have a green saved-action row with **Undo**. A break you
+named in the prompt reads by that name; an unnamed one offers **Name it**. Undo makes that
 interval uncounted and reopens its classification in place; subsequent work is
 unchanged. The latest away receipt survives relaunch. Re-answering can count the
 original interval as focus, record it as a break or leave it uncounted without

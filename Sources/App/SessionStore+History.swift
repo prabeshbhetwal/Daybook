@@ -335,7 +335,7 @@ extension SessionStore {
                 for share in periodDay.byWorkType { seconds[share.workType, default: 0] += share.seconds }
             }
             let total = seconds.values.reduce(0, +)
-            workTypeShares = WorkType.allCases.compactMap { type in
+            workTypeShares = WorkType.ordered(seconds.keys).compactMap { type in
                 guard let value = seconds[type], value > 0 else { return nil }
                 return WorkTypeShare(workType: type, seconds: value,
                                      share: total > 0 ? value / total : 0)
@@ -589,12 +589,93 @@ extension SessionStore {
         return applyCorrection(threadID: session.threadID, correction: .rename(trimmed))
     }
 
+    /// The name a recorded break carries now, or nil while it is still the
+    /// unnamed default. Read from the archive, so a later rename shows.
+    func breakName(for receipt: AwayDecisionReceipt) -> String? {
+        guard receipt.decision == .tookBreak, let id = receipt.insertedRecord?.id,
+              let record = engine.archive.records.first(where: { $0.id == id }) else { return nil }
+        let name = record.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty || name == "Break" ? nil : name
+    }
+
+    /// Whether the break behind this receipt is a record that can take a name.
+    func canNameBreak(for receipt: AwayDecisionReceipt) -> Bool {
+        guard receipt.decision == .tookBreak, let id = receipt.insertedRecord?.id else { return false }
+        return engine.archive.records.contains { $0.id == id }
+    }
+
+    /// Names a break after the fact: what the away prompt's field does, for a
+    /// break that was answered with the button or from the story.
+    @discardableResult
+    func nameBreak(for receipt: AwayDecisionReceipt, to name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let titled = trimmed.prefix(1).uppercased() + trimmed.dropFirst()
+        return nameBreak(decisionID: receipt.id, titled: titled)
+    }
+
     /// Reclassifies the work a session belongs to. Correcting a session to a
     /// break removes it from focus, which is the point: the record should say
     /// what happened.
     @discardableResult
     func setWorkType(_ workType: WorkType, for session: DaySession) -> Bool {
         applyCorrection(threadID: session.threadID, correction: .workType(workType))
+    }
+
+    /// Whether this session can be taken out of the record right now: nothing
+    /// running on its thread, and no away question pending.
+    func canRemoveSession(_ session: DaySession) -> Bool {
+        removalBlockReason(for: session) == nil
+            && engine.archive.records.contains { $0.threadID == session.threadID }
+    }
+
+    /// Why Remove is offered but not yet possible, in the user's terms. Nil
+    /// when nothing stands in the way. A stretch of the thread that is
+    /// running now is the usual reason: the live stretch is not in the
+    /// archive yet, so removing the rest would leave a session in two minds.
+    func removalBlockReason(for session: DaySession) -> String? {
+        if hasUnresolvedAwayDecision {
+            return "Answer the away question first."
+        }
+        if session.isRunning || (engine.state != .idle && engine.activeThreadID == session.threadID) {
+            return "This session is running now. End it, then remove it."
+        }
+        return nil
+    }
+
+    /// Takes every stretch of the session out of the archive. The span then
+    /// reads as time outside sessions — the app use stays, the claim that it
+    /// was focus goes — and the story offers Undo, which restores the very
+    /// same records.
+    @discardableResult
+    func removeSession(_ session: DaySession) -> Bool {
+        guard canRemoveSession(session) else {
+            publishCorrectionError("This session is running or waiting on an answer, so it cannot be removed yet.")
+            return false
+        }
+        guard engine.prepareCorrection() else {
+            publishCorrectionError(engine.awayDecisionError); return false
+        }
+        let before = engine.snapshot()
+        let removed = engine.archive.records.filter { $0.threadID == session.threadID }
+        guard let first = removed.first else { publishCorrectionError(nil); return false }
+        var receipt = SessionStoreCorrectionState(
+            sequence: (before.correctionGeneration ?? 0) + 1,
+            threadID: session.threadID, correction: .removed, archiveSnapshot: nil,
+            originalFields: .init(name: first.name, workType: first.workType),
+            archiveRecordIDs: Set(removed.map(\.id)))
+        receipt.removedRecords = removed
+        guard engine.commitCorrection(before: before, removing: removed, adding: [],
+                                      fields: corrections + [receipt]) else {
+            publishCorrectionError(engine.awayDecisionError)
+            correctionRetry = .correction(threadID: session.threadID, correction: .removed)
+            return false
+        }
+        publishCanUndoCorrection(true)
+        publishCorrectionError(nil)
+        correctionRetry = nil
+        refresh()
+        return true
     }
 
     /// Retries either the failed save or a failed undo against the same narrow
@@ -712,6 +793,7 @@ extension SessionStore {
             switch correction {
             case .rename(let name): changed.name = name
             case .workType(let type): changed.workType = type
+            case .removed: continue   // has its own path, `removeSession`
             }
             if changed != record { removed.append(record); added.append(changed) }
         }
@@ -723,6 +805,7 @@ extension SessionStore {
             switch correction {
             case .rename(let name): return value.name != name
             case .workType(let type): return value.workType != type
+            case .removed: return false
             }
         } ?? false
         guard archiveSnapshot != nil || activeChanged else {
@@ -765,6 +848,27 @@ extension SessionStore {
             return false
         }
         let before = engine.snapshot()
+        if state.correction == .removed {
+            // Put the records back exactly as they were, provided nothing has
+            // since taken their identity.
+            let records = state.removedRecords ?? []
+            let present = Set(engine.archive.records.map(\.id))
+            guard !records.isEmpty, records.allSatisfy({ !present.contains($0.id) }) else {
+                publishCorrectionError("That session is already back, or its stretches were rewritten since.")
+                return false
+            }
+            guard engine.commitCorrection(before: before, removing: [], adding: records,
+                                          fields: corrections.filter { $0.id != state.id }) else {
+                publishCorrectionError(engine.awayDecisionError)
+                correctionRetry = .undo(state)
+                return false
+            }
+            publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
+            publishCorrectionError(nil)
+            correctionRetry = nil
+            refresh()
+            return true
+        }
         let originals = Dictionary(uniqueKeysWithValues: (state.archiveSnapshot?.fields ?? []).map { ($0.recordID, $0) })
         let existingIDs = Set(engine.archive.records.map(\.id))
         guard Set(originals.keys).isSubset(of: existingIDs) else {
@@ -785,6 +889,7 @@ extension SessionStore {
             case .workType(let expected):
                 guard record.workType == expected || record.workType == original.workType else { return correctionConflict(state) }
                 changed.workType = original.workType
+            case .removed: continue
             }
             if changed != record { removed.append(record); added.append(changed) }
         }
@@ -800,6 +905,7 @@ extension SessionStore {
                     return correctionConflict(state)
                 }
                 engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID)
+            case .removed: break
             }
         }
         guard engine.commitCorrection(before: before, removing: removed, adding: added,
@@ -832,6 +938,11 @@ extension SessionStore {
         guard replaceSession(workType: canonical.workType, intent: canonical.name,
                              threadID: canonical.threadID) else { return }
         refresh()
+    }
+
+    /// Whether the thread this session belongs to has a stretch running now.
+    func isThreadRunning(_ threadID: UUID) -> Bool {
+        engine.state != .idle && engine.activeThreadID == threadID
     }
 
     /// Whether this session can be continued right now.

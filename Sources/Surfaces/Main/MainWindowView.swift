@@ -55,6 +55,16 @@ struct MainWindowView: View {
                 }
             }
         }
+        .overlay {
+            // The report is always drawn here, never as a native sheet: it
+            // must close on Escape and on a click outside, which a sheet
+            // does not do.
+            if let session = navigation.reportSession {
+                SessionReportOverlay(store: store, session: session, windowSize: geometry.size,
+                                     onClose: { navigation.closeReport() })
+                    .zIndex(2)
+            }
+        }
         .clipped()
       }
         .frame(minWidth: 980, minHeight: 680)
@@ -62,6 +72,15 @@ struct MainWindowView: View {
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
+        .environment(\.openSessionReport) { session in navigation.openReport(for: session) }
+        .environment(\.sessionControlsVisible, SessionControlsVisibility.isVisible(
+            expanded: navigation.sessionControlsExpanded, pinned: settings.sessionControlsPinned))
+        .environment(\.openActivityEditor) { request in ActivityEditorPanel.shared.show(request, store: store) }
+        .environment(\.openCategoryEditor) { request in
+            CategoryEditorPanel.shared.show(request, model: settings) { definition, wasNew in
+                if wasNew { store.workType = definition.workType }
+            }
+        }
         .tint(StoryStyle.action)
         .animation(Tokens.Motion.animation(Tokens.Motion.reveal,
                                            reduceMotion: reduceMotion),
@@ -85,18 +104,8 @@ struct MainWindowView: View {
             StoryCanvas(store: store, navigation: navigation, settings: settings,
                         scrolls: reviewScrolls)
         case .history:
-            Group {
-                if reviewScrolls {
-                    ScrollView {
-                        HistoryView(store: store, navigation: navigation)
-                            .padding(Tokens.Space.xxl)
-                    }
-                } else {
-                    HistoryView(store: store, navigation: navigation)
-                        .padding(Tokens.Space.xxl)
-                }
-            }
-            .background(Tokens.Colour.ground)
+            HistoryView(store: store, navigation: navigation, scrolls: reviewScrolls,
+                        rangeInChrome: true)
             .onAppear {
                 store.setReviewVisible(true)
                 store.refreshReview()
@@ -118,17 +127,7 @@ struct MainWindowView: View {
                 case .focus:
                     FocusView(store: store, scrolls: focusScrolls)
                 case .history:
-                    Group {
-                        if reviewScrolls {
-                            ScrollView {
-                                HistoryView(store: store, navigation: navigation)
-                                    .padding(Tokens.Space.xl)
-                            }
-                        } else {
-                            HistoryView(store: store, navigation: navigation)
-                                .padding(Tokens.Space.xl)
-                        }
-                    }
+                    HistoryView(store: store, navigation: navigation, scrolls: reviewScrolls)
                     .onAppear {
                         store.setReviewVisible(true)
                         store.refreshReview()
@@ -146,7 +145,7 @@ struct MainWindowView: View {
                     AwardsView(store: store, scrolls: insightsScrolls)
                 }
         }
-        .frame(width: presented == .settings ? 560 : 880,
+        .frame(width: presented == .settings ? SettingsLayout.sheetWidth : 880,
                height: presented == .settings ? SettingsLayout.sheetHeight : 570)
     }
 }

@@ -56,6 +56,29 @@ extension SessionStore {
         return storyFocusedSeconds(in: DateInterval(start: bounds.start, end: bounds.end))
     }
 
+    /// Focused seconds per category on a day, live stretch included, for the
+    /// category goals under Focus time. Same accounting as the day's total,
+    /// split by what each stretch was filed under.
+    func storyCategorySeconds(on day: Date) -> [WorkType: TimeInterval] {
+        let calendar = Calendar.current
+        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [:] }
+        let interval = (start: bounds.start, end: bounds.end)
+        var seconds: [WorkType: TimeInterval] = [:]
+        for record in engine.archive.records where record.workType.countsAsFocus {
+            let worked = record.workSeconds(in: interval)
+            if worked > 0 { seconds[record.workType, default: 0] += worked }
+        }
+        if engine.state != .idle, engine.activeWorkType.countsAsFocus {
+            let start = max(engine.sessionStartDate, bounds.start)
+            let end = min(now(), bounds.end)
+            if end > start {
+                let live = min(engine.elapsed, end.timeIntervalSince(start))
+                if live > 0 { seconds[engine.activeWorkType, default: 0] += live }
+            }
+        }
+        return seconds
+    }
+
     /// Focus sessions are threads. A resumed thread with an archived earlier
     /// stretch and a running stretch remains one session on each affected day.
     func storySessionCount(on day: Date) -> Int {

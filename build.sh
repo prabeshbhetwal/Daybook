@@ -434,6 +434,10 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 	<string>NSApplication</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FocusContinuity listens only while you dictate a session note.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Spoken session notes are turned into text, on this Mac where your language allows it.</string>
 ${ICON_KEYS}
 </dict>
 </plist>

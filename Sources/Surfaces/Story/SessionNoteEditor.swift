@@ -1,7 +1,11 @@
 import SwiftUI
+import AppKit
 
 private final class SessionNoteEditorState: ObservableObject {
     @Published var confirmsDiscard = false
+    /// The note as it stood when listening began; the transcript is added
+    /// after it, not typed over it.
+    var dictationBase = ""
 }
 
 /// A record-scoped plain-text editor. Draft ownership remains in SessionStore,
@@ -11,6 +15,8 @@ struct SessionNoteEditor: View {
     let recordID: UUID
     @FocusState private var isFocused: Bool
     @StateObject private var state = SessionNoteEditorState()
+    @StateObject private var dictation = SpeechDictation()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var draft: Binding<String> {
         Binding(get: { store.noteDraft(for: recordID) },
@@ -28,12 +34,21 @@ struct SessionNoteEditor: View {
                 Text(error).font(Tokens.Typography.metadata).foregroundStyle(Tokens.Colour.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if let message = dictation.status.message {
+                Label(message, systemImage: "mic.slash.fill")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(Tokens.Colour.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("Dictation error: \(message)")
+            }
             HStack(spacing: Tokens.Space.s) {
                 saveButton
                 Button("Cancel") {
                     if !store.cancelNoteEditing(for: recordID) { state.confirmsDiscard = true }
                 }
                 .font(Tokens.Typography.metadata)
+                Spacer(minLength: Tokens.Space.s)
+                dictateButton
             }
         }
         .onAppear { isFocused = true }
@@ -51,6 +66,46 @@ struct SessionNoteEditor: View {
         }
     }
 
+    /// One button that listens or stops. Words land in the note as they are
+    /// recognised, after whatever was already written.
+    private var dictateButton: some View {
+        Button {
+            if dictation.isBusy {
+                dictation.stop()
+            } else {
+                state.dictationBase = draft.wrappedValue
+                dictation.start()
+            }
+        } label: {
+            HStack(spacing: Tokens.Space.xs) {
+                if dictation.isListening {
+                    Circle()
+                        .fill(Tokens.Colour.danger)
+                        .frame(width: 7, height: 7)
+                        .modifier(ListeningPulse(reduceMotion: reduceMotion))
+                }
+                Label(dictation.isListening ? "Stop" : dictation.status == .requesting ? "Starting…" : "Dictate",
+                      systemImage: dictation.isListening ? "stop.fill" : "mic.fill")
+                    .labelStyle(.titleAndIcon)
+            }
+        }
+        .font(Tokens.Typography.metadata)
+        .tint(dictation.isListening ? Tokens.Colour.danger : nil)
+        .disabled(!dictation.isSupported || dictation.status == .requesting)
+        .help(dictation.isSupported
+              ? "Speak this note. Words appear as they are recognised; press again to stop."
+              : "Speech recognition is not available for your language on this Mac.")
+        .accessibilityLabel(dictation.isListening ? "Stop dictating" : "Dictate note")
+        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
+                   value: dictation.isListening)
+        .onChange(of: dictation.transcript) { transcript in
+            guard dictation.isListening else { return }
+            store.setNoteDraft(SpeechDictation.merge(base: state.dictationBase, transcript: transcript),
+                               for: recordID)
+        }
+        .onDisappear { dictation.stop() }
+    }
+
     @ViewBuilder private var saveButton: some View {
         if isFocused {
             Button("Save") { _ = store.saveFocusedNote() }
@@ -60,5 +115,20 @@ struct SessionNoteEditor: View {
             Button("Save") { _ = store.saveNote(for: recordID) }
                 .font(Tokens.Typography.metadata.weight(.semibold))
         }
+    }
+}
+
+/// A soft breathing dot while the microphone is open. Still under Reduce
+/// Motion; the red alone says it.
+private struct ListeningPulse: ViewModifier {
+    let reduceMotion: Bool
+    @StateObject private var phase = BoolBox()
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(reduceMotion || !phase.value ? 1 : 0.35)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true),
+                       value: phase.value)
+            .onAppear { phase.value = true }
     }
 }

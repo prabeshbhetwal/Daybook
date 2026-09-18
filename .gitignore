@@ -11,3 +11,4 @@
 # duplicate and its uploads/ folder is a stale copy of this repository.
 /research/*.zip
 /research/apple-focus-app-design-research/project/uploads/
+/graphify-out/

@@ -13,6 +13,7 @@ struct ActivityChooser: View {
     var intentFocused: FocusState<Bool>.Binding
     var compact = false
     let onSubmit: () -> Void
+    @Environment(\.openActivityEditor) private var openActivityEditor
 
     var body: some View {
         HStack(spacing: Tokens.Space.s) {
@@ -25,16 +26,41 @@ struct ActivityChooser: View {
                 .accessibilityLabel("Activity name")
                 .accessibilityHint("Write your own activity, or choose a recent name from the menu.")
             Menu {
-                if !recent.isEmpty {
-                    Section("Recent activities") {
-                        ForEach(recent) { item in
-                            Button(item.name) { select(name: item.name, type: item.workType) }
+                // What the user does, not what it is filed under. The
+                // category picker beside this field owns categories; listing
+                // them here too was the same choice offered twice.
+                if !store.savedActivities.isEmpty {
+                    Section("Pinned") {
+                        ForEach(store.savedActivities) { item in
+                            Button { store.chooseActivity(item); intentFocused.wrappedValue = true } label: {
+                                Label(item.name, systemImage: item.workType.symbolName)
+                                    .labelStyle(.titleAndIcon)
+                            }
                         }
                     }
                 }
-                Section("Suggestions") {
-                    ForEach(WorkType.startable, id: \.self) { type in
-                        Button(type.displayName) { select(name: type.displayName, type: type) }
+                let recent = store.recentActivities
+                if !recent.isEmpty {
+                    Section("Recent") {
+                        ForEach(recent) { item in
+                            Button { select(name: item.name, type: item.workType) } label: {
+                                Label(item.name, systemImage: item.workType.symbolName)
+                                    .labelStyle(.titleAndIcon)
+                            }
+                        }
+                    }
+                }
+                if openActivityEditor != nil { Divider() }
+                if let openActivityEditor {
+                    Button { openActivityEditor(.new) } label: {
+                        Label("Pin activity…", systemImage: "pin")
+                            .labelStyle(.titleAndIcon)
+                    }
+                    if !store.savedActivities.isEmpty {
+                        Button { openActivityEditor(.edit) } label: {
+                            Label("Edit pinned…", systemImage: "slider.horizontal.3")
+                                .labelStyle(.titleAndIcon)
+                        }
                     }
                 }
             } label: {
@@ -55,7 +81,7 @@ struct ActivityChooser: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityLabel("Choose an activity")
-            .help("Choose a recent activity or suggestion. This does not start a session.")
+            .help("Choose one of your activities or a recent name. This does not start a session.")
         }
         .padding(.leading, Tokens.Space.m)
         .padding(.trailing, Tokens.Space.xs)
@@ -78,13 +104,5 @@ struct ActivityChooser: View {
         store.intent = name
         store.workType = type
         intentFocused.wrappedValue = true
-    }
-
-    private var recent: [QuickStart] {
-        store.quickStarts.filter { item in
-            !WorkType.startable.contains { type in
-                item.workType == type && item.name.caseInsensitiveCompare(type.displayName) == .orderedSame
-            }
-        }
     }
 }

@@ -94,6 +94,7 @@ struct InsightReadingPosition: Equatable {
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case focus
+    case categories
     case away
     case automatic
     case tracking
@@ -198,6 +199,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     @Published private var insightAnchors: [InsightRange: Date]
     @Published private var insightPageCounts: [InsightRange: Int]
     @Published var settingsSection: SettingsSection = .general
+    /// The most recent ask to open a category for editing, or a blank form.
+    /// A counter travels with it so the same ask made twice — Add, close,
+    /// Add — is two events and not one.
+    @Published private(set) var categoryEditorRequest: CategoryEditorTicket?
+    /// The session whose full report is open over the story, or nil.
+    @Published private(set) var reportSession: DaySession?
     @Published var settingsQuery: String = ""
     private weak var store: SessionStore?
     private var periodObservation: AnyCancellable?
@@ -428,6 +435,35 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     /// Story may deliberately inspect an empty historical date. Do not silently
     /// replace it with the earliest recorded day; only future dates are clamped.
+    /// The chrome's calendar picked a day: show it as the day's story,
+    /// whichever span was showing. A week or month is a place to spot a day;
+    /// the day is where it is read.
+    func jumpToDay(_ date: Date) {
+        if storyScope != .day { selectScope(.day) }
+        showDay(date)
+    }
+
+    /// Insights and History point at a period; this opens it as its own story,
+    /// at the span it was shown in.
+    func openStory(_ scope: StoryScope, containing date: Date) {
+        guard let store else { return }
+        lastPeriodStep = 0
+        animated(Tokens.Motion.swap) {
+            workspace = .story
+            sheet = nil
+            selectedTab = .story
+            storySelectedDay = nil
+            expandedStoryDay = nil
+            if scope == .day {
+                showDay(date)
+            } else {
+                store.reviewAnchor = Calendar.current.startOfDay(for: date)
+            }
+            storyScope = scope
+            refreshStoryScope()
+        }
+    }
+
     private func showDay(_ date: Date) {
         guard let store else { return }
         let calendar = Calendar.current
@@ -466,6 +502,25 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     func openSettings() {
+        openSheet(.settings)
+    }
+
+    /// Settings, on the Categories section, with the editor already open. The
+    /// pickers open the floating `CategoryEditorPanel` instead; this is the
+    /// deep link for anything that wants the full list.
+    func openReport(for session: DaySession) {
+        animated(Tokens.Motion.reveal) { reportSession = session }
+    }
+
+    func closeReport() {
+        animated(Tokens.Motion.dismiss) { reportSession = nil }
+    }
+
+    func openCategoryEditor(_ request: CategoryEditorRequest) {
+        settingsSection = .categories
+        settingsQuery = ""
+        categoryEditorRequest = CategoryEditorTicket(id: (categoryEditorRequest?.id ?? 0) &+ 1,
+                                                     request: request)
         openSheet(.settings)
     }
 

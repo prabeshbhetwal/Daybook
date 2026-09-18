@@ -163,32 +163,54 @@ enum UserDecision: String, Codable, Equatable, CaseIterable {
 /// What kind of work a completed session was. Distinct from `AppCategory`, which
 /// answers "should this app pause my session?" — collapsing the two would break
 /// the auto-pause logic.
-enum WorkType: String, Codable, CaseIterable {
-    case deepWork, meetings, admin, learning, breakTime
+///
+/// A value, not an enum: the five built-in kinds are static members, and the
+/// user can add their own. Every value is a stable identifier; what it is
+/// called, how it is drawn and what colour it wears come from
+/// `WorkTypeCatalog`, so a renamed or re-iconed category changes everywhere at
+/// once and old records keep pointing at the same thing. The wire format is
+/// the bare identifier string — exactly what the enum this replaced encoded —
+/// so nothing already on disk needs migrating.
+struct WorkType: Hashable, Codable, Identifiable, CaseIterable {
+    let rawValue: String
 
-    var displayName: String {
-        switch self {
-        case .deepWork: return "Deep work"
-        case .meetings: return "Meetings"
-        case .admin: return "Admin"
-        case .learning: return "Learning"
-        case .breakTime: return "Break"
-        }
-    }
+    init(rawValue: String) { self.rawValue = rawValue }
 
-    var symbolName: String {
-        switch self {
-        case .deepWork: return "brain.head.profile"
-        case .meetings: return "person.2.fill"
-        case .admin: return "tray.full.fill"
-        case .learning: return "book.fill"
-        case .breakTime: return "cup.and.saucer.fill"
-        }
-    }
+    var id: String { rawValue }
+
+    static let deepWork = WorkType(rawValue: "deepWork")
+    static let meetings = WorkType(rawValue: "meetings")
+    static let admin = WorkType(rawValue: "admin")
+    static let learning = WorkType(rawValue: "learning")
+    static let breakTime = WorkType(rawValue: "breakTime")
+
+    /// The kinds the app ships with, in their fixed order. Rest comes last.
+    static let builtIn: [WorkType] = [.deepWork, .meetings, .admin, .learning, .breakTime]
+
+    /// Built-ins, then the user's own categories in the order they were made,
+    /// with Break kept last. Retired categories are left out: they still
+    /// describe old records, but are offered nowhere new.
+    static var allCases: [WorkType] { WorkTypeCatalog.shared.activeTypes }
+
+    var isBuiltIn: Bool { WorkType.builtIn.contains(self) }
+
+    var definition: WorkTypeDefinition { WorkTypeCatalog.shared.definition(for: self) }
+
+    var displayName: String { definition.name }
+
+    var symbolName: String { definition.symbolName }
+
+    var hue: WorkTypeHue { definition.hue }
+
+    /// This category's own daily goal, when one is set.
+    var dailyGoal: TimeInterval? { countsAsFocus ? definition.dailyGoal : nil }
+
+    /// Whether break reminders run during a session of this category.
+    var remindsBreaks: Bool { definition.remindsBreaks }
 
     /// Whether passive presence is the work itself: a meeting is attended, a
     /// lecture is watched. Anywhere else, watching without input is a pause.
-    var countsWhileWatching: Bool { self == .meetings || self == .learning }
+    var countsWhileWatching: Bool { definition.countsWhileWatching }
 
     /// Rest is not focus. A break belongs on the timeline, where it explains a
     /// gap, but never in the day's focused total — nothing else was stopping a
@@ -202,6 +224,26 @@ enum WorkType: String, Codable, CaseIterable {
     /// that could not fill a goal, hold a streak, or count as focus — a session
     /// whose only effect was to exist.
     static var startable: [WorkType] { allCases.filter(\.countsAsFocus) }
+
+    /// The given kinds in catalogue order — built-ins, then the user's own,
+    /// Break last — with anything the catalogue has never heard of after
+    /// them. For totals: a retired category is offered nowhere new, but the
+    /// hours filed under it are still the day's hours.
+    static func ordered<S: Sequence>(_ types: S) -> [WorkType] where S.Element == WorkType {
+        let wanted = Set(types)
+        let known = WorkTypeCatalog.shared.allDefinitions.map(\.workType).filter(wanted.contains)
+        let unknown = wanted.subtracting(known).sorted { $0.rawValue < $1.rawValue }
+        return known + unknown
+    }
+
+    init(from decoder: Decoder) throws {
+        rawValue = try decoder.singleValueContainer().decode(String.self)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 // MARK: - Persisted models

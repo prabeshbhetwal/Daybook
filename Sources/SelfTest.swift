@@ -447,7 +447,8 @@ enum SelfTest {
             + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
             + DecisionHistoryChecks.tests + DecisionRecoveryChecks.tests + StoryWorkspaceChecks.tests
             + CompactControlsChecks.tests + SessionMetadataChecks.tests + ActivityRuleChecks.tests
-            + StoryIntegrationChecks.tests
+            + StoryIntegrationChecks.tests + CategoryChecks.tests + SessionReportChecks.tests
+            + SavedActivityChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -3743,7 +3744,7 @@ enum SelfTest {
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
         let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
                                       idle: .disabled, now: { clock.value })
-        let store = SessionStore(engine: engine)
+        let store = SessionStore(engine: engine, now: { clock.value }, idle: .disabled)
         store.attach(tracker: tracker, usage: usage)
         store.setDashboardVisible(true)
         tracker.appActivated(bundleID: "com.example.editor", name: "Editor")
@@ -7095,11 +7096,11 @@ enum SelfTest {
     private static func testSettingsGroupsContainOnlyBackedControls() -> [String] {
         var problems: [String] = []
         let expectedTitles = [
-            "General", "Focus sessions", "Away and breaks", "Automatic and rewards",
+            "General", "Focus sessions", "Categories", "Away and breaks", "Automatic and rewards",
             "Tracking and apps", "Appearance", "Data and privacy", "Advanced"
         ]
         expect(SettingsSection.allCases.map(\.title) == expectedTitles,
-               "all eight Settings groups retain their approved order and titles", &problems)
+               "all nine Settings groups retain their approved order and titles", &problems)
         expect(SettingsSection.allCases.allSatisfy {
             !$0.symbol.isEmpty && !$0.controlLabels.isEmpty
         }, "every Settings group exposes a symbol and searchable control labels", &problems)
@@ -7109,14 +7110,14 @@ enum SelfTest {
                "searching privacy returns Data and privacy", &problems)
 
         let expectedControls: Set<SettingsControlKey> = [
-            .opensOn, .dailyGoal, .breakThreshold, .longAwayCap, .fullPromptAfter,
+            .opensOn, .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,
             .reminders, .activityRuleAutomation, .activityRules,
             .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
             .usageRecording, .appearance, .density, .timelineLabels, .entryDetails
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,
-               "Settings lists exactly the seventeen backed mutable controls", &problems)
+               "Settings lists exactly the eighteen backed mutable controls", &problems)
         expect(listedControls.count == expectedControls.count,
                "no backed mutable control appears in more than one group", &problems)
         expect(Set(listedControls.map(\.modelKeyPath)).count == expectedControls.count,
@@ -7282,8 +7283,8 @@ enum SelfTest {
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
-                .storyShape, .storyMeeting, .storyLive, .storyDecision,
-                .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
+                .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
+                .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
                 .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
                 .settingsActivityRules,
                 .activityRuleAmbiguity, .activityRuleAutomatic,

@@ -207,8 +207,8 @@ enum CompactControlsChecks {
         if Set(all).count != 1 {
             failures.append("Settings still changes height between category or search states: \(all)")
         }
-        if let height = all.first, height > 600 {
-            failures.append("Settings exceeds its 600pt title-inclusive height bound")
+        if let height = all.first, height > SettingsLayout.sheetMaximumHeight {
+            failures.append("Settings exceeds its \(Int(SettingsLayout.sheetMaximumHeight))pt title-inclusive height bound")
         }
         return failures
     }
@@ -224,8 +224,8 @@ enum CompactControlsChecks {
             let host = NSHostingView(rootView: SettingsView(model: settings,
                                                             navigation: navigation,
                                                             scrolls: false)
-                .frame(width: 560, height: 520))
-            host.frame = NSRect(x: 0, y: 0, width: 560, height: 520)
+                .frame(width: SettingsLayout.sheetWidth, height: 600))
+            host.frame = NSRect(x: 0, y: 0, width: SettingsLayout.sheetWidth, height: 600)
             host.layoutSubtreeIfNeeded()
             return containsTextInput(host) ? []
                 : ["The non-scrolling Settings fixture replaced Search with static text"]

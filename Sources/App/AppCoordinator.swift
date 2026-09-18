@@ -219,7 +219,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         switch decision {
         case .none:
             break
-        case .start(let workType, let name, let backdatedTo, let because):
+        case .start(let guessedType, let name, let backdatedTo, let because):
+            // What the user filed this app under lately beats the purpose
+            // table's guess.
+            let workType = engine.categories.learnedWorkType(for: lastScoredApp) ?? guessedType
             store.startAutomatically(workType: workType, name: name,
                                      backdatedTo: backdatedTo, because: because)
             autoStartedFor = lastScoredApp

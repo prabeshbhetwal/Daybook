@@ -52,6 +52,9 @@ final class SessionStore: ObservableObject {
     @Published private(set) var streakBest = 0
     @Published private(set) var weekBars: [DayBar] = []
     @Published private(set) var quickStarts: [QuickStart] = []
+    /// The activities the user pinned, in their order. Refreshed with the
+    /// quick starts; edited through the methods below.
+    @Published private(set) var savedActivities: [SavedActivity] = []
     @Published var threadsToday: [ThreadSummary] = []
     /// Archive-wide summaries for Focus and Continue Today. Eligibility is
     /// sampled afresh from the paired index when a surface reads them.
@@ -523,7 +526,9 @@ final class SessionStore: ObservableObject {
     /// Reads one integer per tick. No new timer: the engine is event-driven and
     /// this is the only signal it cannot be told about, because nothing posts a
     /// notification when you *stop* using a machine.
-    private let idle = IdleMonitor()
+    /// Real HID idle in the product; tests inject `.disabled` so a fixture's
+    /// open stretch is not trimmed by however long the build Mac sat untouched.
+    private let idle: IdleMonitor
     /// Whether something on screen is being watched right now — a video, a
     /// call, a presentation keeping the display awake. Set by the coordinator
     /// from powerd's assertion list; the default never is.
@@ -594,7 +599,9 @@ final class SessionStore: ObservableObject {
              NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?
                  .activate(options: ignoringOtherApps ? .activateIgnoringOtherApps : [])
          },
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         idle: IdleMonitor = IdleMonitor()) {
+        self.idle = idle
         self.engine = engine
         self.metadataArchive = metadataArchive
             ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
@@ -805,6 +812,7 @@ final class SessionStore: ObservableObject {
             weekBars = engine.archive.weekBars()
             quickStarts = ActivityChoices.merging(engine.store.recentActivities,
                 engine.archive.quickStarts(limit: ActivityChoices.limit))
+            savedActivities = engine.store.savedActivities
             workType = engine.activeWorkType
             automaticActivityRecord = engine.activeAutomaticAction.map {
                 AutomaticActivityRecord(action: $0, resultingRecordID: engine.activeRecordID)
@@ -913,7 +921,8 @@ final class SessionStore: ObservableObject {
     /// for hours without ever pressing Start.
     private func refreshBreak() {
         guard let usageSnapshot = effectiveUsageSnapshot,
-              engine.store.remindersEnabled else {
+              engine.store.remindersEnabled,
+              remindersPausedByCategory == nil else {
             breakCountdown = 0
             isBreakDue = false
             nextBreakTier = nil
@@ -935,6 +944,12 @@ final class SessionStore: ObservableObject {
     // surfaces still need.
     var remindersEnabled: Bool { engine.store.remindersEnabled }
 
+    /// The running category that has asked not to be interrupted, or nil.
+    var remindersPausedByCategory: WorkType? {
+        guard engine.state != .idle, !engine.activeWorkType.remindsBreaks else { return nil }
+        return engine.activeWorkType
+    }
+
     /// How long an absence has to be before the app asks about it rather than
     /// quietly leaving it out.
     var breakThreshold: TimeInterval { engine.breakThreshold }
@@ -946,6 +961,7 @@ final class SessionStore: ObservableObject {
     /// a thirty-second look-away is not mistaken for a quarter of an hour off.
     var breakLabel: String {
         guard remindersEnabled else { return "Reminders off" }
+        if let paused = remindersPausedByCategory { return "No reminders during \(paused.displayName)" }
         if isBreakDue { return "Break due" }
         guard let tier = nextBreakTier else { return "No break due" }
         return "\(tier.shortLabel) in \(Tokens.preciseDuration(breakCountdown))"
@@ -1091,6 +1107,9 @@ final class SessionStore: ObservableObject {
             guard replaceSession(workType: workType, intent: intent) else { return }
         }
         engine.store.rememberActivity(name: intent, workType: workType)
+        // Remember the pairing of the app in front and the category chosen,
+        // so starting from that app next time suggests this category.
+        engine.store.rememberCategoryChoice(workType, for: tracker?.currentBundleID)
         intent = ""
         refresh()
     }
@@ -1110,6 +1129,65 @@ final class SessionStore: ObservableObject {
 
     /// Drives the Start button's label, so the button says what it will do.
     var startWouldContinue: Bool { engine.wouldAdopt(workType: workType, intent: intent) }
+
+    // MARK: - Saved activities
+
+    /// Recent names not already pinned, for the menu's second group.
+    var recentActivities: [QuickStart] {
+        SavedActivities.recents(quickStarts, excluding: savedActivities)
+    }
+
+    /// Whether one more can be pinned.
+    var canPinActivity: Bool { savedActivities.count < SavedActivities.limit }
+
+    /// Adds or updates a pinned activity. A matching id replaces in place; a
+    /// new one goes at the end. False when the list is full or the name is
+    /// blank or already pinned under another id.
+    @discardableResult
+    func saveActivity(_ activity: SavedActivity) -> Bool {
+        var items = engine.store.savedActivities
+        let name = SavedActivities.normalisedName(activity.name)
+        guard !name.isEmpty, activity.workType.countsAsFocus else { return false }
+        let taken = items.contains { $0.id != activity.id && SavedActivities.key($0.name) == SavedActivities.key(name) }
+        guard !taken else { return false }
+        if let index = items.firstIndex(where: { $0.id == activity.id }) {
+            items[index] = SavedActivity(id: activity.id, name: name, workType: activity.workType)
+        } else {
+            guard items.count < SavedActivities.limit else { return false }
+            items.append(SavedActivity(id: activity.id, name: name, workType: activity.workType))
+        }
+        engine.store.savedActivities = items
+        savedActivities = engine.store.savedActivities
+        return true
+    }
+
+    /// Pins a recent name as it was last used.
+    @discardableResult
+    func pinActivity(_ quick: QuickStart) -> Bool {
+        saveActivity(SavedActivity(name: quick.name, workType: quick.workType))
+    }
+
+    func removeSavedActivity(id: UUID) {
+        engine.store.savedActivities = engine.store.savedActivities.filter { $0.id != id }
+        savedActivities = engine.store.savedActivities
+    }
+
+    /// Moves one row up or down by one place.
+    func moveSavedActivity(id: UUID, up: Bool) {
+        var items = engine.store.savedActivities
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        let target = up ? index - 1 : index + 1
+        guard items.indices.contains(target) else { return }
+        items.swapAt(index, target)
+        engine.store.savedActivities = items
+        savedActivities = engine.store.savedActivities
+    }
+
+    /// Fills the field from a pinned activity. Never starts anything.
+    func chooseActivity(_ activity: SavedActivity) {
+        intent = activity.name
+        workType = activity.startableWorkType
+    }
 
     func stop() {
         guard !hasUnresolvedAwayDecision else { return }
@@ -1267,6 +1345,18 @@ final class SessionStore: ObservableObject {
         correctionRetry = nil
         publishCorrectionError(nil)
         publishCanUndoCorrection(false)
+        apply(engine.state)
+        return true
+    }
+
+    /// Names the break a resolved away decision wrote, and republishes the day.
+    @discardableResult
+    func nameBreak(decisionID: UUID, titled name: String) -> Bool {
+        guard engine.nameBreak(decisionID: decisionID, to: name) else {
+            publishCorrectionError(engine.awayDecisionError ?? "The break could not be renamed.")
+            return false
+        }
+        publishCorrectionError(nil)
         apply(engine.state)
         return true
     }

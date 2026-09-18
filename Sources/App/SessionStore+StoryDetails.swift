@@ -134,9 +134,14 @@ extension SessionStore {
             if activity.gapDuration >= 1 {
                 caption += " \(Tokens.preciseDuration(activity.gapDuration)) of the session span has no app recording."
             }
+        } else if session.isRunning {
+            caption = "Logged focus: \(Tokens.preciseDuration(session.worked)) so far. "
+                + (isTrackingEnabled ? "No app use recorded yet."
+                                     : "App recording is off, so no app use is being recorded.")
         } else {
             caption = "Logged focus: \(Tokens.preciseDuration(session.worked)). "
                 + "No app recording was available for this session."
+                + (isTrackingEnabled ? "" : " App recording is off.")
         }
         if activity.hasConflictingForegroundEvidence {
             caption += " Overlapping source app records were resolved to one foreground strip."
@@ -176,6 +181,14 @@ extension SessionStore {
         }
         var presentedThreads = Set<UUID>()
         for correction in corrections.reversed() where presentedThreads.insert(correction.threadID).inserted {
+            if correction.correction == .removed {
+                // Nothing of the session is left to attach the notice to; the
+                // journal remembers its span.
+                if let range = correction.removedRange.flatMap(clipped) {
+                    notices.append(.correction(correction.id, "Session removed", range))
+                }
+                continue
+            }
             let ids = Set(engine.archive.records.filter { $0.threadID == correction.threadID }.map(\.id))
             if let match = moments.first(where: { moment in
                 switch moment {
@@ -192,8 +205,15 @@ extension SessionStore {
                 let title: String
                 switch correction.correction {
                 case .rename: title = "Session renamed"
-                case .workType(.breakTime): title = "Recorded as a break"
+                case .workType(.breakTime):
+                    // The row replaces the break's own entry, so it carries the name.
+                    if case .rest(let rest) = entry, !rest.name.isEmpty, rest.name != "Break" {
+                        title = "\(rest.name) · recorded as a break"
+                    } else {
+                        title = "Recorded as a break"
+                    }
                 case .workType(let type): title = "Changed to \(type.displayName)"
+                case .removed: title = "Session removed"
                 }
                 notices.append(.correction(correction.id, title, DateInterval(start: entry.start, end: max(entry.start, end))))
                 if case .rest = entry { moments.removeAll { $0.id == match.id } }

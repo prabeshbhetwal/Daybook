@@ -197,6 +197,10 @@ final class SessionArchive {
                                     workType: record.workType))
                 candidate[index].workType = proposed
                 changed = true
+            case .removed:
+                // Removal is a journal transaction over whole records, never
+                // a field edit; nothing to apply here.
+                return .unchanged
             }
         }
 
@@ -246,6 +250,8 @@ final class SessionArchive {
                 guard record.workType != restore.workType else { continue }
                 fields.append(.init(recordID: record.id, name: record.name, workType: record.workType))
                 candidate[index].workType = restore.workType
+            case .removed:
+                return .unchanged
             }
             changed = true
         }

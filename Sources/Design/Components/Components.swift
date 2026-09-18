@@ -110,14 +110,53 @@ struct IntentField: View {
 /// is whole whichever item is selected and wherever the panel sits.
 struct WorkTypePicker: View {
     @Binding var selection: WorkType
+    /// The menu bar panel's variant: drawn in the app's own box, the height
+    /// of the activity field beside it, so it never draws greyed the way an
+    /// AppKit bordered control does in a panel that is not the key window.
+    var quiet = false
+    @Environment(\.openCategoryEditor) private var openCategoryEditor
+    /// Renames and new icons land here without a store in between.
+    @ObservedObject private var catalog = WorkTypeCatalog.shared
 
     var body: some View {
+        if quiet { quietBody } else { borderedBody }
+    }
+
+    private var quietBody: some View {
         Menu {
-            ForEach(WorkType.startable, id: \.self) { type in
-                Button { selection = type } label: {
-                    Label(type.displayName, systemImage: type.symbolName)
-                }
+            menuItems
+        } label: {
+            HStack(spacing: Tokens.Space.xs) {
+                Image(systemName: selection.symbolName)
+                    .font(Tokens.Typography.metadata.weight(.medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Tokens.Palette.workType(selection))
+                Text(selection.displayName)
+                    .font(Tokens.Typography.control)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(Tokens.Typography.microLabel.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
+            .padding(.horizontal, Tokens.Space.m)
+            .frame(height: 34)
+            .background(Tokens.Colour.elevated,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
+                .strokeBorder(Tokens.Colour.line))
+            .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Category")
+        .accessibilityLabel("Category, \(selection.displayName)")
+    }
+
+    private var borderedBody: some View {
+        Menu {
+            menuItems
         } label: {
             Label(selection.displayName, systemImage: selection.symbolName)
                 .lineLimit(1)
@@ -135,8 +174,186 @@ struct WorkTypePicker: View {
         // invisible the moment the window was inactive.
         .foregroundStyle(.primary)
         .fixedSize()
-        .help("Work type")
-        .accessibilityLabel("Work type, \(selection.displayName)")
+        .help("Category")
+        .accessibilityLabel("Category, \(selection.displayName)")
+    }
+
+    @ViewBuilder private var menuItems: some View {
+        Group {
+            // An inline picker, not a run of buttons: the menu then marks the
+            // current category with a check, and every row keeps its symbol
+            // — macOS draws a menu `Label` title-only unless told otherwise,
+            // which left the list as bare words until one was chosen.
+            Picker("Category", selection: $selection) {
+                ForEach(WorkType.startable) { type in
+                    Label(type.displayName, systemImage: type.symbolName)
+                        .labelStyle(.titleAndIcon)
+                        .tag(type)
+                }
+            }
+            .pickerStyle(.inline)
+            if let openCategoryEditor {
+                Divider()
+                Button { openCategoryEditor(.new) } label: {
+                    Label("Add category…", systemImage: "plus")
+                        .labelStyle(.titleAndIcon)
+                }
+                Button { openCategoryEditor(.edit(selection)) } label: {
+                    Label("Edit categories…", systemImage: "slider.horizontal.3")
+                        .labelStyle(.titleAndIcon)
+                }
+            }
+        }
+    }
+}
+
+private struct SessionControlsVisibleKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// True while the session strip is showing under the chrome. The running
+    /// card then leaves Pause and Stop to the strip rather than repeating them
+    /// a few hundred points lower.
+    var sessionControlsVisible: Bool {
+        get { self[SessionControlsVisibleKey.self] }
+        set { self[SessionControlsVisibleKey.self] = newValue }
+    }
+}
+
+/// What a request to open the activity editor is for.
+enum ActivityEditorRequest: Equatable {
+    case new
+    case edit
+}
+
+private struct OpenActivityEditorKey: EnvironmentKey {
+    static let defaultValue: ((ActivityEditorRequest) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// Set by each root that can show the floating activity editor; read by
+    /// the activity menu so "Add activity…" appears only where it can act.
+    var openActivityEditor: ((ActivityEditorRequest) -> Void)? {
+        get { self[OpenActivityEditorKey.self] }
+        set { self[OpenActivityEditorKey.self] = newValue }
+    }
+}
+
+/// What a request to open the category editor is for: a blank form, or one
+/// category's row already selected.
+enum CategoryEditorRequest: Equatable {
+    case new
+    case edit(WorkType)
+}
+
+/// One ask to open the editor. The counter makes two identical asks two
+/// events, so the editor reopens on a second "Add category…" after the first
+/// form was closed.
+struct CategoryEditorTicket: Equatable {
+    let id: UInt64
+    let request: CategoryEditorRequest
+}
+
+private struct CategoryEditorRequestKey: EnvironmentKey {
+    static let defaultValue: CategoryEditorTicket? = nil
+}
+
+extension EnvironmentValues {
+    /// Read by the Categories settings section; written by Settings from the
+    /// window model whenever a picker asked for the editor.
+    var categoryEditorRequest: CategoryEditorTicket? {
+        get { self[CategoryEditorRequestKey.self] }
+        set { self[CategoryEditorRequestKey.self] = newValue }
+    }
+}
+
+/// Set by each root — the main window and the menu bar panel — to open the
+/// floating category editor, and read by every category picker, so "Add
+/// category…" appears wherever a category is chosen and nowhere it could not
+/// be acted on.
+private struct OpenCategoryEditorKey: EnvironmentKey {
+    static let defaultValue: ((CategoryEditorRequest) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var openCategoryEditor: ((CategoryEditorRequest) -> Void)? {
+        get { self[OpenCategoryEditorKey.self] }
+        set { self[OpenCategoryEditorKey.self] = newValue }
+    }
+}
+
+/// The title band of a floating panel: title, one line of what it is for,
+/// and the close control, drawn the way the app's sheets draw theirs. The
+/// window's own buttons are hidden so there is one way to close.
+struct PanelHeader: View {
+    let title: String
+    var subtitle: String?
+    let onClose: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: Tokens.Space.m) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(Tokens.Typography.sectionTitle)
+                        .accessibilityAddTraits(.isHeader)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: Tokens.Space.m)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(Tokens.Typography.metadata.weight(.semibold))
+                        .frame(width: 28, height: 28)
+                        .background(Tokens.Colour.elevated, in: Circle())
+                }
+                .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14))
+                .keyboardShortcut(.cancelAction)
+                .help("Close")
+                .accessibilityLabel("Close \(title)")
+            }
+            .padding(.horizontal, Tokens.Space.xl)
+            .padding(.vertical, Tokens.Space.m)
+            .background(Tokens.Colour.surface)
+            Divider()
+        }
+    }
+}
+
+extension NSPanel {
+    /// One way to close: the app's own control in the title band.
+    func hideStandardButtons() {
+        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            standardWindowButton(kind)?.isHidden = true
+        }
+    }
+}
+
+/// A category's symbol in its own colour on a tinted disc — the one way a
+/// category is drawn as a mark, in continuation rows, the category list and
+/// the editor's preview. Anywhere text sits beside it, `Label` with the
+/// category's symbol is the inline form.
+struct WorkTypeMark: View {
+    let workType: WorkType
+    var size: CGFloat = 30
+    var symbolOverride: String?
+    var hueOverride: WorkTypeHue?
+
+    private var tint: Color { Tokens.Palette.hue(hueOverride ?? workType.hue) }
+
+    var body: some View {
+        Image(systemName: symbolOverride ?? workType.symbolName)
+            .font(.system(size: size * 0.45, weight: .medium))
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(tint)
+            .frame(width: size, height: size)
+            .background(tint.opacity(0.13), in: Circle())
+            .accessibilityHidden(true)
     }
 }
 

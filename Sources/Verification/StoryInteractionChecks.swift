@@ -8,6 +8,7 @@ enum StoryInteractionChecks {
         ("Story presents the current stretch before earlier work and rest", newestFirst),
         ("Undoing a break decision preserves work recorded afterwards", undoBreak),
         ("Undoing credited away time preserves subsequent live work", undoCreditedAway),
+        ("A recorded break reads by its name, can be named later, and still undoes", namedBreak),
         ("A failed away undo preserves its records and remains retryable", failedAwayUndo),
         ("A restored decision can be undone without touching a newer session", restoredAwayUndo),
         ("An undone absence can be reclassified without replaying the session", reviseAway),
@@ -130,6 +131,40 @@ enum StoryInteractionChecks {
                 return ["away Undo removed or rewrote work after the decision"]
             }
             return []
+        }
+    }
+
+    private static func namedBreak() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let named = Fixture(); named.awaitDecision()
+            named.store.resolve(.tookBreak, label: "lunch")
+            if let receipt = named.engine.lastAwayDecision {
+                if named.store.breakName(for: receipt) != "Lunch" {
+                    problems.append("a break named in the prompt lost its name on the story row")
+                }
+            } else { problems.append("expected a break receipt") }
+            named.close()
+
+            let f = Fixture(); defer { f.close() }; f.awaitDecision()
+            f.store.resolve(.tookBreak)
+            guard let plain = f.engine.lastAwayDecision else { return problems + ["expected a break receipt"] }
+            if f.store.breakName(for: plain) != nil {
+                problems.append("an unnamed break should keep the plain statement")
+            }
+            if !f.store.canNameBreak(for: plain) || !f.store.nameBreak(for: plain, to: " dinner ") {
+                problems.append("an unnamed break could not be named afterwards")
+            }
+            guard let after = f.engine.lastAwayDecision else { return problems + ["the receipt vanished on naming"] }
+            if f.store.breakName(for: after) != "Dinner"
+                || f.engine.archive.records.first(where: { $0.workType == .breakTime })?.name != "Dinner" {
+                problems.append("naming a break did not reach both the row and the record")
+            }
+            if !f.store.undoAwayDecision(expectedID: after.id)
+                || f.engine.archive.records.contains(where: { $0.workType == .breakTime }) {
+                problems.append("a break named afterwards could no longer be undone")
+            }
+            return problems
         }
     }
 

@@ -971,6 +971,28 @@ final class SessionEngine {
         if case .awaitingUserDecision = state { return true }; return false
     }
 
+    /// Names a recorded break after the fact. The receipt and its record move
+    /// together, so the row reads by the new name and Undo still recognises
+    /// the record as the one this decision wrote.
+    @discardableResult
+    func nameBreak(decisionID: UUID, to name: String) -> Bool {
+        guard prepareCorrection(), !isAwaitingCorrection,
+              let index = awayDecisions.firstIndex(where: { $0.id == decisionID }),
+              awayDecisions[index].decision == .tookBreak,
+              let inserted = awayDecisions[index].insertedRecord,
+              let current = archive.records.first(where: { $0.id == inserted.id }),
+              current == inserted else {
+            awayDecisionError = awayDecisionError ?? "This break changed since it was recorded, so it cannot be renamed here."
+            return false
+        }
+        var renamed = current
+        renamed.name = name
+        guard renamed != current else { return true }
+        let before = snapshot()
+        awayDecisions[index].insertedRecord = renamed
+        return commitCorrection(before: before, removing: [current], adding: [renamed])
+    }
+
     @discardableResult
     func undoAwayDecision(expectedID: UUID? = nil) -> Bool {
         guard prepareCorrection(), !isAwaitingCorrection,
@@ -1522,6 +1544,7 @@ final class SessionEngine {
         switch correction {
         case .rename(let name): store.sessionName = name
         case .workType(let type): activeWorkType = type
+        case .removed: break   // never staged on a live stretch
         }
     }
 

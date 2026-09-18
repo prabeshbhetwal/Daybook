@@ -310,7 +310,7 @@ struct ReviewView: View {
     }
 
     private var workTypeComposition: some View {
-        SurfacePanel(title: "Work type") {
+        SurfacePanel(title: "Categories") {
             if store.reviewWorkTypeShares.isEmpty {
                 Text("No focus sessions in this period.")
                     .font(.callout)

@@ -50,6 +50,8 @@ enum FocusContinuationSource {
 /// idle panel wearing a clock.
 struct FocusContinuations: View {
     @ObservedObject var store: SessionStore
+    /// A renamed or re-iconed category redraws these rows on its own.
+    @ObservedObject private var catalog = WorkTypeCatalog.shared
     var limit = 3
     var compact = false
 
@@ -145,12 +147,7 @@ private struct FocusContinuationLabel: View {
     var body: some View {
         HStack(spacing: Tokens.Space.m) {
             // The work type as a tinted mark, the way the story colours it.
-            Image(systemName: workType.symbolName)
-                .font(Tokens.Typography.control.weight(.medium))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Tokens.Palette.workType(workType))
-                .frame(width: 30, height: 30)
-                .background(Tokens.Palette.workType(workType).opacity(0.13), in: Circle())
+            WorkTypeMark(workType: workType)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(Tokens.Typography.rowTitle)

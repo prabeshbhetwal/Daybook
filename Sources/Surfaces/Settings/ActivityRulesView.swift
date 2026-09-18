@@ -83,8 +83,10 @@ struct ActivityRulesView: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Divider()
             TextField("Activity name", text: $editor.name).textFieldStyle(.roundedBorder)
-            Picker("Work type", selection: $editor.workType) {
-                ForEach(WorkType.startable, id: \.self) { Text($0.displayName).tag($0) }
+            Picker("Category", selection: $editor.workType) {
+                ForEach(WorkType.startable) {
+                    Label($0.displayName, systemImage: $0.symbolName).labelStyle(.titleAndIcon).tag($0)
+                }
             }
             HStack {
                 Picker("Start after", selection: $editor.dwell) {

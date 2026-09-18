@@ -14,7 +14,9 @@ struct StoryShapeChart: View {
     let appColourIndices: [String: Int]
     var height: CGFloat = 28
     var compact = false
-    @StateObject private var intervalDetailsShown = BoolBox()
+    /// The run under the pointer, named beneath the strip the moment it is
+    /// hovered — a tooltip arrives a second later, too late for a glance.
+    @StateObject private var hovered = HoveredRunBox()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Points per cell. Six keeps a run of one cell visible as a mark, not a
@@ -46,30 +48,21 @@ struct StoryShapeChart: View {
             .frame(height: height)
             if !compact, let first = activity.intervals.first, let last = activity.intervals.last {
                 HStack {
-                    Text(Tokens.timeOfDayOnly(first.start))
-                    Spacer(minLength: 8)
-                    Text(Tokens.timeOfDayOnly(last.end))
+                    if let run = hovered.run {
+                        Text(caption(run))
+                            .lineLimit(1)
+                            .transition(.opacity)
+                    } else {
+                        Text(Tokens.timeOfDayOnly(first.start))
+                        Spacer(minLength: 8)
+                        Text(Tokens.timeOfDayOnly(last.end))
+                    }
                 }
                 .font(Tokens.Typography.metadata.monospacedDigit())
                 .foregroundStyle(.secondary)
+                .animation(Tokens.Motion.animation(Tokens.Motion.tick, reduceMotion: reduceMotion),
+                           value: hovered.run?.id)
                 .accessibilityHidden(true)
-                Button(intervalDetailsShown.value ? "Hide intervals" : "Show intervals") {
-                    intervalDetailsShown.value.toggle()
-                }
-                .font(Tokens.Typography.metadata)
-                .buttonStyle(StoryActionStyle())
-                .accessibilityHint("Shows exact app activity and recording-gap times")
-                if intervalDetailsShown.value {
-                    VStack(alignment: .leading, spacing: 3) {
-                        ForEach(activity.intervals) { interval in
-                            Text(detail(interval))
-                                .font(Tokens.Typography.metadata)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .accessibilityElement(children: .contain)
-                }
             }
         }
         .accessibilityElement(children: .contain)
@@ -93,8 +86,18 @@ struct StoryShapeChart: View {
                 }
             }
             .contentShape(Rectangle())
+            .onHover { inside in
+                if inside { hovered.run = run } else if hovered.run?.id == run.id { hovered.run = nil }
+            }
             .help(detail(run))
             .accessibilityLabel(detail(run))
+    }
+
+    /// What the strip says while a run is under the pointer: the app, when,
+    /// how long.
+    private func caption(_ run: SessionShape.Run) -> String {
+        let name = run.bundleID.map { appNames[$0] ?? $0 } ?? "Not recorded"
+        return "\(name) · \(Tokens.timeRange(run.start, run.end)) · \(Tokens.preciseDuration(run.isGap ? run.end.timeIntervalSince(run.start) : run.recordedSeconds))"
     }
 
     private func colour(_ run: SessionShape.Run) -> Color {
@@ -115,7 +118,7 @@ struct StoryShapeChart: View {
     }
 
     /// "Mostly", because a run is the app that held the front for most of its
-    /// cells; a briefer switch inside it is under "Show intervals".
+    /// cells; a briefer switch inside it is listed in the full report.
     private func detail(_ run: SessionShape.Run) -> String {
         let range = Tokens.timeRange(run.start, run.end)
         guard let bundleID = run.bundleID else {
@@ -124,13 +127,8 @@ struct StoryShapeChart: View {
         return "Mostly \(appNames[bundleID] ?? bundleID), \(range), "
             + "\(Tokens.preciseDuration(run.recordedSeconds)) recorded app use"
     }
+}
 
-    private func detail(_ interval: RecordedActivity.Interval) -> String {
-        let range = Tokens.timeRange(interval.start, interval.end)
-        if interval.isGap {
-            return "Recording gap, \(range), \(Tokens.preciseDuration(interval.duration)), no app recording"
-        }
-        return "\(interval.appName ?? "Unknown app"), \(range), "
-            + "\(Tokens.preciseDuration(interval.recordedSeconds)) recorded app use"
-    }
+final class HoveredRunBox: ObservableObject {
+    @Published var run: SessionShape.Run?
 }

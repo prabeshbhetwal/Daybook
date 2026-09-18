@@ -76,6 +76,12 @@ final class ScopeNSSegmentedControl: NSSegmentedControl {
 
     override func becomeFirstResponder() -> Bool {
         let accepted = super.becomeFirstResponder()
+        // A window that opens hands focus to its first key view by itself.
+        // That is not the keyboard: only a key press (Tab), or a direct
+        // request with no event behind it, arrives as keyboard focus.
+        if let event = NSApp.currentEvent, event.type != .keyDown, event.type != .keyUp {
+            focusOrigin = .pointer
+        }
         updateIntegratedFocusCue()
         return accepted
     }

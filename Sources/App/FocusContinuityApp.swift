@@ -37,7 +37,15 @@ struct FocusContinuityApp: App {
                 store: coordinator.store,
                 settings: coordinator.settings,
                 onOpenApplication: { openMainWindow() },
-                onOpenSettings: { openMainWindow(on: .settings) }
+                onOpenSettings: { openMainWindow(on: .settings) },
+                onOpenCategoryEditor: { request in
+                    CategoryEditorPanel.shared.show(request, model: coordinator.settings) { definition, wasNew in
+                        if wasNew { coordinator.store.workType = definition.workType }
+                    }
+                },
+                onOpenActivityEditor: { request in
+                    ActivityEditorPanel.shared.show(request, store: coordinator.store)
+                }
             )
         } label: {
             MenuBarLabelView(store: coordinator.store)

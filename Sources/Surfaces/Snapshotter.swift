@@ -9,8 +9,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
     case storyDay, storyDayEntry, storyWeek, storyMonth
-    case storyShape, storyMeeting, storyLive, storyDecision
-    case settingsGeneral, settingsFocus, settingsAway, settingsAutomatic
+    case storyShape, storyMeeting, storyLive, storyDecision, storyReport
+    case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsAutomatic
     case settingsTracking, settingsAppearance, settingsData, settingsAdvanced, settingsActivityRules
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned
@@ -44,8 +44,10 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .storyMeeting: return "Story — meeting evidence"
         case .storyLive: return "Story — current work first"
         case .storyDecision: return "Story — contextual decision and Undo"
+        case .storyReport: return "Story — full session report"
         case .settingsGeneral: return "Settings — General"
         case .settingsFocus: return "Settings — Focus sessions"
+        case .settingsCategories: return "Settings — Categories"
         case .settingsAway: return "Settings — Away and breaks"
         case .settingsAutomatic: return "Settings — Automatic and rewards"
         case .settingsTracking: return "Settings — Tracking and apps"
@@ -67,6 +69,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .settingsGeneral: return .general
         case .settingsFocus: return .focus
+        case .settingsCategories: return .categories
         case .settingsAway: return .away
         case .settingsAutomatic: return .automatic
         case .settingsTracking: return .tracking
@@ -114,9 +117,9 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awardsEarned, .awardsEmpty:
             return .awards
         case .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
-             .storyShape, .storyMeeting, .storyLive, .storyDecision:
+             .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport:
             return .story
-        case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
+        case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
              .settingsActivityRules:
             return .settings
@@ -195,6 +198,9 @@ struct SnapshotSurface: View {
 /// legacy Dashboard root or fixture catalogue has a separate rendering path.
 @MainActor
 enum Snapshotter {
+    /// The one made category the Settings — Categories card shows.
+    static let fixtureCategoryID = "custom.snapshot.calls"
+
 
     static let matrix: [SnapshotRender] = SnapshotScenario.allCases.flatMap { scenario in
         scenario.presentations.flatMap { presentation in
@@ -403,7 +409,7 @@ enum Snapshotter {
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
-        case .storyShape, .storyMeeting, .storyLive, .storyDecision:
+        case .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport:
             return FixtureFactory.storyInteractionStore(for: scenario)
         case .storyWeek:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
@@ -415,7 +421,7 @@ enum Snapshotter {
             store.setDashboardVisible(true)
             store.refreshReview(period: .month)
             return store
-        case .settingsGeneral, .settingsFocus, .settingsAway, .settingsAutomatic,
+        case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
              .settingsActivityRules:
             return FixtureFactory.store(for: .running)
@@ -468,6 +474,19 @@ enum Snapshotter {
             navigation.performSessionControlsAction(.commandOrMenu)
         case .settingsActivityRules:
             navigation.settingsSection = .automatic
+        case .storyReport:
+            navigation.storyScope = .day
+            let sessions = store.daySessions.compactMap { entry -> DaySession? in
+                if case .session(let session) = entry { return session }
+                return nil
+            }
+            if let session = sessions.max(by: { $0.recordIDs.count < $1.recordIDs.count }) {
+                navigation.openReport(for: session)
+            }
+        case .settingsCategories:
+            // The editor open on the made category, the way "Edit categories…"
+            // in a picker lands here.
+            navigation.openCategoryEditor(.edit(WorkType(rawValue: Snapshotter.fixtureCategoryID)))
         default:
             if let section = scenario.settingsSection {
                 navigation.settingsSection = section
@@ -523,6 +542,12 @@ enum Snapshotter {
                     bundleIDs: ["com.example.shared"], startAfter: 300)
             ]
             persistence.activityRuleAutomationEnabled = true
+        }
+        if item.scenario == .settingsCategories {
+            persistence.workTypeDefinitions = [
+                WorkTypeDefinition(id: Snapshotter.fixtureCategoryID, name: "Client calls",
+                                   symbolName: "phone.fill", hue: .green, countsWhileWatching: true)
+            ]
         }
         let dataDirectory = FixtureFactory.scratchDirectory()
         let diagnostics = SettingsDiagnostics(

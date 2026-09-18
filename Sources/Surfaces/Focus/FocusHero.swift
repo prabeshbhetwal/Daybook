@@ -277,6 +277,8 @@ struct FocusHero: View {
             }
             FocusActionButton(title: "Away", symbol: "door.right.hand.open") { store.markAway() }
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
+                .help("Ends this session and records it. A stretch under "
+                      + "\(Int(FocusConstants.minimumRecordedSession)) seconds is not kept.")
         case .paused, .watching:
             FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
                               symbol: "play.fill", prominent: true) {
@@ -334,15 +336,16 @@ struct FocusHero: View {
                     performPrimaryAction()
                 }
                 if compact {
-                    // The activity menu's suggestions already set the work
-                    // type. A second picker beneath the field named the same
-                    // choice twice, and drew greyed in the menu bar panel.
-                    // A typed name takes the last type used; Change type
-                    // on the card corrects it.
-                    StartButton(title: "Start focus", fills: true) { performPrimaryAction() }
+                    // The category in the app's own box, so it reads as part
+                    // of the panel rather than a greyed AppKit control, with
+                    // Start taking the rest of the row.
+                    HStack(spacing: Tokens.Space.s) {
+                        WorkTypePicker(selection: $store.workType, quiet: true)
+                        StartButton(title: "Start focus", fills: true) { performPrimaryAction() }
+                    }
                 } else {
                     HStack(spacing: Tokens.Space.s) {
-                        Text("Work type")
+                        Text("Category")
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
                         WorkTypePicker(selection: $store.workType)
