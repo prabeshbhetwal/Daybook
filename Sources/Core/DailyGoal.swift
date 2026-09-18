@@ -44,6 +44,8 @@ struct DailyGoal {
     ///     Empty means the goal reads zero, which is correct: with no record of
     ///     anyone at the keyboard there is no evidence of work.
     ///   - running: the in-flight session's span, or nil when idle.
+    private let windowDays: Int
+
     init(archive: SessionArchive,
          goal: TimeInterval,
          usage: [AppUsageSession] = [],
@@ -51,7 +53,9 @@ struct DailyGoal {
          running: (start: Date, end: Date)? = nil,
          runningWork: TimeInterval? = nil,
          calendar: Calendar = .current,
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         windowDays: Int = FocusConstants.goalMedianWindowDays) {
+        self.windowDays = max(1, windowDays)
         self.archive = archive
         self.goal = goal
         self.usage = usage
@@ -94,7 +98,7 @@ struct DailyGoal {
         var reached: [TimeInterval] = []
         guard let firstAccurateDay = firstCompleteAccurateDay() else { return nil }
 
-        for offset in 1...FocusConstants.goalMedianWindowDays {
+        for offset in 1...windowDays {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: current) else {
                 continue
             }

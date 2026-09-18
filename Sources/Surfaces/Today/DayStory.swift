@@ -111,9 +111,9 @@ struct DayStory: View {
     /// Everything on the day that opens: session cards, loose app use, the
     /// folded quiet runs, and the app use inside those runs, so Expand all
     /// leaves nothing closed.
-    static func expandableIDs(in entries: [StoryTimelineItem]) -> [String] {
+    static func expandableIDs(in entries: [StoryTimelineItem], fold: Int = FocusConstants.defaultQuietFold) -> [String] {
         var ids: [String] = []
-        for row in entries.groupingQuietRuns() {
+        for row in entries.groupingQuietRuns(minimumRun: fold == 0 ? Int.max : max(2, fold)) {
             switch row {
             case .item(let item):
                 if case .moment(.entry(.session)) = item { ids.append(item.id) }
@@ -131,7 +131,8 @@ struct DayStory: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             let entries = projection?.chronology ?? store.storyTimelineItems
-            let rows = entries.groupingQuietRuns()
+            let fold = store.engine.store.quietFold
+            let rows = entries.groupingQuietRuns(minimumRun: fold == 0 ? Int.max : max(2, fold))
             ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                 let isFirst = index == 0
                 let isLast = index == rows.count - 1

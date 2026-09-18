@@ -270,7 +270,8 @@ extension SessionStore {
             running: engine.runningSpan,
             runningWork: engine.elapsedToday(),
             calendar: calendar,
-            now: { moment }).progress()
+            now: { moment },
+            windowDays: engine.store.paceWindowDays).progress()
         let stats = DashboardStats(sessions: engine.archive, usage: usage,
                                    usageSnapshot: snapshot,
                                    calendar: calendar, now: { moment })

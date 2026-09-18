@@ -440,6 +440,8 @@ final class SessionArchive {
     /// What a day must reach to join the streak. Set from the preference;
     /// the shipped default until then.
     var streakMinimum: TimeInterval = FocusConstants.streakMinimum
+    /// How far back activity suggestions look, in days. A preference.
+    var quickStartWindowDays: Int = FocusConstants.quickStartWindowDays
 
     func currentStreak(includingToday inFlight: TimeInterval = 0) -> Int {
         let totals = dailyTotals()
@@ -506,7 +508,7 @@ final class SessionArchive {
     }
 
     func quickStarts(limit: Int) -> [QuickStart] {
-        let cutoff = now().addingTimeInterval(-Double(FocusConstants.quickStartWindowDays) * 86_400)
+        let cutoff = now().addingTimeInterval(-Double(quickStartWindowDays) * 86_400)
         var tally: [String: (item: QuickStart, count: Int, last: Date)] = [:]
 
         for record in cache where record.end >= cutoff && !record.name.isEmpty {

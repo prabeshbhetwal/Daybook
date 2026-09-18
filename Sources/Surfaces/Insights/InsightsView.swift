@@ -341,7 +341,7 @@ struct InsightsView: View {
             if store.historyFilter.isActive || navigation.insightRange == .year {
                 pickedPreview
                 if !store.historyDays.isEmpty {
-                    HistoryArchiveTiles(facts: archive, now: store.now())
+                    HistoryArchiveTiles(facts: archive, now: store.now(), appLimit: store.engine.store.menuAppCount)
                 }
             } else if !reading.isEmpty {
                 totalsTile(reading)
@@ -446,9 +446,10 @@ struct InsightsView: View {
     }
 
     private func appsTile(_ apps: [AppRank]) -> some View {
-        StoryTile(title: apps.count > 4 ? "Your top 4 apps" : "Your apps",
+        let limit = store.engine.store.menuAppCount
+        return StoryTile(title: apps.count > limit ? "Your top \(limit) apps" : "Your apps",
                   trailing: apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
-            ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
+            ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
                 StoryAppRow(app: app, rank: index)
             }
         }

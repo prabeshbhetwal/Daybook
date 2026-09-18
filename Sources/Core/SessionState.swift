@@ -530,6 +530,12 @@ enum FocusConstants {
     /// D9 — selectable extended-break thresholds, in seconds.
     static let thresholdOptions: [TimeInterval] = [300, 600, 900, 1800, 3600]
     static let idlePauseOptions: [TimeInterval] = [120, 300, 600, 900, 1_200, 1_800]
+    static let paceWindowOptions: [Int] = [7, 14, 21, 30]
+    static let suggestionWindowOptions: [Int] = [7, 14, 30, 90]
+    static let railAppOptions: [Int] = [2, 3, 4, 5, 6, 8]
+    /// Quiet rows fold into one line once a run reaches this; 0 never folds.
+    static let quietFoldOptions: [Int] = [0, 2, 3, 5, 8]
+    static let defaultQuietFold = 3
     static let streakMinimumOptions: [TimeInterval] = [5 * 60, 10 * 60, 15 * 60, 25 * 60, 30 * 60, 45 * 60, 60 * 60]
     static let minimumRecordedSessionOptions: [TimeInterval] = [10, 30, 60, 120, 300]
     static let continueWindowOptions: [TimeInterval] = [1 * 3_600, 2 * 3_600, 4 * 3_600, 6 * 3_600, 12 * 3_600, 24 * 3_600]

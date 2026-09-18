@@ -283,9 +283,10 @@ struct HistoryDayPreview: View {
     }
 
     private var appsTile: some View {
-        StoryTile(title: projection.apps.count > 4 ? "Top 4 apps" : "Apps",
+        let limit = store.engine.store.menuAppCount
+        return StoryTile(title: projection.apps.count > limit ? "Top \(limit) apps" : "Apps",
                   trailing: projection.apps.count == 1 ? "1 recorded" : "\(projection.apps.count) recorded") {
-            ForEach(Array(projection.apps.prefix(4).enumerated()), id: \.element.id) { index, app in
+            ForEach(Array(projection.apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
                 StoryAppRow(app: app, rank: index)
             }
         }

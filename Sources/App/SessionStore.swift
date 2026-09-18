@@ -70,6 +70,9 @@ final class SessionStore: ObservableObject {
     /// Two-way bound by the popover's intent field and work-type picker.
     @Published var intent: String = ""
     @Published var workType: WorkType = .deepWork
+    /// Mirrors the preference so the menu bar label, which observes the
+    /// store, redraws when it changes.
+    @Published var menuBarShowsTime = true
 
     /// Total tracked computer time today — distinct from `todayTotal`, which is
     /// focused-session time.
@@ -608,6 +611,8 @@ final class SessionStore: ObservableObject {
         self.engine = engine
         self.workType = engine.store.defaultWorkType
         engine.archive.streakMinimum = engine.store.streakMinimum
+        engine.archive.quickStartWindowDays = engine.store.suggestionWindowDays
+        self.menuBarShowsTime = engine.store.menuBarShowsTime
         self.metadataArchive = metadataArchive
             ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
         self.ambientPower = ambientPower
@@ -869,7 +874,8 @@ final class SessionStore: ObservableObject {
                                                 usageAccurateFrom: usageSnapshot?.accurateFrom,
                                                 running: engine.runningSpan,
                                                 runningWork: inFlight,
-                                                now: { moment })
+                                                now: { moment },
+                                                windowDays: engine.store.paceWindowDays)
                                 .achievedToday(),
                             typical: cachedTypical)
         // Re-read rather than adding the open stretch to a cached total. The
@@ -888,7 +894,8 @@ final class SessionStore: ObservableObject {
                                   usage: usageSnapshot?.sessions ?? [],
                                   usageAccurateFrom: usageSnapshot?.accurateFrom,
                                   running: engine.runningSpan,
-                                  now: { moment }).typical()
+                                  now: { moment },
+                                  windowDays: engine.store.paceWindowDays).typical()
         cachedTypicalMinute = Calendar.current.dateInterval(of: .minute,
                                                             for: moment)?.start
     }
@@ -935,7 +942,8 @@ final class SessionStore: ObservableObject {
         }
         let moment = Date()
         let result = BreakReminder.evaluate(usageSnapshot.sessions, now: moment,
-                                            last: engine.store.lastBreakNotice)
+                                            last: engine.store.lastBreakNotice,
+                                            tiers: BreakTier.allCases.filter(engine.store.enabledBreakTiers.contains))
         breakCountdown = result.next?.seconds ?? 0
         nextBreakTier = result.next?.tier
         isBreakDue = result.due != nil

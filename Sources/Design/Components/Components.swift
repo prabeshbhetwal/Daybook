@@ -475,7 +475,8 @@ struct MenuBarLabelView: View {
         MenuBarLabel(state: store.state,
                      elapsed: store.elapsed,
                      needsAttention: store.pendingAway != nil,
-                     goal: store.goal)
+                     goal: store.goal,
+                     showsTime: store.menuBarShowsTime)
             .accessibilityLabel(store.state == .idle
                                 ? "FocusContinuity, \(Int((store.goal.share * 100).rounded())) "
                                   + "percent of today's goal, no session running"
@@ -490,6 +491,8 @@ struct MenuBarLabel: View {
     let elapsed: TimeInterval
     let needsAttention: Bool
     var goal = GoalProgress(goal: FocusConstants.defaultDailyGoal, achieved: 0, typical: nil)
+    /// The ring alone, for a menu bar that is already full.
+    var showsTime = true
 
     var body: some View {
         HStack(spacing: Tokens.Space.xs) {
@@ -501,7 +504,7 @@ struct MenuBarLabel: View {
             } else {
                 Image(systemName: needsAttention ? "exclamationmark.circle.fill" : "infinity")
             }
-            if state != .idle {
+            if state != .idle, showsTime {
                 Text(Tokens.duration(elapsed))
                     .font(Tokens.Typography.menuBar)
             }

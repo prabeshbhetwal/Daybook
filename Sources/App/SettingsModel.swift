@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 import AppKit
 
@@ -28,6 +29,13 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case minimumSession
     case continueWindow
     case defaultCategory
+    case openAtLogin
+    case menuBarTime
+    case railApps
+    case paceWindow
+    case suggestionWindow
+    case breakTiers
+    case quietFold
 
     var modelKeyPath: PartialKeyPath<SettingsModel> {
         switch self {
@@ -54,6 +62,13 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .minimumSession: return \SettingsModel.minimumRecordedSession
         case .continueWindow: return \SettingsModel.continueWindow
         case .defaultCategory: return \SettingsModel.defaultWorkType
+        case .openAtLogin: return \SettingsModel.opensAtLogin
+        case .menuBarTime: return \SettingsModel.menuBarShowsTime
+        case .railApps: return \SettingsModel.railAppCount
+        case .paceWindow: return \SettingsModel.paceWindowDays
+        case .suggestionWindow: return \SettingsModel.suggestionWindowDays
+        case .breakTiers: return \SettingsModel.enabledBreakTiers
+        case .quietFold: return \SettingsModel.quietFold
         }
     }
 }
@@ -379,6 +394,51 @@ final class SettingsModel: ObservableObject {
     var defaultWorkType: WorkType {
         get { store.defaultWorkType }
         set { write { store.defaultWorkType = newValue } }
+    }
+
+    /// Registered with the system, not stored here: launchd is the truth.
+    var opensAtLogin: Bool {
+        get { SMAppService.mainApp.status == .enabled }
+        set {
+            objectWillChange.send()
+            do {
+                if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                loginItemError = nil
+            } catch {
+                loginItemError = error.localizedDescription
+            }
+        }
+    }
+    @Published var loginItemError: String?
+
+    var menuBarShowsTime: Bool {
+        get { store.menuBarShowsTime }
+        set { write { store.menuBarShowsTime = newValue } }
+    }
+
+    var railAppCount: Int {
+        get { store.menuAppCount }
+        set { write { store.menuAppCount = newValue } }
+    }
+
+    var paceWindowDays: Int {
+        get { store.paceWindowDays }
+        set { write { store.paceWindowDays = newValue } }
+    }
+
+    var suggestionWindowDays: Int {
+        get { store.suggestionWindowDays }
+        set { write { store.suggestionWindowDays = newValue } }
+    }
+
+    var enabledBreakTiers: Set<BreakTier> {
+        get { store.enabledBreakTiers }
+        set { write { store.enabledBreakTiers = newValue } }
+    }
+
+    var quietFold: Int {
+        get { store.quietFold }
+        set { write { store.quietFold = newValue } }
     }
 
     var defaultAppTab: AppTab {

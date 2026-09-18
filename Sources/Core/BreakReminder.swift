@@ -201,19 +201,20 @@ struct BreakReminder {
 
     static func evaluate(_ stretches: [AppUsageSession],
                          now: Date,
-                         last: BreakNotice?) -> Evaluation {
+                         last: BreakNotice?,
+                         tiers: [BreakTier] = BreakTier.allCases) -> Evaluation {
         let ordered = stretches.sorted { $0.end > $1.end }
         var done: [BreakTier: TimeInterval] = [:]
-        for tier in BreakTier.allCases {
+        for tier in tiers {
             done[tier] = worked(sorted: ordered, now: now, restingAtLeast: tier.restGap)
         }
-        let due = BreakTier.allCases.reversed()
+        let due = tiers.reversed()
             .first { (done[$0] ?? 0) >= $0.workThreshold }
 
         // Written out rather than chained: the inferred tuple type defeats the
         // type checker inside a `map`/`min` pipeline.
         var next: (tier: BreakTier, seconds: TimeInterval)?
-        for tier in BreakTier.allCases {
+        for tier in tiers {
             let remaining: TimeInterval = max(0, tier.workThreshold - (done[tier] ?? 0))
             guard let best = next else {
                 next = (tier: tier, seconds: remaining)

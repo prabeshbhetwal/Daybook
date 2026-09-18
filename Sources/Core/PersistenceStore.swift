@@ -53,6 +53,11 @@ final class PersistenceStore {
         static let minimumRecordedSession = "fc.minimumRecordedSession"
         static let continueWindow = "fc.continueWindow"
         static let defaultWorkType = "fc.defaultWorkType"
+        static let menuBarShowsTime = "fc.menuBarShowsTime"
+        static let paceWindowDays = "fc.paceWindowDays"
+        static let suggestionWindowDays = "fc.suggestionWindowDays"
+        static let breakTiersDisabled = "fc.breakTiersDisabled"
+        static let quietFold = "fc.quietFold"
     }
 
     private let defaults: UserDefaults
@@ -475,6 +480,52 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.continueWindow) }
     }
 
+    /// Whether the menu bar shows the running time beside the ring.
+    var menuBarShowsTime: Bool {
+        get { defaults.object(forKey: Key.menuBarShowsTime) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.menuBarShowsTime) }
+    }
+
+    /// How many working days "your usual pace" compares today with.
+    var paceWindowDays: Int {
+        get {
+            let stored = defaults.integer(forKey: Key.paceWindowDays)
+            return stored > 0 ? stored : FocusConstants.goalMedianWindowDays
+        }
+        set { defaults.set(max(1, newValue), forKey: Key.paceWindowDays) }
+    }
+
+    /// How far back activity suggestions look.
+    var suggestionWindowDays: Int {
+        get {
+            let stored = defaults.integer(forKey: Key.suggestionWindowDays)
+            return stored > 0 ? stored : FocusConstants.quickStartWindowDays
+        }
+        set { defaults.set(max(1, newValue), forKey: Key.suggestionWindowDays) }
+    }
+
+    /// The break reminder tiers that are on. Stored as the ones turned off,
+    /// so a build that adds a tier ships it on.
+    var enabledBreakTiers: Set<BreakTier> {
+        get {
+            let off = Set((defaults.array(forKey: Key.breakTiersDisabled) as? [Int] ?? []).compactMap(BreakTier.init(rawValue:)))
+            return Set(BreakTier.allCases).subtracting(off)
+        }
+        set {
+            let off = Set(BreakTier.allCases).subtracting(newValue).map(\.rawValue).sorted()
+            defaults.set(off, forKey: Key.breakTiersDisabled)
+        }
+    }
+
+    /// Quiet timeline rows fold once a run reaches this many; 0 never folds.
+    var quietFold: Int {
+        get {
+            guard let stored = defaults.object(forKey: Key.quietFold) as? Int else { return FocusConstants.defaultQuietFold }
+            return max(0, stored)
+        }
+        set { defaults.set(max(0, newValue), forKey: Key.quietFold) }
+    }
+
     /// The category a fresh session starts under before you choose one.
     var defaultWorkType: WorkType {
         get {
@@ -591,7 +642,9 @@ final class PersistenceStore {
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,
                     Key.idlePauseThreshold, Key.streakMinimum, Key.minimumRecordedSession,
-                    Key.continueWindow, Key.defaultWorkType] {
+                    Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
+                    Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
+                    Key.quietFold] {
             defaults.removeObject(forKey: key)
         }
         WorkTypeCatalog.shared.apply(customisations: [])

@@ -463,10 +463,11 @@ struct StoryRail: View {
     private var appsTile: some View {
         // The title says what the list is; the trailing figure says how many
         // it was cut from. "Apps · Top 4 of 10" made the reader assemble that.
-        StoryTile(title: apps.count > 4 ? "Your top 4 apps" : "Your apps",
+        let limit = store.engine.store.menuAppCount
+        return StoryTile(title: apps.count > limit ? "Your top \(limit) apps" : "Your apps",
                   trailing: apps.isEmpty ? "None recorded"
                     : apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
-            ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
+            ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
                 StoryAppRow(app: app, rank: index) { selectedApp.text = app.bundleID }
                     .popover(isPresented: Binding(
                         get: { selectedApp.text == app.bundleID },

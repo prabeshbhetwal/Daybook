@@ -35,17 +35,32 @@ struct SettingsGroups: View {
     }
 
     private var general: some View {
-        SurfacePanel(title: "Main window", layout: layout) {
-            preferenceRow("Opens on",
-                          detail: "Which story the window tells when it opens.") {
-                Picker("Opens on", selection: $model.defaultStoryScope) {
-                    ForEach(StoryScope.allCases) { scope in
-                        Text(scope.title).tag(scope)
+        VStack(alignment: .leading, spacing: layout.panelSpacing) {
+            SurfacePanel(title: "Main window", layout: layout) {
+                preferenceRow("Opens on",
+                              detail: "Which story the window tells when it opens.") {
+                    Picker("Opens on", selection: $model.defaultStoryScope) {
+                        ForEach(StoryScope.allCases) { scope in
+                            Text(scope.title).tag(scope)
+                        }
                     }
+                    .labelsHidden()
+                    .frame(width: 180)
+                    .accessibilityLabel("Opens on")
                 }
-                .labelsHidden()
-                .frame(width: 180)
-                .accessibilityLabel("Opens on")
+            }
+            SurfacePanel(title: "Menu bar and login", layout: layout) {
+                toggleRow("Open at login",
+                          detail: "Starts FocusContinuity in the menu bar when you sign in, so the "
+                            + "record never has a gap at the start of the day.",
+                          isOn: $model.opensAtLogin)
+                if let error = model.loginItemError {
+                    explanation("Could not change the login item: \(error)")
+                }
+                rowDivider
+                toggleRow("Show the session time in the menu bar",
+                          detail: "Off, the menu bar keeps only the goal ring while a session runs.",
+                          isOn: $model.menuBarShowsTime)
             }
         }
     }
@@ -64,7 +79,31 @@ struct SettingsGroups: View {
                 .accessibilityLabel("Daily goal")
             }
             explanation("Your usual pace compares today with the same hour on your last "
-                        + "\(FocusConstants.goalMedianWindowDays) working days.")
+                        + "\(model.paceWindowDays) working days.")
+            rowDivider
+            preferenceRow("Usual pace compares with",
+                          detail: "How many of your working days the pace line is measured against.") {
+                Picker("Usual pace compares with", selection: $model.paceWindowDays) {
+                    ForEach(FocusConstants.paceWindowOptions, id: \.self) { days in
+                        Text("last \(days) days").tag(days)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 150)
+                .accessibilityLabel("Usual pace compares with")
+            }
+            rowDivider
+            preferenceRow("Suggest activities from",
+                          detail: "How far back the activity menu looks for names you have used.") {
+                Picker("Suggest activities from", selection: $model.suggestionWindowDays) {
+                    ForEach(FocusConstants.suggestionWindowOptions, id: \.self) { days in
+                        Text("last \(days) days").tag(days)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 150)
+                .accessibilityLabel("Suggest activities from")
+            }
             rowDivider
             preferenceRow("Streak counts a day after",
                           detail: "A day joins your streak once its focus reaches this.") {
@@ -142,17 +181,37 @@ struct SettingsGroups: View {
                           detail: "A notice after a long stretch of continuous use, timed from your typing "
                             + "and clicking rather than from sessions.",
                           isOn: $model.remindersEnabled)
-                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                // Each tier is its own switch: someone who finds the
+                // twenty-minute nudge too frequent keeps the longer two.
+                VStack(alignment: .leading, spacing: Tokens.Space.s) {
                     ForEach(BreakTier.allCases, id: \.rawValue) { tier in
-                        Text("\(Int(tier.workThreshold / 60)) minutes working → "
-                             + "\(BreakPrompt.phrase(tier.breakLength)) off. \(tier.reason)")
+                        Toggle(isOn: Binding(
+                            get: { model.enabledBreakTiers.contains(tier) },
+                            set: { on in
+                                var tiers = model.enabledBreakTiers
+                                if on { tiers.insert(tier) } else { tiers.remove(tier) }
+                                model.enabledBreakTiers = tiers
+                            })) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("After \(Int(tier.workThreshold / 60)) minutes, "
+                                     + "\(BreakPrompt.phrase(tier.breakLength)) off")
+                                    .font(Tokens.Typography.control)
+                                Text(tier.reason)
+                                    .font(Tokens.Typography.metadata)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .toggleStyle(.checkbox)
+                        .disabled(!model.remindersEnabled)
                     }
                     Text("Timed from continuous use, not from sessions. A short break resets "
                          + "the short timer only; the longer ones keep running.")
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, 26)
             }
         }
     }
@@ -203,6 +262,19 @@ struct SettingsGroups: View {
 
     private var tracking: some View {
         SurfacePanel(title: "Tracking and apps", layout: layout) {
+            preferenceRow("Apps shown in a card",
+                          detail: "How many apps the rail and the History previews list before "
+                            + "\u{201c}See all\u{201d}.") {
+                Picker("Apps shown in a card", selection: $model.railAppCount) {
+                    ForEach(FocusConstants.railAppOptions, id: \.self) { count in
+                        Text("\(count)").tag(count)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 120)
+                .accessibilityLabel("Apps shown in a card")
+            }
+            rowDivider
             preferenceRow("Recent app visits",
                           detail: "Limits the newest recorded app visits shown after you open "
                             + "an app in Story.") {
@@ -257,6 +329,18 @@ struct SettingsGroups: View {
                       detail: "Open each session's apps and notes without a click.",
                       isOn: $model.expandsEntryDetails)
             explanation("Reduce Motion always follows macOS and is never overridden here.")
+            rowDivider
+            preferenceRow("Fold quiet stretches after",
+                          detail: "Runs of gaps and loose app use fold into one line once they reach this many rows.") {
+                Picker("Fold quiet stretches after", selection: $model.quietFold) {
+                    ForEach(FocusConstants.quietFoldOptions, id: \.self) { count in
+                        Text(count == 0 ? "Never" : "\(count) rows").tag(count)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 130)
+                .accessibilityLabel("Fold quiet stretches after")
+            }
         }
     }
 

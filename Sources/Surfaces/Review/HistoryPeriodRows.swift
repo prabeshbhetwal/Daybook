@@ -133,9 +133,10 @@ struct HistoryPeriodPreview: View {
                 }
             }
             if !apps.isEmpty {
-                StoryTile(title: apps.count > 4 ? "Top 4 apps" : "Apps",
+                let limit = store.engine.store.menuAppCount
+                StoryTile(title: apps.count > limit ? "Top \(limit) apps" : "Apps",
                           trailing: apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
-                    ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
+                    ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
                         StoryAppRow(app: app, rank: index)
                     }
                 }

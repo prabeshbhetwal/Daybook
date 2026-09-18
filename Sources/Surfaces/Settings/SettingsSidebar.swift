@@ -129,22 +129,23 @@ extension SettingsSection {
     /// preference that cannot be reached from the page it returns.
     var controlLabels: [String] {
         switch self {
-        case .general: return ["Opens on"]
-        case .focus: return ["Daily goal", "Streak counts a day after", "New sessions start as",
+        case .general: return ["Opens on", "Open at login", "Show the session time in the menu bar"]
+        case .focus: return ["Daily goal", "Usual pace compares with", "Suggest activities from",
+                             "Streak counts a day after", "New sessions start as",
                              "Keep sessions longer than", "Offer to continue for"]
         case .categories: return ["Categories", "New category", "Category name", "Icon", "Colour"]
         case .away:
             return ["Pause after no input for", "Ask me after", "End session after",
-                    "Full-screen prompt after", "Remind me to take breaks"]
+                    "Full-screen prompt after", "Remind me to take breaks", "After 20 minutes"]
         case .automatic:
             return ["Use legacy automatic sessions", "Auto-session gap", "Celebrate milestones"]
         case .activities:
             return ["Use my activity rules", "Activity rules", "New rule", "Activity name",
                     "Start after", "Add application", "Running now"]
-        case .tracking: return ["Recent app visits", "Record app usage"]
+        case .tracking: return ["Apps shown in a card", "Recent app visits", "Record app usage"]
         case .appearance:
             return ["Appearance", "Interface density", "Show Story timestamps",
-                    "Expand entry details by default"]
+                    "Expand entry details by default", "Fold quiet stretches after"]
         case .data:
             return ["Privacy", "Accurate app usage from", "Legacy backup location",
                     "Reveal data folder"]
@@ -154,14 +155,15 @@ extension SettingsSection {
 
     var mutableControlKeys: [SettingsControlKey] {
         switch self {
-        case .general: return [.opensOn]
-        case .focus: return [.dailyGoal, .streakMinimum, .defaultCategory, .minimumSession, .continueWindow]
+        case .general: return [.opensOn, .openAtLogin, .menuBarTime]
+        case .focus: return [.dailyGoal, .paceWindow, .suggestionWindow, .streakMinimum, .defaultCategory,
+                             .minimumSession, .continueWindow]
         case .categories: return [.categories]
-        case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
+        case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .reminders, .breakTiers]
         case .automatic: return [.automaticSessions, .automaticGap, .rewards]
         case .activities: return [.activityRuleAutomation, .activityRules]
-        case .tracking: return [.sessionsPerApp, .usageRecording]
-        case .appearance: return [.appearance, .density, .timelineLabels, .entryDetails]
+        case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
+        case .appearance: return [.appearance, .density, .timelineLabels, .entryDetails, .quietFold]
         case .data, .advanced: return []
         }
     }

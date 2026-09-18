@@ -167,6 +167,7 @@ struct HistoryFindResults: View {
 struct HistoryArchiveTiles: View {
     let facts: HistoryArchiveFacts
     let now: Date
+    var appLimit = FocusConstants.defaultMenuApps
 
     var body: some View {
         StoryTile(title: "On record", trailing: facts.firstDay.map { "since \(Self.sinceLabel($0))" }) {
@@ -183,9 +184,9 @@ struct HistoryArchiveTiles: View {
             }
         }
         if !facts.apps.isEmpty {
-            StoryTile(title: facts.apps.count > 4 ? "All-time top 4 apps" : "All-time apps",
+            StoryTile(title: facts.apps.count > appLimit ? "All-time top \(appLimit) apps" : "All-time apps",
                       trailing: facts.apps.count == 1 ? "1 recorded" : "\(facts.apps.count) recorded") {
-                ForEach(Array(facts.apps.prefix(4).enumerated()), id: \.element.id) { index, app in
+                ForEach(Array(facts.apps.prefix(appLimit).enumerated()), id: \.element.id) { index, app in
                     StoryAppRow(app: app, rank: index)
                 }
             }
