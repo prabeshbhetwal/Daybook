@@ -219,7 +219,7 @@ enum StoryPresentationChecks {
             }
             let history = Snapshotter.store(for: .reviewHistorySelection)
             let route = Snapshotter.navigation(for: .reviewHistorySelection, store: history)
-            if route.workspace != .history || route.reviewSelectedDate == nil {
+            if route.workspace != .insights || route.reviewSelectedDate == nil {
                 failures.append("History selection snapshot did not actually present a selected History day")
             }
             let past = Snapshotter.store(for: .todayPast)

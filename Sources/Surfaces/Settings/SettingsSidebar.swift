@@ -5,6 +5,7 @@ import SwiftUI
 enum SettingsPage: String, CaseIterable, Identifiable {
     case general
     case sessions
+    case activities
     case awayAndBreaks
     case recording
     case privacy
@@ -15,6 +16,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "General"
         case .sessions: return "Sessions"
+        case .activities: return "Activities"
         case .awayAndBreaks: return "Away & Breaks"
         case .recording: return "Recording"
         case .privacy: return "Privacy"
@@ -25,6 +27,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "gearshape"
         case .sessions: return "target"
+        case .activities: return "app.badge.checkmark"
         case .awayAndBreaks: return "moon.zzz"
         case .recording: return "rectangle.stack.badge.play"
         case .privacy: return "lock.shield"
@@ -37,6 +40,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return .grey
         case .sessions: return .blue
+        case .activities: return .purple
         case .awayAndBreaks: return .indigo
         case .recording: return .orange
         case .privacy: return .green
@@ -48,6 +52,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "How the window opens and how the app looks."
         case .sessions: return "Your goal, the categories work is filed under, and what starts a session by itself."
+        case .activities: return "Rules that start and name a session from the apps you are in."
         case .awayAndBreaks: return "What happens when you step away, and when to be reminded to rest."
         case .recording: return "What is recorded about the apps you use."
         case .privacy: return "Where your data lives, and the facts about this build."
@@ -58,6 +63,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return [.general, .appearance]
         case .sessions: return [.focus, .categories, .automatic]
+        case .activities: return [.activities]
         case .awayAndBreaks: return [.away]
         case .recording: return [.tracking]
         case .privacy: return [.data, .advanced]
@@ -68,6 +74,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch section {
         case .general, .appearance: self = .general
         case .focus, .categories, .automatic: self = .sessions
+        case .activities: self = .activities
         case .away: self = .awayAndBreaks
         case .tracking: self = .recording
         case .data, .advanced: self = .privacy
@@ -95,6 +102,7 @@ extension SettingsSection {
         case .categories: return "Categories"
         case .away: return "Away and breaks"
         case .automatic: return "Automatic and rewards"
+        case .activities: return "Activity rules"
         case .tracking: return "Tracking and apps"
         case .appearance: return "Appearance"
         case .data: return "Data and privacy"
@@ -109,6 +117,7 @@ extension SettingsSection {
         case .categories: return "tag"
         case .away: return "moon.zzz"
         case .automatic: return "wand.and.stars"
+        case .activities: return "app.badge.checkmark"
         case .tracking: return "rectangle.stack.badge.play"
         case .appearance: return "circle.lefthalf.filled"
         case .data: return "lock.shield"
@@ -127,8 +136,10 @@ extension SettingsSection {
             return ["Ask me after", "End session after", "Full-screen prompt after",
                     "Remind me to take breaks"]
         case .automatic:
-            return ["Use my activity rules", "Use legacy automatic sessions", "Activity rules",
-                    "Start after", "Add application", "Auto-session gap", "Celebrate milestones"]
+            return ["Use legacy automatic sessions", "Auto-session gap", "Celebrate milestones"]
+        case .activities:
+            return ["Use my activity rules", "Activity rules", "New rule", "Activity name",
+                    "Start after", "Add application", "Running now"]
         case .tracking: return ["Recent app visits", "Record app usage"]
         case .appearance:
             return ["Appearance", "Interface density", "Show Story timestamps",
@@ -146,9 +157,8 @@ extension SettingsSection {
         case .focus: return [.dailyGoal]
         case .categories: return [.categories]
         case .away: return [.breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
-        case .automatic:
-            return [.activityRuleAutomation, .activityRules, .automaticSessions,
-                    .automaticGap, .rewards]
+        case .automatic: return [.automaticSessions, .automaticGap, .rewards]
+        case .activities: return [.activityRuleAutomation, .activityRules]
         case .tracking: return [.sessionsPerApp, .usageRecording]
         case .appearance: return [.appearance, .density, .timelineLabels, .entryDetails]
         case .data, .advanced: return []

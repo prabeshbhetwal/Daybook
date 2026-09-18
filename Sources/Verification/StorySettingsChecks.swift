@@ -14,12 +14,13 @@ enum StorySettingsChecks {
         let expectedPages: [(SettingsPage, [SettingsSection])] = [
             (.general, [.general, .appearance]),
             (.sessions, [.focus, .categories, .automatic]),
+            (.activities, [.activities]),
             (.awayAndBreaks, [.away]),
             (.recording, [.tracking]),
             (.privacy, [.data, .advanced])
         ]
-        if SettingsPage.allCases.map(\.title) != ["General", "Sessions", "Away & Breaks", "Recording", "Privacy"] {
-            failures.append("Settings did not expose the five compact page groups in their required order")
+        if SettingsPage.allCases.map(\.title) != ["General", "Sessions", "Activities", "Away & Breaks", "Recording", "Privacy"] {
+            failures.append("Settings did not expose the six page groups in their required order")
         }
         for (page, sections) in expectedPages where page.sections != sections {
             failures.append("\(page.title) no longer contains its intended logical settings sections")

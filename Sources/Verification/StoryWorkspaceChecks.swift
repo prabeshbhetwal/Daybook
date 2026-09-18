@@ -127,7 +127,7 @@ enum StoryWorkspaceChecks {
             navigation.openSettings()
             navigation.closeSheet()
             var failures: [String] = []
-            if navigation.workspace != .history {
+            if navigation.workspace != .insights {
                 failures.append("Closing Settings did not restore History")
             }
             navigation.open(tab: .insights)

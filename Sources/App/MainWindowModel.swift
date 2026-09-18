@@ -98,6 +98,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case categories
     case away
     case automatic
+    case activities
     case tracking
     case appearance
     case data

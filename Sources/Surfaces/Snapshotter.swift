@@ -11,7 +11,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case storyDay, storyDayEntry, storyWeek, storyMonth
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsAutomatic
-    case settingsTracking, settingsAppearance, settingsData, settingsAdvanced, settingsActivityRules
+    case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned
 
@@ -54,7 +54,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsAppearance: return "Settings — Appearance"
         case .settingsData: return "Settings — Data and privacy"
         case .settingsAdvanced: return "Settings — Advanced"
-        case .settingsActivityRules: return "Settings — activity-rule editor"
+        case .settingsActivityRules: return "Settings — Activity rules"
         case .activityRuleAmbiguity: return "Activity rules — quiet shared-app choice"
         case .activityRuleAutomatic: return "Activity rules — automatic start"
         case .awayQuick: return "Away — quick prompt"
@@ -76,7 +76,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsAppearance: return .appearance
         case .settingsData: return .data
         case .settingsAdvanced: return .advanced
-        case .settingsActivityRules: return nil
+        case .settingsActivityRules: return .activities
         default: return nil
         }
     }
@@ -465,6 +465,7 @@ enum Snapshotter {
             if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
         case .reviewHistorySelection:
             navigation.openSheet(.history)
+            navigation.insightRange = .year
             if let day = store.filteredHistoryDays.first?.date {
                 navigation.selectReviewDay(day)
             }
@@ -473,7 +474,7 @@ enum Snapshotter {
         case .activityRuleAmbiguity, .activityRuleAutomatic:
             navigation.performSessionControlsAction(.commandOrMenu)
         case .settingsActivityRules:
-            navigation.settingsSection = .automatic
+            navigation.settingsSection = .activities
         case .storyReport:
             navigation.storyScope = .day
             let sessions = store.daySessions.compactMap { entry -> DaySession? in

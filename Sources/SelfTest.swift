@@ -7097,10 +7097,10 @@ enum SelfTest {
         var problems: [String] = []
         let expectedTitles = [
             "General", "Focus sessions", "Categories", "Away and breaks", "Automatic and rewards",
-            "Tracking and apps", "Appearance", "Data and privacy", "Advanced"
+            "Activity rules", "Tracking and apps", "Appearance", "Data and privacy", "Advanced"
         ]
         expect(SettingsSection.allCases.map(\.title) == expectedTitles,
-               "all nine Settings groups retain their approved order and titles", &problems)
+               "all ten Settings groups retain their approved order and titles", &problems)
         expect(SettingsSection.allCases.allSatisfy {
             !$0.symbol.isEmpty && !$0.controlLabels.isEmpty
         }, "every Settings group exposes a symbol and searchable control labels", &problems)
@@ -7285,8 +7285,8 @@ enum SelfTest {
                 .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
                 .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
                 .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
-                .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
-                .settingsActivityRules,
+                .settingsActivityRules, .settingsTracking, .settingsAppearance, .settingsData,
+                .settingsAdvanced,
                 .activityRuleAmbiguity, .activityRuleAutomatic,
                 .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
             ]

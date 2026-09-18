@@ -26,6 +26,7 @@ struct SettingsGroups: View {
         case .categories: categories
         case .away: away
         case .automatic: automatic
+        case .activities: activities
         case .tracking: tracking
         case .appearance: appearance
         case .data: data
@@ -123,14 +124,21 @@ struct SettingsGroups: View {
         }
     }
 
-    private var automatic: some View {
+    private var activities: some View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
-            SurfacePanel(title: "Automatic sessions", layout: layout) {
+            SurfacePanel(title: "Activity rules", layout: layout) {
                 toggleRow("Use my activity rules",
                           detail: "Start and switch sessions from the rules below, going by which apps "
                             + "you are in. Editing a rule never starts a session by itself.",
                           isOn: $model.activityRuleAutomationEnabled)
-                rowDivider
+            }
+            ActivityRulesView(model: model)
+        }
+    }
+
+    private var automatic: some View {
+        VStack(alignment: .leading, spacing: layout.panelSpacing) {
+            SurfacePanel(title: "Automatic sessions", layout: layout) {
                 toggleRow("Use legacy automatic sessions",
                           detail: "Without rules, guess from the app in front: a work app starts a "
                             + "session, a break app pauses it. Turned off while rules are on. "
@@ -150,9 +158,6 @@ struct SettingsGroups: View {
                           detail: "A short notice in the corner when you reach the daily goal, keep a "
                             + "streak going or beat your usual pace.",
                           isOn: $model.rewardsEnabled)
-            }
-            SurfacePanel(title: "Activities and applications", layout: layout) {
-                ActivityRulesView(model: model)
             }
         }
     }
