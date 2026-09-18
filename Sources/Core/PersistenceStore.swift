@@ -58,6 +58,7 @@ final class PersistenceStore {
         static let suggestionWindowDays = "fc.suggestionWindowDays"
         static let breakTiersDisabled = "fc.breakTiersDisabled"
         static let quietFold = "fc.quietFold"
+        static let onboarded = "fc.onboarded"
     }
 
     private let defaults: UserDefaults
@@ -70,6 +71,15 @@ final class PersistenceStore {
         // a new store installs what it holds — including nothing, which puts
         // every built-in back to its default.
         WorkTypeCatalog.shared.apply(customisations: workTypeDefinitions)
+    }
+
+    // MARK: - First run
+
+    /// Whether the welcome has been answered — read through, stepped past or
+    /// skipped. Absent means this Mac has never met the app.
+    var hasOnboarded: Bool {
+        get { defaults.bool(forKey: Key.onboarded) }
+        set { defaults.set(newValue, forKey: Key.onboarded) }
     }
 
     // MARK: - Learned category choices

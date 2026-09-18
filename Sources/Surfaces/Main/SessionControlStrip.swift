@@ -27,6 +27,7 @@ struct SessionControlStrip: View {
                           intentFocused: $intentFocused,
                           compact: true,
                           wide: true)
+                    .coachAnchor(.activityField)
                 stripChrome
             }
             if let choice = store.pendingActivityChoice {

@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// Entry point. A separate `@main` type is required: defining `static func main()`
@@ -49,6 +50,12 @@ struct FocusContinuityApp: App {
             )
         } label: {
             MenuBarLabelView(store: coordinator.store)
+                // The app is an LSUIElement, so nothing is on screen at first
+                // launch. A welcome nobody can see is no welcome: when one
+                // begins, the window it explains has to be in front of them.
+                .onReceive(coordinator.firstRun.$progress.map { $0 != nil }.removeDuplicates()) { active in
+                    if active { openMainWindow() }
+                }
         }
         .menuBarExtraStyle(.window)
 
@@ -56,7 +63,8 @@ struct FocusContinuityApp: App {
             MainWindowView(
                 store: coordinator.store,
                 settings: coordinator.settings,
-                navigation: coordinator.mainWindow
+                navigation: coordinator.mainWindow,
+                firstRun: coordinator.firstRun
             )
         }
         .defaultSize(width: 1_160, height: 780)

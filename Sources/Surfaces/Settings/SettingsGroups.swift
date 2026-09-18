@@ -62,6 +62,17 @@ struct SettingsGroups: View {
                           detail: "Off, the menu bar keeps only the goal ring while a session runs.",
                           isOn: $model.menuBarShowsTime)
             }
+            if model.canReplayWelcome {
+                SurfacePanel(title: "Getting started", layout: layout) {
+                    explanation("The welcome walks you through starting a session, naming it "
+                                + "and seeing what your Mac recorded on its own. It takes about "
+                                + "a minute.")
+                    Button("Show the welcome again") { model.replayWelcome() }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .accessibilityHint("Closes Settings and runs the introduction over the story")
+                }
+            }
         }
     }
 

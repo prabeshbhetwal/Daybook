@@ -10,6 +10,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case awardsEarned, awardsEmpty
     case storyDay, storyDayEntry, storyWeek, storyMonth
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
+    case welcomeOpening, welcomeStep
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsAutomatic
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
@@ -45,6 +46,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .storyLive: return "Story — current work first"
         case .storyDecision: return "Story — contextual decision and Undo"
         case .storyReport: return "Story — full session report"
+        case .welcomeOpening: return "Welcome — what this is"
+        case .welcomeStep: return "Welcome — a step waiting on the reader"
         case .settingsGeneral: return "Settings — General"
         case .settingsFocus: return "Settings — Focus sessions"
         case .settingsCategories: return "Settings — Categories"
@@ -117,7 +120,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awardsEarned, .awardsEmpty:
             return .awards
         case .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
-             .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport:
+             .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
+             .welcomeOpening, .welcomeStep:
             return .story
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
@@ -296,6 +300,7 @@ enum Snapshotter {
         return MainWindowView(store: store,
                               settings: settings,
                               navigation: navigation,
+                              firstRun: coach(for: item.scenario),
                               presentsNativeSheets: false)
             .snapshotAppearance(item.appearance)
             .environment(\.todayRecapInitiallyExpanded,
@@ -427,7 +432,30 @@ enum Snapshotter {
             return FixtureFactory.store(for: .running)
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
             return FixtureFactory.store(for: .firstRun)
+        case .welcomeOpening, .welcomeStep:
+            // The welcome is read on a day with nothing in it, which is the
+            // only day it is ever shown on.
+            let store = FixtureFactory.store(for: .firstRun)
+            store.setDashboardVisible(true)
+            return store
         }
+    }
+
+    /// A welcome positioned at one of its cards, reached the way a reader
+    /// reaches it — begun, then stepped. Nothing here can produce a state the
+    /// flow itself cannot.
+    static func coach(for scenario: SnapshotScenario) -> FirstRunCoach {
+        let coach = FirstRunCoach()
+        switch scenario {
+        case .welcomeOpening:
+            coach.begin()
+        case .welcomeStep:
+            coach.begin()
+            coach.advance()
+        default:
+            break
+        }
+        return coach
     }
 
     /// Days the Review period and the History index both hold. Selecting any

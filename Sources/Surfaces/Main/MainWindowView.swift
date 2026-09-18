@@ -8,6 +8,9 @@ struct MainWindowView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var settings: SettingsModel
     @ObservedObject var navigation: MainWindowModel
+    /// The welcome. Inert unless it has been begun, which is why every surface
+    /// that builds this window can leave it at its default.
+    @ObservedObject var firstRun = FirstRunCoach()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var focusScrolls = true
     var todayScrolls = true
@@ -47,6 +50,11 @@ struct MainWindowView: View {
                 .accessibilitySortPriority(1)
         }
         .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+        .overlayPreferenceValue(CoachAnchorKey.self) { anchors in
+            GeometryReader { coachSpace in
+                WelcomeCoachOverlay(coach: firstRun, anchors: anchors, proxy: coachSpace)
+            }
+        }
         .overlay {
             // Anchor to the finite window, never a long day's document height.
             if !presentsNativeSheets, let presented = navigation.sheet {
@@ -92,7 +100,11 @@ struct MainWindowView: View {
                    value: SessionControlsVisibility.isVisible(
                     expanded: navigation.sessionControlsExpanded,
                     pinned: settings.sessionControlsPinned))
-        .onAppear { navigation.connect(to: store) }
+        .onAppear {
+            navigation.connect(to: store)
+            firstRun.observe(coachSignals)
+        }
+        .onChange(of: coachSignals) { firstRun.observe($0) }
         .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
             sheetContent(presented, within: windowSize.value == .zero ? nil : windowSize.value)
@@ -109,6 +121,17 @@ struct MainWindowView: View {
                 .environment(\.openActivityEditor) { request in ActivityEditorPanel.shared.show(request, store: store) }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    /// What the welcome's steps are waiting on, gathered from the same state
+    /// every other surface reads. Nothing here is staged for the welcome.
+    private var coachSignals: FirstRunSignals {
+        FirstRunSignals(
+            sessionControlsVisible: SessionControlsVisibility.isVisible(
+                expanded: navigation.sessionControlsExpanded,
+                pinned: settings.sessionControlsPinned),
+            sessionRunning: store.state.isRunning,
+            otherAppRecorded: !store.rankedApps.isEmpty)
     }
 
     private var readingWorkspace: some View {
@@ -197,6 +220,7 @@ struct StoryCanvas: View {
             }
             .frame(width: StoryLayout.railWidth)
             .background(StoryStyle.rail)
+            .coachAnchor(.rail)
             .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                        value: readingKey)
         }

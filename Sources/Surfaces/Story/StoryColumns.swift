@@ -8,6 +8,28 @@ enum StoryRenderEvidence: String, Hashable {
     case insightStrongestDay
     case insightEmptyPeriod
     case activityQuietChoice
+    case firstRunWelcome
+    case firstRunControls
+    case firstRunStart
+    case firstRunApps
+    case firstRunSpans
+    case firstRunFinish
+}
+
+extension StoryRenderEvidence {
+    /// One case per welcome card, so a render proof can say which beat drew
+    /// rather than only that something did. An in-process accessibility walk
+    /// cannot see SwiftUI, so this is the seam the checks use.
+    static func firstRun(_ beat: FirstRunBeat) -> StoryRenderEvidence {
+        switch beat {
+        case .welcome: return .firstRunWelcome
+        case .controls: return .firstRunControls
+        case .start: return .firstRunStart
+        case .apps: return .firstRunApps
+        case .spans: return .firstRunSpans
+        case .finish: return .firstRunFinish
+        }
+    }
 }
 
 struct StoryRenderEvidenceKey: PreferenceKey {

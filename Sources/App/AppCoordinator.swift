@@ -24,6 +24,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) },
         onAppearanceChanged: { [weak self] in self?.applyApplicationAppearance($0) },
         onActivityRulesChanged: { [weak self] in self?.ruleConfigurationChanged() },
+        // A method, not a closure that reads `mainWindow`: the window model is
+        // built from `settings.defaultStoryScope`, so naming it here would make
+        // two lazy properties each other's dependency.
+        replayWelcome: { [weak self] in self?.replayWelcome() },
         diagnostics: .live(usage: usage),
         installedAppCatalog: InstalledAppCatalog(observed: { [weak self] in
             guard let self else { return [] }
@@ -39,6 +43,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         selectedTab: .story,
         storyScope: settings.defaultStoryScope,
         store: store)
+
+    /// The welcome. Always present so the window and the menu bar can observe
+    /// it; it draws nothing until `begin()`. Whatever ends it — reading it
+    /// through, stepping past or skipping — is written down as answered.
+    private(set) lazy var firstRun = FirstRunCoach { [weak self] in
+        self?.engine.store.hasOnboarded = true
+    }
 
     /// Input density, fed only at event boundaries — app activation, lock,
     /// unlock, wake — and never on a timer. A repeating timer would be the only
@@ -363,6 +374,27 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         super.init()
     }
 
+    /// Settings is a panel over the story and the welcome points at the story,
+    /// so the panel comes down with it.
+    private func replayWelcome() {
+        Task { @MainActor in
+            self.mainWindow.closeSheet()
+            self.firstRun.begin()
+        }
+    }
+
+    /// A Mac with history has plainly met the app before, whatever the flag
+    /// says, so the build that first ships a welcome does not ambush anybody
+    /// already using it. `--onboarding` forces it for inspection.
+    private func presentWelcomeIfNew() {
+        guard FirstRunGate.shouldWelcome(
+            onboarded: engine.store.hasOnboarded,
+            hasSessionHistory: !engine.archive.records.isEmpty,
+            hasUsageHistory: !usage.sessions.isEmpty,
+            forced: CommandLine.arguments.contains("--onboarding")) else { return }
+        firstRun.begin()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Determine unattended launch state and restore the engine before any
         // lazy SessionStore/prompt/monitor owner can materialise and refresh.
@@ -406,6 +438,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
         store.refresh()
         Task { @MainActor in
+            self.presentWelcomeIfNew()
             self.awayPrompter.start()
             if let index = CommandLine.arguments.firstIndex(of: "--preview-away") {
                 let which = CommandLine.arguments.count > index + 1

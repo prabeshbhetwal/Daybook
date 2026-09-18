@@ -217,6 +217,7 @@ final class SettingsModel: ObservableObject {
     private let onAppearanceChanged: (AppearancePreference) -> Void
     private let onActivityRulesChanged: () -> Void
     private let onRevealDataFolder: (() -> Void)?
+    private let onReplayWelcome: (() -> Void)?
     private let openDataFolder: ((URL) -> Bool)?
     let diagnostics: SettingsDiagnostics
     /// The archive directory displayed and revealed by Privacy. Fixtures pass
@@ -234,6 +235,7 @@ final class SettingsModel: ObservableObject {
          onAppearanceChanged: @escaping (AppearancePreference) -> Void = { _ in },
          onActivityRulesChanged: @escaping () -> Void = {},
          revealDataFolder: (() -> Void)? = nil,
+         replayWelcome: (() -> Void)? = nil,
          diagnostics: SettingsDiagnostics = .unavailable,
          dataDirectory: URL = SessionArchive.defaultDirectory,
          openDataFolder: ((URL) -> Bool)? = nil,
@@ -245,10 +247,21 @@ final class SettingsModel: ObservableObject {
         self.onAppearanceChanged = onAppearanceChanged
         self.onActivityRulesChanged = onActivityRulesChanged
         self.onRevealDataFolder = revealDataFolder
+        self.onReplayWelcome = replayWelcome
         self.openDataFolder = openDataFolder
         self.diagnostics = diagnostics
         self.dataDirectoryURL = dataDirectory
         self.installedAppCatalog = installedAppCatalog
+    }
+
+    /// Whether the welcome can be shown again. Absent outside the running
+    /// application, so the row is never offered where it could do nothing.
+    var canReplayWelcome: Bool { onReplayWelcome != nil }
+
+    /// Run the welcome again. It is the app's only explanation of itself, and
+    /// a one-off that cannot be recovered is a manual nobody can reopen.
+    func replayWelcome() {
+        onReplayWelcome?()
     }
 
     private func write(_ body: () -> Void) {

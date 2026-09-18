@@ -41,6 +41,7 @@ struct StoryChromeBar: View {
                 .accessibilityHidden(true)
             backSlot
             workspaceControls
+                .coachAnchor(.scopePills)
             if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible) {
                 StorySessionControl(store: store,
                                     focus: $focusedControl,
@@ -49,6 +50,7 @@ struct StoryChromeBar: View {
                                     })
                     .transition(Tokens.Motion.transition(
                         .opacity.combined(with: .scale(scale: 0.9)), reduceMotion: reduceMotion))
+                    .coachAnchor(.sessionControl)
             }
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
@@ -68,6 +70,7 @@ struct StoryChromeBar: View {
             .focused($focusedControl, equals: .settings)
             .help("Settings")
             .accessibilityLabel("Settings")
+            .coachAnchor(.settings)
         }
         // The row is as tall as the scope control whether or not the scope
         // control is in it. History has none, and the bar shrank by six

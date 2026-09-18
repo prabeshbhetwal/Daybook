@@ -448,7 +448,7 @@ enum SelfTest {
             + DecisionHistoryChecks.tests + DecisionRecoveryChecks.tests + StoryWorkspaceChecks.tests
             + CompactControlsChecks.tests + SessionMetadataChecks.tests + ActivityRuleChecks.tests
             + StoryIntegrationChecks.tests + CategoryChecks.tests + SessionReportChecks.tests
-            + SavedActivityChecks.tests
+            + SavedActivityChecks.tests + FirstRunChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -7286,6 +7286,7 @@ enum SelfTest {
                 .awardsEarned, .awardsEmpty,
                 .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
                 .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
+                .welcomeOpening, .welcomeStep,
                 .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
                 .settingsActivityRules, .settingsTracking, .settingsAppearance, .settingsData,
                 .settingsAdvanced,
