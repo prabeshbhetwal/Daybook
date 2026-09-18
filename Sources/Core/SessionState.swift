@@ -529,6 +529,11 @@ enum FocusConstants {
     static let minimumRecordedSession: TimeInterval = 30
     /// D9 — selectable extended-break thresholds, in seconds.
     static let thresholdOptions: [TimeInterval] = [300, 600, 900, 1800, 3600]
+    /// "Never", for a threshold: a span no absence, pause or wait reaches.
+    /// Stored like any other value, so nothing downstream needs a special
+    /// case; only the picker names it.
+    static let never: TimeInterval = 400 * 86_400
+    static func isNever(_ value: TimeInterval) -> Bool { value >= never }
     static let defaultThreshold: TimeInterval = 900
     /// Archive capacity. Raised from the original 50 (about one week) because
     /// streaks and Insights need years of history.

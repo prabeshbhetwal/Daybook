@@ -250,40 +250,45 @@ struct ActivityRuleForm: View {
                 TextField("Activity name", text: $editor.name)
                     .textFieldStyle(.roundedBorder)
                     .accessibilityLabel("Activity name")
-                Picker("Category", selection: $editor.workType) {
-                    ForEach(WorkType.startable) {
-                        Label($0.displayName, systemImage: $0.symbolName).labelStyle(.titleAndIcon).tag($0)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 170)
-                .accessibilityLabel("Category")
+                // The same category menu as the session strip, with Add and
+                // Edit category, so a rule can file work under a category
+                // made on the spot.
+                WorkTypePicker(selection: $editor.workType)
+                    .frame(width: 190)
+                    .accessibilityLabel("Category")
             }
-            HStack(spacing: Tokens.Space.m) {
-                Text("Start after")
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                Picker("Start after", selection: $editor.dwell) {
-                    ForEach(ActivityRule.startAfterPresets, id: \.self) {
-                        Text(Tokens.preciseDuration($0)).tag($0)
+            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                HStack(spacing: Tokens.Space.m) {
+                    Text("Start after")
+                        .font(Tokens.Typography.control)
+                    Picker("Start after", selection: $editor.dwell) {
+                        ForEach(ActivityRule.startAfterPresets, id: \.self) {
+                            Text(Tokens.preciseDuration($0)).tag($0)
+                        }
+                        Text("Custom…").tag(-1.0)
                     }
-                    Text("Custom…").tag(-1.0)
-                }
-                .labelsHidden()
-                .frame(width: 130)
-                if editor.dwell == -1 {
-                    TextField("30–1800 seconds", text: $editor.customDwell)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 140)
-                        .accessibilityLabel("Custom whole seconds")
-                }
-                Text("in one of its apps before the session begins")
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-                Toggle("Enabled", isOn: $editor.enabled)
+                    .labelsHidden()
+                    .frame(width: 130)
+                    if editor.dwell == -1 {
+                        TextField("Seconds, 30 to 1800", text: $editor.customDwell)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 150)
+                            .accessibilityLabel("Custom whole seconds")
+                    }
+                    Spacer(minLength: Tokens.Space.l)
+                    Toggle(isOn: $editor.enabled) {
+                        Text("Rule is on")
+                            .font(Tokens.Typography.control)
+                            .fixedSize()
+                    }
                     .toggleStyle(.switch)
                     .controlSize(.small)
+                    .fixedSize()
+                }
+                Text("How long you must be in one of its apps before the session begins.")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             chosenApps
             runningNow
@@ -296,9 +301,10 @@ struct ActivityRuleForm: View {
             }
             HStack(spacing: Tokens.Space.m) {
                 Button(editor.isNew ? "Add rule" : "Save rule") {
+                    // Saving is finishing: the card above now shows the rule.
                     if let rule = editor.ruleForSaving() {
                         model.saveActivityRule(rule)
-                        editor.edit(rule)
+                        editor.close()
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -442,30 +448,48 @@ struct InstalledAppPicker: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(filtered) { application in
-                        Toggle(isOn: Binding(
-                            get: { selection.contains(application.bundleID) },
-                            set: { selected in
-                                if selected { selection.insert(application.bundleID) }
-                                else { selection.remove(application.bundleID) }
-                            })) {
-                            HStack {
+                        let isOn = selection.contains(application.bundleID)
+                        Button {
+                            if isOn { selection.remove(application.bundleID) }
+                            else { selection.insert(application.bundleID) }
+                        } label: {
+                            HStack(spacing: Tokens.Space.s) {
+                                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                                    .font(Tokens.Typography.control)
+                                    .foregroundStyle(isOn ? AnyShapeStyle(Tokens.Colour.focus)
+                                                          : AnyShapeStyle(.tertiary))
+                                    .frame(width: 18)
                                 if let url = application.url {
                                     Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                        .resizable().frame(width: 20, height: 20)
+                                        .resizable().frame(width: 22, height: 22)
                                         .accessibilityHidden(true)
+                                } else {
+                                    Image(systemName: "app.dashed")
+                                        .foregroundStyle(.tertiary)
+                                        .frame(width: 22, height: 22)
                                 }
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(application.displayName)
+                                        .font(Tokens.Typography.control)
                                     Text(application.bundleID).font(Tokens.Typography.metadata)
                                         .foregroundStyle(.secondary)
                                 }
+                                Spacer(minLength: 0)
                             }
-                        }.toggleStyle(.checkbox).frame(minHeight: 32)
+                            .padding(.horizontal, Tokens.Space.s)
+                            .frame(minHeight: 34)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.control))
+                        .accessibilityLabel(application.displayName)
+                        .accessibilityValue(isOn ? "in this activity" : "not in this activity")
+                        .accessibilityAddTraits(isOn ? .isSelected : [])
                         .preference(key: InstalledAppRowCountKey.self, value: 1)
                     }
                 }
             }
             .frame(minHeight: 120, maxHeight: 220)
+            .padding(.vertical, Tokens.Space.xs)
             .background(StoryStyle.well.opacity(0.5),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
             .accessibilityLabel("Applications in this activity")

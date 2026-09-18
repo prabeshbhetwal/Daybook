@@ -21,8 +21,6 @@ struct MainWindowCommands: Commands {
             Divider()
             Button("History") { route(to: .review) }
                 .keyboardShortcut("4", modifiers: [.command])
-            Button("Insights") { route(to: .insights) }
-                .keyboardShortcut("5", modifiers: [.command])
             Button("Return to Story") {
                 navigation.returnToStory()
                 revealMainWindow()

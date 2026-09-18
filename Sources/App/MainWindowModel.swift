@@ -143,7 +143,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         switch self {
         case .focus: return "Focus session"
         case .history: return "History"
-        case .insights: return "Insights"
+        case .insights: return "History"
         case .awards: return "Awards"
         case .settings: return "Settings"
         }
@@ -570,8 +570,13 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         }
         guard let candidate = calendar.date(byAdding: component, value: delta,
                                             to: insightAnchor) else { return }
-        insightAnchors[insightRange] = min(
-            calendar.startOfDay(for: store?.now() ?? Date()), candidate)
+        var moved = min(calendar.startOfDay(for: store?.now() ?? Date()), candidate)
+        // Never page to a window that ends before the record begins.
+        if delta < 0, let earliest = store?.earliestSelectableDay {
+            let floor = calendar.startOfDay(for: earliest)
+            if moved < floor { moved = max(floor, min(moved, insightAnchor)) }
+        }
+        insightAnchors[insightRange] = moved
     }
 
     /// How many periods the Insights column can show at its current width.
@@ -595,6 +600,44 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     var insightCanPageForward: Bool {
         !Calendar.current.isDate(insightAnchor, inSameDayAs: store?.now() ?? Date())
+    }
+
+    /// History begins where the record begins: no paging into the empty time
+    /// before the first day the app ever saw.
+    var insightCanPageBack: Bool {
+        guard let earliest = store?.earliestSelectableDay,
+              let window = insightWindow else { return true }
+        return window.start > Calendar.current.startOfDay(for: earliest)
+    }
+
+    /// The span of time the column currently shows.
+    var insightWindow: DateInterval? {
+        let calendar = Calendar.current
+        let count = insightVisibleCount
+        let component: Calendar.Component
+        switch insightRange {
+        case .day: component = .day
+        case .week: component = .weekOfYear
+        case .month: component = .month
+        case .year: component = .year
+        }
+        guard let end = calendar.dateInterval(of: component == .day ? .day : component, for: insightAnchor)?.end,
+              let start = calendar.date(byAdding: component, value: -(count - 1),
+                                        to: calendar.dateInterval(of: component == .day ? .day : component,
+                                                                  for: insightAnchor)?.start ?? insightAnchor)
+        else { return nil }
+        return DateInterval(start: start, end: end)
+    }
+
+    /// The calendar picked a day: the window ends there.
+    func jumpInsights(to date: Date) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: store?.now() ?? Date())
+        animated(Tokens.Motion.swap) {
+            insightAnchors[insightRange] = min(today, calendar.startOfDay(for: date))
+            reviewSelectedDate = nil
+            historySelectedPeriod = nil
+        }
     }
 
     /// The window the column shows: "4 – 17 Sep", "Jul – Sep 2026".

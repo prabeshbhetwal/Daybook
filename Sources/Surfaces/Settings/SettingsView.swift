@@ -6,11 +6,24 @@ import SwiftUI
 /// sidebar beside a reading measure, and as tall as the smallest window
 /// allows with a margin around it.
 enum SettingsLayout {
-    static let sheetWidth: CGFloat = 900
+    static let sheetWidth: CGFloat = 1_000
     static let sidebarWidth: CGFloat = 196
-    static let detailMeasure: CGFloat = 640
-    static let sheetHeight: CGFloat = 640
-    static let sheetMaximumHeight: CGFloat = 660
+    static let detailMeasure: CGFloat = 720
+    static let sheetHeight: CGFloat = 720
+    static let sheetMaximumHeight: CGFloat = 740
+    /// Room kept to the window's edge when the window is smaller than the
+    /// sheet would like to be.
+    static let windowMargin: CGFloat = 40
+
+    /// The sheet wants its full size; a smaller window gets a sheet that
+    /// fits it, never one that runs off the edge.
+    static func sheetSize(for kind: StorySheetKind, within window: CGSize?) -> CGSize {
+        let wanted = kind == .settings ? CGSize(width: sheetWidth, height: sheetHeight)
+                                       : CGSize(width: 880, height: 570)
+        guard let window else { return wanted }
+        return CGSize(width: min(wanted.width, max(600, window.width - windowMargin * 2)),
+                      height: min(wanted.height, max(420, window.height - windowMargin * 2)))
+    }
 
     static func sheetHeight(section: SettingsSection, query: String) -> CGFloat {
         sheetHeight

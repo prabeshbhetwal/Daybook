@@ -73,27 +73,21 @@ struct SettingsGroups: View {
             SurfacePanel(title: "Stepping away", layout: layout) {
                 preferenceRow("Ask me after",
                               detail: "Shorter absences are left out of the session without a question.") {
-                    thresholdPicker("Ask me after", selection: $model.breakThreshold,
-                                    options: FocusConstants.thresholdOptions)
+                    ThresholdControl(label: "Ask me after", selection: $model.breakThreshold,
+                                     options: FocusConstants.thresholdOptions, allowsNever: true)
                 }
                 rowDivider
                 preferenceRow("End session after",
                               detail: "Longer than this, the session ends where you left rather than waiting.") {
-                    thresholdPicker("End session after", selection: $model.longAwayCap,
-                                    options: FocusConstants.longAwayCapOptions)
+                    ThresholdControl(label: "End session after", selection: $model.longAwayCap,
+                                     options: FocusConstants.longAwayCapOptions, allowsNever: true)
                 }
                 rowDivider
                 preferenceRow("Full-screen prompt after",
                               detail: "How long the away question stays in the menu bar before it fills the screen.") {
-                    Picker("Full-screen prompt after", selection: $model.fullPromptAfter) {
-                        ForEach(FocusConstants.fullPromptAfterOptions, id: \.self) { seconds in
-                            Text(Tokens.duration(seconds)).tag(seconds)
-                        }
-                        Text("Never").tag(0.0)
-                    }
-                    .labelsHidden()
-                    .frame(width: 180)
-                    .accessibilityLabel("Full-screen prompt after")
+                    ThresholdControl(label: "Full-screen prompt after", selection: $model.fullPromptAfter,
+                                     options: FocusConstants.fullPromptAfterOptions, allowsNever: true,
+                                     neverValue: 0)
                 }
                 explanation(awayExplanation)
             }
@@ -150,8 +144,8 @@ struct SettingsGroups: View {
                 preferenceRow("Auto-session gap",
                               detail: "How long an automatic session can sit paused before it ends "
                                 + "instead of picking up where it left off.") {
-                    thresholdPicker("Auto-session gap", selection: $model.breakLength,
-                                    options: FocusConstants.breakLengthOptions)
+                    ThresholdControl(label: "Auto-session gap", selection: $model.breakLength,
+                                     options: FocusConstants.breakLengthOptions, allowsNever: true)
                 }
                 rowDivider
                 toggleRow("Celebrate milestones",
@@ -352,18 +346,6 @@ struct SettingsGroups: View {
         .frame(minHeight: layout.rowHeight, alignment: .leading)
     }
 
-    private func thresholdPicker(_ label: String, selection: Binding<TimeInterval>,
-                                 options: [TimeInterval]) -> some View {
-        Picker(label, selection: selection) {
-            ForEach(options, id: \.self) { seconds in
-                Text(Tokens.duration(seconds)).tag(seconds)
-            }
-        }
-        .labelsHidden()
-        .frame(width: 180)
-        .accessibilityLabel(label)
-    }
-
     private var rowDivider: some View { Divider() }
 
     private func explanation(_ text: String) -> some View {
@@ -374,14 +356,26 @@ struct SettingsGroups: View {
     }
 
     private var awayExplanation: String {
-        "Under 5 seconds is ignored. Up to \(Tokens.duration(model.breakThreshold)) is left "
-        + "out of the session without interrupting you. Up to "
-        + "\(Tokens.duration(model.longAwayCap)) you are asked what it was; past that the "
-        + "session ends where you left. "
-        + (model.fullPromptAfter > 0
-           ? "From \(Tokens.duration(model.fullPromptAfter)) the question fills the screen."
-           : "Every absence is asked about from the menu bar.")
-        + " Pressing Away is never asked about. Quiet in front of video, a call or a "
-        + "presentation keeping the screen awake is Watching, not an absence."
+        let asks = !FocusConstants.isNever(model.breakThreshold)
+        let ends = !FocusConstants.isNever(model.longAwayCap)
+        var text = "Under 5 seconds is ignored. "
+        if asks {
+            text += "Up to \(Tokens.duration(model.breakThreshold)) is left out of the session "
+                + "without interrupting you. "
+            text += ends
+                ? "Up to \(Tokens.duration(model.longAwayCap)) you are asked what it was; past that the "
+                    + "session ends where you left. "
+                : "Longer than that you are asked what it was, however long you were gone. "
+        } else {
+            text += "Absences are never asked about; they are left out of the session. "
+            text += ends
+                ? "Past \(Tokens.duration(model.longAwayCap)) the session ends where you left. "
+                : "The session waits for you however long you were gone. "
+        }
+        text += (asks && model.fullPromptAfter > 0
+                 ? "From \(Tokens.duration(model.fullPromptAfter)) the question fills the screen."
+                 : asks ? "Every absence is asked about from the menu bar." : "")
+        return text + " Pressing Away is never asked about. Quiet in front of video, a call or a "
+            + "presentation keeping the screen awake is Watching, not an absence."
     }
 }

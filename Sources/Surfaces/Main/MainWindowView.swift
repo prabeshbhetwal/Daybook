@@ -51,7 +51,7 @@ struct MainWindowView: View {
             if !presentsNativeSheets, let presented = navigation.sheet {
                 ZStack {
                     Color.black.opacity(0.14)
-                    sheetContent(presented)
+                    sheetContent(presented, within: geometry.size)
                 }
             }
         }
@@ -90,7 +90,7 @@ struct MainWindowView: View {
         .onAppear { navigation.connect(to: store) }
         .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
-            sheetContent(presented)
+            sheetContent(presented, within: nil)
                 .environment(\.focusInterfaceDensity, settings.interfaceDensity)
                 .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         }
@@ -118,7 +118,13 @@ struct MainWindowView: View {
 
     /// Attached panels. Focus, History and Insights remain compatibility enum
     /// cases, but MainWindowModel routes them before this presentation boundary.
-    private func sheetContent(_ presented: StorySheetKind) -> some View {
+    private func sheetContent(_ presented: StorySheetKind, within window: CGSize?) -> some View {
+        let size = SettingsLayout.sheetSize(for: presented, within: window)
+        return sheetBody(presented)
+            .frame(width: size.width, height: size.height)
+    }
+
+    private func sheetBody(_ presented: StorySheetKind) -> some View {
         StorySheet(title: presented.title, onClose: { navigation.closeSheet() }) {
                 switch presented {
                 case .focus:
@@ -142,8 +148,6 @@ struct MainWindowView: View {
                     AwardsView(store: store, scrolls: insightsScrolls)
                 }
         }
-        .frame(width: presented == .settings ? SettingsLayout.sheetWidth : 880,
-               height: presented == .settings ? SettingsLayout.sheetHeight : 570)
     }
 }
 

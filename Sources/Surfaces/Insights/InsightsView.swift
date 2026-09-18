@@ -312,8 +312,8 @@ struct InsightsView: View {
 
     private var emptyRange: some View {
         StoryTile(title: "Nothing recorded yet", trailing: nil) {
-            Text("Insights compare one \(navigation.insightRange.title.lowercased()) with the "
-                 + "next, so they appear once two of them hold recorded work.")
+            Text("History fills in as you work. Each \(navigation.insightRange.title.lowercased()) "
+                 + "you record appears here, with its story one click away.")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
