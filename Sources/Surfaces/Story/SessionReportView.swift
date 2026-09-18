@@ -39,7 +39,9 @@ struct SessionReport {
     var notes: [String] { stretches.compactMap(\.note) }
 
     static func make(for session: DaySession, store: SessionStore) -> SessionReport {
-        let detail = store.storySessionDetail(session)
+        // The session's own day, not whichever day the Story happens to be
+        // on: a report opened from Insights or History is for a past day.
+        let detail = store.storySessionDetail(session, on: session.start)
         let ids = Set(session.recordIDs)
         let stretches = store.engine.archive.records
             .filter { ids.contains($0.id) }

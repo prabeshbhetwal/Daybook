@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// One year of days: a column per week, a row per weekday, every day on
-/// record as a square tinted by its share of the daily goal. The whole year
-/// is one glance; a day is one hover; a story is one click.
+/// One year of days: a row per month, a column per day of the month, every
+/// day on record as a cell tinted by its share of the daily goal. The year
+/// is one glance, each month one line, and a cell is wide enough to click.
 struct HistoryYearMap: View {
     let year: Int
     let facts: HistoryArchiveFacts
@@ -13,103 +13,78 @@ struct HistoryYearMap: View {
     let onPick: (Date, Bool) -> Void
     @StateObject private var hovered = HoverBox()
     private let calendar = Calendar.current
-    private let gutter: CGFloat = 30
-    private let gap: CGFloat = 2
-
-    /// The first day of the week holding 1 January, and the week count.
-    private var origin: Date {
-        let jan = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? today
-        return calendar.dateInterval(of: .weekOfYear, for: jan)?.start ?? jan
-    }
-
-    private var weeks: Int {
-        let dec = calendar.date(from: DateComponents(year: year, month: 12, day: 31)) ?? today
-        let days = calendar.dateComponents([.day], from: origin, to: dec).day ?? 364
-        return days / 7 + 1
-    }
+    private let gutter: CGFloat = 36
+    private let gap: CGFloat = 3
+    private let rowHeight: CGFloat = 20
 
     var body: some View {
-        GeometryReader { geometry in
-            let cell = max(4, (geometry.size.width - gutter - CGFloat(weeks - 1) * gap) / CGFloat(weeks))
-            VStack(alignment: .leading, spacing: gap) {
-                monthLabels(cell: cell)
-                ForEach(0..<7, id: \.self) { row in
-                    HStack(spacing: gap) {
-                        Text(row % 2 == 0 ? weekdayLabel(row) : " ")
-                            .font(Tokens.Typography.micro)
-                            .foregroundStyle(.tertiary)
-                            .frame(width: gutter - gap, alignment: .leading)
-                        ForEach(0..<weeks, id: \.self) { column in
-                            square(row: row, column: column, size: cell)
-                        }
+        VStack(alignment: .leading, spacing: gap) {
+            dayNumbers
+            ForEach(1...12, id: \.self) { month in
+                HStack(spacing: gap) {
+                    Text(monthLabel(month))
+                        .font(Tokens.Typography.microLabel)
+                        .foregroundStyle(.secondary)
+                        .frame(width: gutter - gap, alignment: .leading)
+                    ForEach(1...31, id: \.self) { day in
+                        cell(month: month, day: day)
                     }
                 }
             }
         }
-        .frame(height: 14 + 7 * 12 + 7 * gap)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(year): \(Tokens.spent(facts.focused(inYear: year))) focused")
     }
 
-    private func date(row: Int, column: Int) -> Date? {
-        calendar.date(byAdding: .day, value: column * 7 + row, to: origin)
-    }
-
-    private func weekdayLabel(_ row: Int) -> String {
-        let weekday = (calendar.firstWeekday - 1 + row) % 7 + 1
-        return String(calendar.shortWeekdaySymbols[weekday - 1].prefix(1))
-    }
-
-    private func monthLabels(cell: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            Color.clear.frame(width: gutter, height: 1)
-            ZStack(alignment: .topLeading) {
-                ForEach(1...12, id: \.self) { month in
-                    if let first = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
-                       let days = calendar.dateComponents([.day], from: origin, to: first).day, days >= 0 {
-                        Text(shortMonth(first))
-                            .font(Tokens.Typography.micro)
-                            .foregroundStyle(.tertiary)
-                            .fixedSize()
-                            .offset(x: CGFloat(days / 7) * (cell + gap))
-                    }
-                }
+    private var dayNumbers: some View {
+        HStack(spacing: gap) {
+            Color.clear.frame(width: gutter - gap, height: 1)
+            ForEach(1...31, id: \.self) { day in
+                Text(day == 1 || day % 5 == 0 ? "\(day)" : " ")
+                    .font(Tokens.Typography.micro)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(height: 12)
     }
 
-    private func shortMonth(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = "MMM"
-        return formatter.string(from: date)
+    private func monthLabel(_ month: Int) -> String {
+        String(calendar.shortMonthSymbols[month - 1].prefix(3)).uppercased()
     }
 
-    @ViewBuilder private func square(row: Int, column: Int, size: CGFloat) -> some View {
-        if let day = date(row: row, column: column),
-           calendar.component(.year, from: day) == year, day <= today,
-           facts.firstDay.map({ day >= calendar.startOfDay(for: $0) }) ?? true {
-            let key = calendar.startOfDay(for: day)
+    private func date(month: Int, day: Int) -> Date? {
+        guard let count = calendar.range(of: .day, in: .month,
+                                         for: calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? today)?.count,
+              day <= count else { return nil }
+        return calendar.date(from: DateComponents(year: year, month: month, day: day))
+    }
+
+    @ViewBuilder private func cell(month: Int, day: Int) -> some View {
+        if let date = date(month: month, day: day) {
+            let key = calendar.startOfDay(for: date)
+            let onRecord = key <= today && (facts.firstDay.map { key >= calendar.startOfDay(for: $0) } ?? true)
             let focused = facts.focusByDay[key] ?? 0
             let tracked = facts.trackedByDay[key] ?? 0
             let inSelection = selected?.contains(key) ?? false
             let isHovered = hovered.id == key.description
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(fill(focused: focused, tracked: tracked))
-                .overlay(RoundedRectangle(cornerRadius: 2, style: .continuous)
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(onRecord ? fill(focused: focused, tracked: tracked) : Color.clear)
+                .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .strokeBorder(Tokens.Colour.focus, lineWidth: inSelection || isHovered ? 1.5 : 0))
-                .frame(width: size, height: 12)
+                .frame(maxWidth: .infinity)
+                .frame(height: rowHeight)
                 .contentShape(Rectangle())
                 .onHover { inside in
+                    guard onRecord else { return }
                     if inside { hovered.id = key.description; onHover(key) }
                     else if hovered.id == key.description { hovered.id = nil; onHover(nil) }
                 }
-                .onTapGesture { onPick(key, NSEvent.modifierFlags.contains(.shift)) }
-                .help(help(day: key, focused: focused, tracked: tracked))
+                .onTapGesture { if onRecord { onPick(key, NSEvent.modifierFlags.contains(.shift)) } }
+                .help(onRecord ? help(day: key, focused: focused, tracked: tracked) : "")
         } else {
-            Color.clear.frame(width: size, height: 12)
+            Color.clear.frame(maxWidth: .infinity).frame(height: rowHeight)
         }
     }
 
