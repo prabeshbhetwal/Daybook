@@ -126,7 +126,10 @@ struct DayPickerCalendar: View {
                 Text(monthSummary)
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    // Three facts in a 364pt popover: one line cut the goal
+                    // count, which is the one worth reading.
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: Tokens.Space.s)
             if !calendar.isDate(shown.month, equalTo: Date(), toGranularity: .month) {
@@ -317,7 +320,20 @@ struct DayPickerCalendar: View {
         if facts.sessions > 0 {
             parts.append(facts.sessions == 1 ? "1 session" : "\(facts.sessions) sessions")
         }
+        if let credit = goalCredit(facts) {
+            parts.append("\(Tokens.duration(credit)) towards the goal")
+        }
         return parts.joined(separator: " · ")
+    }
+
+    /// Goal credit, but only when it differs from the figure on the cell. The
+    /// tint is drawn from focused-active time while the number under the date
+    /// is focused time, so a day can be tinted further along than it reads;
+    /// saying so here is what makes the tint explainable rather than arbitrary.
+    private func goalCredit(_ facts: DayFacts) -> TimeInterval? {
+        guard goal > 0, let credit = facts.goalAchieved,
+              abs(credit - facts.focused) >= 60 else { return nil }
+        return credit
     }
 
     private func dateAccessibilityLabel(_ day: Date, _ facts: DayFacts,
@@ -331,6 +347,9 @@ struct DayPickerCalendar: View {
             parts.append("\(Tokens.spent(facts.tracked)) at the Mac")
             if facts.sessions > 0 {
                 parts.append(facts.sessions == 1 ? "1 session" : "\(facts.sessions) sessions")
+            }
+            if let credit = goalCredit(facts) {
+                parts.append("\(Tokens.spent(credit)) counted towards the goal")
             }
         }
         return parts.joined(separator: ", ")
@@ -360,18 +379,78 @@ struct DayPickerCalendar: View {
         }
     }
 
+    /// A key for a grid that speaks in tint. It draws the same four states the
+    /// cells draw — including the dot — rather than standing in for them with
+    /// symbols that appear nowhere on the month.
     private var goalLegend: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            HStack(spacing: Tokens.Space.m) {
-                Label("Below half", systemImage: "circle")
-                Label("Half or more", systemImage: "circle.lefthalf.filled")
-                Label("Goal met", systemImage: "checkmark.circle.fill")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Tokens.Space.m) { legendKeys }
+                VStack(alignment: .leading, spacing: Tokens.Space.xs) { legendKeys }
             }
-            Text("Share of your \(Tokens.duration(goal)) goal · figure is focused time")
+            Text("Tint is the share of your \(Tokens.duration(goal)) goal. "
+                 + "Figures are focused time.")
+                .fixedSize(horizontal: false, vertical: true)
         }
         .font(Tokens.Typography.metadata)
         .foregroundStyle(.tertiary)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Key. A day's tint is its share of your "
+                            + "\(Tokens.spent(goal)) goal: untinted below a tenth, "
+                            + "light under half, stronger from half, strongest with a "
+                            + "tick once the goal is met. A dot marks a day at the Mac "
+                            + "with no focus session. Figures are focused time.")
+    }
+
+    @ViewBuilder private var legendKeys: some View {
+        tintKey(tint(0.25), "Under half")
+        tintKey(tint(0.75), "Half or more")
+        tintKey(tint(1), "Goal met", ticked: true)
+        dotKey
+    }
+
+    /// One swatch at a tint the grid really uses, so the key can be held up
+    /// against a cell and matched.
+    private func tintKey(_ opacity: Double, _ label: String, ticked: Bool = false) -> some View {
+        HStack(spacing: Tokens.Space.xs) {
+            swatch(fill: Tokens.Colour.focus.opacity(opacity)) {
+                if ticked {
+                    Image(systemName: "checkmark")
+                        .font(Tokens.Typography.micro.weight(.heavy))
+                        .foregroundStyle(Tokens.Colour.focus)
+                }
+            }
+            Text(label)
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// The fourth state the old key omitted: time at the Mac, no session.
+    private var dotKey: some View {
+        HStack(spacing: Tokens.Space.xs) {
+            swatch(fill: Color.clear) {
+                Text("·")
+                    .font(Tokens.Typography.microValue)
+                    .foregroundStyle(.tertiary)
+            }
+            Text("At the Mac, no session")
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func swatch<Mark: View>(fill: Color,
+                                    @ViewBuilder mark: () -> Mark) -> some View {
+        RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
+            .fill(fill)
+            .frame(width: 18, height: 18)
+            .overlay { mark() }
+            // The faintest step is all but invisible on its own ground; a
+            // hairline says "this square is the sample" without restating it
+            // as a colour the cells do not have.
+            .overlay {
+                RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
+                    .strokeBorder(.quaternary, lineWidth: 0.5)
+            }
     }
 
     private func load() {
