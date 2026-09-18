@@ -128,11 +128,15 @@ struct DayStoryColumn: View {
 struct ProjectedDayStoryColumn: View {
     @ObservedObject var store: SessionStore
     let projection: StoryDayProjection
-    @StateObject private var showSummary = BoolBox()
     @StateObject private var disclosure = StoryDisclosureState()
+    /// The measurement disclosure's key in the day's shared open set.
+    static let summaryKey = "summary"
 
     var body: some View {
-        let expandable = DayStory.expandableIDs(in: projection.chronology)
+        // "How this day was measured" opens with everything else; it is the
+        // first thing Expand all should not skip.
+        let expandable = (projection.summaryFacts.isEmpty ? [] : [Self.summaryKey])
+            + DayStory.expandableIDs(in: projection.chronology)
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
             if let note = projection.integrityNote { IntegrityNotice(note) }
             if !store.isTrackingEnabled, Calendar.current.isDateInToday(projection.date) {
@@ -149,7 +153,10 @@ struct ProjectedDayStoryColumn: View {
             StoryCorrectionNotice(store: store)
             if !projection.summaryFacts.isEmpty {
                 StoryDisclosure(title: "How this day was measured", isExpanded: Binding(
-                    get: { showSummary.value }, set: { showSummary.value = $0 })) {
+                    get: { disclosure.ids.contains(Self.summaryKey) },
+                    set: { open in
+                        if open { disclosure.ids.insert(Self.summaryKey) } else { disclosure.ids.remove(Self.summaryKey) }
+                    })) {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(Array(projection.summaryFacts.enumerated()), id: \.offset) { _, fact in
                             HStack(alignment: .firstTextBaseline, spacing: 8) {

@@ -253,8 +253,9 @@ struct ActivityRuleForm: View {
                 // The same category menu as the session strip, with Add and
                 // Edit category, so a rule can file work under a category
                 // made on the spot.
-                WorkTypePicker(selection: $editor.workType)
-                    .frame(width: 190)
+                // The app's own box, as the session strip draws it, not the
+                // platform's bezel: the same menu, Add and Edit category included.
+                WorkTypePicker(selection: $editor.workType, quiet: true)
                     .accessibilityLabel("Category")
             }
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {

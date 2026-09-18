@@ -108,17 +108,24 @@ struct DayStory: View {
 
     /// Every row that can be opened: each session, and each folded run of
     /// quiet rows. The same keys the rows themselves toggle.
+    /// Everything on the day that opens: session cards, loose app use, the
+    /// folded quiet runs, and the app use inside those runs, so Expand all
+    /// leaves nothing closed.
     static func expandableIDs(in entries: [StoryTimelineItem]) -> [String] {
-        entries.groupingQuietRuns().compactMap { row in
+        var ids: [String] = []
+        for row in entries.groupingQuietRuns() {
             switch row {
             case .item(let item):
-                if case .moment(.entry(.session)) = item { return item.id }
-                if case .moment(.appUse) = item { return item.id }
-                return nil
+                if case .moment(.entry(.session)) = item { ids.append(item.id) }
+                if case .moment(.appUse) = item { ids.append(item.id) }
             case .quiet(let run):
-                return "quiet-" + run.id
+                ids.append("quiet-" + run.id)
+                for moment in run.moments {
+                    if case .appUse = moment { ids.append(StoryTimelineItem.moment(moment).id) }
+                }
             }
         }
+        return ids
     }
 
     var body: some View {
