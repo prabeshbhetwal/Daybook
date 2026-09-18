@@ -68,6 +68,7 @@ enum InsightRange: String, CaseIterable {
     case day
     case week
     case month
+    case year
 }
 
 enum MainReadingWorkspace: String, CaseIterable {
@@ -197,6 +198,9 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     @Published var reviewSection: ReviewSection = .week
     /// The far end of a span picked on History's map, or nil for one day.
     @Published var historySelectedPeriod: Date?
+    /// Whether History's search field is open (⌘F). Results replace the
+    /// chart while a query or filter is active.
+    @Published var historySearchShown = false
     @Published var insightRange: InsightRange = .week
     @Published private var insightAnchors: [InsightRange: Date]
     @Published private var insightPageCounts: [InsightRange: Int]
@@ -231,7 +235,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             self.sheet = nil
             self.sessionControlsExpanded = true
         case .review:
-            self.workspace = .history
+            self.workspace = .insights
             self.sheet = nil
         case .insights:
             self.workspace = .insights
@@ -256,10 +260,13 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         animated(Tokens.Motion.swap) {
             switch tab {
             case .review:
-                workspace = .history
+                // History is the reading page across spans; the archive's
+                // days feed its Year span and its search.
+                workspace = .insights
                 sheet = nil
                 reviewSection = .history
                 store?.refreshReview()
+                store?.refreshInsights()
             case .insights:
                 workspace = .insights
                 sheet = nil
@@ -558,6 +565,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         case .day: component = .day
         case .week: component = .weekOfYear
         case .month: component = .month
+        case .year: component = .year
         }
         guard let candidate = calendar.date(byAdding: component, value: delta,
                                             to: insightAnchor) else { return }
@@ -613,6 +621,8 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             let first = formatter.string(from: start)
             formatter.dateFormat = "MMM yyyy"
             return "\(first) – \(formatter.string(from: insightAnchor))"
+        case .year:
+            return String(calendar.component(.year, from: insightAnchor))
         }
     }
 
@@ -631,7 +641,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     private func defaultInsightPageCount(for range: InsightRange) -> Int {
-        range == .day ? 14 : range == .week ? 6 : 3
+        switch range {
+        case .day: return 14
+        case .week: return 6
+        case .month: return 3
+        case .year: return 1
+        }
     }
 
     var insightAnchorLabel: String {
@@ -645,6 +660,8 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             formatter.locale = Locale(identifier: "en_AU")
             formatter.dateFormat = "MMMM yyyy"
             return formatter.string(from: insightAnchor)
+        case .year:
+            return String(calendar.component(.year, from: insightAnchor))
         case .week:
             guard let bounds = calendar.dateInterval(of: .weekOfYear, for: insightAnchor) else {
                 return Tokens.longDate(insightAnchor)

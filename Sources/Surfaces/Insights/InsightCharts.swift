@@ -21,6 +21,7 @@ struct InsightTrendChart: View {
         case .day: return "day"
         case .week: return "week"
         case .month: return "month"
+        case .year: return "year"
         }
     }
 
@@ -132,6 +133,9 @@ struct InsightTrendChart: View {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_AU")
         switch scope {
+        case .year:
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: period.start)
         case .month:
             formatter.dateFormat = "MMM"
             return formatter.string(from: period.start).uppercased()

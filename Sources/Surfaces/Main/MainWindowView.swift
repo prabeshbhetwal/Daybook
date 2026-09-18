@@ -103,16 +103,14 @@ struct MainWindowView: View {
             case .story:
             StoryCanvas(store: store, navigation: navigation, settings: settings,
                         scrolls: reviewScrolls)
-        case .history:
-            HistoryView(store: store, navigation: navigation, scrolls: reviewScrolls)
-            .onAppear {
-                store.setReviewVisible(true)
-                store.refreshReview()
-            }
-            .onDisappear { store.setReviewVisible(false) }
-            case .insights:
+            case .history, .insights:
                 InsightsView(store: store, navigation: navigation,
                              scrolls: insightsScrolls)
+                    .onAppear {
+                        store.setReviewVisible(true)
+                        store.refreshReview()
+                    }
+                    .onDisappear { store.setReviewVisible(navigation.storyScope.period != nil) }
             }
         }
         .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
@@ -126,7 +124,7 @@ struct MainWindowView: View {
                 case .focus:
                     FocusView(store: store, scrolls: focusScrolls)
                 case .history:
-                    HistoryView(store: store, navigation: navigation, scrolls: reviewScrolls)
+                    InsightsView(store: store, navigation: navigation, scrolls: insightsScrolls)
                     .onAppear {
                         store.setReviewVisible(true)
                         store.refreshReview()

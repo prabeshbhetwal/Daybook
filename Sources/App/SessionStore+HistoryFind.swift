@@ -139,6 +139,13 @@ extension SessionStore {
             focusByDay[key] = day.focused
             trackedByDay[key] = day.tracked
         }
+        if historyDays.isEmpty {
+            // Before the review index exists, the archive's own records still
+            // say which days held focus.
+            for record in engine.archive.records where record.workType.countsAsFocus && record.workSeconds > 0 {
+                focusByDay[calendar.startOfDay(for: record.start), default: 0] += record.workSeconds
+            }
+        }
         let sessionCount = Set(engine.archive.records.filter { $0.workType.countsAsFocus }.map(\.threadID)).count
         let focused = focusByDay.values.reduce(0, +)
 

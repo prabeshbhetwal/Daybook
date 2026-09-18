@@ -169,8 +169,8 @@ enum StoryWorkspaceChecks {
                     failures.append("\(scope.rawValue) pages were not newest first")
                 }
             }
-            if Set(InsightRange.allCases) != Set([.day, .week, .month]) {
-                failures.append("Insights did not expose Day, Week and Month")
+            if Set(InsightRange.allCases) != Set([.day, .week, .month, .year]) {
+                failures.append("History did not expose Day, Week, Month and Year")
             }
             return failures
         }
@@ -352,14 +352,15 @@ enum StoryWorkspaceChecks {
             requireEvidence("Month inline child", monthOpen, includes: [.periodChild, .dayStory])
 
             navigation.open(tab: .review)
+            navigation.selectInsightRange(.year)
             navigation.clearReviewDay()
             let historyClosed = renderFrame(
-                HistoryView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
+                InsightsView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
             requireEvidence("Closed History detail", historyClosed, includes: [],
                             excludes: [.historyDetail])
             if let day = dense.filteredHistoryDays.first?.date { navigation.selectReviewDay(day) }
             let historyOpen = renderFrame(
-                HistoryView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
+                InsightsView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
             requireContent("History day preview", historyOpen)
             // The picked day previews in the rail; its full story is one
             // action away, not unfolded inside the list.

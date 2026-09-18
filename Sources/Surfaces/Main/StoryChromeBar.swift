@@ -128,21 +128,18 @@ struct StoryChromeBar: View {
             periodNavigation
             Spacer(minLength: Tokens.Space.s)
             crossLinks
-        case .history:
-            // History owns its search; the bar keeps the way back and the
-            // links. The scope belongs to the Story and to Insights, which
-            // read a period; History finds one.
-            Spacer(minLength: Tokens.Space.s)
-            crossLinks
-        case .insights:
+        case .history, .insights:
+            // History reads any span of the past, a year included, and
+            // finds a session with ⌘F; the same bar either way.
             ScopePillRow(titles: InsightRange.allCases.map(\.title),
                          selectedIndex: Binding(
                             get: { InsightRange.allCases.firstIndex(of: navigation.insightRange) ?? 0 },
                             set: { navigation.selectInsightRange(InsightRange.allCases[$0]) }),
-                         controlLabel: "Insights range")
+                         controlLabel: "History range")
             Spacer(minLength: Tokens.Space.s)
             insightNavigation
             Spacer(minLength: Tokens.Space.s)
+            searchButton
             crossLinks
         }
     }
@@ -154,9 +151,18 @@ struct StoryChromeBar: View {
     /// the text colour and is not a link, the way a menu marks its own item.
     private var crossLinks: some View {
         HStack(spacing: Tokens.Space.xs) {
-            crossLink("History", .history, current: navigation.workspace == .history)
-            crossLink("Insights", .insights, current: navigation.workspace == .insights)
+            crossLink("History", .history, current: navigation.workspace != .story)
         }
+    }
+
+    /// Find a session by name, note, app, category or date. ⌘F anywhere in
+    /// History opens the field; the button is the same for the pointer.
+    private var searchButton: some View {
+        IconButton(systemImage: "magnifyingglass", help: "Find a session (⌘F)") {
+            navigation.historySearchShown.toggle()
+        }
+        .keyboardShortcut("f", modifiers: .command)
+        .accessibilityLabel(navigation.historySearchShown ? "Hide search" : "Find a session")
     }
 
     @ViewBuilder private func crossLink(_ title: String, _ sheet: StorySheetKind,

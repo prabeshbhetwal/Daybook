@@ -64,7 +64,7 @@ struct ReviewView: View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
             header
             if navigation.reviewSection == .history {
-                HistoryView(store: store, navigation: navigation)
+                InsightsView(store: store, navigation: navigation)
             } else {
                 periodContent
             }

@@ -22,6 +22,7 @@ struct HistoryPeriodGroup: Identifiable {
         let calendar = Calendar.current
         switch scope {
         case .day: return Tokens.longDate(start)
+        case .year: return String(calendar.component(.year, from: start))
         case .week:
             let last = calendar.date(byAdding: .day, value: -1, to: end) ?? start
             return Tokens.dateRange(start, last)
@@ -51,7 +52,7 @@ struct HistoryPeriodGroup: Identifiable {
 
     static func group(_ days: [HistoryDay], scope: InsightRange,
                       calendar: Calendar = .current) -> [HistoryPeriodGroup] {
-        let component: Calendar.Component = scope == .week ? .weekOfYear : .month
+        let component: Calendar.Component = scope == .week ? .weekOfYear : scope == .year ? .year : .month
         var groups: [HistoryPeriodGroup] = []
         var current: [HistoryDay] = []
         var bounds: DateInterval?
