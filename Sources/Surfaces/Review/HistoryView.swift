@@ -400,25 +400,27 @@ struct HistoryView: View {
 
     /// Days under the month they fall in, newest first. Each month states its
     /// own total, so a long list still has landmarks.
-    private func dayList(_ days: [HistoryDay]) -> some View {
+    @ViewBuilder private func dayList(_ days: [HistoryDay]) -> some View {
+        if navigation.historyScope == .day {
+            dayRows(days)
+        } else {
+            periodRows(days)
+        }
+    }
+
+    /// One row per day, newest first, under the month it falls in.
+    private func dayRows(_ days: [HistoryDay]) -> some View {
         let months = HistoryMonthGroup.group(days)
         return LazyVStack(alignment: .leading, spacing: Tokens.Space.l, pinnedViews: []) {
             HistoryStripAxis()
             ForEach(months) { month in
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(month.title)
-                            .font(Tokens.Typography.metadata.weight(.bold))
-                            .foregroundStyle(.secondary)
-                        Spacer(minLength: Tokens.Space.m)
-                        Text("\(Tokens.duration(month.focused)) focused")
-                            .font(Tokens.Typography.metadata.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.horizontal, Tokens.Space.s)
-                    .padding(.bottom, Tokens.Space.xs)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityAddTraits(.isHeader)
+                    Text(month.title)
+                        .font(Tokens.Typography.metadata.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, Tokens.Space.s)
+                        .padding(.bottom, Tokens.Space.xs)
+                        .accessibilityAddTraits(.isHeader)
                     ForEach(month.days) { day in
                         HistoryDayRow(day: day,
                                       projection: store.storyDayProjection(on: day.date),
@@ -440,6 +442,28 @@ struct HistoryView: View {
             }
         }
         .onMoveCommand { direction in moveSelection(direction, in: days) }
+    }
+
+    /// One row per week or month, newest first, each day a small bar on one
+    /// shared scale.
+    private func periodRows(_ days: [HistoryDay]) -> some View {
+        let periods = HistoryPeriodGroup.group(days, scope: navigation.historyScope)
+        let peak = days.map(\.focused).max() ?? 0
+        return LazyVStack(alignment: .leading, spacing: 2) {
+            ForEach(periods) { period in
+                HistoryPeriodRow(period: period, peak: peak,
+                                 isSelected: navigation.historySelectedPeriod == period.start) {
+                    withAnimation(Tokens.Motion.animation(Tokens.Motion.selection,
+                                                          reduceMotion: reduceMotion)) {
+                        navigation.historySelectedPeriod =
+                            navigation.historySelectedPeriod == period.start ? nil : period.start
+                    }
+                } onOpen: {
+                    navigation.openStory(navigation.historyScope == .week ? .week : .month,
+                                         containing: period.start)
+                }
+            }
+        }
     }
 
     /// Up and down walk the picked day through the list, as a native list does.
@@ -568,9 +592,22 @@ struct HistoryView: View {
         return store.storyDayProjection(on: date)
     }
 
+    private var selectedPeriod: HistoryPeriodGroup? {
+        guard navigation.historyScope != .day, let start = navigation.historySelectedPeriod else { return nil }
+        return HistoryPeriodGroup.group(store.filteredHistoryDays, scope: navigation.historyScope)
+            .first { $0.start == start }
+    }
+
     private var rail: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            if let projection = selectedDayProjection {
+            if let period = selectedPeriod {
+                HistoryPeriodPreview(store: store, period: period) {
+                    navigation.openStory(navigation.historyScope == .week ? .week : .month,
+                                         containing: period.start)
+                }
+                .id(period.id)
+                .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
+            } else if navigation.historyScope == .day, let projection = selectedDayProjection {
                 HistoryDayPreview(store: store, projection: projection) {
                     navigation.openStory(.day, containing: projection.date)
                 }
@@ -579,9 +616,11 @@ struct HistoryView: View {
                 .storyRenderEvidence(.historyDetail)
                 .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
             } else if !store.filteredHistoryDays.isEmpty {
-                StoryTile(title: "Pick a day", trailing: nil) {
-                    Text("Select a day to see its sessions, apps and notes here. "
-                         + "Double-click one to open it as a story.")
+                let unit = navigation.historyScope.title.lowercased()
+                StoryTile(title: "Pick a \(unit)", trailing: nil) {
+                    Text(navigation.historyScope == .day
+                         ? "Select a day to see its sessions, apps and notes here. Double-click one to open it as a story."
+                         : "Select a \(unit) to see its days and apps here. Double-click one to open it as a story.")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -516,11 +516,11 @@ enum CompactControlsChecks {
             }
 
             // The component having one target is not enough: the real chrome
-            // must actually use it. Story and Insights each show a scope row,
-            // and History shows none.
+            // must actually use it. Story, Insights and History each show one
+            // scope row, never two.
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             defer { FixtureFactory.cleanUp() }
-            for (tab, expected) in [(AppTab.story, 1), (.insights, 1), (.review, 0)] {
+            for (tab, expected) in [(AppTab.story, 1), (.insights, 1), (.review, 1)] {
                 let navigation = MainWindowModel(store: store)
                 navigation.open(tab: tab)
                 let host = NSHostingView(rootView: StoryChromeBar(store: store,

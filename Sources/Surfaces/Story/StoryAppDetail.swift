@@ -138,14 +138,20 @@ struct StoryLooseAppUse: View {
     @ObservedObject var store: SessionStore
     let span: DateInterval
     let seconds: TimeInterval
+    /// The day's shared open set drives this row, so Expand all reaches it;
+    /// a row shown on its own keeps a flag of its own.
+    var isOpen: Bool? = nil
+    var onToggle: (() -> Void)? = nil
     @StateObject private var expanded = BoolBox()
     @Environment(\.focusInterfaceDensity) private var density
+
+    private var open: Bool { isOpen ?? expanded.value }
 
     private var power: PowerContextSummary? { store.ambientPowerSummary(within: span) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button { expanded.value.toggle() } label: {
+            Button { if let onToggle { onToggle() } else { expanded.value.toggle() } } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("App use outside a session").font(Tokens.Typography.metadata.weight(.medium))
@@ -162,13 +168,13 @@ struct StoryLooseAppUse: View {
                     Spacer(minLength: 8)
                     Text(Tokens.preciseDuration(seconds))
                         .font(Tokens.Typography.metadata.monospacedDigit())
-                    Image(systemName: expanded.value ? "chevron.down" : "chevron.right")
+                    Image(systemName: open ? "chevron.down" : "chevron.right")
                         .font(Tokens.Typography.microLabel).foregroundStyle(.secondary)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(StoryPressStyle())
-            if expanded.value {
+            if open {
                 ForEach(Array(store.appRanks(within: [span]).enumerated()), id: \.element.id) { index, app in
                     StoryAppRow(app: app, rank: store.storyAppColourIndices[app.bundleID] ?? index)
                 }

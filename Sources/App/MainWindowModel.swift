@@ -195,6 +195,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     @Published private(set) var sessionControlsExpanded = false
     @Published private(set) var focusRestorationRequest: MainWindowFocusTarget?
     @Published var reviewSection: ReviewSection = .week
+    /// What a History row stands for: a day, a week or a month.
+    @Published var historyScope: InsightRange = .day {
+        didSet { if historyScope != oldValue { historySelectedPeriod = nil } }
+    }
+    /// The week or month picked in History, by its first day.
+    @Published var historySelectedPeriod: Date?
     @Published var insightRange: InsightRange = .week
     @Published private var insightAnchors: [InsightRange: Date]
     @Published private var insightPageCounts: [InsightRange: Int]
@@ -561,6 +567,57 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
                                             to: insightAnchor) else { return }
         insightAnchors[insightRange] = min(
             calendar.startOfDay(for: store?.now() ?? Date()), candidate)
+    }
+
+    /// How many periods the Insights column can show at its current width.
+    /// The view measures and reports it; paging moves by it.
+    @Published private var insightVisibleCounts: [InsightRange: Int] = [:]
+
+    var insightVisibleCount: Int {
+        insightVisibleCounts[insightRange] ?? defaultInsightPageCount(for: insightRange)
+    }
+
+    func setInsightVisibleCount(_ count: Int, for range: InsightRange) {
+        let clamped = max(1, count)
+        guard insightVisibleCounts[range] != clamped else { return }
+        insightVisibleCounts[range] = clamped
+    }
+
+    /// One page of periods at a time: as many as fit, not one at a time.
+    func pageInsights(by delta: Int) {
+        stepInsightPeriod(by: delta * insightVisibleCount)
+    }
+
+    var insightCanPageForward: Bool {
+        !Calendar.current.isDate(insightAnchor, inSameDayAs: store?.now() ?? Date())
+    }
+
+    /// The window the column shows: "4 – 17 Sep", "Jul – Sep 2026".
+    var insightWindowLabel: String {
+        let calendar = Calendar.current
+        let now = store?.now() ?? Date()
+        let count = insightVisibleCount
+        switch insightRange {
+        case .day:
+            guard count > 1, let start = calendar.date(byAdding: .day, value: -(count - 1), to: insightAnchor)
+            else { return Tokens.dayLabel(insightAnchor) }
+            return Tokens.dateRange(start, insightAnchor, now: now, calendar: calendar)
+        case .week:
+            guard let bounds = calendar.dateInterval(of: .weekOfYear, for: insightAnchor),
+                  let start = calendar.date(byAdding: .weekOfYear, value: -(count - 1), to: bounds.start)
+            else { return Tokens.longDate(insightAnchor) }
+            let end = calendar.date(byAdding: .day, value: -1, to: bounds.end) ?? bounds.start
+            return Tokens.dateRange(start, end, now: now, calendar: calendar)
+        case .month:
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_AU")
+            guard count > 1, let start = calendar.date(byAdding: .month, value: -(count - 1), to: insightAnchor)
+            else { formatter.dateFormat = "MMMM yyyy"; return formatter.string(from: insightAnchor) }
+            formatter.dateFormat = "MMM"
+            let first = formatter.string(from: start)
+            formatter.dateFormat = "MMM yyyy"
+            return "\(first) – \(formatter.string(from: insightAnchor))"
+        }
     }
 
     func showEarlierInsights() {

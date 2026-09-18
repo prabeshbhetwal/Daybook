@@ -129,8 +129,14 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .history:
-            // The range sits where the Story keeps its period and opens the
-            // same calendar; search and the filters stay in the page.
+            // The same three spans as the Story, choosing what a row is; the
+            // range sits where the Story keeps its period and opens the same
+            // calendar. Search and the filters stay in the page.
+            ScopePillRow(titles: InsightRange.allCases.map(\.title),
+                         selectedIndex: Binding(
+                            get: { InsightRange.allCases.firstIndex(of: navigation.historyScope) ?? 0 },
+                            set: { navigation.historyScope = InsightRange.allCases[$0] }),
+                         controlLabel: "History rows")
             Spacer(minLength: Tokens.Space.s)
             HistoryChromeRange(store: store)
             Spacer(minLength: Tokens.Space.s)
@@ -180,19 +186,18 @@ struct StoryChromeBar: View {
 
     private var insightNavigation: some View {
         HStack(spacing: Tokens.Space.s) {
-            IconButton(systemImage: "chevron.left", help: "Earlier Insights period") {
-                navigation.stepInsightPeriod(by: -1)
+            IconButton(systemImage: "chevron.left", help: "Earlier Insights") {
+                navigation.pageInsights(by: -1)
             }
-            Text(navigation.insightAnchorLabel)
+            Text(navigation.insightWindowLabel)
                 .font(Tokens.Typography.rowTitle)
                 .lineLimit(1)
                 .frame(minWidth: Self.periodLabelWidth)
-                .accessibilityLabel("Insights anchored at \(navigation.insightAnchorLabel)")
-            IconButton(systemImage: "chevron.right", help: "Later Insights period") {
-                navigation.stepInsightPeriod(by: 1)
+                .accessibilityLabel("Insights showing \(navigation.insightWindowLabel)")
+            IconButton(systemImage: "chevron.right", help: "Later Insights") {
+                navigation.pageInsights(by: 1)
             }
-            .disabled(Calendar.current.isDate(navigation.insightAnchor,
-                                              inSameDayAs: store.now()))
+            .disabled(!navigation.insightCanPageForward)
         }
     }
 

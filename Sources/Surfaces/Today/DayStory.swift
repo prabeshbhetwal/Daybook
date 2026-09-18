@@ -113,6 +113,7 @@ struct DayStory: View {
             switch row {
             case .item(let item):
                 if case .moment(.entry(.session)) = item { return item.id }
+                if case .moment(.appUse) = item { return item.id }
                 return nil
             case .quiet(let run):
                 return "quiet-" + run.id
@@ -219,7 +220,9 @@ struct DayStory: View {
                 case .appUse(let span, let seconds):
                     storyRow(time: span.start, tint: Tokens.Palette.app(rank: 1), dotSize: 7,
                              isFirst: isFirst, isLast: isLast) {
-                        StoryLooseAppUse(store: store, span: span, seconds: seconds)
+                        StoryLooseAppUse(store: store, span: span, seconds: seconds,
+                                         isOpen: opened.ids.contains(item.id),
+                                         onToggle: { toggle(item.id) })
                     }
                 }
         case .pending(let range):

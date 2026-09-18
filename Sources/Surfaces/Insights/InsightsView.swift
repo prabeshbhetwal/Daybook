@@ -17,11 +17,22 @@ struct InsightsView: View {
         store.insightSurface(for: navigation.insightRange)
     }
 
-    /// Newest first, as the store lists them.
+    /// Newest first, as the store lists them: as many as the column can show.
     private var periods: [StoryPeriodProjection] {
         store.insightPeriodProjections(scope: navigation.insightRange,
                                        anchoredAt: navigation.insightAnchor,
-                                       limit: navigation.insightPageCount)
+                                       limit: navigation.insightVisibleCount)
+    }
+
+    /// How many periods a column this wide can draw legibly. The chrome pages
+    /// by this count, so the chart never grows past its measure.
+    static func visibleCount(for width: CGFloat, scope: InsightRange) -> Int {
+        let measure = max(0, width - StoryStyle.columnInsets.leading - StoryStyle.columnInsets.trailing)
+        switch scope {
+        case .day: return min(42, max(7, Int(measure / 50)))
+        case .week: return min(14, max(4, Int(measure / 80)))
+        case .month: return min(4, max(2, Int(measure / 250)))
+        }
     }
 
     var body: some View {
@@ -31,6 +42,14 @@ struct InsightsView: View {
             pane { column(listed, facts) }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .background(StoryStyle.canvas)
+                .background(GeometryReader { geometry in
+                    Color.clear.preference(key: InsightWidthKey.self, value: geometry.size.width)
+                })
+                .onPreferenceChange(InsightWidthKey.self) { width in
+                    for scope in InsightRange.allCases {
+                        navigation.setInsightVisibleCount(Self.visibleCount(for: width, scope: scope), for: scope)
+                    }
+                }
             Divider()
             pane { rail(listed, facts) }
                 .frame(width: StoryLayout.railWidth)
@@ -73,16 +92,12 @@ struct InsightsView: View {
                     InsightMonthCalendars(periods: listed.reversed(),
                                           goal: store.goal.goal,
                                           selectedID: selection.id,
-                                          canShowEarlier: navigation.insightCanShowEarlier,
-                                          onShowEarlier: { navigation.showEarlierInsights() },
                                           onPick: pick)
                         .storyRenderEvidence(.insightPeriod)
                 } else {
                     InsightTrendChart(periods: listed.reversed(),
                                       scope: navigation.insightRange,
                                       selectedID: selection.id,
-                                      canShowEarlier: navigation.insightCanShowEarlier,
-                                      onShowEarlier: { navigation.showEarlierInsights() },
                                       onPick: pick)
                         .storyRenderEvidence(.insightPeriod)
                 }
@@ -99,7 +114,12 @@ struct InsightsView: View {
                             .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
                     }
                 }
-                if facts.gridPeak > 0 {
+                // A day already has a shape: the strip the story and History
+                // draw. Rows of those read as a stack of days; the hour grid
+                // is for the spans that sum many days into one row.
+                if navigation.insightRange == .day {
+                    InsightDayStrips(periods: listed)
+                } else if facts.gridPeak > 0 {
                     InsightHourGrid(facts: facts)
                 }
                 if !facts.categories.isEmpty {
@@ -109,7 +129,7 @@ struct InsightsView: View {
         }
         .padding(StoryStyle.columnInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .id("\(navigation.insightRange)-\(navigation.insightAnchorLabel)")
+        .id("\(navigation.insightRange)-\(navigation.insightAnchorLabel)-\(navigation.insightVisibleCount)")
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: selection.id)
         .animation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion),
@@ -493,6 +513,11 @@ struct InsightPeriodStory: View {
             + (day.apps.count > 3 ? " +\(day.apps.count - 3)" : "")
         return [typeText, appText].compactMap { $0 }.joined(separator: " · ")
     }
+}
+
+private struct InsightWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 extension InsightRange {

@@ -8,8 +8,6 @@ struct InsightTrendChart: View {
     let periods: [StoryPeriodProjection]
     let scope: InsightRange
     let selectedID: String?
-    let canShowEarlier: Bool
-    let onShowEarlier: () -> Void
     let onPick: (StoryPeriodProjection) -> Void
     @StateObject private var hovered = HoverBox()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -31,16 +29,9 @@ struct InsightTrendChart: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Focus by \(unit)")
-                    .font(Tokens.Typography.metadata.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: Tokens.Space.m)
-                if canShowEarlier {
-                    Button("Show earlier \(unit)s", action: onShowEarlier)
-                        .buttonStyle(StoryLinkStyle())
-                }
-            }
+            Text("Focus by \(unit)")
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .foregroundStyle(.secondary)
             HStack(alignment: .bottom, spacing: periods.count > 20 ? 3 : Tokens.Space.s) {
                 ForEach(Array(periods.enumerated()), id: \.element.id) { index, period in
                     column(for: period, index: index)
@@ -284,8 +275,6 @@ struct InsightMonthCalendars: View {
     let periods: [StoryPeriodProjection]
     let goal: TimeInterval
     let selectedID: String?
-    let canShowEarlier: Bool
-    let onShowEarlier: () -> Void
     let onPick: (StoryPeriodProjection) -> Void
     @StateObject private var hovered = HoverBox()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -294,16 +283,9 @@ struct InsightMonthCalendars: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Focus by month")
-                    .font(Tokens.Typography.metadata.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: Tokens.Space.m)
-                if canShowEarlier {
-                    Button("Show earlier months", action: onShowEarlier)
-                        .buttonStyle(StoryLinkStyle())
-                }
-            }
+            Text("Focus by month")
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .foregroundStyle(.secondary)
             HStack(alignment: .top, spacing: Tokens.Space.l) {
                 ForEach(periods) { period in month(period) }
             }
@@ -428,5 +410,89 @@ struct InsightMonthCalendars: View {
         let reference = goal > 0 ? goal
             : max(periods.flatMap(\.days).map(\.focused).max() ?? 1, 1)
         return 0.22 + 0.78 * min(1, day.focused / reference)
+    }
+}
+
+/// Days as the strips the story and History already draw: one row per day,
+/// newest at the top, sessions in their category's colour on a shared clock.
+/// Weeks are separated by a breath of space, so a fortnight reads as two rows
+/// of a calendar rather than fourteen lines.
+struct InsightDayStrips: View {
+    /// Newest first.
+    let periods: [StoryPeriodProjection]
+    @StateObject private var hovered = HoverBox()
+    private let calendar = Calendar.current
+    private let labelWidth: CGFloat = 46
+
+    private var days: [StoryDayProjection] { periods.compactMap { $0.days.first } }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            Text("When you focus")
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .foregroundStyle(.secondary)
+            HistoryStripAxis(leading: labelWidth + Tokens.Space.s, trailing: 0)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
+                    if index > 0, calendar.component(.weekday, from: day.date) == lastWeekday {
+                        Color.clear.frame(height: Tokens.Space.s)
+                    }
+                    row(day)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            Text(caption)
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The last day of the week in the calendar's order, where a gap goes.
+    private var lastWeekday: Int { (calendar.firstWeekday + 5) % 7 + 1 }
+
+    private func row(_ day: StoryDayProjection) -> some View {
+        let isHovered = hovered.id == day.id
+        let isWeekend = calendar.isDateInWeekend(day.date)
+        return HStack(spacing: Tokens.Space.s) {
+            Text(dayLabel(day.date))
+                .font(Tokens.Typography.microLabel)
+                .foregroundStyle(isHovered ? AnyShapeStyle(Tokens.Colour.focus)
+                                 : isWeekend ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                .lineLimit(1)
+                .frame(width: labelWidth, alignment: .leading)
+            HistoryDayStrip(date: day.date, entries: day.sessions, height: 10)
+            Text(day.focused > 0 ? Tokens.duration(day.focused) : "")
+                .font(Tokens.Typography.microValue.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 44, alignment: .trailing)
+        }
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if inside { hovered.id = day.id } else if hovered.id == day.id { hovered.id = nil }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken(day))
+    }
+
+    private func dayLabel(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_AU")
+        formatter.dateFormat = "EEE d"
+        return formatter.string(from: date).uppercased()
+    }
+
+    private var caption: String {
+        if let day = days.first(where: { $0.id == hovered.id }) { return spoken(day) }
+        return "Each row is a day; each mark is a session, in its category's colour. Grey marks are recorded breaks."
+    }
+
+    private func spoken(_ day: StoryDayProjection) -> String {
+        guard day.focused > 0 || day.tracked > 0 else { return "\(Tokens.longDate(day.date)): nothing recorded." }
+        var parts = [day.focused > 0 ? "\(Tokens.preciseDuration(day.focused)) focused" : "no logged focus"]
+        let count = day.focusSessionCount
+        if count > 0 { parts.append(count == 1 ? "1 session" : "\(count) sessions") }
+        if day.tracked > 0 { parts.append("\(Tokens.duration(day.tracked)) recorded app use") }
+        return "\(Tokens.longDate(day.date)): " + parts.joined(separator: ", ") + "."
     }
 }
