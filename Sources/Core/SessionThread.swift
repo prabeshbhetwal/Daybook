@@ -47,13 +47,16 @@ struct ThreadStats {
     private let overrides: [String: String]
     private let calendar: Calendar
     private let now: () -> Date
+    private let continueWindow: TimeInterval
 
     init(sessions: SessionArchive,
          usage: AppUsageArchive? = nil,
          usageSnapshot: AppUsageSnapshot? = nil,
          purposeOverrides: [String: String] = [:],
          calendar: Calendar = .current,
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         continueWindow: TimeInterval = FocusConstants.continueWindow) {
+        self.continueWindow = continueWindow
         self.sessions = sessions
         self.usage = usage
         self.usageSnapshot = usageSnapshot
@@ -79,7 +82,7 @@ struct ThreadStats {
         // that *overlaps* the day, so just after midnight it offered a session
         // begun the previous evening — and by the following afternoon it was
         // still offering it.
-        let cutoff = now().addingTimeInterval(-FocusConstants.continueWindow)
+        let cutoff = now().addingTimeInterval(-continueWindow)
 
         // Rest is not resumable: a break record stays on the timeline and in
         // the log, but offering to "continue" it would start the Break session

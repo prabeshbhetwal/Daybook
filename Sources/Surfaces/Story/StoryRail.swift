@@ -510,7 +510,7 @@ struct StoryRail: View {
             .accessibilityLabel("\(store.streak) day streak")
             HStack(spacing: Tokens.Space.xs) {
                 Text("Last 14 days. At least "
-                     + "\(Tokens.preciseDuration(FocusConstants.streakMinimum)) of focus.")
+                     + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                 Button("Awards") { navigation.openSheet(.awards) }

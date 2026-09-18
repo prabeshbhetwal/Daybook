@@ -332,7 +332,8 @@ struct DayStory: View {
                                  removeBlockReason: store.removalBlockReason(for: session),
                                  pauseTitle: live.pauseTitle,
                                  onPause: live.canControl ? { store.togglePause() } : nil,
-                                 onEnd: live.canControl ? { store.stop() } : nil)
+                                 onEnd: live.canControl ? { store.stop() } : nil,
+                                 minimumRecorded: store.engine.store.minimumRecordedSession)
             }
         case .rest(let rest):
             storyRow(time: rest.start,
@@ -457,6 +458,8 @@ struct SessionEntryCard: View {
     var pauseTitle = "Pause"
     var onPause: (() -> Void)?
     var onEnd: (() -> Void)?
+    /// The shortest stretch the archive keeps, for the Stop button's help.
+    var minimumRecorded: TimeInterval = FocusConstants.minimumRecordedSession
     /// Renaming happens in the card, in place, rather than in a sheet.
     @StateObject private var editing = BoolBox()
     @StateObject private var draft = TextBox()
@@ -741,7 +744,7 @@ struct SessionEntryCard: View {
                         if let onEnd {
                             actionButton("Stop", action: onEnd)
                                 .help("Ends this session and records it. A stretch under "
-                                      + "\(Int(FocusConstants.minimumRecordedSession)) seconds is not kept.")
+                                      + "\(Int(minimumRecorded)) seconds is not kept.")
                         }
                     }
                 }

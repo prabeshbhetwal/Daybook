@@ -606,6 +606,8 @@ final class SessionStore: ObservableObject {
          idle: IdleMonitor = IdleMonitor()) {
         self.idle = idle
         self.engine = engine
+        self.workType = engine.store.defaultWorkType
+        engine.archive.streakMinimum = engine.store.streakMinimum
         self.metadataArchive = metadataArchive
             ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
         self.ambientPower = ambientPower

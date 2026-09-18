@@ -52,7 +52,7 @@ extension SessionStore {
                 return nil
             }
             let focused = engine.archive.workSeconds(on: day)
-            return (day, focused >= FocusConstants.streakMinimum)
+            return (day, focused >= engine.store.streakMinimum)
         }
     }
 }

@@ -159,7 +159,7 @@ extension SessionStore {
 
         var longest = 0, run = 0
         var previous: Date?
-        for day in focusByDay.keys.sorted() where (focusByDay[day] ?? 0) >= FocusConstants.streakMinimum {
+        for day in focusByDay.keys.sorted() where (focusByDay[day] ?? 0) >= engine.store.streakMinimum {
             if let previous, let next = calendar.date(byAdding: .day, value: 1, to: previous),
                calendar.isDate(next, inSameDayAs: day) {
                 run += 1

@@ -7113,11 +7113,12 @@ enum SelfTest {
             .opensOn, .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,
             .reminders, .activityRuleAutomation, .activityRules,
             .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
-            .usageRecording, .appearance, .density, .timelineLabels, .entryDetails
+            .usageRecording, .appearance, .density, .timelineLabels, .entryDetails,
+            .idlePause, .streakMinimum, .minimumSession, .continueWindow, .defaultCategory
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,
-               "Settings lists exactly the eighteen backed mutable controls", &problems)
+               "Settings lists exactly the twenty-three backed mutable controls", &problems)
         expect(listedControls.count == expectedControls.count,
                "no backed mutable control appears in more than one group", &problems)
         expect(Set(listedControls.map(\.modelKeyPath)).count == expectedControls.count,

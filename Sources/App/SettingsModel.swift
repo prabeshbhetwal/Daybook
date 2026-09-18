@@ -23,6 +23,11 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case density
     case timelineLabels
     case entryDetails
+    case idlePause
+    case streakMinimum
+    case minimumSession
+    case continueWindow
+    case defaultCategory
 
     var modelKeyPath: PartialKeyPath<SettingsModel> {
         switch self {
@@ -44,6 +49,11 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .density: return \SettingsModel.interfaceDensity
         case .timelineLabels: return \SettingsModel.showsTimelineLabels
         case .entryDetails: return \SettingsModel.expandsEntryDetails
+        case .idlePause: return \SettingsModel.idlePauseThreshold
+        case .streakMinimum: return \SettingsModel.streakMinimum
+        case .minimumSession: return \SettingsModel.minimumRecordedSession
+        case .continueWindow: return \SettingsModel.continueWindow
+        case .defaultCategory: return \SettingsModel.defaultWorkType
         }
     }
 }
@@ -273,11 +283,19 @@ final class SettingsModel: ObservableObject {
     }
 
     /// A made category leaves every picker but keeps describing its records.
+    /// Retires or restores any category but Break. The last startable
+    /// category cannot go: a session has to be filed somewhere.
     func setCategoryRetired(id: String, _ retired: Bool) {
-        guard WorkType(rawValue: id).isBuiltIn == false else { return }
+        let type = WorkType(rawValue: id)
+        guard type != .breakTime else { return }
+        if retired, WorkType.startable.filter({ $0 != type }).isEmpty { return }
         var definitions = workTypeDefinitions
-        guard let index = definitions.firstIndex(where: { $0.id == id }) else { return }
-        definitions[index].isRetired = retired
+        if let index = definitions.firstIndex(where: { $0.id == id }) {
+            definitions[index].isRetired = retired
+        } else if var base = WorkTypeCatalog.builtInDefinitions.first(where: { $0.id == id }) {
+            base.isRetired = retired
+            definitions.append(base)
+        } else { return }
         workTypeDefinitions = definitions
     }
 
@@ -336,6 +354,31 @@ final class SettingsModel: ObservableObject {
     var breakLength: TimeInterval {
         get { store.breakLength }
         set { write { store.breakLength = newValue } }
+    }
+
+    var idlePauseThreshold: TimeInterval {
+        get { store.idlePauseThreshold }
+        set { write { store.idlePauseThreshold = newValue } }
+    }
+
+    var streakMinimum: TimeInterval {
+        get { store.streakMinimum }
+        set { write { store.streakMinimum = newValue } }
+    }
+
+    var minimumRecordedSession: TimeInterval {
+        get { store.minimumRecordedSession }
+        set { write { store.minimumRecordedSession = newValue } }
+    }
+
+    var continueWindow: TimeInterval {
+        get { store.continueWindow }
+        set { write { store.continueWindow = newValue } }
+    }
+
+    var defaultWorkType: WorkType {
+        get { store.defaultWorkType }
+        set { write { store.defaultWorkType = newValue } }
     }
 
     var defaultAppTab: AppTab {

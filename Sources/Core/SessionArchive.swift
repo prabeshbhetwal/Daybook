@@ -437,10 +437,14 @@ final class SessionArchive {
     /// - Parameter inFlight: seconds banked by a session that is still running.
     ///   Counted toward today, so the streak does not read 0 while you are working —
     ///   which is demoralising at exactly the moment the number exists to motivate.
+    /// What a day must reach to join the streak. Set from the preference;
+    /// the shipped default until then.
+    var streakMinimum: TimeInterval = FocusConstants.streakMinimum
+
     func currentStreak(includingToday inFlight: TimeInterval = 0) -> Int {
         let totals = dailyTotals()
         let today = calendar.startOfDay(for: now())
-        let qualifies = (totals[today] ?? 0) + max(0, inFlight) >= FocusConstants.streakMinimum
+        let qualifies = (totals[today] ?? 0) + max(0, inFlight) >= streakMinimum
         if let cached = cachedCurrentStreak, cached.day == today, cached.qualifiesToday == qualifies {
             return cached.count
         }
@@ -453,7 +457,7 @@ final class SessionArchive {
         }
 
         var streak = 0
-        while cursor == today ? qualifies : (totals[cursor] ?? 0) >= FocusConstants.streakMinimum {
+        while cursor == today ? qualifies : (totals[cursor] ?? 0) >= streakMinimum {
             streak += 1
             guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
             cursor = previous
@@ -472,7 +476,7 @@ final class SessionArchive {
         // test in another time zone was silently bucketing by the host's days.
         let totals = dailyTotals()
         let qualifying = totals
-            .filter { $0.value >= FocusConstants.streakMinimum }
+            .filter { $0.value >= streakMinimum }
             .keys
             .sorted()
         var best = 0

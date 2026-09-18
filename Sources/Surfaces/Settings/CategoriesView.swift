@@ -324,24 +324,30 @@ struct CategoryEditorForm: View {
                     .keyboardShortcut(.cancelAction)
                 Spacer(minLength: Tokens.Space.s)
                 if let definition = selectedDefinition {
-                    if definition.workType.isBuiltIn {
-                        if model.workTypeDefinitions.contains(where: { $0.id == definition.id }) {
-                            Button("Reset to default") {
-                                model.resetCategory(id: definition.id)
-                                editor.edit(catalog.definition(for: definition.workType))
-                            }
+                    if definition.workType.isBuiltIn,
+                       model.workTypeDefinitions.contains(where: { $0.id == definition.id && !$0.isRetired }) {
+                        Button("Reset to default") {
+                            model.resetCategory(id: definition.id)
+                            editor.edit(catalog.definition(for: definition.workType))
                         }
-                    } else if definition.isRetired {
+                    }
+                    if definition.isRetired {
                         Button("Restore") {
                             model.setCategoryRetired(id: definition.id, false)
                             editor.edit(catalog.definition(for: definition.workType))
                         }
-                    } else {
+                    } else if definition.workType != .breakTime {
+                        // Built in or your own: any category but Break can go.
+                        // The last one that can start a session stays.
+                        let lastStartable = WorkType.startable.filter { $0 != definition.workType }.isEmpty
                         Button("Retire", role: .destructive) {
                             model.setCategoryRetired(id: definition.id, true)
                             onFinished()
                         }
-                        .help("Stops offering this category. Sessions already filed under it keep it.")
+                        .disabled(lastStartable)
+                        .help(lastStartable
+                              ? "The last category that can start a session stays."
+                              : "Stops offering this category. Sessions already filed under it keep it.")
                     }
                 }
             }

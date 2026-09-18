@@ -529,6 +529,10 @@ enum FocusConstants {
     static let minimumRecordedSession: TimeInterval = 30
     /// D9 — selectable extended-break thresholds, in seconds.
     static let thresholdOptions: [TimeInterval] = [300, 600, 900, 1800, 3600]
+    static let idlePauseOptions: [TimeInterval] = [120, 300, 600, 900, 1_200, 1_800]
+    static let streakMinimumOptions: [TimeInterval] = [5 * 60, 10 * 60, 15 * 60, 25 * 60, 30 * 60, 45 * 60, 60 * 60]
+    static let minimumRecordedSessionOptions: [TimeInterval] = [10, 30, 60, 120, 300]
+    static let continueWindowOptions: [TimeInterval] = [1 * 3_600, 2 * 3_600, 4 * 3_600, 6 * 3_600, 12 * 3_600, 24 * 3_600]
     /// "Never", for a threshold: a span no absence, pause or wait reaches.
     /// Stored like any other value, so nothing downstream needs a special
     /// case; only the picker names it.

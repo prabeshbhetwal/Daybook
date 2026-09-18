@@ -38,6 +38,7 @@ struct InsightSurface: Equatable {
     /// optional like-for-like previous-period total.
     static func make(range: InsightRange,
                      goal: GoalProgress,
+                     streakMinimum: TimeInterval = FocusConstants.streakMinimum,
                      rhythm: [RhythmHour],
                      rhythmPeak: String?,
                      quality: FocusQuality,
@@ -58,6 +59,7 @@ struct InsightSurface: Equatable {
             continuity: continuityInsight(
                 range: range,
                 streak: streak,
+                streakMinimum: streakMinimum,
                 activeDays: activeDays,
                 totalDays: totalDays,
                 tracked: tracked,
@@ -195,6 +197,7 @@ struct InsightSurface: Equatable {
 
     private static func continuityInsight(range: InsightRange,
                                           streak: Int,
+                                          streakMinimum: TimeInterval = FocusConstants.streakMinimum,
                                           activeDays: Int,
                                           totalDays: Int,
                                           tracked: TimeInterval,
@@ -223,7 +226,7 @@ struct InsightSurface: Equatable {
             let streakText = streak == 1 ? "the current focus streak is 1 day"
                                          : "the current focus streak is \(streak) days"
             details.append(streakText + ", using the "
-                           + "\(Tokens.preciseDuration(FocusConstants.streakMinimum)) minimum")
+                           + "\(Tokens.preciseDuration(streakMinimum)) minimum")
         }
         if let comparableTracked, tracked > 0, comparableTracked > 0 {
             let difference = tracked - comparableTracked
@@ -325,6 +328,7 @@ extension SessionStore {
         return InsightSurface.make(
             range: range,
             goal: goal,
+            streakMinimum: engine.store.streakMinimum,
             rhythm: rhythm.hours,
             rhythmPeak: rhythm.peak,
             quality: quality,

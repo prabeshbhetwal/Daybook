@@ -65,12 +65,57 @@ struct SettingsGroups: View {
             }
             explanation("Your usual pace compares today with the same hour on your last "
                         + "\(FocusConstants.goalMedianWindowDays) working days.")
+            rowDivider
+            preferenceRow("Streak counts a day after",
+                          detail: "A day joins your streak once its focus reaches this.") {
+                ThresholdControl(label: "Streak counts a day after", selection: $model.streakMinimum,
+                                 options: FocusConstants.streakMinimumOptions)
+            }
+            rowDivider
+            preferenceRow("New sessions start as",
+                          detail: "The category a session is filed under until you choose another.") {
+                Picker("New sessions start as", selection: $model.defaultWorkType) {
+                    ForEach(WorkType.startable) { type in
+                        Label(type.displayName, systemImage: type.symbolName)
+                            .labelStyle(.titleAndIcon).tag(type)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 180)
+                .accessibilityLabel("New sessions start as")
+            }
+            rowDivider
+            preferenceRow("Keep sessions longer than",
+                          detail: "A stretch shorter than this is a misclick, not history, and is never written.") {
+                Picker("Keep sessions longer than", selection: $model.minimumRecordedSession) {
+                    ForEach(FocusConstants.minimumRecordedSessionOptions, id: \.self) { seconds in
+                        Text(Tokens.preciseDuration(seconds)).tag(seconds)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 130)
+                .accessibilityLabel("Keep sessions longer than")
+            }
+            rowDivider
+            preferenceRow("Offer to continue for",
+                          detail: "How long after a session ends it is still offered as something to pick up.") {
+                ThresholdControl(label: "Offer to continue for", selection: $model.continueWindow,
+                                 options: FocusConstants.continueWindowOptions)
+            }
         }
     }
 
     private var away: some View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Stepping away", layout: layout) {
+                preferenceRow("Pause after no input for",
+                              detail: "Quiet at the keyboard for this long pauses the session, timed from "
+                                + "your last key or click. Reading and thinking are work; pick a wait that "
+                                + "does not punish them.") {
+                    ThresholdControl(label: "Pause after no input for", selection: $model.idlePauseThreshold,
+                                     options: FocusConstants.idlePauseOptions, allowsNever: true)
+                }
+                rowDivider
                 preferenceRow("Ask me after",
                               detail: "Shorter absences are left out of the session without a question.") {
                     ThresholdControl(label: "Ask me after", selection: $model.breakThreshold,

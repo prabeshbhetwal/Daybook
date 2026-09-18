@@ -278,7 +278,7 @@ struct FocusHero: View {
             FocusActionButton(title: "Away", symbol: "door.right.hand.open") { store.markAway() }
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help("Ends this session and records it. A stretch under "
-                      + "\(Int(FocusConstants.minimumRecordedSession)) seconds is not kept.")
+                      + "\(Int(store.engine.store.minimumRecordedSession)) seconds is not kept.")
         case .paused, .watching:
             FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
                               symbol: "play.fill", prominent: true) {

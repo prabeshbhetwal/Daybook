@@ -130,11 +130,12 @@ extension SettingsSection {
     var controlLabels: [String] {
         switch self {
         case .general: return ["Opens on"]
-        case .focus: return ["Daily goal"]
+        case .focus: return ["Daily goal", "Streak counts a day after", "New sessions start as",
+                             "Keep sessions longer than", "Offer to continue for"]
         case .categories: return ["Categories", "New category", "Category name", "Icon", "Colour"]
         case .away:
-            return ["Ask me after", "End session after", "Full-screen prompt after",
-                    "Remind me to take breaks"]
+            return ["Pause after no input for", "Ask me after", "End session after",
+                    "Full-screen prompt after", "Remind me to take breaks"]
         case .automatic:
             return ["Use legacy automatic sessions", "Auto-session gap", "Celebrate milestones"]
         case .activities:
@@ -154,9 +155,9 @@ extension SettingsSection {
     var mutableControlKeys: [SettingsControlKey] {
         switch self {
         case .general: return [.opensOn]
-        case .focus: return [.dailyGoal]
+        case .focus: return [.dailyGoal, .streakMinimum, .defaultCategory, .minimumSession, .continueWindow]
         case .categories: return [.categories]
-        case .away: return [.breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
+        case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .reminders]
         case .automatic: return [.automaticSessions, .automaticGap, .rewards]
         case .activities: return [.activityRuleAutomation, .activityRules]
         case .tracking: return [.sessionsPerApp, .usageRecording]

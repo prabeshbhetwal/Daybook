@@ -211,7 +211,8 @@ extension SessionStore {
         glanceLayout = TimelineLayout(segments: glanceTimeline)
         threadsToday = ThreadStats(sessions: engine.archive, usage: usage,
                                    usageSnapshot: usageSnapshot,
-                                   purposeOverrides: engine.store.purposeOverrides)
+                                   purposeOverrides: engine.store.purposeOverrides,
+                                   continueWindow: engine.store.continueWindow)
             .threads(on: today, running: runningThread())
     }
 
@@ -457,7 +458,8 @@ extension SessionStore {
         guard let usage else { return .none }
         return ThreadStats(sessions: engine.archive, usage: usage,
                            usageSnapshot: effectiveUsageSnapshot,
-                           purposeOverrides: engine.store.purposeOverrides)
+                           purposeOverrides: engine.store.purposeOverrides,
+                           continueWindow: engine.store.continueWindow)
             .apps(for: thread, on: Date())
     }
 
@@ -470,7 +472,8 @@ extension SessionStore {
         continuationCandidates = ThreadStats(sessions: engine.archive, usage: usage,
                                              usageSnapshot: effectiveUsageSnapshot,
                                              purposeOverrides: engine.store.purposeOverrides,
-                                             now: now)
+                                             now: now,
+                                             continueWindow: engine.store.continueWindow)
             .continuationThreads(running: active)
         continuationIndex = index
     }

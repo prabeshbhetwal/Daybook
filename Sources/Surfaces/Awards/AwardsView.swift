@@ -131,7 +131,7 @@ struct AwardsView: View {
                 Text("\(store.streak)")
                     .font(Tokens.Typography.metricValue.monospacedDigit())
                 Text("days with at least "
-                     + "\(Tokens.preciseDuration(FocusConstants.streakMinimum)) of focus")
+                     + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }

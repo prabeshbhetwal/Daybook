@@ -48,6 +48,11 @@ final class PersistenceStore {
         static let workTypes = "fc.workTypes"
         static let savedActivities = "fc.savedActivities"
         static let categoryChoices = "fc.categoryChoices"
+        static let idlePauseThreshold = "fc.idlePauseThreshold"
+        static let streakMinimum = "fc.streakMinimum"
+        static let minimumRecordedSession = "fc.minimumRecordedSession"
+        static let continueWindow = "fc.continueWindow"
+        static let defaultWorkType = "fc.defaultWorkType"
     }
 
     private let defaults: UserDefaults
@@ -434,6 +439,52 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.breakLength) }
     }
 
+    /// Quiet at the keyboard for this long pauses a running session.
+    var idlePauseThreshold: TimeInterval {
+        get {
+            let stored = defaults.double(forKey: Key.idlePauseThreshold)
+            return stored > 0 ? stored : FocusConstants.idlePauseThreshold
+        }
+        set { defaults.set(newValue, forKey: Key.idlePauseThreshold) }
+    }
+
+    /// A day joins the streak once its focus reaches this.
+    var streakMinimum: TimeInterval {
+        get {
+            let stored = defaults.double(forKey: Key.streakMinimum)
+            return stored > 0 ? stored : FocusConstants.streakMinimum
+        }
+        set { defaults.set(newValue, forKey: Key.streakMinimum) }
+    }
+
+    /// Stretches shorter than this are never written.
+    var minimumRecordedSession: TimeInterval {
+        get {
+            let stored = defaults.double(forKey: Key.minimumRecordedSession)
+            return stored > 0 ? stored : FocusConstants.minimumRecordedSession
+        }
+        set { defaults.set(newValue, forKey: Key.minimumRecordedSession) }
+    }
+
+    /// How long after a session ends it is still offered to continue.
+    var continueWindow: TimeInterval {
+        get {
+            let stored = defaults.double(forKey: Key.continueWindow)
+            return stored > 0 ? stored : FocusConstants.continueWindow
+        }
+        set { defaults.set(newValue, forKey: Key.continueWindow) }
+    }
+
+    /// The category a fresh session starts under before you choose one.
+    var defaultWorkType: WorkType {
+        get {
+            guard let raw = defaults.string(forKey: Key.defaultWorkType) else { return .deepWork }
+            let type = WorkType(rawValue: raw)
+            return WorkType.startable.contains(type) ? type : (WorkType.startable.first ?? .deepWork)
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.defaultWorkType) }
+    }
+
     /// Persisted so quitting does not re-fire the nudge on next launch. The tier
     /// travels with the timestamp: without it, a relaunch after a fifty-minute
     /// nudge cannot tell whether the next one would be an escalation (fire now)
@@ -538,7 +589,9 @@ final class PersistenceStore {
                     Key.pendingPowerMetadataError, Key.activityRules,
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
-                    Key.workTypes, Key.savedActivities, Key.categoryChoices] {
+                    Key.workTypes, Key.savedActivities, Key.categoryChoices,
+                    Key.idlePauseThreshold, Key.streakMinimum, Key.minimumRecordedSession,
+                    Key.continueWindow, Key.defaultWorkType] {
             defaults.removeObject(forKey: key)
         }
         WorkTypeCatalog.shared.apply(customisations: [])

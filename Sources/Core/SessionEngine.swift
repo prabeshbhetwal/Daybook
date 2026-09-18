@@ -328,7 +328,7 @@ final class SessionEngine {
                 // This is the only trustworthy end an unlocked absence has —
                 // wakes are the machine's.
                 resolveAway()
-            } else if seconds >= FocusConstants.idlePauseThreshold {
+            } else if seconds >= store.idlePauseThreshold {
                 enterPause(reason: .idle, at: now().addingTimeInterval(-seconds))
             }
         case (.running, .watchingObserved(let seconds)):
@@ -337,7 +337,7 @@ final class SessionEngine {
             // a session whose work is attending — Meetings, Learning — it is
             // the work; anywhere else the clock stops quietly, back-dated to
             // the last input like an idle pause.
-            if seconds >= FocusConstants.idlePauseThreshold, !activeWorkType.countsWhileWatching {
+            if seconds >= store.idlePauseThreshold, !activeWorkType.countsWhileWatching {
                 enterPause(reason: .watching, at: now().addingTimeInterval(-seconds))
             }
         case (.running, .resetSession):
@@ -355,7 +355,7 @@ final class SessionEngine {
         case (.paused(.watching), .watchingObserved):
             break // still watching
         case (.paused(.watching), .idleObserved(let seconds)):
-            if seconds < FocusConstants.idlePauseThreshold {
+            if seconds < store.idlePauseThreshold {
                 // Input is back, or the watching has only just ended.
                 endWatchingPause()
             } else {
@@ -487,7 +487,7 @@ final class SessionEngine {
             // no wake event, only samples.
             if absenceOutgrewCap() {
                 _ = completeLongAway(intent: .endOnly)
-            } else if reason == .idle, seconds < FocusConstants.idlePauseThreshold {
+            } else if reason == .idle, seconds < store.idlePauseThreshold {
                 // Only an idle pause lifts itself. A pause the user pressed
                 // stays pressed until they say otherwise — the app must not
                 // overrule a deliberate act just because a key was struck.
@@ -608,7 +608,7 @@ final class SessionEngine {
         // `elapsed` already subtracts the live pause, so the record carries
         // exactly the work done before they left.
         guard archiveCurrentSession(endingAt: began) else { return }
-        if absence >= FocusConstants.minimumRecordedSession {
+        if absence >= store.minimumRecordedSession {
             archive.append(SessionRecord(name: "Away", workType: .breakTime,
                                          start: began, end: now(), workSeconds: absence,
                                          threadID: UUID()))
@@ -746,7 +746,7 @@ final class SessionEngine {
     /// it. Without this, a question left up over a forty-minute errand handed
     /// the errand to the session that started when the user came back.
     private func noteQuietWhileAwaiting(_ seconds: TimeInterval) {
-        if seconds >= FocusConstants.idlePauseThreshold {
+        if seconds >= store.idlePauseThreshold {
             guard awayInterval == nil else { return }
             awayInterval = (start: now().addingTimeInterval(-seconds), trigger: .idle)
             persist()
@@ -862,14 +862,14 @@ final class SessionEngine {
         var breakRecord: SessionRecord?
         if decision != .mergeTime {
             if decision == .tookBreak, let awayStarted,
-               away >= FocusConstants.minimumRecordedSession {
+               away >= store.minimumRecordedSession {
                 let record = SessionRecord(id: decisionID, name: breakName, workType: .breakTime,
                     start: awayStarted, end: awayStarted.addingTimeInterval(away),
                     workSeconds: away, threadID: decisionID)
                 breakRecord = record
                 additions.append(record)
             }
-            if beforeReturn >= FocusConstants.minimumRecordedSession {
+            if beforeReturn >= store.minimumRecordedSession {
                 additions.append(SessionRecord(id: activeRecordID,
                     name: originalName, workType: activeWorkType,
                     start: originalStart, end: min(max(awayStarted ?? now(), originalStart), now()),
@@ -1191,7 +1191,7 @@ final class SessionEngine {
         // Nine such records sit in the shipped archive inflating the day's
         // session count and the quick-start tallies.
         let end = min(max(endMoment ?? now(), sessionStartDate), now())
-        let record: SessionRecord? = elapsed < FocusConstants.minimumRecordedSession ? nil : SessionRecord(id: activeRecordID,
+        let record: SessionRecord? = elapsed < store.minimumRecordedSession ? nil : SessionRecord(id: activeRecordID,
                                      name: sessionName,
                                      workType: activeWorkType,
                                      start: sessionStartDate,
@@ -1378,7 +1378,7 @@ final class SessionEngine {
         guard prepareCorrection() else { onStateChanged?(state); return false }
         let before = snapshot()
         let oldWork = elapsed(endingAt: evidence.start)
-        let oldRecord: SessionRecord? = oldWork < FocusConstants.minimumRecordedSession ? nil
+        let oldRecord: SessionRecord? = oldWork < store.minimumRecordedSession ? nil
             : SessionRecord(id: activeRecordID, name: sessionName,
                             workType: activeWorkType, start: sessionStartDate,
                             end: evidence.start, workSeconds: oldWork,
