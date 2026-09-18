@@ -493,7 +493,7 @@ enum Snapshotter {
             if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
         case .reviewHistorySelection:
             navigation.openSheet(.history)
-            navigation.insightRange = .year
+            navigation.insightRange = .month
             if let day = store.filteredHistoryDays.first?.date {
                 navigation.selectReviewDay(day)
             }

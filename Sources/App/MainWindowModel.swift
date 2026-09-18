@@ -64,11 +64,13 @@ enum ReviewSection: String, CaseIterable {
     case history
 }
 
+/// The spans History is read at. There is no Year: a year is twelve months,
+/// and Month reaches twelve, so a separate span would have been the same
+/// evidence at lower resolution under a second name.
 enum InsightRange: String, CaseIterable {
     case day
     case week
     case month
-    case year
 }
 
 enum MainReadingWorkspace: String, CaseIterable {
@@ -566,7 +568,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         case .day: component = .day
         case .week: component = .weekOfYear
         case .month: component = .month
-        case .year: component = .year
         }
         guard let candidate = calendar.date(byAdding: component, value: delta,
                                             to: insightAnchor) else { return }
@@ -619,7 +620,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         case .day: component = .day
         case .week: component = .weekOfYear
         case .month: component = .month
-        case .year: component = .year
         }
         guard let end = calendar.dateInterval(of: component == .day ? .day : component, for: insightAnchor)?.end,
               let start = calendar.date(byAdding: component, value: -(count - 1),
@@ -665,8 +665,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             let first = formatter.string(from: start)
             formatter.dateFormat = "MMM yyyy"
             return "\(first) – \(formatter.string(from: insightAnchor))"
-        case .year:
-            return String(calendar.component(.year, from: insightAnchor))
         }
     }
 
@@ -680,8 +678,10 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         insightPageCount < insightMaximumPageCount
     }
 
+    /// Month reaches a full year — three at a time, up to twelve. This is what
+    /// makes Month the year view rather than only the quarter one.
     private var insightMaximumPageCount: Int {
-        insightRange == .day ? 42 : insightRange == .week ? 14 : 4
+        insightRange == .day ? 42 : insightRange == .week ? 14 : 12
     }
 
     private func defaultInsightPageCount(for range: InsightRange) -> Int {
@@ -689,7 +689,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         case .day: return 14
         case .week: return 6
         case .month: return 3
-        case .year: return 1
         }
     }
 
@@ -704,8 +703,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             formatter.locale = Locale(identifier: "en_AU")
             formatter.dateFormat = "MMMM yyyy"
             return formatter.string(from: insightAnchor)
-        case .year:
-            return String(calendar.component(.year, from: insightAnchor))
         case .week:
             guard let bounds = calendar.dateInterval(of: .weekOfYear, for: insightAnchor) else {
                 return Tokens.longDate(insightAnchor)

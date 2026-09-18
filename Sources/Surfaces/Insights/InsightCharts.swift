@@ -21,7 +21,6 @@ struct InsightTrendChart: View {
         case .day: return "day"
         case .week: return "week"
         case .month: return "month"
-        case .year: return "year"
         }
     }
 
@@ -133,9 +132,6 @@ struct InsightTrendChart: View {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_AU")
         switch scope {
-        case .year:
-            formatter.dateFormat = "yyyy"
-            return formatter.string(from: period.start)
         case .month:
             formatter.dateFormat = "MMM"
             return formatter.string(from: period.start).uppercased()
@@ -290,7 +286,13 @@ struct InsightMonthCalendars: View {
             Text("Focus by month")
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(.secondary)
-            HStack(alignment: .top, spacing: Tokens.Space.l) {
+            // Wrapped, not a single row: Month is the year view now that there
+            // is no Year span, and twelve months will not stand side by side at
+            // any window width. They flow instead, three or four to a row.
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 175), spacing: Tokens.Space.l,
+                                         alignment: .topLeading)],
+                      alignment: .leading,
+                      spacing: Tokens.Space.l) {
                 ForEach(periods) { period in month(period) }
             }
             Text(caption)
@@ -331,10 +333,15 @@ struct InsightMonthCalendars: View {
                     Text(period.focused > 0 ? Tokens.duration(period.focused) : "—")
                         .font(Tokens.Typography.sectionTitle.monospacedDigit())
                         .foregroundStyle(period.focused > 0 ? .primary : .tertiary)
-                    Text(focusedDays == 0 ? "no focused days"
+                    // A whole year of months now stands here, and most of a
+                    // year is usually empty. The dash above already says a
+                    // month had nothing; saying it again eleven times down the
+                    // column is the repeated label, not the fact.
+                    Text(focusedDays == 0 ? " "
                          : focusedDays == 1 ? "1 focused day" : "\(focusedDays) focused days")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
+                        .accessibilityHidden(focusedDays == 0)
                 }
                 VStack(spacing: gap) {
                     ForEach(Array(weeks(period).enumerated()), id: \.offset) { _, week in

@@ -210,11 +210,6 @@ struct InsightGridRows {
             keys = periods.map(\.start)
             labels = keys.map { text("MMM", $0).uppercased() }
             phrases = keys.map { "in \(text("MMMM", $0))" }
-        case .year:
-            weekdays = []
-            keys = []
-            labels = []
-            phrases = []
         }
     }
 
@@ -227,8 +222,6 @@ struct InsightGridRows {
         case .month:
             guard let start = calendar.dateInterval(of: .month, for: moment)?.start else { return nil }
             return keys.firstIndex(of: start)
-        case .year:
-            return nil
         }
     }
 }

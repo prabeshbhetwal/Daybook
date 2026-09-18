@@ -295,7 +295,7 @@ extension SessionStore {
         switch requestedRange {
         case .day: return insightDaySurface
         case .week: return insightWeekSurface
-        case .month, .year: return insightMonthSurface
+        case .month: return insightMonthSurface
         }
     }
 
@@ -493,7 +493,7 @@ private extension InsightRange {
         switch self {
         case .day: return .day
         case .week: return .week
-        case .month, .year: return .month
+        case .month: return .month
         }
     }
 
@@ -502,7 +502,6 @@ private extension InsightRange {
         case .day: return "on this day"
         case .week: return "this week"
         case .month: return "this month"
-        case .year: return "this year"
         }
     }
 }

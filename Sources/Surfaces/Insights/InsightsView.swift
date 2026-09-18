@@ -11,8 +11,6 @@ struct InsightsView: View {
     @StateObject private var selection = HoverBox()
     /// The picked period whose story is unfolded in place.
     @StateObject private var unfolded = HoverBox()
-    /// The day under the pointer on the Year map.
-    @StateObject private var hoveredDay = HoverBox()
     var scrolls = true
 
     private var surface: InsightSurface {
@@ -33,8 +31,10 @@ struct InsightsView: View {
         switch scope {
         case .day: return min(42, max(7, Int(measure / 50)))
         case .week: return min(14, max(4, Int(measure / 80)))
-        case .month: return min(4, max(2, Int(measure / 250)))
-        case .year: return 1
+        // A year. The month grids wrap, so this is no longer what fits across
+        // the column — it is how far back the span reaches, and a page of it
+        // is a year.
+        case .month: return 12
         }
     }
 
@@ -90,8 +90,6 @@ struct InsightsView: View {
             }
             if store.historyFilter.isActive {
                 HistoryFindResults(store: store, navigation: navigation)
-            } else if navigation.insightRange == .year {
-                yearColumn
             } else if reading.isEmpty {
                 StoryHeadline(eyebrow: reading.eyebrow,
                               sentence: "Nothing was recorded in \(reading.spanPhrase).",
@@ -153,125 +151,13 @@ struct InsightsView: View {
                    value: searchOpen)
     }
 
-    // MARK: - Year
-
-    private var year: Int { Calendar.current.component(.year, from: navigation.insightAnchor) }
     private var archive: HistoryArchiveFacts { store.historyArchiveFacts() }
 
-    /// A year at a glance: the map, every day a cell. Days pick and shift-pick
-    /// into the rail; the story is one link away there.
-    @ViewBuilder private var yearColumn: some View {
-        let facts = archive
-        let calendar = Calendar.current
-        let yearFocus = facts.focused(inYear: year)
-        let yearDays = facts.focusByDay.filter { calendar.component(.year, from: $0.key) == year && $0.value > 0 }
-        if yearDays.isEmpty && facts.trackedByDay.keys.allSatisfy({ calendar.component(.year, from: $0) != year }) {
-            StoryHeadline(eyebrow: String(year), sentence: "Nothing was recorded in \(year).",
-                          facts: [], highlight: nil)
-            emptyRange
-        } else {
-            StoryHeadline(eyebrow: "\(year) · every day", sentence: yearSentence(yearFocus, days: yearDays.count),
-                          facts: yearFacts, highlight: Tokens.duration(yearFocus))
-                .storyRenderEvidence(.insightStrongestDay)
-            HistoryYearMap(year: year, facts: facts, goal: store.goal.goal,
-                           today: calendar.startOfDay(for: store.now()),
-                           selected: selectedSpan,
-                           onHover: { hoveredDay.id = $0?.description },
-                           onPick: { day, extends in pick(day, extending: extends) })
-                .storyRenderEvidence(.insightPeriod)
-            Text(mapCaption)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func yearSentence(_ focused: TimeInterval, days: Int) -> String {
-        guard focused > 0 else { return "You recorded app use in \(year), with no focus session." }
-        let dayWord = days == 1 ? "day" : "days"
-        var text = "In \(year) you focused \(Tokens.duration(focused)) on \(days) \(dayWord)"
-        if let best = bestMonth {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_AU")
-            formatter.dateFormat = "MMMM"
-            text += "; the strongest month was \(formatter.string(from: best.start)) with \(Tokens.duration(best.focused))"
-        }
-        return text + "."
-    }
-
-    private var bestMonth: (start: Date, focused: TimeInterval)? {
-        let calendar = Calendar.current
-        var byMonth: [Date: TimeInterval] = [:]
-        for (day, seconds) in archive.focusByDay where calendar.component(.year, from: day) == year && seconds > 0 {
-            if let start = calendar.dateInterval(of: .month, for: day)?.start { byMonth[start, default: 0] += seconds }
-        }
-        return byMonth.max { $0.value < $1.value }.map { (start: $0.key, focused: $0.value) }
-    }
-
-    private var yearFacts: [String] {
-        let calendar = Calendar.current
-        var parts: [String] = []
-        if let best = archive.focusByDay.filter({ calendar.component(.year, from: $0.key) == year })
-            .max(by: { $0.value < $1.value }), best.value > 0 {
-            parts.append("strongest day \(Tokens.longDate(best.key)), \(Tokens.preciseDuration(best.value))")
-        }
-        if archive.longestStreak > 1 { parts.append("longest streak \(archive.longestStreak) days") }
-        return parts
-    }
-
-    private var mapCaption: String {
-        if let id = hoveredDay.id, let day = archive.focusByDay.keys.first(where: { $0.description == id })
-            ?? archive.trackedByDay.keys.first(where: { $0.description == id }) {
-            let focused = archive.focusByDay[day] ?? 0, tracked = archive.trackedByDay[day] ?? 0
-            var parts = [Tokens.longDate(day)]
-            if focused > 0 { parts.append("\(Tokens.duration(focused)) focused") }
-            if tracked > 0 { parts.append("\(Tokens.duration(tracked)) recorded app use") }
-            return parts.joined(separator: " · ") + "."
-        }
-        let scale = store.goal.goal > 0 ? "a stronger cell is more of your \(Tokens.duration(store.goal.goal)) daily goal"
-                                        : "a stronger cell is more focus"
-        return "Each cell is a day; \(scale). Click a day to preview it; shift-click another to preview the span between them."
-    }
-
-    private var selectedSpan: ClosedRange<Date>? {
-        guard let start = navigation.reviewSelectedDate else { return nil }
-        let end = navigation.historySelectedPeriod ?? start
-        return min(start, end)...max(start, end)
-    }
-
-    private func pick(_ day: Date, extending: Bool) {
-        withAnimation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion)) {
-            if extending, navigation.reviewSelectedDate != nil {
-                navigation.historySelectedPeriod = day
-            } else if navigation.reviewSelectedDate == day, navigation.historySelectedPeriod == nil {
-                navigation.clearReviewDay()
-            } else {
-                navigation.selectReviewDay(day)
-                navigation.historySelectedPeriod = nil
-            }
-        }
-    }
-
-    private var selectedSpanGroup: HistoryPeriodGroup? {
-        guard let span = selectedSpan, span.lowerBound != span.upperBound else { return nil }
-        let calendar = Calendar.current
-        let end = calendar.date(byAdding: .day, value: 1, to: span.upperBound) ?? span.upperBound
-        let days = store.historyDays.filter { span.contains(calendar.startOfDay(for: $0.date)) }
-        return HistoryPeriodGroup(scope: .week, start: span.lowerBound, end: end, days: days,
-                                  customTitle: Tokens.dateRange(span.lowerBound, span.upperBound))
-    }
-
-    /// What the rail shows for a picked day or span, in the Year span and
-    /// while searching: the day's preview, then the archive's totals.
+    /// What the rail shows for a picked day: its preview, then the archive's
+    /// totals. It used to be reachable only inside the Year span, which made a
+    /// picked day's preview disappear with it.
     @ViewBuilder private var pickedPreview: some View {
-        if let span = selectedSpanGroup, navigation.insightRange == .year, !store.historyFilter.isActive {
-            HistoryPeriodPreview(store: store, period: span) {
-                navigation.openStory(.week, containing: span.start)
-            }
-            .id(span.id)
-            .storyRenderEvidence(.historyDetail)
-            .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
-        } else if let date = navigation.reviewSelectedDate {
+        if let date = navigation.reviewSelectedDate {
             let projection = store.storyDayProjection(on: date)
             HistoryDayPreview(store: store, projection: projection) {
                 navigation.openStory(.day, containing: date)
@@ -331,14 +217,14 @@ struct InsightsView: View {
     // MARK: - Rail
 
     private var showsCurrentPatterns: Bool {
-        navigation.insightRange != .day && navigation.insightRange != .year
+        navigation.insightRange != .day
             && Calendar.current.isDate(navigation.insightAnchor, inSameDayAs: store.now())
     }
 
     private func rail(_ listed: [StoryPeriodProjection], _ facts: InsightRangeFacts) -> some View {
         let reading = InsightRangeReading(periods: listed, scope: navigation.insightRange)
         return VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            if store.historyFilter.isActive || navigation.insightRange == .year {
+            if store.historyFilter.isActive || navigation.reviewSelectedDate != nil {
                 pickedPreview
                 if !store.historyDays.isEmpty {
                     HistoryArchiveTiles(facts: archive, now: store.now(), appLimit: store.engine.store.menuAppCount)
@@ -484,7 +370,6 @@ struct InsightRangeReading {
         case .day: return "day"
         case .week: return "week"
         case .month: return "month"
-        case .year: return "year"
         }
     }
 
@@ -539,8 +424,6 @@ struct InsightRangeReading {
         switch period.scope {
         case .day:
             return Tokens.longDate(period.start)
-        case .year:
-            return String(calendar.component(.year, from: period.start))
         case .month:
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_AU")
@@ -682,7 +565,6 @@ extension InsightRange {
         case .day: return "Day"
         case .week: return "Week"
         case .month: return "Month"
-        case .year: return "Year"
         }
     }
 }

@@ -143,19 +143,17 @@ extension SessionStore {
                                   calendar: Calendar = .current) -> [StoryPeriodProjection] {
         let today = calendar.startOfDay(for: now())
         let anchor = min(today, calendar.startOfDay(for: requestedAnchor))
-        // A year is read from the archive's day facts, not day projections.
-        guard scope != .year else { return [] }
         let limit: Int
         switch scope {
         case .day: limit = min(max(1, requestedLimit), 42)
         case .week: limit = min(max(1, requestedLimit), 14)
-        case .month, .year: limit = min(max(1, requestedLimit), 4)
+        case .month: limit = min(max(1, requestedLimit), 12)
         }
         let component: Calendar.Component
         switch scope {
         case .day: component = .day
         case .week: component = .weekOfYear
-        case .month, .year: component = .month
+        case .month: component = .month
         }
         var result: [StoryPeriodProjection] = []
         for offset in 0..<limit {

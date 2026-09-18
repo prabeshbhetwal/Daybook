@@ -169,8 +169,9 @@ enum StoryWorkspaceChecks {
                     failures.append("\(scope.rawValue) pages were not newest first")
                 }
             }
-            if Set(InsightRange.allCases) != Set([.day, .week, .month, .year]) {
-                failures.append("History did not expose Day, Week, Month and Year")
+            // No Year: a year is twelve months, and Month reaches twelve.
+            if Set(InsightRange.allCases) != Set([.day, .week, .month]) {
+                failures.append("History did not expose exactly Day, Week and Month")
             }
             return failures
         }
@@ -352,7 +353,7 @@ enum StoryWorkspaceChecks {
             requireEvidence("Month inline child", monthOpen, includes: [.periodChild, .dayStory])
 
             navigation.open(tab: .review)
-            navigation.selectInsightRange(.year)
+            navigation.selectInsightRange(.month)
             navigation.clearReviewDay()
             let historyClosed = renderFrame(
                 InsightsView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
