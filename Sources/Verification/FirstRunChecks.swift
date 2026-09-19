@@ -14,8 +14,41 @@ enum FirstRunChecks {
         ("Welcome steps wait, report, and never trap the reader", flow),
         ("The tour reads back, jumps by chapter, and ends once however it ends", navigation),
         ("Every welcome chapter and card is complete and counts itself correctly", script),
-        ("Each welcome chapter renders its own production evidence", render)
+        ("Each welcome chapter renders its own production evidence", render),
+        ("A ring around an edge-flush control stays inside the window", ringStaysOnScreen)
     ]
+
+    // MARK: - Where the ring lands
+
+    private static func ringStaysOnScreen() -> [String] {
+        var failures: [String] = []
+        let window = CGRect(x: 0, y: 0, width: 980, height: 680)
+        let line = CoachRingGeometry.lineWidth
+
+        // The rail: flush against the right edge and the bottom.
+        let rail = CGRect(x: 644, y: 60, width: 336, height: 620)
+        let ring = CoachRingGeometry.frame(around: rail, within: window)
+        if ring.isNull { failures.append("The rail's ring was not drawn at all") }
+        if ring.maxX > window.maxX - line || ring.maxY > window.maxY - line {
+            failures.append("The rail's ring runs past the window: \(ring)")
+        }
+        if ring.minX > rail.minX || ring.minY > rail.minY {
+            failures.append("The rail's ring does not surround the rail on its free sides: \(ring)")
+        }
+        // A control with room around it keeps its full inset on every side.
+        let button = CGRect(x: 400, y: 300, width: 120, height: 32)
+        let around = CoachRingGeometry.frame(around: button, within: window)
+        let inset = CoachRingGeometry.inset
+        if around != button.insetBy(dx: -inset, dy: -inset) {
+            failures.append("A control with room around it lost its inset: \(around)")
+        }
+        // Something scrolled off screen draws nothing rather than a sliver.
+        let gone = CGRect(x: 100, y: -200, width: 200, height: 100)
+        if !CoachRingGeometry.frame(around: gone, within: window).isNull {
+            failures.append("An off-screen control was still given a ring")
+        }
+        return failures
+    }
 
     // MARK: - Who sees it
 

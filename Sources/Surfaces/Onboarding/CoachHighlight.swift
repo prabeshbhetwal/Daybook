@@ -23,37 +23,101 @@ extension View {
     }
 }
 
-/// A ring around the thing the current card is talking about.
+/// Where the ring goes, and how it stays on screen.
+enum CoachRingGeometry {
+    /// Enough to clear a capsule button without looking like a second control.
+    static let inset: CGFloat = 7
+    /// The stroke, and the least of it that must stay visible at a window edge.
+    static let lineWidth: CGFloat = 3
+    static let radius: CGFloat = Tokens.Radius.nested + inset
+
+    /// The ring grows outward from what it rings, then is held inside the
+    /// window. A control flush against an edge — the rail against the right,
+    /// the chrome against the top — otherwise pushed its ring past the edge,
+    /// where the window clipped it and the reader saw three sides of four.
+    static func frame(around rect: CGRect, within bounds: CGRect) -> CGRect {
+        let grown = rect.insetBy(dx: -inset, dy: -inset)
+        let limit = bounds.insetBy(dx: lineWidth, dy: lineWidth)
+        let held = grown.intersection(limit)
+        return held.isNull || held.isEmpty ? .null : held
+    }
+}
+
+/// A ring around the thing the current card is talking about, and a step
+/// back for everything else.
 ///
 /// Drawn outside the control and never over it, so the control stays visible,
 /// hittable and unchanged. The welcome points at the app; it does not stand in
-/// front of it. Hit testing is off throughout — a user who ignores the card and
-/// goes straight for the button must never be blocked by the ring around it.
+/// front of it. Hit testing is off throughout — a reader who ignores the card
+/// and goes straight for the button must never be blocked by the ring around
+/// it, nor by the wash around the ring.
+///
+/// The wash is what makes the ring findable. A 2pt line at half opacity was
+/// missed on a page full of tiles; a page that has dropped back a step,
+/// with one part of it left at full strength, is read at a glance. The wash
+/// is the same one the app already draws under a sheet.
 struct CoachRing: View {
     let rect: CGRect
+    /// The overlay's own bounds, so the ring can be held inside them.
+    let bounds: CGRect
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var arrived = BoolBox()
     @StateObject private var breathing = BoolBox()
 
-    /// Enough to clear a capsule button without looking like a second control.
-    private static let inset: CGFloat = 7
-    private static let radius: CGFloat = Tokens.Radius.nested + Self.inset
-
     var body: some View {
-        let frame = rect.insetBy(dx: -Self.inset, dy: -Self.inset)
-        RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-            .strokeBorder(StoryStyle.focus, lineWidth: 2)
-            .background(
-                RoundedRectangle(cornerRadius: Self.radius, style: .continuous)
-                    .fill(StoryStyle.focus.opacity(0.07))
-            )
-            .frame(width: max(0, frame.width), height: max(0, frame.height))
-            .position(x: frame.midX, y: frame.midY)
-            .opacity(breathing.value ? 0.55 : 1)
-            .animation(reduceMotion ? nil
-                       : .easeInOut(duration: 1.1).repeatForever(autoreverses: true),
-                       value: breathing.value)
-            .onAppear { if !reduceMotion { breathing.value = true } }
+        let frame = CoachRingGeometry.frame(around: rect, within: bounds)
+        if !frame.isNull {
+            ZStack {
+                wash(cutOut: frame)
+                RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
+                    .strokeBorder(Tokens.Colour.focus, lineWidth: CoachRingGeometry.lineWidth)
+                    .background(
+                        RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
+                            .fill(Tokens.Colour.focus.opacity(0.06))
+                    )
+                    .shadow(color: Tokens.Colour.focus.opacity(0.45), radius: 8)
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+                    // Arrives by settling in from slightly larger: one motion,
+                    // once, to draw the eye to where the ring landed. Then a
+                    // slow breath, so it stays alive without demanding. It is
+                    // never invisible on the way in: a ring that fades up from
+                    // nothing is absent from a still capture, and from the
+                    // first glance of a reader who looked up at the wrong
+                    // moment.
+                    .scaleEffect(arrived.value || reduceMotion ? 1 : 1.12)
+                    .opacity(breathing.value ? 0.72 : 1)
+                    .animation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion),
+                               value: arrived.value)
+                    .animation(reduceMotion ? nil
+                               : .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                               value: breathing.value)
+            }
+            .onAppear {
+                arrived.value = true
+                if !reduceMotion {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { breathing.value = true }
+                }
+            }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+        }
+    }
+
+    private func wash(cutOut frame: CGRect) -> some View {
+        Rectangle()
+            .fill(Color.black.opacity(0.16))
+            .mask(
+                ZStack {
+                    Rectangle()
+                    RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
+                        .frame(width: frame.width, height: frame.height)
+                        .position(x: frame.midX, y: frame.midY)
+                        .blendMode(.destinationOut)
+                }
+                .compositingGroup()
+            )
+            .frame(width: bounds.width, height: bounds.height)
+            .position(x: bounds.midX, y: bounds.midY)
     }
 }

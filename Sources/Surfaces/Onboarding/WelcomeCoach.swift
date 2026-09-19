@@ -84,7 +84,7 @@ struct WelcomeCoachOverlay: View {
         if let progress = coach.progress {
             ZStack(alignment: .bottomLeading) {
                 if let anchor = progress.current.anchor, let bounds = anchors[anchor] {
-                    CoachRing(rect: proxy[bounds])
+                    CoachRing(rect: proxy[bounds], bounds: proxy.frame(in: .local))
                         .transition(Tokens.Motion.transition(.opacity, reduceMotion: reduceMotion))
                         .id(anchor.rawValue)
                 }
