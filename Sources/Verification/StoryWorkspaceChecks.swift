@@ -18,6 +18,7 @@ enum StoryWorkspaceChecks {
         ("History and Insights preserve Story and running-engine context", workspacesPreserveStory),
         ("Insights pages are bounded, newest first and expose every scope", insightPages),
         ("History never shows a period from before the record began", insightRecordFloor),
+            ("A ticking clock does not rebuild an unchanged page of History", insightReadingIsCached),
         ("Insights restores each scope's anchor and page depth", insightScopeRestoration),
         ("A projected current-day child owns all running presentation state", projectedCurrentDayLiveState),
         ("Receipt-only dates remain searchable without focus or app-use credit", receiptOnlyHistory),
@@ -156,6 +157,70 @@ enum StoryWorkspaceChecks {
     /// The column, its chrome label and its paging all stop at the first day
     /// the app ever saw. A page of blank months before the install is not
     /// history; it is a claim of a record that was never kept.
+    /// History's reading and the usage snapshot beneath it are built once per
+    /// change of evidence, not once per read. The view reads them from `body`,
+    /// and `body` runs every second while a session ticks; a page that was
+    /// rebuilt each time held a core at full load for as long as it was open.
+    private static func insightReadingIsCached() -> [String] {
+        MainActor.assumeIsolated {
+            var failures: [String] = []
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            let anchor = Calendar.current.startOfDay(for: store.now())
+
+            // The snapshot: many reads in one second, at most one build. The
+            // fixture's own refresh has usually built it already, so warming
+            // first makes the count about the reads, not the setup.
+            guard store.usage != nil else {
+                return ["The history fixture attaches no usage archive; the snapshot cannot be checked"]
+            }
+            _ = store.effectiveUsageSnapshot
+            let snapshotsBefore = store.usageSnapshotComputeCount
+            for _ in 0..<5 { _ = store.effectiveUsageSnapshot }
+            let snapshotsBuilt = store.usageSnapshotComputeCount - snapshotsBefore
+            if snapshotsBuilt > 1 {
+                failures.append("Five reads of an unchanged usage archive built \(snapshotsBuilt) snapshots")
+            }
+
+            // The reading: many reads, one build — including today's period,
+            // which the clock alone must not invalidate within a minute.
+            let before = store.insightReadingComputeCount
+            for _ in 0..<5 {
+                _ = store.insightReading(scope: .month, anchoredAt: anchor, limit: 3)
+            }
+            let built = store.insightReadingComputeCount - before
+            if built != 1 {
+                failures.append("Five reads of an unchanged month built the reading \(built) times, not once")
+            }
+            // A different page is a different reading.
+            _ = store.insightReading(scope: .week, anchoredAt: anchor, limit: 6)
+            if store.insightReadingComputeCount - before != 2 {
+                failures.append("Changing the span did not build a new reading")
+            }
+            // Evidence changing must invalidate it: a saved note bumps the
+            // metadata revision the key carries.
+            guard let record = store.engine.archive.records.first else {
+                failures.append("The history fixture has no archived session to annotate")
+                return failures
+            }
+            let compute = store.insightReadingComputeCount
+            _ = store.insightReading(scope: .week, anchoredAt: anchor, limit: 6)
+            if store.insightReadingComputeCount != compute {
+                failures.append("Re-reading the same page rebuilt it before any evidence changed")
+            }
+            store.setNoteDraft("cache check", for: record.id)
+            if !store.saveNote(for: record.id) {
+                failures.append("The fixture could not save a note to change the evidence")
+            }
+            _ = store.insightReading(scope: .week, anchoredAt: anchor, limit: 6)
+            if store.insightReadingComputeCount != compute + 1 {
+                failures.append("Changed evidence did not rebuild the reading "
+                                + "(\(store.insightReadingComputeCount - compute) builds)")
+            }
+            return failures
+        }
+    }
+
     private static func insightRecordFloor() -> [String] {
         MainActor.assumeIsolated {
             var failures: [String] = []

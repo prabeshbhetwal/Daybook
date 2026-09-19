@@ -18,10 +18,13 @@ struct InsightsView: View {
     }
 
     /// Newest first, as the store lists them: as many as the column can show.
-    private var periods: [StoryPeriodProjection] {
-        store.insightPeriodProjections(scope: navigation.insightRange,
-                                       anchoredAt: navigation.insightAnchor,
-                                       limit: navigation.insightShownCount)
+    /// Cached in the store until its evidence changes: `body` runs once a
+    /// second while a session ticks, and must not rebuild a page of History
+    /// each time it does.
+    private var reading: InsightReading {
+        store.insightReading(scope: navigation.insightRange,
+                             anchoredAt: navigation.insightAnchor,
+                             limit: navigation.insightShownCount)
     }
 
     /// How many periods a column this wide can draw legibly. The chrome pages
@@ -39,8 +42,9 @@ struct InsightsView: View {
     }
 
     var body: some View {
-        let listed = periods
-        let facts = store.insightRangeFacts(periods: listed, scope: navigation.insightRange)
+        let current = reading
+        let listed = current.periods
+        let facts = current.facts
         return HStack(alignment: .top, spacing: 0) {
             pane { column(listed, facts) }
                 .frame(maxWidth: .infinity, alignment: .topLeading)

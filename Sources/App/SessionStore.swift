@@ -455,6 +455,11 @@ final class SessionStore: ObservableObject {
     /// The archive-wide facts History's map shows, kept until the evidence
     /// behind them changes.
     var historyArchiveFactsCache: (revision: EvidenceRevision, facts: HistoryArchiveFacts)?
+    /// History's current reading; one entry, because the view asks for one.
+    var insightReadingCache: (key: InsightReadingKey, reading: InsightReading)?
+    /// How many times the reading was actually built. Verification reads it to
+    /// prove a ticking clock no longer rebuilds an unchanged page.
+    var insightReadingComputeCount = 0
     var reviewEvidenceRevision: EvidenceRevision?
     /// Explicit-date Story projections are immutable read models. Historical
     /// values survive ticker frames; current or running dates deliberately
@@ -575,10 +580,35 @@ final class SessionStore: ObservableObject {
     /// The sole read model for live and historical consumers. Pending tracker
     /// records replace durable records by stable UUID in memory; the archive's
     /// bytes and accuracy epoch remain unchanged until a write succeeds.
+    ///
+    /// Built at most once a second, not once per read. It used to be rebuilt
+    /// on every access — a copy and a re-hash of every usage session in the
+    /// archive — and one projection of one day reads it several times, while
+    /// History read it for every day it showed, every second.
+    ///
+    /// The archive and the tracker each count their changes, and that pair is
+    /// most of the key. It cannot be all of it: the tracker's open segment is
+    /// live, its end is the clock, and it grows without any revision moving.
+    /// So the clock is in the key too, to the second — the finest grain any
+    /// figure in the app is shown at — which keeps a live tail honest while
+    /// still collapsing forty reads in one tick into one build.
     var effectiveUsageSnapshot: AppUsageSnapshot? {
         guard let usage else { return nil }
-        return AppUsageSnapshot(archive: usage, tracker: tracker)
+        let revision = usage.revision &* 1_000_003 &+ (tracker?.overlayRevision ?? 0)
+        let second = Int(now().timeIntervalSinceReferenceDate.rounded(.down))
+        if let cached = usageSnapshotCache, cached.revision == revision,
+           cached.second == second, cached.usageID == ObjectIdentifier(usage) {
+            return cached.snapshot
+        }
+        let snapshot = AppUsageSnapshot(archive: usage, tracker: tracker)
+        usageSnapshotCache = (ObjectIdentifier(usage), revision, second, snapshot)
+        usageSnapshotComputeCount &+= 1
+        return snapshot
     }
+    /// How many snapshots were actually built. Verification reads it.
+    var usageSnapshotComputeCount = 0
+    var usageSnapshotCache: (usageID: ObjectIdentifier, revision: Int, second: Int,
+                             snapshot: AppUsageSnapshot)?
 
     func focusedActiveSeconds(on day: Date,
                               usageSnapshot: AppUsageSnapshot? = nil) -> TimeInterval {

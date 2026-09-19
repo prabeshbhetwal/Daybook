@@ -13,6 +13,19 @@ struct InsightGoalRate: Identifiable, Equatable {
 /// Everything the Insights canvas draws about a whole range, beyond the
 /// per-period totals the projections already hold. Built in one pass over the
 /// archive so the chart, the grid and the rail cannot disagree.
+struct InsightReading {
+    let periods: [StoryPeriodProjection]
+    let facts: InsightRangeFacts
+}
+
+struct InsightReadingKey: Equatable {
+    let scope: InsightRange
+    let anchor: Date
+    let limit: Int
+    let evidence: SessionStore.EvidenceRevision
+    let minute: Int
+}
+
 struct InsightRangeFacts: Equatable {
     /// Focused seconds by row and clock hour. What a row stands for follows
     /// the span being read: a day, a weekday, or a month.
@@ -82,6 +95,36 @@ struct InsightRangeFacts: Equatable {
 extension SessionStore {
     /// The range's grid, category shares, apps and goal rates. `periods` are
     /// the projections the canvas already lists, so both describe the same days.
+    /// Everything History draws for one span: its periods and the facts across
+    /// them. Served from a one-entry cache until the evidence behind it
+    /// changes, or until the current minute turns over when today is in the
+    /// range — the only period whose figures can move without an archive write.
+    ///
+    /// The view reads this from `body`, and `body` runs once a second while a
+    /// session ticks. Before this the reading was rebuilt each time: every
+    /// day's projection, every session spread across the hour grid. A page of
+    /// History held a core at full load for as long as it was open.
+    func insightReading(scope: InsightRange,
+                        anchoredAt anchor: Date,
+                        limit: Int,
+                        calendar: Calendar = .current) -> InsightReading {
+        let day = calendar.startOfDay(for: anchor)
+        let today = calendar.startOfDay(for: now())
+        let minute = day >= today
+            ? Int(now().timeIntervalSinceReferenceDate / 60) : 0
+        let key = InsightReadingKey(scope: scope, anchor: day, limit: limit,
+                                    evidence: evidenceRevision, minute: minute)
+        if let cached = insightReadingCache, cached.key == key { return cached.reading }
+        insightReadingComputeCount &+= 1
+        let periods = insightPeriodProjections(scope: scope, anchoredAt: anchor,
+                                               limit: limit, calendar: calendar)
+        let reading = InsightReading(periods: periods,
+                                     facts: insightRangeFacts(periods: periods, scope: scope,
+                                                              calendar: calendar))
+        insightReadingCache = (key, reading)
+        return reading
+    }
+
     func insightRangeFacts(periods: [StoryPeriodProjection],
                            scope: InsightRange = .week,
                            calendar: Calendar = .current) -> InsightRangeFacts {
