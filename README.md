@@ -12,7 +12,13 @@ invokes `swiftc` directly.
 
 ## What it does
 
+- Opens with a twelve-chapter tour on a new Mac — first session, what the
+  Mac saw, the away card rehearsed live, rules, History, the menu bar,
+  Settings — with a chapter list to skip or revisit any of it; Settings can
+  run it again.
 - Tracks declared focus sessions, pauses, away decisions, breaks and threads.
+- Starts sessions from activity rules; a rule switching back to its app
+  continues the thread it left rather than starting a new one.
 - Records local foreground app-use stretches, trims unattended idle tails and
   excludes known system processes.
 - Tells the day newest-first, with **Day**, **Week** and **Month** scopes
@@ -20,8 +26,9 @@ invokes `swiftc` directly.
 - Shows exact tracked time in Week and only evidence-backed statements in
   Insights: a focus trend per day, week or month, a when-you-focus grid,
   category shares and per-category goal rates.
-- Offers a searchable History with a day strip per row and a preview rail,
-  and native sheets for session controls, Awards and Settings, without losing
+- Offers a searchable History — Day, Week and Month spans, the Month span
+  reaching a full year of calendars back to the first recorded day — with a
+  preview rail, and native sheets for Awards and Settings, without losing
   the selected story.
 - Lets you define your own categories (name, SF Symbol or letter icon, colour,
   daily goal, break reminders) and pins the activities you start most.
@@ -56,6 +63,9 @@ From the repository root:
 
 The generated `FocusContinuity.app` is locally ad-hoc signed. It passes the
 project's deep signature check, but it is not notarised or distributable.
+`--run` strips the quarantine attribute immediately before opening: a checkout
+under an iCloud-synced folder is re-quarantined after the build, and Launch
+Services would otherwise run a translocated, read-only copy at a random path.
 
 For release-safety verification after a promoted local build:
 
@@ -89,7 +99,7 @@ Keyboard shortcuts:
 | Shortcut | Action |
 |---|---|
 | `Command-1`, `Command-2`, `Command-3` | Day, Week, Month |
-| `Command-4`, `Command-5`, `Command-6` | History, Insights, Awards |
+| `Command-4`, `Command-6` | History, Awards |
 | `Command-7` | Session controls |
 | `Command-,` | Settings |
 | Escape | Dismiss a native sheet/app detail or cancel an inline rename |
@@ -246,7 +256,7 @@ Settings groups the existing backed controls into five compact pages:
 
 | Page | Controls and information |
 |---|---|
-| General | Launch scope, System/Light/Dark appearance, density, Story time gutter and entry expansion |
+| General | Launch scope, login item, menu bar time, appearance, density, Story time gutter, entry expansion and the tour |
 | Sessions | Daily goal, activity rules and their application picker, legacy automatic sessions, automatic gap and milestones |
 | Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
 | Recording | App recording and the number of recent app visits initially shown |
@@ -273,6 +283,8 @@ The binary also supports review modes:
 ```bash
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --gallery
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
+FC_SNAPSHOT_ONLY=welcomeStep ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
+./FocusContinuity.app/Contents/MacOS/FocusContinuity --onboarding
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window storyMonth
 ./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window storyDecision
 ./scripts/build-fixture-app.sh storyShape
@@ -283,8 +295,11 @@ preferences. `--fixture-window` opens the real production shell with an injected
 fixture clock and no live-history coordinator or system monitors. Use it for
 native sheets, keyboard focus, appearance, corrections and navigation; fixture
 changes are disposable. `--snapshot` renders light/dark Story scopes, selected
-days, History, session controls, Settings, Insights, Awards and compact prompts
-through offscreen AppKit hosting, including native controls and real scroll views.
+days, History, session controls, Settings, Insights, Awards, the tour's opener
+and first step, and compact prompts through offscreen AppKit hosting, including
+native controls and real scroll views. `FC_SNAPSHOT_ONLY=<scenario>` renders one
+scenario; the whole matrix takes several minutes. `--onboarding` forces the tour
+on a Mac that has already answered it.
 Its explicit static-sheet composition cannot establish native interaction behaviour.
 Do not treat a successful PNG count as a visual or interaction acceptance result.
 Fixture stores also disable the operational ticker so real idle sampling cannot

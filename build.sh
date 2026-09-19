@@ -1083,6 +1083,12 @@ echo "Binary: ${LOCAL_BINARY} (${SIZE})"
 echo "Build succeeded: ${LOCAL_APP_DIR}"
 
 if [ "${RUN}" -eq 1 ]; then
+  # A checkout under an iCloud-synced folder is re-quarantined after this
+  # script's own xattr -cr, and Launch Services then runs a translocated,
+  # read-only copy at a random path: stale after the next build, and not
+  # findable by its path to quit. This is our own build product. Strip it
+  # again at the last moment, right before opening.
+  xattr -dr com.apple.quarantine "${LOCAL_APP_DIR}" 2>/dev/null || true
   open "${LOCAL_APP_DIR}"
   echo "Launched ${APP_NAME}."
 fi
