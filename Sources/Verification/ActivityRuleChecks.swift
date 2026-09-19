@@ -22,6 +22,7 @@ enum ActivityRuleChecks {
         ("Automatic actions retain exact reason and identity-bound Undo", exactActionIdentity),
         ("Session consumer persists exact automatic start provenance", consumerStartAndReload),
         ("Session consumer switches atomically without duplicate time", consumerSwitchAccounting),
+        ("A rule switching back continues its own thread, never an adopted or stale one", switchBackContinuesThread),
         ("Automatic switch interruption restores one authoritative owner", switchInterruptionRecovery),
         ("Failed automatic switch preserves the established owner", switchFailureSafety),
         ("Stale Undo, cooldown and manual correction preserve newer work", undoCooldownAndCorrection),
@@ -582,6 +583,98 @@ enum ActivityRuleChecks {
         if context.archive.records[0].end != t0.addingTimeInterval(10 * 60)
             || context.archive.records[1].start != t0.addingTimeInterval(10 * 60) {
             failures.append("Automatic switch did not close and transfer at one exact boundary")
+        }
+        return failures
+    }
+
+    private static func switchBackContinuesThread() -> [String] {
+        let context = makeConsumer(now: t0.addingTimeInterval(10 * 60))
+        defer { clean(context) }
+        let version = context.persistence.activityRuleVersion
+        var failures: [String] = []
+
+        // Coding, then Research, then Coding again: one Coding thread.
+        let coding = action(rule: codingID, name: "Coding", type: .deepWork,
+            start: t0, end: context.clock.now, version: version, generation: 41)
+        guard let first = context.store.applyAutomaticActivity(coding) else {
+            return ["Could not seed automatic Coding"]
+        }
+        let codingThread = context.engine.activeThreadID
+        if context.engine.activeThreadWasContinued {
+            failures.append("The first automatic Coding claimed to continue something")
+        }
+        context.clock.now = context.clock.now.addingTimeInterval(5 * 60)
+        let research = action(rule: researchID, name: "Research", type: .deepWork,
+            start: t0.addingTimeInterval(10 * 60), end: context.clock.now,
+            version: version, generation: 42, expected: first.resultingRecordID)
+        guard let second = context.store.applyAutomaticActivity(research) else {
+            return ["Coding to Research switch was refused"]
+        }
+        if context.engine.activeThreadWasContinued {
+            failures.append("The first automatic Research claimed to continue something")
+        }
+        context.clock.now = context.clock.now.addingTimeInterval(5 * 60)
+        let back = action(rule: codingID, name: "Coding", type: .deepWork,
+            start: t0.addingTimeInterval(15 * 60), end: context.clock.now,
+            version: version, generation: 43, expected: second.resultingRecordID)
+        guard context.store.applyAutomaticActivity(back) != nil else {
+            return ["Research back to Coding switch was refused"]
+        }
+        if context.engine.activeThreadID != codingThread {
+            failures.append("Switching back to Coding started a new thread instead of continuing")
+        }
+        if !context.engine.activeThreadWasContinued {
+            failures.append("A continued Coding did not say so")
+        }
+        _ = context.engine.stop()
+        let codingRecords = context.archive.records.filter { $0.name == "Coding" }
+        if codingRecords.count != 2 || Set(codingRecords.map(\.threadID)).count != 1 {
+            failures.append("Two Coding stretches did not share one thread: "
+                            + "\(codingRecords.map(\.threadID))")
+        }
+        if Set(context.archive.records.map(\.id)).count != 3 {
+            failures.append("Continuing reused a record identity instead of adding a stretch")
+        }
+
+        // A thread the user adopted is theirs: a later rule starts afresh.
+        context.clock.now = context.clock.now.addingTimeInterval(60)
+        let adoptedStart = context.clock.now
+        context.clock.now = context.clock.now.addingTimeInterval(4 * 60)
+        let again = action(rule: codingID, name: "Coding", type: .deepWork,
+            start: adoptedStart, end: context.clock.now, version: version, generation: 44)
+        guard context.store.applyAutomaticActivity(again) != nil else {
+            return ["Automatic Coding after a stop was refused"]
+        }
+        if !context.engine.activeThreadWasContinued {
+            failures.append("Coding a minute after its last stretch did not continue it")
+        }
+        context.engine.adopt(intent: "")
+        _ = context.engine.stop()
+        context.clock.now = context.clock.now.addingTimeInterval(60)
+        let afterAdopt = context.clock.now
+        context.clock.now = context.clock.now.addingTimeInterval(4 * 60)
+        let onceMore = action(rule: codingID, name: "Coding", type: .deepWork,
+            start: afterAdopt, end: context.clock.now, version: version, generation: 45)
+        guard context.store.applyAutomaticActivity(onceMore) != nil else {
+            return ["Automatic Coding after an adopted stretch was refused"]
+        }
+        if context.engine.activeThreadID == codingThread || context.engine.activeThreadWasContinued {
+            failures.append("A rule extended a thread the user had adopted as their own")
+        }
+        _ = context.engine.stop()
+
+        // Beyond the Continue affordance's window, a rule starts afresh too.
+        let latestThread = context.archive.records.last?.threadID
+        context.clock.now = context.clock.now.addingTimeInterval(ContinuationPolicy.maximumAge + 60)
+        let lateStart = context.clock.now
+        context.clock.now = context.clock.now.addingTimeInterval(4 * 60)
+        let late = action(rule: codingID, name: "Coding", type: .deepWork,
+            start: lateStart, end: context.clock.now, version: version, generation: 46)
+        guard context.store.applyAutomaticActivity(late) != nil else {
+            return ["Automatic Coding after a long gap was refused"]
+        }
+        if context.engine.activeThreadID == latestThread || context.engine.activeThreadWasContinued {
+            failures.append("A rule continued a stretch older than the continuation window")
         }
         return failures
     }

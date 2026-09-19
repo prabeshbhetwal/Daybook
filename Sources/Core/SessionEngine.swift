@@ -1331,6 +1331,29 @@ final class SessionEngine {
     /// choice may be answered after FocusContinuity itself came forward; that
     /// control interval is represented as excluded pause time rather than
     /// silently credited.
+    /// True while the running automatic session is a continuation of an
+    /// earlier automatic stretch of the same rule, rather than a new thread.
+    /// Transient: the notice that announces the session reads it, nothing
+    /// persists it.
+    private(set) var activeThreadWasContinued = false
+
+    /// The thread an automatic session for `action` should continue, if any.
+    ///
+    /// A rule switching back to its app resumes the stretch it left — Coding,
+    /// then a few minutes in the browser, then Coding again is one piece of
+    /// work, not two records with a seam where the reader happened to check
+    /// something. Eligibility is the Continue affordance's own rule: the
+    /// latest stretch of that activity, ended within its window. Only threads
+    /// the app itself made qualify. A stretch the user started, or adopted as
+    /// their own, is theirs, and a rule never extends it.
+    private func continuedThread(for action: ActivityAutomaticAction, at moment: Date) -> UUID? {
+        let index = ContinuationPolicy.Index(records: archive.records)
+        let key = ContinuationPolicy.activityKey(name: action.ruleName, workType: action.workType)
+        guard let latest = index.latestByActivity[key], latest.isAuto,
+              index.isEligible(latest, active: nil, now: moment) else { return nil }
+        return latest.threadID
+    }
+
     @discardableResult
     func startAutomatically(action: ActivityAutomaticAction) -> Bool {
         let evidence = action.evidence
@@ -1345,7 +1368,9 @@ final class SessionEngine {
         }
         activeWorkType = action.workType
         activeDetectedApp = currentAppBundleID
-        activeThreadID = UUID()
+        let continued = continuedThread(for: action, at: evidence.start)
+        activeThreadID = continued ?? UUID()
+        activeThreadWasContinued = continued != nil
         activeRecordID = UUID()
         activeIsAuto = true
         activeAutomaticAction = action
@@ -1386,7 +1411,9 @@ final class SessionEngine {
                             threadID: activeThreadID, isAuto: true)
         activeWorkType = action.workType
         activeDetectedApp = currentAppBundleID
-        activeThreadID = UUID()
+        let continued = continuedThread(for: action, at: evidence.start)
+        activeThreadID = continued ?? UUID()
+        activeThreadWasContinued = continued != nil
         activeRecordID = UUID()
         activeIsAuto = true
         activeAutomaticAction = action

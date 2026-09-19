@@ -216,7 +216,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             store.presentActivityChoice(choice)
         case .start(let action), .switchActivity(let action):
             guard let record = store.applyAutomaticActivity(action) else { return }
-            hud.show(title: "\(action.ruleName) session started", detail: action.reason,
+            let verb = engine.activeThreadWasContinued ? "continued" : "started"
+            hud.show(title: "\(action.ruleName) session \(verb)", detail: action.reason,
                      symbolName: "play.circle.fill",
                      undo: { [weak self] in
                         _ = self?.store.undoAutomaticActivity(
