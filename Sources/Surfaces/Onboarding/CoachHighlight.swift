@@ -60,8 +60,10 @@ struct CoachRing: View {
     let rect: CGRect
     /// The overlay's own bounds, so the ring can be held inside them.
     let bounds: CGRect
+    /// Off, the ring is drawn still: no settle, no breath. Verification uses
+    /// it to tell a ring that does not draw from one that is mid-motion.
+    var animated = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @StateObject private var arrived = BoolBox()
     @StateObject private var breathing = BoolBox()
 
     var body: some View {
@@ -78,46 +80,37 @@ struct CoachRing: View {
                     .shadow(color: Tokens.Colour.focus.opacity(0.45), radius: 8)
                     .frame(width: frame.width, height: frame.height)
                     .position(x: frame.midX, y: frame.midY)
-                    // Arrives by settling in from slightly larger: one motion,
-                    // once, to draw the eye to where the ring landed. Then a
-                    // slow breath, so it stays alive without demanding. It is
-                    // never invisible on the way in: a ring that fades up from
-                    // nothing is absent from a still capture, and from the
-                    // first glance of a reader who looked up at the wrong
-                    // moment.
-                    .scaleEffect(arrived.value || reduceMotion ? 1 : 1.12)
+                    // Arrives fully formed, then breathes slowly, so it stays
+                    // alive without demanding. There is no entrance motion:
+                    // it settled in from slightly larger once, and for the
+                    // first quarter second the ring and its cut-out disagreed
+                    // — which is when a still captures, and when a reader who
+                    // looked up at the wrong moment saw a hole with no ring.
                     .opacity(breathing.value ? 0.72 : 1)
-                    .animation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion),
-                               value: arrived.value)
-                    .animation(reduceMotion ? nil
+                    .animation(reduceMotion || !animated ? nil
                                : .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
                                value: breathing.value)
             }
             .onAppear {
-                arrived.value = true
-                if !reduceMotion {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { breathing.value = true }
-                }
+                guard animated, !reduceMotion else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { breathing.value = true }
             }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
     }
 
+    /// One path, filled even-odd: the window with a rounded hole where the
+    /// ring is. No mask, no blend mode, no offscreen group — those leak, and
+    /// a destination-out mask erased the ring drawn beside it.
     private func wash(cutOut frame: CGRect) -> some View {
-        Rectangle()
-            .fill(Color.black.opacity(0.16))
-            .mask(
-                ZStack {
-                    Rectangle()
-                    RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
-                        .frame(width: frame.width, height: frame.height)
-                        .position(x: frame.midX, y: frame.midY)
-                        .blendMode(.destinationOut)
-                }
-                .compositingGroup()
-            )
-            .frame(width: bounds.width, height: bounds.height)
-            .position(x: bounds.midX, y: bounds.midY)
+        Path { path in
+            path.addRect(bounds)
+            path.addRoundedRect(in: frame,
+                                cornerSize: CGSize(width: CoachRingGeometry.radius,
+                                                   height: CoachRingGeometry.radius),
+                                style: .continuous)
+        }
+        .fill(Color.black.opacity(0.16), style: FillStyle(eoFill: true))
     }
 }

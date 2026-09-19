@@ -260,7 +260,10 @@ enum Snapshotter {
         }
 
         var wrote = 0
-        for item in matrix {
+        // FC_SNAPSHOT_ONLY=welcomeStep renders one scenario; the matrix is
+        // six minutes, and a change to one surface needs one look.
+        let only = ProcessInfo.processInfo.environment["FC_SNAPSHOT_ONLY"]
+        for item in matrix where only == nil || item.scenario.rawValue == only {
             let output = directory.appendingPathComponent(item.filename)
             if render(view(for: item), appearance: item.appearance, to: output) {
                 wrote += 1

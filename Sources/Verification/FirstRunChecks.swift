@@ -15,8 +15,79 @@ enum FirstRunChecks {
         ("The tour reads back, jumps by chapter, and ends once however it ends", navigation),
         ("Every welcome chapter and card is complete and counts itself correctly", script),
         ("Each welcome chapter renders its own production evidence", render),
-        ("A ring around an edge-flush control stays inside the window", ringStaysOnScreen)
+        ("A ring around an edge-flush control stays inside the window", ringStaysOnScreen),
+        ("The ring is visible in a still capture, moving or not", ringDraws)
     ]
+
+    // MARK: - That the ring draws
+
+    /// Renders the ring the way the snapshot harness renders everything —
+    /// an offscreen hosting view cached to a bitmap — and reads pixels: the
+    /// stroke must be the ring's blue, the inside must be lighter than the
+    /// wash outside. Both the still ring and the one mid-settle must pass;
+    /// a ring that only exists once its animation has finished is absent
+    /// from every still and from a reader's first glance.
+    private static func ringDraws() -> [String] {
+        var failures: [String] = []
+        let bounds = CGRect(x: 0, y: 0, width: 320, height: 200)
+        let target = CGRect(x: 110, y: 80, width: 100, height: 40)
+        let frame = CoachRingGeometry.frame(around: target, within: bounds)
+        for animated in [false, true] {
+            let label = animated ? "moving ring" : "still ring"
+            guard let bitmap = renderRing(rect: target, bounds: bounds, animated: animated) else {
+                failures.append("\(label) produced no bitmap"); continue
+            }
+            let scale = CGFloat(bitmap.pixelsWide) / bounds.width
+            func pixel(_ x: CGFloat, _ y: CGFloat) -> (r: CGFloat, g: CGFloat, b: CGFloat)? {
+                guard let c = bitmap.colorAt(x: Int(x * scale), y: Int(y * scale))?
+                        .usingColorSpace(.sRGB) else { return nil }
+                return (c.redComponent, c.greenComponent, c.blueComponent)
+            }
+            let onStroke = pixel(frame.minX + CoachRingGeometry.lineWidth / 2, frame.midY)
+            let inside = pixel(frame.midX, frame.midY)
+            let outside = pixel(20, 20)
+            guard let onStroke, let inside, let outside else {
+                failures.append("\(label): a probe fell outside the bitmap"); continue
+            }
+            // The stroke is the accent blue: blue well above red.
+            if !(onStroke.b > onStroke.r + 0.25) {
+                failures.append("\(label): no blue stroke where the ring should be "
+                                + "(r \(onStroke.r), g \(onStroke.g), b \(onStroke.b))")
+            }
+            // The cut-out is lighter than the washed page around it.
+            let insideLuma = 0.2126 * inside.r + 0.7152 * inside.g + 0.0722 * inside.b
+            let outsideLuma = 0.2126 * outside.r + 0.7152 * outside.g + 0.0722 * outside.b
+            if !(insideLuma > outsideLuma + 0.08) {
+                failures.append("\(label): the cut-out is not lighter than the wash "
+                                + "(inside \(insideLuma), outside \(outsideLuma))")
+            }
+        }
+        return failures
+    }
+
+    private static func renderRing(rect: CGRect, bounds: CGRect, animated: Bool) -> NSBitmapImageRep? {
+        let view = ZStack(alignment: .topLeading) {
+            Color.white
+            CoachRing(rect: rect, bounds: bounds, animated: animated)
+        }
+        .frame(width: bounds.width, height: bounds.height)
+        let host = NSHostingView(rootView: view)
+        host.frame = NSRect(origin: .zero, size: bounds.size)
+        let window = NSWindow(contentRect: host.frame, styleMask: [.borderless],
+                              backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: .aqua)
+        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        window.contentView = host
+        window.orderFront(nil)
+        host.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        host.displayIfNeeded()
+        defer { window.orderOut(nil); window.close() }
+        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return nil }
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        return bitmap
+    }
 
     // MARK: - Where the ring lands
 
