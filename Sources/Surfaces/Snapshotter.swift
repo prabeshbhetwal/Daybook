@@ -590,6 +590,11 @@ enum Snapshotter {
                                   isTrackingEnabled: true,
                                   onChange: {},
                                   onTrackingChanged: { _ in },
+                                  // The welcome's replay row hides itself where
+                                  // it could do nothing, which hid it from every
+                                  // capture too. A no-op route is enough to make
+                                  // the row real to a still image.
+                                  replayWelcome: {},
                                   diagnostics: diagnostics,
                                   dataDirectory: dataDirectory,
                                   installedAppCatalog: FixtureFactory.installedAppCatalog())
