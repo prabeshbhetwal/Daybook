@@ -64,10 +64,11 @@ struct SettingsGroups: View {
             }
             if model.canReplayWelcome {
                 SurfacePanel(title: "Getting started", layout: layout) {
-                    explanation("The welcome walks you through starting a session, naming it "
-                                + "and seeing what your Mac recorded on its own. It takes about "
-                                + "a minute.")
-                    Button("Show the welcome again") { model.replayWelcome() }
+                    explanation("The tour walks through every part of the app in twelve short "
+                                + "chapters — starting a session, what your Mac records on its "
+                                + "own, the away card, rules, History, the menu bar. About seven "
+                                + "minutes; any chapter can be skipped.")
+                    Button("Show the tour again") { model.replayWelcome() }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
                         .accessibilityHint("Closes Settings and runs the introduction over the story")

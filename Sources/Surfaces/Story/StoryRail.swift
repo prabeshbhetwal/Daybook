@@ -142,7 +142,7 @@ struct StoryRail: View {
 
     @ViewBuilder private func arrangedTile(_ kind: StoryTileKind,
                                             shownTiles: [StoryTileKind]) -> some View {
-        let content = draggable(tile(kind), as: kind)
+        let content = draggable(tile(kind).coachAnchor(Self.coachAnchor(for: kind)), as: kind)
         if arrangement.isArranging {
             content
                 .contextMenu {
@@ -247,6 +247,17 @@ struct StoryRail: View {
     private func resetOrder() {
         arrangement.reset()
         settings.storyTileOrder = arrangement.order
+    }
+
+    /// The welcome rings tiles by kind.
+    static func coachAnchor(for kind: StoryTileKind) -> CoachAnchor {
+        switch kind {
+        case .focus: return .focusTile
+        case .mac: return .macTile
+        case .apps: return .appsTile
+        case .rhythm: return .rhythmTile
+        case .streak: return .streakTile
+        }
     }
 
     // MARK: - Focus
@@ -515,6 +526,7 @@ struct StoryRail: View {
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                 Button("Awards") { navigation.openSheet(.awards) }
+                    .coachAnchor(.awards)
                     .buttonStyle(StoryPressStyle())
                     .font(Tokens.Typography.metadata.weight(.semibold))
                     .foregroundStyle(Tokens.Colour.focus)

@@ -129,6 +129,7 @@ struct StoryChromeBar: View {
                          controlLabel: "Story scope")
             Spacer(minLength: Tokens.Space.s)
             periodNavigation
+                .coachAnchor(.periodNav)
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .history, .insights:
@@ -143,7 +144,9 @@ struct StoryChromeBar: View {
             insightNavigation
             Spacer(minLength: Tokens.Space.s)
             searchButton
+                .coachAnchor(.search)
             crossLinks
+                .coachAnchor(.history)
         }
     }
 

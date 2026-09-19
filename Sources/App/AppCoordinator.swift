@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Lifecycle and the ownership graph. Owns the engine and every system monitor;
@@ -374,6 +375,52 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         super.init()
     }
 
+    private var welcomeEffects: AnyCancellable?
+    private var activeWelcomeEffect: FirstRunEffect?
+
+    /// A card can declare one thing for the app to do while it shows. The
+    /// coach only reports where the reader is; this applies the effect on
+    /// the way in and reverses it on the way out — including when the tour
+    /// is skipped with the sample away card still up.
+    private func observeWelcomeEffects() {
+        welcomeEffects = firstRun.$progress
+            .map { $0?.current.effect }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] next in
+                guard let self else { return }
+                Task { @MainActor in
+                    if let previous = self.activeWelcomeEffect { self.undo(previous) }
+                    if let next { self.apply(next) }
+                    self.activeWelcomeEffect = next
+                }
+            }
+    }
+
+    @MainActor private func apply(_ effect: FirstRunEffect) {
+        switch effect {
+        case .openSessionControls:
+            mainWindow.performSessionControlsAction(.commandOrMenu)
+        case .previewAwayCard:
+            // The real card with sample figures; answers dismiss it and
+            // resolve nothing, because there is no absence behind it.
+            awayPrompter.preview(.quick)
+        case .showHistory:
+            mainWindow.open(tab: .review)
+        }
+    }
+
+    @MainActor private func undo(_ effect: FirstRunEffect) {
+        switch effect {
+        case .openSessionControls:
+            break
+        case .previewAwayCard:
+            awayPrompter.dismiss()
+        case .showHistory:
+            mainWindow.returnToStory()
+        }
+    }
+
     /// Settings is a panel over the story and the welcome points at the story,
     /// so the panel comes down with it.
     private func replayWelcome() {
@@ -437,6 +484,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                                 using: self.activityRuleInput())
         }
         store.refresh()
+        observeWelcomeEffects()
         Task { @MainActor in
             self.presentWelcomeIfNew()
             self.awayPrompter.start()

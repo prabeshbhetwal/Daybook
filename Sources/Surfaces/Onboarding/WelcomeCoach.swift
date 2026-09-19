@@ -5,7 +5,10 @@ import AppKit
 ///
 /// It owns where the reader is and nothing else. The window state the cards
 /// wait on is *observed*, never driven, so every payoff a card points at is
-/// the application's real behaviour rather than a rehearsal of it.
+/// the application's real behaviour rather than a rehearsal of it. The few
+/// things the app does *for* a card — reveal the strip, show History, raise
+/// the sample away card — are declared on the card and applied by the
+/// application, which reads this position and never the other way round.
 final class FirstRunCoach: ObservableObject {
     @Published private(set) var progress: FirstRunProgress?
     private let onFinish: () -> Void
@@ -30,6 +33,18 @@ final class FirstRunCoach: ObservableObject {
     func advance() {
         guard var next = progress else { return }
         next.advance()
+        apply(next)
+    }
+
+    func back() {
+        guard var next = progress else { return }
+        next.back()
+        apply(next)
+    }
+
+    func jump(to chapter: FirstRunChapter) {
+        guard var next = progress else { return }
+        next.jump(to: chapter)
         apply(next)
     }
 
@@ -68,14 +83,15 @@ struct WelcomeCoachOverlay: View {
     var body: some View {
         if let progress = coach.progress {
             ZStack(alignment: .bottomLeading) {
-                if let anchor = FirstRunScript.card(for: progress.beat).anchor,
-                   let bounds = anchors[anchor] {
+                if let anchor = progress.current.anchor, let bounds = anchors[anchor] {
                     CoachRing(rect: proxy[bounds])
                         .transition(Tokens.Motion.transition(.opacity, reduceMotion: reduceMotion))
                         .id(anchor.rawValue)
                 }
                 WelcomeCoachCard(progress: progress,
                                  onForward: { coach.advance() },
+                                 onBack: { coach.back() },
+                                 onJump: { coach.jump(to: $0) },
                                  onSkip: { coach.skip() })
                     .padding(Tokens.Space.xl)
             }
@@ -86,28 +102,39 @@ struct WelcomeCoachOverlay: View {
     }
 }
 
-/// One card of the welcome.
+/// One card of the welcome, and the chapter list it can turn into.
 struct WelcomeCoachCard: View {
     let progress: FirstRunProgress
     let onForward: () -> Void
+    let onBack: () -> Void
+    let onJump: (FirstRunChapter) -> Void
     let onSkip: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @StateObject private var listShown = BoolBox()
 
-    static let width: CGFloat = 380
+    static let width: CGFloat = 420
 
-    private var card: FirstRunScript.Card { FirstRunScript.card(for: progress.beat) }
+    private var card: FirstRunScript.Card { progress.current }
     private var showsResult: Bool { progress.phase == .done && card.result != nil }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             header
-            content
-                // A new beat, or a step being completed, is a new reading and
-                // therefore a new view — otherwise the words change under the
-                // reader with no sign that anything happened.
-                .id("\(progress.beat.rawValue)-\(progress.phase.rawValue)")
-                .transition(Tokens.Motion.transition(
-                    .opacity.combined(with: .offset(y: 6)), reduceMotion: reduceMotion))
+            chapterBar
+            Group {
+                if listShown.value {
+                    chapterList
+                } else {
+                    content
+                        // A new card, or a step being completed, is a new
+                        // reading and therefore a new view — otherwise the
+                        // words change under the reader with no sign that
+                        // anything happened.
+                        .id("\(progress.chapter.rawValue)-\(progress.card)-\(progress.phase.rawValue)")
+                        .transition(Tokens.Motion.transition(
+                            .opacity.combined(with: .offset(y: 6)), reduceMotion: reduceMotion))
+                }
+            }
             controls
         }
         .padding(Tokens.Space.l)
@@ -119,51 +146,84 @@ struct WelcomeCoachCard: View {
                 .strokeBorder(StoryStyle.line, lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.20), radius: 24, x: 0, y: 12)
-        .storyRenderEvidence(.firstRun(progress.beat))
+        .storyRenderEvidence(.firstRun(progress.chapter))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Welcome, \(FirstRunScript.eyebrow(for: progress.beat))")
+        .accessibilityLabel("Welcome, \(FirstRunScript.eyebrow(chapter: progress.chapter, card: progress.card))")
         .onAppear { announce() }
-        .onChange(of: progress) { _ in announce() }
+        .onChange(of: progress) { _ in
+            listShown.value = false
+            announce()
+        }
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-            Text(FirstRunScript.eyebrow(for: progress.beat).uppercased())
+            Text(FirstRunScript.eyebrow(chapter: progress.chapter, card: progress.card).uppercased())
                 .font(Tokens.Typography.microLabel.weight(.bold))
                 .kerning(0.8)
                 .foregroundStyle(.secondary)
-            Spacer(minLength: 0)
-            if FirstRunScript.stepNumber(for: progress.beat) != nil { dots }
+                .lineLimit(1)
+            Spacer(minLength: Tokens.Space.s)
+            Button(listShown.value ? "Close" : "Chapters") { listShown.value.toggle() }
+                .buttonStyle(StoryLinkStyle())
+                .accessibilityHint(listShown.value ? "Back to the card"
+                                                   : "Choose a chapter to jump to")
         }
     }
 
-    /// One mark per step that asks something. A tick means the reader actually
-    /// did it; a step they stepped past keeps its hollow mark, because claiming
-    /// they had done it would be the first untrue thing the app ever told them.
-    private var dots: some View {
-        HStack(spacing: 6) {
-            ForEach(FirstRunScript.actionBeats, id: \.self) { beat in
-                mark(for: beat)
+    /// One thin segment per chapter, filled to where the reader is. A tour
+    /// this long owes the reader a sense of how far through it they are,
+    /// and this says it without a number to read.
+    private var chapterBar: some View {
+        HStack(spacing: 3) {
+            ForEach(FirstRunChapter.allCases) { chapter in
+                Capsule()
+                    .fill(chapter.number <= progress.chapter.number
+                          ? StoryStyle.focus : Color.secondary.opacity(0.18))
+                    .frame(height: 3)
             }
         }
         .accessibilityHidden(true)
     }
 
-    @ViewBuilder private func mark(for beat: FirstRunBeat) -> some View {
-        let task = FirstRunScript.card(for: beat).task
-        let performed = task.map { progress.performed.contains($0) } ?? false
-        if performed {
-            Image(systemName: "checkmark")
-                .font(Tokens.Typography.micro.weight(.heavy))
-                .foregroundStyle(StoryStyle.focus)
-                .frame(width: 8, height: 8)
-        } else if beat == progress.beat {
-            Circle().fill(StoryStyle.focus).frame(width: 8, height: 8)
-        } else {
-            Circle().strokeBorder(Color.secondary.opacity(0.35), lineWidth: 1)
-                .frame(width: 8, height: 8)
+    // MARK: - Chapter list
+
+    private var chapterList: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(FirstRunChapter.allCases) { chapter in
+                let isCurrent = chapter == progress.chapter
+                let seen = progress.visited.contains(chapter) && !isCurrent
+                Button {
+                    onJump(chapter)
+                    listShown.value = false
+                } label: {
+                    HStack(spacing: Tokens.Space.s) {
+                        Text("\(chapter.number)")
+                            .font(Tokens.Typography.microValue.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 18, alignment: .trailing)
+                        Text(chapter.title)
+                            .font(Tokens.Typography.metadata.weight(isCurrent ? .semibold : .regular))
+                            .foregroundStyle(isCurrent ? AnyShapeStyle(StoryStyle.focus)
+                                                       : AnyShapeStyle(.primary))
+                        Spacer(minLength: 0)
+                        if seen {
+                            Image(systemName: "checkmark")
+                                .font(Tokens.Typography.micro.weight(.heavy))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, Tokens.Space.s)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.control))
+                .accessibilityLabel("Chapter \(chapter.number), \(chapter.title)"
+                                    + (isCurrent ? ", current" : seen ? ", read" : ""))
+            }
         }
     }
 
@@ -194,12 +254,13 @@ struct WelcomeCoachCard: View {
         }
     }
 
-    /// The closing card's second paragraph, with the menu bar's own glyph
-    /// beside it — the welcome cannot draw a ring around the system menu bar,
-    /// so it shows the reader the shape to look for instead.
+    /// A card's second paragraph, set off in a well. On the menu bar card it
+    /// carries the menu bar's own glyph: the welcome cannot draw a ring on the
+    /// system menu bar, so it shows the reader the shape to look for instead.
     private func note(_ text: String) -> some View {
         HStack(alignment: .top, spacing: Tokens.Space.s) {
-            if let glyph = MenuBarGlyph.image(progress: 0.45, paused: false,
+            if progress.chapter == .menuBar,
+               let glyph = MenuBarGlyph.image(progress: 0.45, paused: false,
                                               attention: false, isMet: false) {
                 Image(nsImage: glyph)
                     .renderingMode(.template)
@@ -224,10 +285,14 @@ struct WelcomeCoachCard: View {
     /// them here would let a cancelled edit dismiss the welcome mid-sentence.
     private var controls: some View {
         HStack(spacing: Tokens.Space.s) {
-            Button("Skip", action: onSkip)
+            Button("Skip tour", action: onSkip)
                 .buttonStyle(StoryLinkStyle())
-                .accessibilityHint("Closes the welcome for good")
+                .accessibilityHint("Ends the tour for good; Settings can start it again")
             Spacer(minLength: Tokens.Space.s)
+            if !progress.isFirstCard {
+                Button("Back", action: onBack)
+                    .buttonStyle(StoryActionStyle())
+            }
             Button(forwardTitle, action: onForward)
                 .buttonStyle(StoryActionStyle(tint: StoryStyle.focus))
         }

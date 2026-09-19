@@ -9,24 +9,36 @@ enum StoryRenderEvidence: String, Hashable {
     case insightEmptyPeriod
     case activityQuietChoice
     case firstRunWelcome
-    case firstRunControls
-    case firstRunStart
-    case firstRunApps
-    case firstRunSpans
+    case firstRunFirstSession
+    case firstRunMacSaw
+    case firstRunReadingDay
+    case firstRunRail
+    case firstRunSteppingAway
+    case firstRunAutomation
+    case firstRunLookingBack
+    case firstRunAwards
+    case firstRunMenuBar
+    case firstRunSettings
     case firstRunFinish
 }
 
 extension StoryRenderEvidence {
-    /// One case per welcome card, so a render proof can say which beat drew
-    /// rather than only that something did. An in-process accessibility walk
-    /// cannot see SwiftUI, so this is the seam the checks use.
-    static func firstRun(_ beat: FirstRunBeat) -> StoryRenderEvidence {
-        switch beat {
+    /// One case per welcome chapter, so a render proof can say which chapter
+    /// drew rather than only that something did. An in-process accessibility
+    /// walk cannot see SwiftUI, so this is the seam the checks use.
+    static func firstRun(_ chapter: FirstRunChapter) -> StoryRenderEvidence {
+        switch chapter {
         case .welcome: return .firstRunWelcome
-        case .controls: return .firstRunControls
-        case .start: return .firstRunStart
-        case .apps: return .firstRunApps
-        case .spans: return .firstRunSpans
+        case .firstSession: return .firstRunFirstSession
+        case .macSaw: return .firstRunMacSaw
+        case .readingDay: return .firstRunReadingDay
+        case .rail: return .firstRunRail
+        case .steppingAway: return .firstRunSteppingAway
+        case .automation: return .firstRunAutomation
+        case .lookingBack: return .firstRunLookingBack
+        case .awards: return .firstRunAwards
+        case .menuBar: return .firstRunMenuBar
+        case .settings: return .firstRunSettings
         case .finish: return .firstRunFinish
         }
     }
@@ -191,6 +203,7 @@ struct ProjectedDayStoryColumn: View {
                         }
                     }
                 }
+                .coachAnchor(.measured)
                 // On the header's line, at the far edge: the one control that
                 // opens or closes the whole day.
                 .overlay(alignment: .topTrailing) {
@@ -206,6 +219,7 @@ struct ProjectedDayStoryColumn: View {
                 }
             }
             DayStory(store: store, projection: projection, opened: disclosure)
+                .coachAnchor(.storyColumn)
         }
         .accessibilityIdentifier("story-day-content-\(projection.id)")
         .storyRenderEvidence(.dayStory)
