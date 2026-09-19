@@ -594,9 +594,33 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         insightVisibleCounts[range] = clamped
     }
 
-    /// One page of periods at a time: as many as fit, not one at a time.
+    /// The periods the column actually shows: as many as fit, but never one
+    /// that ends before the record begins. History starts the day the app
+    /// first saw anything; the blank months before that are not history, they
+    /// are absence, and drawing them as empty calendars claims a record that
+    /// was never kept. With nothing recorded at all there is one period — the
+    /// current one — and it says so itself.
+    var insightShownCount: Int {
+        let fitting = insightVisibleCount
+        guard let earliest = store?.earliestSelectableDay else { return 1 }
+        let calendar = Calendar.current
+        let component: Calendar.Component
+        switch insightRange {
+        case .day: component = .day
+        case .week: component = .weekOfYear
+        case .month: component = .month
+        }
+        guard let floor = calendar.dateInterval(of: component, for: earliest)?.start,
+              let anchorStart = calendar.dateInterval(of: component, for: insightAnchor)?.start,
+              let apart = calendar.dateComponents([component], from: floor, to: anchorStart)
+                .value(for: component)
+        else { return fitting }
+        return max(1, min(fitting, apart + 1))
+    }
+
+    /// One page of periods at a time: as many as are shown, not one at a time.
     func pageInsights(by delta: Int) {
-        stepInsightPeriod(by: delta * insightVisibleCount)
+        stepInsightPeriod(by: delta * insightShownCount)
     }
 
     var insightCanPageForward: Bool {
@@ -614,7 +638,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     /// The span of time the column currently shows.
     var insightWindow: DateInterval? {
         let calendar = Calendar.current
-        let count = insightVisibleCount
+        let count = insightShownCount
         let component: Calendar.Component
         switch insightRange {
         case .day: component = .day
@@ -644,7 +668,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     var insightWindowLabel: String {
         let calendar = Calendar.current
         let now = store?.now() ?? Date()
-        let count = insightVisibleCount
+        let count = insightShownCount
         switch insightRange {
         case .day:
             guard count > 1, let start = calendar.date(byAdding: .day, value: -(count - 1), to: insightAnchor)

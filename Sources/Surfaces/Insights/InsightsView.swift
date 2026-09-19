@@ -21,7 +21,7 @@ struct InsightsView: View {
     private var periods: [StoryPeriodProjection] {
         store.insightPeriodProjections(scope: navigation.insightRange,
                                        anchoredAt: navigation.insightAnchor,
-                                       limit: navigation.insightVisibleCount)
+                                       limit: navigation.insightShownCount)
     }
 
     /// How many periods a column this wide can draw legibly. The chrome pages
@@ -142,7 +142,7 @@ struct InsightsView: View {
         }
         .padding(StoryStyle.columnInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .id("\(navigation.insightRange)-\(navigation.insightAnchorLabel)-\(navigation.insightVisibleCount)")
+        .id("\(navigation.insightRange)-\(navigation.insightAnchorLabel)-\(navigation.insightShownCount)")
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: selection.id)
         .animation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion),

@@ -17,6 +17,7 @@ enum StoryWorkspaceChecks {
         ("Explicit day projections use only the requested day's seeded evidence", explicitDayProjection),
         ("History and Insights preserve Story and running-engine context", workspacesPreserveStory),
         ("Insights pages are bounded, newest first and expose every scope", insightPages),
+        ("History never shows a period from before the record began", insightRecordFloor),
         ("Insights restores each scope's anchor and page depth", insightScopeRestoration),
         ("A projected current-day child owns all running presentation state", projectedCurrentDayLiveState),
         ("Receipt-only dates remain searchable without focus or app-use credit", receiptOnlyHistory),
@@ -147,6 +148,67 @@ enum StoryWorkspaceChecks {
             if !Calendar.current.isDate(store.selectedDay, inSameDayAs: storyDay)
                 || store.engine.activeThreadID != thread || store.engine.state != state {
                 failures.append("A reading workspace mutated Story's date or running engine")
+            }
+            return failures
+        }
+    }
+
+    /// The column, its chrome label and its paging all stop at the first day
+    /// the app ever saw. A page of blank months before the install is not
+    /// history; it is a claim of a record that was never kept.
+    private static func insightRecordFloor() -> [String] {
+        MainActor.assumeIsolated {
+            var failures: [String] = []
+            let calendar = Calendar.current
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            let navigation = MainWindowModel(selectedTab: .insights, store: store)
+            navigation.open(tab: .insights)
+            guard let earliest = store.earliestSelectableDay else {
+                return ["The evidence fixture has no first recorded day to clamp to"]
+            }
+            for scope in InsightRange.allCases {
+                navigation.selectInsightRange(scope)
+                let shown = navigation.insightShownCount
+                let fitting = navigation.insightVisibleCount
+                if shown < 1 || shown > fitting {
+                    failures.append("\(scope.rawValue) shows \(shown) periods against a capacity of \(fitting)")
+                }
+                let pages = store.insightPeriodProjections(scope: scope,
+                                                           anchoredAt: navigation.insightAnchor,
+                                                           limit: shown)
+                guard let oldest = pages.last else {
+                    failures.append("\(scope.rawValue) shows no period at all"); continue
+                }
+                if oldest.end <= earliest {
+                    failures.append("\(scope.rawValue) drew \(oldest.start) – \(oldest.end), "
+                                    + "which ends before the record began on \(earliest)")
+                }
+                if shown < fitting, oldest.start > earliest {
+                    failures.append("\(scope.rawValue) stopped short: room for more, and "
+                                    + "\(oldest.start) is after the first recorded day \(earliest)")
+                }
+                if let window = navigation.insightWindow {
+                    if let floor = calendar.dateInterval(of: scope == .day ? .day
+                                                          : scope == .week ? .weekOfYear : .month,
+                                                          for: earliest)?.start, window.start < floor {
+                        failures.append("\(scope.rawValue) chrome window starts \(window.start), before the record")
+                    }
+                    if shown < fitting, navigation.insightCanPageBack {
+                        failures.append("\(scope.rawValue) offers to page back past the first recorded day")
+                    }
+                }
+            }
+            // Nothing recorded: one period, the current one, and no invented past.
+            let bare = FixtureFactory.store(for: .firstRun)
+            let fresh = MainWindowModel(selectedTab: .insights, store: bare)
+            fresh.open(tab: .insights)
+            for scope in InsightRange.allCases {
+                fresh.selectInsightRange(scope)
+                if fresh.insightShownCount != 1 {
+                    failures.append("With nothing recorded, \(scope.rawValue) shows "
+                                    + "\(fresh.insightShownCount) periods instead of the current one")
+                }
             }
             return failures
         }
