@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 
 /// The always-running path does only the work a person could see the result
 /// of. Each check pins one saving to the behaviour it must not change.
@@ -7,7 +8,8 @@ enum EfficiencyChecks {
     static let tests: [(String, () -> [String])] = [
         ("Binding the window model at launch leaves the dashboard hidden", launchBindingStaysHidden),
         ("A live tail patched into the usage snapshot matches a full rebuild", patchedSnapshotMatchesRebuild),
-        ("The menu bar label ignores changes it cannot show", menuBarIgnoresInvisibleChange)
+        ("The menu bar label ignores changes it cannot show", menuBarIgnoresInvisibleChange),
+        ("A hidden panel rests its content and shows the same view again", hiddenPanelRests)
     ]
 
     private final class Clock {
@@ -140,6 +142,78 @@ enum EfficiencyChecks {
             if first == nil || first !== again {
                 problems.append("An unchanged ring was drawn again")
             }
+            return problems
+        }
+    }
+
+    private final class Beat: ObservableObject {
+        @Published var value = 0
+        var evaluations = 0
+    }
+
+    private struct BeatView: View {
+        @ObservedObject var beat: Beat
+        var body: some View {
+            beat.evaluations += 1
+            return Text("\(beat.value)").frame(width: 120, height: 60)
+                .background(PanelDormancy())
+        }
+    }
+
+    /// An ordered-out panel keeps its SwiftUI tree evaluating and drawing on
+    /// every change. At rest nothing in it runs; shown again, the very same
+    /// content view is back at the same size and following changes.
+    private static func hiddenPanelRests() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let beat = Beat()
+            let panel = NSPanel(contentRect: NSRect(x: -4_000, y: -4_000, width: 120, height: 60),
+                                styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
+            panel.isReleasedWhenClosed = false
+            let content = NSHostingView(rootView: BeatView(beat: beat))
+            panel.contentView = content
+            func spin(ticks: Int) {
+                for _ in 0..<max(ticks, 1) {
+                    if ticks > 0 { beat.value += 1 }
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+                }
+            }
+            panel.orderFront(nil)
+            spin(ticks: 3)
+            let size = panel.contentView?.frame.size
+            let shown = beat.evaluations
+            if shown == 0 { problems.append("The shown panel never evaluated its content") }
+
+            // The menu bar panel is key while open and closes by resigning it;
+            // a headless run cannot hold key, so it sends the same signal.
+            panel.orderOut(nil)
+            NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: panel)
+            spin(ticks: 0)
+            let resting = beat.evaluations
+            spin(ticks: 5)
+            if panel.contentView === content {
+                problems.append("The hidden panel kept its content in the window")
+            }
+            if beat.evaluations != resting {
+                problems.append("Resting content evaluated \(beat.evaluations - resting) times while hidden")
+            }
+
+            panel.makeKeyAndOrderFront(nil)
+            if !panel.isKeyWindow {
+                NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: panel)
+            }
+            spin(ticks: 0)
+            if panel.contentView !== content {
+                problems.append("Showing the panel did not bring back the same content view")
+            }
+            if panel.contentView?.frame.size != size {
+                problems.append("The content came back at \(String(describing: panel.contentView?.frame.size)), "
+                                + "not \(String(describing: size))")
+            }
+            let woken = beat.evaluations
+            spin(ticks: 2)
+            if beat.evaluations == woken { problems.append("Woken content stopped following changes") }
+            panel.orderOut(nil)
             return problems
         }
     }

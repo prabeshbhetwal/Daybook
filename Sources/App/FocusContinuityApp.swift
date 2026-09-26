@@ -48,6 +48,9 @@ struct FocusContinuityApp: App {
                     ActivityEditorPanel.shared.show(request, store: coordinator.store)
                 }
             )
+            // Closing the panel only orders it out; this rests its content
+            // until it is shown again, so a closed panel costs nothing.
+            .background(PanelDormancy())
         } label: {
             MenuBarLabelView(model: coordinator.menuBarLabel)
                 // The app is an LSUIElement, so nothing is on screen at first
