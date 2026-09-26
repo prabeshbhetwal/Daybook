@@ -467,48 +467,38 @@ struct ResolveCard: View {
 
 /// Observing wrapper for the menu bar label. A `Scene` body does not observe
 /// an `ObservableObject`, so the label must be a `View` holding
-/// `@ObservedObject` or it renders once, at launch, and never again.
+/// `@ObservedObject` or it renders once, at launch, and never again. It holds
+/// the label's own model, not the store: the store changes every second, the
+/// label only when what it shows does.
 struct MenuBarLabelView: View {
-    @ObservedObject var store: SessionStore
+    @ObservedObject var model: MenuBarLabelModel
 
     var body: some View {
-        MenuBarLabel(state: store.state,
-                     elapsed: store.elapsed,
-                     needsAttention: store.pendingAway != nil,
-                     goal: store.goal,
-                     showsTime: store.menuBarShowsTime)
-            .accessibilityLabel(store.state == .idle
-                                ? "FocusContinuity, \(Int((store.goal.share * 100).rounded())) "
-                                  + "percent of today's goal, no session running"
-                                : "Current session \(Tokens.spent(store.elapsed))")
+        MenuBarLabel(display: model.display)
+            .accessibilityLabel(model.display.accessibilityLabel)
     }
 }
 
 /// The menu bar's ambient state: a goal ring always, elapsed while a session
 /// runs, a pause mark when paused, a dot when a question is waiting.
 struct MenuBarLabel: View {
-    let state: SessionState
-    let elapsed: TimeInterval
-    let needsAttention: Bool
-    var goal = GoalProgress(goal: FocusConstants.defaultDailyGoal, achieved: 0, typical: nil)
-    /// The ring alone, for a menu bar that is already full.
-    var showsTime = true
+    let display: MenuBarDisplay
 
     var body: some View {
         HStack(spacing: Tokens.Space.xs) {
-            if let glyph = MenuBarGlyph.image(progress: goal.share,
-                                              paused: state.isPaused,
-                                              attention: needsAttention,
-                                              isMet: goal.isMet) {
+            if let glyph = MenuBarGlyph.image(progress: display.progress,
+                                              paused: display.isPaused,
+                                              attention: display.needsAttention,
+                                              isMet: display.isMet) {
                 Image(nsImage: glyph)
             } else {
-                Image(systemName: needsAttention ? "exclamationmark.circle.fill" : "infinity")
+                Image(systemName: display.needsAttention ? "exclamationmark.circle.fill" : "infinity")
             }
-            if state != .idle, showsTime {
-                Text(Tokens.duration(elapsed))
+            if let time = display.time {
+                Text(time)
                     .font(Tokens.Typography.menuBar)
             }
         }
-        .foregroundStyle(state.isPaused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+        .foregroundStyle(display.isPaused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
     }
 }

@@ -429,7 +429,24 @@ final class SessionStore: ObservableObject {
 
     // Internal for SessionStore+Dashboard.swift.
     var cachedWindow: (start: Date, end: Date)?
-    var earliestDay: Date?
+    /// The first day with anything recorded, kept per evidence revision. It
+    /// bounds day stepping, the date picker and Insights paging, which can all
+    /// be reached while the dashboard is hidden and not rebuilding, so it is
+    /// derived on demand rather than left to that rebuild.
+    var earliestDay: Date? {
+        get {
+            let revision = evidenceRevision
+            if let cached = earliestDayCache, cached.revision == revision { return cached.day }
+            guard let usage else { return earliestDayCache?.day }
+            let day = DashboardStats(sessions: engine.archive, usage: usage,
+                                     usageSnapshot: effectiveUsageSnapshot, now: now)
+                .earliestRecordedDay()
+            earliestDayCache = (revision, day)
+            return day
+        }
+        set { earliestDayCache = (evidenceRevision, newValue) }
+    }
+    private var earliestDayCache: (revision: EvidenceRevision, day: Date?)?
     /// Archive callbacks rebuild the dashboard only while its window is on
     /// screen. Hidden changes are coalesced until the next appearance.
     var dashboardVisible = false
@@ -591,14 +608,24 @@ final class SessionStore: ObservableObject {
     /// live, its end is the clock, and it grows without any revision moving.
     /// So the clock is in the key too, to the second — the finest grain any
     /// figure in the app is shown at — which keeps a live tail honest while
-    /// still collapsing forty reads in one tick into one build.
+    /// still collapsing forty reads in one tick into one build. A new second
+    /// with unchanged revisions patches the live records into the previous
+    /// build rather than copying the whole archive again.
     var effectiveUsageSnapshot: AppUsageSnapshot? {
         guard let usage else { return nil }
         let revision = usage.revision &* 1_000_003 &+ (tracker?.overlayRevision ?? 0)
         let second = Int(now().timeIntervalSinceReferenceDate.rounded(.down))
-        if let cached = usageSnapshotCache, cached.revision == revision,
-           cached.second == second, cached.usageID == ObjectIdentifier(usage) {
-            return cached.snapshot
+        if var cached = usageSnapshotCache, cached.revision == revision,
+           cached.usageID == ObjectIdentifier(usage) {
+            if cached.second == second { return cached.snapshot }
+            // Same records, a later second: only the live tail has moved.
+            // Released from the cache first so the patch is in place.
+            usageSnapshotCache = nil
+            if cached.snapshot.replaceOverlay(with: tracker?.usageOverlaySessions() ?? []) {
+                cached.second = second
+                usageSnapshotCache = cached
+                return cached.snapshot
+            }
         }
         let snapshot = AppUsageSnapshot(archive: usage, tracker: tracker)
         usageSnapshotCache = (ObjectIdentifier(usage), revision, second, snapshot)
@@ -888,16 +915,18 @@ final class SessionStore: ObservableObject {
         // async hop, and several callers refresh synchronously right after
         // mutating the engine, when the mirror still says `.idle`.
         let inFlight = engine.elapsedToday()
-        elapsed = engine.elapsed
+        // Each write is guarded: a `@Published` assignment notifies every
+        // observer even when the value is equal, and this runs every second.
+        publish(\.elapsed, engine.elapsed)
         // Gated on state: the engine's `elapsed` keeps counting from the last
         // start after a stop, because nothing reads it when idle — this does.
-        threadElapsed = engine.state == .idle ? 0 : threadBaseSeconds + elapsed
-        todayTotal = engine.todayTotal
-        sessionsToday = engine.sessionsToday
-        longestToday = engine.longestToday
-        streak = engine.archive.currentStreak(includingToday: inFlight)
-        streakBest = engine.archive.bestStreak()
-        goal = GoalProgress(goal: engine.store.dailyGoal,
+        publish(\.threadElapsed, engine.state == .idle ? 0 : threadBaseSeconds + elapsed)
+        publish(\.todayTotal, engine.todayTotal)
+        publish(\.sessionsToday, engine.sessionsToday)
+        publish(\.longestToday, engine.longestToday)
+        publish(\.streak, engine.archive.currentStreak(includingToday: inFlight))
+        publish(\.streakBest, engine.archive.bestStreak())
+        publish(\.goal, GoalProgress(goal: engine.store.dailyGoal,
                             achieved: DailyGoal(archive: engine.archive,
                                                 goal: engine.store.dailyGoal,
                                                 usage: usageSnapshot?.sessions ?? [],
@@ -907,14 +936,19 @@ final class SessionStore: ObservableObject {
                                                 now: { moment },
                                                 windowDays: engine.store.paceWindowDays)
                                 .achievedToday(),
-                            typical: cachedTypical)
+                            typical: cachedTypical))
         // Re-read rather than adding the open stretch to a cached total. The
         // cached version missed every segment that opened *and closed* between
         // refreshes, so the figure went backwards on each app switch.
         if let usageSnapshot {
-            trackedToday = usageSnapshot.total(on: moment)
+            publish(\.trackedToday, usageSnapshot.total(on: moment))
         }
         lastLiveFrame = consumedFrame
+    }
+
+    private func publish<Value: Equatable>(_ property: ReferenceWritableKeyPath<SessionStore, Value>,
+                                           _ value: Value) {
+        if self[keyPath: property] != value { self[keyPath: property] = value }
     }
 
     private func refreshTypical(at moment: Date) {

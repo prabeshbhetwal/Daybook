@@ -412,7 +412,9 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         guard self.store !== store else { return }
         self.store = store
         if store.period != .day { store.period = .day }
-        store.setDashboardVisible(true)
+        // Binding happens at launch, before any window exists. Visibility is
+        // the story canvas's to claim when it appears; claiming it here kept
+        // the dashboard rebuilding every second behind a window never opened.
         if let requestedDate { showDay(requestedDate) }
         periodObservation = store.$reviewDays.sink { [weak self] days in
             guard let self else { return }

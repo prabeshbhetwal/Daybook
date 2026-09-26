@@ -49,7 +49,7 @@ struct FocusContinuityApp: App {
                 }
             )
         } label: {
-            MenuBarLabelView(store: coordinator.store)
+            MenuBarLabelView(model: coordinator.menuBarLabel)
                 // The app is an LSUIElement, so nothing is on screen at first
                 // launch. A welcome nobody can see is no welcome: when one
                 // begins, the window it explains has to be in front of them.

@@ -29,10 +29,11 @@ enum SessionReportChecks {
     private static func reportContents() -> [String] {
         var failures: [String] = []
         let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-        // The story's day is published once a window model asks for it.
+        // The story's day is published once its canvas appears and asks for it.
         let navigation = MainActor.assumeIsolated {
             MainWindowModel(selectedTab: .story, storyScope: .day, store: store)
         }
+        store.setDashboardVisible(true)
         store.refresh()
         let sessions = daySessions(of: store)
         _ = navigation
@@ -89,6 +90,7 @@ enum SessionReportChecks {
             let store = FixtureFactory.store(for: .idleWithHistory)
             store.refresh()
             let navigation = MainWindowModel(selectedTab: .story, storyScope: .day, store: store)
+            store.setDashboardVisible(true)
             guard let session = daySessions(of: store).first else {
                 failures.append("The fixture day has no session")
                 return
@@ -121,6 +123,7 @@ enum SessionReportChecks {
         MainActor.assumeIsolated {
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             let navigation = MainWindowModel(selectedTab: .story, storyScope: .day, store: store)
+            store.setDashboardVisible(true)
             store.refresh()
             guard let session = daySessions(of: store).max(by: { $0.recordIDs.count < $1.recordIDs.count }) else {
                 failures.append("The fixture day has no session"); return

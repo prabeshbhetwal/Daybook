@@ -2,9 +2,9 @@ import SwiftUI
 import AppKit
 
 /// The status item's ring: the day's goal progress, drawn as a 16pt template
-/// image so it takes the menu bar's own tint. Rasterised on demand inside the
-/// existing tick — the label view re-evaluates whenever `elapsed` or `goal`
-/// publishes, which is what drives this — so there is no timer here.
+/// image so it takes the menu bar's own tint. Rasterised on demand when the
+/// label's `MenuBarDisplay` changes — there is no timer here — and kept, so a
+/// state already drawn is never drawn twice.
 enum MenuBarGlyph {
 
     private struct Ring: View {
@@ -41,9 +41,34 @@ enum MenuBarGlyph {
         }
     }
 
+    private struct Key: Hashable {
+        let progress: Double
+        let paused: Bool
+        let attention: Bool
+        let isMet: Bool
+    }
+
+    /// Rendered rings by exact input. The status item hands the same image
+    /// back while nothing it shows has changed, so AppKit has nothing to
+    /// redraw; a handful of entries covers every state a day passes through.
+    @MainActor private static var cache: [Key: NSImage] = [:]
+    private static let cacheLimit = 32
+
     @MainActor
     static func image(progress: Double, paused: Bool, attention: Bool,
                       isMet: Bool) -> NSImage? {
+        let key = Key(progress: progress, paused: paused, attention: attention, isMet: isMet)
+        if let cached = cache[key] { return cached }
+        guard let image = render(progress: progress, paused: paused,
+                                 attention: attention, isMet: isMet) else { return nil }
+        if cache.count >= cacheLimit { cache.removeAll(keepingCapacity: true) }
+        cache[key] = image
+        return image
+    }
+
+    @MainActor
+    private static func render(progress: Double, paused: Bool, attention: Bool,
+                               isMet: Bool) -> NSImage? {
         let renderer = ImageRenderer(content: Ring(progress: progress, paused: paused,
                                                    attention: attention, isMet: isMet))
         renderer.scale = 2

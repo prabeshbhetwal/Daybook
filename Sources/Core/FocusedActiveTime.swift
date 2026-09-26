@@ -38,11 +38,20 @@ enum FocusedActiveTime {
                         runningWork: TimeInterval? = nil) -> TimeInterval {
         guard interval.duration > 0 else { return 0 }
         let bounds = (start: interval.start, end: interval.end)
-        let focusRecords = records.filter { $0.workType.countsAsFocus }
+        // Only what can touch the interval: anything else clips to nothing and
+        // credits exactly zero below. `>=` keeps a zero-length record ending on
+        // the opening instant, which `workSeconds(in:)` still assigns here.
+        // Today's goal reads this every second over the whole history.
+        let focusRecords = records.filter {
+            $0.workType.countsAsFocus && $0.end >= bounds.start && $0.start < bounds.end
+        }
         var focus = focusRecords.map { (start: $0.start, end: $0.end) }
         if let running { focus.append(running) }
 
-        let handsOn = merged(clip(usage.map { (start: $0.start, end: $0.end) },
+        let handsOn = merged(clip(usage.compactMap { session -> Span? in
+                                      session.end > bounds.start && session.start < bounds.end
+                                          ? (start: session.start, end: session.end) : nil
+                                  },
                                   to: bounds))
         // The union intersection de-duplicates overlapping records, so no
         // second is ever counted twice however the archive overlaps.

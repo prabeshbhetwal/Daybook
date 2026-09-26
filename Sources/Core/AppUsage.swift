@@ -91,31 +91,74 @@ enum AppUsageConstants {
 /// observation order. A correction below the archive noise floor removes its
 /// durable record from the view, matching what a successful checkpoint writes.
 struct AppUsageSnapshot {
-    let sessions: [AppUsageSession]
+    private(set) var sessions: [AppUsageSession]
     let accurateFrom: Date
     let revision: Int
+    /// The overlay this view was built from: each pending record's id, whether
+    /// it stands in for a durable record, and the slot it landed in (nil when
+    /// the view leaves it out). A later reading of the same shape — only the
+    /// live record's end has moved — patches those slots instead of copying
+    /// and re-hashing every durable record. Nil when ids repeat on either
+    /// side, which only a full rebuild resolves exactly.
+    private var overlayShape: [OverlaySlot]?
+
+    private struct OverlaySlot {
+        let id: UUID
+        let replacesDurable: Bool
+        let slot: Int?
+    }
 
     init(archive: AppUsageArchive, tracker: AppUsageTracker? = nil) {
         let overlay = tracker?.usageOverlaySessions() ?? []
-        self.sessions = Self.overlay(durable: archive.sessions, with: overlay)
+        let built = Self.overlay(durable: archive.sessions, with: overlay)
+        self.sessions = built.sessions
+        self.overlayShape = built.shape
         self.accurateFrom = archive.metadata.accurateFrom
         self.revision = archive.revision &* 1_000_003 &+ (tracker?.overlayRevision ?? 0)
     }
 
+    /// Swaps a newer reading of the same pending records into place, giving
+    /// exactly what a rebuild over the same durable records would. False, with
+    /// nothing changed, when the shape differs: another id, or a record that
+    /// crossed the length that decides whether it is shown.
+    mutating func replaceOverlay(with pending: [AppUsageSession]) -> Bool {
+        guard let shape = overlayShape, pending.count == shape.count else { return false }
+        for (session, entry) in zip(pending, shape) {
+            guard session.id == entry.id,
+                  Self.isShown(session, replacesDurable: entry.replacesDurable)
+                    == (entry.slot != nil) else { return false }
+        }
+        for (session, entry) in zip(pending, shape) {
+            if let slot = entry.slot { sessions[slot] = session }
+        }
+        return true
+    }
+
+    /// A replacement must clear the archive's noise floor to stay; a record
+    /// the archive has never held only needs some length.
+    private static func isShown(_ session: AppUsageSession, replacesDurable: Bool) -> Bool {
+        replacesDurable
+            ? session.seconds >= AppUsageConstants.minimumSegment
+            : session.seconds > 0
+    }
+
     private static func overlay(durable: [AppUsageSession],
-                                with pending: [AppUsageSession]) -> [AppUsageSession] {
+                                with pending: [AppUsageSession])
+        -> (sessions: [AppUsageSession], shape: [OverlaySlot]?) {
         var latest: [UUID: AppUsageSession] = [:]
         for session in pending { latest[session.id] = session }
 
         let durableIDs = Set(durable.map(\.id))
         var result: [AppUsageSession] = []
+        var slots: [UUID: Int] = [:]
         result.reserveCapacity(durable.count + pending.count)
         for session in durable {
             guard let replacement = latest[session.id] else {
                 result.append(session)
                 continue
             }
-            if replacement.seconds >= AppUsageConstants.minimumSegment {
+            if isShown(replacement, replacesDurable: true) {
+                slots[replacement.id] = result.count
                 result.append(replacement)
             }
         }
@@ -124,9 +167,18 @@ struct AppUsageSnapshot {
         for session in pending
         where !durableIDs.contains(session.id) && !appended.contains(session.id) {
             appended.insert(session.id)
-            if session.seconds > 0 { result.append(session) }
+            if isShown(session, replacesDurable: false) {
+                slots[session.id] = result.count
+                result.append(session)
+            }
         }
-        return result
+        guard latest.count == pending.count, durableIDs.count == durable.count else {
+            return (result, nil)
+        }
+        let shape = pending.map {
+            OverlaySlot(id: $0.id, replacesDurable: durableIDs.contains($0.id), slot: slots[$0.id])
+        }
+        return (result, shape)
     }
 
     func total(on day: Date, calendar: Calendar = .current) -> TimeInterval {
