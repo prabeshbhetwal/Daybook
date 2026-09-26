@@ -152,10 +152,14 @@ struct DayPickerCalendar: View {
     }
 
     private var monthTitle: String {
+        Self.monthTitleFormatter.string(from: shown.month)
+    }
+
+    private static let monthTitleFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "LLLL yyyy"
-        return formatter.string(from: shown.month)
-    }
+        return formatter
+    }()
 
     /// `11 active days · 38h 56m focused · goal met 4×`, or a plain empty line.
     private var monthSummary: String {

@@ -429,10 +429,7 @@ struct InsightRangeReading {
         case .day:
             return Tokens.longDate(period.start)
         case .month:
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_AU")
-            formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: period.start)
+            return Tokens.australianDate("MMMM yyyy").string(from: period.start)
         case .week:
             let end = calendar.date(byAdding: .day, value: -1, to: period.end) ?? period.start
             return Tokens.dateRange(period.start, end)

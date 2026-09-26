@@ -201,10 +201,7 @@ struct HistoryArchiveTiles: View {
     }
 
     static func sinceLabel(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = "d MMM yyyy"
-        return formatter.string(from: date)
+        Tokens.australianDate("d MMM yyyy").string(from: date)
     }
 }
 

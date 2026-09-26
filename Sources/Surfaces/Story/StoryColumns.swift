@@ -330,10 +330,6 @@ struct StorySelectedDayCard: View {
         store.historyDays.first { Calendar.current.isDate($0.date, inSameDayAs: day) }
     }
 
-    private var projection: StoryDayProjection {
-        store.storyDayProjection(on: day)
-    }
-
     private var isExpanded: Bool {
         navigation.expandedStoryDay.map {
             Calendar.current.isDate($0, inSameDayAs: day)
@@ -341,7 +337,10 @@ struct StorySelectedDayCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.l) {
+        // Read once: today's projection is rebuilt on every read, and this
+        // card read it seven times a render.
+        let projection = store.storyDayProjection(on: day)
+        return VStack(alignment: .leading, spacing: Tokens.Space.l) {
             SurfacePanel(showsHeader: false) {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                     Text(Tokens.longDate(day))
@@ -362,7 +361,7 @@ struct StorySelectedDayCard: View {
                         ? "Hide \(Tokens.longDate(day)) story"
                         : "Open \(Tokens.longDate(day)) as a story")
                 }
-                Text(note)
+                Text(note(projection))
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -376,7 +375,7 @@ struct StorySelectedDayCard: View {
         }
     }
 
-    private var note: String {
+    private func note(_ projection: StoryDayProjection) -> String {
         guard facts != nil || !projection.chronology.isEmpty else {
             return "Nothing was recorded on this day."
         }

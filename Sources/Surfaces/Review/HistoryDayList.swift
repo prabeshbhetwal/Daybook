@@ -17,10 +17,7 @@ struct HistoryMonthGroup: Identifiable {
     var focused: TimeInterval { days.reduce(0) { $0 + $1.focused } }
 
     var title: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: start)
+        Tokens.australianDate("MMMM yyyy").string(from: start)
     }
 
     /// Keeps the incoming order, which is newest first.

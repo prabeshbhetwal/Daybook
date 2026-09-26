@@ -86,10 +86,7 @@ struct HistoryRangePresentation: Equatable {
     let accessibilityLabel: String
 
     private static func formatter(_ format: String) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = format
-        return formatter
+        Tokens.australianDate(format)
     }
 
     init(start: Date, end: Date, calendar: Calendar = .current) {

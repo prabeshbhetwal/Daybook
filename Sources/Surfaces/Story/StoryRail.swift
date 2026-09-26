@@ -82,7 +82,7 @@ struct StoryRail: View {
             ForEach(shownTiles, id: \.self) { kind in
                 arrangedTile(kind, shownTiles: shownTiles)
             }
-            droppable(footer, before: nil)
+            droppable(footer(shownTiles), before: nil)
         }
         .padding(StoryStyle.railInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -158,10 +158,11 @@ struct StoryRail: View {
         }
     }
 
-    private var footer: some View {
+    /// Takes the body's tile list: each pass over it re-reads the archive.
+    private func footer(_ shownTiles: [StoryTileKind]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            arrangeControl(visibleTiles)
-            if let note = footnote {
+            arrangeControl(shownTiles)
+            if let note = footnote(shownTiles) {
                 Text(note)
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
@@ -172,11 +173,11 @@ struct StoryRail: View {
 
     /// Only says what the visible cards need explaining. A note about the
     /// streak on a rail with no streak card explains nothing.
-    private var footnote: String? {
+    private func footnote(_ shownTiles: [StoryTileKind]) -> String? {
         if arrangement.isArranging && tilesAreDraggable {
             return "Drag cards to reorder, or use their menu."
         }
-        return visibleTiles.contains(.streak)
+        return shownTiles.contains(.streak)
             ? "The streak always describes recent days." : nil
     }
 
@@ -263,13 +264,14 @@ struct StoryRail: View {
     // MARK: - Focus
 
     private var focusTile: some View {
-        StoryTile(title: focusTitle,
+        let focus = focusValue
+        return StoryTile(title: focusTitle,
                   trailing: scopeLabel) {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                    Text(Tokens.preciseDuration(focusValue))
+                    Text(Tokens.preciseDuration(focus))
                         .font(Tokens.Typography.metricValue.monospacedDigit())
-                        .rollingDigits(focusValue)
+                        .rollingDigits(focus)
                     Text(focusNote)
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)

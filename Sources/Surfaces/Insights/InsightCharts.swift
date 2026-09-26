@@ -129,25 +129,20 @@ struct InsightTrendChart: View {
     /// Dense ranges label only where a reader needs an anchor: each Monday
     /// for days, every bar otherwise.
     private func axisLabel(_ period: StoryPeriodProjection, index: Int) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
         switch scope {
         case .month:
-            formatter.dateFormat = "MMM"
-            return formatter.string(from: period.start).uppercased()
+            return Tokens.australianDate("MMM").string(from: period.start).uppercased()
         case .week:
-            formatter.dateFormat = periods.count > 8 ? "d/M" : "d MMM"
-            return formatter.string(from: period.start).uppercased()
+            return Tokens.australianDate(periods.count > 8 ? "d/M" : "d MMM")
+                .string(from: period.start).uppercased()
         case .day:
             if periods.count > 14 {
                 let calendar = Calendar.current
                 guard calendar.component(.weekday, from: period.start) == calendar.firstWeekday
                         || index == periods.count - 1 else { return " " }
-                formatter.dateFormat = "d/M"
-                return formatter.string(from: period.start)
+                return Tokens.australianDate("d/M").string(from: period.start)
             }
-            formatter.dateFormat = "EEE d"
-            return formatter.string(from: period.start).uppercased()
+            return Tokens.australianDate("EEE d").string(from: period.start).uppercased()
         }
     }
 
@@ -487,10 +482,7 @@ struct InsightDayStrips: View {
     }
 
     private func dayLabel(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = "EEE d"
-        return formatter.string(from: date).uppercased()
+        Tokens.australianDate("EEE d").string(from: date).uppercased()
     }
 
     private var caption: String {

@@ -683,14 +683,10 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             let end = calendar.date(byAdding: .day, value: -1, to: bounds.end) ?? bounds.start
             return Tokens.dateRange(start, end, now: now, calendar: calendar)
         case .month:
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_AU")
             guard count > 1, let start = calendar.date(byAdding: .month, value: -(count - 1), to: insightAnchor)
-            else { formatter.dateFormat = "MMMM yyyy"; return formatter.string(from: insightAnchor) }
-            formatter.dateFormat = "MMM"
-            let first = formatter.string(from: start)
-            formatter.dateFormat = "MMM yyyy"
-            return "\(first) – \(formatter.string(from: insightAnchor))"
+            else { return Tokens.australianDate("MMMM yyyy").string(from: insightAnchor) }
+            let first = Tokens.australianDate("MMM").string(from: start)
+            return "\(first) – \(Tokens.australianDate("MMM yyyy").string(from: insightAnchor))"
         }
     }
 
@@ -725,10 +721,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             // The same words the Story's period control uses for a day.
             return Tokens.dayLabel(insightAnchor)
         case .month:
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_AU")
-            formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: insightAnchor)
+            return Tokens.australianDate("MMMM yyyy").string(from: insightAnchor)
         case .week:
             guard let bounds = calendar.dateInterval(of: .weekOfYear, for: insightAnchor) else {
                 return Tokens.longDate(insightAnchor)

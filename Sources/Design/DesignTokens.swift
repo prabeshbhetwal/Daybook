@@ -209,6 +209,23 @@ enum Tokens {
         return days == 1 ? "yesterday" : "\(days) days ago"
     }
 
+    /// A fixed `en_AU` pattern, built once. Labels on screen are drawn every
+    /// render, often per row or per bar, and a new `DateFormatter` for each
+    /// is the most expensive thing about them. Shared instances are never
+    /// mutated after this returns them.
+    static func australianDate(_ format: String) -> DateFormatter {
+        australianDateLock.lock()
+        defer { australianDateLock.unlock() }
+        if let cached = australianDates[format] { return cached }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_AU")
+        formatter.dateFormat = format
+        australianDates[format] = formatter
+        return formatter
+    }
+    private static var australianDates: [String: DateFormatter] = [:]
+    private static let australianDateLock = NSLock()
+
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
@@ -237,10 +254,14 @@ enum Tokens {
     /// letter — "EEEEE" yields duplicates (T for Tuesday and Thursday), which
     /// once collapsed a seven-bar chart to five.
     static func dayInitial(_ date: Date) -> String {
+        dayInitialFormatter.string(from: date)
+    }
+
+    private static let dayInitialFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEEE"
-        return formatter.string(from: date)
-    }
+        return formatter
+    }()
 
     static func dayLabel(_ date: Date, calendar: Calendar = .current) -> String {
         if calendar.isDateInToday(date) { return "Today" }
@@ -287,12 +308,7 @@ enum Tokens {
     /// cost the bar twenty points at its minimum width.
     static func dateRange(_ start: Date, _ end: Date, now: Date = Date(),
                           calendar: Calendar = .current) -> String {
-        func formatter(_ format: String) -> DateFormatter {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_AU")
-            formatter.dateFormat = format
-            return formatter
-        }
+        func formatter(_ format: String) -> DateFormatter { australianDate(format) }
         let thisYear = calendar.component(.year, from: now)
         let startYear = calendar.component(.year, from: start)
         let endYear = calendar.component(.year, from: end)
