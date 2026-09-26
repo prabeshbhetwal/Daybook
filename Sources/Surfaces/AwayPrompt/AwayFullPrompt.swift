@@ -191,10 +191,12 @@ final class AwayFullPrompt {
             window.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             // Shown again during the fade: that presentation owns it now.
-            guard window.alphaValue == 0 else { return }
-            window.orderOut(nil)
-            self?.release(window)
-            previous?.activate(options: [])
+            MainActor.assumeIsolated {
+                guard window.alphaValue == 0 else { return }
+                window.orderOut(nil)
+                self?.release(window)
+                previous?.activate(options: [])
+            }
         })
     }
 
