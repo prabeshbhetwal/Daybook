@@ -182,16 +182,31 @@ final class AwayFullPrompt {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             window.alphaValue = 0
             window.orderOut(nil)
+            release(window)
             previous?.activate(options: [])
             return
         }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.15
             window.animator().alphaValue = 0
-        }, completionHandler: {
+        }, completionHandler: { [weak self] in
+            // Shown again during the fade: that presentation owns it now.
+            guard window.alphaValue == 0 else { return }
             window.orderOut(nil)
+            self?.release(window)
             previous?.activate(options: [])
         })
+    }
+
+    /// A screen-sized window with a live blur and its SwiftUI tree is too much
+    /// to keep for a prompt that may not come back for days. `show` builds a
+    /// fresh one when it does.
+    private func release(_ window: KeyableWindow) {
+        guard self.window === window else { return }
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        screenObserver = nil
+        window.contentView = nil
+        self.window = nil
     }
 
     private func makeWindow() -> KeyableWindow {

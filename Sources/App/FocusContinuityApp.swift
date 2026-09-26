@@ -50,7 +50,7 @@ struct FocusContinuityApp: App {
             )
             // Closing the panel only orders it out; this rests its content
             // until it is shown again, so a closed panel costs nothing.
-            .background(PanelDormancy())
+            .background(WindowDormancy())
         } label: {
             MenuBarLabelView(model: coordinator.menuBarLabel)
                 // The app is an LSUIElement, so nothing is on screen at first
@@ -69,6 +69,9 @@ struct FocusContinuityApp: App {
                 navigation: coordinator.mainWindow,
                 firstRun: coordinator.firstRun
             )
+            // A closed window is kept whole by SwiftUI and would go on
+            // re-rendering the story every second; it rests until reopened.
+            .background(WindowDormancy())
         }
         .defaultSize(width: 1_160, height: 780)
         .windowResizability(.contentMinSize)

@@ -13,6 +13,7 @@ final class ActivityEditorPanelModel: ObservableObject {
     static let shared = ActivityEditorPanel()
 
     private var panel: NSPanel?
+    private var closeObserver: NSObjectProtocol?
     private let model = ActivityEditorPanelModel()
     static let width: CGFloat = 460
 
@@ -29,7 +30,22 @@ final class ActivityEditorPanelModel: ObservableObject {
         panel.makeKeyAndOrderFront(nil)
     }
 
-    func close() { panel?.orderOut(nil) }
+    /// Every `show` starts the form afresh, so nothing in a closed panel is
+    /// worth keeping: its window and SwiftUI tree, which would otherwise go on
+    /// following the store, are let go and built again on the next `show`.
+    func close() {
+        guard let panel else { return }
+        panel.orderOut(nil)
+        release(panel)
+    }
+
+    private func release(_ closing: NSPanel) {
+        guard panel === closing else { return }
+        if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
+        closeObserver = nil
+        closing.contentView = nil
+        panel = nil
+    }
 
     private func makePanel(store: SessionStore) -> NSPanel {
         let content = ActivityEditorPanelView(store: store, model: model, onClose: { [weak self] in self?.close() })
@@ -51,6 +67,14 @@ final class ActivityEditorPanelModel: ObservableObject {
         panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         self.panel = panel
+        // A system close (⌘W) ends the panel the same way `close` does.
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: panel, queue: .main) { [weak self, weak panel] _ in
+                MainActor.assumeIsolated {
+                    guard let self, let panel else { return }
+                    self.release(panel)
+                }
+            }
         return panel
     }
 

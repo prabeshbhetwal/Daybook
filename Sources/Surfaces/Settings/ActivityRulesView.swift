@@ -205,7 +205,7 @@ struct ActivityRuleCard: View {
             ForEach(Array(ruleApps.prefix(4).enumerated()), id: \.element.id) { index, app in
                 Group {
                     if let url = app.url {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                        Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 26))
                             .resizable()
                     } else {
                         Image(systemName: "app.dashed")
@@ -340,7 +340,7 @@ struct ActivityRuleForm: View {
                         } label: {
                             HStack(spacing: 4) {
                                 if let url = app?.url {
-                                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 14))
                                         .resizable().frame(width: 14, height: 14)
                                 }
                                 Text(app?.name ?? id).lineLimit(1)
@@ -378,7 +378,7 @@ struct ActivityRuleForm: View {
                         } label: {
                             HStack(spacing: 4) {
                                 if let url = app.url {
-                                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 14))
                                         .resizable().frame(width: 14, height: 14)
                                 }
                                 Text(app.name).lineLimit(1)
@@ -461,7 +461,7 @@ struct InstalledAppPicker: View {
                                                           : AnyShapeStyle(.tertiary))
                                     .frame(width: 18)
                                 if let url = application.url {
-                                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 22))
                                         .resizable().frame(width: 22, height: 22)
                                         .accessibilityHidden(true)
                                 } else {

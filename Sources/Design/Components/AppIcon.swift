@@ -20,21 +20,39 @@ final class AppIconProvider {
 
         let rasterised: NSImage? = NSWorkspace.shared
             .urlForApplication(withBundleIdentifier: bundleID)
-            .map { url -> NSImage in
-                let source = NSWorkspace.shared.icon(forFile: url.path)
-                let target = NSSize(width: size, height: size)
-                let image = NSImage(size: target)
-                image.lockFocus()
-                NSGraphicsContext.current?.imageInterpolation = .high
-                source.draw(in: NSRect(origin: .zero, size: target),
-                            from: .zero,
-                            operation: .sourceOver,
-                            fraction: 1)
-                image.unlockFocus()
-                return image
-            }
+            .map { Self.rasterise(NSWorkspace.shared.icon(forFile: $0.path), size: size) }
         cache[key] = rasterised
         return rasterised
+    }
+
+    /// The same, for an app known by where it is rather than by its id — the
+    /// installed-app lists, which can hold two copies of one bundle.
+    /// Kept in an evicting cache: scrolling every installed app would
+    /// otherwise pin a thousand icons for the life of the process.
+    func icon(forFile path: String, size: CGFloat) -> NSImage {
+        let key = "\(path)@\(Int(size))" as NSString
+        if let cached = fileCache.object(forKey: key) { return cached }
+        let rasterised = Self.rasterise(NSWorkspace.shared.icon(forFile: path), size: size)
+        fileCache.setObject(rasterised, forKey: key)
+        return rasterised
+    }
+    private let fileCache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 400
+        return cache
+    }()
+
+    private static func rasterise(_ source: NSImage, size: CGFloat) -> NSImage {
+        let target = NSSize(width: size, height: size)
+        let image = NSImage(size: target)
+        image.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .high
+        source.draw(in: NSRect(origin: .zero, size: target),
+                    from: .zero,
+                    operation: .sourceOver,
+                    fraction: 1)
+        image.unlockFocus()
+        return image
     }
 }
 

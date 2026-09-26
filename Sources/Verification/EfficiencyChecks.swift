@@ -9,7 +9,7 @@ enum EfficiencyChecks {
         ("Binding the window model at launch leaves the dashboard hidden", launchBindingStaysHidden),
         ("A live tail patched into the usage snapshot matches a full rebuild", patchedSnapshotMatchesRebuild),
         ("The menu bar label ignores changes it cannot show", menuBarIgnoresInvisibleChange),
-        ("A hidden panel rests its content and shows the same view again", hiddenPanelRests)
+        ("A hidden window rests its content and shows the same view again", hiddenPanelRests)
     ]
 
     private final class Clock {
@@ -156,7 +156,7 @@ enum EfficiencyChecks {
         var body: some View {
             beat.evaluations += 1
             return Text("\(beat.value)").frame(width: 120, height: 60)
-                .background(PanelDormancy())
+                .background(WindowDormancy())
         }
     }
 
@@ -184,10 +184,7 @@ enum EfficiencyChecks {
             let shown = beat.evaluations
             if shown == 0 { problems.append("The shown panel never evaluated its content") }
 
-            // The menu bar panel is key while open and closes by resigning it;
-            // a headless run cannot hold key, so it sends the same signal.
             panel.orderOut(nil)
-            NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: panel)
             spin(ticks: 0)
             let resting = beat.evaluations
             spin(ticks: 5)
@@ -198,10 +195,7 @@ enum EfficiencyChecks {
                 problems.append("Resting content evaluated \(beat.evaluations - resting) times while hidden")
             }
 
-            panel.makeKeyAndOrderFront(nil)
-            if !panel.isKeyWindow {
-                NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: panel)
-            }
+            panel.orderFront(nil)
             spin(ticks: 0)
             if panel.contentView !== content {
                 problems.append("Showing the panel did not bring back the same content view")

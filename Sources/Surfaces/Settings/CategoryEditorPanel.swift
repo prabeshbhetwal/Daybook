@@ -14,6 +14,7 @@ final class CategoryEditorPanelModel: ObservableObject {
     static let shared = CategoryEditorPanel()
 
     private var panel: NSPanel?
+    private var closeObserver: NSObjectProtocol?
     private let panelModel = CategoryEditorPanelModel()
     private var ticketCount: UInt64 = 0
     /// Set on each `show`, since the store that should adopt a new category
@@ -37,8 +38,21 @@ final class CategoryEditorPanelModel: ObservableObject {
         panel.makeKeyAndOrderFront(nil)
     }
 
+    /// Every `show` starts the form afresh, so nothing in a closed panel is
+    /// worth keeping: its window and SwiftUI tree, which would otherwise go on
+    /// following the store, are let go and built again on the next `show`.
     func close() {
-        panel?.orderOut(nil)
+        guard let panel else { return }
+        panel.orderOut(nil)
+        release(panel)
+    }
+
+    private func release(_ closing: NSPanel) {
+        guard panel === closing else { return }
+        if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
+        closeObserver = nil
+        closing.contentView = nil
+        panel = nil
     }
 
     static func title(for request: CategoryEditorRequest) -> String {
@@ -69,6 +83,14 @@ final class CategoryEditorPanelModel: ObservableObject {
         panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         self.panel = panel
+        // A system close (⌘W) ends the panel the same way `close` does.
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: panel, queue: .main) { [weak self, weak panel] _ in
+                MainActor.assumeIsolated {
+                    guard let self, let panel else { return }
+                    self.release(panel)
+                }
+            }
         return panel
     }
 
