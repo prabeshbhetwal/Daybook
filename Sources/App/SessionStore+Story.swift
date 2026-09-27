@@ -275,17 +275,11 @@ extension SessionStore {
         return storyRunningFocusSeconds(in: DateInterval(start: bounds.start, end: bounds.end))
     }
 
-    /// Projects actual elapsed work proportionally across the live wall-clock
-    /// span, matching `SessionRecord.workSeconds(in:)` and `elapsedToday()`.
+    /// Uses the engine's pause-aware live allocation, matching archived records.
     /// It is an ephemeral calculation, not a synthetic session record.
     func storyRunningFocusSeconds(in interval: DateInterval) -> TimeInterval {
-        guard let running = storyRunningSpan else { return 0 }
-        let span = running.end.timeIntervalSince(running.start)
-        guard span > 0 else { return 0 }
-        let start = max(running.start, interval.start)
-        let end = min(running.end, interval.end)
-        guard end > start else { return 0 }
-        return max(0, engine.elapsed) * end.timeIntervalSince(start) / span
+        guard storyRunningSpan != nil else { return 0 }
+        return engine.elapsed(in: (start: interval.start, end: interval.end))
     }
 
     /// Credit is calculated in canonical local-day slices. A paused span can

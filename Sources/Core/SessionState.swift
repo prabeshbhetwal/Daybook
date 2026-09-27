@@ -264,6 +264,9 @@ struct SessionRecord: Codable, Equatable, Identifiable {
     /// Kept so the detector never ends work a person deliberately began, and so
     /// a later learner can tell its own guesses from real decisions.
     var isAuto: Bool
+    /// Known non-counting intervals inside this record. Nil preserves the
+    /// legacy even-spread estimate for records written before this existed.
+    var pausedSpans: [DateInterval]?
 
     init(id: UUID = UUID(),
          name: String,
@@ -273,7 +276,8 @@ struct SessionRecord: Codable, Equatable, Identifiable {
          workSeconds: Double,
          detectedApp: String? = nil,
          threadID: UUID = UUID(),
-         isAuto: Bool = false) {
+         isAuto: Bool = false,
+         pausedSpans: [DateInterval]? = nil) {
         self.id = id
         self.name = name
         self.workType = workType
@@ -283,6 +287,7 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         self.detectedApp = detectedApp
         self.threadID = threadID
         self.isAuto = isAuto
+        self.pausedSpans = pausedSpans
     }
 
     /// Records written before threads existed remain one single-segment thread
@@ -300,6 +305,7 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         threadID = try container.decodeIfPresent(UUID.self, forKey: .threadID) ?? id
         // Records written before auto sessions existed were all started by hand.
         isAuto = try container.decodeIfPresent(Bool.self, forKey: .isAuto) ?? false
+        pausedSpans = try container.decodeIfPresent([DateInterval].self, forKey: .pausedSpans)
     }
 }
 
@@ -328,6 +334,12 @@ extension SessionRecord {
         let low = max(start, range.start)
         let high = min(end, range.end)
         guard high > low else { return 0 }
+        if let pausedSpans,
+           let allocated = PauseAllocation.workSeconds(workSeconds, start: start, end: end,
+                                                       range: range, pausedSpans: pausedSpans,
+                                                       pausedTotal: max(0, span - workSeconds)) {
+            return allocated
+        }
         return workSeconds * (high.timeIntervalSince(low) / span)
     }
 
@@ -341,6 +353,48 @@ extension SessionRecord {
         let start = calendar.startOfDay(for: day)
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
         return (start, end)
+    }
+}
+
+enum PauseAllocation {
+    static func isTrusted(_ pausedSpans: [DateInterval], start: Date, end: Date,
+                          pausedTotal: TimeInterval) -> Bool {
+        let span = max(0, end.timeIntervalSince(start))
+        guard span > 0, pausedTotal >= 0 else { return false }
+        let clipped = pausedSpans.compactMap { value -> DateInterval? in
+            let low = max(start, value.start), high = min(end, value.end)
+            return high > low ? DateInterval(start: low, end: high) : nil
+        }.sorted { $0.start < $1.start }
+        var total: TimeInterval = 0
+        var previous: Date?
+        for value in clipped {
+            guard previous.map({ value.start >= $0 }) ?? true else { return false }
+            total += value.duration
+            previous = value.end
+        }
+        return abs(total - pausedTotal) <= 1
+    }
+
+    static func workSeconds(_ work: TimeInterval, start: Date, end: Date,
+                            range: (start: Date, end: Date), pausedSpans: [DateInterval],
+                            pausedTotal: TimeInterval) -> TimeInterval? {
+        let span = max(0, end.timeIntervalSince(start))
+        guard span > 0, pausedTotal >= 0 else { return nil }
+        let clipped = pausedSpans.compactMap { value -> DateInterval? in
+            let low = max(start, value.start), high = min(end, value.end)
+            return high > low ? DateInterval(start: low, end: high) : nil
+        }.sorted { $0.start < $1.start }
+        guard isTrusted(pausedSpans, start: start, end: end, pausedTotal: pausedTotal) else { return nil }
+        let total = clipped.reduce(0) { $0 + $1.duration }
+        let low = max(start, range.start), high = min(end, range.end)
+        guard high > low else { return 0 }
+        let pausedInRange = clipped.reduce(0) { total, value in
+            let overlapStart = max(low, value.start), overlapEnd = min(high, value.end)
+            return total + max(0, overlapEnd.timeIntervalSince(overlapStart))
+        }
+        let countable = span - total
+        guard countable > 0 else { return nil }
+        return work * max(0, high.timeIntervalSince(low) - pausedInRange) / countable
     }
 }
 
@@ -373,6 +427,7 @@ struct PersistedState: Codable, Equatable {
     var name: String
     var sessionStart: Date
     var totalPaused: TimeInterval
+    var pausedSpans: [DateInterval]? = nil
     var pauseStart: Date?
     var pauseReason: String?
     var pauseBundleID: String?
@@ -417,6 +472,7 @@ extension PersistedState {
          name: String,
          sessionStart: Date,
          totalPaused: TimeInterval,
+         pausedSpans: [DateInterval]? = nil,
          pauseStart: Date?,
          away: (start: Date, trigger: AwayTrigger)?,
          lastApp: String,
@@ -459,6 +515,7 @@ extension PersistedState {
                   name: name,
                   sessionStart: sessionStart,
                   totalPaused: totalPaused,
+                  pausedSpans: pausedSpans,
                   pauseStart: pauseStart,
                   pauseReason: reason,
                   pauseBundleID: bundleID,

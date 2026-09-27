@@ -30,6 +30,7 @@ final class SessionEngine {
     private(set) var state: SessionState = .idle
     private(set) var sessionStartDate: Date
     private(set) var totalPausedDuration: TimeInterval = 0
+    private var pausedSpans: [DateInterval] = []
     private(set) var currentAppName: String = "—"
     private(set) var currentAppBundleID: String?
 
@@ -251,10 +252,28 @@ final class SessionEngine {
         let moment = now()
         let dayStart = calendar.startOfDay(for: moment)
         guard sessionStartDate < dayStart else { return elapsed }
+        return elapsed(in: (start: dayStart, end: moment))
+    }
+
+    func elapsed(in range: (start: Date, end: Date)) -> TimeInterval {
+        guard state != .idle, activeWorkType.countsAsFocus else { return 0 }
+        let moment = now()
         let span = moment.timeIntervalSince(sessionStartDate)
         guard span > 0 else { return 0 }
-        let todayShare = moment.timeIntervalSince(dayStart) / span
-        return elapsed * min(1, max(0, todayShare))
+        var spans = pausedSpans
+        if let pauseStartDate, moment > pauseStartDate {
+            spans.append(DateInterval(start: pauseStartDate, end: moment))
+        }
+        if let allocated = PauseAllocation.workSeconds(elapsed, start: sessionStartDate, end: moment,
+                                                       range: range,
+                                                       pausedSpans: spans,
+                                                       pausedTotal: totalPausedDuration
+                                                        + (pauseStartDate.map { interval(from: $0) } ?? 0)) {
+            return allocated
+        }
+        let low = max(sessionStartDate, range.start), high = min(moment, range.end)
+        guard high > low else { return 0 }
+        return elapsed * min(1, max(0, high.timeIntervalSince(low) / span))
     }
 
     /// Wall-clock interval with backwards-skew clamping (D1).
@@ -558,6 +577,7 @@ final class SessionEngine {
         cancelDwell()
         sessionStartDate = now()
         totalPausedDuration = 0
+        pausedSpans = []
         pauseStartDate = nil
         awayInterval = nil
         shadowAway = 0
@@ -581,10 +601,38 @@ final class SessionEngine {
 
     private func leavePause() {
         if let start = pauseStartDate {
+            let end = now()
             totalPausedDuration += interval(from: start)
+            addPausedSpan(start, end)
         }
         pauseStartDate = nil
         state = .running
+    }
+
+    private func addPausedSpan(_ start: Date, _ end: Date) {
+        guard end > start else { return }
+        pausedSpans.append(DateInterval(start: start, end: end))
+    }
+
+    private func removePausedSpan(startingAt start: Date, duration: TimeInterval) {
+        let end = start.addingTimeInterval(duration)
+        guard let index = pausedSpans.firstIndex(where: {
+            abs($0.start.timeIntervalSince(start)) <= 1 && abs($0.end.timeIntervalSince(end)) <= 1
+        }) else {
+            pausedSpans = []
+            return
+        }
+        pausedSpans.remove(at: index)
+    }
+
+    private func trustedPausedSpans(until end: Date) -> [DateInterval]? {
+        var spans = pausedSpans
+        if let pauseStartDate, end > pauseStartDate {
+            spans.append(DateInterval(start: pauseStartDate, end: end))
+        }
+        let paused = max(0, end.timeIntervalSince(sessionStartDate) - elapsed(endingAt: end))
+        return PauseAllocation.isTrusted(spans, start: sessionStartDate, end: end, pausedTotal: paused)
+            ? spans : nil
     }
 
     /// Ends a declared away. The user said they were leaving, so there is
@@ -629,6 +677,7 @@ final class SessionEngine {
         if let began = pauseStartDate {
             let watched = max(0, end.timeIntervalSince(began))
             totalPausedDuration += watched
+            addPausedSpan(began, end)
             if watched >= store.breakThreshold {
                 archive.append(SessionRecord(name: "Watching", workType: .breakTime,
                                              start: began, end: end, workSeconds: watched,
@@ -658,7 +707,7 @@ final class SessionEngine {
         let absence = interval(from: began)
         pauseStartDate = nil
         state = .running
-        resolve(away: absence)
+        resolve(away: absence, startedAt: began)
     }
 
     /// True when an unattended pause has outgrown `longAwayCap`. Only the two
@@ -772,10 +821,10 @@ final class SessionEngine {
     private func resolveAway() {
         guard let interval = awayInterval else { return }
         awayInterval = nil
-        resolve(away: self.interval(from: interval.start))
+        resolve(away: self.interval(from: interval.start), startedAt: interval.start)
     }
 
-    private func resolve(away: TimeInterval) {
+    private func resolve(away: TimeInterval, startedAt: Date? = nil) {
         if away < FocusConstants.awayDebounce { return }
         // Excluded the instant it is noticed, whether or not anyone answers.
         // Leaving it in the total until the card was dismissed meant an
@@ -783,6 +832,7 @@ final class SessionEngine {
         // flattering direction, and the one an unanswered question must never
         // drift towards. `.mergeTime` is what adds it back.
         totalPausedDuration += away
+        if let startedAt { addPausedSpan(startedAt, startedAt.addingTimeInterval(away)) }
         if away < breakThreshold {
             persist()
             return
@@ -874,7 +924,8 @@ final class SessionEngine {
                     name: originalName, workType: activeWorkType,
                     start: originalStart, end: min(max(awayStarted ?? now(), originalStart), now()),
                     workSeconds: beforeReturn, detectedApp: activeDetectedApp,
-                    threadID: originalThread, isAuto: activeIsAuto))
+                    threadID: originalThread, isAuto: activeIsAuto,
+                    pausedSpans: trustedPausedSpans(until: awayStarted ?? now())))
             }
         }
         if let existing = archive.records.first(where: { $0.id == decisionID }),
@@ -905,6 +956,7 @@ final class SessionEngine {
         switch decision {
         case .mergeTime:
             totalPausedDuration -= away   // it was work after all (D12)
+            if let awayStarted { removePausedSpan(startingAt: awayStarted, duration: away) }
             // "I was working" answered the *first* gap. A second absence the
             // card sat through was never part of the question and stays
             // excluded.
@@ -933,12 +985,15 @@ final class SessionEngine {
             // Retain work done after the real return, including work observed
             // before a relaunch. Closed-app time and secondary absence stay out.
             totalPausedDuration = max(0, interval(from: sessionStartDate) - afterReturn)
+            pausedSpans = []
         }
         // Whatever the path, the books must balance: a session cannot have
         // been paused for longer than it has existed. Without this, banked
         // absence landing on a young session pinned its clock at zero for
         // as long as the excess lasted.
         totalPausedDuration = max(0, min(totalPausedDuration, interval(from: sessionStartDate)))
+        if !PauseAllocation.isTrusted(pausedSpans, start: sessionStartDate, end: now(),
+                                      pausedTotal: totalPausedDuration) { pausedSpans = [] }
         if let returnedAt, let awayStarted, returnedAt > awayStarted {
             let uncreditedPause = min(interval(from: originalStart), max(0, oldPaused + shadow))
             lastAwayDecision = AwayDecisionReceipt(id: decisionID,
@@ -1037,6 +1092,7 @@ final class SessionEngine {
             }
         }
         totalPausedDuration += liveCredit
+        pausedSpans = []
         receipt.decision = nil
         // This is a new review action. Old buttons/retries must not target a
         // subsequent answer to the same physical interval.
@@ -1199,7 +1255,8 @@ final class SessionEngine {
                                      workSeconds: elapsed,
                                      detectedApp: activeDetectedApp,
                                      threadID: activeThreadID,
-                                     isAuto: activeIsAuto)
+                                     isAuto: activeIsAuto,
+                                     pausedSpans: trustedPausedSpans(until: end))
         let additions = record.map { [$0] } ?? []
         if decisionHistory.requiresTerminalCheckpoint || awayDecisions.contains(where: {
             $0.creditedSeconds > 0 && $0.threadID == activeThreadID && $0.sessionStart == sessionStartDate
@@ -1339,6 +1396,7 @@ final class SessionEngine {
         store.sessionName = action.ruleName
         sessionStartDate = evidence.start
         totalPausedDuration = max(0, now().timeIntervalSince(evidence.end))
+        pausedSpans = totalPausedDuration > 0 ? [DateInterval(start: evidence.end, end: now())] : []
         pauseStartDate = nil
         awayInterval = nil
         shadowAway = 0
@@ -1370,7 +1428,8 @@ final class SessionEngine {
                             workType: activeWorkType, start: sessionStartDate,
                             end: evidence.start, workSeconds: oldWork,
                             detectedApp: activeDetectedApp,
-                            threadID: activeThreadID, isAuto: true)
+                            threadID: activeThreadID, isAuto: true,
+                            pausedSpans: trustedPausedSpans(until: evidence.start))
         activeWorkType = action.workType
         activeDetectedApp = currentAppBundleID
         let continued = continuedThread(for: action, at: evidence.start)
@@ -1382,6 +1441,7 @@ final class SessionEngine {
         store.sessionName = action.ruleName
         sessionStartDate = evidence.start
         totalPausedDuration = max(0, now().timeIntervalSince(evidence.end))
+        pausedSpans = totalPausedDuration > 0 ? [DateInterval(start: evidence.end, end: now())] : []
         pauseStartDate = nil
         awayInterval = nil
         shadowAway = 0
@@ -1463,6 +1523,7 @@ final class SessionEngine {
         decisionStartDate = nil
         awayReturnedAt = nil
         totalPausedDuration = 0
+        pausedSpans = []
         activeIsAuto = false
         activeAutomaticAction = nil
         state = .idle
@@ -1581,6 +1642,7 @@ final class SessionEngine {
         store.sessionName = saved.name
         sessionStartDate = saved.sessionStart
         totalPausedDuration = saved.totalPaused
+        pausedSpans = saved.pausedSpans ?? []
         pauseStartDate = saved.pauseStart
         awayInterval = saved.awayStart.map { (start: $0, trigger: saved.awayTrigger ?? .screenLock) }
         shadowAway = saved.shadowAway ?? 0
@@ -1603,6 +1665,7 @@ final class SessionEngine {
                        name: sessionName,
                        sessionStart: sessionStartDate,
                        totalPaused: totalPausedDuration,
+                       pausedSpans: pausedSpans.isEmpty ? nil : pausedSpans,
                        pauseStart: pauseStartDate,
                        away: awayInterval,
                        lastApp: currentAppName,
@@ -1657,6 +1720,7 @@ final class SessionEngine {
         store.sessionName = snapshot.name
         sessionStartDate = snapshot.sessionStart
         totalPausedDuration = snapshot.totalPaused
+        pausedSpans = snapshot.pausedSpans ?? []
         pauseStartDate = snapshot.pauseStart
         currentAppName = snapshot.lastApp
         currentAppBundleID = snapshot.lastAppBundleID
@@ -1701,6 +1765,7 @@ final class SessionEngine {
             // they happened and whose span cannot contain them.
             totalPausedDuration += (snapshot.shadowAway ?? 0)
                 + interval(from: snapshot.awayStart ?? snapshot.savedAt)
+            pausedSpans = []
             // `?? 0`, never the threshold: `.mergeTime` subtracts this from the
             // paused total, and a fabricated value would subtract time that was
             // never added — inventing work out of a missing field.
@@ -1742,6 +1807,7 @@ final class SessionEngine {
                 // A committed initial live answer is proof of the answer, not
                 // proof of presence while the app was closed afterwards.
                 totalPausedDuration += interval(from: began)
+                pausedSpans = []
                 if awayAtLaunch { awayInterval = (start: now(), trigger: snapshot.awayTrigger ?? .screenLock) }
                 break
             }
