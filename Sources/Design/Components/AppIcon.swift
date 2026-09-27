@@ -103,6 +103,5 @@ struct AppIcon: View {
 /// leaves one definition of each colour.
 enum TimelinePalette {
     static func color(_ index: Int) -> Color { Tokens.Palette.app(rank: index) }
-    static func color(for workType: WorkType) -> Color { Tokens.Palette.workType(workType) }
     static let untracked = Tokens.Palette.untracked
 }

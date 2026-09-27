@@ -148,18 +148,13 @@ final class SessionStore: ObservableObject {
     /// Timeline inspection. Both are single optionals, so hovering allocates nothing.
     @Published var hoveredSegment: TimelineSegment?
     @Published var selectedSegment: TimelineSegment?
-    @Published var stretchesInSelectedHour: [TimelineSegment] = []
     /// Apps used today that are not running now, each with its stretches.
     @Published var earlierToday: [AppDayHistory] = []
     /// The selected day's sessions and rests, as the Sessions card shows them.
     @Published var daySessions: [DayEntry] = []
     /// A session the user clicked: the page narrows to it (Focused, Tracked,
-    /// App share, the timeline's frame) until cleared.
+    /// App share) until cleared.
     @Published var selectedSession: DaySession?
-    /// A session under the pointer: the timeline frames it lightly.
-    @Published var hoveredSession: DaySession?
-    /// An app row under the pointer: its blocks brighten on the timeline.
-    @Published var highlightedBundleID: String?
     /// Figures for the selected session, computed once when it is selected.
     @Published var sessionAppRanks: [AppRank] = []
     @Published var sessionTracked: TimeInterval = 0
@@ -247,9 +242,6 @@ final class SessionStore: ObservableObject {
             objectWillChange.send()
         }
     }
-
-    /// Whether the collapsed tail of barely-used apps is showing.
-    @Published private(set) var showsMinorApps = false
 
     /// True while the running session was started by the detector rather than
     /// by hand — the popover labels it, and only these may be undone.

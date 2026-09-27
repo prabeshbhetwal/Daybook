@@ -29,28 +29,28 @@ struct RhythmChart: View {
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
                             .onTapGesture { onHourTap?(hour.hour) }
-                            .help("\(DayTimelineView.hourLabel(hour.hour)) · "
+                            .help("\(DateFormats.hourLabel(hour.hour)) · "
                                   + Tokens.preciseDuration(hour.seconds)
                                   + (onHourTap == nil ? "" : " · click to open the hour"))
-                            .accessibilityLabel("\(DayTimelineView.hourLabel(hour.hour)), \(Tokens.spent(hour.seconds)) recorded")
+                            .accessibilityLabel("\(DateFormats.hourLabel(hour.hour)), \(Tokens.spent(hour.seconds)) recorded")
                     }
                 }
                 .frame(height: height, alignment: .bottom)
                 .overlay(alignment: .bottom) { Rectangle().fill(Tokens.Colour.line).frame(height: 1) }
                 if compactLabels, let first = hours.first, let last = hours.last {
                     HStack {
-                        Text(DayTimelineView.hourLabel(first.hour))
+                        Text(DateFormats.hourLabel(first.hour))
                         Spacer()
-                        if hours.count > 2 { Text(DayTimelineView.hourLabel(hours[hours.count / 2].hour)) }
+                        if hours.count > 2 { Text(DateFormats.hourLabel(hours[hours.count / 2].hour)) }
                         Spacer()
-                        Text(DayTimelineView.hourLabel(last.hour))
+                        Text(DateFormats.hourLabel(last.hour))
                     }
                     .font(.caption2).foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 } else {
                   HStack(spacing: labelStep == 1 ? 8 : 4) {
                     ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
-                        Text(index % labelStep == 0 ? DayTimelineView.hourLabel(hour.hour) : "")
+                        Text(index % labelStep == 0 ? DateFormats.hourLabel(hour.hour) : "")
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)

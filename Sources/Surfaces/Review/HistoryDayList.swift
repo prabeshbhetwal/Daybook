@@ -211,7 +211,7 @@ struct HistoryDayPreview: View {
                 switch entry {
                 case .session(let session):
                     entryRow(colour: Tokens.Palette.workType(session.workType),
-                             title: session.name.isEmpty ? session.workType.displayName : session.name,
+                             title: session.workType.sessionTitle(named: session.name),
                              detail: "\(session.workType.displayName) · \(Tokens.timeRange(session.start, session.end))",
                              value: Tokens.duration(session.worked))
                 case .rest(let rest):
@@ -265,7 +265,7 @@ struct HistoryDayPreview: View {
                 let text = store.metadataArchive.metadata(for: recordID)?.note ?? ""
                 let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
-                    result.append((recordID, session.name.isEmpty ? session.workType.displayName : session.name,
+                    result.append((recordID, session.workType.sessionTitle(named: session.name),
                                    trimmed))
                 }
             }

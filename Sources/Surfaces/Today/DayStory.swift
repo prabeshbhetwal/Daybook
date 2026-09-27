@@ -490,7 +490,7 @@ struct SessionEntryCard: View {
             HStack(alignment: .top, spacing: 0) {
                 Button(action: onToggle) {
                     VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                        Text(session.name.isEmpty ? session.workType.displayName : session.name)
+                        Text(session.workType.sessionTitle(named: session.name))
                             .font(Tokens.Typography.rowTitle)
                             .lineLimit(2)
                             // The pencil is placed by this width, so it sits
@@ -590,7 +590,7 @@ struct SessionEntryCard: View {
     }
 
     private var accessibilityLabel: String {
-        var parts = [session.name.isEmpty ? session.workType.displayName : session.name,
+        var parts = [session.workType.sessionTitle(named: session.name),
                      session.workType.displayName]
         parts.append(session.isRunning
                      ? "running since \(Tokens.timeOfDayOnly(session.start))"
@@ -743,7 +743,7 @@ struct SessionEntryCard: View {
                                 Button("Remove session", role: .destructive) { onRemove?() }
                                 Button("Keep", role: .cancel) {}
                             } message: {
-                                Text("Every stretch of “\(session.name.isEmpty ? session.workType.displayName : session.name)” "
+                                Text("Every stretch of “\(session.workType.sessionTitle(named: session.name))” "
                                      + "leaves the record and its time reads as outside sessions. "
                                      + "App use stays. Undo is offered in the story.")
                             }

@@ -162,7 +162,7 @@ extension SessionStore {
                 id: "archive-\(record.id.uuidString)",
                 sourceRecordID: record.id,
                 threadID: record.threadID,
-                name: record.name.isEmpty ? record.workType.displayName : record.name,
+                name: record.workType.sessionTitle(named: record.name),
                 workType: record.workType,
                 start: max(record.start, interval.start),
                 end: min(record.end, interval.end),
@@ -544,17 +544,11 @@ extension SessionStore {
         reviewRefreshPending = false
     }
 
-    private static func reviewWorkTypes(from days: [PeriodDay]) -> [WorkTypeShare] {
+    static func reviewWorkTypes(from days: [PeriodDay]) -> [WorkTypeShare] {
         var seconds: [WorkType: TimeInterval] = [:]
         for day in days {
             for share in day.byWorkType { seconds[share.workType, default: 0] += share.seconds }
         }
-        let total = seconds.values.reduce(0, +)
-        return WorkType.ordered(seconds.keys).compactMap { type in
-            guard let value = seconds[type], value > 0 else { return nil }
-            return WorkTypeShare(workType: type, seconds: value,
-                                 share: total > 0 ? value / total : 0)
-        }
-        .sorted { $0.seconds > $1.seconds }
+        return WorkTypeShare.shares(from: seconds)
     }
 }

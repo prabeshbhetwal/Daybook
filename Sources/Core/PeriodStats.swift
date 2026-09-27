@@ -74,11 +74,6 @@ struct LogAppGroup: Identifiable, Equatable {
     let share: Double
     var id: String { bundleID }
 
-    /// The span this app covers across the whole period. Not the selected day's
-    /// span — in a week view that would name one day and mean another.
-    var firstStart: Date { sessions.map(\.session.start).min() ?? Date() }
-    var lastEnd: Date { sessions.map(\.session.end).max() ?? Date() }
-
     var longest: TimeInterval { sessions.map(\.session.attended).max() ?? 0 }
 
     /// This app's own shape across the period, oldest day first, including days

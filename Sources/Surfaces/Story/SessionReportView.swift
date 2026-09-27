@@ -31,7 +31,7 @@ struct SessionReport {
     let power: PowerContextSummary?
     let appColourIndices: [String: Int]
 
-    var title: String { session.name.isEmpty ? session.workType.displayName : session.name }
+    var title: String { session.workType.sessionTitle(named: session.name) }
     var apps: [AppRank] { detail.apps }
     /// Every recorded visit and every gap, in order.
     var intervals: [RecordedActivity.Interval] { detail.activity.intervals }

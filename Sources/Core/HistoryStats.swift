@@ -105,12 +105,6 @@ enum HistoryStats {
         case exceedsBound
     }
 
-    static func days(sessionRecords: [SessionRecord],
-                     usage: [AppUsageSession],
-                     calendar: Calendar = .current) -> [HistoryDay] {
-        build(sessionRecords: sessionRecords, usage: usage, calendar: calendar).days
-    }
-
     static func build(sessionRecords: [SessionRecord],
                       usage: [AppUsageSession],
                       calendar: Calendar = .current) -> HistoryBuildResult {

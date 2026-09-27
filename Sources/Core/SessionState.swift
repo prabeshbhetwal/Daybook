@@ -197,6 +197,8 @@ struct WorkType: Hashable, Codable, Identifiable, CaseIterable {
     var definition: WorkTypeDefinition { WorkTypeCatalog.shared.definition(for: self) }
 
     var displayName: String { definition.name }
+    /// What to call a session: its own name, or its category when it has none.
+    func sessionTitle(named name: String) -> String { name.isEmpty ? displayName : name }
 
     var symbolName: String { definition.symbolName }
 
@@ -361,10 +363,12 @@ enum PauseAllocation {
                           pausedTotal: TimeInterval) -> Bool {
         let span = max(0, end.timeIntervalSince(start))
         guard span > 0, pausedTotal >= 0 else { return false }
-        let clipped = pausedSpans.compactMap { value -> DateInterval? in
-            let low = max(start, value.start), high = min(end, value.end)
-            return high > low ? DateInterval(start: low, end: high) : nil
-        }.sorted { $0.start < $1.start }
+        return isTrusted(clip(pausedSpans, start: start, end: end), pausedTotal: pausedTotal)
+    }
+
+    /// Spans already clipped and sorted: none overlaps the one before it, and
+    /// together they add up to the recorded pause total, within a second.
+    private static func isTrusted(_ clipped: [DateInterval], pausedTotal: TimeInterval) -> Bool {
         var total: TimeInterval = 0
         var previous: Date?
         for value in clipped {
@@ -380,11 +384,8 @@ enum PauseAllocation {
                             pausedTotal: TimeInterval) -> TimeInterval? {
         let span = max(0, end.timeIntervalSince(start))
         guard span > 0, pausedTotal >= 0 else { return nil }
-        let clipped = pausedSpans.compactMap { value -> DateInterval? in
-            let low = max(start, value.start), high = min(end, value.end)
-            return high > low ? DateInterval(start: low, end: high) : nil
-        }.sorted { $0.start < $1.start }
-        guard isTrusted(pausedSpans, start: start, end: end, pausedTotal: pausedTotal) else { return nil }
+        let clipped = clip(pausedSpans, start: start, end: end)
+        guard isTrusted(clipped, pausedTotal: pausedTotal) else { return nil }
         let total = clipped.reduce(0) { $0 + $1.duration }
         let low = max(start, range.start), high = min(end, range.end)
         guard high > low else { return 0 }
@@ -395,6 +396,14 @@ enum PauseAllocation {
         let countable = span - total
         guard countable > 0 else { return nil }
         return work * max(0, high.timeIntervalSince(low) - pausedInRange) / countable
+    }
+
+    /// Each span cut to the record's own start and end, empty ones dropped, in order.
+    private static func clip(_ pausedSpans: [DateInterval], start: Date, end: Date) -> [DateInterval] {
+        pausedSpans.compactMap { value -> DateInterval? in
+            let low = max(start, value.start), high = min(end, value.end)
+            return high > low ? DateInterval(start: low, end: high) : nil
+        }.sorted { $0.start < $1.start }
     }
 }
 
@@ -680,11 +689,6 @@ enum FocusConstants {
     // MARK: Rewards
 
     /// Cheap praise stops landing almost immediately, so this is deliberately low.
-    /// Apps below this in a period collapse into one line. A five-second Finder
-    /// visit is a true measurement, but it costs a full row and a bar too small
-    /// to see — the same space as an app that took an hour.
-    static let minorAppFloor: TimeInterval = 30
-
     static let rewardsPerDay = 4
     static let rewardCooldown: TimeInterval = 45 * 60
     /// How long a focused app and a music app must overlap before it is a thing

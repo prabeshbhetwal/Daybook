@@ -80,8 +80,8 @@ struct RewardEngine {
     private func goalReached(_ context: RewardContext) -> Reward? {
         guard context.goal.isMet else { return nil }
         return Reward(kind: .goalReached,
-                      title: "\(duration(context.goal.goal)) goal reached",
-                      detail: "You've focused \(duration(context.goal.achieved)) today.",
+                      title: "\(DurationText.compact(context.goal.goal)) goal reached",
+                      detail: "You've focused \(DurationText.compact(context.goal.achieved)) today.",
                       symbolName: "checkmark.seal.fill")
     }
 
@@ -99,7 +99,7 @@ struct RewardEngine {
     private func milestone(_ context: RewardContext) -> Reward? {
         guard context.isSessionRunning, context.focusedToday >= 3_600 else { return nil }
         let hours = Int(context.focusedToday / 3_600)
-        let todayPhrase = duration(context.focusedToday)
+        let todayPhrase = DurationText.compact(context.focusedToday)
         let detail: String
         // The comparison is only ever printed when there is a real number behind
         // it — a hidden fallback like "last week" without a value would look
@@ -107,7 +107,7 @@ struct RewardEngine {
         if let lastWeek = context.sameWeekdayLastWeek {
             let delta = context.focusedToday - lastWeek
             let direction = delta >= 0 ? "more" : "less"
-            detail = "\(todayPhrase) focused today, \(duration(abs(delta))) \(direction) "
+            detail = "\(todayPhrase) focused today, \(DurationText.compact(abs(delta))) \(direction) "
                    + "than the same day last week"
         } else {
             detail = "\(todayPhrase) focused today"
@@ -126,8 +126,8 @@ struct RewardEngine {
               let typical = context.goal.typicalByNow else { return nil }
         return Reward(kind: .goalPace,
                       title: "Ahead of your usual pace",
-                      detail: "\(duration(context.goal.achieved)) today vs "
-                            + "\(duration(typical)) typical by now — \(duration(aheadBy)) ahead.",
+                      detail: "\(DurationText.compact(context.goal.achieved)) today vs "
+                            + "\(DurationText.compact(typical)) typical by now — \(DurationText.compact(aheadBy)) ahead.",
                       symbolName: "hare.fill")
     }
 
@@ -137,7 +137,7 @@ struct RewardEngine {
         guard let media = context.endedMedia, media.seconds >= 600 else { return nil }
         return Reward(kind: .mediaEnded,
                       title: "Welcome back",
-                      detail: "\(duration(media.seconds)) with \(media.appName) — "
+                      detail: "\(DurationText.compact(media.seconds)) with \(media.appName) — "
                             + "ready when you are.",
                       symbolName: "arrow.uturn.backward.circle.fill")
     }
@@ -147,7 +147,7 @@ struct RewardEngine {
               pairing >= FocusConstants.musicPairingDwell else { return nil }
         return Reward(kind: .workWithMusic,
                       title: "In the zone",
-                      detail: "\(duration(pairing)) of focused work with music playing.",
+                      detail: "\(DurationText.compact(pairing)) of focused work with music playing.",
                       symbolName: "music.note")
     }
 
@@ -172,17 +172,5 @@ struct RewardEngine {
     private func firedToday(_ kind: RewardKind) -> Bool {
         guard let firedAt = log[kind.rawValue] else { return false }
         return calendar.isDate(firedAt, inSameDayAs: now())
-    }
-
-    // MARK: - Copy
-
-    /// `Core` cannot import the Design layer's `Tokens`, so this carries its own
-    /// plain formatting — same shape as `DashboardStats.durationPhrase`.
-    private func duration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        let hours = total / 3_600
-        let minutes = (total % 3_600) / 60
-        if hours > 0 { return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h" }
-        return "\(minutes)m"
     }
 }

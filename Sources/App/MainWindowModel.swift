@@ -245,10 +245,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         if let store { connect(to: store) }
     }
 
-    func select(_ tab: AppTab) {
-        open(tab: tab)
-    }
-
     func open(tab: AppTab) {
         if tab == .focus {
             performSessionControlsAction(.commandOrMenu)

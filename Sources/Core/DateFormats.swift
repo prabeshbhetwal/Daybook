@@ -15,6 +15,23 @@ enum DateFormats {
         cached(format, locale: nil)
     }
 
+    /// "11:25 am" with its one space unbreakable. Breaking there left a line
+    /// ending "11:25" and the next beginning "am – 11:31 am", which reads as a
+    /// different time entirely.
+    static func clockTime(_ date: Date) -> String {
+        local("h:mm a").string(from: date).replacingOccurrences(of: " ", with: "\u{00A0}")
+    }
+
+    /// "9am", "12pm": an hour on a chart axis.
+    static func hourLabel(_ date: Date) -> String {
+        local("ha").string(from: date).lowercased()
+    }
+
+    /// "8:44 am – 3:56 pm", each time kept whole by `clockTime`.
+    static func clockRange(_ start: Date, _ end: Date) -> String {
+        "\(clockTime(start)) – \(clockTime(end))"
+    }
+
     private static func cached(_ format: String, locale: Locale?) -> DateFormatter {
         lock.lock()
         defer { lock.unlock() }

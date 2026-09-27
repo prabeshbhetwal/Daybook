@@ -112,11 +112,6 @@ extension SessionStore {
         return facts
     }
 
-    /// The day's recorded breaks, for the timeline to name its gaps.
-    func breakRecords(on day: Date) -> [SessionRecord] {
-        engine.archive.records(on: day).filter { $0.workType == .breakTime }
-    }
-
     /// Calendar day-stepping, not 86 400-second arithmetic: on the two days a
     /// year that are 23 or 25 hours long, subtracting seconds lands the label
     /// on the wrong day for anyone browsing near midnight.
@@ -136,7 +131,6 @@ extension SessionStore {
         dayOffset = max(0, offset)
         clearTimelineSelection()
         clearSession()
-        hoveredSession = nil
         refreshDashboard()
     }
 

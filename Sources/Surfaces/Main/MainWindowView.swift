@@ -24,11 +24,8 @@ struct MainWindowView: View {
     var body: some View {
       GeometryReader { geometry in
         VStack(spacing: 0) {
-            let stripVisible = SessionControlsVisibility.isVisible(
-                expanded: navigation.sessionControlsExpanded,
-                pinned: settings.sessionControlsPinned)
             StoryChromeBar(store: store, navigation: navigation,
-                           sessionControlsVisible: stripVisible)
+                           sessionControlsVisible: sessionControlsVisible)
                 .accessibilitySortPriority(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
@@ -36,7 +33,7 @@ struct MainWindowView: View {
                 .zIndex(1)
             Divider()
                 .zIndex(1)
-            if stripVisible {
+            if sessionControlsVisible {
                 SessionControlStrip(store: store, settings: settings, navigation: navigation)
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
@@ -85,20 +82,13 @@ struct MainWindowView: View {
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
         .environment(\.openSessionReport) { session in navigation.openReport(for: session) }
-        .environment(\.sessionControlsVisible, SessionControlsVisibility.isVisible(
-            expanded: navigation.sessionControlsExpanded, pinned: settings.sessionControlsPinned))
-        .environment(\.openActivityEditor) { request in ActivityEditorPanel.shared.show(request, store: store) }
-        .environment(\.openCategoryEditor) { request in
-            CategoryEditorPanel.shared.show(request, model: settings) { definition, wasNew in
-                if wasNew { store.workType = definition.workType }
-            }
-        }
+        .environment(\.sessionControlsVisible, sessionControlsVisible)
+        .environment(\.openActivityEditor, openActivityEditor)
+        .environment(\.openCategoryEditor, openCategoryEditor)
         .tint(StoryStyle.action)
         .animation(Tokens.Motion.animation(Tokens.Motion.reveal,
                                            reduceMotion: reduceMotion),
-                   value: SessionControlsVisibility.isVisible(
-                    expanded: navigation.sessionControlsExpanded,
-                    pinned: settings.sessionControlsPinned))
+                   value: sessionControlsVisible)
         .onAppear {
             navigation.connect(to: store)
             firstRun.observe(coachSignals)
@@ -112,23 +102,33 @@ struct MainWindowView: View {
                 // A native sheet is its own view tree: the panels the window
                 // opens must be reachable from it too, or a category menu in
                 // Settings loses its Add and Edit items.
-                .environment(\.openCategoryEditor) { request in
-                    CategoryEditorPanel.shared.show(request, model: settings) { definition, wasNew in
-                        if wasNew { store.workType = definition.workType }
-                    }
-                }
-                .environment(\.openActivityEditor) { request in ActivityEditorPanel.shared.show(request, store: store) }
+                .environment(\.openCategoryEditor, openCategoryEditor)
+                .environment(\.openActivityEditor, openActivityEditor)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private var sessionControlsVisible: Bool {
+        SessionControlsVisibility.isVisible(expanded: navigation.sessionControlsExpanded,
+                                            pinned: settings.sessionControlsPinned)
+    }
+
+    private func openActivityEditor(_ request: ActivityEditorRequest) {
+        ActivityEditorPanel.shared.show(request, store: store)
+    }
+
+    /// A category added from any menu becomes the one the next session uses.
+    private func openCategoryEditor(_ request: CategoryEditorRequest) {
+        CategoryEditorPanel.shared.show(request, model: settings) { definition, wasNew in
+            if wasNew { store.workType = definition.workType }
+        }
     }
 
     /// What the welcome's steps are waiting on, gathered from the same state
     /// every other surface reads. Nothing here is staged for the welcome.
     private var coachSignals: FirstRunSignals {
         FirstRunSignals(
-            sessionControlsVisible: SessionControlsVisibility.isVisible(
-                expanded: navigation.sessionControlsExpanded,
-                pinned: settings.sessionControlsPinned),
+            sessionControlsVisible: sessionControlsVisible,
             sessionRunning: store.state.isRunning,
             otherAppRecorded: !store.rankedApps.isEmpty)
     }

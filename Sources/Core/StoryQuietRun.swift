@@ -40,25 +40,18 @@ struct StoryQuietRun: Equatable {
     var summary: String {
         var parts: [String] = []
         if recordedSeconds > 0 {
-            parts.append("\(StoryQuietRun.duration(recordedSeconds)) outside sessions")
+            parts.append("\(DurationText.compact(recordedSeconds)) outside sessions")
         }
         if idleSeconds > 0 {
-            parts.append("\(StoryQuietRun.duration(idleSeconds)) no input")
+            parts.append("\(DurationText.compact(idleSeconds)) no input")
         }
         if unrecordedSeconds > 0 {
-            parts.append("\(StoryQuietRun.duration(unrecordedSeconds)) not recorded")
+            parts.append("\(DurationText.compact(unrecordedSeconds)) not recorded")
         }
         if parts.isEmpty { parts.append("Nothing recorded") }
         let intervals = appUseCount + gapCount
         parts.append(intervals == 1 ? "1 interval" : "\(intervals) intervals")
         return parts.joined(separator: " · ")
-    }
-
-    static func duration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        let hours = total / 3600, minutes = (total % 3600) / 60
-        guard hours > 0 else { return "\(minutes)m" }
-        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
     }
 }
 

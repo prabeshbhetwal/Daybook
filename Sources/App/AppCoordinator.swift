@@ -492,42 +492,22 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             self.presentWelcomeIfNew()
             self.awayPrompter.start()
-            if let index = CommandLine.arguments.firstIndex(of: "--preview-away") {
-                let which = CommandLine.arguments.count > index + 1
-                    ? CommandLine.arguments[index + 1] : "quick"
-                if which == "card" || which == "past" {
-                    if which == "card" { self.store.previewPendingAway(6 * 60) }
-                    if which == "past" {
-                        // The view's onAppear returns to today; step after it.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.store.stepDay(by: -1) }
-                    }
-                    // The real main shell in a plain preview window, so the
-                    // requested card or historical day can be inspected without
-                    // first clicking through the menu-bar extra.
-                    self.mainWindow.open(tab: .today)
-                    let window = NSWindow(contentRect: NSRect(x: 200, y: 120,
-                                                              width: 1_160, height: 780),
-                                          styleMask: [.titled, .closable, .resizable],
-                                          backing: .buffered, defer: false)
-                    window.title = "FocusContinuity (preview)"
-                    window.contentMinSize = NSSize(width: 980, height: 680)
-                    window.contentView = NSHostingView(rootView: MainWindowView(
-                        store: self.store,
-                        settings: self.settings,
-                        navigation: self.mainWindow
-                    ))
-                    window.isReleasedWhenClosed = false
-                    self.previewWindow = window
-                    NSApp.activate(ignoringOtherApps: true)
-                    window.makeKeyAndOrderFront(nil)
-                } else {
-                    self.awayPrompter.preview(which == "full" ? .full : .quick)
-                }
-            }
+            self.openRequestedPreview()
         }
 
         // A nudge, never a block: it does not pause the session or take focus.
         observeMusicPlayback()
+        wireSessionCallbacks()
+
+        notifier.requestAuthorization()
+        hotKey.register { [weak self] in
+            self?.toggleSessionFromHotKey()
+        }
+    }
+
+    /// What the store reports back once a session is running: undone automatic
+    /// sessions, declared absence and due breaks.
+    private func wireSessionCallbacks() {
         // A session the user rejected must not reappear a few minutes later:
         // the conditions that justified it are still true.
         store.onAutoSessionUndone = { [weak self] in
@@ -559,11 +539,38 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             }
             self.notifier.postAwayResolution(title: prompt.title, body: prompt.body)
         }
+    }
 
-        notifier.requestAuthorization()
-        hotKey.register { [weak self] in
-            self?.toggleSessionFromHotKey()
+    /// `--preview-away quick|full|card|past`: shows the away prompt, or the main
+    /// window at a pending card or a past day, without clicking through the
+    /// menu-bar extra first.
+    @MainActor private func openRequestedPreview() {
+        guard let index = CommandLine.arguments.firstIndex(of: "--preview-away") else { return }
+        let which = CommandLine.arguments.count > index + 1 ? CommandLine.arguments[index + 1] : "quick"
+        guard which == "card" || which == "past" else {
+            awayPrompter.preview(which == "full" ? .full : .quick)
+            return
         }
+        if which == "card" { store.previewPendingAway(6 * 60) }
+        if which == "past" {
+            // The view's onAppear returns to today; step after it.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.store.stepDay(by: -1) }
+        }
+        // The real main shell in a plain preview window, so the requested card
+        // or historical day can be inspected without first clicking through
+        // the menu-bar extra.
+        mainWindow.open(tab: .today)
+        let window = NSWindow(contentRect: NSRect(x: 200, y: 120, width: 1_160, height: 780),
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "FocusContinuity (preview)"
+        window.contentMinSize = NSSize(width: 980, height: 680)
+        window.contentView = NSHostingView(rootView: MainWindowView(
+            store: store, settings: settings, navigation: mainWindow))
+        window.isReleasedWhenClosed = false
+        previewWindow = window
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

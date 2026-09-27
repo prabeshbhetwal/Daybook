@@ -83,7 +83,6 @@ enum Tokens {
         static let l: CGFloat = 16
         static let xl: CGFloat = 24
         static let xxl: CGFloat = 32
-        static let xxxl: CGFloat = 48
     }
 
     /// Every corner the product draws. Ten literals were in use — 1, 2, 3, 4,
@@ -132,9 +131,6 @@ enum Tokens {
             .monospacedDigit()
         static let pageTitle = Font.system(size: Size.page, weight: .semibold, design: .default)
         static let sectionTitle = Font.system(size: Size.section, weight: .semibold, design: .default)
-        /// The sentence a story opens with — prose, so it wraps and breathes
-        /// rather than shouting like a page title.
-        static let storyHeadline = Font.system(size: Size.headline, weight: .semibold, design: .default)
         static let metricValue = Font.system(size: Size.metric, weight: .semibold, design: .rounded)
             .monospacedDigit()
         static let tabLabel = Font.system(size: Size.control, weight: .medium, design: .default)
@@ -288,7 +284,6 @@ enum Tokens {
         static let untracked = ramp[ramp.count - 1]
         /// How many named colours precede the neutral "other" grey.
         static let distinctAppColourCount = ramp.count - 1
-        static let slate = Color(lightHex: 0x30B0C7, darkHex: 0x40C8E0)
         static let warmGrey = Color(lightHex: 0x8E8E93, darkHex: 0x98989D)
 
         /// Fixed identities, matching the approved design's composition legend:
@@ -358,8 +353,6 @@ enum Tokens {
         /// A measurement moving to its next measurement — a ring, a bar.
         /// Critically damped: it arrives, it does not spring past.
         static let settle = Animation.spring(response: 0.45, dampingFraction: 0.92)
-        /// Children enter this far apart, in order.
-        static let stagger: Double = 0.06
         /// Pressable things sink to this scale and lift to `hoverScale`.
         static let pressedScale: CGFloat = 0.94
         static let hoverScale: CGFloat = 1.03

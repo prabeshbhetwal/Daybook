@@ -168,11 +168,7 @@ extension SessionStore {
             }
         }
 
-        let categoryTotal = byCategory.values.reduce(0, +)
-        let categories = WorkType.ordered(Array(byCategory.keys)).compactMap { type -> WorkTypeShare? in
-            guard let seconds = byCategory[type], seconds > 0, categoryTotal > 0 else { return nil }
-            return WorkTypeShare(workType: type, seconds: seconds, share: seconds / categoryTotal)
-        }.sorted { $0.seconds > $1.seconds }
+        let categories = WorkTypeShare.shares(from: byCategory)
 
         var appTotals: [String: (name: String, total: TimeInterval, longest: TimeInterval)] = [:]
         for app in days.flatMap(\.apps) {

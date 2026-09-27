@@ -50,11 +50,6 @@ extension SessionStore {
         return true
     }
 
-    func capturePowerObservation(boundary: PowerCoverageBoundary?) {
-        guard engine.state != .idle, powerMonitor != nil else { return }
-        capturePowerObservation(for: engine.activeRecordID, boundary: boundary)
-    }
-
     private func capturePowerObservation(for recordID: UUID,
                                          boundary: PowerCoverageBoundary?) {
         guard let powerMonitor else { return }

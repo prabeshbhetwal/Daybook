@@ -320,7 +320,7 @@ extension SessionStore {
             let seconds = record.workSeconds(in: (start: interval.start, end: interval.end))
             guard seconds > 0 else { continue }
             candidates.append((seconds: seconds,
-                               name: record.name.isEmpty ? record.workType.displayName : record.name,
+                               name: record.workType.sessionTitle(named: record.name),
                                start: max(record.start, interval.start)))
         }
         if let running = storyRunningSpan {

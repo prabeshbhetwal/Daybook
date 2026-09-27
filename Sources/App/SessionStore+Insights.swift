@@ -12,10 +12,6 @@ struct InsightSurface: Equatable {
     /// Where each category lands in the day: "Deep work 9 am–11 am; Meetings
     /// 2 pm–4 pm". Nil until a category has half an hour of evidence.
     var categories: Insight? = nil
-    /// What the tiles draw beside their sentence: the hour bars behind
-    /// Rhythm, the category shares behind Focus quality and By category.
-    var rhythmHours: [RhythmHour] = []
-    var categoryTotals: [WorkTypeShare] = []
     private let rangeEvidence: Bool
 
     var hasEvidence: Bool {
@@ -65,8 +61,6 @@ struct InsightSurface: Equatable {
                 tracked: tracked,
                 comparableTracked: comparableTracked),
             categories: categoryInsight(byHour: categoryHours, days: activeDays, calendar: calendar),
-            rhythmHours: rhythm,
-            categoryTotals: quality.byWorkType,
             rangeEvidence: rhythmInsight != nil || qualityInsight != nil || activeDays > 0)
     }
 

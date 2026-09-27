@@ -92,7 +92,7 @@ struct FocusContinuations: View {
             continuationButton(enabled: !thread.isRunning,
                                action: { store.continueThread(thread) }) {
                 FocusContinuationLabel(
-                    title: thread.name.isEmpty ? thread.workType.displayName : thread.name,
+                    title: thread.workType.sessionTitle(named: thread.name),
                     detail: threadDetail(thread, apps: apps),
                     action: thread.isRunning ? .current
                         : isSwitching ? .switchTo : .duration(thread.totalWorked),

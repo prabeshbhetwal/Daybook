@@ -64,6 +64,17 @@ struct WorkTypeShare: Identifiable, Equatable {
     let seconds: TimeInterval
     let share: Double
     var id: String { workType.rawValue }
+
+    /// Each positive total as a share of their sum, largest first. Ties keep
+    /// `WorkType.ordered`'s order.
+    static func shares(from seconds: [WorkType: TimeInterval]) -> [WorkTypeShare] {
+        let total = seconds.values.reduce(0, +)
+        return WorkType.ordered(seconds.keys).compactMap { type in
+            guard let value = seconds[type], value > 0 else { return nil }
+            return WorkTypeShare(workType: type, seconds: value, share: total > 0 ? value / total : 0)
+        }
+        .sorted { $0.seconds > $1.seconds }
+    }
 }
 
 struct Insight: Identifiable, Equatable {
@@ -386,8 +397,7 @@ struct DashboardStats {
     }
 
     /// Focus-only spans within the requested day, merged for timeline brackets.
-    /// Breaks remain available through `breakRecords(on:)`; they do not create
-    /// a focus bracket or take part in any focus calculation.
+    /// Breaks do not create a focus bracket or take part in any focus calculation.
     func focusSpans(for day: Date) -> [DateInterval] {
         focusRanges(for: day).map { DateInterval(start: $0.start, end: $0.end) }
     }
@@ -409,11 +419,7 @@ struct DashboardStats {
         let focused = focusRanges(for: day)
         var inside: TimeInterval = 0
         for entry in clipped {
-            for range in focused {
-                let start = max(entry.start, range.start)
-                let end = min(entry.end, range.end)
-                if end > start { inside += end.timeIntervalSince(start) }
-            }
+            for range in focused { inside += Self.overlap(entry.start, entry.end, range.start, range.end) }
         }
         // The ranges are already merged, so their total is the focused span
         // counted once. What usage never saw is the remainder.
@@ -430,14 +436,7 @@ struct DashboardStats {
         if let runningSeconds, runningSeconds > 0, activeWorkType.countsAsFocus {
             byType[activeWorkType, default: 0] += runningSeconds
         }
-        let typeTotal = byType.values.reduce(0, +)
-        let shares = WorkType.ordered(byType.keys).compactMap { type -> WorkTypeShare? in
-            guard let seconds = byType[type], seconds > 0 else { return nil }
-            return WorkTypeShare(workType: type,
-                                 seconds: seconds,
-                                 share: typeTotal > 0 ? seconds / typeTotal : 0)
-        }
-        .sorted { $0.seconds > $1.seconds }
+        let shares = WorkTypeShare.shares(from: byType)
 
         // Count identity CHANGES inside each canonical focus stretch. The first
         // app observed is context, not a switch, and a same-app checkpoint split
@@ -524,13 +523,7 @@ struct DashboardStats {
             else { anonymousRunningCount = 1 }
         }
 
-        let typeTotal = byType.values.reduce(0, +)
-        let shares = WorkType.ordered(byType.keys).compactMap { type -> WorkTypeShare? in
-            guard let seconds = byType[type], seconds > 0 else { return nil }
-            return WorkTypeShare(workType: type, seconds: seconds,
-                                 share: typeTotal > 0 ? seconds / typeTotal : 0)
-        }
-        .sorted { $0.seconds > $1.seconds }
+        let shares = WorkTypeShare.shares(from: byType)
 
         let orderedUsage = sourceSessions
             .filter { session in
@@ -547,9 +540,7 @@ struct DashboardStats {
         var tracked: TimeInterval = 0
         for session in orderedUsage {
             for interval in dayIntervals {
-                let start = max(session.start, interval.start)
-                let end = min(session.end, interval.end)
-                if end > start { tracked += end.timeIntervalSince(start) }
+                tracked += Self.overlap(session.start, session.end, interval.start, interval.end)
             }
         }
 
@@ -557,9 +548,7 @@ struct DashboardStats {
         var inside: TimeInterval = 0
         for session in orderedUsage {
             for range in allFocusRanges {
-                let start = max(session.start, range.start)
-                let end = min(session.end, range.end)
-                if end > start { inside += end.timeIntervalSince(start) }
+                inside += Self.overlap(session.start, session.end, range.start, range.end)
             }
         }
         // Focused time the usage record never saw, clipped to the range so a
@@ -567,9 +556,7 @@ struct DashboardStats {
         var focusedSpan: TimeInterval = 0
         for range in allFocusRanges {
             for interval in dayIntervals {
-                let start = max(range.start, interval.start)
-                let end = min(range.end, interval.end)
-                if end > start { focusedSpan += end.timeIntervalSince(start) }
+                focusedSpan += Self.overlap(range.start, range.end, interval.start, interval.end)
             }
         }
         let unrecorded = max(0, focusedSpan - inside)
@@ -595,6 +582,12 @@ struct DashboardStats {
             switchesPerSession: count > 0 ? Double(switches) / Double(count) : 0,
             sessionCount: count,
             unrecordedFocusSeconds: unrecorded)
+    }
+
+    /// Seconds two spans share; zero when they do not meet, or when either
+    /// runs backwards. `DateInterval.intersection` would trap on the latter.
+    private static func overlap(_ startA: Date, _ endA: Date, _ startB: Date, _ endB: Date) -> TimeInterval {
+        max(0, min(endA, endB).timeIntervalSince(max(startA, startB)))
     }
 
     private static func mergeRanges(_ ranges: [DateInterval]) -> [DateInterval] {
@@ -648,8 +641,8 @@ struct DashboardStats {
         // "Longest stretch / Claude, 10m" said neither what nor when.
         return Insight(id: "longest-stretch",
                        headline: "Longest stretch in one app",
-                       detail: "\(durationPhrase(top.seconds)) in \(top.appName), "
-                             + clockRange(top.start, top.end),
+                       detail: "\(DurationText.compact(top.seconds)) in \(top.appName), "
+                             + DateFormats.clockRange(top.start, top.end),
                        symbolName: "arrow.up.right")
     }
 
@@ -663,8 +656,8 @@ struct DashboardStats {
         let percent = Int((quality.insideSessionShare * 100).rounded())
         return Insight(id: "inside-session",
                        headline: "\(percent)% of tracked time was in a focus session",
-                       detail: "\(durationPhrase(tracked * quality.insideSessionShare)) "
-                             + "of \(durationPhrase(tracked)) tracked",
+                       detail: "\(DurationText.compact(tracked * quality.insideSessionShare)) "
+                             + "of \(DurationText.compact(tracked)) tracked",
                        symbolName: "target")
     }
 
@@ -677,33 +670,11 @@ struct DashboardStats {
         let direction = delta >= 0 ? "more" : "less"
         // A delta without its baseline is not an insight: carry both sides.
         return Insight(id: "vs-yesterday",
-                       headline: "\(durationPhrase(abs(delta))) \(direction) than yesterday",
-                       detail: "\(durationPhrase(todayTotal)) today, "
-                             + "\(durationPhrase(yesterdayTotal)) yesterday",
+                       headline: "\(DurationText.compact(abs(delta))) \(direction) than yesterday",
+                       detail: "\(DurationText.compact(todayTotal)) today, "
+                             + "\(DurationText.compact(yesterdayTotal)) yesterday",
                        symbolName: delta >= 0 ? "chart.line.uptrend.xyaxis"
                                               : "chart.line.downtrend.xyaxis")
-    }
-
-    private func clockRange(_ start: Date, _ end: Date) -> String {
-        "\(clock(start)) – \(clock(end))"
-    }
-
-    /// A clock time that cannot be split by a line wrap. The only space in
-    /// "11:25 am" is the one before the meridiem, and breaking there left a line
-    /// ending "11:25" and the next beginning "am – 11:31 am", which reads as a
-    /// different time entirely.
-    private func clock(_ date: Date) -> String {
-        DateFormats.local("h:mm a").string(from: date)
-            .replacingOccurrences(of: " ", with: "\u{00A0}")
-    }
-
-    /// Core cannot import the Design layer, so it carries its own phrasing.
-    private func durationPhrase(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        if hours > 0 { return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h" }
-        return "\(minutes)m"
     }
 }
 

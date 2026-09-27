@@ -43,19 +43,6 @@ struct HistoryArchiveFacts: Equatable {
             && lhs.bestMonth?.start == rhs.bestMonth?.start && lhs.categories == rhs.categories
             && lhs.apps == rhs.apps
     }
-
-    /// The calendar years with anything on record, newest first.
-    func years(calendar: Calendar = .current, now: Date) -> [Int] {
-        var set = Set<Int>()
-        for day in focusByDay.keys { set.insert(calendar.component(.year, from: day)) }
-        for day in trackedByDay.keys { set.insert(calendar.component(.year, from: day)) }
-        set.insert(calendar.component(.year, from: now))
-        return set.sorted(by: >)
-    }
-
-    func focused(inYear year: Int, calendar: Calendar = .current) -> TimeInterval {
-        focusByDay.reduce(0) { calendar.component(.year, from: $1.key) == year ? $0 + $1.value : $0 }
-    }
 }
 
 extension SessionStore {
@@ -110,7 +97,7 @@ extension SessionStore {
                 continue
             }
             hits.append(HistorySearchHit(id: record.id, threadID: record.threadID,
-                                         name: record.name.isEmpty ? record.workType.displayName : record.name,
+                                         name: record.workType.sessionTitle(named: record.name),
                                          workType: record.workType, start: record.start, end: record.end,
                                          worked: record.workSeconds, day: day,
                                          noteSnippet: noteSnippet, matchedApps: matchedApps))
@@ -172,12 +159,7 @@ extension SessionStore {
         for record in engine.archive.records where record.workType.countsAsFocus {
             byCategory[record.workType, default: 0] += record.workSeconds
         }
-        let categoryTotal = byCategory.values.reduce(0, +)
-        var categories: [WorkTypeShare] = []
-        for (type, seconds) in byCategory where seconds > 0 && categoryTotal > 0 {
-            categories.append(WorkTypeShare(workType: type, seconds: seconds, share: seconds / categoryTotal))
-        }
-        categories.sort { $0.seconds > $1.seconds }
+        let categories = WorkTypeShare.shares(from: byCategory)
 
         var appTotals: [String: (name: String, total: TimeInterval, longest: TimeInterval)] = [:]
         if let usage {

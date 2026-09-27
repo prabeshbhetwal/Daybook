@@ -217,56 +217,6 @@ final class SessionArchive {
         }
     }
 
-    /// Restores the originally corrected records and any later continuations in
-    /// one candidate/write. Only the field the correction touched is changed;
-    /// timing, other fields and unrelated records remain evidence, not state to
-    /// be rolled back.
-    func restore(correction: SessionCorrection, inThread thread: UUID,
-                 snapshot: SessionArchiveCorrectionSnapshot?,
-                 recordsPresentAtCorrection recordIDs: Set<UUID>,
-                 originalFields: (name: String, workType: WorkType))
-        -> SessionArchiveCorrectionResult {
-        let recordedOriginals = Dictionary(uniqueKeysWithValues: (snapshot?.fields ?? []).map {
-            ($0.recordID, $0)
-        })
-        var candidate = cache
-        var fields: [SessionArchiveCorrectionSnapshot.Fields] = []
-        var changed = false
-        for index in candidate.indices where candidate[index].threadID == thread {
-            let record = candidate[index]
-            let restore: SessionArchiveCorrectionSnapshot.Fields?
-            if let original = recordedOriginals[record.id] {
-                restore = original
-            } else if !recordIDs.contains(record.id) {
-                restore = .init(recordID: record.id, name: originalFields.name,
-                                workType: originalFields.workType)
-            } else {
-                restore = nil
-            }
-            guard let restore else { continue }
-            switch correction {
-            case .rename:
-                guard record.name != restore.name else { continue }
-                fields.append(.init(recordID: record.id, name: record.name, workType: record.workType))
-                candidate[index].name = restore.name
-            case .workType:
-                guard record.workType != restore.workType else { continue }
-                fields.append(.init(recordID: record.id, name: record.name, workType: record.workType))
-                candidate[index].workType = restore.workType
-            case .removed:
-                return .unchanged
-            }
-            changed = true
-        }
-        guard changed else { return .unchanged }
-        switch write(candidate) {
-        case .success:
-            cache = candidate
-            return .applied(.init(threadID: thread, correction: correction, fields: fields))
-        case .failure(let error): return .failed(error)
-        }
-    }
-
     private func load() -> [SessionRecord] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
         do {

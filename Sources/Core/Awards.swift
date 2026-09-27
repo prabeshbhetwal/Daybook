@@ -139,7 +139,7 @@ enum Awards {
         }
         return Award(id: "longest-stretch",
                      title: "Longest stretch",
-                     detail: "\(duration(longest.seconds)) · \(dayMonth(longest.day))",
+                     detail: "\(DurationText.compact(longest.seconds)) · \(dayMonth(longest.day))",
                      method: "The longest single focus stretch in your local record, "
                            + "counting only the work inside that one stretch.",
                      symbolName: "flame",
@@ -167,8 +167,8 @@ enum Awards {
         return Award(id: "focused-hours",
                      title: "\(hours) hours focused",
                      detail: earned
-                        ? "\(duration(facts.totalFocused)) recorded"
-                        : "\(duration(facts.totalFocused)) so far",
+                        ? "\(DurationText.compact(facts.totalFocused)) recorded"
+                        : "\(DurationText.compact(facts.totalFocused)) so far",
                      method: "Every focus session you have recorded, added together.",
                      symbolName: "hourglass",
                      paletteRank: 3,
@@ -176,15 +176,6 @@ enum Awards {
     }
 
     // MARK: - Phrasing
-
-    /// `Core` cannot import the Design layer, so it carries the same phrasing.
-    private static func duration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        let hours = total / 3_600
-        let minutes = (total % 3_600) / 60
-        guard hours > 0 else { return "\(minutes)m" }
-        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
-    }
 
     private static func dayMonth(_ date: Date) -> String {
         DateFormats.australian("d MMM").string(from: date)

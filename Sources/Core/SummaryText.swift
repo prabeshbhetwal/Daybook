@@ -77,13 +77,13 @@ enum SummaryText {
         let inSessions = count == 0 ? "" : count == 1 ? " in one session" : " in \(count) sessions"
         var text: String
         if i.tracked > 0 {
-            text = i.isToday ? "So far today you've been at the Mac for **\(duration(i.tracked))**"
-                             : "You were at the Mac for **\(duration(i.tracked))**"
+            text = i.isToday ? "So far today you've been at the Mac for **\(DurationText.compact(i.tracked))**"
+                             : "You were at the Mac for **\(DurationText.compact(i.tracked))**"
             if let first = i.firstSeen, let last = i.lastSeen {
-                text += i.isToday ? ", since \(clock(first))" : ", \(clock(first)) – \(clock(last))"
+                text += i.isToday ? ", since \(DateFormats.clockTime(first))" : ", \(DateFormats.clockTime(first)) – \(DateFormats.clockTime(last))"
             }
             if i.focused > 0 {
-                text += ", and focused for **\(duration(i.focused))**\(inSessions)"
+                text += ", and focused for **\(DurationText.compact(i.focused))**\(inSessions)"
                 // Their quotient is not an overlap, even when below 100%.
                 // The quality sentence uses the actual temporal intersection.
                 if let goal = goalClause(i) { text += " — " + goal }
@@ -93,8 +93,8 @@ enum SummaryText {
         } else {
             // Sessions with nothing hands-on behind them: the tracker was off,
             // or the work happened away from the keyboard.
-            text = i.isToday ? "So far today you've focused for **\(duration(i.focused))**\(inSessions)"
-                             : "You focused for **\(duration(i.focused))**\(inSessions)"
+            text = i.isToday ? "So far today you've focused for **\(DurationText.compact(i.focused))**\(inSessions)"
+                             : "You focused for **\(DurationText.compact(i.focused))**\(inSessions)"
             if let goal = goalClause(i) { text += " — " + goal }
         }
         return text + "."
@@ -104,9 +104,9 @@ enum SummaryText {
         guard i.goal > 0 else { return nil }
         let achieved = i.goalAchieved ?? i.focused
         if achieved >= i.goal { return "goal met" }
-        let short = duration(i.goal - achieved)
-        return i.isToday ? "**\(short)** to the \(duration(i.goal)) goal"
-                         : "**\(short)** short of the \(duration(i.goal)) goal"
+        let short = DurationText.compact(i.goal - achieved)
+        return i.isToday ? "**\(short)** to the \(DurationText.compact(i.goal)) goal"
+                         : "**\(short)** short of the \(DurationText.compact(i.goal)) goal"
     }
 
     /// The longest session — its stretches and the breaks between them — and
@@ -115,9 +115,9 @@ enum SummaryText {
         guard let longest = i.sessions.max(by: { $0.worked < $1.worked }) else { return nil }
         let only = Set(i.sessions.map(\.threadID)).count == 1
         var text = only
-            ? "That session, \(label(longest)), ran \(range(longest.start, longest.end))"
-            : "The longest, \(label(longest)), ran \(range(longest.start, longest.end)) "
-              + "for **\(duration(longest.worked))**"
+            ? "That session, \(label(longest)), ran \(DateFormats.clockRange(longest.start, longest.end))"
+            : "The longest, \(label(longest)), ran \(DateFormats.clockRange(longest.start, longest.end)) "
+              + "for **\(DurationText.compact(longest.worked))**"
         if longest.stretches > 1 {
             text += " in \(longest.stretches) stretches"
             let inside = i.rests.filter { longest.start < $0.start && $0.end <= longest.end }
@@ -125,7 +125,7 @@ enum SummaryText {
                 text += inside.count == 1 ? " with one break" : " with \(inside.count) breaks"
                 let named = inside.filter { $0.name != "Break" }.prefix(3)
                 if !named.isEmpty {
-                    text += " (" + named.map { "\($0.name) \(duration($0.length))" }
+                    text += " (" + named.map { "\($0.name) \(DurationText.compact($0.length))" }
                         .joined(separator: ", ") + ")"
                 }
             }
@@ -135,8 +135,8 @@ enum SummaryText {
         if let running = i.sessions.first(where: \.isRunning), running.id != longest.id {
             text += running.stretches > 1
                 ? " \(label(running)) is still running — \(running.stretches) stretches "
-                  + "since \(clock(running.start))."
-                : " \(label(running)) is still running, since \(clock(running.start))."
+                  + "since \(DateFormats.clockTime(running.start))."
+                : " \(label(running)) is still running, since \(DateFormats.clockTime(running.start))."
         }
         return text
     }
@@ -159,15 +159,15 @@ enum SummaryText {
             // share is one. A 38% leader is the busiest app, not most of
             // the time.
             let second = i.apps[1]
-            let leads = "**\(top.appName)** (\(duration(top.total)), \(percent(top.share)))"
+            let leads = "**\(top.appName)** (\(DurationText.compact(top.total)), \(percent(top.share)))"
             if top.share > 0.5 {
                 text = "Most of the time went to " + leads
                 if second.total >= 60 {
-                    text += ", then **\(second.appName)** (\(duration(second.total)), \(percent(second.share)))"
+                    text += ", then **\(second.appName)** (\(DurationText.compact(second.total)), \(percent(second.share)))"
                 }
             } else if second.total >= 60 {
                 text = "The busiest apps were " + leads
-                    + " and **\(second.appName)** (\(duration(second.total)), \(percent(second.share)))"
+                    + " and **\(second.appName)** (\(DurationText.compact(second.total)), \(percent(second.share)))"
             } else {
                 text = "The busiest app was " + leads
             }
@@ -220,7 +220,7 @@ enum SummaryText {
         let difference = value - baseline
         guard abs(difference) >= 60 else { return same }
         let phrase = difference > 0 ? more : more.replacingOccurrences(of: "more", with: "less")
-        return "**\(duration(abs(difference)))** \(phrase)"
+        return "**\(DurationText.compact(abs(difference)))** \(phrase)"
     }
 
     // MARK: - A week or a month
@@ -233,38 +233,38 @@ enum SummaryText {
         }
         var out: [String] = []
         var first = "\(i.containsToday ? "This" : "That") \(unit) you were at the Mac for "
-            + "**\(duration(i.tracked))** across \(i.activeDays) of \(i.totalDays) days"
-        if i.activeDays > 0 { first += " — **\(duration(i.averagePerActiveDay))** per active day" }
+            + "**\(DurationText.compact(i.tracked))** across \(i.activeDays) of \(i.totalDays) days"
+        if i.activeDays > 0 { first += " — **\(DurationText.compact(i.averagePerActiveDay))** per active day" }
         if i.previousTracked > 0 {
             let difference = i.tracked - i.previousTracked
             first += abs(difference) >= 60
-                ? ", **\(duration(abs(difference)))** \(difference > 0 ? "more" : "less") than the \(unit) before"
+                ? ", **\(DurationText.compact(abs(difference)))** \(difference > 0 ? "more" : "less") than the \(unit) before"
                 : ", the same as the \(unit) before"
         }
         out.append(first + ".")
 
         if i.focused > 0 {
-            var text = "You focused for **\(duration(i.focused))**"
+            var text = "You focused for **\(DurationText.compact(i.focused))**"
             if i.sessions > 0 { text += i.sessions == 1 ? " in one session" : " in \(i.sessions) sessions" }
             if i.goal > 0 {
                 text += i.goalMetDays > 0
-                    ? ", meeting the \(duration(i.goal)) goal on \(i.goalMetDays == 1 ? "one day" : "\(i.goalMetDays) days")"
-                    : ", without meeting the \(duration(i.goal)) goal on any day"
+                    ? ", meeting the \(DurationText.compact(i.goal)) goal on \(i.goalMetDays == 1 ? "one day" : "\(i.goalMetDays) days")"
+                    : ", without meeting the \(DurationText.compact(i.goal)) goal on any day"
             }
             out.append(text + ".")
         }
 
         if let busiest = i.busiestDay, i.busiestTracked > 0 {
-            var text = "The busiest day was **\(longDate(busiest))** (\(duration(i.busiestTracked)))"
+            var text = "The busiest day was **\(longDate(busiest))** (\(DurationText.compact(i.busiestTracked)))"
             if let sitting = i.longestSitting, sitting.attended > 0 {
-                text += "; the longest single sitting was **\(duration(sitting.attended))** "
+                text += "; the longest single sitting was **\(DurationText.compact(sitting.attended))** "
                     + "in \(sitting.appName) on \(weekday(sitting.day))"
             }
             out.append(text + ".")
         }
 
         if let top = i.apps.first, top.total > 0 {
-            let leads = "**\(top.name)** (\(duration(top.total)), \(percent(top.share)))"
+            let leads = "**\(top.name)** (\(DurationText.compact(top.total)), \(percent(top.share)))"
             var text: String
             if i.apps.count == 1 {
                 text = "All of the time was in **\(top.name)**"
@@ -276,7 +276,7 @@ enum SummaryText {
             if i.apps.count > 1 {
                 let second = i.apps[1]
                 text += (top.share > 0.5 ? ", then " : " and ")
-                    + "**\(second.name)** (\(duration(second.total)), \(percent(second.share)))"
+                    + "**\(second.name)** (\(DurationText.compact(second.total)), \(percent(second.share)))"
             }
             if i.appCount > 2 { text += ", across \(i.appCount) apps in all" }
             if i.workTypes.count > 1 {
@@ -296,28 +296,8 @@ enum SummaryText {
         sentences.joined(separator: " ").replacingOccurrences(of: "**", with: "")
     }
 
-    /// `Core` cannot import the Design layer, so it carries the same phrasing
-    /// as `Tokens.duration`: `2h 15m`, `4h`, `15m`.
-    private static func duration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        guard hours > 0 else { return "\(minutes)m" }
-        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
-    }
-
     private static func percent(_ share: Double) -> String {
         "\(Int((share * 100).rounded()))%"
-    }
-
-    /// A clock time whose one space is unbreakable, so a wrap can never leave
-    /// "8:44" on one line and "am – 3:56 pm" on the next.
-    private static func clock(_ date: Date) -> String {
-        DateFormats.local("h:mm a").string(from: date).replacingOccurrences(of: " ", with: "\u{00A0}")
-    }
-
-    private static func range(_ start: Date, _ end: Date) -> String {
-        "\(clock(start)) – \(clock(end))"
     }
 
     private static func weekday(_ date: Date) -> String { DateFormats.local("EEEE").string(from: date) }
