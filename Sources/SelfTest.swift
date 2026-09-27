@@ -420,6 +420,7 @@ enum SelfTest {
             ("Away snapshots retain production prompt chrome",
              testAwaySnapshotsRetainProductionPromptChrome)
         ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests + UsagePersistenceChecks.tests
+            + UnreadableHistoryChecks.tests
             + PauseAllocationChecks.tests
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
             + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
@@ -2509,9 +2510,10 @@ enum SelfTest {
             let file = directory.appendingPathComponent("app-usage.json")
             let original = Data("not valid usage json".utf8)
             try? original.write(to: file)
-            let aside = directory.appendingPathComponent(
-                "app-usage-corrupt-\(Int(clock.value.timeIntervalSince1970)).json")
-            try? manager.createDirectory(at: aside, withIntermediateDirectories: true)
+            // A taken name no longer blocks the move; a folder that cannot be
+            // written does.
+            try? manager.setAttributes([.posixPermissions: 0o555], ofItemAtPath: directory.path)
+            defer { try? manager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: directory.path) }
 
             let usage = AppUsageArchive(directory: directory, now: { clock.value })
             let mutation = usage.record(AppUsageSession(

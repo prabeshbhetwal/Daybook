@@ -1,0 +1,146 @@
+import Foundation
+
+/// History that cannot be read is set aside, never written over. Each check
+/// forces a failure that used to lose data: a set-aside name already taken, and
+/// a journal left holding nothing but a torn line.
+enum UnreadableHistoryChecks {
+    static let tests: [(String, () -> [String])] = [
+        ("An unreadable session archive survives a set-aside name already in use", sessionArchiveCollision),
+        ("An unreadable session archive that cannot be moved is kept read-only", sessionArchiveUnmovable),
+        ("An unreadable journal survives a set-aside name already in use", journalCollision),
+        ("A journal holding only a torn line keeps the next record", tornOnlyJournal),
+        ("A torn journal that cannot be cut short is left alone, read-only", tornJournalUncuttable)
+    ]
+
+    private static let base = Date(timeIntervalSince1970: 1_700_000_000)
+    private static let stamp = Int(base.timeIntervalSince1970)
+
+    private static func scratch() -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("fc-unreadable-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    /// Whether any file in the directory still holds these exact bytes.
+    private static func preserved(_ bytes: Data, in directory: URL) -> Bool {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        return names.contains { name in
+            guard let data = try? Data(contentsOf: directory.appendingPathComponent(name)) else { return false }
+            return data.range(of: bytes) != nil
+        }
+    }
+
+    private static func stretch(_ offset: TimeInterval, _ app: String) -> AppUsageSession {
+        AppUsageSession(id: UUID(), bundleID: "com.example.\(app.lowercased())", appName: app,
+                        start: base.addingTimeInterval(offset),
+                        end: base.addingTimeInterval(offset + 300), endReason: .appSwitch)
+    }
+
+    private static func sessionArchiveCollision() -> [String] {
+        var failures: [String] = []
+        let directory = scratch()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let unreadable = Data("not json, but the only copy of this history".utf8)
+        try? unreadable.write(to: directory.appendingPathComponent("sessions.json"))
+        try? Data("an earlier set-aside file".utf8)
+            .write(to: directory.appendingPathComponent("sessions-corrupt-\(stamp).json"))
+
+        let archive = SessionArchive(directory: directory, now: { base })
+        _ = archive.append(SessionRecord(name: "Later", workType: .deepWork, start: base,
+                                         end: base.addingTimeInterval(600), workSeconds: 600))
+        if !preserved(unreadable, in: directory) {
+            failures.append("the unreadable archive was overwritten when its set-aside name was taken")
+        }
+        return failures
+    }
+
+    private static func sessionArchiveUnmovable() -> [String] {
+        var failures: [String] = []
+        let manager = FileManager.default
+        let directory = scratch()
+        defer { try? manager.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("sessions.json")
+        let unreadable = Data("not json, and nowhere to move it".utf8)
+        try? unreadable.write(to: file)
+        try? manager.setAttributes([.posixPermissions: 0o555], ofItemAtPath: directory.path)
+        defer { try? manager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: directory.path) }
+
+        let archive = SessionArchive(directory: directory, now: { base })
+        let error = archive.append(SessionRecord(name: "Later", workType: .deepWork, start: base,
+                                                 end: base.addingTimeInterval(600), workSeconds: 600))
+        if !archive.isReadOnly || error == nil {
+            failures.append("an archive that could not be set aside must refuse writes")
+        }
+        if (try? Data(contentsOf: file)) != unreadable {
+            failures.append("the unreadable archive's bytes changed")
+        }
+        return failures
+    }
+
+    private static func journalCollision() -> [String] {
+        var failures: [String] = []
+        let directory = scratch()
+        let source = scratch()
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+            try? FileManager.default.removeItem(at: source)
+        }
+        // Real journal lines, written by the archive itself.
+        let writer = AppUsageArchive(directory: source, now: { base })
+        writer.record(stretch(0, "Before"))
+        writer.record(stretch(600, "After"))
+        let lines = ((try? String(contentsOf: source.appendingPathComponent("app-usage-journal.jsonl"),
+                                  encoding: .utf8)) ?? "").split(separator: "\n")
+        guard lines.count == 2 else { return ["could not build the journal fixture"] }
+
+        let journal = Data((lines[0] + "\nnot a journal line\n" + lines[1] + "\n").utf8)
+        try? journal.write(to: directory.appendingPathComponent("app-usage-journal.jsonl"))
+        try? Data("an earlier set-aside journal".utf8)
+            .write(to: directory.appendingPathComponent("app-usage-journal-corrupt-\(stamp).jsonl"))
+
+        _ = AppUsageArchive(directory: directory, now: { base })
+        if !preserved(Data(lines[1].utf8), in: directory) {
+            failures.append("the line after an unreadable one was lost when its set-aside name was taken")
+        }
+        return failures
+    }
+
+    private static func tornOnlyJournal() -> [String] {
+        var failures: [String] = []
+        let directory = scratch()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try? Data("{\"upsert\":{\"_0\":{\"id\"".utf8)
+            .write(to: directory.appendingPathComponent("app-usage-journal.jsonl"))
+
+        let first = AppUsageArchive(directory: directory, now: { base })
+        let kept = stretch(0, "Editor")
+        if !first.record(kept) { failures.append("the new record was not accepted") }
+        let relaunched = AppUsageArchive(directory: directory, now: { base })
+        if relaunched.sessions != [kept] {
+            failures.append("after relaunch expected the new record, got \(relaunched.sessions.count)")
+        }
+        return failures
+    }
+
+    private static func tornJournalUncuttable() -> [String] {
+        var failures: [String] = []
+        let manager = FileManager.default
+        let directory = scratch()
+        defer { try? manager.removeItem(at: directory) }
+        let journal = directory.appendingPathComponent("app-usage-journal.jsonl")
+        let torn = Data("{\"upsert\":{\"_0\":{\"id\"".utf8)
+        try? torn.write(to: journal)
+        try? manager.setAttributes([.posixPermissions: 0o444], ofItemAtPath: journal.path)
+        defer { try? manager.setAttributes([.posixPermissions: 0o644], ofItemAtPath: journal.path) }
+
+        let archive = AppUsageArchive(directory: directory, now: { base })
+        if !archive.isReadOnly || archive.record(stretch(0, "Editor")) {
+            failures.append("a journal whose torn line cannot be removed must refuse new records")
+        }
+        if (try? Data(contentsOf: journal)) != torn {
+            failures.append("the torn journal's bytes changed")
+        }
+        return failures
+    }
+}

@@ -28,6 +28,9 @@ final class SessionArchive {
         }
     }
     private(set) var revision = 0
+    /// True when an unreadable archive could not be set aside. Its bytes are
+    /// still in `sessions.json` and may be the only copy, so nothing is written.
+    private(set) var isReadOnly = false
     private var cachedDayRecords: [Date: [SessionRecord]] = [:]
     private var cachedDailyTotals: [Date: TimeInterval]?
     private var cachedBestStreak: Int?
@@ -271,16 +274,23 @@ final class SessionArchive {
             return try JSONDecoder().decode([SessionRecord].self, from: data)
         } catch {
             // Never wedge launch and never silently destroy history: move the bad
-            // file aside so it can be inspected, and start clean.
-            let stamp = Int(now().timeIntervalSince1970)
-            let aside = directory.appendingPathComponent("sessions-corrupt-\(stamp).json")
-            try? FileManager.default.moveItem(at: fileURL, to: aside)
-            Diagnostics.log("archive unreadable, moved to \(aside.lastPathComponent): \(error)")
+            // file aside so it can be inspected, and start clean. If it cannot
+            // be moved, start clean but read-only, so it is never written over.
+            if let aside = UnreadableFile.setAside(fileURL, prefix: "sessions-corrupt-",
+                                                   pathExtension: "json", at: now()) {
+                Diagnostics.log("archive unreadable, moved to \(aside.lastPathComponent): \(error)")
+            } else {
+                isReadOnly = true
+                Diagnostics.log("archive unreadable and could not be set aside; kept read-only: \(error)")
+            }
             return []
         }
     }
 
     private func write(_ candidate: [SessionRecord]) -> WriteResult {
+        guard !isReadOnly else {
+            return .failure("Session history could not be read or set aside, so it is not being changed.")
+        }
         if let detail = writeOverride?(candidate) { return .failure(detail) }
         do {
             try FileManager.default.createDirectory(at: directory,

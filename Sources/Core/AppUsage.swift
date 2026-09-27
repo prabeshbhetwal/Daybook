@@ -245,6 +245,7 @@ final class AppUsageArchive {
         self.cache = load()
         guard !isReadOnly else { return }
         replayJournal()
+        guard !isReadOnly else { return }
         recoverSetAsideFiles()
     }
 
@@ -413,14 +414,12 @@ final class AppUsageArchive {
     }
 
     private func preserveCorruptFile(after decodeError: Any) -> [AppUsageSession] {
-        let stamp = Int(now().timeIntervalSince1970)
-        let aside = directory.appendingPathComponent("app-usage-corrupt-\(stamp).json")
-        do {
-            try FileManager.default.moveItem(at: fileURL, to: aside)
+        if let aside = UnreadableFile.setAside(fileURL, prefix: "app-usage-corrupt-",
+                                               pathExtension: "json", at: now()) {
             Diagnostics.log("app usage unreadable, moved to \(aside.lastPathComponent): \(decodeError)")
-        } catch {
+        } else {
             isReadOnly = true
-            Diagnostics.log("app usage unreadable and could not be preserved elsewhere; source kept read-only: \(error)")
+            Diagnostics.log("app usage unreadable and could not be preserved elsewhere; source kept read-only")
         }
         return []
     }
@@ -491,20 +490,27 @@ final class AppUsageArchive {
     }
 
     /// Applies the changes written since the snapshot. A torn final line is
-    /// the one write a crash can interrupt, so it alone is skipped; an
-    /// unreadable line anywhere else means the journal cannot be trusted, and
-    /// it is moved aside like any other unreadable history.
+    /// the one write a crash can interrupt, so it alone is skipped, and then
+    /// cut off: the next append would otherwise join the torn bytes and be
+    /// unreadable too. An unreadable line anywhere else
+    /// means the journal cannot be trusted, and it is moved aside like any
+    /// other unreadable history; if that fails, nothing more is written.
     private func replayJournal() {
         guard let data = try? Data(contentsOf: journalURL) else { return }
         let lines = data.split(separator: 0x0A, omittingEmptySubsequences: true)
         var sessions = cache
         var applied = 0
+        var skippedTornLine = false
         for (offset, line) in lines.enumerated() {
             guard let change = try? JSONDecoder().decode(JournalChange.self, from: Data(line)) else {
-                if offset == lines.count - 1 { break }
-                let stamp = Int(now().timeIntervalSince1970)
-                let aside = directory.appendingPathComponent("app-usage-journal-corrupt-\(stamp).jsonl")
-                try? FileManager.default.moveItem(at: journalURL, to: aside)
+                if offset == lines.count - 1 { skippedTornLine = true; break }
+                guard let aside = UnreadableFile.setAside(journalURL, prefix: "app-usage-journal-corrupt-",
+                                                          pathExtension: "jsonl", at: now()) else {
+                    isReadOnly = true
+                    Diagnostics.log("app usage journal unreadable at line \(offset + 1) and could not be set aside; kept read-only")
+                    cache = sessions
+                    return
+                }
                 Diagnostics.log("app usage journal unreadable at line \(offset + 1); moved to \(aside.lastPathComponent)")
                 break
             }
@@ -522,8 +528,30 @@ final class AppUsageArchive {
         }
         cache = sessions
         journalEntries = lines.count
+        // The next append must start on a line of its own. If the torn bytes
+        // cannot be cut off, appending would bury that record in them too.
+        if skippedTornLine, !dropTornLine(from: data) {
+            isReadOnly = true
+            Diagnostics.log("app usage journal ends in a torn line that could not be removed; kept read-only")
+            return
+        }
         // Starting each launch from one clean snapshot keeps the journal short.
         if applied > 0 { _ = compact(to: sessions) }
+    }
+
+    /// Truncates the journal to just before its last line.
+    private func dropTornLine(from data: Data) -> Bool {
+        var end = data.endIndex
+        while end > data.startIndex, data[end - 1] == 0x0A { end -= 1 }
+        let keep = data[..<end].lastIndex(of: 0x0A).map { $0 + 1 } ?? data.startIndex
+        do {
+            let handle = try FileHandle(forWritingTo: journalURL)
+            defer { try? handle.close() }
+            try handle.truncate(atOffset: UInt64(keep - data.startIndex))
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// History set aside as unreadable is brought back once it reads again.
