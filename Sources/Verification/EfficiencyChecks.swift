@@ -9,7 +9,9 @@ enum EfficiencyChecks {
         ("Binding the window model at launch leaves the dashboard hidden", launchBindingStaysHidden),
         ("A live tail patched into the usage snapshot matches a full rebuild", patchedSnapshotMatchesRebuild),
         ("The menu bar label ignores changes it cannot show", menuBarIgnoresInvisibleChange),
-        ("A hidden window rests its content and shows the same view again", hiddenPanelRests)
+        ("A hidden window rests its content and shows the same view again", hiddenPanelRests),
+        ("The break check reads only the latest run and agrees with a full sort", breakCheckReadsLatestRun),
+        ("Day totals read only that day and agree with a full scan", dayTotalsReadOnlyTheDay)
     ]
 
     private final class Clock {
@@ -208,6 +210,117 @@ enum EfficiencyChecks {
             spin(ticks: 2)
             if beat.evaluations == woken { problems.append("Woken content stopped following changes") }
             panel.orderOut(nil)
+            return problems
+        }
+    }
+
+    /// Uncapped history made a full sort every five seconds grow without
+    /// bound. Only the latest run is sorted now; an ordinary history, a run
+    /// that never rests for longer than the look-back, and one that reaches
+    /// just past it must all read exactly as a sort of everything does.
+    private static func breakCheckReadsLatestRun() -> [String] {
+        var problems: [String] = []
+        let now = noon()
+        let rest = BreakTier.allCases.map(\.restGap).max() ?? 0
+        func run(from start: Date, gap: TimeInterval, restEvery: Int?) -> [AppUsageSession] {
+            var stretches: [AppUsageSession] = []
+            var moment = start
+            var index = 0
+            while moment < now {
+                let length = TimeInterval(60 + (index * 37) % 900)
+                stretches.append(AppUsageSession(bundleID: "app.\(index % 3)", appName: "App \(index % 3)",
+                                                 start: moment, end: min(now, moment + length)))
+                let rests = restEvery.map { index % $0 == $0 - 1 } ?? false
+                moment += length + (rests ? rest + 60 : gap)
+                index += 1
+            }
+            // Stored out of order, as recovered history is appended.
+            return stretches.enumerated()
+                .sorted { ($0.offset * 7_919) % stretches.count < ($1.offset * 7_919) % stretches.count }
+                .map(\.element)
+        }
+        let scenarios: [(String, [AppUsageSession])] = [
+            ("an ordinary three days", run(from: now.addingTimeInterval(-3 * 86_400), gap: 45, restEvery: 9)),
+            ("a run with no rest for thirty hours", run(from: now.addingTimeInterval(-30 * 3_600),
+                                                         gap: 60, restEvery: nil)),
+            ("a run reaching just past a day", run(from: now.addingTimeInterval(-BreakReminder.runLookback - 600),
+                                                    gap: 30, restEvery: nil))
+        ]
+        for (name, stretches) in scenarios {
+            let result = BreakReminder.evaluate(stretches, now: now, last: nil)
+            var done: [BreakTier: TimeInterval] = [:]
+            for tier in BreakTier.allCases {
+                done[tier] = BreakReminder.worked(stretches, now: now, restingAtLeast: tier.restGap)
+            }
+            let due = BreakTier.allCases.reversed().first { (done[$0] ?? 0) >= $0.workThreshold }
+            var next: (tier: BreakTier, seconds: TimeInterval)?
+            for tier in BreakTier.allCases {
+                let remaining = max(0, tier.workThreshold - (done[tier] ?? 0))
+                if let best = next, !(remaining < best.seconds || (remaining == best.seconds && tier > best.tier)) {
+                    continue
+                }
+                next = (tier, remaining)
+            }
+            if result.due != due { problems.append("\(name): due \(String(describing: result.due)), full sort \(String(describing: due))") }
+            if result.next?.tier != next?.tier || result.next?.seconds != next?.seconds {
+                problems.append("\(name): next break differs from a full sort")
+            }
+            if let due {
+                let leader = BreakReminder.dominant(stretches, now: now, within: due.restGap)
+                if result.prompt?.worked != done[due] || result.prompt?.appName != leader?.name
+                    || result.prompt?.appShare != (leader?.share ?? 0) {
+                    problems.append("\(name): the prompt differs from a full sort")
+                }
+            } else if result.prompt != nil {
+                problems.append("\(name): prompted with nothing due")
+            }
+        }
+        return problems
+    }
+
+    /// Today's total and goal read the day's records only. Records stored out
+    /// of order, one across midnight, and a live stretch patched in each second
+    /// must give exactly what a scan of every record gives.
+    private static func dayTotalsReadOnlyTheDay() -> [String] {
+        MainActor.assumeIsolated {
+            let clock = Clock(noon())
+            guard let fixture = makeFixture(clock) else { return ["Could not create isolated preferences"] }
+            defer { fixture.cleanUp() }
+            let calendar = Calendar.current
+            let midnight = calendar.startOfDay(for: clock.value)
+            let records = [
+                (midnight.addingTimeInterval(-90_000), 1_800.0),
+                (midnight.addingTimeInterval(3_600), 900.0),
+                (midnight.addingTimeInterval(-600), 1_500.0),
+                (midnight.addingTimeInterval(-172_000), 2_400.0),
+                (midnight.addingTimeInterval(7_200), 3_000.0)
+            ]
+            for (index, record) in records.enumerated() {
+                fixture.usage.checkpoint(AppUsageSession(bundleID: "app.\(index)", appName: "App \(index)",
+                                                         start: record.0, end: record.0.addingTimeInterval(record.1)))
+            }
+            fixture.tracker.appActivated(bundleID: "editor", name: "Editor")
+            var problems: [String] = []
+            for second in 0..<4 {
+                clock.advance(1)
+                guard let snapshot = fixture.store.effectiveUsageSnapshot else { return ["No usage snapshot"] }
+                for offset in 0...2 {
+                    guard let day = calendar.date(byAdding: .day, value: -offset, to: clock.value),
+                          let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { continue }
+                    let full = snapshot.sessions.reduce(0.0) { total, session in
+                        let start = max(session.start, bounds.start)
+                        let end = min(session.end, bounds.end)
+                        return end > start ? total + end.timeIntervalSince(start) : total
+                    }
+                    if snapshot.total(on: day) != full {
+                        problems.append("Second \(second), \(offset) days back: \(snapshot.total(on: day)) not \(full)")
+                    }
+                    let touching = snapshot.sessions.filter { $0.end > bounds.start && $0.start < bounds.end }
+                    if snapshot.sessions(touching: day) != touching {
+                        problems.append("Second \(second), \(offset) days back: the day's records differ from a scan")
+                    }
+                }
+            }
             return problems
         }
     }

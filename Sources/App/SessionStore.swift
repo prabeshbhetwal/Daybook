@@ -925,7 +925,9 @@ final class SessionStore: ObservableObject {
         publish(\.goal, GoalProgress(goal: engine.store.dailyGoal,
                             achieved: DailyGoal(archive: engine.archive,
                                                 goal: engine.store.dailyGoal,
-                                                usage: usageSnapshot?.sessions ?? [],
+                                                // Only today's records: the goal
+                                                // clips to today, and history is uncapped.
+                                                usage: usageSnapshot?.sessions(touching: moment) ?? [],
                                                 usageAccurateFrom: usageSnapshot?.accurateFrom,
                                                 running: engine.runningSpan,
                                                 runningWork: inFlight,

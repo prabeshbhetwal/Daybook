@@ -203,7 +203,8 @@ struct BreakReminder {
                          now: Date,
                          last: BreakNotice?,
                          tiers: [BreakTier] = BreakTier.allCases) -> Evaluation {
-        let ordered = stretches.sorted { $0.end > $1.end }
+        let ordered = latestRun(stretches, now: now,
+                                reaching: tiers.map(\.restGap).max() ?? 0)
         var done: [BreakTier: TimeInterval] = [:]
         for tier in tiers {
             done[tier] = worked(sorted: ordered, now: now, restingAtLeast: tier.restGap)
@@ -229,6 +230,33 @@ struct BreakReminder {
         return Evaluation(due: due, next: next,
                           prompt: prompt(ordered: ordered, now: now, last: last,
                                          due: due, worked: done[due ?? .micro] ?? 0))
+    }
+
+    /// How far back the walks below are expected to reach. A person rests
+    /// within a day; a run that does not is still read in full, just slower.
+    static let runLookback: TimeInterval = 24 * 3600
+
+    /// The stretches newest-end first, as far as any walk here can read them.
+    ///
+    /// Every walk stops at the first gap of at least its rest, and none rests
+    /// longer than `rest`, so the walks only ever read the latest run. History
+    /// is uncapped: sorting all of it every five seconds grew without bound,
+    /// about 43 ms a check at 80,000 records. Only the last day is sorted, and
+    /// the whole history only when the run could reach past it. Filtering
+    /// keeps the original order, so a tie sorts exactly as it would in full.
+    private static func latestRun(_ stretches: [AppUsageSession], now: Date,
+                                  reaching rest: TimeInterval) -> [AppUsageSession] {
+        let horizon = now.addingTimeInterval(-runLookback)
+        let recent = stretches.filter { $0.end >= horizon }.sorted { $0.end > $1.end }
+        var boundary = now
+        for stretch in recent {
+            if boundary.timeIntervalSince(stretch.end) >= rest { return recent }
+            boundary = stretch.start
+        }
+        // Everything left ends before the horizon, so a gap at least this long
+        // follows the run and every walk stops inside it.
+        if boundary.timeIntervalSince(horizon) >= rest { return recent }
+        return stretches.sorted { $0.end > $1.end }
     }
 
     /// Walks backwards from now, summing attended time, stopping at the first

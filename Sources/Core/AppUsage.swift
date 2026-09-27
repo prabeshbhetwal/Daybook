@@ -37,12 +37,24 @@ struct AppUsageSession: Codable, Equatable, Identifiable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
-        bundleID = try container.decode(String.self, forKey: .bundleID)
-        appName = try container.decode(String.self, forKey: .appName)
+        bundleID = Self.shared(try container.decode(String.self, forKey: .bundleID))
+        appName = Self.shared(try container.decode(String.self, forKey: .appName))
         start = try container.decode(Date.self, forKey: .start)
         end = try container.decode(Date.self, forKey: .end)
         endReason = try container.decodeIfPresent(UsageEndReason.self, forKey: .endReason)
             ?? .appSwitch
+    }
+
+    /// Tens of thousands of records name a few hundred apps, and decoding gave
+    /// every record its own copy of both strings: about 5 MB at 80,000 records
+    /// of uncapped history. Equal strings now share one.
+    private static var names: Set<String> = []
+    private static let namesLock = NSLock()
+
+    private static func shared(_ name: String) -> String {
+        namesLock.lock()
+        defer { namesLock.unlock() }
+        return names.insert(name).memberAfterInsert
     }
 }
 
@@ -106,6 +118,18 @@ struct AppUsageSnapshot {
         let id: UUID
         let replacesDurable: Bool
         let slot: Int?
+    }
+
+    /// Which stored records touch each day asked about, found once per build.
+    /// History is uncapped, and today's total and goal read the view every
+    /// second: scanning all of it cost about 1.3 ms a tick at 80,000 records.
+    /// Shared by copies of one build; a patch changes only the live slots,
+    /// which are read fresh on every call.
+    private let dayIndex = DayIndex()
+
+    private final class DayIndex {
+        struct Key: Hashable { let start: Date; let end: Date }
+        var days: [Key: [Int]] = [:]
     }
 
     init(archive: AppUsageArchive, tracker: AppUsageTracker? = nil) {
@@ -183,11 +207,41 @@ struct AppUsageSnapshot {
 
     func total(on day: Date, calendar: Calendar = .current) -> TimeInterval {
         guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return 0 }
-        return sessions.reduce(0) { total, session in
+        return indices(touching: bounds).reduce(0) { total, index in
+            let session = sessions[index]
             let start = max(session.start, bounds.start)
             let end = min(session.end, bounds.end)
             return end > start ? total + end.timeIntervalSince(start) : total
         }
+    }
+
+    /// The records that touch a local day, in stored order: everything a
+    /// reading clipped to that day can see, and nothing it would discard.
+    func sessions(touching day: Date, calendar: Calendar = .current) -> [AppUsageSession] {
+        guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [] }
+        return indices(touching: bounds).map { sessions[$0] }
+    }
+
+    /// Stored order, so a sum over them adds in exactly the order a full scan
+    /// would; records it skips are ones that scan adds nothing for.
+    private func indices(touching bounds: (start: Date, end: Date)) -> [Int] {
+        func touches(_ index: Int) -> Bool {
+            sessions[index].end > bounds.start && sessions[index].start < bounds.end
+        }
+        guard let shape = overlayShape else { return sessions.indices.filter(touches) }
+        let live = shape.compactMap(\.slot)
+        let key = DayIndex.Key(start: bounds.start, end: bounds.end)
+        let stored: [Int]
+        if let cached = dayIndex.days[key] {
+            stored = cached
+        } else {
+            let liveSlots = Set(live)
+            stored = sessions.indices.filter { !liveSlots.contains($0) && touches($0) }
+            if dayIndex.days.count >= 8 { dayIndex.days.removeAll() }
+            dayIndex.days[key] = stored
+        }
+        let touchingLive = live.filter(touches)
+        return touchingLive.isEmpty ? stored : (stored + touchingLive).sorted()
     }
 }
 
