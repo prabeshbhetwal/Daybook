@@ -310,34 +310,16 @@ enum SummaryText {
         "\(Int((share * 100).rounded()))%"
     }
 
-    private static let clockFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter
-    }()
-
-    private static let weekdayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        return formatter
-    }()
-
-    private static let longDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE d MMMM"
-        return formatter
-    }()
-
     /// A clock time whose one space is unbreakable, so a wrap can never leave
     /// "8:44" on one line and "am – 3:56 pm" on the next.
     private static func clock(_ date: Date) -> String {
-        clockFormatter.string(from: date).replacingOccurrences(of: " ", with: "\u{00A0}")
+        DateFormats.local("h:mm a").string(from: date).replacingOccurrences(of: " ", with: "\u{00A0}")
     }
 
     private static func range(_ start: Date, _ end: Date) -> String {
         "\(clock(start)) – \(clock(end))"
     }
 
-    private static func weekday(_ date: Date) -> String { weekdayFormatter.string(from: date) }
-    private static func longDate(_ date: Date) -> String { longDateFormatter.string(from: date) }
+    private static func weekday(_ date: Date) -> String { DateFormats.local("EEEE").string(from: date) }
+    private static func longDate(_ date: Date) -> String { DateFormats.local("EEEE d MMMM").string(from: date) }
 }

@@ -395,7 +395,7 @@ extension SessionStore {
                               seconds: byClockHour[hour] ?? 0,
                               colorIndex: 6)
         }
-        let peak = Rhythm.peakLabel(hours) { Self.insightHourFormatter.string(from: $0) }
+        let peak = Rhythm.peakLabel(hours) { DateFormats.australian("ha").string(from: $0) }
         return (hours, peak)
     }
 
@@ -475,13 +475,6 @@ extension SessionStore {
         }
         return total
     }
-
-    private static let insightHourFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = "ha"
-        return formatter
-    }()
 }
 
 private extension InsightRange {

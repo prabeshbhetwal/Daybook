@@ -684,13 +684,6 @@ struct DashboardStats {
                                               : "chart.line.downtrend.xyaxis")
     }
 
-    private static let clockFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter
-    }()
-
-    /// `Core` cannot import the Design layer, so it carries its own formatter.
     private func clockRange(_ start: Date, _ end: Date) -> String {
         "\(clock(start)) – \(clock(end))"
     }
@@ -700,7 +693,7 @@ struct DashboardStats {
     /// ending "11:25" and the next beginning "am – 11:31 am", which reads as a
     /// different time entirely.
     private func clock(_ date: Date) -> String {
-        DashboardStats.clockFormatter.string(from: date)
+        DateFormats.local("h:mm a").string(from: date)
             .replacingOccurrences(of: " ", with: "\u{00A0}")
     }
 

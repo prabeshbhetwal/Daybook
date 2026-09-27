@@ -66,9 +66,7 @@ extension SessionStore {
         let filter = historyFilter
         let needle = filter.query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !needle.isEmpty || filter.appBundleID != nil || filter.workType != nil else { return [] }
-        let dayFormatter = DateFormatter()
-        dayFormatter.locale = Locale(identifier: "en_AU")
-        dayFormatter.dateFormat = "EEEE d MMMM yyyy"
+        let dayFormatter = DateFormats.australian("EEEE d MMMM yyyy")
         let stable = DateFormatter()
         stable.locale = Locale(identifier: "en_US_POSIX")
         stable.dateFormat = "yyyy-MM-dd"

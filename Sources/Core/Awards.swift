@@ -186,14 +186,7 @@ enum Awards {
         return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
     }
 
-    private static let dayMonthFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = "d MMM"
-        return formatter
-    }()
-
     private static func dayMonth(_ date: Date) -> String {
-        dayMonthFormatter.string(from: date)
+        DateFormats.australian("d MMM").string(from: date)
     }
 }

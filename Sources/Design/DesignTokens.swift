@@ -209,32 +209,10 @@ enum Tokens {
         return days == 1 ? "yesterday" : "\(days) days ago"
     }
 
-    /// A fixed `en_AU` pattern, built once. Labels on screen are drawn every
-    /// render, often per row or per bar, and a new `DateFormatter` for each
-    /// is the most expensive thing about them. Shared instances are never
-    /// mutated after this returns them.
-    static func australianDate(_ format: String) -> DateFormatter {
-        australianDateLock.lock()
-        defer { australianDateLock.unlock() }
-        if let cached = australianDates[format] { return cached }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = format
-        australianDates[format] = formatter
-        return formatter
-    }
-    private static var australianDates: [String: DateFormatter] = [:]
-    private static let australianDateLock = NSLock()
-
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "h:mm a"
-        return formatter
-    }()
-
     /// `2:13 PM – 4:13 PM`.
     static func timeRange(_ start: Date, _ end: Date) -> String {
-        "\(timeFormatter.string(from: start)) – \(timeFormatter.string(from: end))"
+        let clock = DateFormats.local("h:mm a")
+        return "\(clock.string(from: start)) – \(clock.string(from: end))"
     }
 
     /// Sub-minute stretches are common in app usage, where `duration` floors to
@@ -243,49 +221,31 @@ enum Tokens {
         DurationText.precise(seconds)
     }
 
-    private static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE d MMM"
-        return formatter
-    }()
-
     /// `Today`, `Yesterday`, or `Wed 13 Aug`.
     static func dayLabel(_ date: Date, calendar: Calendar = .current) -> String {
         if calendar.isDateInToday(date) { return "Today" }
         if calendar.isDateInYesterday(date) { return "Yesterday" }
-        return dayFormatter.string(from: date)
+        return DateFormats.local("EEE d MMM").string(from: date)
     }
 
     /// `since 2:13 PM`, for a launch time.
     static func timeOfDay(_ date: Date) -> String {
-        "since \(timeFormatter.string(from: date))"
+        "since \(DateFormats.local("h:mm a").string(from: date))"
     }
-
-    private static let weekdayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        return formatter
-    }()
 
     /// `Wednesday`, for a sentence that names a day rather than dating it.
     static func weekdayName(_ date: Date) -> String {
-        weekdayFormatter.string(from: date)
+        DateFormats.local("EEEE").string(from: date)
     }
 
     /// `2:13 PM` on its own, for a column that already means "when".
     static func timeOfDayOnly(_ date: Date) -> String {
-        timeFormatter.string(from: date)
+        DateFormats.local("h:mm a").string(from: date)
     }
-
-    private static let longDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE d MMMM"
-        return formatter
-    }()
 
     /// `Saturday 22 August`, for the dashboard's title band.
     static func longDate(_ date: Date) -> String {
-        longDateFormatter.string(from: date)
+        DateFormats.local("EEEE d MMMM").string(from: date)
     }
 
     /// A span of days the way the chrome writes one: `24 – 30 Aug`,
@@ -295,7 +255,7 @@ enum Tokens {
     /// cost the bar twenty points at its minimum width.
     static func dateRange(_ start: Date, _ end: Date, now: Date = Date(),
                           calendar: Calendar = .current) -> String {
-        func formatter(_ format: String) -> DateFormatter { australianDate(format) }
+        func formatter(_ format: String) -> DateFormatter { DateFormats.australian(format) }
         let thisYear = calendar.component(.year, from: now)
         let startYear = calendar.component(.year, from: start)
         let endYear = calendar.component(.year, from: end)

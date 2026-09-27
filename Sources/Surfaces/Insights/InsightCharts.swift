@@ -131,18 +131,18 @@ struct InsightTrendChart: View {
     private func axisLabel(_ period: StoryPeriodProjection, index: Int) -> String {
         switch scope {
         case .month:
-            return Tokens.australianDate("MMM").string(from: period.start).uppercased()
+            return DateFormats.australian("MMM").string(from: period.start).uppercased()
         case .week:
-            return Tokens.australianDate(periods.count > 8 ? "d/M" : "d MMM")
+            return DateFormats.australian(periods.count > 8 ? "d/M" : "d MMM")
                 .string(from: period.start).uppercased()
         case .day:
             if periods.count > 14 {
                 let calendar = Calendar.current
                 guard calendar.component(.weekday, from: period.start) == calendar.firstWeekday
                         || index == periods.count - 1 else { return " " }
-                return Tokens.australianDate("d/M").string(from: period.start)
+                return DateFormats.australian("d/M").string(from: period.start)
             }
-            return Tokens.australianDate("EEE d").string(from: period.start).uppercased()
+            return DateFormats.australian("EEE d").string(from: period.start).uppercased()
         }
     }
 
@@ -482,7 +482,7 @@ struct InsightDayStrips: View {
     }
 
     private func dayLabel(_ date: Date) -> String {
-        Tokens.australianDate("EEE d").string(from: date).uppercased()
+        DateFormats.australian("EEE d").string(from: date).uppercased()
     }
 
     private var caption: String {

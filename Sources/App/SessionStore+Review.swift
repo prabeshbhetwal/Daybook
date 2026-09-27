@@ -384,7 +384,7 @@ extension SessionStore {
     var reviewPeriodLabel: String {
         let anchor = reviewAnchor ?? now()
         if reviewPeriod == .month {
-            return Tokens.australianDate("MMMM yyyy").string(from: anchor)
+            return DateFormats.australian("MMMM yyyy").string(from: anchor)
         }
         guard let usage else { return Tokens.longDate(anchor) }
         let calendar = Calendar.current

@@ -457,14 +457,8 @@ struct DayTimelineView: View {
         return result
     }
 
-    private static let hourFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "ha"
-        return formatter
-    }()
-
     static func hourLabel(_ date: Date) -> String {
-        hourFormatter.string(from: date).lowercased()
+        DateFormats.local("ha").string(from: date).lowercased()
     }
 }
 

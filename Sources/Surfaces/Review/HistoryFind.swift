@@ -201,7 +201,7 @@ struct HistoryArchiveTiles: View {
     }
 
     static func sinceLabel(_ date: Date) -> String {
-        Tokens.australianDate("d MMM yyyy").string(from: date)
+        DateFormats.australian("d MMM yyyy").string(from: date)
     }
 }
 
@@ -212,10 +212,7 @@ struct HistoryHitMonth: Identifiable {
     var id: Date { start }
 
     var title: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: start)
+        DateFormats.australian("MMMM yyyy").string(from: start)
     }
 
     static func group(_ hits: [HistorySearchHit], calendar: Calendar = .current) -> [HistoryHitMonth] {
