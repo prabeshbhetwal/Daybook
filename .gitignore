@@ -6,14 +6,13 @@
 /.build/
 /snapshots/
 /task-*-report.md
-# Design handoff: the archive and the project snapshot it carries. The
-# artboards under research/ are the part worth reading; the archive is a
-# duplicate and its uploads/ folder is a stale copy of this repository.
-/research/*.zip
-/research/apple-focus-app-design-research/project/uploads/
+# Design research and handoff exports stay local; they are not part of the
+# public repository.
+/research/
 /graphify-out/
 /.codegraph/
 /.code-review-graph/
+/.10x/
 
 # iCloud File Provider conflict copies of the built bundle
 /FocusContinuity *.app/

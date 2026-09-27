@@ -1,7 +1,5 @@
 # Purpose, Threads and Continue — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Continue a focus session started earlier the same day as a linked segment of one thread, with the apps used alongside it surfaced as side apps, driven by a new app-purpose axis resolved partly by measured input behaviour.
 
 **Architecture:** Three new `Core` types — `AppPurpose`/`PurposeMap` (what an app is for), `InputDensity` (whether the person is producing or consuming), and `ThreadStats` (grouping session records by `threadID` and deriving each thread's primary and side apps from the usage archive). `SessionRecord` gains a `threadID`; continuing starts a new record sharing it. One new `App`-layer sampler feeds `InputDensity` on a 20-second timer. The popover gains a **Continue today** section.

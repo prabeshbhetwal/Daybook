@@ -28,12 +28,12 @@ redesign is unnecessary.
 ## Reference and evidence boundaries
 
 The primary visual reference used was
-[Focus Continuity — Day as a Story](</Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/research/apple-focus-app-design-research/project/Focus Continuity - Day as a Story.dc.html>).
+Focus Continuity — Day as a Story.
 The export README identifies this as the file open at handoff, and the recent
 implementation commits explicitly adopt Story. I inspected its layout, style
 values, state handlers, and its Day, Week, Month, and Settings renderings.
 
-[Deep Research](</Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/research/Deep Research.md>)
+Deep Research
 is a different kind of reference. It recommends a global navigation sidebar,
 system semantic colours, and a separate Settings scene, whereas the final
 prototype uses a horizontal scope selector, explicit warm/indigo colours, and
@@ -49,7 +49,7 @@ capability. Its external presentation backdrop, explanatory headings, and fake
 traffic lights are not part of the native application UI.
 
 Evidence is retained locally in
-[the ignored audit artefacts folder](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31).
+the ignored audit artefacts folder.
 This contains reference renders, selected live screenshots, problematic fixture
 renders, and the isolated probe source. The complete 126-image render set is
 also at `/tmp/focuscontinuity-audit.L74p1U/snapshots`.
@@ -67,10 +67,10 @@ The new Story canvas never consumes that requested date with
 `SessionStore.selectDate`. Changing the navigation model is not enough to
 change the data being rendered.
 
-Evidence: [selected 21 August](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/13-month-selected-21.png),
-[result after opening](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/14-open-historical-story.png).
-Source: [MainWindowModel.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/App/MainWindowModel.swift:224),
-[MainWindowView.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Main/MainWindowView.swift:63).
+Evidence: selected 21 August,
+result after opening.
+Source: [MainWindowModel.swift](../../Sources/App/MainWindowModel.swift#L224),
+[MainWindowView.swift](../../Sources/Surfaces/Main/MainWindowView.swift#L63).
 
 Required correction: make the historical drill-in update the canonical selected
 day, then change scope; test the rendered date/data, not only `requestedDate`.
@@ -86,8 +86,8 @@ The Story selection has no equivalent of the old Review availability check.
 `storySelectedDay` is rendered whenever non-nil, without testing the currently
 displayed period.
 
-Evidence: [July with an August detail](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/29-previous-month-stale-selection.png).
-Source: [StoryColumns.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/StoryColumns.swift:217).
+Evidence: July with an August detail.
+Source: [StoryColumns.swift](../../Sources/Surfaces/Story/StoryColumns.swift#L217).
 
 Required correction: clear or revalidate selection when scope, period, or its
 backing evidence changes. A detail must never contradict its period heading.
@@ -105,9 +105,9 @@ the main view. The menu-bar Settings action uses this same obsolete path.
 Command-comma works because it calls `openSettings()` instead. The Awards link
 works because it calls `openSheet(.awards)` directly.
 
-Source: [MainWindowCommands.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Main/MainWindowCommands.swift:32),
-[MainWindowModel.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/App/MainWindowModel.swift:177),
-[FocusContinuityApp.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/App/FocusContinuityApp.swift:62).
+Source: [MainWindowCommands.swift](../../Sources/Surfaces/Main/MainWindowCommands.swift#L32),
+[MainWindowModel.swift](../../Sources/App/MainWindowModel.swift#L177),
+[FocusContinuityApp.swift](../../Sources/App/FocusContinuityApp.swift#L62).
 
 Required correction: define one route contract for Story scopes and sheets,
 connect every menu/popover/shortcut to it, and remove destinations that the
@@ -128,11 +128,11 @@ still correctly labelled as tracked; the surrounding prose is the mismatch.
 For a focus-only period with no app recording, the narrative can even say
 “Nothing has been recorded” despite real focus history.
 
-Evidence: [Month](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/11-month-current.png),
-[Week](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/10-week-current.png).
-Source: [StoryColumns.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/StoryColumns.swift:138),
-[StoryRail.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/StoryRail.swift:158),
-[PeriodStats.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Core/PeriodStats.swift:296).
+Evidence: Month,
+Week.
+Source: [StoryColumns.swift](../../Sources/Surfaces/Story/StoryColumns.swift#L138),
+[StoryRail.swift](../../Sources/Surfaces/Story/StoryRail.swift#L158),
+[PeriodStats.swift](../../Sources/Core/PeriodStats.swift#L296).
 
 Required correction: maintain separately named focused-day/focused-average and
 tracked-day/tracked-average values. Use one measure throughout each sentence,
@@ -148,8 +148,8 @@ work reported `Day = 600 seconds`, `Week = 0`, and `Month cell = 0`.
 Day's live total includes the running session. The same work changes value
 when the user changes scope until the session is archived.
 
-Source: [SessionStore+Review.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/App/SessionStore+Review.swift:259),
-[SessionStore+Dashboard.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/App/SessionStore+Dashboard.swift:230).
+Source: [SessionStore+Review.swift](../../Sources/App/SessionStore+Review.swift#L259),
+[SessionStore+Dashboard.swift](../../Sources/App/SessionStore+Dashboard.swift#L230).
 
 Required correction: use the canonical running contribution in all scopes
 that contain today, with the same local-day clipping and thread counting.
@@ -176,9 +176,9 @@ usage from merged start/end spans, which can contain paused time. The current
 session's own detail said 2h 32m had no app recording, while the rail said
 6h 43m of “Focused time no app recording covers”.
 
-Source: [StoryRail.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/StoryRail.swift:173),
-[period split](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/StoryRail.swift:248),
-[DashboardStats.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Core/DashboardStats.swift:420).
+Source: [StoryRail.swift](../../Sources/Surfaces/Story/StoryRail.swift#L173),
+[period split](../../Sources/Surfaces/Story/StoryRail.swift#L248),
+[DashboardStats.swift](../../Sources/Core/DashboardStats.swift#L420).
 
 Required correction: keep the tile headline equal to observed tracked time;
 show missing coverage as a separate qualification. Calculate inside/outside
@@ -195,7 +195,7 @@ Both methods return early unless a matching archived thread was changed.
 Only after that guard do they update the running engine. A brand-new running
 thread has no archived row, so the visible controls silently fail.
 
-Source: [SessionStore+History.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/App/SessionStore+History.swift:516).
+Source: [SessionStore+History.swift](../../Sources/App/SessionStore+History.swift#L516).
 
 Required correction: treat active-session and archived-thread updates as
 separate applicable operations, and refresh when either changes. Explain the
@@ -213,8 +213,8 @@ The archive mutates its cache before saving. `save()` catches the write error
 and logs it, but returns no failure. The correction therefore has no durable
 success contract, rollback, or user-visible retry/error state.
 
-Source: [SessionArchive.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Core/SessionArchive.swift:52),
-[save](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Core/SessionArchive.swift:99).
+Source: [SessionArchive.swift](../../Sources/Core/SessionArchive.swift#L52),
+[save](../../Sources/Core/SessionArchive.swift#L99).
 
 Required correction: commit the in-memory edit only after the atomic write
 succeeds, or retain an explicit pending correction with visible failure and
@@ -227,8 +227,8 @@ the new Week/Month Story columns do not. Day moves its legacy-usage note below
 the story, after the headline and rail figures have already made their claims.
 Settings still promises that pre-epoch app-use patterns remain qualified.
 
-Source: [StoryColumns.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/StoryColumns.swift:69),
-[ReviewView.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Review/ReviewView.swift:120).
+Source: [StoryColumns.swift](../../Sources/Surfaces/Story/StoryColumns.swift#L69),
+[ReviewView.swift](../../Sources/Surfaces/Review/ReviewView.swift#L120).
 
 Required correction: retain the existing accuracy notice before the affected
 day/period claims. A new surface must preserve the old evidence boundary.
@@ -241,7 +241,7 @@ day/period claims. A new surface must preserve the old evidence boundary.
 light after settling, while the read-only global macOS appearance preference
 was `Dark`. Explicit Dark worked again and was restored.
 
-Evidence: [System selected while the app remains light](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/26-system-after-settle.png).
+Evidence: System selected while the app remains light.
 
 The earlier test proves `NSApp.appearance` becomes nil, not that a SwiftUI
 window's retained appearance override has cleared. That earlier completion
@@ -262,10 +262,10 @@ production shell, regardless of how wide the parent window becomes. The old
 480-point search strip, small category menu, large page heading, and nested
 card all remain, combining two incompatible settings layouts.
 
-Source: [StorySheet](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Main/MainWindowView.swift:156),
-[SettingsView.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Settings/SettingsView.swift:6).
-Evidence: [reference sheet](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/reference-settings.png),
-[actual sheet](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/01-settings-initial.png).
+Source: [StorySheet](../../Sources/Surfaces/Main/MainWindowView.swift#L156),
+[SettingsView.swift](../../Sources/Surfaces/Settings/SettingsView.swift#L6).
+Evidence: reference sheet,
+actual sheet.
 
 Choose a single approved settings structure: the final prototype's compact
 grouped sheet, or the previously discussed continuous preferences document.
@@ -307,8 +307,8 @@ That part works. However:
   **4.5:1** normal-text benchmark. The ratios were calculated from source
   colours, not anti-aliased screenshot pixels. [W3C contrast guidance](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html).
 
-Source: [MonthStoryGrid.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/MonthStoryGrid.swift:150),
-[palette](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Design/DesignTokens.swift:245).
+Source: [MonthStoryGrid.swift](../../Sources/Surfaces/Story/MonthStoryGrid.swift#L150),
+[palette](../../Sources/Design/DesignTokens.swift#L245).
 
 Required correction: explicitly choose a focus-duration heatmap or
 focused-active goal progress, make its legend literal, and derive foreground
@@ -334,9 +334,9 @@ and comfortable widths.
   period still shows today's two-day streak. Focus/Mac zero tiles also remain
   despite the blanket claim that empty tiles are hidden.
 
-Source: [StoryRail.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/StoryRail.swift:287),
-[StoryChromeBar.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Main/StoryChromeBar.swift:111),
-[SettingsGroups.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Settings/SettingsGroups.swift:141).
+Source: [StoryRail.swift](../../Sources/Surfaces/Story/StoryRail.swift#L287),
+[StoryChromeBar.swift](../../Sources/Surfaces/Main/StoryChromeBar.swift#L111),
+[SettingsGroups.swift](../../Sources/Surfaces/Settings/SettingsGroups.swift#L141).
 
 Required correction: map each visible control and promise to a real consumer.
 Remove obsolete controls, provide the missing destination/action, or qualify
@@ -354,8 +354,8 @@ The live day showed 2h 53m as its longest stretch although that session had
 two stretches; Week reported a longest stretch of 1h 50m. These are different
 definitions under the same label.
 
-Source: [DayStory.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Today/DayStory.swift:45),
-[StoryColumns.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Story/StoryColumns.swift:111).
+Source: [DayStory.swift](../../Sources/Surfaces/Today/DayStory.swift#L45),
+[StoryColumns.swift](../../Sources/Surfaces/Story/StoryColumns.swift#L111).
 
 Required correction: distinguish “no focus sessions” from “no recording”,
 represent missing coverage without inventing activity, and use session/thread
@@ -377,10 +377,10 @@ Those counts do not establish the advertised product coverage:
 - README still documents five tabs, the old shortcuts, the ribbon, and
   `Open in Today`. These are no longer the current main-window experience.
 
-Evidence: [History-named snapshot showing Day](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/reviewHistorySelection-minimum-light.png),
-[clipped pending-decision snapshot](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/.build/design-audit-2026-08-31/focusAwaitingDecision-minimum-dark.png).
-Source: [Snapshotter.swift](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/Sources/Surfaces/Snapshotter.swift:386),
-[README.md](/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/README.md:20).
+Evidence: History-named snapshot showing Day,
+clipped pending-decision snapshot.
+Source: [Snapshotter.swift](../../Sources/Surfaces/Snapshotter.swift#L386),
+[README.md](../../README.md#L20).
 
 Required correction: verify actual destinations and visible content, rename or
 retire stale scenarios, and include real-window interaction checks. Retain the

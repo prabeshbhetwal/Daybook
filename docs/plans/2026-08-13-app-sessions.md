@@ -1,7 +1,5 @@
 # App Sessions and Drill-Down — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Group raw usage stretches into real working sessions with an attention-aware rule, expand app rows to hourly colour-matched detail, make `+N more` expandable, and stop the date stepper wrapping.
 
 **Architecture:** Recording keeps full fidelity — the destructive record-time merge is removed and each stretch records why it ended. Grouping happens at display time in `Core/AppSessionGrouper.swift`, so changing the rule re-groups existing history.

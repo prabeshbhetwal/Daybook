@@ -1,7 +1,5 @@
 # Away Prompt Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Ask the away question where the user is — a quick menu-bar-anchored card for short absences, a blurred full-screen prompt for long ones — with one answer grid (range in the header, four equal buttons) shared by every surface; and split `SessionStore` in two.
 
 **Architecture:** The engine exposes the pending absence's range; the store publishes it. A pure `AwayPromptTier` rule picks quick vs full from the absence length and a new setting. `AwayAnswerGrid` is the single answer UI; `ResolveCard` wraps it for the popover and dashboard. Two AppKit surfaces — a non-activating anchored panel and a key-capable blur window — host the grid; an `@MainActor` `AwayPrompter` owns both and follows `store.$pendingAway`.

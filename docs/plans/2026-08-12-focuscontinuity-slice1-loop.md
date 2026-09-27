@@ -1,7 +1,5 @@
 # FocusContinuity Slice 1 — The Loop — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Replace FocusContinuity's AppKit menu-bar UI with SwiftUI surfaces implementing the start → focus → reward loop: a menu bar popover with a focused intent field, one-click start, live timer, today's total, streak and weekly chart, plus a Today window and a `--gallery` state catalogue.
 
 **Architecture:** `Core/` keeps all logic and never imports SwiftUI, so the existing headless self-test keeps running. A single `SessionStore` (`ObservableObject`) subscribes to the engine's callbacks and republishes `@Published` state to views. The engine moves from one continuous session to discrete records persisted to a Codable file store.

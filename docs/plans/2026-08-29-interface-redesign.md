@@ -1,7 +1,5 @@
 # FocusContinuity Interface Redesign Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Replace the vertically exhaustive dashboard with a calm five-tab desktop interface while preserving FocusContinuity's canonical accounting, privacy boundary, compact menu-bar workflow and local build guarantees.
 
 **Architecture:** Keep Core responsible for pure records and reporting, App responsible for navigation, persistence and published presentation data, Design responsible for tokens/primitives, and Surfaces responsible only for composition and interaction. A persistent `MainWindowModel` owns the five-tab route; each tab consumes the existing canonical `SessionStore` snapshot through a purpose-built surface. The compact popover shares Focus presentation primitives but never embeds the global tab system.

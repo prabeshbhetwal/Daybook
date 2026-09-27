@@ -1,7 +1,5 @@
 # Auto Sessions, Daily Goal and Rewards — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** The app starts a focused session itself when the pattern holds, backdated honestly; ends it when the work stops; measures the day against a target; and marks the moments worth marking in a panel that cannot steal focus.
 
 **Architecture:** Four pure `Core` types, each in its own file and independently testable — `FocusScore` (signals → score with its components intact), `AutoSessionDetector` (hysteresis state machine), `DailyGoal` (target and personal median), `RewardEngine` (gated, rate-limited messages). One AppKit surface, `RewardHUD`, a non-activating panel. Wiring in `AppCoordinator`, `SessionStore` and `PopoverView`.

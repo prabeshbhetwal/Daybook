@@ -1,9 +1,5 @@
 # Build and Repository Hardening Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
-> Execute each task with fresh verification and commit only after it passes.
-
 **Goal:** Make source authoritative, stage verified local builds and remove
 verification/documentation drift.
 

@@ -1,7 +1,5 @@
 # FocusContinuity Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Build a native macOS menu bar utility that tracks one continuous work session and keeps it honest across screen locks, sleeps and app switches, distinguishing silent micro-breaks from extended breaks that require a user decision.
 
 **Architecture:** A notification-driven state machine. `EventMonitor` converts `NSWorkspace` and `DistributedNotificationCenter` notifications into typed closures; `SessionEngine` is the single owner of state and time arithmetic, exposing one total `transition(on:)` method; `MenuBarController` renders the `NSStatusItem` and menu; `AlertPresenter` handles the two modal alerts. `AppDelegate` owns all four and wires them together with closures, never strong back-references. Nothing polls — the only repeating timer is cosmetic and refreshes the status title.

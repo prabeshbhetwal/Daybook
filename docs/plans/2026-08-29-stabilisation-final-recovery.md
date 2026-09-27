@@ -1,7 +1,5 @@
 # FocusContinuity Final Recovery Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Close the two load-bearing residual findings from the stabilisation review: preserve the exact terminal app-usage boundary across a failed write, and make stale build-lock recovery mutually exclusive.
 
 **Architecture:** Keep the existing Core → App → Design/Surfaces boundary and the existing direct `swiftc` build. App usage gains a private persistence-pending tracker state whose session boundary is immutable; build promotion gains an atomic recovery guard around stale-lock replacement. Neither change alters user-facing design or historical records.

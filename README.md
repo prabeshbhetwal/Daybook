@@ -9,7 +9,7 @@ labelled measures.
 
 **SwiftUI · AppKit · Swift Charts · macOS 13+** ·
 no Xcode project, no packages, no network, no telemetry ·
-~36k lines of Swift · 432 headless checks
+hundreds of headless checks
 
 ## Why it exists
 
@@ -76,7 +76,7 @@ uses system counters, not event content.
 
 ## How it is verified
 
-- **432 headless checks** run from the app binary itself (`--selftest`). They
+- **Hundreds of headless checks** run from the app binary itself (`--selftest`). They
   use an injected clock, isolated preferences and temporary archives, so they
   cover session state transitions, cross-midnight clipping, wake and presence
   handling, persistence failures, accuracy epochs, corrections and Undo,
@@ -194,3 +194,7 @@ docs/                   Specs, plans, reviews, design references and screenshots
 Keep the Core → App → Design/Surfaces boundary intact. Add a focused headless
 check before changing behaviour, preserve recorded evidence rather than
 rewriting it, and run `./build.sh --check` before committing.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

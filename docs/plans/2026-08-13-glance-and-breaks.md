@@ -1,7 +1,5 @@
 # Menu Bar at a Glance and Break Reminders — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Rebuild the menu bar popover so it answers the whole day without opening the dashboard, and add a break reminder driven by continuous computer use.
 
 **Architecture:** The break logic is a pure `Core/BreakReminder.swift` over the usage stretches, so the interval rules are covered headlessly. The popover reuses the dashboard's day band and ranked rows rather than growing its own widgets.

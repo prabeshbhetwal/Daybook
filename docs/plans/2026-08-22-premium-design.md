@@ -1,7 +1,5 @@
 # Premium Design (Direction A) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Re-skin and restructure the menu-bar popover, the dashboard and the menu-bar item to the native-premium direction — tonal surfaces, one accent, a curated data palette, SF Rounded numerals, a goal ring — and move Settings into a standard macOS Settings window.
 
 **Architecture:** All colour, type and radius decisions move into `DesignTokens.swift` (`Surface`, `Palette`, `Type`, `Radius`); a small set of plain-value components (`GoalRing`, `StatCard`, `DataBar`, `AppSwatch`, `IconButton`, `.card()`) is built once and used by every surface. The popover splits into a folder (`Surfaces/Popover/`), loses its settings form, and gains a hero card; the dashboard becomes a title band, a stat band and cards; a `SettingsModel` wraps `PersistenceStore` for a `Settings` scene; `MenuBarGlyph` rasterises a goal ring for the status item inside the existing tick.

@@ -1,7 +1,5 @@
 # FocusContinuity Dashboard — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Replace the sparse Today window with a two-column dashboard that answers "where did my day go, and was it any good?" — a 24-hour Canvas timeline, icon-led app rankings, live running-apps, focus quality and gated insights — and fix the three computation defects visible in the current build.
 
 **Architecture:** Every figure is computed in `Core/DashboardStats.swift`, a pure struct over `(SessionArchive, AppUsageArchive, now)`, so the headless self-test covers all of it. Views receive plain values and never touch an archive. The timeline draws in a single `Canvas` pass.

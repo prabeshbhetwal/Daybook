@@ -1,7 +1,5 @@
 # Complete Story Interactions Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The user has approved implementation; do not ask again between batches.
-
 **Goal:** Implement both approved written specifications, including the repeated End/Continue case, without altering live history during verification.
 
 **Architecture:** One recording engine and one action store supply immutable date-scoped projections. Eligibility, observed activity, correction receipts, optional metadata and app-rule decisions have explicit boundaries. Native controls share actions; no view mutates global dates merely to render historical content.

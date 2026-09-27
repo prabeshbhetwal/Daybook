@@ -1,9 +1,5 @@
 # Reporting Reconciliation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
-> Execute every task test-first and commit after its acceptance checks pass.
-
 **Goal:** Make goal pace, selected-day composition, period bars and live
 dashboard data reconcile to one source of truth.
 

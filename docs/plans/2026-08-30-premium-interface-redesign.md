@@ -1,7 +1,5 @@
 # FocusContinuity Premium Interface Redesign Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
-
 **Goal:** Make every FocusContinuity surface coherent, legible and native-feeling while fixing Review's implicit cross-tab navigation, chart clipping, History controls and History table hierarchy.
 
 **Architecture:** Preserve Core → App → Design/Surfaces. Core supplies pure canonical records and small layout helpers; App owns Review selection and routes; Design owns tokens and repeatable visual grammar; Surfaces compose controls and read models without recalculating time. Review becomes a stable workbench: selection stays in Review, then an explicit action opens Today.

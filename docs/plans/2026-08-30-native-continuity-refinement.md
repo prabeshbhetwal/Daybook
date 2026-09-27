@@ -1,7 +1,5 @@
 # Native Continuity Refinement Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Make FocusContinuity’s desktop navigation, Today inspection, calendar feedback, Review history, and Settings behave as one calm native macOS interface without changing canonical time data.
 
 **Architecture:** Keep Core accounting and persistence untouched. Add small pure presentation contracts in the Design/Surfaces boundary, retain `SessionStore` as the single owner of Today inspection state, and turn Settings from a selected-pane switcher into one scrollable document with a synchronised index. All views continue consuming existing canonical read models.

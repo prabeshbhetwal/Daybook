@@ -1,7 +1,5 @@
 # Honest Session Time Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Make a session's elapsed time reflect time actually worked, make the daily goal fillable only by declared work the user demonstrably did, and make the popover fit any screen.
 
 **Architecture:** `SessionEngine` gains one new event (`idleObserved`) posted by the existing one-second ticker, so idle stretches auto-pause the session backdated to when input stopped. A new pure `FocusedActiveTime` intersects session spans with hands-on usage stretches and becomes the goal's basis. The away decisions become symmetric — all but *I was working* close the old session at the departure moment. A `PopoverMetrics` helper reads the screen and drives a pinned-scroll-pinned layout.

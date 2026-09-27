@@ -1,7 +1,5 @@
 # Timeline Refinement and Memory Budget — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Make the day timeline readable by the hour and inspectable to the minute, show when each app's stretches happened, fill the dead space under Insights with app history, scale date navigation past two days, and cut memory from 49 MB to ≤35 MB.
 
 **Architecture:** All new computation goes in `DashboardStats`, which gains a day slice computed once in `init` and shared by every query. The Canvas gains an hour grid, hover hit-testing and a selection-driven detail row. Icon caching rasterises at display size.

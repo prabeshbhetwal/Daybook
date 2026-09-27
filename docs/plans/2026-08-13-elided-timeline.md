@@ -1,7 +1,5 @@
 # Elided Timeline and Clearer Insights — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Stop spending the timeline on empty time, make insights state what they measure, and drop permanently-running processes from Running Now.
 
 **Architecture:** A new pure `Core/TimelineLayout.swift` owns clustering, width allocation and the two coordinate mappings. The view asks it where things go and computes no positions itself, so the band, the axis and the pointer cannot drift apart.

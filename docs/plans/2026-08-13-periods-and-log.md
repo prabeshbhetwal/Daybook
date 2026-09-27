@@ -1,7 +1,5 @@
 # Day / Week / Month and the Session Log — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Let the dashboard answer "how was my week and month", and give sessions a chronological log with time ranges, apps and durations.
 
 **Architecture:** A new pure `Core/PeriodStats.swift` composes the existing `DashboardStats` once per day in the period, so a day's numbers have one definition used everywhere. Three new view files keep each surface focused.

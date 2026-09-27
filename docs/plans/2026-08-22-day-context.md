@@ -1,7 +1,5 @@
 # Day Context Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Make the dashboard follow the selected day and the selected session — a Sessions card, a collapsed Now strip on past days, cross-highlighting between sessions, apps and the timeline, hover data on every chart — so the page reads as one dynamic instrument rather than a set of static cards.
 
 **Architecture:** The store already publishes `daySessions`, `selectedSession`, `hoveredSession`, `highlightedBundleID`, `sessionAppRanks`, `sessionTracked`, `selectedDaySummary`, `framedSession`, `selectSession/clearSession/hoverSession/highlightApp/selectHour` (built before this plan; tests 91–92). This plan is the views: a `SessionsCard`, a `NowStrip` branch in `DashboardHero`, framing and app-highlighting in `DayTimelineView`, hover/click on `RhythmChart` and `PeriodChart`, the layout in `DashboardView`, and the "App usage" rename.

@@ -1,9 +1,5 @@
 # Honest Usage Persistence Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use
-> `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
-> Execute every task test-first and commit after its acceptance checks pass.
-
 **Goal:** Make app-usage checkpoints reversible, non-duplicating and gated on
 confirmed human presence.
 
