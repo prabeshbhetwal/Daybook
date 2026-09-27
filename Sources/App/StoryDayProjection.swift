@@ -92,7 +92,9 @@ extension SessionStore {
                                              running: running,
                                              now: now(), day: day,
                                              calendar: calendar)
-        let snapshot = effectiveUsageSnapshot
+        // Everything below reads this one day, so it reads that day's records
+        // rather than the whole uncapped history.
+        let snapshot = effectiveUsageSnapshot?.restricted(to: day, calendar: calendar)
         let stats: DashboardStats? = usage.map {
             DashboardStats(sessions: engine.archive, usage: $0,
                            usageSnapshot: snapshot, calendar: calendar, now: now)
@@ -100,7 +102,10 @@ extension SessionStore {
         let apps = stats?.rankedApps(for: day) ?? []
         let tracked = apps.reduce(0) { $0 + $1.total }
         let focused = storyFocusedSeconds(on: day)
-        let goalCredit = focusedActiveSeconds(on: day, usageSnapshot: snapshot)
+        // Goal credit clips to the current calendar's day, so it is restricted
+        // by that calendar, whatever this projection was asked for.
+        let goalCredit = focusedActiveSeconds(
+            on: day, usageSnapshot: effectiveUsageSnapshot?.restricted(to: day))
         let chronology = storyTimelineItems(on: day)
         var details: [UUID: StorySessionDetail] = [:]
         for entry in entries {

@@ -215,6 +215,21 @@ struct AppUsageSnapshot {
         }
     }
 
+    /// The same view holding only the records that touch a local day, for
+    /// readers that clip to that day anyway: a day's story, its apps and its
+    /// sessions each built their reading from every record ever kept.
+    func restricted(to day: Date, calendar: Calendar = .current) -> AppUsageSnapshot {
+        AppUsageSnapshot(sessions: sessions(touching: day, calendar: calendar),
+                         accurateFrom: accurateFrom, revision: revision)
+    }
+
+    private init(sessions: [AppUsageSession], accurateFrom: Date, revision: Int) {
+        self.sessions = sessions
+        self.accurateFrom = accurateFrom
+        self.revision = revision
+        self.overlayShape = nil
+    }
+
     /// The records that touch a local day, in stored order: everything a
     /// reading clipped to that day can see, and nothing it would discard.
     func sessions(touching day: Date, calendar: Calendar = .current) -> [AppUsageSession] {

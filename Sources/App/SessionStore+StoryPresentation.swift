@@ -35,7 +35,7 @@ extension SessionStore {
             recordID: engine.activeRecordID, threadID: engine.activeThreadID, name: engine.sessionName,
             workType: engine.activeWorkType, start: engine.sessionStartDate, worked: engine.elapsed)
         return Array(StoryChronology.build(records: engine.archive.records, running: running,
-                                          usage: effectiveUsageSnapshot?.sessions ?? [],
+                                          usage: effectiveUsageSnapshot?.sessions(touching: day) ?? [],
                                           day: day, now: now()).reversed())
             .filter { moment in
                 if case .entry(.session(let session)) = moment, session.isRunning {

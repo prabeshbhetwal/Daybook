@@ -108,8 +108,10 @@ extension SessionStore {
     func storySessionDetail(_ session: DaySession, on day: Date) -> StorySessionDetail {
         var segments: [TimelineSegment] = []
         if let usage {
+            // The day's records only: this runs once per session in the day,
+            // and the timeline clips to the day anyway.
             let timeline = DashboardStats(sessions: engine.archive, usage: usage,
-                usageSnapshot: effectiveUsageSnapshot).timeline(for: day)
+                usageSnapshot: effectiveUsageSnapshot?.restricted(to: day)).timeline(for: day)
             for segment in timeline {
                 for span in session.spans {
                     let start = max(segment.start, span.start), end = min(segment.end, span.end)

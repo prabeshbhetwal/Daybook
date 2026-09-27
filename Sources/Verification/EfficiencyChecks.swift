@@ -11,7 +11,8 @@ enum EfficiencyChecks {
         ("The menu bar label ignores changes it cannot show", menuBarIgnoresInvisibleChange),
         ("A hidden window rests its content and shows the same view again", hiddenPanelRests),
         ("The break check reads only the latest run and agrees with a full sort", breakCheckReadsLatestRun),
-        ("Day totals read only that day and agree with a full scan", dayTotalsReadOnlyTheDay)
+        ("Day totals read only that day and agree with a full scan", dayTotalsReadOnlyTheDay),
+        ("A day's story reads only that day's records and agrees with all of them", dayStoryReadsOnlyTheDay)
     ]
 
     private final class Clock {
@@ -319,6 +320,53 @@ enum EfficiencyChecks {
                     if snapshot.sessions(touching: day) != touching {
                         problems.append("Second \(second), \(offset) days back: the day's records differ from a scan")
                     }
+                }
+            }
+            return problems
+        }
+    }
+
+    /// A day's story — its apps, timeline, goal credit and chronology — was
+    /// built from every record ever kept, once more for each session in the
+    /// day. It reads the day's records now, and must read exactly the same.
+    private static func dayStoryReadsOnlyTheDay() -> [String] {
+        MainActor.assumeIsolated {
+            let clock = Clock(noon())
+            guard let fixture = makeFixture(clock) else { return ["Could not create isolated preferences"] }
+            defer { fixture.cleanUp() }
+            let calendar = Calendar.current
+            let midnight = calendar.startOfDay(for: clock.value)
+            for (index, offset) in [-90_000.0, 1_200, -900, 5_400, -172_000, 9_000, 2_000].enumerated() {
+                let start = midnight.addingTimeInterval(offset)
+                fixture.usage.checkpoint(AppUsageSession(bundleID: "app.\(index % 3)", appName: "App \(index % 3)",
+                                                         start: start, end: start.addingTimeInterval(1_500)))
+            }
+            fixture.tracker.appActivated(bundleID: "editor", name: "Editor")
+            clock.advance(30)
+            let store = fixture.store
+            guard let full = store.effectiveUsageSnapshot else { return ["No usage snapshot"] }
+            var problems: [String] = []
+            for offset in 0...1 {
+                guard let day = calendar.date(byAdding: .day, value: -offset, to: clock.value) else { continue }
+                let everything = DashboardStats(sessions: store.engine.archive, usage: fixture.usage,
+                                                usageSnapshot: full)
+                let dayOnly = DashboardStats(sessions: store.engine.archive, usage: fixture.usage,
+                                             usageSnapshot: full.restricted(to: day))
+                if dayOnly.timeline(for: day) != everything.timeline(for: day) {
+                    problems.append("\(offset) days back: the day's timeline differs")
+                }
+                let projection = store.storyDayProjection(on: day)
+                if projection.apps != everything.rankedApps(for: day) {
+                    problems.append("\(offset) days back: the day's apps differ")
+                }
+                if projection.goalCredit != store.focusedActiveSeconds(on: day, usageSnapshot: full) {
+                    problems.append("\(offset) days back: goal credit differs")
+                }
+                let moments = Array(StoryChronology.build(records: store.engine.archive.records, running: nil,
+                                                          usage: full.sessions, day: day,
+                                                          now: store.now()).reversed())
+                if store.storyMoments(on: day) != moments {
+                    problems.append("\(offset) days back: the chronology differs")
                 }
             }
             return problems
