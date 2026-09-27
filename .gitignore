@@ -12,6 +12,8 @@
 /research/*.zip
 /research/apple-focus-app-design-research/project/uploads/
 /graphify-out/
+/.codegraph/
+/.code-review-graph/
 
 # iCloud File Provider conflict copies of the built bundle
 /FocusContinuity *.app/

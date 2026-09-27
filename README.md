@@ -1,222 +1,148 @@
 # FocusContinuity
 
-FocusContinuity is a private, native macOS focus-session tracker. It records
-focus sessions and local app-use evidence while being deliberately honest about
-locks, sleep, idle time, breaks and uncertainty. The menu-bar popover is for
-the next action; the main window explains what happened without presenting
-foreground time as deliberate work.
+A native macOS focus tracker that refuses to guess. It records focus sessions
+and local app use, then tells the day back as a story, keeping what you
+declared, what the Mac observed and what nobody recorded as separate,
+labelled measures.
 
-It is built with SwiftUI, AppKit and Swift Charts. There is no Xcode project,
-package dependency, web service, account, telemetry or model: `build.sh`
-invokes `swiftc` directly.
+![The Day story: an expanded session with its apps, app activity and the evidence rail](docs/screenshots/day-story.png)
 
-## What it does
+**SwiftUI · AppKit · Swift Charts · macOS 13+** ·
+no Xcode project, no packages, no network, no telemetry ·
+~36k lines of Swift · 432 headless checks
 
-- Opens with a twelve-chapter tour on a new Mac — first session, what the
-  Mac saw, the away card rehearsed live, rules, History, the menu bar,
-  Settings — with a chapter list to skip or revisit any of it; Settings can
-  run it again.
-- Tracks declared focus sessions, pauses, away decisions, breaks and threads.
-- Starts sessions from activity rules; a rule switching back to its app
-  continues the thread it left rather than starting a new one.
-- Records local foreground app-use stretches, trims unattended idle tails and
-  excludes known system processes.
-- Tells the day newest-first, with **Day**, **Week** and **Month** scopes
-  and supporting focus, app-use, rhythm and current-streak tiles.
-- Shows exact tracked time in Week and only evidence-backed statements in
-  Insights: a focus trend per day, week or month, a when-you-focus grid,
-  category shares and per-category goal rates.
-- Offers a searchable History — Day, Week and Month spans, the Month span
-  reaching a full year of calendars back to the first recorded day — with a
-  preview rail, and native sheets for Awards and Settings, without losing
-  the selected story.
-- Lets you define your own categories (name, SF Symbol or letter icon, colour,
-  daily goal, break reminders) and pins the activities you start most.
-- Offers a full session report, session notes with in-app dictation, and
-  names for recorded breaks.
-- Allows durable session-name/type corrections and contextual away-decision Undo.
-- Shows recorded app-use shapes in expanded sessions and at most four top apps
-  in the supporting rail.
-- Preserves historical app-use records, qualifying data from before the
-  corrected recorder's accuracy epoch instead of silently repairing it.
-- Provides local light/dark snapshot scenarios for product review.
+## Why it exists
 
-## Requirements
+Most time trackers treat "the app was in front" as "you were working". That
+turns a locked screen, a meeting away from the desk or a laptop left open over
+lunch into invented productivity. FocusContinuity is built around one rule:
+**evidence comes before interpretation.**
 
-- macOS 13 or later
-- Apple Command Line Tools with `swiftc`, AppKit and SwiftUI
-- An arm64 or Intel macOS host (the build targets the host architecture)
+- A focus session is something you declare. App use is something the Mac
+  observed. They are never added together.
+- When you step away, the app asks what happened instead of deciding for you.
+- Where nothing was recorded, the story says so.
 
-The code builds in Swift 5 language mode with warnings treated as errors. It
-does not require Xcode, Swift Package Manager or third-party dependencies.
+## Screenshots
+
+| Week, dark appearance | Month |
+|---|---|
+| ![Week scope in dark mode: focus by day with recorded app use behind each bar](docs/screenshots/week-dark.png) | ![Month scope: a calendar of focused days with weekly totals](docs/screenshots/month.png) |
+
+| Insights | Menu bar | Away decision |
+|---|---|---|
+| ![Insights: focus by week and a when-you-focus grid](docs/screenshots/insights.png) | ![Menu bar popover with a running session and quick switches](docs/screenshots/menu-bar-popover.png) | ![Away prompt asking how 22 minutes away should count](docs/screenshots/away-prompt.png) |
+
+## The hard parts
+
+**An honest time model.** The app keeps related measures apart and names each
+one on screen:
+
+| Measure | Meaning |
+|---|---|
+| **Focused** | Declared focus-session time, clipped to the day or period shown |
+| **Focused-active** | Focus that overlaps observed hands-on app use; the only time that earns goal credit |
+| **Recorded app use** | Observed foreground time; never presented as deliberate work |
+| **Focus without app-use coverage** | Session time the recorder cannot corroborate; disclosed, never added to Mac use |
+| **Break / Away** | Explicit rest or absence; never counted as focus |
+
+A session that crosses midnight contributes only its share to each day. A
+logged total can exceed recorded app use, and the Day view explains why rather
+than hiding the difference.
+
+**Absence without guessing.** Locks, sleep and idle time end in a decision:
+break, working, away or start fresh. While a decision is open, every other
+session action routes back to it, including the global hotkey. Corrections
+(rename, change type, re-answer an away) apply to the whole thread across days,
+never move time boundaries, survive relaunch, and can be undone field by field.
+Writes are atomic, a failed save keeps the old record and offers Retry, and an
+interrupted write cannot record the same interval twice.
+
+**Data that ages honestly.** App-use history is a versioned envelope with an
+accuracy epoch. Data recorded before a recorder fix is preserved and marked as
+less certain wherever an exact claim would mislead; it is never silently
+rewritten. Older formats are backed up byte for byte before migration.
+
+**Cheap to leave running.** A menu bar app runs all day, so idle cost matters.
+Profiling showed that SwiftUI windows keep re-rendering on every data update
+even when closed, and the hidden menu bar panel alone was costing about 45 ms
+of work each second. Closed windows and panels now rest until shown again, and
+the app's CPU use during normal work went from 0.9% to 0.1%.
+
+**Private by construction.** Everything stays on the Mac. The app stores app
+identity and time ranges, never content. It asks for no Accessibility,
+Automation, Screen Recording or Input Monitoring permission; idle detection
+uses system counters, not event content.
+
+## How it is verified
+
+- **432 headless checks** run from the app binary itself (`--selftest`). They
+  use an injected clock, isolated preferences and temporary archives, so they
+  cover session state transitions, cross-midnight clipping, wake and presence
+  handling, persistence failures, accuracy epochs, corrections and Undo,
+  accessibility targets and settings effects without touching real data.
+- **A snapshot matrix** renders every surface in light, dark and system
+  appearance through offscreen AppKit hosting, with real native controls, for
+  visual review (`--snapshot`). The screenshots above come from it.
+- **A fixture-only app** (`scripts/build-fixture-app.sh`) has its own bundle
+  identifier and cannot open real data, so native UI automation can run safely.
+- **The build is strict**: Swift 5 mode with warnings as errors, a strict deep
+  signature check, and tests run before the local app is replaced. If anything
+  fails, including during the swap, the previous app is put back.
+
+## How the work is organised
+
+Features move through written documents before and after the code, and all of
+them are in [`docs/`](docs):
+
+1. **Spec**: the problem, the decisions and what is out of scope.
+   Example: [honest session time](docs/specs/2026-08-17-honest-session-time-design.md).
+2. **Plan**: small, testable steps with the checks each one must pass.
+   Example: [complete Story interactions](docs/plans/2026-08-31-complete-story-interactions.md).
+3. **Review**: an audit against the spec, then verification of every finding.
+   Example: [design and behaviour audit](docs/reviews/2026-08-31-design-and-behaviour-audit.md)
+   and its [remediation verification](docs/reviews/2026-08-31-story-remediation-verification.md).
+
+[`PRODUCT.md`](PRODUCT.md) holds the product principles and
+[`DESIGN.md`](DESIGN.md) the design system. Commit messages describe
+the change they make, so `git log` reads as a changelog. The code is also kept lean on
+purpose: a recent pass removed about 7,300 lines of views, members and build
+machinery that nothing used any more, with no change in behaviour.
+
+## Features
+
+- Day, Week and Month stories, newest first, with focus, app use, rhythm and
+  streak tiles beside them
+- Focus sessions with pause, away, breaks and threads you can continue later
+- Optional activity rules that start sessions from the apps you use, always
+  saying why and offering Undo
+- Searchable History reaching back to the first recorded day
+- Insights that only state what the record supports: focus trend, a
+  when-you-focus grid, category shares and goal rates
+- Custom categories with icons, colours, daily goals and break reminders
+- Session notes with in-app dictation, full session reports and named breaks
+- Awards derived from recorded evidence, with their criteria shown
+- A twelve-chapter first-run tour that can be skipped or replayed
+- Full keyboard operation, VoiceOver labels, light and dark appearance
+
+The full guide to every surface and control is in [docs/usage.md](docs/usage.md).
 
 ## Build and run
 
-From the repository root:
+Requirements: macOS 13 or later and the Apple Command Line Tools (`swiftc`).
+Xcode is not needed.
 
 ```bash
 ./build.sh          # Build and replace the local app after verification
 ./build.sh --run    # Build, verify and open FocusContinuity.app
-./build.sh --test   # Build and test, then promote the verified local app
-./build.sh --check  # Stage, strictly verify and test without replacing the app
+./build.sh --test   # Build, run the checks, then replace the local app
+./build.sh --check  # Build and run the checks without replacing the app
 ```
 
-The generated `FocusContinuity.app` is locally ad-hoc signed. It passes the
-project's deep signature check, but it is not notarised or distributable.
-`--run` strips the quarantine attribute immediately before opening: a checkout
-under an iCloud-synced folder is re-quarantined after the build, and Launch
-Services would otherwise run a translocated, read-only copy at a random path.
-
-A build that replaces the local app takes a lock at `.build/promotion.lock`,
-so a second build waits its turn. If a build is killed outright and the lock
-stays behind, remove that directory once no build is running.
-
-## Use the app
-
-The main window has one persistent scope selector. Scopes retain the date you
-are inspecting; opening a historical story never substitutes today's data.
-
-| Surface | Question it answers | Main content |
-|---|---|---|
-| Day | What happened on this calendar day? | Focus-led summary, chronological stretches, named rest, app use and honest recording gaps |
-| Week | How did the days compare? | Focus summary, exact tracked bars, focused work-type composition and selected-day preview |
-| Month | How was focus distributed? | Date-and-duration calendar, relative focus intensity, weekly totals and selected-day preview |
-| Session controls | What should I do now? | Intent, work type, Start, Pause, Resume, Away, Stop and pending-away decisions |
-| History | Where is an older record? | Days grouped by month with a strip of each day's sessions; search, app and category filters; the picked day previews in the rail |
-| Insights | What patterns are supported? | Focus by day, week or month; a when-you-focus grid; category shares and goal rates; gated pace, quality and continuity statements |
-| Awards | What milestones have I earned? | Achievements derived from recorded evidence, with their criteria |
-| Settings | How should the app behave? | Real persisted controls, privacy evidence and diagnostics |
-
-Keyboard shortcuts:
-
-| Shortcut | Action |
-|---|---|
-| `Command-1`, `Command-2`, `Command-3` | Day, Week, Month |
-| `Command-4`, `Command-6` | History, Awards |
-| `Command-7` | Session controls |
-| `Command-,` | Settings |
-| Escape | Dismiss a native sheet/app detail or cancel an inline rename |
-
-Current work is at the top of the timeline; earlier work and rest continue
-downwards. Click an entry's full header to expand it. Inspect an app from the rail to see
-its scoped recorded visits. Select a calendar day or Week bar for a preview,
-then use **Open as a story** for that date's full chronology. In History a row
-previews its day in the rail; double-click it, or use **Open as a story**, to
-read the full day. In Insights a picked bar or month unfolds in place. Choose **Arrange cards** to reorder the rail; dragging is active only
-while arranging, and each card also offers keyboard Move up / Move down.
-
-An expanded entry offers a pencil for renaming and changing category,
-**Continue this**, **Add note** (typed or dictated in the app), **Remove** and
-**See full report**. Notes belong to the exact stretch they were written on and are
-kept beside the session archive, never inside it, so a note can never alter
-recorded time or an Undo. Where power was observed while a stretch ran, the
-entry shows it factually — **Battery · 78% → 64%**, **Plugged in** or
-**Plugged in, charging** — and a stretch with no observation shows no power
-line at all rather than an invented reading.
-
-**Activity rules** (Settings → Sessions) are opt-in. Each rule names an
-activity, a work type, the applications that belong to it and how long an app
-must be in front before the activity begins (30 s to 30 min; 3 min by
-default). When rules are on they replace the legacy heuristic rather than run
-beside it. One activity owns any moment: an app that belongs to several rules
-records its use once and asks a quiet choice — for example **Coding or Research?** — in the session
-controls and the menu panel instead of starting two sessions. An explicit
-activity you started is never relabelled. Every automatic start says why it
-happened and offers **Undo**; the application picker lists installed apps
-from the standard application folders and apps already observed, with
-**Add application…** for anything missed.
-
-The compact menu-bar popover intentionally remains Focus-only. It provides the
-current action, up to three continuation choices, quiet break context, and
-**Open FocusContinuity**, **Settings** and **Quit**.
-Opening the app reveals the Story without automatically presenting the session
-sheet; use **Session controls** or `Command-7` when you want that sheet.
-
-When starting focus, choose a suggestion from the activity field's menu or write
-your own name. Choosing an item only fills the draft. Start explicitly to begin
-work; started names are remembered locally for reuse. **Work type** is a separate,
-labelled classification, not a restriction on the name you can enter.
-
-## Time and evidence model
-
-FocusContinuity keeps related measures separate:
-
-| Measure | Meaning |
-|---|---|
-| **Focused** | Declared focus-session time, clipped to the relevant day or period |
-| **Focused-active** | Declared focus time that overlaps authoritative hands-on app-use evidence; used for goals and pace |
-| **Recorded app use / Tracked** | Local observed app-use time; not presented as deliberate work |
-| **Within / outside session spans** | Temporal membership of observed use; spans can contain pauses and do not themselves establish goal credit |
-| **Focus without app-use coverage** | Credited session work that recording cannot corroborate; never added to the observed Mac-use total |
-| **Break / Away** | Explicit rest or absence; not counted as focus |
-| **Watching** | Normally pauses focus; Meetings and Learning can continue while watching, without inventing hands-on app use |
-
-An extended absence creates an honest decision rather than guessing. While a
-decision is unresolved, ordinary start/stop/pause/continue actions—including
-the global hotkey—are blocked and route back to the existing decision surface.
-
-Historical sessions and app use are clipped by local calendar day, so a
-cross-midnight session contributes only its proper portion to each day.
-Week bars and their average use tracked time; focus averages use focused days.
-The Month heatmap uses focused duration relative to that month's largest value,
-not the current goal. Its numbers remain the source of truth. The daily goal
-ring uses focused-active credit; the current streak is explicitly recent even
-while browsing older periods. Running focus is included in Day, Week, Month
-and History without writing synthetic records into the archive.
-
-The Story preserves separate stretches of resumed work so a later stretch does
-not swallow a break or recording gap. Gaps are not assumed to be work or rest.
-An app-only day still displays its observed use. Each History row states its
-focused time and session count; the rail preview adds recorded app use and the
-longest stretch.
-
-The headline says time **logged across focus sessions**. That total can exceed
-recorded app use without an arithmetic error: these are independently recorded
-measures, and uncovered session time is disclosed separately. The **Shape of it**
-chart divides a session's span into eight intervals and shows actual app-use
-coverage. Empty intervals stay empty; the chart does not infer typing intensity.
-
-### Correct a session
-
-Expand its entry and choose **Rename** or **Change type**. These change the whole
-thread, including its stretches on other days, but never alter time boundaries
-or app-use evidence. A failed save leaves the old record intact and exposes Retry.
-The saved-action row sits beside the affected interval, so changing a session to
-Break does not remove its **Undo**. Undo restores only the corrected field and
-preserves later work. Running work retains its type and thread identity on relaunch.
-
-Away decisions also have a green saved-action row with **Undo**. A break you
-named in the prompt reads by that name; an unnamed one offers **Name it**. Undo makes that
-interval uncounted and reopens its classification in place; subsequent work is
-unchanged. The latest away receipt survives relaunch. Re-answering can count the
-original interval as focus, record it as a break or leave it uncounted without
-replaying the current-session transition. Conflicting later edits are protected,
-storage failures remain retryable, and interrupted writes cannot insert the same
-interval twice. Historical reclassification does not evict unrelated newer work
-when the archive is full.
-Cross-day actions disclose their full scope before Undo. A failed answer keeps
-the question and typed reason visible, including in the popover and away prompts;
-its Retry cannot save a different correction made elsewhere.
-
-## Privacy and local storage
-
-Everything stays on the Mac.
-
-- App-use recording stores local app identity and time ranges, not content.
-- Monitoring does not capture text typed in other apps. Session names entered
-  directly into FocusContinuity are stored locally as part of session history.
-- No Accessibility, Automation, Screen Recording or Input Monitoring permission
-  is requested. Idle and input-density checks use system counters rather than
-  event content.
-- Session history is stored atomically in
-  `~/Library/Application Support/FocusContinuity/sessions.json`.
-- App use is stored beside it in `app-usage.json` as a versioned v2 envelope.
-
-The v2 app-use envelope has an `accurateFrom` timestamp. Earlier preserved
-usage is never rewritten; Day, Week, Month, History and Insights qualify or exclude
-it where an authoritative claim would otherwise be misleading. Legacy v1 data is
-backed up byte-for-byte before migration and can be located from **Settings →
-Privacy**.
+The app is ad-hoc signed for local use; it is not notarised or distributed.
+Builds that replace the local app take a lock at `.build/promotion.lock`, so a
+second build waits its turn. If a build is killed outright, remove that
+directory once no build is running.
 
 ## Architecture
 
@@ -230,83 +156,23 @@ DailyGoal                MainWindowModel                Focus / Settings / Popov
 PeriodStats              Persistence wiring             Tokens / StoryStyle / controls
 PresenceGate             Story scope projections        Away / Reward
 StoryChronology
+DateFormats
 ```
 
-- **Core** is UI-free logic and data: the session state machine, usage tracking,
-  clipping, goals, periods, persistence formats and pure calculations.
-- **App** owns macOS event wiring and publishes canonical read models. It is the
+- **Core** is UI-free: the session state machine, usage tracking, clipping,
+  goals, periods, persistence formats and pure calculations.
+- **App** owns macOS event wiring and publishes read models. It is the only
   boundary for session actions, settings, refresh coalescing and navigation.
-- **Design / Surfaces** renders those models. Views do not read storage files or
-  recalculate time accounting.
+- **Design / Surfaces** renders those models. Views never read storage or
+  recalculate time.
 
-The single one-second ticker lives in `SessionStore`. It observes presence,
-flushes usage checkpoints, refreshes live figures and evaluates breaks; no
-second repeating timer is introduced by the UI.
+One one-second ticker, in `SessionStore`, drives presence checks, usage
+checkpoints, live figures and break evaluation. The UI adds no timers of its
+own.
 
-## Settings
-
-Settings groups the existing backed controls into five compact pages:
-
-| Page | Controls and information |
-|---|---|
-| General | Launch scope, login item, menu bar time, appearance, density, Story time gutter, entry expansion and the tour |
-| Sessions | Daily goal, activity rules and their application picker, legacy automatic sessions, automatic gap and milestones |
-| Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
-| Recording | App recording and the number of recent app visits initially shown |
-| Privacy | Local storage, accuracy epoch, preserved backup, Reveal data folder and diagnostics |
-
-Each page or changed search result opens at its first control; search retains
-the result's group context. Long paths and recovery text wrap
-and are selectable. System appearance clears the override and follows macOS;
-Reduce Motion always follows the system. The launch-scope preference applies
-on the next app launch. Recent-visit limits never reduce totals, and the app
-detail can reveal its full scoped list. Unsupported sync, export, retention and
-destructive data controls are not presented as working features.
-
-## Tests and visual review
-
-`Sources/SelfTest.swift` is a headless suite using isolated defaults and
-temporary directories. It covers session transitions, focus accounting,
-presence after wake, usage persistence, historical clipping, accuracy epochs,
-Review/History/Insights evidence gates, Settings effects, accessibility and
-release recovery.
-
-The binary also supports review modes:
-
-```bash
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --gallery
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
-FC_SNAPSHOT_ONLY=welcomeStep ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --onboarding
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window storyMonth
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window storyDecision
-./scripts/build-fixture-app.sh storyShape
-```
-
-These review modes use `SnapshotScenario`, temporary archives and isolated
-preferences. `--fixture-window` opens the real production shell with an injected
-fixture clock and no live-history coordinator or system monitors. Use it for
-native sheets, keyboard focus, appearance, corrections and navigation; fixture
-changes are disposable. `--snapshot` renders light/dark Story scopes, selected
-days, History, session controls, Settings, Insights, Awards, the tour's opener
-and first step, and compact prompts through offscreen AppKit hosting, including
-native controls and real scroll views. `FC_SNAPSHOT_ONLY=<scenario>` renders one
-scenario; the whole matrix takes several minutes. `--onboarding` forces the tour
-on a Mac that has already answered it.
-Its explicit static-sheet composition cannot establish native interaction behaviour.
-Do not treat a successful PNG count as a visual or interaction acceptance result.
-Fixture stores also disable the operational ticker so real idle sampling cannot
-advance or pause their synthetic sessions. `storyShape`, `storyMeeting`,
-`storyLive`, `storyDecision` and `focusSaveFailure` cover the interaction follow-up;
-quick/full failure snapshots check wrapped feedback in the compact prompts.
-
-For native UI automation, use the app emitted by **build-fixture-app.sh**. It has
-a separate bundle identifier and a fixture-only executable; even a relaunch with
-no arguments cannot construct the production coordinator or open normal data.
-The scenario lives in that disposable bundle's metadata. Do not give automation
-tools a copy of the production executable and rely solely on `--fixture-window`:
-Launch Services or the tool may relaunch it without those arguments. The direct
-command remains available for controlled launches that retain the flag.
+Data lives in `~/Library/Application Support/FocusContinuity/`:
+`sessions.json` for sessions and `app-usage.json` (a versioned v2 envelope)
+for app use, both written atomically.
 
 ## Repository layout
 
@@ -315,33 +181,16 @@ Sources/
   Core/                 Time accounting, persistence, periods and pure models
   App/                  macOS coordination, SessionStore and settings/navigation
   Design/               Semantic tokens and reusable SwiftUI components
-  Surfaces/             Product screens, popover, prompts, gallery and snapshots
+  Surfaces/             Screens, popover, prompts, gallery and snapshots
   Verification/         Focused regression groups and isolated native-window mode
-  SelfTest.swift        Headless verification suite
-build.sh                Direct Swift build, signing, promotion and test entry point
+  SelfTest.swift        Headless check suite
+build.sh                Build, signing, checks and local install
 scripts/                Fixture-only native verification
-docs/       Approved designs, specifications and implementation plans
+docs/                   Specs, plans, reviews, design references and screenshots
 ```
-
-Generated bundles, build state, snapshots, Codex worktrees and internal
-execution reports are ignored. Commit source, tests, documentation and scripts
-that directly describe or build the project; do not force-add generated apps or
-agent scratch reports.
-
-## Project documentation
-
-- [Current Story design system](DESIGN.md)
-- [Product context and principles](PRODUCT.md)
-- [Story remediation plan](docs/plans/2026-08-31-story-audit-remediation.md)
-- [Design and behaviour audit](docs/reviews/2026-08-31-design-and-behaviour-audit.md)
-- [Story remediation and verification](docs/reviews/2026-08-31-story-remediation-verification.md)
-- [Story interaction follow-up and verification](docs/reviews/2026-08-31-story-interaction-verification.md)
-- [Complete Story interactions — design](docs/specs/2026-08-31-story-interaction-model-design.md), [session controls and activity rules proposal](docs/specs/2026-08-31-session-controls-and-activity-rules-proposal.md), [plan](docs/plans/2026-08-31-complete-story-interactions.md) and [verification](docs/reviews/2026-08-31-complete-story-interactions-verification.md)
-- [Stabilisation design](docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md)
-- [Build and repository hardening plan](docs/plans/2026-08-28-build-repository-hardening.md)
 
 ## Contributing
 
 Keep the Core → App → Design/Surfaces boundary intact. Add a focused headless
-regression before changing behaviour, preserve user evidence rather than
+check before changing behaviour, preserve recorded evidence rather than
 rewriting it, and run `./build.sh --check` before committing.
