@@ -67,16 +67,9 @@ project's deep signature check, but it is not notarised or distributable.
 under an iCloud-synced folder is re-quarantined after the build, and Launch
 Services would otherwise run a translocated, read-only copy at a random path.
 
-For release-safety verification after a promoted local build:
-
-```bash
-./scripts/test-build-concurrency.sh
-codesign --verify --deep FocusContinuity.app
-```
-
-The concurrency harness validates staged promotion, stale recovery, ownership,
-symlink and fail-closed guard handling. It deliberately creates temporary build
-fixtures under `.build/`; those artefacts are ignored.
+A build that replaces the local app takes a lock at `.build/promotion.lock`,
+so a second build waits its turn. If a build is killed outright and the lock
+stays behind, remove that directory once no build is running.
 
 ## Use the app
 
@@ -326,7 +319,7 @@ Sources/
   Verification/         Focused regression groups and isolated native-window mode
   SelfTest.swift        Headless verification suite
 build.sh                Direct Swift build, signing, promotion and test entry point
-scripts/                Release-concurrency and fixture-only native verification
+scripts/                Fixture-only native verification
 docs/       Approved designs, specifications and implementation plans
 ```
 
@@ -351,5 +344,4 @@ agent scratch reports.
 
 Keep the Core → App → Design/Surfaces boundary intact. Add a focused headless
 regression before changing behaviour, preserve user evidence rather than
-rewriting it, and run `./build.sh --check` before committing. For release-path
-changes, also run the concurrency harness after a promoted `./build.sh --test`.
+rewriting it, and run `./build.sh --check` before committing.
