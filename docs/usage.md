@@ -27,6 +27,7 @@ are inspecting; opening a historical story never substitutes today's data.
 | `Command-4`, `Command-6` | History, Awards |
 | `Command-7` | Session controls |
 | `Command-,` | Settings |
+| `Command-F` | Find a session (in History) |
 | Escape | Dismiss a native sheet/app detail or cancel an inline rename |
 
 ## Reading the story
