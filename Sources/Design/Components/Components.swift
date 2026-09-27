@@ -323,14 +323,6 @@ struct WorkTypeMark: View {
     }
 }
 
-extension DayBar {
-    /// All-zero bars draw nothing while the frame keeps its height — the
-    /// "150pt of dead space" defect. The caller shows an empty state instead.
-    static func hasData(_ bars: [DayBar]) -> Bool {
-        bars.contains { $0.minutes > 0 }
-    }
-}
-
 /// Observing wrapper for the menu bar label. A `Scene` body does not observe
 /// an `ObservableObject`, so the label must be a `View` holding
 /// `@ObservedObject` or it renders once, at launch, and never again. It holds

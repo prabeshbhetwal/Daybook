@@ -15,23 +15,10 @@ struct PopoverMetrics: Equatable {
 
     /// Row height for a settings row.
     var rowHeight: CGFloat { dense ? 22 : 26 }
-    /// Space above a settings group heading.
-    var groupSpacing: CGFloat { dense ? 3 : Tokens.Space.s }
-    /// How many apps the Top Apps list shows.
-    var topAppCount: Int { dense ? 3 : 4 }
     /// Padding around the whole panel.
     var outerPadding: CGFloat { dense ? 12 : Tokens.Space.l }
     /// Space between the panel's stacked blocks.
     var stackSpacing: CGFloat { dense ? 8 : Tokens.Space.m }
-
-    /// How tall the scrolling middle may be, once the pinned header, hero and
-    /// footer have taken their share.
-    ///
-    /// Measured from the rendered states rather than estimated: header, goal
-    /// row, timer, subtitle and footer come to about 193pt on the tallest one.
-    /// The previous 320 was a guess and 127pt too generous, which capped the
-    /// middle — and produced a scrollbar — on screens with room to spare.
-    var scrollCap: CGFloat { max(1, maxHeight - 200) }
 
     /// Leaves a margin below the panel rather than filling the screen edge to
     /// edge, which reads as a window that failed to size itself.

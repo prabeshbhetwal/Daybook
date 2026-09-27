@@ -250,19 +250,6 @@ enum Tokens {
     }()
 
     /// `Today`, `Yesterday`, or `Wed 13 Aug`.
-    /// Single letter for a dense axis. Keyed on the date, never on a formatted
-    /// letter — "EEEEE" yields duplicates (T for Tuesday and Thursday), which
-    /// once collapsed a seven-bar chart to five.
-    static func dayInitial(_ date: Date) -> String {
-        dayInitialFormatter.string(from: date)
-    }
-
-    private static let dayInitialFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEEE"
-        return formatter
-    }()
-
     static func dayLabel(_ date: Date, calendar: Calendar = .current) -> String {
         if calendar.isDateInToday(date) { return "Today" }
         if calendar.isDateInYesterday(date) { return "Yesterday" }

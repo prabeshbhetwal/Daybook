@@ -104,7 +104,5 @@ struct AppIcon: View {
 enum TimelinePalette {
     static func color(_ index: Int) -> Color { Tokens.Palette.app(rank: index) }
     static func color(for workType: WorkType) -> Color { Tokens.Palette.workType(workType) }
-    /// Time inside a tracked app but outside any focus session.
-    static let untrackedLabel = "Untracked work"
     static let untracked = Tokens.Palette.untracked
 }

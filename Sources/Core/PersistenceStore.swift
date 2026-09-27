@@ -169,10 +169,6 @@ final class PersistenceStore {
         }
     }
 
-    func clearState() {
-        defaults.removeObject(forKey: Key.state)
-    }
-
     var pendingPowerObservations: [PendingPowerObservation] {
         get {
             guard let data = defaults.data(forKey: Key.pendingPowerObservations),

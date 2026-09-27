@@ -11,13 +11,6 @@ enum SessionCorrection: Codable, Equatable {
     case workType(WorkType)
     case removed
 
-    var retryDescription: String {
-        switch self {
-        case .rename: return "rename"
-        case .workType: return "work-type correction"
-        case .removed: return "removal"
-        }
-    }
 }
 
 /// The original values of the records touched by one saved correction. Undo

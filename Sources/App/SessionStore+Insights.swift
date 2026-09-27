@@ -287,10 +287,6 @@ extension SessionStore {
         insightsRefreshPending = false
     }
 
-    var insightsShowsRangeSelector: Bool {
-        true
-    }
-
     func insightSurface(for requestedRange: InsightRange) -> InsightSurface {
         switch requestedRange {
         case .day: return insightDaySurface

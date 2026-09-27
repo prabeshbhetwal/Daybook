@@ -327,14 +327,6 @@ final class SessionArchive {
 
     func longestToday() -> TimeInterval { longestThread(on: now())?.seconds ?? 0 }
 
-    /// Focus *stretches* with work on a day: one per record. Since work carries
-    /// on across a break, a session is a thread and several records can be one
-    /// session — so the figures that say "sessions" count `threadCount(on:)`.
-    /// This is the stretch count, kept for what is per stretch.
-    func focusCount(on date: Date) -> Int {
-        records(on: date).filter { $0.workType.countsAsFocus }.count
-    }
-
     /// Sessions with work on a day, a session being a thread: work that was
     /// resumed after breaks counts once, however many stretches it took. The
     /// KPI, the hero, the calendar and the Sessions card all count this way,
@@ -371,20 +363,6 @@ final class SessionArchive {
             guard record.threadID == threadID, record.workType.countsAsFocus else { return total }
             return total + record.workSeconds(on: date, calendar: calendar)
         }
-    }
-
-    /// The focus session that contributed most work to a day, with that
-    /// contribution — a record split by midnight is judged on its share of this
-    /// day, not its whole. Returns the record as well as the figure because the
-    /// stat row names what the longest session *was*; it used to print the
-    /// busiest app's name beside it, which is a different measurement.
-    func longestRecord(on date: Date) -> (record: SessionRecord, seconds: TimeInterval)? {
-        var best: (record: SessionRecord, seconds: TimeInterval)?
-        for record in cache where record.workType.countsAsFocus {
-            let seconds = record.workSeconds(on: date, calendar: calendar)
-            if seconds > 0, seconds > (best?.seconds ?? 0) { best = (record, seconds) }
-        }
-        return best
     }
 
     /// Focused seconds per day across the whole archive, cross-midnight work

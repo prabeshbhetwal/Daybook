@@ -1,17 +1,8 @@
 import SwiftUI
 
-/// The one scope-pill appearance. Every Day/Week/Month row draws through these
-/// two modifiers, so the surfaces cannot drift apart by editing one copy.
+/// The one scope-pill appearance. Every Day/Week/Month row draws through this
+/// modifier, so the surfaces cannot drift apart by editing one copy.
 extension View {
-    func scopePillLabel(isSelected: Bool) -> some View {
-        font(Tokens.Typography.metadata.weight(.semibold))
-            .padding(.horizontal, Tokens.Space.m)
-            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-            .background(isSelected ? Tokens.Colour.focus : Color.clear, in: Capsule())
-            .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)
-                                        : AnyShapeStyle(Color.secondary))
-    }
-
     func scopePillContainer() -> some View {
         padding(3)
             .background(Tokens.Colour.elevated, in: Capsule())

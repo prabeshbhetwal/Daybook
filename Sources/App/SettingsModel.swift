@@ -507,16 +507,6 @@ final class SettingsModel: ObservableObject {
         set { write { store.showsTimelineLabels = newValue } }
     }
 
-    /// Nil deliberately means System; forcing the current system value would
-    /// stop the app following an appearance change while it remains open.
-    var preferredColorScheme: ColorScheme? {
-        switch appearancePreference {
-        case .system: return nil
-        case .light: return .light
-        case .dark: return .dark
-        }
-    }
-
     var interfaceLayout: InterfaceDensity.Layout { interfaceDensity.layout }
 
     var menuSessionCount: Int {

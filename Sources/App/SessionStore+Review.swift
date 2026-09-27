@@ -38,15 +38,6 @@ extension SessionStore {
         if visible && (reviewRefreshPending || reviewLiveTailRefreshPending) { refreshReview() }
     }
 
-    func selectReviewSection(_ section: ReviewSection) {
-        switch section {
-        case .week: refreshReview(period: .week)
-        case .month: refreshReview(period: .month)
-        case .history:
-            if reviewRefreshPending { refreshReview() }
-        }
-    }
-
     /// Rebuilds period Review and canonical History from one authoritative usage
     /// snapshot. The optional period is only the Review-local selection; Today's
     /// `dayOffset` and selected evidence remain untouched.
@@ -340,21 +331,6 @@ extension SessionStore {
                                focusEntries: focusEntries)
     }
 
-    /// Whether the selected day still belongs to what Review is showing. Week
-    /// and Month answer from the period's own days; History answers from the
-    /// filtered rows, so a filter that hides the row also closes its detail.
-    func reviewDayIsAvailable(_ date: Date,
-                              section: ReviewSection,
-                              calendar: Calendar = .current) -> Bool {
-        let day = calendar.startOfDay(for: date)
-        switch section {
-        case .history:
-            return filteredHistoryDays.contains { calendar.isDate($0.date, inSameDayAs: day) }
-        case .week, .month:
-            return reviewDays.contains { calendar.isDate($0.date, inSameDayAs: day) }
-        }
-    }
-
     func moveReviewPeriod(by delta: Int) {
         guard delta != 0 else { return }
         let calendar = Calendar.current
@@ -511,11 +487,6 @@ extension SessionStore {
 
     func clearHistoryFilters() {
         historyFilter = HistoryFilter()
-    }
-
-    func resetHistoryRange() {
-        historyRangeStart = historyDays.last?.date
-        historyRangeEnd = historyDays.first?.date
     }
 
     private func maintainHistoryRange(previousNewest: Date?,

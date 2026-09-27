@@ -7,7 +7,6 @@ enum SettingsReadOnlyRowLayout: Equatable {
     case statusBlock
 
     var usesTrailingValue: Bool { self == .trailingValue }
-    var usesFullWidthValue: Bool { self == .statusBlock }
 }
 
 /// The selected Settings group. Every interactive row binds directly to the

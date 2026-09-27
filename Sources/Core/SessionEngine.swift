@@ -1087,11 +1087,6 @@ final class SessionEngine {
         return true
     }
 
-    func dismissAwayDecisionReceipt() {
-        awayDecisionError = nil
-        persist()
-    }
-
     /// A legacy break has no original away receipt. Reclassifying it records
     /// the real break as the reversible before-state, never invented work.
     @discardableResult
@@ -1278,39 +1273,6 @@ final class SessionEngine {
         activeAutomaticAction = nil
         if state.isPaused { transition(on: .manualResume) }
         persist()
-    }
-
-    /// Renames the running session in place. The clock, thread and start are
-    /// untouched — only the label the record will carry changes.
-    @discardableResult
-    func renameActive(to name: String) -> Bool {
-        guard state != .idle else { return false }
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, store.sessionName != trimmed else { return false }
-        store.sessionName = trimmed
-        persist()
-        return true
-    }
-
-    /// Restores a previously valid active name. Unlike new user input, an
-    /// empty value is legitimate: sessions may intentionally begin unnamed.
-    @discardableResult
-    func restoreActiveName(to name: String) -> Bool {
-        guard state != .idle, store.sessionName != name else { return false }
-        store.sessionName = name
-        persist()
-        return true
-    }
-
-    /// Reclassifies the running session in place. Correcting the kind of work
-    /// must not restart the clock, or the correction would cost the time it is
-    /// correcting.
-    @discardableResult
-    func reclassifyActive(as workType: WorkType) -> Bool {
-        guard state != .idle, activeWorkType != workType else { return false }
-        activeWorkType = workType
-        persist()
-        return true
     }
 
     @discardableResult
@@ -1530,19 +1492,6 @@ final class SessionEngine {
     private func cancelDwell() {
         pendingDwell?.cancel()
         pendingDwell = nil
-    }
-
-    // MARK: - Overrides
-
-    /// D4/§5 — an explicit override is evaluated immediately against the current
-    /// state rather than waiting out a fresh dwell.
-    func applyOverride(_ category: AppCategory, to bundleID: String) {
-        categories.setOverride(category, for: bundleID)
-        let previous = state
-        transition(on: .overrideApplied(bundleID: bundleID))
-        // The transition emits on a real change; refresh the menu otherwise so
-        // the new checkmark and category row are picked up.
-        if state == previous { onStateChanged?(state) }
     }
 
     // MARK: - Persistence (D14)

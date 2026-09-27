@@ -13,11 +13,6 @@ enum SelfTest {
         func advance(_ seconds: TimeInterval) { value = value.addingTimeInterval(seconds) }
     }
 
-    private final class MutableDate {
-        var value: Date
-        init(_ value: Date) { self.value = value }
-    }
-
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
     private static let suiteName = "com.prabesh.focuscontinuity.selftest"
     private static var scratchDirectories: [URL] = []
@@ -181,7 +176,6 @@ enum SelfTest {
              testFutureUsageSchemaIsReadOnly),
             ("Integrity usage query filters system processes and respects bounds",
              testIntegrityUsageQuery),
-            ("Most-used apps ranked with recent sessions", testMostUsedApps),
             ("History formatters: ago, range, spent", testHistoryFormatters),
             ("Dashboard: timeline order, colour index, rankings", testDashboardTimeline),
             ("Dashboard: usage clipped across midnight", testTimelineClipsAcrossMidnight),
@@ -194,7 +188,6 @@ enum SelfTest {
             ("End reasons recorded; legacy records still decode", testEndReasonsAndMigration),
             ("Session grouping: detours join, breaks split", testSessionGrouping),
             ("Hourly buckets split across the hour boundary", testHourlyBuckets),
-            ("G-1: an all-zero week chart reports no data", testWeekChartEmptyRule),
             ("Break reminder: continuous work, resets, and quiet periods", testBreakReminder),
             ("Timeline layout: clusters, elision, and mapping", testTimelineLayout),
             ("Insight copy names the measure; Finder is not listed", testInsightCopyAndRunningFilter),
@@ -340,13 +333,11 @@ enum SelfTest {
              testMainWindowRoutesAndCommands),
             ("Unified window chrome keeps context beside tabs without a native focus ring",
              testUnifiedWindowChrome),
-            ("Native chrome uses individual tabs and a compact app mark",
-             testNativeChromePresentation),
             ("Review keeps tracked bars canonical and History filters by intersection",
              testReviewHistoryFiltersAndDayRouting),
             ("A selected Review day derives canonical, day-scoped detail",
              testReviewSelectedDayDetail),
-            ("Only the named Review action leaves Review",
+            ("Selecting or clearing a Review day stays in Review",
              testReviewContentHierarchy),
             ("Focus stays an instrument",
              testDayAndFocusHierarchy),
@@ -2607,44 +2598,7 @@ enum SelfTest {
         return problems
     }
 
-    // MARK: - 23
-
-    private static func testMostUsedApps() -> [String] {
-        var problems: [String] = []
-        let clock = Clock(base)
-        let dir = scratchDirectory()
-        let usage = AppUsageArchive(directory: dir, now: { clock.value })
-
-        func add(_ bundleID: String, _ name: String, minutes: Double, endingHoursAgo: Double) {
-            let end = clock.value.addingTimeInterval(-endingHoursAgo * 3_600)
-            usage.record(AppUsageSession(bundleID: bundleID, appName: name,
-                                         start: end.addingTimeInterval(-minutes * 60),
-                                         end: end))
-        }
-        add("com.apple.dt.Xcode", "Xcode", minutes: 120, endingHoursAgo: 4)
-        add("com.apple.dt.Xcode", "Xcode", minutes: 60, endingHoursAgo: 8)
-        add("com.apple.dt.Xcode", "Xcode", minutes: 30, endingHoursAgo: 12)
-        add("com.apple.Safari", "Safari", minutes: 45, endingHoursAgo: 2)
-
-        let summaries = usage.mostUsedApps(limit: 4, sessionsEach: 5)
-        expect(summaries.count == 2, "two apps, got \(summaries.count)", &problems)
-        expect(summaries.first?.bundleID == "com.apple.dt.Xcode",
-               "busiest app first, got \(summaries.first?.appName ?? "nil")", &problems)
-        expectClose(summaries.first?.totalSeconds ?? -1, 210 * 60, "Xcode total", &problems)
-        expectClose(summaries.first?.longestSeconds ?? -1, 120 * 60, "Xcode longest", &problems)
-        expect(summaries.first?.recent.count == 3, "three recent Xcode sessions", &problems)
-        expectClose(summaries.first?.lastSession?.seconds ?? -1, 120 * 60,
-                    "most recent first", &problems)
-
-        // The per-app session limit is what Settings changes.
-        let limited = usage.mostUsedApps(limit: 4, sessionsEach: 2)
-        expect(limited.first?.recent.count == 2, "session limit respected", &problems)
-
-        try? FileManager.default.removeItem(at: dir)
-        return problems
-    }
-
-    // MARK: - 24
+        // MARK: - 24
 
     private static func testHistoryFormatters() -> [String] {
         var problems: [String] = []
@@ -3161,28 +3115,7 @@ enum SelfTest {
         return problems
     }
 
-    // MARK: - 36
-
-    /// Regression for the dead space in the popover: the fix was written into a
-    /// plan and skipped during execution, so it gets a test this time.
-    private static func testWeekChartEmptyRule() -> [String] {
-        var problems: [String] = []
-        let day = Calendar.current.startOfDay(for: base)
-        let empty = (0..<7).map {
-            DayBar(id: day.addingTimeInterval(Double($0) * 86_400),
-                   label: "D", minutes: 0, isToday: $0 == 6)
-        }
-        expect(!DayBar.hasData(empty),
-               "all-zero bars must report no data, or the chart renders dead space",
-               &problems)
-
-        var oneDay = empty
-        oneDay[3] = DayBar(id: oneDay[3].id, label: "D", minutes: 42, isToday: false)
-        expect(DayBar.hasData(oneDay), "one non-zero day is data", &problems)
-        return problems
-    }
-
-    // MARK: - 37
+        // MARK: - 37
 
     private static func testBreakReminder() -> [String] {
         var problems: [String] = []
@@ -4521,9 +4454,7 @@ enum SelfTest {
         return problems
     }
 
-    // MARK: - 53
-
-    // MARK: - (N)
+        // MARK: - (N)
 
     /// The daily goal must judge "on track" against the user's own recent
     /// history at this same hour, not against the clock or the raw target.
@@ -5149,9 +5080,7 @@ enum SelfTest {
         return problems
     }
 
-    // MARK: - 56
-
-    // MARK: - RewardEngine
+        // MARK: - RewardEngine
 
     /// Reward engine: gating rules must skip fabricated comparisons and never nag.
     private static func testRewardEngine() -> [String] {
@@ -6127,20 +6056,6 @@ enum SelfTest {
         // A roomy screen keeps the comfortable density.
         let roomy = PopoverMetrics.fitting(CGSize(width: 2_560, height: 1_440))
         expect(!roomy.dense, "a large screen has no need to tighten", &problems)
-        expect(roomy.topAppCount > thirteen.topAppCount,
-               "and can show more apps", &problems)
-
-        // The scrolling middle gets whatever genuine overflow room remains;
-        // its cap may be small, but can never exceed valid usable geometry.
-        for size in [CGSize(width: 1_512, height: 900),
-                     CGSize(width: 1_366, height: 700),
-                     CGSize(width: 800, height: 400)] {
-            let metrics = PopoverMetrics.fitting(size)
-            expect(metrics.scrollCap >= 1,
-                   "the middle must never be given zero height at \(size)", &problems)
-            expect(metrics.scrollCap < metrics.maxHeight,
-                   "and never more than the whole panel at \(size)", &problems)
-        }
         let tiny = PopoverMetrics.fitting(CGSize(width: 312, height: 420))
         expect(tiny.width <= 312 && tiny.maxHeight <= 420,
                "valid tiny-screen geometry remains a hard bound", &problems)
@@ -6531,22 +6446,8 @@ enum SelfTest {
         record("Lunch", day: yesterday, hour: 12, minutes: 40, type: .breakTime)
         record("Parser", day: today, hour: 10, minutes: 30)
 
-        expect(archive.focusCount(on: yesterday) == 2,
-               "two focus sessions yesterday, the break not among them", &problems)
-        expect(archive.focusCount(on: today) == 1, "one today", &problems)
         expectClose(archive.workSeconds(on: yesterday), 145 * 60,
                     "focused yesterday", &problems)
-        let longest = archive.longestRecord(on: yesterday)
-        expect(longest?.record.name == "Review",
-               "the longest is named by its intent", &problems)
-        expectClose(longest?.seconds ?? 0, 95 * 60, "with its length", &problems)
-        expect(archive.longestRecord(on: today)?.record.name == "Parser",
-               "and today's is today's", &problems)
-        // A session across midnight is judged on each day's share.
-        record("Night", day: yesterday, hour: 23, minutes: 120)    // 23:00 → 01:00
-        expectClose(archive.longestRecord(on: today)?.seconds ?? 0, 60 * 60,
-                    "a midnight-spanning record offers today only its hour after midnight",
-                    &problems)
         return problems
     }
 
@@ -6596,8 +6497,6 @@ enum SelfTest {
                     "the historical goal ring uses focused-active time", &problems)
         expect(!store.selectedDayGoal.isMet,
                "one hands-on hour cannot meet a four-hour historical goal", &problems)
-        expect(!store.selectedDaySummary.contains("goal met"),
-               "the historical title must not claim the raw session met the goal", &problems)
         let daySummary = SummaryText.plain(store.summarySentences)
         expect(daySummary.contains("3h short of the 4h goal"),
                "historical shortfall copy uses focused-active achievement: \(daySummary)",
@@ -7127,9 +7026,8 @@ enum SelfTest {
         expect(reloaded.interfaceDensity == .compact
                && reloaded.interfaceLayout.rowHeight == InterfaceDensity.compact.layout.rowHeight,
                "Settings density survives reload and changes layout metrics", &problems)
-        expect(reloaded.appearancePreference == .dark
-               && reloaded.preferredColorScheme == .dark,
-               "Settings appearance survives reload and resolves the shell colour scheme", &problems)
+        expect(reloaded.appearancePreference == .dark,
+               "Settings appearance survives reload", &problems)
         expect(!reloaded.showsTimelineLabels,
                "Settings timeline-label choice survives reload", &problems)
 
@@ -7155,10 +7053,6 @@ enum SelfTest {
         var problems: [String] = []
         expect(SettingsReadOnlyRowLayout.trailingValue.usesTrailingValue,
                "scalar diagnostics retain the compact trailing-value layout", &problems)
-        expect(!SettingsReadOnlyRowLayout.trailingValue.usesFullWidthValue,
-               "scalar diagnostics do not claim the full row", &problems)
-        expect(SettingsReadOnlyRowLayout.statusBlock.usesFullWidthValue,
-               "Recovery uses a wrapping full-width status layout", &problems)
         expect(!SettingsReadOnlyRowLayout.statusBlock.usesTrailingValue,
                "Recovery never compresses into the trailing scalar column", &problems)
         return problems
@@ -7621,11 +7515,6 @@ enum SelfTest {
                    "Review stores the literal selected local day", &problems)
             expect(reviewNavigation.requestedDate == nil,
                    "Review selection does not change Today scope", &problems)
-            reviewNavigation.openSelectedReviewDayInToday()
-            expect(reviewNavigation.selectedTab == .today
-                       && calendar.isDate(reviewNavigation.requestedDate ?? base,
-                                          inSameDayAs: yesterday),
-                   "only the explicit Review action opens the selected day in Today", &problems)
             reviewNavigation.clearReviewDay()
             expect(reviewNavigation.reviewSelectedDate == nil,
                    "closing the Review detail clears its selected day", &problems)
@@ -7652,21 +7541,6 @@ enum SelfTest {
                "chrome keeps the literal live status beside the tabs", &problems)
         expect(MainWindowChrome.trafficLightClearance >= 68,
                "chrome reserves room for native traffic lights", &problems)
-        expect(MainWindowChrome.usesNativeFocusRing == false,
-               "tab rail does not draw the native blue focus outline", &problems)
-        return problems
-    }
-
-    private static func testNativeChromePresentation() -> [String] {
-        var problems: [String] = []
-        expect(MainWindowChrome.appMarkFallbackSymbol == "target"
-                   && MainWindowChrome.appMarkSize == 24,
-               "window chrome has a compact deterministic app-mark fallback", &problems)
-        expect(MainWindowChrome.appMarkPresentation(hasBundledIcon: true) == .bundledIcon
-                   && MainWindowChrome.appMarkPresentation(hasBundledIcon: false) == .targetFallback,
-               "window chrome exposes bundled-icon and target-fallback branches", &problems)
-        expect(MainWindowChrome.trafficLightClearance >= 68,
-               "adding the app mark preserves traffic-light clearance", &problems)
         return problems
     }
 
@@ -7689,22 +7563,6 @@ enum SelfTest {
             expect(AppTab.review.moved(by: -1) == .story
                        && AppTab.review.moved(by: 1) == .insights,
                    "left and right move from the focused Review tab", &problems)
-
-            var calendar = Calendar(identifier: .gregorian)
-            calendar.locale = Locale(identifier: "en_AU")
-            guard let sydney = TimeZone(identifier: "Australia/Sydney") else {
-                return problems + ["could not construct the Sydney time zone"]
-            }
-            calendar.timeZone = sydney
-            guard let saturday = calendar.date(from: DateComponents(
-                year: 2026, month: 8, day: 29, hour: 12)) else {
-                return problems + ["could not construct the chart-summary fixture date"]
-            }
-            let point = PeriodChartPoint(date: saturday, seconds: 5 * 3_600 + 10 * 60)
-            expect(point.accessibilitySummary(calendar: calendar)
-                       == "Saturday 29 August, 5 hours 10 minutes tracked",
-                   "period points expose a literal date and tracked duration; got "
-                       + "'\(point.accessibilitySummary(calendar: calendar))'", &problems)
 
             expect(AccessibilityMetrics.minimumTargetSize >= 28,
                    "compact controls retain a practical 28pt target", &problems)
@@ -7822,16 +7680,13 @@ enum SelfTest {
         return problems
     }
 
-    /// Selecting or clearing a Review day stays in Review. Only the named
-    /// action may leave the tab.
+    /// Selecting or clearing a Review day stays in Review.
     private static func testReviewContentHierarchy() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
             let calendar = Calendar.current
             let yesterday = base.addingTimeInterval(-24 * 3_600)
 
-            // Only the explicit action changes tabs. Selecting, clearing, and an
-            // action with nothing selected all leave the user in Review.
             let navigation = MainWindowModel(selectedTab: .review)
             navigation.selectReviewDay(yesterday, calendar: calendar)
             expect(navigation.selectedTab == .review,
@@ -7839,13 +7694,6 @@ enum SelfTest {
             navigation.clearReviewDay()
             expect(navigation.selectedTab == .review,
                    "closing the detail does not leave Review", &problems)
-            navigation.openSelectedReviewDayInToday()
-            expect(navigation.selectedTab == .review && navigation.requestedDate == nil,
-                   "the Today action does nothing while no day is selected", &problems)
-            navigation.selectReviewDay(yesterday, calendar: calendar)
-            navigation.openSelectedReviewDayInToday()
-            expect(navigation.selectedTab == .today,
-                   "the named action is the one route out of Review", &problems)
             return problems
         }
     }
@@ -7958,21 +7806,8 @@ enum SelfTest {
             expectClose(afterMidnight.seconds, 10 * 60,
                         "next-day detail clips a crossing focus duration", &problems)
 
-            expect(store.reviewDayIsAvailable(today, section: .week, calendar: calendar),
-                   "a day inside the selected period stays available", &problems)
-            expect(!store.reviewDayIsAvailable(longAgo, section: .week, calendar: calendar),
-                   "a day outside the selected period is unavailable", &problems)
             expect(store.reviewDayDetail(for: longAgo, calendar: calendar) == nil,
                    "a day with no canonical History row derives no detail", &problems)
-
-            expect(store.reviewDayIsAvailable(yesterday, section: .history, calendar: calendar),
-                   "History availability starts from the unfiltered rows", &problems)
-            store.setHistoryQuery("browser")
-            expect(!store.reviewDayIsAvailable(yesterday, section: .history, calendar: calendar),
-                   "a filtered-out day stops being available in History", &problems)
-            expect(store.reviewDayIsAvailable(today, section: .history, calendar: calendar),
-                   "the matching day remains available under an active filter", &problems)
-            store.clearHistoryFilters()
             return problems
         }
     }
@@ -10230,7 +10065,6 @@ enum SelfTest {
                                      start: now.addingTimeInterval(-5_400),
                                      end: now.addingTimeInterval(-5_000),
                                      workSeconds: 400))
-        expect(archive.focusCount(on: now) == 3, "three focus stretches", &problems)
         expect(archive.threadCount(on: now) == 2,
                "two sessions — the thread once, got \(archive.threadCount(on: now))", &problems)
         let longest = archive.longestThread(on: now)
@@ -10708,8 +10542,6 @@ enum SelfTest {
         // The expanded panel's figures.
         guard let claude = groups.first else { return problems }
         expectClose(claude.longest, 13 * 60, "longest is the biggest session", &problems)
-        expectClose(claude.averageSession, 29 * 60 / 3,
-                    "average is the total over the session count", &problems)
 
         // Its own chart across a period, including days it was never used —
         // a gap has to look like a gap, not be skipped.
@@ -10727,29 +10559,6 @@ enum SelfTest {
         expect(daily.map(\.day) == daily.map(\.day).sorted(),
                "days run oldest first", &problems)
 
-        // The tail: barely-touched apps collapse behind one line, and hiding
-        // them must not move anyone else's share.
-        let withTail = entries + [
-            entry("com.apple.finder", "Finder", startMinute: 300, minutes: 11.0 / 60),
-            entry("com.example.flow", "Flow", startMinute: 310, minutes: 5.0 / 60)
-        ]
-        let all = PeriodStats.appGroups(from: withTail)
-        let split = PeriodStats.splitMinor(all)
-        expect(split.major.count == 3, "three real apps stay, got \(split.major.count)",
-               &problems)
-        expect(split.minor.count == 2, "two stragglers collapse, got \(split.minor.count)",
-               &problems)
-        expect(split.major.allSatisfy { $0.total >= FocusConstants.minorAppFloor },
-               "nothing under the floor survives into the main list", &problems)
-        expectClose(all.map(\.share).reduce(0, +), 1.0,
-                    "shares still cover the period exactly once", &problems)
-
-        // A single straggler is not worth a line that costs the row it saves.
-        let one = PeriodStats.appGroups(from: entries + [
-            entry("com.apple.finder", "Finder", startMinute: 300, minutes: 11.0 / 60)
-        ])
-        expect(PeriodStats.splitMinor(one).minor.isEmpty,
-               "one straggler is shown rather than collapsed", &problems)
         return problems
     }
 

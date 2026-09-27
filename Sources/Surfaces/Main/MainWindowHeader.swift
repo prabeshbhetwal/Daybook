@@ -5,18 +5,6 @@ import AppKit
 /// live status in the same visual band as the application tabs.
 enum MainWindowChrome {
     static let trafficLightClearance: CGFloat = 76
-    static let usesNativeFocusRing = false
-    static let appMarkFallbackSymbol = "target"
-    static let appMarkSize: CGFloat = 24
-
-    enum AppMarkPresentation: Equatable {
-        case bundledIcon
-        case targetFallback
-    }
-
-    static func appMarkPresentation(hasBundledIcon: Bool) -> AppMarkPresentation {
-        hasBundledIcon ? .bundledIcon : .targetFallback
-    }
 
     struct Context: Equatable {
         let title: String

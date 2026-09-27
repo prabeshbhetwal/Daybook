@@ -94,16 +94,3 @@ struct IconButton: View {
         .accessibilityAddTraits(isOn == true ? .isSelected : [])
     }
 }
-
-extension View {
-    /// No focus ring. The dashboard's segmented controls and the calendar are
-    /// clicked, never tabbed to, and the ring AppKit drew around whichever
-    /// became first responder read as a stray selection border.
-    @ViewBuilder func quietFocus() -> some View {
-        if #available(macOS 14.0, *) {
-            self.focusEffectDisabled()
-        } else {
-            self.focusable(false)
-        }
-    }
-}

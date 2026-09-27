@@ -559,12 +559,6 @@ enum FocusConstants {
     /// Break reminders: work this long continuously, then take this long off.
     static let defaultWorkInterval: TimeInterval = 50 * 60
     static let defaultBreakLength: TimeInterval = 10 * 60
-    /// Wide enough for a pomodoro and for someone who works in one long block.
-    /// Three fixed choices assumed everyone works the same way.
-    static let workIntervalOptions: [TimeInterval] = [
-        15 * 60, 25 * 60, 30 * 60, 45 * 60, 50 * 60,
-        60 * 60, 90 * 60, 120 * 60, 180 * 60
-    ]
     /// Up to an hour: lunch is a break, and the old 15-minute ceiling could not
     /// describe one.
     static let breakLengthOptions: [TimeInterval] = [
@@ -575,11 +569,6 @@ enum FocusConstants {
     /// Gaps at or over this collapse to a labelled separator instead of eating
     /// the band's width.
     static let timelineGapThreshold: TimeInterval = 20 * 60
-    /// D3 — cosmetic title refresh cadence.
-    static let titleRefreshInterval: TimeInterval = 30
-    static let titleRefreshTolerance: TimeInterval = 15
-    /// D11 — settle delay so the WindowServer is ready after a wake.
-    static let alertPresentationDelay: TimeInterval = 1.5
     /// Input density is sampled at event boundaries, never on a timer, so this
     /// ring holds the last N app switches rather than N seconds. Fixed size, so
     /// memory is constant however long the app runs.

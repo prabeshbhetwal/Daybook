@@ -134,8 +134,4 @@ final class CategoryManager {
         store.overrides = overrides
     }
 
-    func hasOverride(for bundleID: String?) -> Bool {
-        guard let bundleID else { return false }
-        return store.overrides[bundleID] != nil
-    }
 }

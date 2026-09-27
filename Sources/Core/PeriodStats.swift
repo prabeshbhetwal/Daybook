@@ -81,13 +81,6 @@ struct LogAppGroup: Identifiable, Equatable {
 
     var longest: TimeInterval { sessions.map(\.session.attended).max() ?? 0 }
 
-    /// Mean attended time per session. Reported beside the longest because one
-    /// long sitting and forty glances produce the same total and are not the
-    /// same behaviour.
-    var averageSession: TimeInterval {
-        sessions.isEmpty ? 0 : total / Double(sessions.count)
-    }
-
     /// This app's own shape across the period, oldest day first, including days
     /// it was not used at all — a gap has to look like a gap.
     func dailyTotals(from start: Date, to end: Date,
@@ -342,18 +335,6 @@ struct PeriodStats {
         return groups.sorted {
             $0.total == $1.total ? $0.appName < $1.appName : $0.total > $1.total
         }
-    }
-
-    /// Splits the tail off the list. Nothing is discarded — the caller shows the
-    /// minor apps behind one line, and every share is still computed over the
-    /// whole period, so the percentages do not shift when the tail is hidden.
-    static func splitMinor(_ groups: [LogAppGroup])
-        -> (major: [LogAppGroup], minor: [LogAppGroup]) {
-        let major = groups.filter { $0.total >= FocusConstants.minorAppFloor }
-        let minor = groups.filter { $0.total < FocusConstants.minorAppFloor }
-        // Never collapse a lone straggler: "+1 app under 30s" costs the same
-        // row it saves.
-        return minor.count > 1 ? (major, minor) : (groups, [])
     }
 
     /// Totals keyed by day, for the log's day headers.

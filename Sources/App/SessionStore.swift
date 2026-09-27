@@ -146,8 +146,6 @@ final class SessionStore: ObservableObject {
     @Published var hoveredSegment: TimelineSegment?
     @Published var selectedSegment: TimelineSegment?
     @Published var stretchesInSelectedHour: [TimelineSegment] = []
-    /// Apps whose Top-apps row is expanded to show individual stretches.
-    @Published var expandedApps: Set<String> = []
     /// Apps used today that are not running now, each with its stretches.
     @Published var earlierToday: [AppDayHistory] = []
     /// The selected day's sessions and rests, as the Sessions card shows them.
@@ -249,8 +247,6 @@ final class SessionStore: ObservableObject {
 
     /// Whether the collapsed tail of barely-used apps is showing.
     @Published private(set) var showsMinorApps = false
-
-    func toggleMinorApps() { showsMinorApps.toggle() }
 
     /// True while the running session was started by the detector rather than
     /// by hand — the popover labels it, and only these may be undone.

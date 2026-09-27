@@ -205,7 +205,6 @@ enum Snapshotter {
     /// The one made category the Settings — Categories card shows.
     static let fixtureCategoryID = "custom.snapshot.calls"
 
-
     static let matrix: [SnapshotRender] = SnapshotScenario.allCases.flatMap { scenario in
         scenario.presentations.flatMap { presentation in
             SnapshotAppearance.allCases.map { appearance in
@@ -220,20 +219,6 @@ enum Snapshotter {
     /// desktop screen keeps the rendered panel honest without depending on the
     /// display attached to the build host.
     static let popoverScreen = CGSize(width: 1_000, height: 680)
-
-    /// One canonical root for the density comparison and its structural test.
-    /// Task 9's regression continues to use the complete main shell.
-    static func densityFocusSnapshot(
-        density: InterfaceDensity,
-        scheme: ColorScheme
-    ) -> some View {
-        let appearance: SnapshotAppearance = scheme == .light ? .light : .dark
-        let item = SnapshotRender(scenario: .focusRunning,
-                                  appearance: appearance,
-                                  presentation: .comfortable)
-        let settings = snapshotSettings(for: item, density: density)
-        return mainShell(for: item, settings: settings)
-    }
 
     /// The production minimum-width Focus shell, used by structural checks for
     /// the compact app mark and tab row together.
@@ -637,7 +622,6 @@ enum Snapshotter {
         }
     }
 }
-
 
 private extension View {
     /// Forces a scheme only when the appearance names one; `.system` leaves

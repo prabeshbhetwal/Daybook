@@ -68,7 +68,6 @@ struct AppUsageSummary: Identifiable, Equatable {
     let recent: [AppUsageSession]      // newest first
 
     var id: String { bundleID }
-    var lastSession: AppUsageSession? { recent.first }
 }
 
 enum AppUsageConstants {
@@ -80,8 +79,6 @@ enum AppUsageConstants {
     /// Stepping away and returning to the same app inside this window is still
     /// one session, provided nothing else was used meanwhile.
     static let awayBridge: TimeInterval = 900
-    /// How far back "most used" looks.
-    static let summaryWindowDays = 14
     static let capacity = 20_000
 }
 
@@ -343,30 +340,6 @@ final class AppUsageArchive {
     func sessions(for bundleID: String, limit: Int) -> [AppUsageSession] {
         cache.filter { $0.bundleID == bundleID }
             .sorted { $0.end > $1.end }
-            .prefix(limit)
-            .map { $0 }
-    }
-
-    /// Most-used apps in the recent window, busiest first.
-    func mostUsedApps(limit: Int, sessionsEach: Int) -> [AppUsageSummary] {
-        let cutoff = now().addingTimeInterval(-Double(AppUsageConstants.summaryWindowDays) * 86_400)
-        var grouped: [String: [AppUsageSession]] = [:]
-        for session in cache where session.end >= cutoff {
-            grouped[session.bundleID, default: []].append(session)
-        }
-
-        return grouped.values
-            .compactMap { group -> AppUsageSummary? in
-                guard let first = group.first else { return nil }
-                let ordered = group.sorted { $0.end > $1.end }
-                return AppUsageSummary(
-                    bundleID: first.bundleID,
-                    appName: ordered.first?.appName ?? first.appName,
-                    totalSeconds: group.reduce(0) { $0 + $1.seconds },
-                    longestSeconds: group.map(\.seconds).max() ?? 0,
-                    recent: Array(ordered.prefix(sessionsEach)))
-            }
-            .sorted { $0.totalSeconds > $1.totalSeconds }
             .prefix(limit)
             .map { $0 }
     }

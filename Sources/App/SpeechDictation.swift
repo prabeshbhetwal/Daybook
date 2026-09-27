@@ -133,10 +133,6 @@ import Speech
         status = .idle
     }
 
-    func clearError() {
-        if case .failed = status { status = .idle }
-    }
-
     private func tearDown() {
         request?.endAudio()
         task?.cancel()

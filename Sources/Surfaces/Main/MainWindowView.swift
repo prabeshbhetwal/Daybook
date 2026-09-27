@@ -13,7 +13,6 @@ struct MainWindowView: View {
     @ObservedObject var firstRun = FirstRunCoach()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var focusScrolls = true
-    var todayScrolls = true
     var reviewScrolls = true
     var insightsScrolls = true
     var settingsScrolls = true

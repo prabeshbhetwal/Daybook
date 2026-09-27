@@ -89,11 +89,6 @@ enum SessionControlsAction {
     case commandOrMenu
 }
 
-struct InsightReadingPosition: Equatable {
-    let anchor: Date
-    let pageCount: Int
-}
-
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case focus
@@ -308,13 +303,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         reviewSelectedDate = nil
     }
 
-    /// The only route out of Review. It is reached from a named action, never
-    /// as a side effect of selecting a bar or a row.
-    func openSelectedReviewDayInToday() {
-        guard let reviewSelectedDate else { return }
-        openToday(date: reviewSelectedDate)
-    }
-
     /// Surfaces transition on these values, and a transition runs only
     /// inside an animated transaction. A value animation on a container
     /// animates properties; it does not animate one view being replaced by
@@ -376,11 +364,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         let day = calendar.startOfDay(for: date)
         storySelectedDay = day
         if expandedStoryDay != nil { expandedStoryDay = day }
-    }
-
-    func clearStoryDay() {
-        storySelectedDay = nil
-        expandedStoryDay = nil
     }
 
     func toggleExpandedStoryDay(_ date: Date, calendar: Calendar = .current) {
@@ -550,10 +533,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         animated(Tokens.Motion.swap) { insightRange = range }
     }
 
-    var insightPosition: InsightReadingPosition {
-        InsightReadingPosition(anchor: insightAnchor, pageCount: insightPageCount)
-    }
-
     var insightAnchor: Date {
         get { insightAnchors[insightRange] ?? Calendar.current.startOfDay(for: store?.now() ?? Date()) }
         set { insightAnchors[insightRange] = newValue }
@@ -696,10 +675,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             insightMaximumPageCount, insightPageCount + increment)
     }
 
-    var insightCanShowEarlier: Bool {
-        insightPageCount < insightMaximumPageCount
-    }
-
     /// Month reaches a full year — three at a time, up to twelve. This is what
     /// makes Month the year view rather than only the quarter one.
     private var insightMaximumPageCount: Int {
@@ -729,10 +704,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             let end = calendar.date(byAdding: .day, value: -1, to: bounds.end) ?? bounds.start
             return Tokens.dateRange(bounds.start, end, now: store?.now() ?? Date(), calendar: calendar)
         }
-    }
-
-    func moveTab(by delta: Int) {
-        open(tab: selectedTab.moved(by: delta))
     }
 
     private func tab(for workspace: MainReadingWorkspace) -> AppTab {

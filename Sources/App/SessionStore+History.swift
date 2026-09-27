@@ -48,39 +48,13 @@ extension SessionStore {
             .filter { $0.start < hourEnd && $0.end > hourStart }
     }
 
-    /// A rhythm bar: select the first stretch inside that hour, so the
-    /// timeline's detail row opens on it.
-    func selectHour(_ hour: Date) {
-        let end = hour.addingTimeInterval(3_600)
-        guard let segment = timelineSegments.first(where: { $0.end > hour && $0.start < end }),
-              let layout = timelineLayout,
-              let fraction = layout.fraction(for: max(segment.start, hour).addingTimeInterval(1))
-        else { return }
-        if selectedSegment?.id == segment.id { return }
-        selectTimeline(at: fraction)
-    }
-
     // MARK: - Sessions of the day
-
-    /// Narrow the page to one session. Clicking the selected one again clears.
-    func selectSession(_ session: DaySession) {
-        if selectedSession?.id == session.id { clearSession(); return }
-        selectedSession = session
-        guard let usage else { return }
-        let stats = DashboardStats(sessions: engine.archive, usage: usage,
-                                   usageSnapshot: effectiveUsageSnapshot)
-        sessionAppRanks = stats.rankedApps(for: selectedDay, within: session.spans)
-        sessionTracked = stats.trackedTotal(for: selectedDay, within: session.spans)
-    }
 
     func clearSession() {
         selectedSession = nil
         sessionAppRanks = []
         sessionTracked = 0
     }
-
-    func hoverSession(_ session: DaySession?) { hoveredSession = session }
-    func highlightApp(_ bundleID: String?) { highlightedBundleID = bundleID }
 
     /// The session, if any, the timeline should frame: the selected one, else
     /// the hovered one.
@@ -98,14 +72,6 @@ extension SessionStore {
     func clearTimelineSelection() {
         selectedSegment = nil
         stretchesInSelectedHour = []
-    }
-
-    func toggleExpanded(_ bundleID: String) {
-        if expandedApps.contains(bundleID) {
-            expandedApps.remove(bundleID)
-        } else {
-            expandedApps.insert(bundleID)
-        }
     }
 
     /// Grouped sittings for one app on the selected day.
@@ -390,29 +356,6 @@ extension SessionStore {
     /// The first day with anything recorded — the calendar cannot reach behind
     /// it, because there is nothing there to show.
     var earliestSelectableDay: Date? { earliestDay }
-
-    /// Jumps to a specific date. Clamped to the recorded range so the picker can
-    /// never land the dashboard on a day it would refuse to step to.
-    func selectDate(_ date: Date) {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: now())
-        var target = calendar.startOfDay(for: date)
-        if let earliest = earliestDay, target < earliest { target = earliest }
-        if target > today { target = today }
-        let days = calendar.dateComponents([.day], from: target, to: today).day ?? 0
-        selectDay(offset: max(0, days))
-    }
-
-    /// `Refactor · Deep work · started 10:17 am`
-    var activeSessionSubtitle: String {
-        var parts = [activeIntent, engine.activeWorkType.displayName]
-        if state != .idle {
-            // This stretch's start; the thread's history is its own line.
-            parts.append("started " + Tokens.timeOfDay(engine.sessionStartDate)
-                .replacingOccurrences(of: "since ", with: ""))
-        }
-        return parts.joined(separator: " · ")
-    }
 
     // MARK: - Per-app history
 

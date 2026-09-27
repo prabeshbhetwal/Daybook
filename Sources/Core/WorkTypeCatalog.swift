@@ -243,12 +243,6 @@ final class WorkTypeCatalog: ObservableObject {
         allDefinitions.filter { !$0.isRetired }.map(\.workType)
     }
 
-    /// The user's own categories, including retired ones — the editor lists
-    /// those so they can be brought back.
-    var customDefinitions: [WorkTypeDefinition] {
-        allDefinitions.filter { !WorkType.builtIn.contains($0.workType) }
-    }
-
     func definition(for type: WorkType) -> WorkTypeDefinition {
         lock.lock(); defer { lock.unlock() }
         if let known = resolved[type.rawValue] { return known }
