@@ -212,7 +212,10 @@ struct HistoryDayPreview: View {
                 case .session(let session):
                     entryRow(colour: Tokens.Palette.workType(session.workType),
                              title: session.workType.sessionTitle(named: session.name),
-                             detail: "\(session.workType.displayName) · \(Tokens.timeRange(session.start, session.end))",
+                             // An unnamed session's title is its category already.
+                             detail: session.name.isEmpty
+                                 ? Tokens.timeRange(session.start, session.end)
+                                 : "\(session.workType.displayName) · \(Tokens.timeRange(session.start, session.end))",
                              value: Tokens.duration(session.worked))
                 case .rest(let rest):
                     entryRow(colour: Tokens.Palette.warmGrey.opacity(0.55),

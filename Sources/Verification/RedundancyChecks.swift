@@ -10,7 +10,8 @@ enum RedundancyChecks {
         ("An unnamed break is not called a break twice", breakNamedOnce),
         ("The hour grid's caption carries the best two hours in full", gridCarriesBestHours),
         ("History's headline carries recorded app use once its total card is gone", historyHeadlineAppUse),
-        ("A day opened inside a period does not repeat the period's integrity notice", integrityNoticeOnce)
+        ("A day opened inside a period does not repeat the period's integrity notice", integrityNoticeOnce),
+        ("A break reminder's body gives the reason, not the title again", breakBodyAddsOnly)
     ]
 
     private static let start = Date(timeIntervalSince1970: 1_800_000_000)
@@ -108,6 +109,21 @@ enum RedundancyChecks {
         let caption = InsightHourGrid.summary(window: (startHour: 9, seconds: 12_000), phrase: "on Tuesdays")
         return caption.hasPrefix("Most focus lands between 9 am and 11 am: 3h 20m, most of it on Tuesdays.")
             ? [] : ["the grid caption lost the best window's figure or place: \(caption)"]
+    }
+
+    private static func breakBodyAddsOnly() -> [String] {
+        var failures: [String] = []
+        for tier in BreakTier.allCases {
+            let prompt = BreakPrompt(tier: tier, worked: 20 * 60, appName: nil)
+            let body = prompt.body.lowercased()
+            if ["look away", "five-minute", "step away", "take 5"].contains(where: body.contains) {
+                failures.append("\(tier) repeats its title \"\(prompt.title)\": \(prompt.body)")
+            }
+            if !prompt.body.hasPrefix("You have been at the Mac for 20m") && tier != .ultradian {
+                failures.append("\(tier) lost how long you have worked: \(prompt.body)")
+            }
+        }
+        return failures
     }
 
     private static func integrityNoticeOnce() -> [String] {

@@ -125,18 +125,19 @@ struct BreakPrompt: Equatable {
     /// true number attached to the wrong noun. Now the noun matches the
     /// number: the whole stretch names the app; a majority names it as
     /// "mostly"; anything less names the Mac.
+    ///
+    /// The title already says what to do and for how long, so the body says
+    /// only why now. "Stretch" stays: a notification shows no reason text.
     var body: String {
         let spent = BreakPrompt.phrase(worked)
         switch tier {
         case .micro:
-            return "You have been \(place) for \(spent)\(mostly). "
-                + "Look away and stretch for 30 seconds."
+            return "You have been \(place) for \(spent)\(mostly). Stretch while you do."
         case .cognitive:
-            return "You have been \(place) for \(spent)\(mostly). "
-                + "A five-minute reset is due."
+            return "You have been \(place) for \(spent)\(mostly)."
         case .ultradian:
             return "\(spent.prefix(1).uppercased() + spent.dropFirst()) \(place) "
-                + "without a real break\(mostly). Step away for 15 minutes."
+                + "without a real break\(mostly)."
         }
     }
 
