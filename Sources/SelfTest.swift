@@ -808,6 +808,13 @@ enum SelfTest {
                &problems)
         expect(Tokens.duration(-5) == "0m", "negative input should format as 0m",
                &problems)
+        // A corrupted or hand-edited archive can decode a finite value too large
+        // for Int. Formatting it must not trap on every launch.
+        for bad in [1e300, .infinity, .nan] {
+            expect(Tokens.duration(bad) == "—", "\(bad)s formats as a dash, not a crash", &problems)
+            expect(Tokens.clock(bad) == "—", "\(bad)s clock formats as a dash", &problems)
+            expect(Tokens.spent(bad) == "—", "\(bad)s spent formats as a dash", &problems)
+        }
 
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
@@ -7069,14 +7076,17 @@ enum SelfTest {
         let disclosure = SettingsPrivacyDisclosure.current
         expect(!disclosure.appUsageMonitoringCapturesTextInOtherApps,
                "app-usage monitoring never claims to capture text in other apps", &problems)
-        expect(disclosure.locallyStoredFocusInputs == [.sessionName, .intent],
-               "session names and intent entered in FocusContinuity are disclosed as local data",
+        expect(disclosure.locallyStoredFocusInputs == [.sessionName, .intent, .note, .power],
+               "session names, intent, notes and power state are disclosed as local data",
                &problems)
+        expect(disclosure.storageDetail.contains("notes")
+               && disclosure.storageDetail.contains("battery"),
+               "privacy copy names the session notes and battery state it stores", &problems)
         expect(disclosure.storageDetail.contains(
             "App-usage monitoring does not capture text in other apps"),
             "privacy copy states the real app-monitoring boundary", &problems)
         expect(disclosure.storageDetail.contains(
-            "Session names and intent entered into FocusContinuity are stored locally"),
+            "Session names, intent and notes entered into FocusContinuity are stored locally"),
             "privacy copy states that FocusContinuity-entered text is stored locally", &problems)
         expect(!disclosure.storageDetail.contains("anything you type"),
                "privacy copy makes no blanket claim about typed text", &problems)

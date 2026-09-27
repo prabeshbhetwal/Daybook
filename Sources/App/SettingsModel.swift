@@ -158,6 +158,8 @@ struct SettingsPrivacyDisclosure {
     enum FocusInput: Hashable {
         case sessionName
         case intent
+        case note
+        case power
     }
 
     let appUsageMonitoringCapturesTextInOtherApps: Bool
@@ -165,7 +167,7 @@ struct SettingsPrivacyDisclosure {
 
     static let current = SettingsPrivacyDisclosure(
         appUsageMonitoringCapturesTextInOtherApps: false,
-        locallyStoredFocusInputs: [.sessionName, .intent])
+        locallyStoredFocusInputs: [.sessionName, .intent, .note, .power])
 
     var appUsageDetail: String {
         "App-usage monitoring does not capture text in other apps. It stores app names, "
@@ -174,7 +176,9 @@ struct SettingsPrivacyDisclosure {
 
     var storageDetail: String {
         appUsageDetail
-        + " Session names and intent entered into FocusContinuity are stored locally."
+        + " Session names, intent and notes entered into FocusContinuity are stored locally,"
+        + " with the power source, battery level, charging state and charger wattage"
+        + " seen during each session."
     }
 }
 

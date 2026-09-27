@@ -169,23 +169,19 @@ enum Tokens {
     static let formMeasure: CGFloat = 340
     /// `2h 15m`, `15m`, `0m`.
     static func duration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
-        let hours = total / 3600
-        let minutes = (total % 3600) / 60
-        guard hours > 0 else { return "\(minutes)m" }
-        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
+        DurationText.compact(seconds)
     }
 
     /// `01:23:45` for the live hero timer.
     static func clock(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
+        guard let total = DurationText.wholeSeconds(seconds) else { return "—" }
         return String(format: "%02d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
     }
 
     /// `2 hours`, `2 hours 13 minutes`, `13 minutes`, `45 seconds` — the spoken
     /// form used in per-app history, where `2h 13m` reads as too terse.
     static func spent(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds))
+        guard let total = DurationText.wholeSeconds(seconds) else { return "—" }
         let hours = total / 3600
         let minutes = (total % 3600) / 60
         if hours > 0 {
