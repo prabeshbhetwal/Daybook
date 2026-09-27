@@ -111,8 +111,7 @@ final class PersistenceStore {
     /// The user's pinned activities, in their order.
     var savedActivities: [SavedActivity] {
         get {
-            guard let data = defaults.data(forKey: Key.savedActivities),
-                  let decoded = try? decoder.decode([SavedActivity].self, from: data) else { return [] }
+            guard let decoded = decode([SavedActivity].self, forKey: Key.savedActivities) else { return [] }
             return SavedActivities.normalised(decoded)
         }
         set {
@@ -132,8 +131,7 @@ final class PersistenceStore {
     /// here is what changes what every surface shows.
     var workTypeDefinitions: [WorkTypeDefinition] {
         get {
-            guard let data = defaults.data(forKey: Key.workTypes),
-                  let decoded = try? decoder.decode([WorkTypeDefinition].self, from: data) else { return [] }
+            guard let decoded = decode([WorkTypeDefinition].self, forKey: Key.workTypes) else { return [] }
             return decoded
         }
         set {
@@ -155,7 +153,7 @@ final class PersistenceStore {
         do {
             return try decoder.decode(PersistedState.self, from: data)
         } catch {
-            Diagnostics.log("discarding unreadable persisted state: \(error)")
+            setAside(data, forKey: Key.state, error)
             defaults.removeObject(forKey: Key.state)
             return nil
         }
@@ -171,10 +169,7 @@ final class PersistenceStore {
 
     var pendingPowerObservations: [PendingPowerObservation] {
         get {
-            guard let data = defaults.data(forKey: Key.pendingPowerObservations),
-                  let value = try? decoder.decode([PendingPowerObservation].self, from: data)
-            else { return [] }
-            return value
+            decode([PendingPowerObservation].self, forKey: Key.pendingPowerObservations) ?? []
         }
         set {
             guard !newValue.isEmpty else {
@@ -189,10 +184,7 @@ final class PersistenceStore {
 
     var pendingPowerTransfers: [PendingPowerTransfer] {
         get {
-            guard let data = defaults.data(forKey: Key.pendingPowerTransfers),
-                  let value = try? decoder.decode([PendingPowerTransfer].self, from: data)
-            else { return [] }
-            return value
+            decode([PendingPowerTransfer].self, forKey: Key.pendingPowerTransfers) ?? []
         }
         set {
             guard !newValue.isEmpty else {
@@ -216,8 +208,7 @@ final class PersistenceStore {
     /// A bounded recent-name list survives short sessions and relaunches. It
     /// stores only names the user submitted, never an unfinished text draft.
     var recentActivities: [QuickStart] {
-        guard let data = defaults.data(forKey: Key.recentActivities),
-              let items = try? decoder.decode([QuickStart].self, from: data) else { return [] }
+        guard let items = decode([QuickStart].self, forKey: Key.recentActivities) else { return [] }
         return ActivityChoices.merging(items, [])
     }
 
@@ -251,8 +242,7 @@ final class PersistenceStore {
 
     var activityRules: [ActivityRule] {
         get {
-            guard let data = defaults.data(forKey: Key.activityRules),
-                  let decoded = try? decoder.decode([ActivityRule].self, from: data) else { return [] }
+            guard let decoded = decode([ActivityRule].self, forKey: Key.activityRules) else { return [] }
             var seen = Set<UUID>()
             return decoded.filter { seen.insert($0.id).inserted }
         }
@@ -295,8 +285,7 @@ final class PersistenceStore {
 
     var automaticActivityRecord: AutomaticActivityRecord? {
         get {
-            guard let data = defaults.data(forKey: Key.automaticActivityRecord) else { return nil }
-            return try? decoder.decode(AutomaticActivityRecord.self, from: data)
+            decode(AutomaticActivityRecord.self, forKey: Key.automaticActivityRecord)
         }
         set {
             if let newValue, let data = try? encoder.encode(newValue) {
@@ -338,10 +327,7 @@ final class PersistenceStore {
 
     var autoStartLearning: [String: LearnedSignal] {
         get {
-            guard let data = defaults.data(forKey: Key.learning),
-                  let decoded = try? JSONDecoder().decode([String: LearnedSignal].self,
-                                                          from: data) else { return [:] }
-            return decoded
+            decode([String: LearnedSignal].self, forKey: Key.learning) ?? [:]
         }
         set {
             guard let data = try? JSONEncoder().encode(newValue) else { return }
@@ -628,6 +614,30 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.showsTimelineLabels) }
     }
 
+    /// Decodes a stored value. Bytes this build cannot read are kept aside
+    /// first: the caller falls back to a default, and its next save would
+    /// otherwise write over the only copy.
+    private func decode<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        do {
+            return try decoder.decode(type, from: data)
+        } catch {
+            setAside(data, forKey: key, error)
+            return nil
+        }
+    }
+
+    /// Keeps unreadable bytes under `<key>.unreadable.<time>`, once per value.
+    private func setAside(_ data: Data, forKey key: String, _ error: Error) {
+        let prefix = key + ".unreadable."
+        let stored = defaults.dictionaryRepresentation()
+        guard !stored.contains(where: { $0.key.hasPrefix(prefix) && ($0.value as? Data) == data }) else { return }
+        var aside = prefix + String(Int(Date().timeIntervalSince1970))
+        while stored[aside] != nil { aside += "+" }
+        defaults.set(data, forKey: aside)
+        Diagnostics.log("\(key) unreadable, kept as \(aside): \(error)")
+    }
+
     /// Used by the self-test harness to leave no residue behind.
     func removeAll() {
         for key in [Key.state, Key.overrides, Key.threshold, Key.name,
@@ -651,6 +661,10 @@ final class PersistenceStore {
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
                     Key.quietFold] {
+            defaults.removeObject(forKey: key)
+        }
+        for key in defaults.dictionaryRepresentation().keys
+        where key.hasPrefix("fc.") && key.contains(".unreadable.") {
             defaults.removeObject(forKey: key)
         }
         WorkTypeCatalog.shared.apply(customisations: [])

@@ -9,7 +9,9 @@ enum UnreadableHistoryChecks {
         ("An unreadable session archive that cannot be moved is kept read-only", sessionArchiveUnmovable),
         ("An unreadable journal survives a set-aside name already in use", journalCollision),
         ("A journal holding only a torn line keeps the next record", tornOnlyJournal),
-        ("A torn journal that cannot be cut short is left alone, read-only", tornJournalUncuttable)
+        ("A torn journal that cannot be cut short is left alone, read-only", tornJournalUncuttable),
+        ("An unreadable preference list is kept aside before it is saved over", unreadablePreferenceList),
+        ("An unreadable live session state is kept aside, not deleted", unreadableLiveState)
     ]
 
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
@@ -142,5 +144,45 @@ enum UnreadableHistoryChecks {
             failures.append("the torn journal's bytes changed")
         }
         return failures
+    }
+
+    /// Whether any value in the suite still holds these exact bytes.
+    private static func kept(_ bytes: Data, in defaults: UserDefaults) -> Bool {
+        defaults.dictionaryRepresentation().values.contains { ($0 as? Data) == bytes }
+    }
+
+    private static func unreadablePreferenceList() -> [String] {
+        var failures: [String] = []
+        let suite = "fc.unreadable.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let unreadable = Data("rules written by a build this one cannot read".utf8)
+        defaults.set(unreadable, forKey: "fc.activityRules")
+        defaults.set(unreadable, forKey: "fc.savedActivities")
+
+        let store = PersistenceStore(defaults: defaults)
+        if !store.activityRules.isEmpty { failures.append("unreadable rules should read as none") }
+        store.activityRules = [ActivityRule(name: "Writing", workType: .deepWork,
+                                            bundleIDs: ["com.example.editor"], isEnabled: true,
+                                            startAfter: 180)]
+        store.savedActivities = [SavedActivity(name: "Invoices", workType: .admin)]
+        if !kept(unreadable, in: defaults) {
+            failures.append("saving over unreadable rules and activities lost their only copy")
+        }
+        if store.activityRules.count != 1 || store.savedActivities.count != 1 {
+            failures.append("the new rule and activity must still save")
+        }
+        return failures
+    }
+
+    private static func unreadableLiveState() -> [String] {
+        let suite = "fc.unreadable.state.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let unreadable = Data("a running session this build cannot read".utf8)
+        defaults.set(unreadable, forKey: "fc.state")
+        let state = PersistenceStore(defaults: defaults).loadState()
+        return state == nil && kept(unreadable, in: defaults) ? []
+            : ["an unreadable live state must load as nil and keep its bytes"]
     }
 }
