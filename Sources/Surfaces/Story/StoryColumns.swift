@@ -155,13 +155,25 @@ struct DayStoryColumn: View {
 
     var body: some View {
         ProjectedDayStoryColumn(store: store,
-                                projection: store.storyDayProjection(on: store.selectedDay))
+                                projection: store.storyDayProjection(on: store.selectedDay),
+                                context: .main)
     }
+}
+
+/// What already stands beside a day's story, so its opening does not say it
+/// again. The Day view's rail shows the day's recorded app use; a picked-day
+/// card shows the date, focus, sessions and app use; a History row shows the
+/// date, focus and sessions.
+enum DayStoryContext {
+    case main, underCard, underRow
 }
 
 struct ProjectedDayStoryColumn: View {
     @ObservedObject var store: SessionStore
     let projection: StoryDayProjection
+    let context: DayStoryContext
+    /// The notice the enclosing period already shows above this day, if any.
+    var parentNote: String? = nil
     @StateObject private var disclosure = StoryDisclosureState()
     /// The measurement disclosure's key in the day's shared open set.
     static let summaryKey = "summary"
@@ -172,7 +184,9 @@ struct ProjectedDayStoryColumn: View {
         let expandable = (projection.summaryFacts.isEmpty ? [] : [Self.summaryKey])
             + DayStory.expandableIDs(in: projection.chronology, fold: store.engine.store.quietFold)
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-            if let note = projection.integrityNote { IntegrityNotice(note) }
+            if let note = Self.dayNote(projection.integrityNote, parentNote: parentNote) {
+                IntegrityNotice(note)
+            }
             if !store.isTrackingEnabled, Calendar.current.isDateInToday(projection.date) {
                 // Sessions are still logged, but nothing says which apps they
                 // were in. Said here, once, rather than left to be inferred
@@ -180,10 +194,17 @@ struct ProjectedDayStoryColumn: View {
                 IntegrityNotice("App recording is off, so today's sessions carry no app evidence. "
                                 + "Turn on Record app usage in Settings › Recording.")
             }
-            StoryHeadline(eyebrow: Tokens.longDate(projection.date),
-                          sentence: sentence,
-                          facts: facts,
-                          highlight: Tokens.preciseDuration(projection.focused))
+            if context == .main {
+                StoryHeadline(eyebrow: Tokens.longDate(projection.date),
+                              sentence: sentence,
+                              facts: facts,
+                              highlight: Tokens.preciseDuration(projection.focused))
+            } else if !facts.isEmpty {
+                Text(facts.joined(separator: "  ·  "))
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             StoryCorrectionNotice(store: store)
             if !projection.summaryFacts.isEmpty {
                 StoryDisclosure(title: "How this day was measured", isExpanded: Binding(
@@ -225,6 +246,12 @@ struct ProjectedDayStoryColumn: View {
         .storyRenderEvidence(.dayStory)
     }
 
+    /// The day's integrity notice, unless the period it opens inside already
+    /// shows the same one.
+    static func dayNote(_ note: String?, parentNote: String?) -> String? {
+        note == parentNote ? nil : note
+    }
+
     /// A focus-led sentence; the longer evidence narrative remains available
     /// below the chronology rather than overwhelming the headline.
     private var sentence: String {
@@ -237,7 +264,7 @@ struct ProjectedDayStoryColumn: View {
 
     private var facts: [String] {
         var parts: [String] = []
-        if projection.tracked > 0 {
+        if context == .underRow, projection.tracked > 0 {
             parts.append("\(Tokens.duration(projection.tracked)) recorded app use")
         }
         if projection.recordedBreakSeconds > 0 {
@@ -367,7 +394,8 @@ struct StorySelectedDayCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if isExpanded {
-                ProjectedDayStoryColumn(store: store, projection: projection)
+                ProjectedDayStoryColumn(store: store, projection: projection, context: .underCard,
+                                        parentNote: store.reviewIntegrityNote)
                     .id(projection.id)
                     .accessibilityIdentifier("story-period-child-content-\(projection.id)")
                     .storyRenderEvidence(.periodChild)

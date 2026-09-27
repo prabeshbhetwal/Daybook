@@ -36,7 +36,6 @@ struct SessionReport {
     /// Every recorded visit and every gap, in order.
     var intervals: [RecordedActivity.Interval] { detail.activity.intervals }
     var visitCount: Int { intervals.filter { !$0.isGap }.count }
-    var notes: [String] { stretches.compactMap(\.note) }
 
     static func make(for session: DaySession, store: SessionStore) -> SessionReport {
         // The session's own day, not whichever day the Story happens to be
@@ -160,7 +159,7 @@ struct SessionReportCard: View {
 }
 
 /// The full account of a session: what it was, each stretch, every app, the
-/// recorded activity minute by minute, and the notes. Nothing here is
+/// recorded activity minute by minute, each note under its stretch. Nothing here is
 /// summarised away — that is the point of asking for it.
 struct SessionReportView: View {
     let report: SessionReport
@@ -175,7 +174,6 @@ struct SessionReportView: View {
             if !report.stretches.isEmpty { stretches }
             if !report.apps.isEmpty { apps }
             if report.detail.activity.hasRecordedActivity { activity }
-            if !report.notes.isEmpty { notes }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -191,11 +189,14 @@ struct SessionReportView: View {
                         .font(Tokens.Typography.pageTitle)
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: Tokens.Space.s) {
-                        Text(session.workType.displayName)
-                            .font(Tokens.Typography.microLabel)
-                            .padding(.horizontal, 7).padding(.vertical, 2)
-                            .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
-                            .foregroundStyle(StoryStyle.workTypeInk(session.workType))
+                        // An unnamed session is titled by its category already.
+                        if !session.name.isEmpty {
+                            Text(session.workType.displayName)
+                                .font(Tokens.Typography.microLabel)
+                                .padding(.horizontal, 7).padding(.vertical, 2)
+                                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                                .foregroundStyle(StoryStyle.workTypeInk(session.workType))
+                        }
                         Text(session.isRunning
                              ? "Running since \(Tokens.timeOfDayOnly(session.start))"
                              : Tokens.timeRange(session.start, session.end))
@@ -218,10 +219,12 @@ struct SessionReportView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Text(report.detail.caption)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if let note = report.detail.reportNote {
+                Text(note)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let power = report.power {
                 VStack(alignment: .leading, spacing: 2) {
                     Label(power.headline, systemImage: power.symbolName)
@@ -317,19 +320,6 @@ struct SessionReportView: View {
                     .accessibilityElement(children: .combine)
                     if index < report.intervals.count - 1 { Divider() }
                 }
-            }
-        }
-    }
-
-    private var notes: some View {
-        section("Notes") {
-            ForEach(Array(report.notes.enumerated()), id: \.offset) { _, note in
-                Text(note)
-                    .font(Tokens.Typography.metadata)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(Tokens.Space.m)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(StoryStyle.well, in: RoundedRectangle(cornerRadius: Tokens.Radius.nested))
             }
         }
     }

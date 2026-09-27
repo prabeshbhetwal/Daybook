@@ -26,7 +26,11 @@ struct SessionControlStrip: View {
                 FocusHero(store: store,
                           intentFocused: $intentFocused,
                           compact: true,
-                          wide: true)
+                          wide: true,
+                          // Day view of today has the goal card in the rail,
+                          // unless a sheet is covering it.
+                          showsGoal: !(navigation.storyScope == .day && store.isToday
+                                       && navigation.sheet == nil))
                     .coachAnchor(.activityField)
                 stripChrome
             }

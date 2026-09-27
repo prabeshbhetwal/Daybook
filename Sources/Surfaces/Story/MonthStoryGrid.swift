@@ -112,10 +112,9 @@ struct MonthStoryGrid: View {
 
     private var legend: some View {
         HStack {
-            Text(store.storyFocusSummary.activeDays > 0
-                 ? "\(store.storyFocusSummary.activeDays) of \(store.reviewSummary.totalDays) "
-                   + "days had focus. Select a day to inspect it."
-                 : "No focus recorded in this month yet.")
+            // How many days had focus is the headline's; the legend only
+            // says how to read the grid.
+            Text("Select a day to inspect it.")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
             Spacer(minLength: Tokens.Space.m)

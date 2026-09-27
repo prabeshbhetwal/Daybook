@@ -8,7 +8,7 @@ enum StoryTileKind: String, CaseIterable, Codable {
 
     var title: String {
         switch self {
-        case .focus: return "Focus"
+        case .focus: return "Daily goal"
         case .mac: return "On this Mac"
         case .apps: return "Apps"
         case .rhythm: return "Rhythm"

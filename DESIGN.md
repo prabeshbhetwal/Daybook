@@ -90,8 +90,8 @@ page title and one line of metadata. The session control never wraps.
 Focus time means logged session work after the state machine excludes pauses and
 uncounted absences. It is not a claim that keyboard or app activity corroborates
 every minute. The day headline therefore says **You've logged [duration] across
-[count] focus sessions**, and its secondary line says **recorded app use**.
-These can legitimately differ. Goal credit is their qualifying intersection.
+[count] focus sessions**, and the On this Mac card beside it gives **recorded app
+use**. These can legitimately differ. Goal credit is their qualifying intersection.
 Missing recording coverage is a separate limitation, never added to observed use.
 Period bars and their average remain tracked; focus headlines and averages use
 focused days only. Integrity notices precede the figures they qualify.

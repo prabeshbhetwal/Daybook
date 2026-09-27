@@ -405,14 +405,17 @@ struct DayStory: View {
         .accessibilityHidden(true)
     }
 
-    private var empty: some View {
-        Text(store.isToday ? (store.isTrackingEnabled
-                            ? "Start a focus session, or let app recording build the day's story."
-                            : "App recording is off. Start a focus session, or enable recording in Settings.")
-                          : "No sessions or app use were recorded on this day.")
-            .font(Tokens.Typography.metadata)
-            .foregroundStyle(.secondary)
-            .padding(.vertical, Tokens.Space.m)
+    /// Only today has something to suggest. A past day's headline already says
+    /// nothing was recorded, and with recording off the banner above says so.
+    @ViewBuilder private var empty: some View {
+        if store.isToday {
+            Text(store.isTrackingEnabled
+                 ? "Start a focus session, or let app recording build the day's story."
+                 : "Start a focus session to begin the day's story.")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .padding(.vertical, Tokens.Space.m)
+        }
     }
 
     private func toggle(_ id: String) {
@@ -499,12 +502,15 @@ struct SessionEntryCard: View {
                             // Room for the pencil beside a long name.
                             .padding(.trailing, isOpen && (onRename != nil || onWorkType != nil) ? 30 : 0)
                         HStack(spacing: Tokens.Space.s) {
-                            Text(session.workType.displayName)
-                                .font(Tokens.Typography.microLabel)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
-                                .foregroundStyle(StoryStyle.workTypeInk(session.workType))
+                            // An unnamed session is titled by its category already.
+                            if !session.name.isEmpty {
+                                Text(session.workType.displayName)
+                                    .font(Tokens.Typography.microLabel)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                                    .foregroundStyle(StoryStyle.workTypeInk(session.workType))
+                            }
                             Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
                                 .font(Tokens.Typography.metadata)
                                 .foregroundStyle(.secondary)
@@ -598,7 +604,11 @@ struct SessionEntryCard: View {
             Divider()
             if clock != nil {
                 HStack(alignment: .center, spacing: 20) {
-                    Text(shapeCaption ?? "Recording will appear here as the session continues.")
+                    // With detail loaded and nothing to add (recording off:
+                    // the day's banner says so), the line stays empty rather
+                    // than promising recording that will not come.
+                    Text(shapeCaption ?? (activity == nil
+                                          ? "Recording will appear here as the session continues." : ""))
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -750,11 +760,13 @@ struct SessionEntryCard: View {
                     }
                 }
             }
-            Text(editing.value
-                 ? "Name and category changes apply to all stretches of this session, including other days."
-                 : "Changes apply to all stretches of this session, including other days.")
-                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            // Said where the decision is made: Remove states its own scope in
+            // its confirmation, and a note belongs to one stretch.
+            if editing.value {
+                Text("Name and category changes apply to all stretches of this session, including other days.")
+                    .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -902,7 +914,7 @@ struct RestEntryRow: View {
 
     var body: some View {
         HStack(spacing: Tokens.Space.m) {
-            Text("\(rest.name) — recorded break, not counted as focus")
+            Text(Self.label(rest.name))
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -920,6 +932,14 @@ struct RestEntryRow: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(rest.name), recorded break, \(Tokens.spent(rest.length)), "
                             + Tokens.timeRange(rest.start, rest.end))
+    }
+
+    /// An unnamed break is already called one; only a name the user gave is
+    /// worth putting before the explanation.
+    static func label(_ name: String) -> String {
+        name.isEmpty || name == "Break"
+            ? "Recorded break, not counted as focus"
+            : "\(name) — recorded break, not counted as focus"
     }
 }
 

@@ -121,10 +121,13 @@ struct HistoryFindResults: View {
         let hits = store.historySearchHits()
         let months = HistoryHitMonth.group(hits)
         return LazyVStack(alignment: .leading, spacing: Tokens.Space.l) {
-            Text(summary(hits))
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-            if hits.isEmpty {
+            // With no hits the empty state below says it; the count line is
+            // only for results.
+            if !hits.isEmpty {
+                Text(summary(hits))
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+            } else {
                 EmptyState("No matching sessions",
                            detail: "Try a session name, a word from a note, an app, a category or a date.",
                            icon: "magnifyingglass")
@@ -156,7 +159,6 @@ struct HistoryFindResults: View {
     }
 
     private func summary(_ hits: [HistorySearchHit]) -> String {
-        guard !hits.isEmpty else { return "Searching everything on record." }
         let word = hits.count == 1 ? "session matches" : "sessions match"
         return "\(hits.count) \(word) across everything on record, "
             + "\(Tokens.duration(hits.reduce(0) { $0 + $1.worked })) of focus between them."

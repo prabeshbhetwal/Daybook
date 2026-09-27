@@ -3,7 +3,11 @@ import Foundation
 struct StorySessionDetail {
     let apps: [AppRank]
     let text: String?
-    let caption: String
+    /// The card's line under its figures; nil when there is nothing to add.
+    let caption: String?
+    /// The report's line under its figures, which already include recorded
+    /// app use and the time range.
+    let reportNote: String?
     /// Canonical app/gap timeline. The old bins remain during the chart
     /// migration, but ranks, captions and prose all use this same evidence.
     let activity: RecordedActivity
@@ -124,29 +128,49 @@ extension SessionStore {
                                                  stretches: session.stretches, worked: session.worked))
         let bounds = session.end > session.start ? DateInterval(start: session.start, end: session.end) : nil
         let bins = bounds.map { SessionShape.bins(activity: activity, in: $0) } ?? []
-        let elapsed = max(0, session.end.timeIntervalSince(session.start))
-        let coverage = activity.coverage
-        var caption: String
+        let notes = Self.sessionEvidenceNotes(
+            coverage: activity.coverage,
+            elapsed: max(0, session.end.timeIntervalSince(session.start)),
+            gap: activity.gapDuration,
+            isRunning: session.isRunning,
+            isTrackingEnabled: isTrackingEnabled,
+            conflicting: activity.hasConflictingForegroundEvidence)
+        return StorySessionDetail(apps: apps, text: text, caption: notes.card, reportNote: notes.report,
+                                  activity: activity, bins: bins)
+    }
+
+    /// What a session's recording says beyond the figures beside it. The card
+    /// already shows logged focus as its clock, so its caption leaves that out.
+    /// The report also shows recorded app use and the time range, so its note
+    /// keeps only the recording gap. A running session with recording off says
+    /// nothing on the card, because the day's banner already says it.
+    static func sessionEvidenceNotes(coverage: TimeInterval, elapsed: TimeInterval,
+                                     gap: TimeInterval, isRunning: Bool,
+                                     isTrackingEnabled: Bool,
+                                     conflicting: Bool) -> (card: String?, report: String?) {
+        var card: String?
+        var report: String?
         if coverage > 0 {
-            caption = "Recorded app use: \(Tokens.preciseDuration(coverage)) across "
-                + "\(Tokens.preciseDuration(elapsed)) elapsed; logged focus: "
-                + "\(Tokens.preciseDuration(session.worked))."
-            if activity.gapDuration >= 1 {
-                caption += " \(Tokens.preciseDuration(activity.gapDuration)) of the session span has no app recording."
-            }
-        } else if session.isRunning {
-            caption = "Logged focus: \(Tokens.preciseDuration(session.worked)) so far. "
-                + (isTrackingEnabled ? "No app use recorded yet."
-                                     : "App recording is off, so no app use is being recorded.")
+            let gapNote = gap >= 1
+                ? "\(Tokens.preciseDuration(gap)) of the session span has no app recording." : nil
+            card = "Recorded app use: \(Tokens.preciseDuration(coverage)) across "
+                + "\(Tokens.preciseDuration(elapsed)) elapsed." + (gapNote.map { " " + $0 } ?? "")
+            report = gapNote
+        } else if isRunning {
+            card = isTrackingEnabled ? "No app use recorded yet." : nil
+            report = isTrackingEnabled ? "No app use recorded yet."
+                                       : "App recording is off, so no app use is being recorded."
         } else {
-            caption = "Logged focus: \(Tokens.preciseDuration(session.worked)). "
-                + "No app recording was available for this session."
+            card = "No app recording was available for this session."
                 + (isTrackingEnabled ? "" : " App recording is off.")
+            report = card
         }
-        if activity.hasConflictingForegroundEvidence {
-            caption += " Overlapping source app records were resolved to one foreground strip."
+        if conflicting {
+            let note = "Overlapping source app records were resolved to one foreground strip."
+            card = card.map { $0 + " " + note } ?? note
+            report = report.map { $0 + " " + note } ?? note
         }
-        return StorySessionDetail(apps: apps, text: text, caption: caption, activity: activity, bins: bins)
+        return (card, report)
     }
 
     var storyTimelineItems: [StoryTimelineItem] {

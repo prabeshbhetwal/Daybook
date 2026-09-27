@@ -311,10 +311,11 @@ enum FirstRunScript {
                      + "the top when you want the lot.",
                  anchor: .storyColumn),
             Card(sentence: "The evidence sits beside the figures.",
-                 body: "How this day was measured opens to show exactly what each "
-                     + "number was made from, and what was not recorded — your Mac "
-                     + "asleep, the screen locked, a stretch with nothing in front. "
-                     + "Nothing here is presented as more certain than it is.",
+                 body: "How this day was measured opens to say how each measure is "
+                     + "counted: logged focus, recorded app use and breaks, and how many "
+                     + "separate stretches the sessions ran as. What was not recorded "
+                     + "shows in the day itself. Nothing here is presented as more "
+                     + "certain than it is.",
                  anchor: .measured),
             Card(sentence: "You can correct anything, and undo any correction.",
                  body: "Open an entry and you can rename it, change its category, or "
@@ -325,10 +326,11 @@ enum FirstRunScript {
         ]),
 
         Chapter(id: .rail, cards: [
-            Card(sentence: "Focus time, against your goal.",
-                 body: "The ring is today's focus as a share of a daily goal. Only "
-                     + "declared focus counts — sessions, not app use — and only while "
-                     + "you were actually at the keyboard. The goal is yours to set, in "
+            Card(sentence: "Daily goal: how far today has come.",
+                 body: "The figure is today's goal credit and the ring its share of a "
+                     + "daily goal. Only declared focus counts — sessions, not app use — "
+                     + "and only while you were actually at the keyboard. The day's total "
+                     + "focus is the column's headline. The goal is yours to set, in "
                      + "Settings under Sessions.",
                  anchor: .focusTile),
             Card(sentence: "On this Mac: the whole day, in three parts.",

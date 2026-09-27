@@ -152,6 +152,9 @@ struct FocusHero: View {
     /// while the window's session strip is compact and never narrower than
     /// 980pt. The flag existed unread until the strip started using it.
     var wide = true
+    /// Whether the strip shows today's goal. The window turns it off where
+    /// the rail's goal card already shows the same goal.
+    var showsGoal = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var composition: FocusSurfaceComposition { store.focusSurfaceComposition }
@@ -211,7 +214,7 @@ struct FocusHero: View {
             HStack(spacing: Tokens.Space.l) {
                 if mode == .idle { idleRowLead } else { liveRowLead }
                 Spacer(minLength: Tokens.Space.m)
-                goalSupport
+                if showsGoal { goalSupport }
             }
             stripWrapLines
         }
@@ -474,7 +477,10 @@ struct FocusHero: View {
     private var automaticControls: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Divider()
-            Text("Name or reclassify this automatic session, or discard it.")
+            // While running, "Started automatically" is the line above; paused,
+            // nothing else says the session was automatic.
+            Text(mode == .running ? "Name this session, reclassify it, or discard it."
+                                  : "Name or reclassify this automatic session, or discard it.")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
             if compact {

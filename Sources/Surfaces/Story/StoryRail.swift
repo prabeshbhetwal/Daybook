@@ -172,13 +172,21 @@ struct StoryRail: View {
     }
 
     /// Only says what the visible cards need explaining. A note about the
-    /// streak on a rail with no streak card explains nothing.
+    /// streak on a rail with no streak card explains nothing, and on today or
+    /// the current period "Last 14 days" already says it.
     private func footnote(_ shownTiles: [StoryTileKind]) -> String? {
         if arrangement.isArranging && tilesAreDraggable {
             return "Drag cards to reorder, or use their menu."
         }
-        return shownTiles.contains(.streak)
+        return shownTiles.contains(.streak) && showsPastPeriod
             ? "The streak always describes recent days." : nil
+    }
+
+    /// Whether the page shows a day or period that is not the current one.
+    private var showsPastPeriod: Bool {
+        navigation.storyScope == .day
+            ? !store.isToday
+            : !store.reviewDays.contains { Calendar.current.isDateInToday($0.date) }
     }
 
     @ViewBuilder private func draggable(_ content: some View,
@@ -212,7 +220,9 @@ struct StoryRail: View {
     private var visibleTiles: [StoryTileKind] {
         settings.storyTileOrder.filter { kind in
             switch kind {
-            case .focus: return focusValue > 0 || navigation.storyScope == .day
+            // Week and Month headlines already give the total, the focused
+            // days and the average; only a day has a goal to show.
+            case .focus: return navigation.storyScope == .day
             case .mac:
                 let evidence = breakdown
                 return evidence.tracked > 0 || evidence.uncoveredFocus > 0
@@ -261,21 +271,28 @@ struct StoryRail: View {
         }
     }
 
-    // MARK: - Focus
+    // MARK: - Daily goal
 
+    /// The day's focus total is the headline's; this card is the goal's.
     private var focusTile: some View {
-        let focus = focusValue
-        return StoryTile(title: focusTitle,
-                  trailing: scopeLabel) {
+        let goal = store.selectedDayGoal
+        return StoryTile(title: "Daily goal", trailing: store.dayLabel) {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                    Text(Tokens.preciseDuration(focus))
-                        .font(Tokens.Typography.metricValue.monospacedDigit())
-                        .rollingDigits(focus)
-                    Text(focusNote)
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if goal.goal > 0 {
+                        Text(Tokens.preciseDuration(goal.achieved))
+                            .font(Tokens.Typography.metricValue.monospacedDigit())
+                            .rollingDigits(goal.achieved)
+                        Text("of \(Tokens.duration(goal.goal)) goal credit"
+                             + (goal.isMet ? " · goal met" : ""))
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("No daily goal set")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer(minLength: 0)
                 if goalShare != nil {
@@ -286,7 +303,7 @@ struct StoryRail: View {
                         .accessibilityLabel("\(Int(((goalShare ?? 0) * 100).rounded())) per cent of the goal for \(store.dayLabel)")
                 }
             }
-            if navigation.storyScope == .day, !categoryGoals.isEmpty {
+            if !categoryGoals.isEmpty {
                 categoryGoalRows
             }
         }
@@ -339,46 +356,11 @@ struct StoryRail: View {
         }
     }
 
-    private var focusTitle: String {
-        switch navigation.storyScope {
-        case .day: return "Focus time"
-        case .week: return "Focus this week"
-        case .month: return "Focus this month"
-        }
-    }
-
-    private var focusValue: TimeInterval {
-        switch navigation.storyScope {
-        case .day: return store.storyFocusedSeconds(on: store.selectedDay)
-        case .week, .month: return store.reviewFocusedSeconds
-        }
-    }
-
     /// Only the day has a goal to be a share of; a week or a month reports its
     /// own shape instead of inventing a period target.
     private var goalShare: Double? {
         guard navigation.storyScope == .day, store.goal.goal > 0 else { return nil }
         return store.selectedDayGoal.share
-    }
-
-    private var focusNote: String {
-        switch navigation.storyScope {
-        case .day:
-            let goal = store.selectedDayGoal
-            guard goal.goal > 0 else { return "No daily goal set" }
-            let credit = "\(Tokens.duration(goal.achieved)) of \(Tokens.duration(goal.goal)) goal credit"
-            return credit + (goal.isMet ? " · goal met" : " · session work with recorded app use")
-        case .week, .month:
-            let summary = store.storyFocusSummary
-            guard summary.activeDays > 0 else { return "No focus recorded" }
-            let dayWord = summary.activeDays == 1 ? "focused day" : "focused days"
-            return "\(summary.activeDays) \(dayWord) · "
-                + "\(Tokens.duration(summary.averagePerActiveDay)) average"
-        }
-    }
-
-    private var scopeLabel: String {
-        navigation.storyScope == .day ? store.dayLabel : store.reviewPeriodLabel
     }
 
     // MARK: - On this Mac

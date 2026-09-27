@@ -51,7 +51,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     var summary: String {
         switch self {
         case .general: return "How the window opens and how the app looks."
-        case .sessions: return "Your goal, the categories work is filed under, and what starts a session by itself."
+        case .sessions: return "Your goal, your categories, and what starts a session by itself."
         case .activities: return "Rules that start and name a session from the apps you are in."
         case .awayAndBreaks: return "What happens when you step away, and when to be reminded to rest."
         case .recording: return "What is recorded about the apps you use."

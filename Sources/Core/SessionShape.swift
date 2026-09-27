@@ -178,13 +178,13 @@ enum SessionShape {
         return lines.isEmpty ? nil : lines.joined(separator: " ")
     }
 
-    /// The Story card already states coverage and gaps in its factual caption.
-    /// Keep only evidence that adds interpretation there, without changing the
-    /// fuller paragraph contract used by existing callers.
+    /// The Story card already states coverage and gaps in its factual caption,
+    /// and its app list already ranks the leading app first. Keep only
+    /// evidence that adds interpretation there, without changing the fuller
+    /// paragraph contract used by existing callers.
     static func storyProse(_ input: Input) -> String? {
         guard !input.segments.isEmpty else { return nil }
         var lines: [String] = []
-        if let dominance = dominanceClause(input) { lines.append(dominance) }
         if let movement = movementClause(input) { lines.append(movement) }
         if let away = awayClause(input) { lines.append(away) }
         if let watching = watchingClause(input) { lines.append(watching) }
@@ -206,15 +206,6 @@ enum SessionShape {
         }
         return "\(top.appName) was in front for \(duration(top.total)) of the "
             + "\(duration(recorded)) recorded, across \(ranks.count) apps."
-    }
-
-    /// A duration-free dominance sentence for Story, whose adjacent caption
-    /// is the sole place that names coverage and recording-gap totals.
-    private static func dominanceClause(_ input: Input) -> String? {
-        let ranks = input.activity.appRanks
-        guard ranks.count > 1, let top = ranks.first,
-              top.total > (ranks.dropFirst().first?.total ?? 0) else { return nil }
-        return "\(top.appName) was the predominant recorded app."
     }
 
     /// How often the front actually changed. The first app observed is context

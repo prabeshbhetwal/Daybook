@@ -89,11 +89,9 @@ struct SettingsGroups: View {
                 .frame(width: 180)
                 .accessibilityLabel("Daily goal")
             }
-            explanation("Your usual pace compares today with the same hour on your last "
-                        + "\(model.paceWindowDays) working days.")
             rowDivider
             preferenceRow("Usual pace compares with",
-                          detail: "How many of your working days the pace line is measured against.") {
+                          detail: "Today is compared with the same hour on these working days.") {
                 Picker("Usual pace compares with", selection: $model.paceWindowDays) {
                     ForEach(FocusConstants.paceWindowOptions, id: \.self) { days in
                         Text("last \(days) days").tag(days)
@@ -123,7 +121,7 @@ struct SettingsGroups: View {
             }
             rowDivider
             preferenceRow("New sessions start as",
-                          detail: "The category a session is filed under until you choose another.") {
+                          detail: "Used until you choose another.") {
                 Picker("New sessions start as", selection: $model.defaultWorkType) {
                     ForEach(WorkType.startable) { type in
                         Label(type.displayName, systemImage: type.symbolName)
@@ -216,8 +214,8 @@ struct SettingsGroups: View {
                         .toggleStyle(.checkbox)
                         .disabled(!model.remindersEnabled)
                     }
-                    Text("Timed from continuous use, not from sessions. A short break resets "
-                         + "the short timer only; the longer ones keep running.")
+                    // "Timed from use, not sessions" is the switch's own detail.
+                    Text("A short break resets the short timer only; the longer ones keep running.")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -237,8 +235,9 @@ struct SettingsGroups: View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Activity rules", layout: layout) {
                 toggleRow("Use my activity rules",
-                          detail: "Start and switch sessions from the rules below, going by which apps "
-                            + "you are in. Editing a rule never starts a session by itself.",
+                          // What a rule does is the panel's opening line below.
+                          detail: "When off, your rules are kept but do not start or switch sessions. "
+                            + "Editing a rule never starts a session by itself.",
                           isOn: $model.activityRuleAutomationEnabled)
             }
             ActivityRulesView(model: model)

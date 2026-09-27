@@ -2,12 +2,12 @@ import Foundation
 
 extension SessionStore {
 
-    /// Concise, factual bullets for an explicit local day. These deliberately
-    /// keep logged focus, recorded app use and qualifying goal credit separate;
-    /// the day headline already owns the total-focus sentence.
-    func storyDaySummaryFacts(entries: [DayEntry], apps: [AppRank],
-                              goalCredit: TimeInterval,
-                              goal: TimeInterval) -> [String] {
+    /// How the day's figures were made, for a reader who wants the method.
+    /// The totals, the busiest app and the goal credit are already on the
+    /// page, and the On this Mac card explains goal credit, so none of that is
+    /// restated; what is said here is how the other measures count, plus the
+    /// two facts shown nowhere else (stretches, break names).
+    static func storyDaySummaryFacts(entries: [DayEntry], apps: [AppRank]) -> [String] {
         let sessions = entries.compactMap { entry -> DaySession? in
             if case .session(let session) = entry { return session }
             return nil
@@ -18,25 +18,24 @@ extension SessionStore {
         }
         var facts: [String] = []
         if !sessions.isEmpty {
+            facts.append("Logged focus is session time with pauses and uncounted absences left out, "
+                         + "clipped to this day.")
             let stretchCount = sessions.reduce(0) { $0 + $1.stretches }
-            facts.append("\(sessions.count == 1 ? "One focus session" : "\(sessions.count) focus sessions") across \(stretchCount == 1 ? "one recorded stretch" : "\(stretchCount) recorded stretches").")
+            if stretchCount > sessions.count {
+                let subject = sessions.count == 1 ? "The session" : "The \(sessions.count) sessions"
+                facts.append("\(subject) ran as \(stretchCount) separate stretches; "
+                             + "the gaps between them are not counted.")
+            }
         }
-        if let leading = apps.first, leading.total > 0 {
-            // Only a majority is "most"; a leader with less is the busiest.
-            facts.append(leading.share > 0.5
-                ? "Most recorded app use was in \(leading.appName) (\(Tokens.preciseDuration(leading.total)))."
-                : "The busiest app was \(leading.appName) (\(Tokens.preciseDuration(leading.total))).")
-        }
-        if goalCredit > 0, goal > 0 {
-            facts.append("\(Tokens.preciseDuration(goalCredit)) qualified towards the \(Tokens.preciseDuration(goal)) daily goal.")
+        if apps.contains(where: { $0.total > 0 }) {
+            facts.append("Recorded app use is whatever was in front on this Mac, "
+                         + "in a session or not; it is never counted as focus.")
         }
         if !breaks.isEmpty {
             let named = breaks.map(\.name).filter { !$0.isEmpty && $0 != "Break" }
-            if named.isEmpty {
-                facts.append("\(breaks.count == 1 ? "One recorded break" : "\(breaks.count) recorded breaks"), not counted as focus.")
-            } else {
-                facts.append("Recorded break: \(named.joined(separator: ", ")); not counted as focus.")
-            }
+            facts.append(named.isEmpty
+                ? "Recorded breaks are rest; they are never counted as focus."
+                : "Recorded break: \(named.joined(separator: ", ")); not counted as focus.")
         }
         return facts
     }

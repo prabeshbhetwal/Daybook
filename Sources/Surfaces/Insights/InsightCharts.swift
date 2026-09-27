@@ -247,11 +247,20 @@ struct InsightHourGrid: View {
     }
 
     private var summary: String {
-        guard let window = facts.bestWindow else {
+        Self.summary(window: facts.bestWindow, phrase: facts.bestWindowPhrase)
+    }
+
+    /// The grid's best two hours, with how much focus fell there and where it
+    /// mostly sits. History's rail shows no separate card for them while this
+    /// grid is on screen.
+    static func summary(window: (startHour: Int, seconds: TimeInterval)?, phrase: String?) -> String {
+        guard let window else {
             return "A stronger cell means more focused time in that hour, across the whole range."
         }
-        return "Most focus lands between \(Self.hourLabel(window.startHour)) and "
-            + "\(Self.hourLabel(window.startHour + 2)). A stronger cell means more focused time in that hour."
+        var text = "Most focus lands between \(hourLabel(window.startHour)) and "
+            + "\(hourLabel(window.startHour + 2)): \(Tokens.duration(window.seconds))"
+        if let phrase { text += ", most of it \(phrase)" }
+        return text + ". A stronger cell means more focused time in that hour."
     }
 
     static func hourLabel(_ hour: Int) -> String {

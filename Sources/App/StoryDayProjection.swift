@@ -117,9 +117,7 @@ extension SessionStore {
         } else {
             integrityNote = nil
         }
-        let summary = storyDaySummaryFacts(entries: entries, apps: apps,
-                                           goalCredit: goalCredit,
-                                           goal: engine.store.dailyGoal)
+        let summary = Self.storyDaySummaryFacts(entries: entries, apps: apps)
         let projection = StoryDayProjection(
             date: day, chronology: chronology, summaryFacts: summary,
             focused: focused, tracked: tracked, goalCredit: goalCredit,

@@ -62,8 +62,8 @@ enum SessionReportChecks {
         if report.visitCount != detail.activity.intervals.filter({ !$0.isGap }).count {
             failures.append("The visit count does not match the recorded intervals")
         }
-        if !session.recordIDs.isEmpty, report.notes != ["Kept the parser small."] {
-            failures.append("The saved note did not reach the report: \(report.notes)")
+        if !session.recordIDs.isEmpty, report.stretches.compactMap(\.note) != ["Kept the parser small."] {
+            failures.append("The saved note did not reach the report: \(report.stretches.compactMap(\.note))")
         }
         if report.title.isEmpty {
             failures.append("The report has no title")

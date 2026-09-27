@@ -234,8 +234,12 @@ struct InsightsView: View {
                     HistoryArchiveTiles(facts: archive, now: store.now(), appLimit: store.engine.store.menuAppCount)
                 }
             } else if !reading.isEmpty {
-                totalsTile(reading)
-                if let window = facts.bestWindow { bestHoursTile(window, facts) }
+                // The headline gives the range's total, focused days, average
+                // and recorded app use; the hour grid's caption gives the best
+                // two hours whenever the grid is drawn, which a day span is not.
+                if navigation.insightRange == .day, let window = facts.bestWindow {
+                    bestHoursTile(window, facts)
+                }
                 if !facts.goalRates.isEmpty { goalsTile(facts.goalRates) }
                 if !facts.apps.isEmpty { appsTile(facts.apps) }
             }
@@ -260,27 +264,6 @@ struct InsightsView: View {
         }
         .padding(StoryStyle.railInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func totalsTile(_ reading: InsightRangeReading) -> some View {
-        StoryTile(title: "Focus in this range", trailing: reading.rangeLabel) {
-            Text(Tokens.preciseDuration(reading.focused))
-                .font(Tokens.Typography.metricValue.monospacedDigit())
-            Text(reading.totalsNote)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if reading.tracked > 0 {
-                Divider()
-                HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                    Text(Tokens.preciseDuration(reading.tracked))
-                        .font(Tokens.Typography.rowTitle.weight(.semibold).monospacedDigit())
-                    Text("recorded app use")
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
     }
 
     private func bestHoursTile(_ window: (startHour: Int, seconds: TimeInterval),
@@ -412,16 +395,14 @@ struct InsightRangeReading {
         if focusedDays > 0 {
             parts.append("\(Tokens.duration(focused / Double(focusedDays))) per focused day")
         }
+        // With no focus the sentence itself names the app use.
+        if focused > 0, tracked > 0 {
+            parts.append("\(Tokens.preciseDuration(tracked)) recorded app use")
+        }
         if let best = strongestDay {
             parts.append("strongest day \(Tokens.longDate(best.date)), \(Tokens.preciseDuration(best.focused))")
         }
         return parts
-    }
-
-    var totalsNote: String {
-        guard focusedDays > 0 else { return "No focus recorded" }
-        let dayWord = focusedDays == 1 ? "focused day" : "focused days"
-        return "\(focusedDays) \(dayWord) · \(Tokens.duration(focused / Double(focusedDays))) average"
     }
 
     static func label(_ period: StoryPeriodProjection, calendar: Calendar = .current) -> String {
@@ -474,6 +455,10 @@ struct InsightPickedPeriodCard: View {
         var parts: [String] = []
         if period.scope != .day {
             parts.append(period.activeDays == 1 ? "1 active day" : "\(period.activeDays) active days")
+        } else if let day = period.days.first, day.focusSessionCount > 0 {
+            // The day's story below opens without its headline, so the card
+            // carries the session count that sentence used to give.
+            parts.append(day.focusSessionCount == 1 ? "1 session" : "\(day.focusSessionCount) sessions")
         }
         if period.tracked > 0 {
             parts.append("\(Tokens.duration(period.tracked)) recorded app use")
@@ -501,7 +486,7 @@ struct InsightPeriodStory: View {
 
     var body: some View {
         if period.scope == .day, let day = period.days.first {
-            ProjectedDayStoryColumn(store: store, projection: day)
+            ProjectedDayStoryColumn(store: store, projection: day, context: .underCard)
         } else if recordedDays.isEmpty {
             Text("Nothing was recorded in this period.")
                 .font(Tokens.Typography.metadata)
@@ -519,7 +504,7 @@ struct InsightPeriodStory: View {
                         }
                     } onOpen: {}
                     if openDay.id == day.id {
-                        ProjectedDayStoryColumn(store: store, projection: day)
+                        ProjectedDayStoryColumn(store: store, projection: day, context: .underRow)
                             .id(day.id)
                             .padding(.vertical, Tokens.Space.l)
                             .padding(.leading, HistoryRowLayout.inset)

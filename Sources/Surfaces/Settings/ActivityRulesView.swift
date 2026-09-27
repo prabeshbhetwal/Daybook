@@ -81,7 +81,7 @@ struct ActivityRulesView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if model.activityRules.isEmpty {
                     EmptyState("No rules yet",
-                               detail: "Name an activity, pick the apps that belong to it, and it starts itself.",
+                               detail: "Name an activity and pick the apps that belong to it.",
                                icon: "app.badge.checkmark")
                 } else {
                     ForEach(model.activityRules) { rule in
