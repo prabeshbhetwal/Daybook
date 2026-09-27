@@ -42,46 +42,6 @@ struct SurfacePanel<Content: View>: View {
     }
 }
 
-struct MetricLine: View {
-    @Environment(\.focusInterfaceDensity) private var density
-    let label: String
-    let value: String
-    var note: String?
-    var tint: Color = .primary
-    var isDense: Bool = false
-    var layout: InterfaceDensity.Layout?
-
-    private var effectiveLayout: InterfaceDensity.Layout {
-        layout ?? density.layout
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
-            Text(label)
-                .font(Tokens.Typography.rowTitle)
-                .foregroundStyle(.secondary)
-            Spacer(minLength: Tokens.Space.s)
-            VStack(alignment: .trailing, spacing: 1) {
-                Text(value)
-                    .font(Tokens.Typography.metricValue)
-                    .foregroundStyle(isDense
-                                     ? AnyShapeStyle(.secondary)
-                                     : AnyShapeStyle(tint))
-                if let note {
-                    Text(note)
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            .multilineTextAlignment(.trailing)
-        }
-        .frame(minHeight: effectiveLayout.rowHeight)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel([label, value, note].compactMap { $0 }.joined(separator: ", "))
-    }
-}
-
 struct AppUsageRow: View {
     @Environment(\.focusInterfaceDensity) private var density
     let appName: String
@@ -139,23 +99,6 @@ struct AppUsageRow: View {
         .frame(minHeight: layout.rowHeight)
         .contentShape(Rectangle())
         .accessibilityLabel("\(appName), \(Tokens.preciseDuration(seconds))")
-    }
-}
-
-/// One column heading in a data table. A table states its measures once, here,
-/// instead of repeating a label beside every value in every row.
-struct TableColumnHeader: View {
-    let title: String
-    var width: CGFloat?
-    var alignment: Alignment = .trailing
-
-    var body: some View {
-        Text(title)
-            .font(Tokens.Typography.metadata)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .frame(width: width, alignment: alignment)
-            .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -219,51 +162,3 @@ struct IntegrityNotice: View {
     }
 }
 
-struct SettingsRow: View {
-    @Environment(\.focusInterfaceDensity) private var density
-    let title: String
-    let value: String?
-    let layoutOverride: InterfaceDensity.Layout?
-    let accessory: AnyView?
-
-    init(_ title: String, value: String? = nil,
-         layout: InterfaceDensity.Layout? = nil) {
-        self.title = title
-        self.value = value
-        self.layoutOverride = layout
-        self.accessory = nil
-    }
-
-    init<Accessory: View>(_ title: String, value: String? = nil,
-                          layout: InterfaceDensity.Layout? = nil,
-                          @ViewBuilder accessory: () -> Accessory) {
-        self.title = title
-        self.value = value
-        self.layoutOverride = layout
-        self.accessory = AnyView(accessory())
-    }
-
-    private var layout: InterfaceDensity.Layout {
-        layoutOverride ?? density.layout
-    }
-
-    var body: some View {
-        HStack(alignment: .center, spacing: Tokens.Space.s) {
-            Text(title)
-                .font(Tokens.Typography.rowTitle)
-            Spacer()
-            if let value {
-                Text(value)
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-            }
-            if let accessory {
-                accessory
-                    .font(Tokens.Typography.metadata)
-            }
-        }
-        .frame(minHeight: layout.rowHeight)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-    }
-}

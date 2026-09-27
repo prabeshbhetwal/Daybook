@@ -8,10 +8,6 @@ enum ActivityOwnership: Equatable {
     case automatic(ruleID: UUID, recordID: UUID)
 }
 
-struct ActivityRecordingCoverage: Equatable {
-    let interval: DateInterval
-}
-
 struct ActivityRuleInput: Equatable {
     let timestamp: Date
     let foregroundBundleID: String?

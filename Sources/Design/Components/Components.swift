@@ -29,21 +29,6 @@ struct SectionHeader: View {
     }
 }
 
-struct StreakBadge: View {
-    let days: Int
-
-    var body: some View {
-        Label(days == 1 ? "1 day" : "\(days) days", systemImage: "flame.fill")
-            .foregroundStyle(days > 0
-                             ? AnyShapeStyle(Tokens.Colour.progress)
-                             : AnyShapeStyle(.secondary))
-            .accessibilityLabel(days == 1 ? "1 day streak" : "\(days) day streak")
-            // No `.help` here. The one caller wraps this in `.explains`, which
-            // appears instantly; a system tooltip underneath it would fade in a
-            // second later saying much the same thing.
-    }
-}
-
 struct StartButton: View {
     var title: String = "Start focus"
     /// The caller decides how wide. It used to force `maxWidth: .infinity`,
@@ -65,25 +50,6 @@ struct StartButton: View {
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(title)
-    }
-}
-
-struct LiveTimer: View {
-    let seconds: TimeInterval
-    let paused: Bool
-    let intent: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            Text(Tokens.clock(seconds))
-                .font(Tokens.Typography.liveTimer)
-                .foregroundStyle(paused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
-                .accessibilityLabel("Elapsed \(Tokens.duration(seconds))")
-            Text(paused ? "Paused · \(intent)" : intent)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
     }
 }
 
@@ -357,111 +323,11 @@ struct WorkTypeMark: View {
     }
 }
 
-struct QuickStartRow: View {
-    let items: [QuickStart]
-    let onPick: (QuickStart) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            Text("Quick start")
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Tokens.Space.s) {
-                    ForEach(items) { item in
-                        Button { onPick(item) } label: {
-                            Label(item.name, systemImage: item.workType.symbolName)
-                                .lineLimit(1)
-                        }
-                        .buttonStyle(.bordered)
-                        .accessibilityLabel("Start \(item.name), \(item.workType.displayName)")
-                    }
-                }
-            }
-        }
-    }
-}
-
 extension DayBar {
     /// All-zero bars draw nothing while the frame keeps its height — the
     /// "150pt of dead space" defect. The caller shows an empty state instead.
     static func hasData(_ bars: [DayBar]) -> Bool {
         bars.contains { $0.minutes > 0 }
-    }
-}
-
-struct WeekChart: View {
-    let bars: [DayBar]
-    var height: CGFloat = 54
-
-    var body: some View {
-        if DayBar.hasData(bars) {
-            // The x value must be the date, not the weekday letter: two days in
-            // any seven share a first letter and Charts merges equal categorical
-            // values, silently collapsing the week into five bars.
-            Chart(bars) { bar in
-                BarMark(x: .value("Day", bar.id, unit: .day),
-                        y: .value("Minutes", bar.minutes))
-                    .foregroundStyle(bar.isToday ? AnyShapeStyle(Tokens.Colour.focus)
-                                                 : AnyShapeStyle(.quaternary))
-                    .cornerRadius(3)
-            }
-            .chartYScale(domain: 0...max(60, bars.map(\.minutes).max() ?? 60))
-            .chartYAxis(.hidden)
-            .chartXAxis {
-                AxisMarks(values: bars.map(\.id)) { _ in
-                    AxisValueLabel(format: .dateTime.weekday(.narrow)).font(Tokens.Typography.microLabel.weight(.regular))
-                }
-            }
-            .frame(height: height)
-            .accessibilityLabel("Focused minutes for the last seven days")
-        } else {
-            Text("No sessions this week yet.")
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .frame(height: height, alignment: .leading)
-        }
-    }
-}
-
-struct StatTile: View {
-    let title: String
-    let value: String
-    let symbol: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            Label(title, systemImage: symbol)
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(Tokens.Typography.metricValue)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .card(padding: Tokens.Space.m)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// Non-blocking resolution of a long absence, as a card: the grid inside a
-/// frame, or bare when it already sits in another card.
-struct ResolveCard: View {
-    let away: TimeInterval
-    var range: (start: Date, end: Date)?
-    var framed: Bool = true
-    var note: String?
-    let onAnswer: (UserDecision) -> Bool
-    var onReason: ((String) -> Bool)?
-
-    var body: some View {
-        let grid = AwayAnswerGrid(away: away, range: range, compact: true, note: note,
-                                  onAnswer: onAnswer, onReason: onReason)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        if framed {
-            grid.card(padding: Tokens.Space.m)
-        } else {
-            grid
-        }
     }
 }
 

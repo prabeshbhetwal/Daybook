@@ -8,39 +8,6 @@ enum HistoryRowLayout {
     static let inset: CGFloat = Tokens.Space.s
 }
 
-/// The filtered days, gathered under the month they fall in.
-struct HistoryMonthGroup: Identifiable {
-    let start: Date
-    let days: [HistoryDay]
-
-    var id: Date { start }
-    var focused: TimeInterval { days.reduce(0) { $0 + $1.focused } }
-
-    var title: String {
-        Tokens.australianDate("MMMM yyyy").string(from: start)
-    }
-
-    /// Keeps the incoming order, which is newest first.
-    static func group(_ days: [HistoryDay], calendar: Calendar = .current) -> [HistoryMonthGroup] {
-        var groups: [HistoryMonthGroup] = []
-        var current: [HistoryDay] = []
-        var currentStart: Date?
-        for day in days {
-            let start = calendar.date(from: calendar.dateComponents([.year, .month], from: day.date)) ?? day.date
-            if start != currentStart, let open = currentStart {
-                groups.append(HistoryMonthGroup(start: open, days: current))
-                current = []
-            }
-            currentStart = start
-            current.append(day)
-        }
-        if let open = currentStart, !current.isEmpty {
-            groups.append(HistoryMonthGroup(start: open, days: current))
-        }
-        return groups
-    }
-}
-
 /// The day's recorded entries across its twenty-four hours: sessions in their
 /// category's colour, recorded breaks in grey. One scale for every row, so a
 /// morning person's list reads as a column of mornings.
