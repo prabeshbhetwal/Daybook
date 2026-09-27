@@ -701,13 +701,19 @@ enum FocusConstants {
 }
 
 enum Diagnostics {
-    /// The unified log, readable in Console.app: an app opened from Finder has
-    /// no terminal, and its standard error goes nowhere. Standard error stays
-    /// for terminal runs and the self-test.
+    /// The unified log: an app opened from Finder has no terminal, and its
+    /// standard error goes nowhere. Messages can name apps and the data
+    /// folder's path, so they are private there — shown only where private
+    /// logging is enabled. Standard error stays for terminal runs and the
+    /// self-test.
     private static let logger = Logger(subsystem: FocusConstants.bundleIdentifier, category: "diagnostics")
 
+    /// Set by checks to see what was logged; nil in the app.
+    static var observer: ((String) -> Void)?
+
     static func log(_ message: String) {
-        logger.error("\(message, privacy: .public)")
+        observer?(message)
+        logger.error("\(message, privacy: .private)")
         FileHandle.standardError.write(Data("[FocusContinuity] \(message)\n".utf8))
     }
 }

@@ -88,7 +88,7 @@ final class PersistenceStore {
     /// app in front, newest last. What the app suggests next time it sees
     /// that app, ahead of its fixed guesses.
     var categoryChoices: [String: [String]] {
-        get { defaults.dictionary(forKey: Key.categoryChoices) as? [String: [String]] ?? [:] }
+        get { storedDictionary(Key.categoryChoices) }
         set {
             if newValue.isEmpty { defaults.removeObject(forKey: Key.categoryChoices) }
             else { defaults.set(newValue, forKey: Key.categoryChoices) }
@@ -153,8 +153,7 @@ final class PersistenceStore {
         do {
             return try decoder.decode(PersistedState.self, from: data)
         } catch {
-            setAside(data, forKey: Key.state, error)
-            defaults.removeObject(forKey: Key.state)
+            setAside(data, forKey: Key.state, "\(error)")
             return nil
         }
     }
@@ -309,7 +308,7 @@ final class PersistenceStore {
     /// `RewardKind.rawValue` → when it last fired. Persisted so a relaunch
     /// cannot reset the app into repeating itself.
     var rewardLog: [String: Date] {
-        get { defaults.dictionary(forKey: Key.rewardLog) as? [String: Date] ?? [:] }
+        get { storedDictionary(Key.rewardLog) }
         set { defaults.set(newValue, forKey: Key.rewardLog) }
     }
 
@@ -336,12 +335,12 @@ final class PersistenceStore {
     }
 
     var purposeOverrides: [String: String] {
-        get { defaults.dictionary(forKey: Key.purposeOverrides) as? [String: String] ?? [:] }
+        get { storedDictionary(Key.purposeOverrides) }
         set { defaults.set(newValue, forKey: Key.purposeOverrides) }
     }
 
     var overrides: [String: String] {
-        get { defaults.dictionary(forKey: Key.overrides) as? [String: String] ?? [:] }
+        get { storedDictionary(Key.overrides) }
         set { defaults.set(newValue, forKey: Key.overrides) }
     }
 
@@ -622,25 +621,39 @@ final class PersistenceStore {
         do {
             return try decoder.decode(type, from: data)
         } catch {
-            setAside(data, forKey: key, error)
+            setAside(data, forKey: key, "\(error)")
             return nil
         }
     }
 
-    /// Keeps unreadable bytes under `<key>.unreadable.<time>`, once per value.
-    private func setAside(_ data: Data, forKey key: String, _ error: Error) {
+    /// A stored dictionary, or empty. A value of any other shape is kept aside
+    /// first, for the same reason as `decode`.
+    private func storedDictionary<Value>(_ key: String) -> [String: Value] {
+        guard let object = defaults.object(forKey: key) else { return [:] }
+        if let dictionary = object as? [String: Value] { return dictionary }
+        setAside(object, forKey: key, "not a dictionary of \(Value.self)")
+        return [:]
+    }
+
+    /// Moves an unreadable value to `<key>.unreadable.<time>`, once per value.
+    /// With it kept, the key reads as absent, so later reads skip the failed
+    /// decode and this scan.
+    private func setAside(_ value: Any, forKey key: String, _ reason: String) {
         let prefix = key + ".unreadable."
         let stored = defaults.dictionaryRepresentation()
-        guard !stored.contains(where: { $0.key.hasPrefix(prefix) && ($0.value as? Data) == data }) else { return }
-        var aside = prefix + String(Int(Date().timeIntervalSince1970))
-        while stored[aside] != nil { aside += "+" }
-        defaults.set(data, forKey: aside)
-        Diagnostics.log("\(key) unreadable, kept as \(aside): \(error)")
+        let alreadyKept = stored.contains { $0.key.hasPrefix(prefix) && ($0.value as AnyObject).isEqual(value) }
+        if !alreadyKept {
+            var aside = prefix + String(Int(Date().timeIntervalSince1970))
+            while stored[aside] != nil { aside += "+" }
+            defaults.set(value, forKey: aside)
+            Diagnostics.log("\(key) unreadable, kept as \(aside): \(reason)")
+        }
+        defaults.removeObject(forKey: key)
     }
 
     /// Used by the self-test harness to leave no residue behind.
     func removeAll() {
-        for key in [Key.state, Key.overrides, Key.threshold, Key.name,
+        let keys = [Key.state, Key.overrides, Key.threshold, Key.name,
                     Key.menuSessions, Key.menuApps, Key.trackingDisabled,
                     Key.purposeOverrides, Key.dailyGoal, Key.autoSessions,
                     Key.rewardsEnabled, Key.rewardLog, Key.learning, Key.logGrouping,
@@ -660,12 +673,12 @@ final class PersistenceStore {
                     Key.idlePauseThreshold, Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
-                    Key.quietFold] {
-            defaults.removeObject(forKey: key)
-        }
-        for key in defaults.dictionaryRepresentation().keys
-        where key.hasPrefix("fc.") && key.contains(".unreadable.") {
-            defaults.removeObject(forKey: key)
+                    Key.quietFold]
+        for key in keys { defaults.removeObject(forKey: key) }
+        // And the unreadable values kept aside from those keys, but nothing else.
+        for stored in defaults.dictionaryRepresentation().keys
+        where keys.contains(where: { stored.hasPrefix($0 + ".unreadable.") }) {
+            defaults.removeObject(forKey: stored)
         }
         WorkTypeCatalog.shared.apply(customisations: [])
     }

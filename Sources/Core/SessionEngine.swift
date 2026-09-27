@@ -657,11 +657,12 @@ final class SessionEngine {
         // exactly the work done before they left.
         guard archiveCurrentSession(endingAt: began) else { return }
         if absence >= store.minimumRecordedSession {
-            // A rest that cannot be saved is reported like any other save.
+            // Logged, not put in awayDecisionError: that field means an ending
+            // awaits finalisation, and a stale value would start a false retry.
             if let error = archive.append(SessionRecord(name: "Away", workType: .breakTime,
                                                         start: began, end: now(), workSeconds: absence,
                                                         threadID: UUID())) {
-                awayDecisionError = error
+                Diagnostics.log("an Away rest could not be saved: \(error)")
             }
         }
         beginFreshSession()
@@ -685,7 +686,7 @@ final class SessionEngine {
                 if let error = archive.append(SessionRecord(name: "Watching", workType: .breakTime,
                                                             start: began, end: end, workSeconds: watched,
                                                             threadID: UUID())) {
-                    awayDecisionError = error
+                    Diagnostics.log("a Watching rest could not be saved: \(error)")
                 }
             }
         }

@@ -12,7 +12,7 @@ enum UnreadableHistoryChecks {
         ("A torn journal that cannot be cut short is left alone, read-only", tornJournalUncuttable),
         ("An unreadable preference list is kept aside before it is saved over", unreadablePreferenceList),
         ("An unreadable live session state is kept aside, not deleted", unreadableLiveState),
-        ("A rest that cannot be saved is reported, not dropped in silence", unsavedRestIsReported),
+        ("A rest that cannot be saved is logged, and leaves no false pending ending", unsavedRestIsReported),
         ("Settings' Recovery row names session history that was set aside or is read-only", recoveryRowNamesSessions)
     ]
 
@@ -161,6 +161,8 @@ enum UnreadableHistoryChecks {
         let unreadable = Data("rules written by a build this one cannot read".utf8)
         defaults.set(unreadable, forKey: "fc.activityRules")
         defaults.set(unreadable, forKey: "fc.savedActivities")
+        let wrongShape = ["com.example.editor": 42]
+        defaults.set(wrongShape, forKey: "fc.overrides")
 
         let store = PersistenceStore(defaults: defaults)
         if !store.activityRules.isEmpty { failures.append("unreadable rules should read as none") }
@@ -168,9 +170,15 @@ enum UnreadableHistoryChecks {
                                             bundleIDs: ["com.example.editor"], isEnabled: true,
                                             startAfter: 180)]
         store.savedActivities = [SavedActivity(name: "Invoices", workType: .admin)]
+        if !store.overrides.isEmpty { failures.append("overrides of the wrong shape should read as none") }
+        store.overrides = ["com.example.mail": "admin"]
         if !kept(unreadable, in: defaults) {
             failures.append("saving over unreadable rules and activities lost their only copy")
         }
+        let keptOverrides = defaults.dictionaryRepresentation().contains {
+            $0.key.hasPrefix("fc.overrides.unreadable.") && ($0.value as AnyObject).isEqual(wrongShape)
+        }
+        if !keptOverrides { failures.append("saving over overrides of the wrong shape lost them") }
         if store.activityRules.count != 1 || store.savedActivities.count != 1 {
             failures.append("the new rule and activity must still save")
         }
@@ -210,10 +218,21 @@ enum UnreadableHistoryChecks {
         engine.transition(on: .watchingObserved(seconds: 600))
         box.now += 35 * 60
         engine.transition(on: .watchingObserved(seconds: 45 * 60))
+        var logged: [String] = []
+        Diagnostics.observer = { logged.append($0) }
+        defer { Diagnostics.observer = nil }
         box.failing = true
         engine.transition(on: .idleObserved(seconds: 2))
-        return engine.awayDecisionError == nil
-            ? ["a Watching rest that failed to save left no error to show"] : []
+        var failures: [String] = []
+        if !logged.contains(where: { $0.contains("Watching rest could not be saved") }) {
+            failures.append("a Watching rest that failed to save was not logged")
+        }
+        // awayDecisionError means an ending awaits finalisation; a rest
+        // failure must not leave it set for the next Stop to misread.
+        if engine.awayDecisionError != nil {
+            failures.append("a rest failure left awayDecisionError set: \(engine.awayDecisionError ?? "")")
+        }
+        return failures
     }
 
     private static func recoveryRowNamesSessions() -> [String] {
@@ -228,6 +247,15 @@ enum UnreadableHistoryChecks {
                                                     sessions: moved, dataDirectory: setAside).recoverySummary
         if !movedSummary.contains("sessions-corrupt-\(stamp).json") {
             failures.append("a set-aside session archive is not named: \(movedSummary)")
+        }
+        // A second set-aside in the same second is the newer one.
+        try? Data("not json either".utf8)
+            .write(to: setAside.appendingPathComponent("sessions-corrupt-\(stamp)-2.json"))
+        try? Data("not ours".utf8).write(to: setAside.appendingPathComponent("sessions-corrupt-\(stamp)-x.json"))
+        let newer = SettingsDiagnostics.live(usage: AppUsageArchive(directory: setAside, now: { base }),
+                                             sessions: moved, dataDirectory: setAside).recoverySummary
+        if !newer.contains("sessions-corrupt-\(stamp)-2.json") {
+            failures.append("the newest same-second set-aside is not the one named: \(newer)")
         }
 
         let stuck = scratch()

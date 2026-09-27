@@ -124,8 +124,9 @@ struct SettingsDiagnostics {
         latestSetAside(prefix: "app-usage-v1-backup-", in: directory, fileManager: fileManager)
     }
 
-    /// The newest `<prefix><stamp>.json` beside the archive, by its stamp.
-    /// A second file in the same second is `<prefix><stamp>-2.json`.
+    /// The newest `<prefix><stamp>.json` beside the archive. A second file in
+    /// the same second is `<prefix><stamp>-2.json`, and so on; any other name
+    /// is not one of ours.
     private static func latestSetAside(prefix: String, in directory: URL,
                                        fileManager: FileManager) -> URL? {
         let suffix = ".json"
@@ -133,7 +134,7 @@ struct SettingsDiagnostics {
             at: directory,
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]) else { return nil }
-        return entries.compactMap { url -> (stamp: Int, url: URL)? in
+        return entries.compactMap { url -> (order: (Int, Int), url: URL)? in
             let name = url.lastPathComponent
             var isDirectory: ObjCBool = false
             guard name.hasPrefix(prefix), name.hasSuffix(suffix),
@@ -141,10 +142,18 @@ struct SettingsDiagnostics {
                   !isDirectory.boolValue else { return nil }
             let start = name.index(name.startIndex, offsetBy: prefix.count)
             let end = name.index(name.endIndex, offsetBy: -suffix.count)
-            guard let stamp = Int(name[start..<end].prefix { $0 != "-" }) else { return nil }
-            return (stamp, url)
+            guard let order = setAsideOrder(name[start..<end]) else { return nil }
+            return (order, url)
         }
-        .max { $0.stamp < $1.stamp }?.url
+        .max { $0.order < $1.order }?.url
+    }
+
+    /// `<stamp>`, or `<stamp>-<n>` with n from 2, as `UnreadableFile` names them.
+    private static func setAsideOrder(_ stem: Substring) -> (Int, Int)? {
+        if let stamp = Int(stem) { return (stamp, 1) }
+        guard let dash = stem.lastIndex(of: "-"), let stamp = Int(stem[..<dash]),
+              let ordinal = Int(stem[stem.index(after: dash)...]), ordinal > 1 else { return nil }
+        return (stamp, ordinal)
     }
 
     static let unavailable = SettingsDiagnostics(
