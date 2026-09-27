@@ -11,7 +11,8 @@ enum UnreadableHistoryChecks {
         ("A journal holding only a torn line keeps the next record", tornOnlyJournal),
         ("A torn journal that cannot be cut short is left alone, read-only", tornJournalUncuttable),
         ("An unreadable preference list is kept aside before it is saved over", unreadablePreferenceList),
-        ("An unreadable live session state is kept aside, not deleted", unreadableLiveState)
+        ("An unreadable live session state is kept aside, not deleted", unreadableLiveState),
+        ("A rest that cannot be saved is reported, not dropped in silence", unsavedRestIsReported)
     ]
 
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
@@ -184,5 +185,33 @@ enum UnreadableHistoryChecks {
         let state = PersistenceStore(defaults: defaults).loadState()
         return state == nil && kept(unreadable, in: defaults) ? []
             : ["an unreadable live state must load as nil and keep its bytes"]
+    }
+
+    private static func unsavedRestIsReported() -> [String] {
+        final class Box { var now: Date; var failing = false; init(_ now: Date) { self.now = now } }
+        let box = Box(base)
+        let suite = "fc.unsaved.rest.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
+        let directory = scratch()
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let prefs = PersistenceStore(defaults: defaults)
+        prefs.breakThreshold = 5 * 60
+        let archive = SessionArchive(directory: directory, now: { box.now },
+                                     writeOverride: { _ in box.failing ? "The disk is full." : nil })
+        let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "fc.unsaved.rest",
+                                   schedulesDwell: false, now: { box.now })
+        engine.start(workType: .deepWork, intent: "Film night")
+        box.now += 20 * 60
+        box.now += 10 * 60
+        engine.transition(on: .watchingObserved(seconds: 600))
+        box.now += 35 * 60
+        engine.transition(on: .watchingObserved(seconds: 45 * 60))
+        box.failing = true
+        engine.transition(on: .idleObserved(seconds: 2))
+        return engine.awayDecisionError == nil
+            ? ["a Watching rest that failed to save left no error to show"] : []
     }
 }

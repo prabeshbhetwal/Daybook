@@ -657,9 +657,12 @@ final class SessionEngine {
         // exactly the work done before they left.
         guard archiveCurrentSession(endingAt: began) else { return }
         if absence >= store.minimumRecordedSession {
-            archive.append(SessionRecord(name: "Away", workType: .breakTime,
-                                         start: began, end: now(), workSeconds: absence,
-                                         threadID: UUID()))
+            // A rest that cannot be saved is reported like any other save.
+            if let error = archive.append(SessionRecord(name: "Away", workType: .breakTime,
+                                                        start: began, end: now(), workSeconds: absence,
+                                                        threadID: UUID())) {
+                awayDecisionError = error
+            }
         }
         beginFreshSession()
         activeThreadID = thread
@@ -679,9 +682,11 @@ final class SessionEngine {
             totalPausedDuration += watched
             addPausedSpan(began, end)
             if watched >= store.breakThreshold {
-                archive.append(SessionRecord(name: "Watching", workType: .breakTime,
-                                             start: began, end: end, workSeconds: watched,
-                                             threadID: UUID()))
+                if let error = archive.append(SessionRecord(name: "Watching", workType: .breakTime,
+                                                            start: began, end: end, workSeconds: watched,
+                                                            threadID: UUID())) {
+                    awayDecisionError = error
+                }
             }
         }
         pauseStartDate = nil
