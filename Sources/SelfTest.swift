@@ -82,7 +82,13 @@ enum SelfTest {
     private static func anchoredNow() -> Date {
         let now = Date()
         let dayStart = Calendar.current.startOfDay(for: now)
-        return now.timeIntervalSince(dayStart) < 3 * 3_600 ? dayStart.addingTimeInterval(12 * 3_600) : now
+        let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? now
+        // Both edges, measured on the calendar: a daylight-saving day is 23 or
+        // 25 hours. Fixtures step forward from here, and one started at 23:55
+        // crossed into the next day.
+        let nearMidnight = now.timeIntervalSince(dayStart) < 3 * 3_600
+            || nextDay.timeIntervalSince(now) < 3 * 3_600
+        return nearMidnight ? dayStart.addingTimeInterval(12 * 3_600) : now
     }
 
     /// An anchor that is safely inside its own week and month: fixtures that
