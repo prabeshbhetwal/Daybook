@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // MARK: - Categories
 
@@ -700,7 +701,13 @@ enum FocusConstants {
 }
 
 enum Diagnostics {
+    /// The unified log, readable in Console.app: an app opened from Finder has
+    /// no terminal, and its standard error goes nowhere. Standard error stays
+    /// for terminal runs and the self-test.
+    private static let logger = Logger(subsystem: FocusConstants.bundleIdentifier, category: "diagnostics")
+
     static func log(_ message: String) {
+        logger.error("\(message, privacy: .public)")
         FileHandle.standardError.write(Data("[FocusContinuity] \(message)\n".utf8))
     }
 }
