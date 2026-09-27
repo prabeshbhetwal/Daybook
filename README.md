@@ -72,7 +72,10 @@ the app's CPU use during normal work went from 0.9% to 0.1%.
 **Private by construction.** Everything stays on the Mac. The app stores app
 identity and time ranges, never content. It asks for no Accessibility,
 Automation, Screen Recording or Input Monitoring permission; idle detection
-uses system counters, not event content.
+uses system counters, not event content. The prompts you will see are
+notifications (at first launch, for break reminders), and microphone and
+speech recognition (only when you dictate a note). Launch at login, if you turn
+it on, adds a login item.
 
 ## How it is verified
 
