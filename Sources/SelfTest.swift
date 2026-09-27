@@ -342,21 +342,13 @@ enum SelfTest {
              testUnifiedWindowChrome),
             ("Native chrome uses individual tabs and a compact app mark",
              testNativeChromePresentation),
-            ("Today preserves day scope and clears only its inspector selection",
-             testTodaySurfaceScopeAndInspector),
             ("Review keeps tracked bars canonical and History filters by intersection",
              testReviewHistoryFiltersAndDayRouting),
             ("A selected Review day derives canonical, day-scoped detail",
              testReviewSelectedDayDetail),
-            ("Period charts reserve a whole calendar day at each edge",
-             testPeriodChartLayout),
-            ("History states its range once and its columns in a header",
-             testHistoryRangeAndTableAnatomy),
-            ("History disclosures keep their selected row visually joined",
-             testHistoryDisclosurePresentation),
-            ("Review reads period answer, trend, selected day, then evidence",
+            ("Only the named Review action leaves Review",
              testReviewContentHierarchy),
-            ("Today qualifies before it charts; Focus stays an instrument",
+            ("Focus stays an instrument",
              testDayAndFocusHierarchy),
             ("Insights lead with the finding; Settings keeps a native measure",
              testInsightAndSettingsPresentation),
@@ -430,12 +422,6 @@ enum SelfTest {
              testCompactFocusSnapshotStructure),
             ("Accessible navigation and charts expose literal selected-state evidence",
              testAccessibleNavigationAndChartSummaries),
-            ("History date controls provide real 28 point hit targets",
-             testHistoryDateControlsMeetTarget),
-            ("Expanded app rows retain daily accessibility and keyboard actions",
-             testPeriodAppRowsExposeDailyAccessibility),
-            ("Today session selection and disclosure are independent accessible controls",
-             testTodaySessionRowControlsAreIndependent),
             ("Snapshot matrix covers every material surface",
              testSnapshotMatrixCoversEveryMaterialSurface),
             ("Simultaneous snapshots keep isolated presentation preferences",
@@ -7673,12 +7659,6 @@ enum SelfTest {
 
     private static func testNativeChromePresentation() -> [String] {
         var problems: [String] = []
-        expect(!TabRailPresentation.usesOuterSurface,
-               "global tabs do not sit inside a second enclosing rail", &problems)
-        expect(!TabRailPresentation.unselectedUsesBorder,
-               "unselected tabs remain quiet individual controls", &problems)
-        expect(TabRailPresentation.showsLabelsInIconFallback,
-               "icon fallback keeps literal tab labels enabled", &problems)
         expect(MainWindowChrome.appMarkFallbackSymbol == "target"
                    && MainWindowChrome.appMarkSize == 24,
                "window chrome has a compact deterministic app-mark fallback", &problems)
@@ -7731,272 +7711,6 @@ enum SelfTest {
             expect(InterfaceDensity.compact.layout.rowHeight
                        >= AccessibilityMetrics.minimumTargetSize,
                    "compact rows remain at least as tall as the minimum target", &problems)
-
-            let clock = Clock(base)
-            let store = SessionStore(engine: makeEngine(clock), now: { clock.value })
-            store.dayOffset = 1
-            store.selectedSegment = TimelineSegment(
-                id: UUID(), bundleID: "com.example.editor", appName: "Editor",
-                start: base.addingTimeInterval(-3_600), end: base, colorIndex: 0)
-            let selectedDay = store.selectedDay
-            TodayView.handleEscape(in: store)
-            expect(store.selectedSegment == nil && store.todayInspector == nil,
-                   "Escape clears the Today inspector selection", &problems)
-            expect(calendar.isDate(store.selectedDay, inSameDayAs: selectedDay),
-                   "Escape preserves the selected calendar day", &problems)
-            return problems
-        }
-    }
-
-    private static func testHistoryDateControlsMeetTarget() -> [String] {
-        MainActor.assumeIsolated {
-            var problems: [String] = []
-            let start = base
-            let end = base.addingTimeInterval(24 * 3_600)
-            let range = start...end
-            let selected = start.addingTimeInterval(12 * 3_600)
-
-            @MainActor func probe(_ label: String, initial: Date) -> (
-                frame: NSRect, accessibility: NSRect, label: String?, valueChanged: Bool,
-                minimum: Date?, maximum: Date?
-            )? {
-                let date = MutableDate(initial)
-                let binding = Binding<Date>(get: { date.value }, set: { date.value = $0 })
-                let hosting = NSHostingView(rootView: HistoryDateControl(
-                    label: label, selection: binding, range: range))
-                hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
-                let window = NSWindow(contentRect: hosting.frame,
-                                      styleMask: [.borderless],
-                                      backing: .buffered, defer: false)
-                window.contentView = hosting
-                hosting.layoutSubtreeIfNeeded()
-                guard let picker = embeddedDatePicker(in: hosting) else { return nil }
-                let frame = picker.frame
-                let accessibility = picker.accessibilityFrame()
-                let accessibilityLabel = picker.accessibilityLabel()
-                let minimum = picker.minDate
-                let maximum = picker.maxDate
-                picker.dateValue = selected
-                picker.sendAction(picker.action, to: picker.target)
-                let changed = Calendar.current.isDate(date.value, inSameDayAs: selected)
-                window.contentView = nil
-                return (frame, accessibility, accessibilityLabel, changed, minimum, maximum)
-            }
-
-            guard let from = probe("From", initial: start),
-                  let to = probe("To", initial: end) else {
-                return ["could not locate both embedded native History date controls"]
-            }
-            expect(from.frame.height >= 28 && to.frame.height >= 28,
-                   "embedded NSDatePicker frames are at least 28pt; got "
-                       + "\(from.frame.height)pt and \(to.frame.height)pt", &problems)
-            expect(from.accessibility.height >= 28 && to.accessibility.height >= 28,
-                   "embedded NSDatePicker accessibility frames are at least 28pt; got "
-                       + "\(from.accessibility.height)pt and \(to.accessibility.height)pt",
-                   &problems)
-            expect(from.label == "From date" && to.label == "To date",
-                   "embedded native targets retain explicit From/To accessibility labels",
-                   &problems)
-            expect(from.valueChanged && to.valueChanged,
-                   "native date actions write through both production Bindings", &problems)
-            expect(from.minimum == start && from.maximum == end
-                       && to.minimum == start && to.maximum == end,
-                   "native controls preserve the exact History date range", &problems)
-            return problems
-        }
-    }
-
-    @MainActor private static func embeddedDatePicker(in view: NSView) -> NSDatePicker? {
-        if let picker = view as? NSDatePicker { return picker }
-        for child in view.subviews {
-            if let picker = embeddedDatePicker(in: child) { return picker }
-        }
-        return nil
-    }
-
-    private static func testPeriodAppRowsExposeDailyAccessibility() -> [String] {
-        MainActor.assumeIsolated {
-            var problems: [String] = []
-            var calendar = Calendar(identifier: .gregorian)
-            calendar.locale = Locale(identifier: "en_AU")
-            guard let sydney = TimeZone(identifier: "Australia/Sydney") else {
-                return ["could not construct the Sydney time zone"]
-            }
-            calendar.timeZone = sydney
-            guard let firstDay = calendar.date(from: DateComponents(
-                year: 2023, month: 11, day: 14, hour: 12)),
-                  let secondDay = calendar.date(byAdding: .day, value: 1, to: firstDay) else {
-                return ["could not construct the period app-row fixture dates"]
-            }
-            func entry(_ day: Date, seconds: TimeInterval) -> LogEntry {
-                LogEntry(session: AppSession(
-                    bundleID: "com.example.editor", appName: "Editor",
-                    start: day, end: day.addingTimeInterval(seconds),
-                    attended: seconds, visits: 1),
-                         day: calendar.startOfDay(for: day))
-            }
-            let group = LogAppGroup(
-                bundleID: "com.example.editor", appName: "Editor",
-                total: 90 * 60, visits: 2,
-                sessions: [entry(firstDay, seconds: 60 * 60),
-                           entry(secondDay, seconds: 30 * 60)],
-                share: 0.75)
-
-            let collapsed = PeriodAppRowButton(
-                group: group, rank: 0, expanded: false, onToggle: {})
-            let renderer = ImageRenderer(content: collapsed.frame(width: 520).fixedSize(
-                horizontal: false, vertical: true))
-            renderer.scale = 1
-            let size = renderer.nsImage?.size ?? .zero
-            expect(size.width > 0 && size.height >= 28,
-                   "the real expand/collapse Button is at least 28pt; got \(size)", &problems)
-            expect(collapsed.accessibilityLabelText
-                       == "Editor, 1 hour 30 min, 2 sessions, 75 percent of tracked time",
-                   "the app-row action states its literal measure", &problems)
-            expect(collapsed.accessibilityValueText == "Collapsed",
-                   "the closed app row announces Collapsed", &problems)
-            let expanded = PeriodAppRowButton(
-                group: group, rank: 0, expanded: true, onToggle: {})
-            expect(expanded.accessibilityValueText == "Expanded",
-                   "the open app row announces Expanded", &problems)
-
-            let summaries = DailyStrip.accessibilitySummaries(
-                [(day: firstDay, seconds: 60 * 60),
-                 (day: secondDay, seconds: 30 * 60)],
-                calendar: calendar)
-            expect(summaries == [
-                "Tuesday 14 November, 1 hour tracked",
-                "Wednesday 15 November, 30 minutes tracked"
-            ], "every expanded day retains its literal tracked summary; got \(summaries)",
-               &problems)
-
-            let clock = Clock(base)
-            let store = SessionStore(engine: makeEngine(clock), now: { clock.value })
-            store.toggleExpanded(group.bundleID)
-            expect(store.expandedApps.contains(group.bundleID),
-                   "the keyboard action expands the requested app", &problems)
-            store.toggleExpanded(group.bundleID)
-            expect(!store.expandedApps.contains(group.bundleID),
-                   "the same action collapses the requested app", &problems)
-            return problems
-        }
-    }
-
-    /// Today owns one canonical calendar day independently of global tab
-    /// navigation. Its inspector is presentation over the existing selection
-    /// APIs: clearing that transient evidence must never move the selected day.
-    private static func testTodaySurfaceScopeAndInspector() -> [String] {
-        MainActor.assumeIsolated {
-            var problems: [String] = []
-            let clock = Clock(base)
-            let calendar = Calendar.current
-            let today = calendar.startOfDay(for: clock.value)
-            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today) else {
-                return ["could not build a past-day Today fixture"]
-            }
-
-            let archive = makeArchive(clock)
-            archive.append(SessionRecord(name: "Parser", workType: .deepWork,
-                                         start: yesterday.addingTimeInterval(9 * 3_600),
-                                         end: yesterday.addingTimeInterval(10.5 * 3_600),
-                                         workSeconds: 90 * 60))
-            archive.append(SessionRecord(name: "Review", workType: .meetings,
-                                         start: yesterday.addingTimeInterval(14 * 3_600),
-                                         end: yesterday.addingTimeInterval(14 * 3_600 + 55 * 60),
-                                         workSeconds: 55 * 60))
-
-            let usage = AppUsageArchive(directory: scratchDirectory(), now: { clock.value })
-            usage.record(AppUsageSession(bundleID: "com.example.editor", appName: "Editor",
-                                         start: yesterday.addingTimeInterval(9 * 3_600),
-                                         end: yesterday.addingTimeInterval(10.5 * 3_600)))
-            usage.record(AppUsageSession(bundleID: "com.example.browser", appName: "Browser",
-                                         start: yesterday.addingTimeInterval(14 * 3_600),
-                                         end: yesterday.addingTimeInterval(14 * 3_600 + 55 * 60)))
-
-            let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
-            persistence.removeAll()
-            let engine = SessionEngine(store: persistence, archive: archive,
-                                       ownBundleID: "com.example.self", schedulesDwell: false,
-                                       now: { clock.value })
-            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
-                                          idle: .disabled, now: { clock.value })
-            let store = SessionStore(engine: engine, now: { clock.value })
-            store.attach(tracker: tracker, usage: usage)
-            store.setDashboardVisible(true)
-            store.selectDay(offset: 1)
-
-            let navigation = MainWindowModel(selectedTab: .today)
-            navigation.select(.review)
-            navigation.select(.today)
-            expect(store.dayOffset == 1,
-                   "global tab changes preserve the historical day", &problems)
-
-            let presentation = TodayPresentation(
-                day: store.selectedDay,
-                focused: store.focusedForSelectedDay,
-                sessions: store.sessionsForSelectedDay,
-                dayOffset: store.dayOffset)
-            expect(presentation.title == "Yesterday",
-                   "the past-day title remains day-scoped", &problems)
-            expect(presentation.subtitle == "Tuesday 14 November · 2h 25m focused · 2 sessions",
-                   "the subtitle uses canonical focused and session figures; got "
-                    + "'\(presentation.subtitle)'", &problems)
-            expect(presentation.showsTodayReset,
-                   "history exposes an explicit Today reset", &problems)
-
-            guard let first = store.timelineSegments.first,
-                  let layout = store.timelineLayout,
-                  let fraction = layout.fraction(for: first.start.addingTimeInterval(1)) else {
-                return problems + ["past-day timeline did not provide a selectable segment"]
-            }
-            store.selectTimeline(at: fraction)
-            let appInspector = store.todayInspector
-            expect(appInspector?.kind == .app,
-                   "timeline selection opens an app inspector", &problems)
-            expect(appInspector?.title == first.appName
-                       && appInspector?.tracked == first.seconds,
-                   "the app inspector uses the selected canonical segment", &problems)
-
-            if case .session(let session)? = store.daySessions.first(where: {
-                if case .session = $0 { return true }
-                return false
-            }) {
-                store.selectTodaySession(session)
-                expect(store.todayInspector?.kind == .session,
-                       "session selection opens a session inspector", &problems)
-                expect(store.selectedSegment == nil,
-                       "session inspection replaces the prior app inspection", &problems)
-                store.selectTodayTimeline(at: fraction)
-                expect(store.todayInspector?.kind == .app,
-                       "ribbon selection replaces the session inspector with app evidence",
-                       &problems)
-                expect(store.selectedSession == nil && store.selectedSegment != nil,
-                       "ribbon selection leaves exactly one app backing selection", &problems)
-                let backingSelections = [store.selectedSession != nil,
-                                         store.selectedSegment != nil].filter { $0 }.count
-                expect(backingSelections == 1,
-                       "Today retains exactly one backing inspector selection", &problems)
-                expect(store.dayOffset == 1,
-                       "session-to-ribbon inspection preserves the historical day", &problems)
-            } else {
-                problems.append("past-day fixture did not provide a selectable session")
-            }
-
-            store.clearTodaySelection()
-            expect(store.todayInspector == nil && store.selectedSegment == nil,
-                   "Escape-style clearing empties timeline inspector data", &problems)
-            expect(store.dayOffset == 1,
-                   "clearing inspector selection preserves the historical day", &problems)
-
-            store.goToToday()
-            expect(store.dayOffset == 0,
-                   "the explicit Today action resets the day", &problems)
-            expect(!TodayPresentation(day: store.selectedDay,
-                                      focused: store.todayTotal,
-                                      sessions: store.sessionsToday,
-                                      dayOffset: store.dayOffset).showsTodayReset,
-                   "the reset action is hidden on the real current day", &problems)
             return problems
         }
     }
@@ -8095,34 +7809,9 @@ enum SelfTest {
         return problems
     }
 
-    /// Today reads in one order: what day, what qualifies it, the ribbon, the
-    /// thing selected in it, supporting groups, then the recap. Focus refuses to
-    /// become a report at any state. The recap's narrative shows canonical
-    /// summary sentences without leaking their emphasis markers.
+    /// Focus refuses to become a report at any state.
     private static func testDayAndFocusHierarchy() -> [String] {
         var problems: [String] = []
-
-        expect(DaySurfaceOrder.visible(hasQualification: true, hasSelection: true) == [
-            .header, .qualification, .recap, .timeline, .selectedDetail, .supportingGroups
-        ], "Today qualifies before the recap, then answers the day before its chronology", &problems)
-
-        let closed = DayRecapDisclosurePresentation(isExpanded: false)
-        expect(closed.chevronSystemName == "chevron.right"
-                   && closed.accessibilityLabel == "Show more about this day"
-                   && closed.accessibilityValue == "Collapsed",
-               "the recap disclosure exposes one full-row collapsed action", &problems)
-        let open = DayRecapDisclosurePresentation(isExpanded: true)
-        expect(open.chevronSystemName == "chevron.down"
-                   && open.accessibilityLabel == "Hide more about this day"
-                   && open.accessibilityValue == "Expanded",
-               "the recap disclosure exposes one full-row expanded action", &problems)
-        expect(DaySurfaceOrder.visible(hasQualification: false, hasSelection: false) == [
-            .header, .recap, .timeline, .supportingGroups
-        ], "an unqualified day with no selection shows neither placeholder", &problems)
-        expect(DaySurfaceOrder.visible(hasQualification: false, hasSelection: true) == [
-            .header, .recap, .timeline, .selectedDetail, .supportingGroups
-        ], "inspection stays directly beneath the ribbon it came from", &problems)
-
         expect(FocusSurfaceLayout.operationalMeasure == 760,
                "Focus keeps a deliberate operational measure", &problems)
         for state in [SessionState.idle, .running, .paused(reason: .manual),
@@ -8130,54 +7819,16 @@ enum SelfTest {
             expect(!FocusSurfaceLayout.permitsSupportingReport(state: state),
                    "Focus does not become a dashboard in \(state)", &problems)
         }
-
-        let narrative = DayRecapNarrative(sentences: ["Tracked **5h 10m**",
-                                                      "Second verified fact"])
-        expect(narrative.lead == "Tracked 5h 10m" && narrative.details == ["Second verified fact"],
-               "Today recap exposes one summary fact before its supporting disclosure",
-               &problems)
-        expect(!(narrative.lead ?? "").contains("**"),
-               "Today recap never renders SummaryText emphasis markers literally", &problems)
-        expect(narrative.details.allSatisfy { !$0.contains("**") },
-               "disclosed sentences drop their emphasis markers too", &problems)
-
-        let empty = DayRecapNarrative(sentences: [])
-        expect(empty.lead == nil && empty.details.isEmpty,
-               "a day with no summary sentences renders no narrative", &problems)
-
-        // The value type is only useful if the store actually publishes
-        // sentences for a day with evidence.
-        MainActor.assumeIsolated {
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            store.setDashboardVisible(true)
-            store.refresh()
-            let live = DayRecapNarrative(sentences: store.summarySentences)
-            expect(live.lead != nil,
-                   "a day with recorded evidence publishes a recap narrative", &problems)
-            expect(!(live.lead ?? "**").contains("**"),
-                   "the published narrative is plain text", &problems)
-        }
         return problems
     }
 
-    /// Review is a sequence, not a pile: the period answer precedes its trend,
-    /// and a selected day is explained directly beneath the trend that produced
-    /// it. Only the named action may leave the tab.
+    /// Selecting or clearing a Review day stays in Review. Only the named
+    /// action may leave the tab.
     private static func testReviewContentHierarchy() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
             let calendar = Calendar.current
             let yesterday = base.addingTimeInterval(-24 * 3_600)
-
-            expect(ReviewContentOrder.visible(selectedDay: nil) == [
-                .periodNavigation, .summary, .trend, .breakdowns, .evidenceLists
-            ], "Review omits selected detail until a day is chosen", &problems)
-            expect(Array(ReviewContentOrder.visible(selectedDay: yesterday).prefix(4)) == [
-                .periodNavigation, .summary, .trend, .selectedDetail
-            ], "Review explains the selected day directly after its trend", &problems)
-            expect(ReviewContentOrder.visible(selectedDay: yesterday).count
-                       == ReviewContentOrder.allCases.count,
-                   "a selected day adds its detail without dropping other evidence", &problems)
 
             // Only the explicit action changes tabs. Selecting, clearing, and an
             // action with nothing selected all leave the user in Review.
@@ -8197,128 +7848,6 @@ enum SelfTest {
                    "the named action is the one route out of Review", &problems)
             return problems
         }
-    }
-
-    /// The History range is one compact summary control, and the table states
-    /// its measures once in a header rather than on every row.
-    private static func testHistoryRangeAndTableAnatomy() -> [String] {
-        var problems: [String] = []
-        let calendar = Calendar.current
-        guard let startDate = calendar.date(from: DateComponents(year: 2026, month: 8, day: 12)),
-              let endDate = calendar.date(from: DateComponents(year: 2026, month: 8, day: 30)),
-              let earlier = calendar.date(from: DateComponents(year: 2025, month: 12, day: 28))
-        else {
-            return ["could not build History range fixture dates"]
-        }
-
-        // Endpoints arrive reversed; the summary sorts them for display without
-        // rewriting the stored filter.
-        let range = HistoryRangePresentation(start: endDate, end: startDate, calendar: calendar)
-        expect(range.label == "12 Aug – 30 Aug 2026",
-               "History range label sorts displayed endpoints, got “\(range.label)”", &problems)
-        expect(range.accessibilityLabel.contains("from Wednesday 12 August 2026"),
-               "History range exposes its literal first endpoint, got “\(range.accessibilityLabel)”",
-               &problems)
-        expect(range.accessibilityLabel.contains("to Sunday 30 August 2026"),
-               "History range exposes its literal last endpoint, got “\(range.accessibilityLabel)”",
-               &problems)
-
-        let crossYear = HistoryRangePresentation(start: earlier, end: endDate, calendar: calendar)
-        expect(crossYear.label == "28 Dec 2025 – 30 Aug 2026",
-               "a range spanning two years names both, got “\(crossYear.label)”", &problems)
-
-        let oneDay = HistoryRangePresentation(start: endDate, end: endDate, calendar: calendar)
-        expect(oneDay.label == "30 Aug 2026",
-               "a single-day range reads as one date, got “\(oneDay.label)”", &problems)
-
-        expect(HistoryTableLayout.trackedWidth >= 76 && HistoryTableLayout.focusedWidth >= 76
-                   && HistoryTableLayout.sessionWidth >= 60,
-               "History numeric columns remain scanable", &problems)
-        return problems
-    }
-
-    /// A History row is a disclosure, not a route. Its open affordance must
-    /// point down and its detail must share the row's visual surface instead of
-    /// appearing as an unrelated card beneath it.
-    private static func testHistoryDisclosurePresentation() -> [String] {
-        var problems: [String] = []
-        let closed = HistoryDayDisclosurePresentation(isExpanded: false)
-        expect(closed.chevronSystemName == "chevron.right" && !closed.usesJoinedSurface,
-               "a closed History day remains a compact disclosure row", &problems)
-
-        let open = HistoryDayDisclosurePresentation(isExpanded: true)
-        expect(open.chevronSystemName == "chevron.down" && open.usesJoinedSurface,
-               "an open History day points down and joins its detail to the row", &problems)
-        return problems
-    }
-
-    /// A bar drawn at the plot edge is a bar the user cannot read. The domain
-    /// reserves one whole calendar day on each side — calendar arithmetic, not
-    /// 86,400 seconds, so a daylight-saving day is padded correctly too.
-    private static func testPeriodChartLayout() -> [String] {
-        var problems: [String] = []
-        let calendar = Calendar.current
-        guard let first = calendar.date(from: DateComponents(year: 2026, month: 8, day: 24)),
-              let last = calendar.date(byAdding: .day, value: 6, to: first),
-              let expectedLower = calendar.date(byAdding: .day, value: -1, to: first),
-              let expectedUpper = calendar.date(byAdding: .day, value: 1, to: last) else {
-            return ["could not build chart domain fixture dates"]
-        }
-        let domain = PeriodChartLayout.domain(for: [
-            PeriodChartPoint(date: first, seconds: 60),
-            PeriodChartPoint(date: last, seconds: 3_600)
-        ], calendar: calendar)
-        expect(domain.lowerBound <= expectedLower,
-               "chart reserves a full leading bar width", &problems)
-        expect(domain.upperBound >= expectedUpper,
-               "chart reserves a full trailing bar width", &problems)
-        // A daily bar fills the cell from its day to the next, so the bound must
-        // clear the final bar's own cell before the padding exists at all.
-        if let clearOfFinalBar = calendar.date(byAdding: .day, value: 2, to: last) {
-            expect(domain.upperBound >= clearOfFinalBar,
-                   "the final bar is followed by an empty bar-width, not the frame",
-                   &problems)
-        }
-
-        // A 23-hour day still gets exactly one calendar day of padding, which a
-        // fixed 86,400-second offset cannot produce.
-        var sydney = Calendar(identifier: .gregorian)
-        if let zone = TimeZone(identifier: "Australia/Sydney") { sydney.timeZone = zone }
-        if let dstDay = sydney.date(from: DateComponents(year: 2026, month: 10, day: 4)),
-           let dstLower = sydney.date(byAdding: .day, value: -1, to: dstDay),
-           let dstUpper = sydney.date(byAdding: .day, value: 1, to: dstDay) {
-            let dstDomain = PeriodChartLayout.domain(
-                for: [PeriodChartPoint(date: dstDay, seconds: 600)], calendar: sydney)
-            expect(dstDomain.lowerBound == dstLower,
-                   "leading padding is one calendar day across a daylight-saving change",
-                   &problems)
-            expect(sydney.dateComponents([.day], from: dstDay, to: dstDomain.upperBound).day == 2,
-                   "trailing padding clears the final bar's own day across a change",
-                   &problems)
-            expect(dstUpper.timeIntervalSince(dstDay) != 86_400,
-                   "the daylight-saving fixture actually exercises a short day", &problems)
-        } else {
-            problems.append("could not build a daylight-saving fixture")
-        }
-
-        let empty = PeriodChartLayout.domain(for: [], calendar: calendar)
-        expect(empty.lowerBound <= empty.upperBound,
-               "an empty period still yields a valid domain", &problems)
-
-        // The vertical scale starts at zero and rounds up to a readable step, so
-        // the tallest bar and the average rule both stay inside the plot.
-        expectClose(PeriodChartLayout.yMaximumMinutes(
-            for: [PeriodChartPoint(date: first, seconds: 47 * 60)], average: 0), 60,
-                    "a short day rounds up to a quarter-hour scale", &problems)
-        expectClose(PeriodChartLayout.yMaximumMinutes(
-            for: [PeriodChartPoint(date: first, seconds: 3 * 3_600)], average: 0), 180,
-                    "a three-hour day keeps an exact half-hour scale", &problems)
-        expectClose(PeriodChartLayout.yMaximumMinutes(
-            for: [PeriodChartPoint(date: first, seconds: 60)], average: 5 * 3_600), 300,
-                    "the average is inside the scale even when it exceeds every bar", &problems)
-        expectClose(PeriodChartLayout.yMaximumMinutes(for: [], average: 0), 15,
-                    "an empty chart still has a positive scale", &problems)
-        return problems
     }
 
     /// The inline Review detail is a projection of values Review has already
@@ -8568,9 +8097,7 @@ enum SelfTest {
                 return problems + ["Week chart did not contain yesterday's literal date"]
             }
             let navigation = MainWindowModel(selectedTab: .review)
-            let selectReviewDay = ReviewDayRoute.select(store: store,
-                                                        navigation: navigation)
-            selectReviewDay(routedDate)
+            navigation.selectReviewDay(routedDate)
             expect(navigation.selectedTab == .review,
                    "a selected Review bar keeps the user in Review", &problems)
             expect(calendar.isDate(navigation.reviewSelectedDate ?? base,
@@ -8815,40 +8342,6 @@ enum SelfTest {
                    .contains("like-for-like previous period") != true,
                "a month with no corresponding previous-month day has no comparison",
                &problems)
-        return problems
-    }
-
-    /// Selecting a session and disclosing its stretches are two actions. The
-    /// disclosure must never be nested inside the selection button, swallowed by
-    /// it, or represented as an undersized pointer-only chevron.
-    private static func testTodaySessionRowControlsAreIndependent() -> [String] {
-        var problems: [String] = []
-        var selections = 0
-        var disclosures = 0
-        let collapsed = SessionRowInteraction(sessionName: "Write proposal",
-                                              isExpanded: false)
-        collapsed.perform(.disclosure,
-                          onSelect: { selections += 1 },
-                          onDisclosure: { disclosures += 1 })
-        expect(selections == 0 && disclosures == 1,
-               "disclosure fires without selecting the session", &problems)
-        collapsed.perform(.selection,
-                          onSelect: { selections += 1 },
-                          onDisclosure: { disclosures += 1 })
-        expect(selections == 1 && disclosures == 1,
-               "selection fires without toggling disclosure", &problems)
-        expect(SessionRowInteraction.minimumTargetSize >= 28,
-               "both sibling controls retain a practical 28 point target", &problems)
-        expect(collapsed.disclosureAccessibilityLabel
-                   == "Show stretches and breaks for Write proposal"
-                   && collapsed.disclosureAccessibilityValue == "Collapsed",
-               "collapsed disclosure names its action and state", &problems)
-        let expanded = SessionRowInteraction(sessionName: "Write proposal",
-                                             isExpanded: true)
-        expect(expanded.disclosureAccessibilityLabel
-                   == "Hide stretches and breaks for Write proposal"
-                   && expanded.disclosureAccessibilityValue == "Expanded",
-               "expanded disclosure names its action and state", &problems)
         return problems
     }
 

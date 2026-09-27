@@ -306,8 +306,6 @@ enum Snapshotter {
                               firstRun: coach(for: item.scenario),
                               presentsNativeSheets: false)
             .snapshotAppearance(item.appearance)
-            .environment(\.todayRecapInitiallyExpanded,
-                         item.scenario == .todayHistoryExpanded)
             .environment(\.storyEntryInitiallyOpen, item.scenario.opensStoryEntry)
             // The static renderer cannot draw an AppKit drag source.
             .environment(\.storyTilesAreDraggable, false)

@@ -29,26 +29,6 @@ extension View {
     }
 }
 
-/// Share of something, as a 6pt bar in a well. The number beside it carries
-/// the fact; this carries the shape.
-struct DataBar: View {
-    let share: Double
-    let tint: Color
-
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Tokens.Colour.elevated)
-                Capsule()
-                    .fill(tint)
-                    .frame(width: max(3, geometry.size.width * min(1, max(0, share))))
-            }
-        }
-        .frame(height: 6)
-        .accessibilityHidden(true)
-    }
-}
-
 /// An app's icon with its palette colour beside it, so the row is its own
 /// legend. Falls back to a rounded square in the colour when the app has no
 /// icon on this machine.

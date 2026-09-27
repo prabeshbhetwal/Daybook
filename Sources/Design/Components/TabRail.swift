@@ -8,12 +8,6 @@ enum AccessibilityMetrics {
     static let minimumTargetSize: CGFloat = 28
 }
 
-enum TabRailPresentation {
-    static let usesOuterSurface = false
-    static let unselectedUsesBorder = false
-    static let showsLabelsInIconFallback = true
-}
-
 extension AppTab {
     func accessibilityLabel(isSelected: Bool) -> String {
         "\(title), \(isSelected ? "selected" : "not selected"), Command \(commandNumber)"

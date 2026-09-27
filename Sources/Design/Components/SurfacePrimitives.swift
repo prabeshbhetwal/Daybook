@@ -42,66 +42,6 @@ struct SurfacePanel<Content: View>: View {
     }
 }
 
-struct AppUsageRow: View {
-    @Environment(\.focusInterfaceDensity) private var density
-    let appName: String
-    let bundleID: String?
-    let rank: Int
-    let seconds: TimeInterval
-    let share: Double?
-    let layoutOverride: InterfaceDensity.Layout?
-    var onRow: (() -> Void)?
-
-    init(appName: String, bundleID: String? = nil, rank: Int = 0, seconds: TimeInterval,
-         share: Double? = nil, layout: InterfaceDensity.Layout? = nil,
-         onRow: (() -> Void)? = nil) {
-        self.appName = appName
-        self.bundleID = bundleID
-        self.rank = rank
-        self.seconds = seconds
-        self.share = share
-        self.layoutOverride = layout
-        self.onRow = onRow
-    }
-
-    private var layout: InterfaceDensity.Layout {
-        layoutOverride ?? density.layout
-    }
-
-    @ViewBuilder
-    var body: some View {
-        if let onRow {
-            Button(action: onRow) { row }
-                .buttonStyle(StoryPressStyle())
-        } else {
-            row
-        }
-    }
-
-    private var row: some View {
-        HStack(spacing: Tokens.Space.s) {
-            AppSwatch(rank: rank, bundleID: bundleID, appName: appName, size: 18)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(appName)
-                    .font(Tokens.Typography.rowTitle)
-                    .lineLimit(1)
-                Text(Tokens.preciseDuration(seconds))
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let share {
-                DataBar(share: min(1, max(0, share)),
-                        tint: Tokens.Palette.app(rank: rank))
-                    .frame(width: 90)
-            }
-        }
-        .frame(minHeight: layout.rowHeight)
-        .contentShape(Rectangle())
-        .accessibilityLabel("\(appName), \(Tokens.preciseDuration(seconds))")
-    }
-}
-
 struct EmptyState: View {
     let message: String
     let detail: String?

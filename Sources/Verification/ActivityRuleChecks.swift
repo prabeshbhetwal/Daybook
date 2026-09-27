@@ -989,7 +989,6 @@ enum ActivityRuleChecks {
                 catalog.refresh()
                 RunLoop.current.run(until: Date().addingTimeInterval(0.3))
                 let queryBox = TextBox(); queryBox.text = query
-                let selectionBox = SetBox()
                 let rows = CountBox()
                 let view = InstalledAppPicker(
                     catalog: catalog,
@@ -1007,7 +1006,6 @@ enum ActivityRuleChecks {
                 RunLoop.current.run(until: Date().addingTimeInterval(0.2))
                 host.layoutSubtreeIfNeeded()
                 window.orderOut(nil); window.contentView = nil
-                _ = selectionBox
                 return rows.value
             }
             var failures: [String] = []
