@@ -455,7 +455,7 @@ enum Snapshotter {
 
     static func navigation(for scenario: SnapshotScenario,
                                    store: SessionStore) -> MainWindowModel {
-        let navigation = MainWindowModel(selectedTab: scenario.tab ?? .story, store: store)
+        let navigation = MainWindowModel(opening: scenario.tab ?? .story, store: store)
         switch scenario {
         case .storyDay, .storyDayEntry, .storyShape, .storyMeeting, .storyLive, .storyDecision:
             navigation.storyScope = .day
@@ -478,7 +478,7 @@ enum Snapshotter {
             navigation.selectScope(.week)
             if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
         case .reviewHistorySelection:
-            navigation.openSheet(.history)
+            navigation.open(tab: .review)
             navigation.insightRange = .month
             if let day = store.filteredHistoryDays.first?.date {
                 navigation.selectReviewDay(day)

@@ -361,13 +361,13 @@ enum StoryInteractionChecks {
             navigation.openStoryDay(f.clock.value.addingTimeInterval(-86_400))
             let day = f.store.selectedDay
             navigation.selectScope(.month)
-            navigation.openSheet(.focus)
+            navigation.open(tab: .focus)
             navigation.revealApplication()
             guard navigation.sheet == nil, navigation.storyScope == .month,
                   Calendar.current.isDate(f.store.selectedDay, inSameDayAs: day) else {
                 return ["Open FocusContinuity forced a session sheet or discarded the selected Story"]
             }
-            navigation.openSheet(.focus)
+            navigation.open(tab: .focus)
             return navigation.sheet == nil && navigation.sessionControlsExpanded
                 ? [] : ["explicit in-window session controls became unreachable"]
         }

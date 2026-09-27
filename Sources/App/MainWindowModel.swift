@@ -73,10 +73,11 @@ enum InsightRange: String, CaseIterable {
     case month
 }
 
+/// What fills the window below the chrome: the story, or History reading
+/// the past across spans.
 enum MainReadingWorkspace: String, CaseIterable {
     case story
     case history
-    case insights
 }
 
 enum MainWindowFocusTarget: Equatable {
@@ -128,48 +129,24 @@ enum AppearancePreference: String, CaseIterable {
     }
 }
 
-/// Attached panels plus compatibility routes. History and Insights are reading
-/// workspaces; Focus is intercepted into the in-window strip; Awards and
-/// Settings remain attached sheets.
+/// The panels attached over the story. History is a reading workspace and
+/// session controls are an in-window strip, so neither is a sheet.
 enum StorySheetKind: String, CaseIterable, Identifiable {
-    case focus, history, insights, awards, settings
+    case awards, settings
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .focus: return "Focus session"
-        case .history: return "History"
-        case .insights: return "History"
         case .awards: return "Awards"
         case .settings: return "Settings"
         }
     }
-
-    var tab: AppTab {
-        switch self {
-        case .focus: return .focus
-        case .history: return .review
-        case .insights: return .insights
-        case .awards: return .awards
-        case .settings: return .settings
-        }
-    }
-
-    init?(tab: AppTab) {
-        switch tab {
-        case .focus: self = .focus
-        case .review: self = .history
-        case .insights: self = .insights
-        case .awards: self = .awards
-        case .settings: self = .settings
-        default: return nil
-        }
-    }
 }
 
+/// The window's route. `AppTab` is only the vocabulary callers use to ask for
+/// a place; what is showing is `workspace`, `sheet` and the session strip.
 @MainActor final class MainWindowModel: ObservableObject {
-    @Published var selectedTab: AppTab
     @Published private(set) var workspace: MainReadingWorkspace = .story
     @Published private(set) var requestedDate: Date?
     /// The day Review is inspecting, or nil when nothing is selected. It is
@@ -213,34 +190,35 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     private weak var store: SessionStore?
     private var periodObservation: AnyCancellable?
 
-    init(selectedTab: AppTab = .story,
+    init(opening route: AppTab = .story,
          storyScope: StoryScope = .day,
          requestedDate: Date? = nil,
          store: SessionStore? = nil) {
-        self.selectedTab = selectedTab == .focus ? .story : selectedTab
         self.storyScope = storyScope
         self.requestedDate = requestedDate
         let insightToday = Calendar.current.startOfDay(for: store?.now() ?? Date())
         self.insightAnchors = Dictionary(uniqueKeysWithValues:
             InsightRange.allCases.map { ($0, insightToday) })
         self.insightPageCounts = [.day: 14, .week: 6, .month: 3]
-        // Construction and selection must agree: a model built on a sheet-backed
-        // tab is already presenting that sheet, or restoring one would show the
-        // story with no sign of the surface that was asked for.
-        switch selectedTab {
+        // A model built on a sheet's route is already presenting that sheet, or
+        // restoring one would show the story with no sign of what was asked for.
+        switch route {
         case .focus:
             self.workspace = .story
             self.sheet = nil
             self.sessionControlsExpanded = true
-        case .review:
-            self.workspace = .insights
+        case .review, .insights:
+            self.workspace = .history
             self.sheet = nil
-        case .insights:
-            self.workspace = .insights
-            self.sheet = nil
-        default:
+        case .awards:
             self.workspace = .story
-            self.sheet = StorySheetKind(tab: selectedTab)
+            self.sheet = .awards
+        case .settings:
+            self.workspace = .story
+            self.sheet = .settings
+        case .story, .today:
+            self.workspace = .story
+            self.sheet = nil
         }
         if let store { connect(to: store) }
     }
@@ -250,26 +228,29 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             performSessionControlsAction(.commandOrMenu)
             return
         }
-        selectedTab = tab
         animated(Tokens.Motion.swap) {
             switch tab {
             case .review:
                 // History is the reading page across spans; the archive's
-                // days feed its Year span and its search.
-                workspace = .insights
+                // days feed its search.
+                workspace = .history
                 sheet = nil
                 reviewSection = .history
                 store?.refreshReview()
                 store?.refreshInsights()
             case .insights:
-                workspace = .insights
+                workspace = .history
                 sheet = nil
                 store?.refreshInsights()
             case .story:
                 workspace = .story
                 sheet = nil
-            default:
-                sheet = StorySheetKind(tab: tab)
+            case .awards:
+                sheet = .awards
+            case .settings:
+                sheet = .settings
+            case .today, .focus:
+                sheet = nil
             }
         }
         if tab == .today {
@@ -279,7 +260,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 
     func openToday(date: Date) {
         requestedDate = date
-        selectedTab = .today
         animated(Tokens.Motion.swap) {
             workspace = .story
             sheet = nil
@@ -313,20 +293,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     func openSheet(_ kind: StorySheetKind) {
-        switch kind {
-        case .focus: performSessionControlsAction(.commandOrMenu)
-        case .history: open(tab: .review)
-        case .insights: open(tab: .insights)
-        default:
-            selectedTab = kind.tab
-            sheet = kind
-        }
+        sheet = kind
     }
 
     func closeSheet() {
         if sheet == .settings { focusRestorationRequest = .settings }
         sheet = nil
-        selectedTab = tab(for: workspace)
     }
 
     /// One source-typed boundary for every session-controls invocation. The
@@ -378,7 +350,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         if storyScope == .day {
             workspace = .story
             showDay(calendar.startOfDay(for: date))
-            selectedTab = .story
         } else {
             toggleExpandedStoryDay(date, calendar: calendar)
         }
@@ -411,7 +382,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         animated(Tokens.Motion.swap) {
             workspace = .story
             sheet = nil
-            selectedTab = .story
             if scope != storyScope, let store {
                 let anchor = storyScope == .day ? store.selectedDay
                     : storySelectedDay ?? store.reviewAnchor ?? store.now()
@@ -444,7 +414,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         animated(Tokens.Motion.swap) {
             workspace = .story
             sheet = nil
-            selectedTab = .story
             storySelectedDay = nil
             expandedStoryDay = nil
             if scope == .day {
@@ -521,7 +490,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         animated(Tokens.Motion.swap) {
             sheet = nil
             workspace = .story
-            selectedTab = .story
         }
     }
 
@@ -699,14 +667,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             }
             let end = calendar.date(byAdding: .day, value: -1, to: bounds.end) ?? bounds.start
             return Tokens.dateRange(bounds.start, end, now: store?.now() ?? Date(), calendar: calendar)
-        }
-    }
-
-    private func tab(for workspace: MainReadingWorkspace) -> AppTab {
-        switch workspace {
-        case .story: return .story
-        case .history: return .review
-        case .insights: return .insights
         }
     }
 }

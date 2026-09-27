@@ -12,7 +12,6 @@ struct MainWindowView: View {
     /// that builds this window can leave it at its default.
     @ObservedObject var firstRun = FirstRunCoach()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var focusScrolls = true
     var reviewScrolls = true
     var insightsScrolls = true
     var settingsScrolls = true
@@ -139,7 +138,7 @@ struct MainWindowView: View {
             case .story:
             StoryCanvas(store: store, navigation: navigation, settings: settings,
                         scrolls: reviewScrolls)
-            case .history, .insights:
+            case .history:
                 InsightsView(store: store, navigation: navigation,
                              scrolls: insightsScrolls)
                     .onAppear {
@@ -152,8 +151,7 @@ struct MainWindowView: View {
         .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
     }
 
-    /// Attached panels. Focus, History and Insights remain compatibility enum
-    /// cases, but MainWindowModel routes them before this presentation boundary.
+    /// Attached panels over the story.
     private func sheetContent(_ presented: StorySheetKind, within window: CGSize?) -> some View {
         let size = SettingsLayout.sheetSize(for: presented, within: window)
         return sheetBody(presented)
@@ -163,23 +161,9 @@ struct MainWindowView: View {
     private func sheetBody(_ presented: StorySheetKind) -> some View {
         StorySheet(title: presented.title, onClose: { navigation.closeSheet() }) {
                 switch presented {
-                case .focus:
-                    FocusView(store: store, scrolls: focusScrolls)
-                case .history:
-                    InsightsView(store: store, navigation: navigation, scrolls: insightsScrolls)
-                    .onAppear {
-                        store.setReviewVisible(true)
-                        store.refreshReview()
-                    }
-                    .onDisappear {
-                        store.setReviewVisible(navigation.storyScope.period != nil)
-                    }
                 case .settings:
                     SettingsView(model: settings, navigation: navigation,
                                  scrolls: settingsScrolls)
-                case .insights:
-                    InsightsView(store: store, navigation: navigation,
-                                 scrolls: insightsScrolls)
                 case .awards:
                     AwardsView(store: store, scrolls: insightsScrolls)
                 }

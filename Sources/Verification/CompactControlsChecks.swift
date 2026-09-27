@@ -38,7 +38,7 @@ enum CompactControlsChecks {
             let workspace = navigation.workspace
             let scope = navigation.storyScope
 
-            navigation.openSheet(.focus)
+            navigation.open(tab: .focus)
 
             var failures: [String] = []
             if navigation.sheet != nil {

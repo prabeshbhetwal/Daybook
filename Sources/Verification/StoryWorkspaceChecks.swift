@@ -129,17 +129,17 @@ enum StoryWorkspaceChecks {
             navigation.openSettings()
             navigation.closeSheet()
             var failures: [String] = []
-            if navigation.workspace != .insights {
+            if navigation.workspace != .history {
                 failures.append("Closing Settings did not restore History")
             }
             navigation.open(tab: .insights)
             navigation.openSettings()
             navigation.closeSheet()
-            if navigation.workspace != .insights {
+            if navigation.workspace != .history {
                 failures.append("Closing Settings did not restore Insights")
             }
             navigation.revealApplication()
-            if navigation.workspace != .insights {
+            if navigation.workspace != .history {
                 failures.append("Generic Open discarded the current reading workspace")
             }
             navigation.returnToStory()
@@ -227,7 +227,7 @@ enum StoryWorkspaceChecks {
             let calendar = Calendar.current
             let store = FixtureFactory.insightsStore(withEvidence: true)
             defer { FixtureFactory.cleanUp() }
-            let navigation = MainWindowModel(selectedTab: .insights, store: store)
+            let navigation = MainWindowModel(opening: .insights, store: store)
             navigation.open(tab: .insights)
             guard let earliest = store.earliestSelectableDay else {
                 return ["The evidence fixture has no first recorded day to clamp to"]
@@ -266,7 +266,7 @@ enum StoryWorkspaceChecks {
             }
             // Nothing recorded: one period, the current one, and no invented past.
             let bare = FixtureFactory.store(for: .firstRun)
-            let fresh = MainWindowModel(selectedTab: .insights, store: bare)
+            let fresh = MainWindowModel(opening: .insights, store: bare)
             fresh.open(tab: .insights)
             for scope in InsightRange.allCases {
                 fresh.selectInsightRange(scope)

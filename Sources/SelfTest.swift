@@ -6741,17 +6741,17 @@ enum SelfTest {
         var problems: [String] = []
         MainActor.assumeIsolated {
             for scope in StoryScope.allCases {
-                let window = MainWindowModel(selectedTab: .story, storyScope: scope)
+                let window = MainWindowModel(opening: .story, storyScope: scope)
                 expect(window.storyScope == scope,
                        "a window built for \(scope.title) opens on \(scope.title)", &problems)
                 expect(window.sheet == nil,
                        "the story itself presents no sheet at \(scope.title)", &problems)
             }
 
-            let settings = MainWindowModel(selectedTab: .settings)
+            let settings = MainWindowModel(opening: .settings)
             expect(settings.sheet == .settings,
                    "a window built on Settings is already presenting Settings", &problems)
-            let awards = MainWindowModel(selectedTab: .awards)
+            let awards = MainWindowModel(opening: .awards)
             expect(awards.sheet == .awards,
                    "a window built on Awards is already presenting Awards", &problems)
             settings.closeSheet()
@@ -7508,7 +7508,7 @@ enum SelfTest {
     }
 
     /// Deep links and commands share one navigation model. A wrong branch here
-    /// would leave the selected tab and the requested day disagreeing.
+    /// would leave what is showing and the requested day disagreeing.
     private static func testMainWindowRoutesAndCommands() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
@@ -7517,21 +7517,22 @@ enum SelfTest {
             let yesterday = base.addingTimeInterval(-24 * 3_600)
 
             navigation.open(tab: .review)
-            expect(navigation.selectedTab == .review,
-                   "review route selects Review", &problems)
+            expect(navigation.workspace == .history && navigation.sheet == nil,
+                   "review route shows History", &problems)
             navigation.openToday(date: yesterday)
-            expect(navigation.selectedTab == .today && navigation.requestedDate == yesterday,
-                   "day links route into Today", &problems)
+            expect(navigation.workspace == .story && navigation.storyScope == .day
+                   && navigation.requestedDate == yesterday,
+                   "day links route into the day's story", &problems)
             navigation.openSettings()
-            expect(navigation.selectedTab == .settings,
+            expect(navigation.sheet == .settings,
                    "command-comma routes to Settings", &problems)
 
             // Selecting a day in Review is inspection, not navigation: only the
             // explicit action may move the user to another tab.
-            let reviewNavigation = MainWindowModel(selectedTab: .review)
+            let reviewNavigation = MainWindowModel(opening: .review)
             reviewNavigation.selectReviewDay(yesterday, calendar: calendar)
-            expect(reviewNavigation.selectedTab == .review,
-                   "selecting a Review day keeps Review selected", &problems)
+            expect(reviewNavigation.workspace == .history,
+                   "selecting a Review day keeps History showing", &problems)
             expect(calendar.isDate(reviewNavigation.reviewSelectedDate ?? base,
                                    inSameDayAs: yesterday),
                    "Review stores the literal selected local day", &problems)
@@ -7709,13 +7710,13 @@ enum SelfTest {
             let calendar = Calendar.current
             let yesterday = base.addingTimeInterval(-24 * 3_600)
 
-            let navigation = MainWindowModel(selectedTab: .review)
+            let navigation = MainWindowModel(opening: .review)
             navigation.selectReviewDay(yesterday, calendar: calendar)
-            expect(navigation.selectedTab == .review,
-                   "selecting a day does not leave Review", &problems)
+            expect(navigation.workspace == .history,
+                   "selecting a day does not leave History", &problems)
             navigation.clearReviewDay()
-            expect(navigation.selectedTab == .review,
-                   "closing the detail does not leave Review", &problems)
+            expect(navigation.workspace == .history,
+                   "closing the detail does not leave History", &problems)
             return problems
         }
     }
@@ -7953,10 +7954,10 @@ enum SelfTest {
                 .first(where: { $0.date == yesterday })?.date else {
                 return problems + ["Week chart did not contain yesterday's literal date"]
             }
-            let navigation = MainWindowModel(selectedTab: .review)
+            let navigation = MainWindowModel(opening: .review)
             navigation.selectReviewDay(routedDate)
-            expect(navigation.selectedTab == .review,
-                   "a selected Review bar keeps the user in Review", &problems)
+            expect(navigation.workspace == .history,
+                   "a selected Review bar keeps the user in History", &problems)
             expect(calendar.isDate(navigation.reviewSelectedDate ?? base,
                                    inSameDayAs: yesterday),
                    "a selected Review bar selects its literal date in Review", &problems)

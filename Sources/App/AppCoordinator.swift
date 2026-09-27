@@ -43,7 +43,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// Its first story comes from the persisted preference exactly once at
     /// launch.
     @MainActor private(set) lazy var mainWindow = MainWindowModel(
-        selectedTab: .story,
+        opening: .story,
         storyScope: settings.defaultStoryScope,
         store: store)
 

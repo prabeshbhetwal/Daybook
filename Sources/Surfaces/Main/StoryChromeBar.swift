@@ -132,7 +132,7 @@ struct StoryChromeBar: View {
                 .coachAnchor(.periodNav)
             Spacer(minLength: Tokens.Space.s)
             crossLinks
-        case .history, .insights:
+        case .history:
             // History reads any span of the past, a year included, and
             // finds a session with ⌘F; the same bar either way.
             ScopePillRow(titles: InsightRange.allCases.map(\.title),
@@ -157,7 +157,7 @@ struct StoryChromeBar: View {
     /// the text colour and is not a link, the way a menu marks its own item.
     private var crossLinks: some View {
         HStack(spacing: Tokens.Space.xs) {
-            crossLink("History", .history, current: navigation.workspace != .story)
+            crossLink("History", current: navigation.workspace != .story) { navigation.open(tab: .review) }
         }
     }
 
@@ -171,8 +171,8 @@ struct StoryChromeBar: View {
         .accessibilityLabel(navigation.historySearchShown ? "Hide search" : "Find a session")
     }
 
-    @ViewBuilder private func crossLink(_ title: String, _ sheet: StorySheetKind,
-                                        current: Bool) -> some View {
+    @ViewBuilder private func crossLink(_ title: String, current: Bool,
+                                        action: @escaping () -> Void) -> some View {
         if current {
             Text(title)
                 .font(Tokens.Typography.metadata.weight(.semibold))
@@ -184,7 +184,7 @@ struct StoryChromeBar: View {
                 .accessibilityAddTraits([.isHeader, .isSelected])
                 .accessibilityLabel("\(title), current")
         } else {
-            Button(title) { navigation.openSheet(sheet) }
+            Button(title, action: action)
                 .buttonStyle(StoryLinkStyle())
         }
     }

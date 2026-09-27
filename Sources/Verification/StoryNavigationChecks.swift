@@ -12,7 +12,7 @@ enum StoryNavigationChecks {
             var failures: [String] = []
             let navigation = MainWindowModel(storyScope: .month)
             navigation.open(tab: .insights)
-            if navigation.workspace != .insights || navigation.sheet != nil {
+            if navigation.workspace != .history || navigation.sheet != nil {
                 failures.append("Insights command did not present its same-window workspace")
             }
             navigation.open(tab: .settings)
@@ -90,7 +90,7 @@ enum StoryNavigationChecks {
                 failures.append("July retained an August selection")
             }
             navigation.open(tab: .review)
-            if navigation.workspace != .insights || store.historyDays.isEmpty {
+            if navigation.workspace != .history || store.historyDays.isEmpty {
                 failures.append("History route did not present searchable evidence")
             }
             let emptyDay = calendar.date(byAdding: .day, value: -1, to: chosen)!
