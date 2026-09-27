@@ -79,7 +79,10 @@ enum AppUsageConstants {
     /// Stepping away and returning to the same app inside this window is still
     /// one session, provided nothing else was used meanwhile.
     static let awayBridge: TimeInterval = 900
-    static let capacity = 20_000
+    /// Journal lines kept before the snapshot is rewritten. A minute's
+    /// checkpoint is one line, so this bounds the journal to hours of changes
+    /// while a full rewrite happens a few times a day instead of every minute.
+    static let journalCompactionThreshold = 500
 }
 
 /// One authoritative in-memory view of app usage. Durable records remain
@@ -188,8 +191,14 @@ struct AppUsageSnapshot {
     }
 }
 
-/// Local-only per-app usage history. Same shape as `SessionArchive`: a plain
-/// Codable file, atomic writes, corrupt files moved aside rather than lost.
+/// Local-only per-app usage history: a Codable snapshot plus an append-only
+/// journal of the changes since it was written. Corrupt files are moved aside
+/// rather than lost, and brought back once a build can read them again.
+///
+/// Every checkpoint used to rewrite the whole history, so a minute's heartbeat
+/// on the open stretch cost the full file, and the history had to be capped to
+/// keep that affordable. A change is now one journal line; the snapshot is
+/// rewritten only when the journal is long, and nothing is ever dropped.
 final class AppUsageArchive {
 
     /// The on-disk v2 shape. Keeping this private lets the archive evolve its
@@ -199,8 +208,17 @@ final class AppUsageArchive {
         let sessions: [AppUsageSession]
     }
 
+    /// One change since the snapshot. Replaying is idempotent, so a crash
+    /// between writing the snapshot and clearing the journal loses nothing.
+    private enum JournalChange: Codable {
+        case upsert(AppUsageSession)
+        case remove(UUID)
+    }
+
     private let directory: URL
     private let fileURL: URL
+    private let journalURL: URL
+    private var journalEntries = 0
     private let now: () -> Date
     private let calendar: Calendar
     private var cache: [AppUsageSession]
@@ -219,11 +237,15 @@ final class AppUsageArchive {
          now: @escaping () -> Date = Date.init) {
         self.directory = directory
         self.fileURL = directory.appendingPathComponent("app-usage.json")
+        self.journalURL = directory.appendingPathComponent("app-usage-journal.jsonl")
         self.now = now
         self.calendar = calendar
         self.cache = []
         self.metadata = AppUsageMetadata(accurateFrom: now())
         self.cache = load()
+        guard !isReadOnly else { return }
+        replayJournal()
+        recoverSetAsideFiles()
     }
 
     /// Processes that are the system talking to itself, never work the user
@@ -267,11 +289,7 @@ final class AppUsageArchive {
               session.seconds >= AppUsageConstants.minimumSegment else { return false }
         var candidate = cache
         candidate.append(session)
-
-        if candidate.count > AppUsageConstants.capacity {
-            candidate.removeFirst(candidate.count - AppUsageConstants.capacity)
-        }
-        return persistMutation(candidate)
+        return persistMutation(candidate, change: .upsert(session))
     }
 
     /// Inserts a newly observed stretch or corrects the existing stretch with
@@ -284,12 +302,12 @@ final class AppUsageArchive {
             guard session.seconds >= AppUsageConstants.minimumSegment else {
                 var candidate = cache
                 candidate.remove(at: index)
-                return persistMutation(candidate)
+                return persistMutation(candidate, change: .remove(session.id))
             }
             guard cache[index] != session else { return true }
             var candidate = cache
             candidate[index] = session
-            return persistMutation(candidate)
+            return persistMutation(candidate, change: .upsert(session))
         }
 
         // There is nothing to persist or roll back for an unsaved stretch below
@@ -298,10 +316,7 @@ final class AppUsageArchive {
         guard session.seconds >= AppUsageConstants.minimumSegment else { return true }
         var candidate = cache
         candidate.append(session)
-        if candidate.count > AppUsageConstants.capacity {
-            candidate.removeFirst(candidate.count - AppUsageConstants.capacity)
-        }
-        return persistMutation(candidate)
+        return persistMutation(candidate, change: .upsert(session))
     }
 
     // MARK: - Queries
@@ -355,7 +370,11 @@ final class AppUsageArchive {
             return preserveCorruptFile(after: error)
         }
 
-        if let envelope = try? JSONDecoder().decode(Envelope.self, from: data) {
+        // Both attempts' errors are kept: the v1 fallback always fails on a v2
+        // file with "expected an array", which hid why the envelope failed.
+        let envelopeError: Error
+        do {
+            let envelope = try JSONDecoder().decode(Envelope.self, from: data)
             metadata = envelope.metadata
             guard envelope.metadata.schemaVersion == 2 else {
                 isReadOnly = true
@@ -363,13 +382,15 @@ final class AppUsageArchive {
                 return envelope.sessions
             }
             return envelope.sessions
+        } catch {
+            envelopeError = error
         }
 
         let legacy: [AppUsageSession]
         do {
             legacy = try JSONDecoder().decode([AppUsageSession].self, from: data)
         } catch {
-            return preserveCorruptFile(after: error)
+            return preserveCorruptFile(after: "as v2: \(envelopeError); as v1: \(error)")
         }
 
         let stamp = Int(now().timeIntervalSince1970)
@@ -391,7 +412,7 @@ final class AppUsageArchive {
         return legacy
     }
 
-    private func preserveCorruptFile(after decodeError: Error) -> [AppUsageSession] {
+    private func preserveCorruptFile(after decodeError: Any) -> [AppUsageSession] {
         let stamp = Int(now().timeIntervalSince1970)
         let aside = directory.appendingPathComponent("app-usage-corrupt-\(stamp).json")
         do {
@@ -418,12 +439,130 @@ final class AppUsageArchive {
         }
     }
 
+    /// Publishes a change only once it is durable: as one journal line while
+    /// the journal is short, or as a fresh snapshot once it is long.
     @discardableResult
-    private func persistMutation(_ candidate: [AppUsageSession]) -> Bool {
-        guard !isReadOnly, save(sessions: candidate) else { return false }
+    private func persistMutation(_ candidate: [AppUsageSession],
+                                 change: JournalChange) -> Bool {
+        guard !isReadOnly else { return false }
+        let durable = journalEntries + 1 < AppUsageConstants.journalCompactionThreshold
+            ? appendToJournal(change)
+            : compact(to: candidate)
+        guard durable else { return false }
         cache = candidate
         revision += 1
         onDidChange?()
         return true
+    }
+
+    private func appendToJournal(_ change: JournalChange) -> Bool {
+        do {
+            try FileManager.default.createDirectory(at: directory,
+                                                    withIntermediateDirectories: true)
+            if !FileManager.default.fileExists(atPath: journalURL.path) {
+                guard FileManager.default.createFile(atPath: journalURL.path, contents: nil) else {
+                    Diagnostics.log("failed to create the app usage journal")
+                    return false
+                }
+            }
+            var line = try JSONEncoder().encode(change)
+            line.append(0x0A)
+            let handle = try FileHandle(forWritingTo: journalURL)
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            try handle.write(contentsOf: line)
+            journalEntries += 1
+            return true
+        } catch {
+            Diagnostics.log("failed to append app usage: \(error)")
+            return false
+        }
+    }
+
+    /// Writes the whole history as the snapshot, then clears the journal it
+    /// absorbed. If clearing fails, replaying those lines again is harmless.
+    private func compact(to sessions: [AppUsageSession]) -> Bool {
+        guard save(sessions: sessions) else { return false }
+        if (try? FileManager.default.removeItem(at: journalURL)) != nil
+            || !FileManager.default.fileExists(atPath: journalURL.path) {
+            journalEntries = 0
+        }
+        return true
+    }
+
+    /// Applies the changes written since the snapshot. A torn final line is
+    /// the one write a crash can interrupt, so it alone is skipped; an
+    /// unreadable line anywhere else means the journal cannot be trusted, and
+    /// it is moved aside like any other unreadable history.
+    private func replayJournal() {
+        guard let data = try? Data(contentsOf: journalURL) else { return }
+        let lines = data.split(separator: 0x0A, omittingEmptySubsequences: true)
+        var sessions = cache
+        var applied = 0
+        for (offset, line) in lines.enumerated() {
+            guard let change = try? JSONDecoder().decode(JournalChange.self, from: Data(line)) else {
+                if offset == lines.count - 1 { break }
+                let stamp = Int(now().timeIntervalSince1970)
+                let aside = directory.appendingPathComponent("app-usage-journal-corrupt-\(stamp).jsonl")
+                try? FileManager.default.moveItem(at: journalURL, to: aside)
+                Diagnostics.log("app usage journal unreadable at line \(offset + 1); moved to \(aside.lastPathComponent)")
+                break
+            }
+            switch change {
+            case .upsert(let session):
+                if let index = sessions.firstIndex(where: { $0.id == session.id }) {
+                    sessions[index] = session
+                } else {
+                    sessions.append(session)
+                }
+            case .remove(let id):
+                sessions.removeAll { $0.id == id }
+            }
+            applied += 1
+        }
+        cache = sessions
+        journalEntries = lines.count
+        // Starting each launch from one clean snapshot keeps the journal short.
+        if applied > 0 { _ = compact(to: sessions) }
+    }
+
+    /// History set aside as unreadable is brought back once it reads again.
+    ///
+    /// This is how history went missing: a build that knew only the v1 format
+    /// found a v2 file, could not read it and set it aside, and the newer build
+    /// that came next started a fresh file beside it. Records are merged by id,
+    /// so nothing is duplicated, and the file is renamed rather than deleted.
+    /// The accuracy epoch is left alone: recovered records may predate it and
+    /// are then shown as less certain, which is the honest reading.
+    private func recoverSetAsideFiles() {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        for name in names.sorted()
+        where name.hasPrefix("app-usage-corrupt-") && name.hasSuffix(".json") {
+            let url = directory.appendingPathComponent(name)
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let recovered: [AppUsageSession]
+            if let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
+               envelope.metadata.schemaVersion == 2 {
+                recovered = envelope.sessions
+            } else if let legacy = try? JSONDecoder().decode([AppUsageSession].self, from: data) {
+                recovered = legacy
+            } else {
+                continue
+            }
+            let known = Set(cache.map(\.id))
+            let missing = recovered.filter { !known.contains($0.id) }
+            if !missing.isEmpty {
+                let merged = (cache + missing).sorted {
+                    ($0.start, $0.end) < ($1.start, $1.end)
+                }
+                guard compact(to: merged) else { return }
+                cache = merged
+                revision += 1
+                Diagnostics.log("recovered \(missing.count) app usage records from \(name)")
+            }
+            let restored = directory.appendingPathComponent(
+                name.replacingOccurrences(of: "app-usage-corrupt-", with: "app-usage-recovered-"))
+            try? FileManager.default.moveItem(at: url, to: restored)
+        }
     }
 }

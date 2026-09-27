@@ -419,7 +419,7 @@ enum SelfTest {
              testSimultaneousSnapshotsKeepIsolatedPreferences),
             ("Away snapshots retain production prompt chrome",
              testAwaySnapshotsRetainProductionPromptChrome)
-        ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests
+        ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests + UsagePersistenceChecks.tests
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
             + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
             + DecisionHistoryChecks.tests + DecisionRecoveryChecks.tests + StoryWorkspaceChecks.tests
@@ -1887,14 +1887,13 @@ enum SelfTest {
         expect(archive.revision == 4 && notifications == 4,
                "rejecting a segment must not revise or notify", &problems)
 
-        // A correction at capacity is a replacement, never an insertion: it
-        // must leave every other stored record intact. A genuinely new UUID,
-        // on the other hand, uses the archive's ordinary oldest-first bound.
+        // A correction is a replacement, never an insertion, and a genuinely
+        // new UUID is added without evicting anything: history has no cap.
         let capacityDirectory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: capacityDirectory) }
         try? FileManager.default.createDirectory(at: capacityDirectory,
                                                  withIntermediateDirectories: true)
-        let capacity = AppUsageConstants.capacity
+        let capacity = 25_000
         let stored = (0..<capacity).map { offset in
             AppUsageSession(id: UUID(), bundleID: "com.example.\(offset)",
                             appName: "App \(offset)",
@@ -1913,16 +1912,18 @@ enum SelfTest {
         bounded.checkpoint(correctedOldest)
         expect(bounded.sessions.count == capacity && bounded.sessions.contains(correctedOldest)
                && bounded.sessions.contains(where: { $0.id == stored[1].id }),
-               "correcting an existing UUID at capacity must not evict another record", &problems)
+               "correcting an existing UUID must not evict another record", &problems)
 
         let newIdentity = AppUsageSession(bundleID: "com.example.new", appName: "New",
                                           start: base.addingTimeInterval(999_999),
                                           end: base.addingTimeInterval(1_000_004))
         bounded.checkpoint(newIdentity)
-        expect(bounded.sessions.count == capacity && bounded.sessions.contains(newIdentity)
-               && !bounded.sessions.contains(where: { $0.id == correctedOldest.id })
-               && bounded.sessions.contains(where: { $0.id == stored[1].id }),
-               "a new UUID at capacity must evict only the oldest record", &problems)
+        expect(bounded.sessions.count == capacity + 1 && bounded.sessions.contains(newIdentity)
+               && bounded.sessions.contains(correctedOldest),
+               "a new UUID beyond the old 20,000 cap keeps every earlier record", &problems)
+        let reopened = AppUsageArchive(directory: capacityDirectory, now: { clock.value })
+        expect(reopened.sessions.count == capacity + 1 && reopened.sessions.contains(newIdentity),
+               "the uncapped history survives a relaunch", &problems)
         return problems
     }
 
