@@ -83,19 +83,29 @@ struct SettingsDiagnostics {
     let version: String
     let build: String
 
-    static func live(usage: AppUsageArchive, bundle: Bundle = .main,
+    static func live(usage: AppUsageArchive, sessions: SessionArchive? = nil, bundle: Bundle = .main,
                      dataDirectory: URL = SessionArchive.defaultDirectory,
                      fileManager: FileManager = .default) -> SettingsDiagnostics {
         let backup = usage.legacyBackupURL
             ?? latestLegacyBackup(in: dataDirectory, fileManager: fileManager)
-        let recovery: String
-        if usage.isReadOnly {
-            recovery = "App usage is read-only because its source evidence could not be safely rewritten."
-        } else if backup != nil {
-            recovery = "Legacy app usage was migrated only after its original bytes were preserved."
-        } else {
-            recovery = "No evidence-preserving recovery is currently required."
+        var notes: [String] = []
+        // Session history first: when it is missing, it is what the reader
+        // notices, and the only explanation is here.
+        if sessions?.isReadOnly == true {
+            notes.append("Session history is read-only because sessions.json could not be read "
+                + "or set aside. Its bytes are unchanged.")
+        } else if let aside = latestSetAside(prefix: "sessions-corrupt-", in: dataDirectory,
+                                             fileManager: fileManager) {
+            notes.append("Session history that could not be read was set aside as "
+                + "\(aside.lastPathComponent) and is not shown.")
         }
+        if usage.isReadOnly {
+            notes.append("App usage is read-only because its source evidence could not be safely rewritten.")
+        } else if backup != nil {
+            notes.append("Legacy app usage was migrated only after its original bytes were preserved.")
+        }
+        let recovery = notes.isEmpty ? "No evidence-preserving recovery is currently required."
+            : notes.joined(separator: " ")
         return SettingsDiagnostics(
             usageAccuracyEpoch: usage.metadata.accurateFrom,
             legacyBackupURL: backup,
@@ -111,7 +121,13 @@ struct SettingsDiagnostics {
     /// without opening, rewriting or otherwise touching their evidence.
     static func latestLegacyBackup(in directory: URL,
                                    fileManager: FileManager = .default) -> URL? {
-        let prefix = "app-usage-v1-backup-"
+        latestSetAside(prefix: "app-usage-v1-backup-", in: directory, fileManager: fileManager)
+    }
+
+    /// The newest `<prefix><stamp>.json` beside the archive, by its stamp.
+    /// A second file in the same second is `<prefix><stamp>-2.json`.
+    private static func latestSetAside(prefix: String, in directory: URL,
+                                       fileManager: FileManager) -> URL? {
         let suffix = ".json"
         guard let entries = try? fileManager.contentsOfDirectory(
             at: directory,
@@ -125,7 +141,7 @@ struct SettingsDiagnostics {
                   !isDirectory.boolValue else { return nil }
             let start = name.index(name.startIndex, offsetBy: prefix.count)
             let end = name.index(name.endIndex, offsetBy: -suffix.count)
-            guard let stamp = Int(name[start..<end]) else { return nil }
+            guard let stamp = Int(name[start..<end].prefix { $0 != "-" }) else { return nil }
             return (stamp, url)
         }
         .max { $0.stamp < $1.stamp }?.url

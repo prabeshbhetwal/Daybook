@@ -12,7 +12,8 @@ enum UnreadableHistoryChecks {
         ("A torn journal that cannot be cut short is left alone, read-only", tornJournalUncuttable),
         ("An unreadable preference list is kept aside before it is saved over", unreadablePreferenceList),
         ("An unreadable live session state is kept aside, not deleted", unreadableLiveState),
-        ("A rest that cannot be saved is reported, not dropped in silence", unsavedRestIsReported)
+        ("A rest that cannot be saved is reported, not dropped in silence", unsavedRestIsReported),
+        ("Settings' Recovery row names session history that was set aside or is read-only", recoveryRowNamesSessions)
     ]
 
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
@@ -213,5 +214,36 @@ enum UnreadableHistoryChecks {
         engine.transition(on: .idleObserved(seconds: 2))
         return engine.awayDecisionError == nil
             ? ["a Watching rest that failed to save left no error to show"] : []
+    }
+
+    private static func recoveryRowNamesSessions() -> [String] {
+        var failures: [String] = []
+        let manager = FileManager.default
+
+        let setAside = scratch()
+        defer { try? manager.removeItem(at: setAside) }
+        try? Data("not json".utf8).write(to: setAside.appendingPathComponent("sessions.json"))
+        let moved = SessionArchive(directory: setAside, now: { base })
+        let movedSummary = SettingsDiagnostics.live(usage: AppUsageArchive(directory: setAside, now: { base }),
+                                                    sessions: moved, dataDirectory: setAside).recoverySummary
+        if !movedSummary.contains("sessions-corrupt-\(stamp).json") {
+            failures.append("a set-aside session archive is not named: \(movedSummary)")
+        }
+
+        let stuck = scratch()
+        defer {
+            try? manager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: stuck.path)
+            try? manager.removeItem(at: stuck)
+        }
+        try? Data("not json".utf8).write(to: stuck.appendingPathComponent("sessions.json"))
+        let usage = AppUsageArchive(directory: stuck, now: { base })
+        try? manager.setAttributes([.posixPermissions: 0o555], ofItemAtPath: stuck.path)
+        let readOnly = SessionArchive(directory: stuck, now: { base })
+        let stuckSummary = SettingsDiagnostics.live(usage: usage, sessions: readOnly,
+                                                    dataDirectory: stuck).recoverySummary
+        if !readOnly.isReadOnly || !stuckSummary.contains("Session history is read-only") {
+            failures.append("a read-only session archive is not reported: \(stuckSummary)")
+        }
+        return failures
     }
 }

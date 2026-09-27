@@ -31,7 +31,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // built from `settings.defaultStoryScope`, so naming it here would make
         // two lazy properties each other's dependency.
         replayWelcome: { [weak self] in self?.replayWelcome() },
-        diagnostics: .live(usage: usage),
+        diagnostics: .live(usage: usage, sessions: engine.archive),
         installedAppCatalog: InstalledAppCatalog(observed: { [weak self] in
             guard let self else { return [] }
             var names: [String: String] = [:]
