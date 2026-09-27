@@ -70,6 +70,9 @@ final class SessionStore: ObservableObject {
     /// Two-way bound by the popover's intent field and work-type picker.
     @Published var intent: String = ""
     @Published var workType: WorkType = .deepWork
+    /// The "New sessions start as" value last applied, so only a change to it
+    /// replaces the category picked for the next session.
+    private var appliedDefaultWorkType: WorkType = .deepWork
     /// Mirrors the preference so the menu bar label, which observes the
     /// store, redraws when it changes.
     @Published var menuBarShowsTime = true
@@ -663,6 +666,7 @@ final class SessionStore: ObservableObject {
         self.idle = idle
         self.engine = engine
         self.workType = engine.store.defaultWorkType
+        self.appliedDefaultWorkType = engine.store.defaultWorkType
         engine.archive.streakMinimum = engine.store.streakMinimum
         engine.archive.quickStartWindowDays = engine.store.suggestionWindowDays
         self.menuBarShowsTime = engine.store.menuBarShowsTime
@@ -864,6 +868,8 @@ final class SessionStore: ObservableObject {
             // Fold the in-flight stretch in first, or the frontmost app always looks
             // idle in its own menu.
             tracker?.flush()
+            // First, so every figure below is computed under the current settings.
+            applyPreferences()
             let moment = now()
             refreshTypical(at: moment)
             refreshThread()
@@ -876,7 +882,9 @@ final class SessionStore: ObservableObject {
             quickStarts = ActivityChoices.merging(engine.store.recentActivities,
                 engine.archive.quickStarts(limit: ActivityChoices.limit))
             savedActivities = engine.store.savedActivities
-            workType = engine.activeWorkType
+            // A running session shows its own category; while idle, the one the
+            // user picked for the next session stays picked.
+            if engine.state != .idle { workType = engine.activeWorkType }
             automaticActivityRecord = engine.activeAutomaticAction.map {
                 AutomaticActivityRecord(action: $0, resultingRecordID: engine.activeRecordID)
             }
@@ -940,6 +948,21 @@ final class SessionStore: ObservableObject {
             publish(\.trackedToday, usageSnapshot.total(on: moment))
         }
         lastLiveFrame = consumedFrame
+    }
+
+    /// The runtime copies of preferences, so a change in Settings — which ends
+    /// in `refresh()` — applies at once instead of at the next launch.
+    private func applyPreferences() {
+        engine.archive.streakMinimum = engine.store.streakMinimum
+        engine.archive.quickStartWindowDays = engine.store.suggestionWindowDays
+        publish(\.menuBarShowsTime, engine.store.menuBarShowsTime)
+        // Only while idle: during a session the picker shows that session's
+        // category, and a new default waits until the session ends.
+        let defaultWorkType = engine.store.defaultWorkType
+        if engine.state == .idle, defaultWorkType != appliedDefaultWorkType {
+            appliedDefaultWorkType = defaultWorkType
+            workType = defaultWorkType
+        }
     }
 
     private func publish<Value: Equatable>(_ property: ReferenceWritableKeyPath<SessionStore, Value>,
@@ -1156,7 +1179,8 @@ final class SessionStore: ObservableObject {
     func performSessionHotKeyAction() -> SessionHotKeyActionResult {
         guard !hasUnresolvedAwayDecision else { return .showAwayDecision }
         if engine.state == .idle {
-            guard replaceSession(workType: engine.activeWorkType, intent: "") else { return .saveFailed }
+            // The category the picker shows, as the Start button would use.
+            guard replaceSession(workType: workType, intent: "") else { return .saveFailed }
             refresh()
             return .started
         }

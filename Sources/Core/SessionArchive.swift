@@ -419,18 +419,25 @@ final class SessionArchive {
         }
     }
 
+    /// What a day must reach to join the streak. Set from the preference;
+    /// the shipped default until then. Both streak caches were counted under
+    /// the old minimum, so a change drops them.
+    var streakMinimum: TimeInterval = FocusConstants.streakMinimum {
+        didSet {
+            guard streakMinimum != oldValue else { return }
+            cachedBestStreak = nil
+            cachedCurrentStreak = nil
+        }
+    }
+    /// How far back activity suggestions look, in days. A preference.
+    var quickStartWindowDays: Int = FocusConstants.quickStartWindowDays
+
     /// Consecutive days meeting `streakMinimum`. A streak ending yesterday still
     /// counts today, so today's zero does not erase it before the first session —
     /// which is exactly when the number needs to be motivating.
     /// - Parameter inFlight: seconds banked by a session that is still running.
     ///   Counted toward today, so the streak does not read 0 while you are working —
     ///   which is demoralising at exactly the moment the number exists to motivate.
-    /// What a day must reach to join the streak. Set from the preference;
-    /// the shipped default until then.
-    var streakMinimum: TimeInterval = FocusConstants.streakMinimum
-    /// How far back activity suggestions look, in days. A preference.
-    var quickStartWindowDays: Int = FocusConstants.quickStartWindowDays
-
     func currentStreak(includingToday inFlight: TimeInterval = 0) -> Int {
         let totals = dailyTotals()
         let today = calendar.startOfDay(for: now())

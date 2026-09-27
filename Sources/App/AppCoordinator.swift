@@ -97,16 +97,17 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// Set from the players' own distributed notifications. Both are broadcast
     /// publicly and need no permission; neither carries anything but playback
     /// state, which is all this reads.
-    private var musicIsPlaying = false
+    private var music = MusicPlayback()
+    private var musicIsPlaying: Bool { music.isPlaying }
 
     private func observeMusicPlayback() {
         let center = DistributedNotificationCenter.default()
         for name in ["com.apple.Music.playerInfo", "com.spotify.client.PlaybackStateChanged"] {
             center.addObserver(forName: Notification.Name(name), object: nil,
                                queue: .main) { [weak self] note in
-                let state = note.userInfo?["Player State"] as? String
-                self?.musicIsPlaying = (state == "Playing")
-                if state != "Playing" { self?.musicPairingSince = nil }
+                guard let self else { return }
+                self.music.update(player: name, state: note.userInfo?["Player State"] as? String)
+                if !self.music.isPlaying { self.musicPairingSince = nil }
             }
         }
     }
@@ -692,5 +693,16 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self?.tracker.suspend()
         }
 
+    }
+}
+
+/// Which players are playing. Music and Spotify report separately, so pausing
+/// one must not silence the other.
+struct MusicPlayback {
+    private var playing: Set<String> = []
+    var isPlaying: Bool { !playing.isEmpty }
+
+    mutating func update(player: String, state: String?) {
+        if state == "Playing" { playing.insert(player) } else { playing.remove(player) }
     }
 }

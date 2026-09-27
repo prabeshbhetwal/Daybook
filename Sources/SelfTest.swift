@@ -421,6 +421,7 @@ enum SelfTest {
              testAwaySnapshotsRetainProductionPromptChrome)
         ] + StoryAccountingChecks.tests + StoryNavigationChecks.tests + UsagePersistenceChecks.tests
             + UnreadableHistoryChecks.tests
+            + PreferenceChecks.tests
             + PauseAllocationChecks.tests
             + StoryPresentationChecks.tests + StoryCorrectionChecks.tests + StorySettingsChecks.tests
             + StoryInteractionChecks.tests + RecordedActivityChecks.tests + ContinuationChecks.tests
