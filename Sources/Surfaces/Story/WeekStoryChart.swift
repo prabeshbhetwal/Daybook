@@ -8,7 +8,9 @@ struct WeekStoryChart: View {
     let days: [PeriodDay]
     /// Focus per day, keyed by local midnight.
     let facts: [Date: DayFacts]
-    let average: TimeInterval
+    /// Recorded app use per day that has any, which is what the pale bars show.
+    /// It is not a focus figure: the headline already states focus per day.
+    let appUseAverage: TimeInterval
     let selectedDay: Date?
     let onPickDay: (Date) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -43,10 +45,12 @@ struct WeekStoryChart: View {
         .accessibilityLabel("Focus by day")
     }
 
-    private var caption: String {
+    private var caption: String { Self.caption(appUseAverage: appUseAverage) }
+
+    static func caption(appUseAverage: TimeInterval) -> String {
         let base = "Solid bars are logged focus; the pale bar behind is recorded app use."
-        guard average > 0 else { return base }
-        return base + " Focused days average \(Tokens.duration(average))."
+        guard appUseAverage > 0 else { return base }
+        return base + " Recorded app use averages \(Tokens.duration(appUseAverage)) on days with any."
     }
 
     private func column(for day: PeriodDay) -> some View {
