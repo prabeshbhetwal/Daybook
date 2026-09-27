@@ -223,6 +223,13 @@ struct AppUsageSnapshot {
                          accurateFrom: accurateFrom, revision: revision)
     }
 
+    /// The same, for any span of whole days: a reader clipping to days inside
+    /// it sees exactly what it would have seen in the whole history.
+    func restricted(to interval: DateInterval) -> AppUsageSnapshot {
+        AppUsageSnapshot(sessions: indices(touching: (interval.start, interval.end)).map { sessions[$0] },
+                         accurateFrom: accurateFrom, revision: revision)
+    }
+
     private init(sessions: [AppUsageSession], accurateFrom: Date, revision: Int) {
         self.sessions = sessions
         self.accurateFrom = accurateFrom
@@ -357,9 +364,7 @@ final class AppUsageArchive {
     func record(_ session: AppUsageSession) -> Bool {
         guard !isReadOnly,
               session.seconds >= AppUsageConstants.minimumSegment else { return false }
-        var candidate = cache
-        candidate.append(session)
-        return persistMutation(candidate, change: .upsert(session))
+        return persistMutation(.upsert(session)) { $0.append(session) }
     }
 
     /// Inserts a newly observed stretch or corrects the existing stretch with
@@ -370,23 +375,17 @@ final class AppUsageArchive {
         guard !isReadOnly else { return false }
         if let index = cache.firstIndex(where: { $0.id == session.id }) {
             guard session.seconds >= AppUsageConstants.minimumSegment else {
-                var candidate = cache
-                candidate.remove(at: index)
-                return persistMutation(candidate, change: .remove(session.id))
+                return persistMutation(.remove(session.id)) { $0.remove(at: index) }
             }
             guard cache[index] != session else { return true }
-            var candidate = cache
-            candidate[index] = session
-            return persistMutation(candidate, change: .upsert(session))
+            return persistMutation(.upsert(session)) { $0[index] = session }
         }
 
         // There is nothing to persist or roll back for an unsaved stretch below
         // the noise floor; treating that as success lets the tracker complete an
         // explicit idle/suspend transition without inventing a file mutation.
         guard session.seconds >= AppUsageConstants.minimumSegment else { return true }
-        var candidate = cache
-        candidate.append(session)
-        return persistMutation(candidate, change: .upsert(session))
+        return persistMutation(.upsert(session)) { $0.append(session) }
     }
 
     // MARK: - Queries
@@ -508,16 +507,24 @@ final class AppUsageArchive {
     }
 
     /// Publishes a change only once it is durable: as one journal line while
-    /// the journal is short, or as a fresh snapshot once it is long.
+    /// the journal is short, or as a fresh snapshot once it is long. A journal
+    /// line needs nothing but the change, so the history is then changed in
+    /// place; copying all of it first cost a full pass per checkpoint over
+    /// history that is now uncapped. A snapshot needs the whole new history
+    /// before it is written, so that path still builds it aside.
     @discardableResult
-    private func persistMutation(_ candidate: [AppUsageSession],
-                                 change: JournalChange) -> Bool {
+    private func persistMutation(_ change: JournalChange,
+                                 applying mutate: (inout [AppUsageSession]) -> Void) -> Bool {
         guard !isReadOnly else { return false }
-        let durable = journalEntries + 1 < AppUsageConstants.journalCompactionThreshold
-            ? appendToJournal(change)
-            : compact(to: candidate)
-        guard durable else { return false }
-        cache = candidate
+        if journalEntries + 1 < AppUsageConstants.journalCompactionThreshold {
+            guard appendToJournal(change) else { return false }
+            mutate(&cache)
+        } else {
+            var candidate = cache
+            mutate(&candidate)
+            guard compact(to: candidate) else { return false }
+            cache = candidate
+        }
         revision += 1
         onDidChange?()
         return true

@@ -179,7 +179,12 @@ extension SessionStore {
         }
         dashboardEvidenceRevision = evidenceRevision
         dashboardReadModelDay = day
-        let usageSnapshot = effectiveUsageSnapshot
+        // A live refresh is the Day view each second, and reads only that day:
+        // its records, not the whole uncapped history. A full rebuild also
+        // reads other days (sparklines, yesterday, the first recorded day).
+        let usageSnapshot = live
+            ? effectiveUsageSnapshot?.restricted(to: day)
+            : effectiveUsageSnapshot
         let stats = DashboardStats(sessions: engine.archive, usage: usage,
                                    usageSnapshot: usageSnapshot, now: now)
         let periods = PeriodStats(sessions: engine.archive, usage: usage,

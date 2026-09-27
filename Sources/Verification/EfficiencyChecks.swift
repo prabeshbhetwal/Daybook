@@ -12,7 +12,9 @@ enum EfficiencyChecks {
         ("A hidden window rests its content and shows the same view again", hiddenPanelRests),
         ("The break check reads only the latest run and agrees with a full sort", breakCheckReadsLatestRun),
         ("Day totals read only that day and agree with a full scan", dayTotalsReadOnlyTheDay),
-        ("A day's story reads only that day's records and agrees with all of them", dayStoryReadsOnlyTheDay)
+        ("A day's story reads only that day's records and agrees with all of them", dayStoryReadsOnlyTheDay),
+        ("The unbroken run for automation reads the last day and agrees with all history", automationCoverageReadsLastDay),
+        ("Live Day and Month refreshes read the period and agree with a full rebuild", liveRefreshesMatchFullRebuild)
     ]
 
     private final class Clock {
@@ -368,6 +370,84 @@ enum EfficiencyChecks {
                 if store.storyMoments(on: day) != moments {
                     problems.append("\(offset) days back: the chronology differs")
                 }
+            }
+            return problems
+        }
+    }
+
+    /// Automation merges the recorded run ending now. It merges only the last
+    /// day unless the run reaches back that far, and must find exactly the
+    /// run a merge of everything finds — including a run touching the edge.
+    private static func automationCoverageReadsLastDay() -> [String] {
+        let now = noon()
+        func run(from start: Date, gap: TimeInterval) -> [AppUsageSession] {
+            var stretches: [AppUsageSession] = []
+            var moment = start
+            var index = 0
+            while moment < now {
+                let end = min(now, moment + 600)
+                stretches.append(AppUsageSession(bundleID: "app", appName: "App", start: moment, end: end))
+                moment = end + (index % 7 == 6 ? 3_600 : gap)
+                index += 1
+            }
+            return stretches.reversed()
+        }
+        let edge = now.addingTimeInterval(-24 * 3_600)
+        let scenarios: [(String, [AppUsageSession])] = [
+            ("gaps through three days", run(from: now.addingTimeInterval(-3 * 86_400), gap: 0.5)),
+            ("unbroken for thirty hours", run(from: now.addingTimeInterval(-30 * 3_600), gap: 0.5).filter { _ in true }
+                .map { AppUsageSession(id: $0.id, bundleID: $0.bundleID, appName: $0.appName,
+                                       start: $0.start, end: $0.end.addingTimeInterval(3_600)) }),
+            ("a run ending on the edge", [AppUsageSession(bundleID: "a", appName: "A",
+                                                          start: edge.addingTimeInterval(-900), end: edge.addingTimeInterval(-0.5)),
+                                          AppUsageSession(bundleID: "b", appName: "B",
+                                                          start: edge.addingTimeInterval(0.2), end: now)])
+        ]
+        var problems: [String] = []
+        for (name, sessions) in scenarios {
+            let all = ActivityAccounting.contiguousCoverage(
+                sessions.map { DateInterval(start: $0.start, end: $0.end) }, endingAt: now)
+            if AppCoordinator.recentCoverage(sessions, endingAt: now) != all {
+                problems.append("\(name): the run differs from a merge of everything")
+            }
+        }
+        return problems
+    }
+
+    /// The Day view refreshes its live figures every second, and Week/Month
+    /// patch today's row; both read only the period's records now. Each must
+    /// publish what a full rebuild over every record publishes.
+    private static func liveRefreshesMatchFullRebuild() -> [String] {
+        MainActor.assumeIsolated {
+            let clock = Clock(noon())
+            guard let fixture = makeFixture(clock) else { return ["Could not create isolated preferences"] }
+            defer { fixture.cleanUp() }
+            let calendar = Calendar.current
+            let midnight = calendar.startOfDay(for: clock.value)
+            for (index, offset) in [-90_000.0, 1_200, -900, 5_400, -172_000, 9_000, 2_000, -400_000].enumerated() {
+                let start = midnight.addingTimeInterval(offset)
+                fixture.usage.checkpoint(AppUsageSession(bundleID: "app.\(index % 3)", appName: "App \(index % 3)",
+                                                         start: start, end: start.addingTimeInterval(1_500)))
+            }
+            let store = fixture.store
+            fixture.tracker.appActivated(bundleID: "editor", name: "Editor")
+            store.setDashboardVisible(true)
+            store.setReviewVisible(true)
+            store.refreshReview(period: .month)
+            var problems: [String] = []
+            for _ in 0..<3 { clock.advance(1); store.updateTimeDrivenFigures() }
+            let live = (store.rankedApps, store.timelineSegments, store.trackedForSelectedDay,
+                        store.reviewDays, store.reviewDayTotals)
+            store.refreshDashboard()
+            store.refreshReview(period: .month)
+            if store.rankedApps != live.0 || store.timelineSegments != live.1 {
+                problems.append("The live Day refresh published other apps or timeline than a full rebuild")
+            }
+            if store.trackedForSelectedDay != live.2 {
+                problems.append("The live Day total \(live.2) differs from a full rebuild's \(store.trackedForSelectedDay)")
+            }
+            if store.reviewDays != live.3 || store.reviewDayTotals != live.4 {
+                problems.append("The live Month patch differs from a full rebuild")
             }
             return problems
         }

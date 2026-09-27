@@ -274,9 +274,14 @@ extension SessionStore {
             noteReviewReadModelRebuild()
             return
         }
+        // Each changed day lies inside the live span, so its rollup reads only
+        // that span's records rather than the whole uncapped history.
+        let liveStats = PeriodStats(sessions: engine.archive, usage: usage,
+                                    usageSnapshot: snapshot.restricted(to: affected),
+                                    calendar: calendar, now: now)
 
         for date in changedDays {
-            let current = periodStats.rollup(for: .day, containing: date)
+            let current = liveStats.rollup(for: .day, containing: date)
             guard let day = current.days.first else { continue }
             let priorEntries = reviewEntriesByDay[date] ?? []
             let newEntries = current.entriesByDay[date] ?? []

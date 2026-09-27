@@ -134,7 +134,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
         tracker.flush()
         let moment = Date()
-        let usageSnapshot = AppUsageSnapshot(archive: usage, tracker: tracker)
+        // The store's view, not a second one: it is keyed on the revision the
+        // flush just moved, so it is rebuilt now, once, and shared.
+        let usageSnapshot = store.effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage, tracker: tracker)
         let window = (start: moment.addingTimeInterval(-FocusConstants.focusWindow),
                       end: moment)
         let score = FocusScorer(purposeOverrides: engine.store.purposeOverrides)
@@ -182,16 +184,29 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         scheduleAutomation()
     }
 
+    /// The unbroken recorded run ending now. Only the last day is merged: a
+    /// record that ends before it can join the run only if the run reaches
+    /// back that far, and then the whole history is merged instead. Merging
+    /// all of it on every automation pass grew with uncapped history.
+    static func recentCoverage(_ sessions: [AppUsageSession], endingAt moment: Date) -> DateInterval? {
+        let horizon = moment.addingTimeInterval(-24 * 3_600)
+        func intervals(_ from: [AppUsageSession]) -> [DateInterval] {
+            from.map { DateInterval(start: $0.start, end: $0.end) }
+        }
+        let recent = ActivityAccounting.contiguousCoverage(
+            intervals(sessions.filter { $0.end >= horizon }), endingAt: moment)
+        guard let recent, recent.start <= horizon.addingTimeInterval(1) else { return recent }
+        return ActivityAccounting.contiguousCoverage(intervals(sessions), endingAt: moment)
+    }
+
     private func activityRuleInput(at moment: Date = Date()) -> ActivityRuleInput {
         let presence: ActivityPresence
         if screenLocked { presence = .locked }
         else if machineSleeping { presence = .sleeping }
         else if case .paused(reason: .away) = engine.state { presence = .away }
         else { presence = .present }
-        let snapshot = AppUsageSnapshot(archive: usage, tracker: tracker)
-        let coverage = ActivityAccounting.contiguousCoverage(
-            snapshot.sessions.map { DateInterval(start: $0.start, end: $0.end) },
-            endingAt: moment)
+        let snapshot = store.effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage, tracker: tracker)
+        let coverage = Self.recentCoverage(snapshot.sessions, endingAt: moment)
         let frontmost = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         let controlsAreForeground = frontmost == FocusConstants.bundleIdentifier
         let cooldownAllows = engine.store.activityRuleCooldownUntil.map { moment >= $0 } ?? true
