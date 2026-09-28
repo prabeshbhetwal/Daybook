@@ -59,6 +59,8 @@ struct FocusContinuityApp: App {
                 .onReceive(coordinator.firstRun.$progress.map { $0 != nil }.removeDuplicates()) { active in
                     if active { openMainWindow() }
                 }
+                // Opened again from Finder or Spotlight while running.
+                .onReceive(coordinator.reopenRequests) { openMainWindow() }
         }
         .menuBarExtraStyle(.window)
 

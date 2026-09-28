@@ -52,7 +52,14 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// through, stepping past or skipping — is written down as answered.
     private(set) lazy var firstRun = FirstRunCoach { [weak self] in
         self?.engine.store.hasOnboarded = true
+        // Asked when the welcome ends rather than at launch, where the
+        // system's prompt landed on the first card with nothing to say why.
+        self?.notifier.requestAuthorization()
     }
+
+    /// Opening the app again while it runs, from Finder, Spotlight or the
+    /// Dock. The scene observes it: only SwiftUI can open its window.
+    let reopenRequests = PassthroughSubject<Void, Never>()
 
     /// Input density, fed only at event boundaries — app activation, lock,
     /// unlock, wake — and never on a timer. A repeating timer would be the only
@@ -457,7 +464,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             onboarded: engine.store.hasOnboarded,
             hasSessionHistory: !engine.archive.records.isEmpty,
             hasUsageHistory: !usage.sessions.isEmpty,
-            forced: CommandLine.arguments.contains("--onboarding")) else { return }
+            forced: CommandLine.arguments.contains("--onboarding")) else {
+            // No welcome to read first, so the system's question can come now.
+            notifier.requestAuthorization()
+            return
+        }
         firstRun.begin()
     }
 
@@ -514,7 +525,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         observeMusicPlayback()
         wireSessionCallbacks()
 
-        notifier.requestAuthorization()
         hotKey.register { [weak self] in
             self?.toggleSessionFromHotKey()
         }
@@ -597,6 +607,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         true
+    }
+
+    /// A menu-bar app has no Dock icon to click, so opening it again is how a
+    /// reader asks for its window. The window comes back the way the menu
+    /// bar's Open does; false, because that already answered the request.
+    func applicationShouldHandleReopen(_ sender: NSApplication,
+                                       hasVisibleWindows flag: Bool) -> Bool {
+        reopenRequests.send()
+        return false
     }
 
     /// SwiftUI's optional preferred scheme controls only its rendered tree.
