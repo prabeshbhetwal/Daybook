@@ -260,6 +260,9 @@ struct StorySheet<Content: View>: View {
     let title: String
     let onClose: () -> Void
     @ViewBuilder let content: Content
+    /// A rule or category form open inside the sheet. While there is one,
+    /// Escape cancels it instead of closing the sheet over its draft.
+    @StateObject private var openForm = OpenInlineFormBox()
     var body: some View {
         VStack(spacing: 0) {
                 HStack {
@@ -273,9 +276,18 @@ struct StorySheet<Content: View>: View {
                                    height: AccessibilityMetrics.minimumTargetSize)
                     }
                         .buttonStyle(StoryPressStyle())
-                        .keyboardShortcut(.cancelAction)
+                        .keyboardShortcut(openForm.value == nil ? .cancelAction : nil)
                         .help("Close \(title)")
                         .accessibilityLabel("Close \(title)")
+                    if let form = openForm.value {
+                        // Escape's owner while a form is open; clicking Close
+                        // still closes the sheet.
+                        Button("Cancel \(form.name)", action: form.cancel)
+                            .keyboardShortcut(.cancelAction)
+                            .frame(width: 0, height: 0)
+                            .opacity(0)
+                            .accessibilityHidden(true)
+                    }
                 }
                 .padding(.horizontal, Tokens.Space.xl)
                 .padding(.vertical, Tokens.Space.m)
@@ -285,11 +297,17 @@ struct StorySheet<Content: View>: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .background(Tokens.Colour.ground)
+        .onPreferenceChange(OpenInlineFormKey.self) { openForm.value = $0 }
         .onExitCommand(perform: onClose)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isModal)
     }
+}
+
+/// The open inline form a sheet has heard about, if any.
+final class OpenInlineFormBox: ObservableObject {
+    @Published var value: OpenInlineForm?
 }
 
 /// The window's size, for a sheet presented outside its geometry reader.
