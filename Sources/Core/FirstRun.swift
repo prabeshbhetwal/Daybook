@@ -430,7 +430,7 @@ enum FirstRunScript {
                      + "next to it while one runs; that is a setting."),
             Card(sentence: "A few keys.",
                  body: "Control-Option-Space, from inside any app, starts a session, "
-                     + "pauses or resumes the running one, or brings up an away card "
+                     + "ends the running one, or brings up an away card "
                      + "that is waiting for you. In this window: ⌘1 for the day's story, "
                      + "⌘2 for History, ⌘6 for Awards, ⌘7 for the session controls and "
                      + "⌘, for Settings.",
