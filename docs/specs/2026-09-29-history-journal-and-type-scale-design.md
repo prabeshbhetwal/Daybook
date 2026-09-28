@@ -126,6 +126,7 @@ Requested by the parallel accessibility session. Everything except the arrow key
 - Category is never shown by colour alone: named sessions carry the category chip, unnamed ones use the category as their title, and breaks say "Break".
 - **Keyboard (needs approval):** with the journal focused, ↑/↓ move the selection through the rows in order (month, day, session), and Return opens the selected day's story, the keyboard twin of double-click.
 - Selection changes and Jump-to-date scrolling animate through `Tokens.Motion` with Reduce Motion honoured, as the rest of the app does.
+- The search result count (`12 sessions match · 8h 20m of focus`) is announced with the accessibility branch's `Announcement.post(_:)`. Rail tiles reuse `StoryTile`, whose titles are already headings.
 
 ## 3. Code
 
@@ -150,6 +151,14 @@ Requested by the parallel accessibility session. Everything except the arrow key
 - `FirstRun` tour: the History step anchors on the search bar and the journal.
 - `Snapshotter`: History scenarios for the journal with a month, a day and a session selected, plus search. Drop `selectHistoryRange`.
 - README, `docs/usage.md`, `DESIGN.md` and the History screenshots.
+
+This branch sits on `claude/a11y-for-redesign`. The accessibility edits already made to `StoryChromeBar`, `MainWindowView`, `WelcomeCoach`, `FirstRun`, `DesignTokens`, `StoryStyle` and `docs/usage.md` stay as they are when those files change:
+- the session pill's spoken label and its "Toolbar" row
+- the modal report and the VoiceOver order
+- the tour's ⌘] / ⌘[ page keys
+- the new colour values
+
+The type-scale change touches sizes only.
 
 ### Retired
 
