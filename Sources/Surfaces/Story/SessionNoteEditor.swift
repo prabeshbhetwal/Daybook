@@ -40,6 +40,10 @@ struct SessionNoteEditor: View {
                     .foregroundStyle(Tokens.Colour.danger)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("Dictation error: \(message)")
+                if let settings = dictation.status.privacySettings {
+                    Button("Open Privacy Settings") { NSWorkspace.shared.open(settings) }
+                        .buttonStyle(StoryLinkStyle())
+                }
             }
             HStack(spacing: Tokens.Space.s) {
                 saveButton
