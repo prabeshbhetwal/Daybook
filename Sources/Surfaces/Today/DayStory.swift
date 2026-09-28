@@ -222,8 +222,10 @@ struct DayStory: View {
                         }
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                         .padding(.vertical, 10)
+                        .help(reason.explanation ?? "")
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("\(title), \(Tokens.timeRange(span.start, span.end)). "
+                                            + (reason.explanation.map { "\($0) " } ?? "")
                                             + (power.map { "Power: \($0.headline). " } ?? "")
                                             + "This interval is not assumed to be work or rest.")
                     }
@@ -521,6 +523,8 @@ struct SessionEntryCard: View {
                                 Text("· \(session.stretches) stretches")
                                     .font(Tokens.Typography.metadata)
                                     .foregroundStyle(.secondary)
+                                    .help("This session ran as \(session.stretches) separate stretches; "
+                                          + "the gaps between them are not counted.")
                             }
                         }
                     }

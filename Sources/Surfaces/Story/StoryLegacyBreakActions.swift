@@ -14,7 +14,7 @@ struct StoryLegacyBreakActions: View {
     @StateObject private var draft = LegacyClassificationDraft()
 
     var body: some View {
-        Menu("Change classification") {
+        Menu("Change how this counts") {
             Button("Leave uncounted") { choose(.continueSession) }
             if store.legacyFocusTargets.isEmpty {
                 Text("No recorded focus session is available for attribution.")
@@ -34,8 +34,8 @@ struct StoryLegacyBreakActions: View {
         .disabled(store.hasUnresolvedAwayDecision)
         .help(store.hasUnresolvedAwayDecision ? StoryDecisionRow.awayQuestionFirst : "")
         .accessibilityLabel(rest.name.isEmpty || rest.name == "Break"
-                            ? "Change classification of this break"
-                            : "Change classification of \(rest.name)")
+                            ? "Change how this break counts"
+                            : "Change how \(rest.name) counts")
         .accessibilityHint(store.hasUnresolvedAwayDecision ? StoryDecisionRow.awayQuestionFirst : "")
         .confirmationDialog("Change this recorded interval?", isPresented: $draft.confirming, titleVisibility: .visible) {
             Button(draft.decision == .mergeTime ? "Count as focus" : "Leave uncounted") {

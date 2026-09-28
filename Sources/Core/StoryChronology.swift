@@ -21,6 +21,14 @@ enum StoryGapReason: Equatable {
         case .unknown: return "Not recorded"
         }
     }
+
+    /// The likely causes, where the title cannot name one. "No input" and
+    /// "Mac locked" are already their own reason.
+    var explanation: String? {
+        self == .unknown
+            ? "Nothing was recorded. The Mac may have been asleep or off, or FocusContinuity wasn't running."
+            : nil
+    }
 }
 
 enum StoryMoment: Identifiable, Equatable {
