@@ -26,6 +26,9 @@ struct SectionHeader: View {
             }
         }
         .accessibilityElement(children: .combine)
+        // Every panel title comes through here, so VoiceOver's headings rotor
+        // can move between the sections of a page.
+        .accessibilityAddTraits(.isHeader)
     }
 }
 
