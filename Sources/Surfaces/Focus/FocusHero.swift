@@ -300,7 +300,7 @@ struct FocusHero: View {
                 performPrimaryAction()
             }
             .help(pauseHelp)
-            FocusActionButton(title: "Away", symbol: "door.right.hand.open") { store.markAway() }
+            FocusActionButton(title: "Step away", symbol: "door.right.hand.open") { store.markAway() }
                 .help(awayHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
@@ -410,7 +410,7 @@ struct FocusHero: View {
                 performPrimaryAction()
             }
             .help(pauseHelp)
-            FocusActionButton(title: "Away", symbol: "door.right.hand.open") {
+            FocusActionButton(title: "Step away", symbol: "door.right.hand.open") {
                 store.markAway()
             }
             .help(awayHelp)
@@ -733,7 +733,7 @@ private struct FocusOperationFailure: View {
 
 /// A word-labelled action keeps the Focus panel understandable without relying
 /// on tooltip-only icon controls. Only the state-appropriate primary action is
-/// filled; Away and Stop remain quiet secondary choices.
+/// filled; Step away and Stop remain quiet secondary choices.
 private struct FocusActionButton: View {
     let title: String
     let symbol: String
