@@ -323,7 +323,7 @@ struct StoryRail: View {
                         Text(Tokens.preciseDuration(goal.achieved))
                             .font(Tokens.Typography.metricValue.monospacedDigit())
                             .rollingDigits(goal.achieved)
-                        Text("of \(Tokens.duration(goal.goal)) goal credit"
+                        Text("counts towards your \(Tokens.duration(goal.goal)) goal"
                              + (goal.isMet ? " · goal met" : ""))
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
@@ -341,6 +341,14 @@ struct StoryRail: View {
                              isMet: share >= 1,
                              labelFont: .system(size: 12, weight: .bold, design: .rounded))
                 }
+            }
+            // The headline's logged figure and this card's can differ. This
+            // card owns the one sentence that says why.
+            if goal.goal > 0 && evidence.uncoveredFocus > 0 {
+                Text("Only focus with app use recorded counts towards the goal.")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if !categoryGoals.isEmpty {
                 categoryGoalRows
@@ -439,12 +447,12 @@ struct StoryRail: View {
             }
             if unrecordedValue > 0 {
                     Divider()
-                    Text("\(Tokens.duration(unrecordedValue)) of focused work has no app-use coverage.")
+                    Text("\(Tokens.duration(unrecordedValue)) of your focus has no app use recorded.")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
             }
-            Text("A session may include pauses. Goal credit counts only focus with recorded app use.")
+            Text("A session may include pauses.")
                 .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -534,7 +542,7 @@ struct StoryRail: View {
             .accessibilityLabel("Last \(days.count) days")
             .accessibilityValue("\(days.filter(\.met).count) of \(days.count) days met")
             HStack(spacing: Tokens.Space.xs) {
-                Text("Last 14 days. At least "
+                Text("Last 14 days. A day counts once it has "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
