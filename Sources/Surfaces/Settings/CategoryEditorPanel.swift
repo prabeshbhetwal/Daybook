@@ -142,6 +142,8 @@ struct CategoryEditorPanelView: View {
         case .new: editor.beginNew()
         case .edit(let type): editor.edit(catalog.definition(for: type))
         }
+        // Asked for from a picker: the cursor goes where the typing will.
+        editor.requestFocus()
     }
 
     /// Whether the form is on a category that does not exist yet.
