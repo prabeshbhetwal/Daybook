@@ -8,29 +8,40 @@ import UserNotifications
 /// Takes pre-formatted strings: `Core` must not import `Design`.
 final class Notifier {
 
-    private(set) var isAuthorized = false
+    /// Nothing is posted before the app has asked. The self-test binary never
+    /// asks, and it has no notification centre to post to.
+    private var hasAsked = false
 
     func requestAuthorization() {
+        hasAsked = true
         UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound]) { [weak self] granted, error in
-                self?.isAuthorized = granted
+            .requestAuthorization(options: [.alert, .sound]) { _, error in
                 if let error {
                     Diagnostics.log("notification authorisation failed: \(error)")
                 }
             }
     }
 
+    /// Permission is read when posting, not remembered from launch: someone
+    /// who allows notifications in System Settings later gets the next one
+    /// without restarting the app, and someone who turns them off is not
+    /// posted to.
     func postAwayResolution(title: String, body: String) {
-        guard isAuthorized else { return }
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.sound = .default
-        let request = UNNotificationRequest(identifier: "away-\(UUID().uuidString)",
-                                            content: content,
-                                            trigger: nil)
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error { Diagnostics.log("notification post failed: \(error)") }
+        guard hasAsked else { return }
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            guard settings.authorizationStatus == .authorized
+                    || settings.authorizationStatus == .provisional else { return }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            let request = UNNotificationRequest(identifier: "away-\(UUID().uuidString)",
+                                                content: content,
+                                                trigger: nil)
+            center.add(request) { error in
+                if let error { Diagnostics.log("notification post failed: \(error)") }
+            }
         }
     }
 }
