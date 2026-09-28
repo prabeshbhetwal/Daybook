@@ -396,6 +396,8 @@ struct CategoryEditorForm: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Category editor")
         .onExitCommand(perform: onFinished)
+        .preference(key: OpenInlineFormKey.self,
+                    value: OpenInlineForm(name: "category", cancel: onFinished))
         .announcesChanges(to: editor.validationMessage)
         .onAppear(perform: takeFocusIfAsked)
         .onChange(of: editor.focusRequest) { _ in takeFocusIfAsked() }

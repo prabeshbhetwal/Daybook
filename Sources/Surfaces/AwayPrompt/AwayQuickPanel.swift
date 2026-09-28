@@ -8,13 +8,11 @@ private final class QuickPromptModel: ObservableObject {
     @Published var error: String?
 }
 
-/// Carries the hosted view's measured size, and whether a reason is being
-/// typed, back to the panel. A reference object rather than a closure
-/// captured at init, because the panel is not fully initialised when the
-/// hosting view is built.
+/// Carries the hosted view's measured size back to the panel. A reference
+/// object rather than a closure captured at init, because the panel is not
+/// fully initialised when the hosting view is built.
 private final class SizeRelay {
     var onSize: ((CGSize) -> Void)?
-    var onDraft: ((Bool) -> Void)?
 }
 
 private struct QuickSizeKey: PreferenceKey {
@@ -36,8 +34,7 @@ private struct QuickPromptView: View {
                 .frame(width: 18, height: 9)
             AwayAnswerGrid(away: model.away, range: model.range, compact: true,
                            note: model.note, error: model.error, onRetry: onRetry,
-                           onAnswer: onAnswer, onReason: onReason,
-                           onDraftChange: { relay.onDraft?($0) })
+                           onAnswer: onAnswer, onReason: onReason)
                 .padding(Tokens.Space.m)
                 .frame(width: 300, alignment: .leading)
                 .background(Tokens.Colour.surface,
@@ -104,7 +101,6 @@ final class AwayQuickPanel {
     private var generation = 0
     private var lastSize: CGSize?
     private var isShowing = false
-    private var hasDraft = false
 
     init(onAnswer: @escaping (UserDecision) -> Bool, onReason: @escaping (String) -> Bool,
          onRetry: @escaping () -> Void = {}) {
@@ -126,10 +122,6 @@ final class AwayQuickPanel {
             rootView: QuickPromptView(model: model, relay: relay,
                                       onAnswer: onAnswer, onReason: onReason, onRetry: onRetry))
         relay.onSize = { [weak self] size in self?.layout(to: size) }
-        relay.onDraft = { [weak self] hasText in
-            self?.hasDraft = hasText
-            self?.scheduleFade()
-        }
         panel.onKeyChange = { [weak self] in self?.scheduleFade() }
     }
 
@@ -195,13 +187,16 @@ final class AwayQuickPanel {
         panel.orderFrontRegardless()
     }
 
-    /// Fades the card after twenty seconds, unless someone is answering it:
-    /// it has the keyboard, or a reason is half typed. A slow typist used to
-    /// lose the draft mid-word. After a failed save it never fades.
+    /// Fades the card after twenty seconds, unless it has the keyboard: a
+    /// slow typist used to lose the card mid-word. Once they click away the
+    /// count starts again, half-typed reason or not, so a card with no close
+    /// control never stays over every Space for good; the reason itself
+    /// survives the fade until the away changes. After a failed save it
+    /// never fades.
     private func scheduleFade() {
         fade?.cancel()
         fade = nil
-        guard isShowing, model.error == nil, !panel.isKeyWindow, !hasDraft else { return }
+        guard isShowing, model.error == nil, !panel.isKeyWindow else { return }
         let current = generation
         let item = DispatchWorkItem { [weak self] in
             guard let self, self.generation == current else { return }

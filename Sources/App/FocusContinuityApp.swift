@@ -59,8 +59,13 @@ struct FocusContinuityApp: App {
                 .onReceive(coordinator.firstRun.$progress.map { $0 != nil }.removeDuplicates()) { active in
                     if active { openMainWindow() }
                 }
-                // Opened again from Finder or Spotlight while running.
-                .onReceive(coordinator.reopenRequests) { openMainWindow() }
+                // Opened again from Finder or Spotlight while running: the
+                // window comes forward as it was, with any open sheet and
+                // unsaved form still in it.
+                .onReceive(coordinator.reopenRequests) {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "main")
+                }
         }
         .menuBarExtraStyle(.window)
 

@@ -377,6 +377,8 @@ struct ActivityRuleForm: View {
             }
         }
         .onExitCommand { editor.close() }
+        .preference(key: OpenInlineFormKey.self,
+                    value: OpenInlineForm(name: "rule", cancel: { editor.close() }))
         .announcesChanges(to: editor.validationMessage)
         .onAppear(perform: takeFocusIfAsked)
         .onChange(of: editor.focusRequest) { _ in takeFocusIfAsked() }

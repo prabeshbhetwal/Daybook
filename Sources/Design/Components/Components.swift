@@ -363,3 +363,22 @@ struct MenuBarLabel: View {
         .foregroundStyle(display.isPaused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
     }
 }
+
+/// An inline form open inside a sheet, and how to cancel it. A sheet's Close
+/// holds Escape, and a key equivalent is matched before the focused field
+/// sees the key, so without this Escape in a half-filled form closed the
+/// whole sheet and threw the draft away. The sheet reads this and, while a
+/// form is open, gives Escape to the form.
+struct OpenInlineForm: Equatable {
+    let name: String
+    let cancel: () -> Void
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.name == rhs.name }
+}
+
+struct OpenInlineFormKey: PreferenceKey {
+    static var defaultValue: OpenInlineForm?
+    static func reduce(value: inout OpenInlineForm?, nextValue: () -> OpenInlineForm?) {
+        value = value ?? nextValue()
+    }
+}
