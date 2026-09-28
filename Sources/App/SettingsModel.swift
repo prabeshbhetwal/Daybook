@@ -98,12 +98,11 @@ struct SettingsDiagnostics {
                 + "\(aside.lastPathComponent) and is not shown.")
         }
         if usage.isReadOnly {
-            notes.append("App usage is read-only because its source evidence could not be safely rewritten.")
+            notes.append("App usage is read-only because its file could not be safely rewritten.")
         } else if backup != nil {
-            notes.append("Legacy app usage was migrated only after its original bytes were preserved.")
+            notes.append("Older app use was upgraded only after a copy of the original file was kept.")
         }
-        let recovery = notes.isEmpty ? "No evidence-preserving recovery is currently required."
-            : notes.joined(separator: " ")
+        let recovery = notes.isEmpty ? "Nothing needed recovering." : notes.joined(separator: " ")
         return SettingsDiagnostics(
             usageAccuracyEpoch: usage.metadata.accurateFrom,
             legacyBackupURL: backup,

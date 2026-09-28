@@ -152,7 +152,8 @@ extension SettingsSection {
             return ["Pause after no input for", "Ask me after", "End session after",
                     "Full-screen prompt after", "Remind me to take breaks", "After 20 minutes"]
         case .automatic:
-            return ["Use legacy automatic sessions", "Auto-session gap", "Celebrate milestones"]
+            return ["Guess sessions from the app in front", "End a paused automatic session after",
+                    "Celebrate milestones"]
         case .activities:
             return ["Use my activity rules", "Activity rules", "New rule", "Activity name",
                     "Start after", "Add application", "Running now"]
@@ -161,7 +162,8 @@ extension SettingsSection {
             return ["Appearance", "Interface density", "Show Story timestamps",
                     "Expand entry details by default", "Fold quiet stretches after"]
         case .data:
-            return ["Privacy", "Accurate app usage from", "Legacy backup location",
+            // "Backup" is the always-shown row; the upgrade copy's row may be absent.
+            return ["Privacy", "App use measured precisely since", "Backup",
                     "Reveal data folder"]
         case .advanced: return ["Version", "Build", "Recovery"]
         }

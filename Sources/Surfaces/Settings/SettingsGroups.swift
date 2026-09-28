@@ -232,20 +232,27 @@ struct SettingsGroups: View {
     }
 
     private var automatic: some View {
-        VStack(alignment: .leading, spacing: layout.panelSpacing) {
+        let rulesOn = model.activityRuleAutomationEnabled
+        return VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Automatic sessions", layout: layout) {
-                toggleRow("Use legacy automatic sessions",
-                          detail: "Without rules, guess from the app in front: a work app starts a "
-                            + "session, a break app pauses it. Turned off while rules are on. "
-                            + "The category is the one you chose the last few times you started "
-                            + "from that app.",
-                          isOn: $model.autoSessionsEnabled)
-                    .disabled(model.activityRuleAutomationEnabled)
+                // While rules are on the guess is not in effect, so the switch
+                // reads off. Only its reading changes: the stored choice is
+                // kept for when rules are turned off again.
+                toggleRow("Guess sessions from the app in front",
+                          detail: "A work app starts a session and a break app pauses it. The category "
+                            + "is the one you chose the last few times you started from that app."
+                            + (rulesOn ? "" : " Activity rules replace this while they are on."),
+                          isOn: Binding(get: { model.autoSessionsEnabled && !rulesOn },
+                                        set: { model.autoSessionsEnabled = $0 }))
+                    .disabled(rulesOn)
+                if rulesOn {
+                    explanation("Off while activity rules are on.")
+                }
                 rowDivider
-                preferenceRow("Auto-session gap",
-                              detail: "How long an automatic session can sit paused before it ends "
-                                + "instead of picking up where it left off.") {
-                    ThresholdControl(label: "Auto-session gap", selection: $model.breakLength,
+                preferenceRow("End a paused automatic session after",
+                              detail: "Come back sooner and it picks up where it left off.") {
+                    ThresholdControl(label: "End a paused automatic session after",
+                                     selection: $model.breakLength,
                                      options: FocusConstants.breakLengthOptions, allowsNever: true)
                 }
                 rowDivider
@@ -260,7 +267,7 @@ struct SettingsGroups: View {
     private var tracking: some View {
         SurfacePanel(title: "Tracking and apps", layout: layout) {
             preferenceRow("Apps shown in a card",
-                          detail: "How many apps the rail and the History previews list before "
+                          detail: "How many apps the side panel and the History previews list before "
                             + "\u{201c}See all\u{201d}.") {
                 Picker("Apps shown in a card", selection: $model.railAppCount) {
                     ForEach(FocusConstants.railAppOptions, id: \.self) { count in
@@ -347,16 +354,19 @@ struct SettingsGroups: View {
                 readOnlyRow("Storage", value: "Local only",
                             detail: SettingsPrivacyDisclosure.current.storageDetail)
                 rowDivider
-                readOnlyRow("Accurate app usage from",
+                readOnlyRow("App use measured precisely since",
                             value: model.diagnostics.usageAccuracyEpoch.map(
                                 SettingsDiagnostics.accuracyEpochLabel)
                                 ?? "Not established",
-                            detail: "App-use patterns before this epoch remain visibly qualified.")
-                rowDivider
-                readOnlyRow("Legacy backup location",
-                            value: model.diagnostics.legacyBackupURL?.path ?? "No legacy backup created",
-                            detail: "A backup appears only when older app-usage bytes are migrated.",
-                            valueLayout: .statusBlock)
+                            detail: "Earlier app use may include time you were not at the Mac.")
+                // Only an upgrade from the oldest format leaves this copy;
+                // without one the row said nothing worth reading.
+                if let backup = model.diagnostics.legacyBackupURL {
+                    rowDivider
+                    readOnlyRow("Backup of older app use", value: backup.path,
+                                detail: "Made when older data was upgraded.",
+                                valueLayout: .statusBlock)
+                }
             }
 
             SurfacePanel(title: "Data folder", layout: layout) {
@@ -391,7 +401,7 @@ struct SettingsGroups: View {
             readOnlyRow("Build", value: model.diagnostics.build)
             rowDivider
             readOnlyRow("Recovery", value: model.diagnostics.recoverySummary,
-                        detail: "Recovery preserves source evidence before the app resumes writing.",
+                        detail: "A file the app cannot read is set aside or left untouched, never written over.",
                         valueLayout: .statusBlock)
         }
     }
