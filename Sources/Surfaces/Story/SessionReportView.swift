@@ -188,6 +188,7 @@ struct SessionReportView: View {
                     Text(report.title)
                         .font(Tokens.Typography.pageTitle)
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
                     HStack(spacing: Tokens.Space.s) {
                         // An unnamed session is titled by its category already.
                         if !session.name.isEmpty {
@@ -279,6 +280,10 @@ struct SessionReportView: View {
                     }
                 }
                 .frame(minHeight: 28)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Stretch \(index + 1), \(Tokens.timeRange(stretch.start, stretch.end)), "
+                                    + Tokens.spent(stretch.worked)
+                                    + (stretch.note.map { ". Note: \($0)" } ?? ""))
             }
         }
     }
@@ -307,10 +312,12 @@ struct SessionReportView: View {
                             .font(Tokens.Typography.metadata.monospacedDigit())
                             .foregroundStyle(.secondary)
                             .frame(width: 150, alignment: .leading)
-                        Text(interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App"))
+                        let name = interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App")
+                        Text(name)
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(interval.isGap ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                             .lineLimit(1)
+                            .help(name)
                         Spacer(minLength: Tokens.Space.s)
                         Text(Tokens.preciseDuration(interval.duration))
                             .font(Tokens.Typography.metadata.monospacedDigit())

@@ -78,6 +78,7 @@ struct StoryAppDetail: View {
                 AppIcon(bundleID: bundleID, size: 28, appName: appName)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(appName).font(Tokens.Typography.sectionTitle)
+                        .accessibilityAddTraits(.isHeader)
                     Text(Tokens.longDate(store.selectedDay))
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 }

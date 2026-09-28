@@ -38,6 +38,7 @@ struct StoryDecisionRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("How should this interval be recorded?")
                     .font(Tokens.Typography.rowTitle)
+                    .accessibilityAddTraits(.isHeader)
                 Text("\(Tokens.timeRange(range.start, range.end)) · \(Tokens.preciseDuration(range.duration)) is not counted. Later work is unchanged.")
                     .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -93,13 +94,20 @@ struct StorySavedActionRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
           HStack(spacing: 10) {
-            Image(systemName: "checkmark").font(Tokens.Typography.metadata.weight(.semibold))
-                .foregroundStyle(StoryStyle.successInk)
-            Text(title).font(Tokens.Typography.metadata.weight(.semibold))
-                .lineLimit(1)
-            Text((kind.map { "\($0) · " } ?? "") + Tokens.timeRange(range.start, range.end))
-                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
-                .lineLimit(1)
+            // One sentence to VoiceOver, not a tick and two fragments.
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark").font(Tokens.Typography.metadata.weight(.semibold))
+                    .foregroundStyle(StoryStyle.successInk)
+                Text(title).font(Tokens.Typography.metadata.weight(.semibold))
+                    .lineLimit(1)
+                    .help(title)
+                Text((kind.map { "\($0) · " } ?? "") + Tokens.timeRange(range.start, range.end))
+                    .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel([title, kind, Tokens.timeRange(range.start, range.end)]
+                .compactMap { $0 }.joined(separator: ", "))
             Spacer(minLength: 8)
             if onName != nil, !editing.value {
                 Button(currentName == nil ? "Name it" : "Rename") {

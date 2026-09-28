@@ -495,6 +495,7 @@ struct SessionEntryCard: View {
                         Text(session.workType.sessionTitle(named: session.name))
                             .font(Tokens.Typography.rowTitle)
                             .lineLimit(2)
+                            .help(session.workType.sessionTitle(named: session.name))
                             // The pencil is placed by this width, so it sits
                             // at the end of the name and not after the wider
                             // category line beneath it.
@@ -722,6 +723,7 @@ struct SessionEntryCard: View {
             .font(Tokens.Typography.microLabel)
             .foregroundStyle(.secondary)
             .textCase(.uppercase)
+            .accessibilityAddTraits(.isHeader)
     }
 
     /// The corrections that belong to this entry. Each one writes to the

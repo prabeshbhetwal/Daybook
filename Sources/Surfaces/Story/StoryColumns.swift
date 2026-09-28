@@ -111,6 +111,7 @@ struct StoryHeadline: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(eyebrow). \(sentence) \(facts.joined(separator: ", "))")
+        .accessibilityAddTraits(.isHeader)
     }
 
     /// The sentence with its key figure in the accent colour. `highlight` is
