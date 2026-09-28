@@ -19,6 +19,15 @@ struct AwardCard: View {
                         .font(Tokens.Typography.rowTitle)
                         .foregroundStyle(award.isEarned ? AnyShapeStyle(.primary)
                                                         : AnyShapeStyle(.secondary))
+                    // In words as well as in the badge's fill, which is the
+                    // only difference someone who cannot tell the colours
+                    // apart would otherwise have.
+                    Text(award.isEarned ? "Earned" : "Not yet")
+                        .font(Tokens.Typography.metadata.weight(.semibold))
+                        .foregroundStyle(award.isEarned ? AnyShapeStyle(StoryStyle.successInk)
+                                                        : AnyShapeStyle(.secondary))
+                        // The card's own label already says it.
+                        .accessibilityHidden(true)
                     Text(award.detail)
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
@@ -67,7 +76,7 @@ struct AwardCard: View {
             Image(systemName: award.isEarned ? award.symbolName : "circle.dotted")
                 .font(Tokens.Typography.sectionTitle)
                 .foregroundStyle(award.isEarned ? AnyShapeStyle(.white)
-                                                : AnyShapeStyle(.tertiary))
+                                                : AnyShapeStyle(.secondary))
         }
         .frame(width: 44, height: 44)
         .accessibilityHidden(true)
@@ -135,12 +144,18 @@ struct AwardsView: View {
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
-            HStack(spacing: 4) {
-                ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
-                    RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous)
-                        .fill(entry.met ? Tokens.Colour.focus : Tokens.Colour.elevated)
-                        .frame(height: 8)
+            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                HStack(spacing: 4) {
+                    ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
+                        RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous)
+                            .fill(entry.met ? Tokens.Colour.focus : Tokens.Colour.elevated)
+                            .frame(height: 8)
+                    }
                 }
+                // The count the bars show by colour alone.
+                Text("\(days.filter(\.met).count) of the last \(days.count) days")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(streakSummary(days))
