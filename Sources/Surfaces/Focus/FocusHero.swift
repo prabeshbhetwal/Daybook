@@ -468,8 +468,10 @@ struct FocusHero: View {
                spacing: compact ? Tokens.Space.s : Tokens.Space.m) {
             Text(title)
                 .font(Tokens.Typography.metadata.weight(.semibold))
+                // The focus ink: system blue at this size was under 4.5:1
+                // on the panel in both appearances.
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary)
-                                       : AnyShapeStyle(Tokens.Colour.focus))
+                                       : AnyShapeStyle(StoryStyle.focus))
             Text(Tokens.clock(store.elapsed))
                 .font(Tokens.Typography.liveTimer)
                 .monospacedDigit()
@@ -620,7 +622,7 @@ struct FocusHero: View {
                     Text(goalPaceLine)
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(store.goal.isMet
-                                         ? AnyShapeStyle(Tokens.Colour.progress)
+                                         ? AnyShapeStyle(StoryStyle.successInk)
                                          : AnyShapeStyle(.secondary))
                 }
             }
@@ -632,8 +634,10 @@ struct FocusHero: View {
     private func goalText(_ text: String) -> some View {
         Text(text)
             .font(Tokens.Typography.metadata)
+            // The ink, not the swatch: system green text was about 2:1 in
+            // the light appearance.
             .foregroundStyle(store.goal.isMet
-                             ? AnyShapeStyle(Tokens.Colour.progress)
+                             ? AnyShapeStyle(StoryStyle.successInk)
                              : AnyShapeStyle(.secondary))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)

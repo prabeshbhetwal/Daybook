@@ -98,6 +98,11 @@ struct FocusContinuations: View {
                         : isSwitching ? .switchTo : .duration(thread.totalWorked),
                     workType: thread.workType, compact: compact)
             }
+            // Idle, the row's trailing edge is a duration, so nothing spoken
+            // said what pressing it does.
+            .accessibilityHint(thread.isRunning ? ""
+                               : isSwitching ? "Switches to this activity"
+                               : "Continues this activity")
         case .quickStart(let quick):
             continuationButton(enabled: true, action: { store.startQuick(quick) }) {
                 FocusContinuationLabel(title: quick.name,
@@ -171,12 +176,14 @@ private struct FocusContinuationLabel: View {
         case .start, .switchTo:
             // A verb in a quiet pill: the row is the button, this says what
             // pressing it does.
+            // The focus ink on its own tint: system blue on its tint was
+            // under 4.5:1 in both appearances.
             Text(action == .start ? "Start" : "Switch")
                 .font(Tokens.Typography.metadata.weight(.semibold))
-                .foregroundStyle(Tokens.Colour.focus)
+                .foregroundStyle(StoryStyle.focus)
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
+                .background(StoryStyle.focus.opacity(0.12), in: Capsule())
         case .duration(let seconds):
             Text(Tokens.preciseDuration(seconds))
                 .font(Tokens.Typography.metadata.weight(.medium).monospacedDigit())

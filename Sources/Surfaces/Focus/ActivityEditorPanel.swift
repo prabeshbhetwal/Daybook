@@ -185,7 +185,7 @@ struct ActivityEditorPanelView: View {
                 Spacer(minLength: Tokens.Space.s)
                 Image(systemName: "pencil")
                     .font(Tokens.Typography.metadata)
-                    .foregroundStyle(selected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.tertiary))
+                    .foregroundStyle(selected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.secondary))
             }
             .padding(.horizontal, Tokens.Space.m)
             .frame(minHeight: 44)
