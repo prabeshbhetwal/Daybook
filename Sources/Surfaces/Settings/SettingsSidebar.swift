@@ -143,7 +143,8 @@ extension SettingsSection {
     /// preference that cannot be reached from the page it returns.
     var controlLabels: [String] {
         switch self {
-        case .general: return ["Open at login", "Show the session time in the menu bar"]
+        case .general: return ["Open at login", "Show the session time in the menu bar", "Keyboard",
+                               "Start or end a session from any app"]
         case .focus: return ["Daily goal", "Usual pace compares with", "Suggest activities from",
                              "Streak counts a day after", "New sessions start as",
                              "Keep sessions longer than", "Offer to continue for"]

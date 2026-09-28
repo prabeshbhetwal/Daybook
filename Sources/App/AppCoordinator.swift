@@ -528,6 +528,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         hotKey.register { [weak self] in
             self?.toggleSessionFromHotKey()
         }
+        hotKey.$status
+            .receive(on: DispatchQueue.main)
+            .assign(to: &settings.$globalShortcutStatus)
     }
 
     /// What the store reports back once a session is running: undone automatic

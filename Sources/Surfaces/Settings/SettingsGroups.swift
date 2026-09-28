@@ -56,6 +56,7 @@ struct SettingsGroups: View {
             // A switch that flips back by itself is otherwise silent.
             .announcesChanges(to: loginItemMessage)
             .announcesChanges(to: model.loginItemNeedsApproval ? Self.loginApproval : nil)
+            keyboard
             if model.canReplayWelcome {
                 SurfacePanel(title: "Getting started", layout: layout) {
                     explanation("The tour walks through every part of the app in twelve short "
@@ -76,6 +77,70 @@ struct SettingsGroups: View {
     }
 
     private static let loginApproval = "Approve FocusContinuity in System Settings › General › Login Items."
+
+    /// The keys, in one place that stays. The app has no menu bar to list
+    /// them in, and the welcome names them once and moves on.
+    private var keyboard: some View {
+        SurfacePanel(title: "Keyboard", layout: layout) {
+            readOnlyRow("Start or end a session from any app", value: "Control-Option-Space",
+                        detail: Self.globalShortcutDetail(model.globalShortcutStatus))
+            rowDivider
+            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+                ForEach(Self.windowKeys, id: \.keys) { entry in
+                    HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
+                        Text(entry.keys)
+                            .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
+                            .frame(width: 52, alignment: .leading)
+                            .accessibilityHidden(true)
+                        Text(entry.action)
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(entry.action), \(entry.spoken)")
+                }
+            }
+            .padding(.vertical, Tokens.Space.s)
+        }
+    }
+
+    static func globalShortcutDetail(_ status: HotKeyMonitor.Status) -> String {
+        switch status {
+        case .registered:
+            return "Works in any app. It also brings up an away card that is waiting for you."
+        case .yieldedToVoiceOver:
+            return "Off while VoiceOver is on, because VoiceOver uses these keys. "
+                + "It comes back when VoiceOver turns off."
+        case .unavailable:
+            return "Another app is using these keys, so this shortcut is off. Free them in "
+                + "that app, then quit and reopen FocusContinuity."
+        case .off:
+            return "Not set up yet."
+        }
+    }
+
+    /// The window's own keys. The session keys come from `SessionShortcut`,
+    /// so this list cannot drift from what the Session commands answer to.
+    static let windowKeys: [KeyEntry] = [
+        KeyEntry(keys: SessionShortcut.start.glyphs, spoken: "Option-Command-N", action: "Start focus"),
+        KeyEntry(keys: SessionShortcut.pauseOrResume.glyphs, spoken: "Option-Command-P",
+                 action: "Pause or resume"),
+        KeyEntry(keys: SessionShortcut.stepAway.glyphs, spoken: "Option-Command-A", action: "Step away"),
+        KeyEntry(keys: SessionShortcut.stop.glyphs, spoken: "Option-Command-S", action: "Stop the session"),
+        KeyEntry(keys: "⌘1", spoken: "Command-1", action: "The day's story"),
+        KeyEntry(keys: "⌘2", spoken: "Command-2", action: "History"),
+        KeyEntry(keys: "⌘F", spoken: "Command-F", action: "Find in History"),
+        KeyEntry(keys: "⌘6", spoken: "Command-6", action: "Awards"),
+        KeyEntry(keys: "⌘7", spoken: "Command-7", action: "Session controls"),
+        KeyEntry(keys: "⌘,", spoken: "Command-comma", action: "Settings")
+    ]
+
+    struct KeyEntry: Hashable {
+        let keys: String
+        /// How VoiceOver should say the keys; it reads the glyphs poorly.
+        let spoken: String
+        let action: String
+    }
 
     private var loginItemMessage: String? {
         model.loginItemError.map { "Could not change the login item: \($0)" }

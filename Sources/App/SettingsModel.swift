@@ -457,6 +457,10 @@ final class SettingsModel: ObservableObject {
     }
     @Published var loginItemError: String?
 
+    /// Whether Control-Option-Space is working, as the coordinator's hot key
+    /// reports it. Settings is the one place that says why it might not be.
+    @Published var globalShortcutStatus: HotKeyMonitor.Status = .off
+
     /// Registered, but macOS will not open the app at login until the user
     /// approves it. The switch reads off then, since that is the truth, and
     /// the page says where to approve it rather than flipping back silently.

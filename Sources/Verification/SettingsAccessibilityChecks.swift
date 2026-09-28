@@ -12,8 +12,34 @@ enum SettingsAccessibilityChecks {
         ("Settings sidebar arrows move one page and stop at either end", sidebarNeighbours),
         ("Every Settings page tile's glyph reaches 3:1 in light and dark", tileGlyphContrast),
         ("Settings search finds the plainly worded rows by their new names", plainWordsSearch),
-        ("An archive that needed nothing says so plainly", plainRecovery)
+        ("An archive that needed nothing says so plainly", plainRecovery),
+        ("Settings says why the global shortcut is off, and lists the Session keys it answers to",
+         keyboardPanel)
     ]
+
+    private static func keyboardPanel() -> [String] {
+        var failures: [String] = []
+        let statuses: [HotKeyMonitor.Status] = [.registered, .yieldedToVoiceOver, .unavailable, .off]
+        let details = statuses.map(SettingsGroups.globalShortcutDetail)
+        if Set(details).count != statuses.count {
+            failures.append("two shortcut states read the same: \(details)")
+        }
+        if !SettingsGroups.globalShortcutDetail(.yieldedToVoiceOver).contains("VoiceOver") {
+            failures.append("the VoiceOver state does not say VoiceOver has the keys")
+        }
+        if !SettingsGroups.globalShortcutDetail(.unavailable).contains("Another app") {
+            failures.append("the taken state does not say another app has the keys")
+        }
+        let listed = Set(SettingsGroups.windowKeys.map(\.keys))
+        for shortcut in [SessionShortcut.start, .pauseOrResume, .stepAway, .stop]
+            where !listed.contains(shortcut.glyphs) {
+            failures.append("\(shortcut.glyphs) answers a Session command but is not listed")
+        }
+        if SettingsSection.matching("Keyboard") != [.general] {
+            failures.append("searching Keyboard does not find the General page's panel")
+        }
+        return failures
+    }
 
     private static func customMinutes() -> [String] {
         var failures: [String] = []
