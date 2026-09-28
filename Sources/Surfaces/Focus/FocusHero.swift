@@ -87,8 +87,11 @@ extension SessionStore {
 
     var focusOperationFailure: FocusOperationFailureState? {
         guard pendingAwaySaveError == nil, let correctionError else { return nil }
+        // History kept read-only refuses every write, so a retry can only
+        // fail again; the message itself says where to look instead.
         return FocusOperationFailureState(message: correctionError,
-                                          hasOriginBoundRetry: correctionRetry != nil)
+                                          hasOriginBoundRetry: correctionRetry != nil
+                                              && !engine.archive.isReadOnly)
     }
 
     /// Executes the tested state-to-primary-action contract. The hero's
