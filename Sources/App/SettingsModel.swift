@@ -1,6 +1,7 @@
 import ServiceManagement
 import SwiftUI
 import AppKit
+import UserNotifications
 
 /// Exhaustive identifiers for rows that can mutate behaviour. Each case maps
 /// to one real SettingsModel property below; section metadata reuses these keys
@@ -98,12 +99,11 @@ struct SettingsDiagnostics {
                 + "\(aside.lastPathComponent) and is not shown.")
         }
         if usage.isReadOnly {
-            notes.append("App usage is read-only because its source evidence could not be safely rewritten.")
+            notes.append("App usage is read-only because its file could not be safely rewritten.")
         } else if backup != nil {
-            notes.append("Legacy app usage was migrated only after its original bytes were preserved.")
+            notes.append("Older app use was upgraded only after a copy of the original file was kept.")
         }
-        let recovery = notes.isEmpty ? "No evidence-preserving recovery is currently required."
-            : notes.joined(separator: " ")
+        let recovery = notes.isEmpty ? "Nothing needed recovering." : notes.joined(separator: " ")
         return SettingsDiagnostics(
             usageAccuracyEpoch: usage.metadata.accurateFrom,
             legacyBackupURL: backup,
@@ -456,6 +456,39 @@ final class SettingsModel: ObservableObject {
         }
     }
     @Published var loginItemError: String?
+
+    /// Registered, but macOS will not open the app at login until the user
+    /// approves it. The switch reads off then, since that is the truth, and
+    /// the page says where to approve it rather than flipping back silently.
+    var loginItemNeedsApproval: Bool { SMAppService.mainApp.status == .requiresApproval }
+
+    func openLoginItemsSettings() { SMAppService.openSystemSettingsLoginItems() }
+
+    /// The user declined notifications for the app, so a break reminder shows
+    /// on screen but never reaches Notification Centre.
+    @Published private(set) var notificationsDenied = false
+
+    /// Reads again what only System Settings changes: login-item approval and
+    /// notification permission. Called when the page opens and whenever the
+    /// app comes back to the front.
+    func refreshSystemStatus() {
+        objectWillChange.send()
+        // Only an app bundle has a notification centre; asking from the bare
+        // self-test binary raises instead of answering.
+        guard Bundle.main.bundleURL.pathExtension == "app" else { return }
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            let denied = settings.authorizationStatus == .denied
+            DispatchQueue.main.async {
+                guard let self, self.notificationsDenied != denied else { return }
+                self.notificationsDenied = denied
+            }
+        }
+    }
+
+    func openNotificationSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") else { return }
+        NSWorkspace.shared.open(url)
+    }
 
     var menuBarShowsTime: Bool {
         get { store.menuBarShowsTime }

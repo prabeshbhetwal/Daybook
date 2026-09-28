@@ -40,14 +40,22 @@ struct SettingsGroups: View {
                           detail: "Starts FocusContinuity in the menu bar when you sign in, so the "
                             + "record never has a gap at the start of the day.",
                           isOn: $model.opensAtLogin)
-                if let error = model.loginItemError {
-                    explanation("Could not change the login item: \(error)")
+                if let message = loginItemMessage {
+                    explanation(message)
+                }
+                if model.loginItemNeedsApproval {
+                    systemSettingsRow(Self.loginApproval, button: "Open Login Items") {
+                        model.openLoginItemsSettings()
+                    }
                 }
                 rowDivider
                 toggleRow("Show the session time in the menu bar",
                           detail: "Off, the menu bar keeps only the goal ring while a session runs.",
                           isOn: $model.menuBarShowsTime)
             }
+            // A switch that flips back by itself is otherwise silent.
+            .announcesChanges(to: loginItemMessage)
+            .announcesChanges(to: model.loginItemNeedsApproval ? Self.loginApproval : nil)
             if model.canReplayWelcome {
                 SurfacePanel(title: "Getting started", layout: layout) {
                     explanation("The tour walks through every part of the app in twelve short "
@@ -61,6 +69,16 @@ struct SettingsGroups: View {
                 }
             }
         }
+        .onAppear(perform: model.refreshSystemStatus)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshSystemStatus()
+        }
+    }
+
+    private static let loginApproval = "Approve FocusContinuity in System Settings › General › Login Items."
+
+    private var loginItemMessage: String? {
+        model.loginItemError.map { "Could not change the login item: \($0)" }
     }
 
     private var focus: some View {
@@ -177,6 +195,15 @@ struct SettingsGroups: View {
                           detail: "A notice after a long stretch of continuous use, timed from your typing "
                             + "and clicking rather than from sessions.",
                           isOn: $model.remindersEnabled)
+                // Declined notifications drop the Notification Centre copy
+                // without a word; nothing is added while they are allowed.
+                if model.remindersEnabled && model.notificationsDenied {
+                    systemSettingsRow("Notifications are off, so a reminder shows on screen but not in "
+                                      + "Notification Centre.",
+                                      button: "Open Notification Settings") {
+                        model.openNotificationSettings()
+                    }
+                }
                 // Each tier is its own switch: someone who finds the
                 // twenty-minute nudge too frequent keeps the longer two.
                 VStack(alignment: .leading, spacing: Tokens.Space.s) {
@@ -210,6 +237,10 @@ struct SettingsGroups: View {
                 .padding(.leading, 26)
             }
         }
+        .onAppear(perform: model.refreshSystemStatus)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshSystemStatus()
+        }
     }
 
     private var categories: some View {
@@ -232,20 +263,27 @@ struct SettingsGroups: View {
     }
 
     private var automatic: some View {
-        VStack(alignment: .leading, spacing: layout.panelSpacing) {
+        let rulesOn = model.activityRuleAutomationEnabled
+        return VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Automatic sessions", layout: layout) {
-                toggleRow("Use legacy automatic sessions",
-                          detail: "Without rules, guess from the app in front: a work app starts a "
-                            + "session, a break app pauses it. Turned off while rules are on. "
-                            + "The category is the one you chose the last few times you started "
-                            + "from that app.",
-                          isOn: $model.autoSessionsEnabled)
-                    .disabled(model.activityRuleAutomationEnabled)
+                // While rules are on the guess is not in effect, so the switch
+                // reads off. Only its reading changes: the stored choice is
+                // kept for when rules are turned off again.
+                toggleRow("Guess sessions from the app in front",
+                          detail: "A work app starts a session and a break app pauses it. The category "
+                            + "is the one you chose the last few times you started from that app."
+                            + (rulesOn ? "" : " Activity rules replace this while they are on."),
+                          isOn: Binding(get: { model.autoSessionsEnabled && !rulesOn },
+                                        set: { model.autoSessionsEnabled = $0 }))
+                    .disabled(rulesOn)
+                if rulesOn {
+                    explanation("Off while activity rules are on.")
+                }
                 rowDivider
-                preferenceRow("Auto-session gap",
-                              detail: "How long an automatic session can sit paused before it ends "
-                                + "instead of picking up where it left off.") {
-                    ThresholdControl(label: "Auto-session gap", selection: $model.breakLength,
+                preferenceRow("End a paused automatic session after",
+                              detail: "Come back sooner and it picks up where it left off.") {
+                    ThresholdControl(label: "End a paused automatic session after",
+                                     selection: $model.breakLength,
                                      options: FocusConstants.breakLengthOptions, allowsNever: true)
                 }
                 rowDivider
@@ -260,7 +298,7 @@ struct SettingsGroups: View {
     private var tracking: some View {
         SurfacePanel(title: "Tracking and apps", layout: layout) {
             preferenceRow("Apps shown in a card",
-                          detail: "How many apps the rail and the History previews list before "
+                          detail: "How many apps the side panel and the History previews list before "
                             + "\u{201c}See all\u{201d}.") {
                 Picker("Apps shown in a card", selection: $model.railAppCount) {
                     ForEach(FocusConstants.railAppOptions, id: \.self) { count in
@@ -347,16 +385,19 @@ struct SettingsGroups: View {
                 readOnlyRow("Storage", value: "Local only",
                             detail: SettingsPrivacyDisclosure.current.storageDetail)
                 rowDivider
-                readOnlyRow("Accurate app usage from",
+                readOnlyRow("App use measured precisely since",
                             value: model.diagnostics.usageAccuracyEpoch.map(
                                 SettingsDiagnostics.accuracyEpochLabel)
                                 ?? "Not established",
-                            detail: "App-use patterns before this epoch remain visibly qualified.")
-                rowDivider
-                readOnlyRow("Legacy backup location",
-                            value: model.diagnostics.legacyBackupURL?.path ?? "No legacy backup created",
-                            detail: "A backup appears only when older app-usage bytes are migrated.",
-                            valueLayout: .statusBlock)
+                            detail: "Earlier app use may include time you were not at the Mac.")
+                // Only an upgrade from the oldest format leaves this copy;
+                // without one the row said nothing worth reading.
+                if let backup = model.diagnostics.legacyBackupURL {
+                    rowDivider
+                    readOnlyRow("Backup of older app use", value: backup.path,
+                                detail: "Made when older data was upgraded.",
+                                valueLayout: .statusBlock)
+                }
             }
 
             SurfacePanel(title: "Data folder", layout: layout) {
@@ -381,6 +422,8 @@ struct SettingsGroups: View {
                     .controlSize(.large)
                     .accessibilityHint("Opens the local FocusContinuity data folder in Finder")
             }
+            // Whether the backup worked appears under its button; say it too.
+            .announcesChanges(to: model.backupStatus)
         }
     }
 
@@ -391,7 +434,7 @@ struct SettingsGroups: View {
             readOnlyRow("Build", value: model.diagnostics.build)
             rowDivider
             readOnlyRow("Recovery", value: model.diagnostics.recoverySummary,
-                        detail: "Recovery preserves source evidence before the app resumes writing.",
+                        detail: "A file the app cannot read is set aside or left untouched, never written over.",
                         valueLayout: .statusBlock)
         }
     }
@@ -484,6 +527,18 @@ struct SettingsGroups: View {
                 .accessibilityHidden(true)
         }
         .frame(minHeight: layout.rowHeight, alignment: .leading)
+    }
+
+    /// A system state this app cannot change for you, with the button that
+    /// opens the place where you can.
+    private func systemSettingsRow(_ text: String, button: String,
+                                   action: @escaping () -> Void) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
+            explanation(text)
+            Spacer(minLength: Tokens.Space.s)
+            Button(button, action: action)
+                .fixedSize()
+        }
     }
 
     private var rowDivider: some View { Divider() }

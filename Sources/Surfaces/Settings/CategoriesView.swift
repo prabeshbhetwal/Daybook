@@ -29,6 +29,13 @@ final class CategoryEditorState: ObservableObject {
     /// The last editor request acted on, so a ticket is consumed once. Not
     /// published: consuming it must not redraw the form.
     var consumedRequestID: UInt64 = 0
+    /// Bumped when the reader opens the form, so it comes into view with the
+    /// cursor in its name field.
+    @Published private(set) var focusRequest = 0
+    /// The last focus request acted on; not published, for the same reason.
+    var consumedFocusRequest = 0
+
+    func requestFocus() { focusRequest += 1 }
 
     var isBuiltIn: Bool { selectedID.map { WorkType(rawValue: $0).isBuiltIn } ?? false }
 
@@ -166,25 +173,41 @@ struct CategoriesView: View {
     @ObservedObject private var catalog = WorkTypeCatalog.shared
     @StateObject private var editor = CategoryEditorState()
     @Environment(\.categoryEditorRequest) private var request
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let editorID = "category-editor"
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("What a session is filed under. Rename or re-icon any of them; "
-                     + "add your own for work these do not describe.")
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: Tokens.Space.m)
-                Button("New category") { editor.beginNew() }
+        ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: Tokens.Space.m) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("What a session is filed under. Rename or re-icon any of them; "
+                         + "add your own for work these do not describe.")
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: Tokens.Space.m)
+                    Button("New category") {
+                        editor.beginNew()
+                        editor.requestFocus()
+                    }
                     .buttonStyle(.bordered)
+                }
+                VStack(spacing: 2) {
+                    ForEach(catalog.allDefinitions) { definition in
+                        row(definition)
+                    }
+                }
+                if editor.selectedID != nil { editorForm.id(Self.editorID) }
             }
-            VStack(spacing: 2) {
-                ForEach(catalog.allDefinitions) { definition in
-                    row(definition)
+            .onChange(of: editor.focusRequest) { _ in
+                // The form opens under the whole list, out of sight.
+                DispatchQueue.main.async {
+                    withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) {
+                        proxy.scrollTo(Self.editorID, anchor: .top)
+                    }
                 }
             }
-            if editor.selectedID != nil { editorForm }
         }
         .onAppear(perform: consumeRequest)
         .onChange(of: request) { _ in consumeRequest() }
@@ -199,13 +222,17 @@ struct CategoriesView: View {
         case .edit(let type):
             editor.edit(catalog.definition(for: type))
         }
+        editor.requestFocus()
     }
 
     private func row(_ definition: WorkTypeDefinition) -> some View {
         let type = definition.workType
         let isSelected = editor.selectedID == definition.id
         let isEdited = type.isBuiltIn && model.workTypeDefinitions.contains { $0.id == definition.id }
-        return Button { editor.edit(definition) } label: {
+        return Button {
+            editor.edit(definition)
+            editor.requestFocus()
+        } label: {
             HStack(spacing: Tokens.Space.m) {
                 WorkTypeMark(workType: type, size: 28)
                 VStack(alignment: .leading, spacing: 1) {
@@ -220,7 +247,7 @@ struct CategoriesView: View {
                 Spacer(minLength: Tokens.Space.s)
                 Image(systemName: "chevron.right")
                     .font(Tokens.Typography.microLabel)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, Tokens.Space.s)
             .frame(minHeight: 40)
@@ -266,6 +293,8 @@ struct CategoryEditorForm: View {
     /// Called after a save with the kept definition and whether it was new,
     /// so a picker that opened the form can select what was just made.
     var onSaved: ((WorkTypeDefinition, Bool) -> Void)?
+    @StateObject private var confirmingReset = BoolBox()
+    @FocusState private var nameFocused: Bool
 
     private var selectedDefinition: WorkTypeDefinition? {
         editor.selectedID.flatMap { id in catalog.allDefinitions.first { $0.id == id } }
@@ -291,6 +320,7 @@ struct CategoryEditorForm: View {
                                 editor.name = String(value.prefix(WorkTypeDefinition.nameLimit))
                             }
                         }
+                        .focused($nameFocused)
                         .onSubmit(save)
                         .accessibilityLabel("Category name")
                 }
@@ -320,16 +350,27 @@ struct CategoryEditorForm: View {
                 Button(isNew ? "Add category" : "Save", action: save)
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
+                // No Escape shortcut here: the sheet's or panel's own Close
+                // holds it, and two made which one won a guess. Escape inside
+                // the form cancels it through `onExitCommand` below.
                 Button("Cancel", action: onFinished)
-                    .keyboardShortcut(.cancelAction)
                 Spacer(minLength: Tokens.Space.s)
                 if let definition = selectedDefinition {
                     if definition.workType.isBuiltIn,
                        model.workTypeDefinitions.contains(where: { $0.id == definition.id && !$0.isRetired }) {
-                        Button("Reset to default") {
-                            model.resetCategory(id: definition.id)
-                            editor.edit(catalog.definition(for: definition.workType))
-                        }
+                        Button("Reset to default") { confirmingReset.value = true }
+                            .confirmationDialog("Reset “\(definition.name)” to default?",
+                                                isPresented: $confirmingReset.value,
+                                                titleVisibility: .visible) {
+                                Button("Reset", role: .destructive) {
+                                    model.resetCategory(id: definition.id)
+                                    editor.edit(catalog.definition(for: definition.workType))
+                                }
+                                Button("Cancel", role: .cancel) {}
+                            } message: {
+                                Text("Its name, icon and colour return to the originals. Its daily goal "
+                                     + "is removed, and break reminders go back to the default.")
+                            }
                     }
                     if definition.isRetired {
                         Button("Restore") {
@@ -354,6 +395,17 @@ struct CategoryEditorForm: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Category editor")
+        .onExitCommand(perform: onFinished)
+        .announcesChanges(to: editor.validationMessage)
+        .onAppear(perform: takeFocusIfAsked)
+        .onChange(of: editor.focusRequest) { _ in takeFocusIfAsked() }
+    }
+
+    private func takeFocusIfAsked() {
+        guard editor.focusRequest != editor.consumedFocusRequest else { return }
+        editor.consumedFocusRequest = editor.focusRequest
+        // The field must be installed before it can take focus.
+        DispatchQueue.main.async { nameFocused = true }
     }
 
     /// What the category means for the day: its own goal, and whether break
@@ -402,6 +454,7 @@ struct CategoryEditorForm: View {
             Text("Colour")
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             HStack(spacing: Tokens.Space.s) {
                 ForEach(WorkTypeHue.selectable, id: \.self) { hue in
                     let isSelected = editor.hue == hue
@@ -422,6 +475,9 @@ struct CategoryEditorForm: View {
                 }
             }
         }
+        // The caption names the group, so a swatch is heard as a colour.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Colour")
     }
 
     private var iconGrid: some View {
@@ -430,6 +486,7 @@ struct CategoryEditorForm: View {
                 Text("Icon")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 Picker("Icon kind", selection: $editor.iconMode) {
                     ForEach(CategoryEditorState.IconMode.allCases, id: \.self) { mode in
                         Text(mode.displayName).tag(mode)
@@ -452,11 +509,14 @@ struct CategoryEditorForm: View {
                         .accessibilityLabel("SF Symbol name")
                     Button("Use") { editor.acceptTypedSymbol() }
                         .disabled(editor.typedSymbol.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityLabel("Use symbol")
                 }
             } else {
                 glyphPane
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Icon")
     }
 
     /// Every curated symbol, grouped, as a pull-down: for finding by name
@@ -518,6 +578,7 @@ struct CategoryEditorForm: View {
                     .accessibilityLabel("Letter or number")
                 Button("Use") { editor.acceptGlyph() }
                     .disabled(editor.glyphText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityLabel("Use letter or number")
                 Spacer(minLength: Tokens.Space.s)
                 Picker("Shape", selection: $editor.glyphStyle) {
                     ForEach(WorkTypeSymbols.GlyphStyle.allCases, id: \.self) { style in
@@ -549,6 +610,10 @@ struct CategoryEditorForm: View {
                 .frame(width: 34, height: 34)
                 .background(selected ? Tokens.Palette.hue(editor.hue).opacity(0.16) : Color.clear,
                             in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
+                // The colour swatches' ring, so the chosen icon is not told by
+                // tint alone.
+                .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(selected ? 0.9 : 0), lineWidth: 2))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

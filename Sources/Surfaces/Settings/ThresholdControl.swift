@@ -14,8 +14,15 @@ struct ThresholdControl: View {
     var neverValue: TimeInterval = FocusConstants.never
     @StateObject private var custom = BoolBox()
     @StateObject private var draft = TextBox()
+    /// Set when "Custom…" is chosen, so the field takes the cursor once it is
+    /// on screen rather than leaving the reader to hunt for it.
+    @StateObject private var wantsFocus = BoolBox()
+    /// Set when the typed number was refused; the stored value is unchanged.
+    @StateObject private var rejected = BoolBox()
+    @FocusState private var fieldFocused: Bool
 
     private let customTag: TimeInterval = -1
+    static let rejection = "Enter 1 to 1,440 minutes."
 
     private var isNever: Bool {
         neverValue == 0 ? selection <= 0 : FocusConstants.isNever(selection)
@@ -29,9 +36,11 @@ struct ThresholdControl: View {
                 return selection
             },
             set: { picked in
+                rejected.value = false
                 if picked == customTag {
                     custom.value = true
                     draft.text = isNever ? "" : String(Int((selection / 60).rounded()))
+                    wantsFocus.value = true
                 } else {
                     custom.value = false
                     selection = picked
@@ -40,23 +49,31 @@ struct ThresholdControl: View {
     }
 
     var body: some View {
-        HStack(spacing: Tokens.Space.s) {
-            if custom.value || (!options.contains(selection) && !isNever) {
-                customField
-            }
-            Picker(label, selection: pickerSelection) {
-                ForEach(options, id: \.self) { seconds in
-                    Text(Tokens.duration(seconds)).tag(seconds)
+        VStack(alignment: .trailing, spacing: 3) {
+            HStack(spacing: Tokens.Space.s) {
+                Picker(label, selection: pickerSelection) {
+                    ForEach(options, id: \.self) { seconds in
+                        Text(Tokens.duration(seconds)).tag(seconds)
+                    }
+                    Text("Custom…").tag(customTag)
+                    if allowsNever {
+                        Divider()
+                        Text("Never").tag(neverValue)
+                    }
                 }
-                Text("Custom…").tag(customTag)
-                if allowsNever {
-                    Divider()
-                    Text("Never").tag(neverValue)
+                .labelsHidden()
+                .frame(width: 130)
+                .accessibilityLabel(label)
+                // After the menu, where the eye and the Tab key go next.
+                if custom.value || (!options.contains(selection) && !isNever) {
+                    customField
                 }
             }
-            .labelsHidden()
-            .frame(width: 130)
-            .accessibilityLabel(label)
+            if rejected.value {
+                Text(Self.rejection)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(Tokens.Colour.danger)
+            }
         }
     }
 
@@ -67,6 +84,7 @@ struct ThresholdControl: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 64)
                 .multilineTextAlignment(.trailing)
+                .focused($fieldFocused)
                 .onSubmit(apply)
                 .accessibilityLabel("\(label), minutes")
             Text("min")
@@ -75,13 +93,43 @@ struct ThresholdControl: View {
         }
         .onAppear {
             if draft.text.isEmpty, !isNever { draft.text = String(Int((selection / 60).rounded())) }
+            focusIfWanted()
+        }
+        .onChange(of: wantsFocus.value) { _ in focusIfWanted() }
+        // A refusal belongs to the text that earned it.
+        .onChange(of: draft.text) { _ in rejected.value = false }
+        .onChange(of: fieldFocused) { focused in
+            // Leaving an empty field, or one already refused, is not a new answer.
+            if !focused, !rejected.value, !draft.text.trimmingCharacters(in: .whitespaces).isEmpty {
+                apply()
+            }
         }
     }
 
+    private func focusIfWanted() {
+        guard wantsFocus.value else { return }
+        wantsFocus.value = false
+        // The field must be installed before it can take focus.
+        DispatchQueue.main.async { fieldFocused = true }
+    }
+
     private func apply() {
-        let trimmed = draft.text.trimmingCharacters(in: .whitespaces)
-        guard let minutes = Int(trimmed), minutes >= 1, minutes <= 24 * 60 else { return }
-        selection = TimeInterval(minutes * 60)
+        guard let minutes = Self.minutes(from: draft.text) else {
+            rejected.value = true
+            Announcement.post(Self.rejection)
+            return
+        }
+        rejected.value = false
+        let seconds = TimeInterval(minutes * 60)
+        if selection != seconds { selection = seconds }
         custom.value = true
+    }
+
+    /// A whole number of minutes from one to a day, or nil when the text is
+    /// anything else.
+    static func minutes(from text: String) -> Int? {
+        guard let minutes = Int(text.trimmingCharacters(in: .whitespaces)),
+              minutes >= 1, minutes <= 24 * 60 else { return nil }
+        return minutes
     }
 }

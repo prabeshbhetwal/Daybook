@@ -142,6 +142,8 @@ struct CategoryEditorPanelView: View {
         case .new: editor.beginNew()
         case .edit(let type): editor.edit(catalog.definition(for: type))
         }
+        // Asked for from a picker: the cursor goes where the typing will.
+        editor.requestFocus()
     }
 
     /// Whether the form is on a category that does not exist yet.
@@ -171,6 +173,9 @@ struct CategoryEditorPanelView: View {
                 }
             }
         }
+        // A group, so the label names the row instead of replacing each
+        // chip's own name.
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Category to edit")
     }
 
