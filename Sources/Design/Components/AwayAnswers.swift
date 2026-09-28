@@ -34,7 +34,6 @@ final class AwayAnswerNSButton: NSButton {
 
 private struct AwayAnswerNativeButton: NSViewRepresentable {
     let label: String
-    let help: String
     let action: () -> Void
 
     final class Coordinator: NSObject {
@@ -62,8 +61,9 @@ private struct AwayAnswerNativeButton: NSViewRepresentable {
     private func configure(_ button: AwayAnswerNSButton, coordinator: Coordinator) {
         coordinator.action = action
         button.setAccessibilityRole(.button)
+        // The label already ends with the caption; help repeating it made
+        // VoiceOver read every answer's caption twice.
         button.setAccessibilityLabel(label)
-        button.setAccessibilityHelp(help)
     }
 }
 
@@ -110,12 +110,14 @@ struct AwayAnswerGrid: View {
 
     private var answers: [Answer] {
         [
+            // "Not counted" is the header's to say, once; each caption says
+            // what its answer leaves behind.
             Answer(decision: .tookBreak, title: "It was a break",
-                   caption: "Not counted, written down as rest", prominent: true),
+                   caption: "Saved as a break in your day", prominent: true),
             Answer(decision: .mergeTime, title: "I was working",
                    caption: "Count it as work on this session", prominent: false),
             Answer(decision: .continueSession, title: "I was away",
-                   caption: "Not counted, nothing recorded", prominent: false),
+                   caption: "Left out; nothing saved", prominent: false),
             Answer(decision: .resetTimer, title: "Start fresh",
                    caption: "End that session where you left, begin a new one",
                    prominent: false)
@@ -161,6 +163,7 @@ struct AwayAnswerGrid: View {
             }
         }
         .onChange(of: range?.start) { _ in reason.text = "" }
+        .announcesChanges(to: error.map { "Answer not saved. \($0)" })
     }
 
     /// One line: a word or three for what the break was. Return logs it as a
@@ -171,6 +174,7 @@ struct AwayAnswerGrid: View {
             Image(systemName: "pencil.line")
                 .font(compact ? Tokens.Typography.metadata.weight(.medium) : Tokens.Typography.control.weight(.medium))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
             TextField("Name it — dinner, a call, a walk", text: $reason.text)
                 .textFieldStyle(.plain)
                 .font(Font.system(compact ? .callout : .body, design: .rounded))
@@ -233,9 +237,11 @@ struct AwayAnswerGrid: View {
             // the window offered, which is how a resized prompt spread its
             // answers down a whole display.
             .overlay(
+                // The fill marks the recommended answer for sighted readers;
+                // this says it to everyone else.
                 AwayAnswerNativeButton(
-                    label: "\(answer.title). \(answer.caption)",
-                    help: answer.caption,
+                    label: answer.prominent ? "\(answer.title), recommended. \(answer.caption)"
+                                            : "\(answer.title). \(answer.caption)",
                     action: {
                         if onAnswer(answer.decision) { reason.text = "" }
                     })
