@@ -612,9 +612,6 @@ enum FocusConstants {
     static let never: TimeInterval = 400 * 86_400
     static func isNever(_ value: TimeInterval) -> Bool { value >= never }
     static let defaultThreshold: TimeInterval = 900
-    /// Archive capacity. Raised from the original 50 (about one week) because
-    /// streaks and Insights need years of history.
-    static let archiveCapacity = 5000
     /// A day counts toward the streak once its sessions total this much work.
     static let streakMinimum: TimeInterval = 25 * 60
     /// Window used to derive the quick-start list.

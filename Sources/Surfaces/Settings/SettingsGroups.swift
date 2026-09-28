@@ -379,6 +379,20 @@ struct SettingsGroups: View {
                     .buttonStyle(.bordered)
                     .controlSize(.large)
                     .accessibilityHint("Opens the local FocusContinuity data folder in Finder")
+                rowDivider
+                readOnlyRow("Backup", value: "On request",
+                            detail: "Copies this folder and your preferences to a new dated folder in "
+                                + "iCloud Drive › \(DataBackup.folderName). Earlier backups are never replaced.")
+                Button("Back up to iCloud Drive") { model.backUpToICloudDrive() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .accessibilityHint("Copies your FocusContinuity data and preferences to iCloud Drive")
+                if let status = model.backupStatus {
+                    Text(status)
+                        .font(Tokens.Typography.metadata)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }

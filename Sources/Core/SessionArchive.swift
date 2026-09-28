@@ -14,7 +14,10 @@ final class SessionArchive {
     private let fileURL: URL
     private let now: () -> Date
     private let calendar: Calendar
-    private let capacity: Int
+    /// Nil keeps every record, which is what the app does. A number retires
+    /// the oldest beyond it through the correction journal; checks use small
+    /// ones to exercise that path.
+    private let capacity: Int?
     /// Testable write boundary. Normal production instances leave this nil and
     /// use Foundation's atomic file replacement below.
     private let writeOverride: (([SessionRecord]) -> String?)?
@@ -39,7 +42,7 @@ final class SessionArchive {
     init(directory: URL = SessionArchive.defaultDirectory,
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init,
-         capacity: Int = FocusConstants.archiveCapacity,
+         capacity: Int? = nil,
          writeOverride: (([SessionRecord]) -> String?)? = nil) {
         self.directory = directory
         self.fileURL = directory.appendingPathComponent("sessions.json")
@@ -91,7 +94,7 @@ final class SessionArchive {
             expectedIDs.contains(record.id) ? replacements[record.id] : record
         }
         candidate += additions.filter { !expectedIDs.contains($0.id) }
-        guard candidate.count > capacity, candidate.count > cache.count else { return [] }
+        guard let capacity, candidate.count > capacity, candidate.count > cache.count else { return [] }
         return Array(candidate.prefix(candidate.count - capacity))
     }
 
@@ -114,7 +117,7 @@ final class SessionArchive {
         }
         candidate += additions.filter { !expectedIDs.contains($0.id) }
         guard candidate != cache else { return nil }
-        if candidate.count > capacity, candidate.count > cache.count {
+        if let capacity, candidate.count > capacity, candidate.count > cache.count {
             candidate.removeFirst(candidate.count - capacity)
         }
         switch write(candidate) {
@@ -145,7 +148,7 @@ final class SessionArchive {
         }
         candidate += additions.filter { !expectedIDs.contains($0.id) }
         guard candidate != cache else { return nil }
-        if candidate.count > capacity, candidate.count > cache.count {
+        if let capacity, candidate.count > capacity, candidate.count > cache.count {
             guard allowsEviction else {
                 return "History is full. This correction was not saved because it would remove other records."
             }

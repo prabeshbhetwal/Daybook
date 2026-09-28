@@ -252,6 +252,10 @@ final class SettingsModel: ObservableObject {
     /// The archive directory displayed and revealed by Privacy. Fixtures pass
     /// their own temporary directory so this surface cannot reach live data.
     let dataDirectoryURL: URL
+    /// Where "Back up to iCloud Drive" writes. Checks pass a scratch folder.
+    let backupRoot: URL
+    /// What the last backup did, shown under its button.
+    @Published private(set) var backupStatus: String?
     /// Mirrored here because the tracker — not the preference — is the truth
     /// about whether recording is on, and the tracker lives with the store.
     private var trackingEnabled: Bool
@@ -268,6 +272,7 @@ final class SettingsModel: ObservableObject {
          diagnostics: SettingsDiagnostics = .unavailable,
          dataDirectory: URL = SessionArchive.defaultDirectory,
          openDataFolder: ((URL) -> Bool)? = nil,
+         backupRoot: URL = DataBackup.iCloudDriveRoot,
          installedAppCatalog: InstalledAppCatalog = InstalledAppCatalog()) {
         self.store = store
         self.trackingEnabled = isTrackingEnabled
@@ -280,6 +285,7 @@ final class SettingsModel: ObservableObject {
         self.openDataFolder = openDataFolder
         self.diagnostics = diagnostics
         self.dataDirectoryURL = dataDirectory
+        self.backupRoot = backupRoot
         self.installedAppCatalog = installedAppCatalog
     }
 
@@ -561,6 +567,19 @@ final class SettingsModel: ObservableObject {
             Self.revealDataFolder(at: dataDirectoryURL, open: openDataFolder)
         } else {
             Self.revealDataFolder(at: dataDirectoryURL)
+        }
+    }
+
+    /// Copies the data folder and preferences to a new dated folder in iCloud
+    /// Drive. Only ever on request: the app otherwise keeps everything local.
+    func backUpToICloudDrive(at date: Date = Date()) {
+        do {
+            let folder = try DataBackup.make(from: dataDirectoryURL, preferences: store.backupSnapshot,
+                                             into: backupRoot, at: date)
+            backupStatus = "Backed up to iCloud Drive › \(DataBackup.folderName) › \(folder.lastPathComponent)."
+        } catch {
+            backupStatus = error.localizedDescription
+            Diagnostics.log("backup to iCloud Drive failed: \(error)")
         }
     }
 

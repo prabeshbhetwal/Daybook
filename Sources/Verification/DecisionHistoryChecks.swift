@@ -41,7 +41,7 @@ enum DecisionHistoryChecks {
         let suite = "fc.decision-history.\(UUID())"
         lazy var defaults = UserDefaults(suiteName: suite)!
         var journalFailure: (() -> String?)?
-        var capacity = FocusConstants.archiveCapacity
+        var capacity: Int?
         var archiveFailure: (([SessionRecord]) -> String?)?
         lazy var archive = SessionArchive(directory: directory, now: { self.time }, capacity: capacity,
                                          writeOverride: { self.archiveFailure?($0) })

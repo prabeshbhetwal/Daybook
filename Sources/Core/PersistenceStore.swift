@@ -651,6 +651,12 @@ final class PersistenceStore {
         defaults.removeObject(forKey: key)
     }
 
+    /// Every preference this app stores, for a backup: its own `fc.` keys and
+    /// nothing from the shared global domain.
+    var backupSnapshot: [String: Any] {
+        defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("fc.") }
+    }
+
     /// Used by the self-test harness to leave no residue behind.
     func removeAll() {
         let keys = [Key.state, Key.overrides, Key.threshold, Key.name,

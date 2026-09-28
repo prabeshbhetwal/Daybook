@@ -48,7 +48,7 @@ enum StoryInteractionChecks {
         let engine: SessionEngine
         let store: SessionStore
 
-        init(capacity: Int = FocusConstants.archiveCapacity,
+        init(capacity: Int? = nil,
              writeOverride: (([SessionRecord]) -> String?)? = nil) {
             guard let defaults = UserDefaults(suiteName: suite) else {
                 preconditionFailure("Could not create isolated interaction defaults")
