@@ -25,11 +25,10 @@ private final class RangeAnchorBox: ObservableObject {
     @Published var day: Date?
 }
 
-/// A month grid in the app's own vocabulary, for jumping the dashboard to a
-/// day — and a map of the month while it is open. Under each date sits that
-/// day's focused time; the cell's tint is how far the day got towards the
-/// daily goal; the header sums the month. Hover a day for the rest. Days in
-/// the future, or before anything was recorded, cannot be picked.
+/// A month grid for picking a day, or in History a span. It is a picker, not
+/// a report: a dot marks the days with anything recorded, and hovering a day
+/// gives its figures. How the days and months went is History's to show.
+/// Days in the future, or before anything was recorded, cannot be picked.
 struct DayPickerCalendar: View {
     let selected: Date
     let earliest: Date?
@@ -99,7 +98,7 @@ struct DayPickerCalendar: View {
     }
 
     private let cellWidth: CGFloat = 44
-    private let cellHeight: CGFloat = 46
+    private let cellHeight: CGFloat = 38
     private let gap: CGFloat = 4
 
     var body: some View {
@@ -119,18 +118,9 @@ struct DayPickerCalendar: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: Tokens.Space.s) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(monthTitle)
-                    .font(Tokens.Typography.rowTitle.weight(.semibold))
-                    .contentTransition(.numericText())
-                Text(monthSummary)
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                    // Three facts in a 364pt popover: one line cut the goal
-                    // count, which is the one worth reading.
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(monthTitle)
+                .font(Tokens.Typography.rowTitle.weight(.semibold))
+                .contentTransition(.numericText())
             Spacer(minLength: Tokens.Space.s)
             if !calendar.isDate(shown.month, equalTo: Date(), toGranularity: .month) {
                 Button("Today") { shown.month = calendar.startOfDay(for: Date()) }
@@ -153,19 +143,6 @@ struct DayPickerCalendar: View {
 
     private var monthTitle: String {
         DateFormats.local("LLLL yyyy").string(from: shown.month)
-    }
-
-    /// `11 active days · 38h 56m focused · goal met 4×`, or a plain empty line.
-    private var monthSummary: String {
-        let days = shown.facts.values
-        let active = days.filter { $0.tracked > 0 }.count
-        guard active > 0 else { return "Nothing recorded this month" }
-        let focused = days.reduce(0) { $0 + $1.focused }
-        let met = days.filter { goal > 0 && ($0.goalAchieved ?? $0.focused) >= goal }.count
-        var parts = [active == 1 ? "1 active day" : "\(active) active days",
-                     "\(Tokens.duration(focused)) focused"]
-        if met > 0 { parts.append("goal met \(met)×") }
-        return parts.joined(separator: " · ")
     }
 
     private func step(_ months: Int) {
@@ -248,7 +225,7 @@ struct DayPickerCalendar: View {
         let tooEarly = earliest.map { key < calendar.startOfDay(for: $0) } ?? false
         let pickable = !tooLate && !tooEarly
         let hovered = hover.id == key.description
-        let share = goal > 0 ? (facts.goalAchieved ?? facts.focused) / goal : 0
+        let recorded = facts.tracked > 0 || facts.focused > 0
 
         return Button { if pickable { pick(day) } } label: {
             VStack(spacing: 2) {
@@ -260,22 +237,18 @@ struct DayPickerCalendar: View {
                                      : !pickable ? AnyShapeStyle(.quaternary)
                                      : isToday ? AnyShapeStyle(Tokens.Colour.focus)
                                      : AnyShapeStyle(.primary))
-                // The fare: focused time, or a quiet dash for a day at the Mac
-                // with no session, or nothing at all.
-                Text(facts.focused > 0 ? Tokens.duration(facts.focused)
-                     : facts.tracked > 0 ? "·" : " ")
-                    .font(Tokens.Typography.microValue.monospacedDigit())
-                    .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
-                                     : facts.focused > 0 ? AnyShapeStyle(.secondary)
-                                     : AnyShapeStyle(.tertiary))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                // Something was recorded that day: enough to recognise it.
+                Circle()
+                    .fill(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
+                          : AnyShapeStyle(Tokens.Colour.focus.opacity(0.7)))
+                    .frame(width: 4, height: 4)
+                    .opacity(recorded && pickable ? 1 : 0)
+                    .accessibilityHidden(true)
             }
             .frame(width: cellWidth, height: cellHeight)
             .background(isSelected ? AnyShapeStyle(Tokens.Colour.focus)
                         : inRange ? AnyShapeStyle(Tokens.Colour.focus.opacity(0.30))
-                        : AnyShapeStyle(Tokens.Colour.focus.opacity(
-                            pickable ? tint(share) * (range == nil ? 1 : 0.5) : 0)),
+                        : AnyShapeStyle(Color.clear),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
@@ -286,14 +259,6 @@ struct DayPickerCalendar: View {
                     .strokeBorder(Tokens.Colour.focus.opacity(isToday && !isSelected ? 0.7 : 0),
                                   lineWidth: 1)
             )
-            .overlay(alignment: .topTrailing) {
-                if share >= 1 && !isSelected {
-                    Image(systemName: "checkmark")
-                        .font(Tokens.Typography.micro.weight(.heavy))
-                        .foregroundStyle(Tokens.Colour.focus)
-                        .padding(4)
-                }
-            }
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
         }
         .buttonStyle(StoryPressStyle())
@@ -324,10 +289,8 @@ struct DayPickerCalendar: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Goal credit, but only when it differs from the figure on the cell. The
-    /// tint is drawn from focused-active time while the number under the date
-    /// is focused time, so a day can be tinted further along than it reads;
-    /// saying so here is what makes the tint explainable rather than arbitrary.
+    /// Goal credit, but only when it differs from focused time: goal credit
+    /// counts only focus with hands-on app use, so the two can disagree.
     private func goalCredit(_ facts: DayFacts) -> TimeInterval? {
         guard goal > 0, let credit = facts.goalAchieved,
               abs(credit - facts.focused) >= 60 else { return nil }
@@ -353,17 +316,6 @@ struct DayPickerCalendar: View {
         return parts.joined(separator: ", ")
     }
 
-    /// Four tint steps by share of the goal — enough to read the month's shape
-    /// without turning the grid into a heat map.
-    private func tint(_ share: Double) -> Double {
-        switch share {
-        case ..<0.001: return 0
-        case ..<0.5: return 0.10
-        case ..<1: return 0.20
-        default: return 0.32
-        }
-    }
-
     @ViewBuilder private var legend: some View {
         if range != nil {
             Text(anchor.day == nil
@@ -373,82 +325,10 @@ struct DayPickerCalendar: View {
                 .foregroundStyle(anchor.day == nil ? AnyShapeStyle(.tertiary)
                                                    : AnyShapeStyle(Tokens.Colour.focus))
         } else {
-            goalLegend
+            Text("A dot marks a day with something recorded.")
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.tertiary)
         }
-    }
-
-    /// A key for a grid that speaks in tint. It draws the same four states the
-    /// cells draw — including the dot — rather than standing in for them with
-    /// symbols that appear nowhere on the month.
-    private var goalLegend: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: Tokens.Space.m) { legendKeys }
-                VStack(alignment: .leading, spacing: Tokens.Space.xs) { legendKeys }
-            }
-            Text("Tint is the share of your \(Tokens.duration(goal)) goal. "
-                 + "Figures are focused time.")
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .font(Tokens.Typography.metadata)
-        .foregroundStyle(.tertiary)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Key. A day's tint is its share of your "
-                            + "\(Tokens.spent(goal)) goal: untinted below a tenth, "
-                            + "light under half, stronger from half, strongest with a "
-                            + "tick once the goal is met. A dot marks a day at the Mac "
-                            + "with no focus session. Figures are focused time.")
-    }
-
-    @ViewBuilder private var legendKeys: some View {
-        tintKey(tint(0.25), "Under half")
-        tintKey(tint(0.75), "Half or more")
-        tintKey(tint(1), "Goal met", ticked: true)
-        dotKey
-    }
-
-    /// One swatch at a tint the grid really uses, so the key can be held up
-    /// against a cell and matched.
-    private func tintKey(_ opacity: Double, _ label: String, ticked: Bool = false) -> some View {
-        HStack(spacing: Tokens.Space.xs) {
-            swatch(fill: Tokens.Colour.focus.opacity(opacity)) {
-                if ticked {
-                    Image(systemName: "checkmark")
-                        .font(Tokens.Typography.micro.weight(.heavy))
-                        .foregroundStyle(Tokens.Colour.focus)
-                }
-            }
-            Text(label)
-        }
-        .accessibilityHidden(true)
-    }
-
-    /// The fourth state the old key omitted: time at the Mac, no session.
-    private var dotKey: some View {
-        HStack(spacing: Tokens.Space.xs) {
-            swatch(fill: Color.clear) {
-                Text("·")
-                    .font(Tokens.Typography.microValue)
-                    .foregroundStyle(.tertiary)
-            }
-            Text("At the Mac, no session")
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func swatch<Mark: View>(fill: Color,
-                                    @ViewBuilder mark: () -> Mark) -> some View {
-        RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
-            .fill(fill)
-            .frame(width: 18, height: 18)
-            .overlay { mark() }
-            // The faintest step is all but invisible on its own ground; a
-            // hairline says "this square is the sample" without restating it
-            // as a colour the cells do not have.
-            .overlay {
-                RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
-                    .strokeBorder(.quaternary, lineWidth: 0.5)
-            }
     }
 
     private func load() {
