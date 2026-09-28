@@ -677,7 +677,7 @@ struct FocusHero: View {
 
     private var resumeHelp: String {
         store.isAway
-            ? "Ends the away and starts the focus clock again (\(SessionShortcut.pauseOrResume.glyphs))"
+            ? "Ends your time away and starts the focus clock again (\(SessionShortcut.pauseOrResume.glyphs))"
             : "Starts the focus clock again (\(SessionShortcut.pauseOrResume.glyphs))"
     }
 
@@ -688,8 +688,8 @@ struct FocusHero: View {
 
     private var stopHelp: String {
         "Ends this session and records it. A stretch under "
-            + "\(Int(store.engine.store.minimumRecordedSession)) seconds is not kept. "
-            + "(\(SessionShortcut.stop.glyphs))"
+            + "\(Int(store.engine.store.minimumRecordedSession)) seconds is not kept "
+            + "(\(SessionShortcut.stop.glyphs))."
     }
 }
 

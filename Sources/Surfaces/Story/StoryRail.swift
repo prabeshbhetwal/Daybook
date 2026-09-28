@@ -344,7 +344,8 @@ struct StoryRail: View {
                     GoalRing(progress: share, diameter: 56, lineWidth: 7,
                              label: "\(Int((share * 100).rounded()))%",
                              isMet: share >= 1,
-                             labelFont: .system(size: 12, weight: .bold, design: .rounded))
+                             labelFont: .system(size: 12, weight: .bold, design: .rounded),
+                             accessibilityTitle: "Share of goal")
                 }
             }
             // The headline's logged figure and this card's can differ. This
@@ -544,8 +545,8 @@ struct StoryRail: View {
             // The strip's news is which days met the minimum; the streak
             // length is already the card's trailing figure.
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Last \(days.count) days")
-            .accessibilityValue("\(days.filter(\.met).count) of \(days.count) days met")
+            .accessibilityLabel("Days met")
+            .accessibilityValue("\(days.filter(\.met).count) of the last \(days.count)")
             // On the first line's baseline, so the link stays beside the
             // sentence it follows when the sentence wraps.
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {

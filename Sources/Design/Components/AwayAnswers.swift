@@ -120,7 +120,7 @@ struct AwayAnswerGrid: View {
             Answer(decision: .mergeTime, title: "I was working",
                    caption: "Count it as work on this session", prominent: false),
             Answer(decision: .continueSession, title: "I was away",
-                   caption: "Left out; nothing saved", prominent: false),
+                   caption: "Left uncounted in your day", prominent: false),
             Answer(decision: .resetTimer, title: "Start fresh",
                    caption: "End that session where you left, begin a new one",
                    prominent: false)

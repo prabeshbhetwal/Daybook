@@ -26,7 +26,7 @@ enum StoryGapReason: Equatable {
     /// "Mac locked" are already their own reason.
     var explanation: String? {
         self == .unknown
-            ? "Nothing was recorded. The Mac may have been asleep or off, or FocusContinuity wasn't running."
+            ? "The Mac may have been asleep or off, or FocusContinuity wasn't running."
             : nil
     }
 }

@@ -99,7 +99,7 @@ struct ActivityRulesView: View {
                                                  set: { if !$0 { editor.pendingDeletion = nil } }),
                             titleVisibility: .visible,
                             presenting: editor.pendingDeletion) { rule in
-            Button("Delete Rule", role: .destructive) {
+            Button("Delete rule", role: .destructive) {
                 model.removeActivityRule(id: rule.id)
                 if editor.selectedID == rule.id { editor.close() }
             }

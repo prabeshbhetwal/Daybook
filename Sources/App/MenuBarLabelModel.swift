@@ -31,7 +31,7 @@ struct MenuBarDisplay: Equatable {
         if needsAttention { spoken.append("Away question waiting") }
         if isIdle {
             spoken.append("\(Int((goal.share * 100).rounded())) "
-                          + "percent of today's goal, no session running")
+                          + "per cent of today's goal, no session running")
         } else {
             let elapsedText = Tokens.spokenElapsed(elapsed)
             switch state {

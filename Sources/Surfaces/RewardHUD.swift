@@ -193,12 +193,13 @@ final class RewardHUD {
     }
 
     /// What VoiceOver says when the panel appears. The Undo here can only be
-    /// clicked, so a listener is told where the same Undo is: the automatic
-    /// session's controls, which list it for as long as the session runs.
+    /// clicked, so a listener is told where the same Undo is: the menu bar
+    /// panel lists it for as long as the session runs. Not ⌘7: a rule starts
+    /// the session while another app is in front, which would get the key.
     static func spoken(title: String, detail: String, hasUndo: Bool) -> String {
         var sentences = [title, detail].filter { !$0.isEmpty }
         if hasUndo {
-            sentences.append("To undo it, open session controls with Command-7 "
+            sentences.append("To undo it, open FocusContinuity from the menu bar "
                              + "and choose Undo automatic session")
         }
         return sentences

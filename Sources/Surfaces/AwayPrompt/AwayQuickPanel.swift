@@ -181,7 +181,7 @@ final class AwayQuickPanel {
             }
         }
         // A card that appears under the menu bar is otherwise silent.
-        Announcement.post("Away \(Tokens.duration(away)). How should that time count?")
+        Announcement.post("Away \(Tokens.spent(away)). How should that time count?")
         scheduleFade()
     }
 
