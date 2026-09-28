@@ -14,6 +14,16 @@ final class ActivityRuleEditorState: ObservableObject {
     @Published var appQuery = ""
     /// True while the form describes a rule that is not saved yet.
     @Published var isNew = false
+    /// The rule a Delete is waiting on the reader to confirm.
+    @Published var pendingDeletion: ActivityRule?
+    /// Bumped when the reader opens the form, so it scrolls into view and its
+    /// name field takes the cursor. The form opening itself on arrival does
+    /// not ask: nobody chose it.
+    @Published private(set) var focusRequest = 0
+    /// The last request acted on. Not published: consuming it must not redraw.
+    var consumedFocusRequest = 0
+
+    func requestFocus() { focusRequest += 1 }
 
     func edit(_ rule: ActivityRule) {
         selectedID = rule.id; name = rule.name; workType = rule.workType
@@ -70,7 +80,36 @@ struct ActivityRulesView: View {
     @Environment(\.focusInterfaceDensity) private var density
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private static let editorID = "activity-rule-editor"
+
     var body: some View {
+        ScrollViewReader { proxy in
+            content
+                .onChange(of: editor.focusRequest) { _ in
+                    // The form opens below the list, often out of sight.
+                    DispatchQueue.main.async {
+                        withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) {
+                            proxy.scrollTo(Self.editorID, anchor: .top)
+                        }
+                    }
+                }
+        }
+        .confirmationDialog("Delete “\(editor.pendingDeletion?.name ?? "")”?",
+                            isPresented: Binding(get: { editor.pendingDeletion != nil },
+                                                 set: { if !$0 { editor.pendingDeletion = nil } }),
+                            titleVisibility: .visible,
+                            presenting: editor.pendingDeletion) { rule in
+            Button("Delete Rule", role: .destructive) {
+                model.removeActivityRule(id: rule.id)
+                if editor.selectedID == rule.id { editor.close() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("It stops starting sessions. Sessions it already started are kept.")
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             SurfacePanel(title: "Rules", layout: density.layout) {
                 Text("A rule starts a session by itself once you have been in one of its apps "
@@ -95,10 +134,7 @@ struct ActivityRulesView: View {
                                          },
                                          onEdit: { open { editor.edit(rule) } },
                                          onDuplicate: { open { editor.duplicate(rule) } },
-                                         onDelete: {
-                                             model.removeActivityRule(id: rule.id)
-                                             if editor.selectedID == rule.id { editor.close() }
-                                         })
+                                         onDelete: { editor.pendingDeletion = rule })
                     }
                 }
                 HStack {
@@ -116,6 +152,7 @@ struct ActivityRulesView: View {
                 SurfacePanel(title: editor.isNew ? "New rule" : "Edit rule", layout: density.layout) {
                     ActivityRuleForm(model: model, editor: editor)
                 }
+                .id(Self.editorID)
                 .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
             }
         }
@@ -129,6 +166,7 @@ struct ActivityRulesView: View {
 
     private func open(_ change: () -> Void) {
         withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) { change() }
+        editor.requestFocus()
     }
 }
 
@@ -159,6 +197,14 @@ struct ActivityRuleCard: View {
                                 .font(Tokens.Typography.rowTitle.weight(.medium))
                                 .lineLimit(1)
                             WorkTypeChip(workType: rule.workType)
+                            // Said in words, so an off rule is not told only
+                            // by its faded icons.
+                            if !rule.isEnabled {
+                                Text("Off")
+                                    .font(Tokens.Typography.microLabel)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize()
+                            }
                         }
                         Text(detail)
                             .font(Tokens.Typography.metadata)
@@ -170,13 +216,17 @@ struct ActivityRuleCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(StoryPressStyle())
-            .accessibilityLabel("\(rule.name), \(rule.workType.displayName), \(detail)")
+            .accessibilityLabel([rule.name, rule.workType.displayName, detail, rule.isEnabled ? nil : "off"]
+                .compactMap { $0 }.joined(separator: ", "))
             .accessibilityHint("Edit this rule")
+            .accessibilityAddTraits(isEditing ? .isSelected : [])
+            // The switch speaks its own state; a label that also said "on"
+            // was read as "rule on, off".
             Toggle("", isOn: Binding(get: { rule.isEnabled }, set: onToggle))
                 .toggleStyle(.switch)
                 .labelsHidden()
                 .controlSize(.small)
-                .accessibilityLabel("\(rule.name) rule on")
+                .accessibilityLabel("\(rule.name) rule")
             Menu {
                 Button("Edit", action: onEdit)
                 Button("Duplicate", action: onDuplicate)
@@ -196,7 +246,6 @@ struct ActivityRuleCard: View {
         .padding(.horizontal, Tokens.Space.s)
         .background(isEditing ? Tokens.Colour.focus.opacity(0.10) : Color.clear,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-        .opacity(rule.isEnabled ? 1 : 0.6)
     }
 
     /// Up to four icons, overlapping like a stack of cards.
@@ -225,15 +274,17 @@ struct ActivityRuleCard: View {
                     .padding(.leading, 10)
             }
         }
+        // Only the pictures fade for an off rule: the words beside them stay
+        // readable, and "Off" says it.
+        .opacity(rule.isEnabled ? 1 : 0.5)
         .accessibilityHidden(true)
     }
 
     private var detail: String {
         let names = ruleApps.prefix(3).map(\.name).joined(separator: ", ")
         let more = ruleApps.count > 3 ? " +\(ruleApps.count - 3)" : ""
-        var parts = [names + more, "starts after \(Tokens.preciseDuration(rule.startAfter))"]
-        if !rule.isEnabled { parts.append("off") }
-        return parts.joined(separator: " · ")
+        return [names + more, "starts after \(Tokens.preciseDuration(rule.startAfter))"]
+            .joined(separator: " · ")
     }
 }
 
@@ -243,20 +294,23 @@ struct ActivityRuleCard: View {
 struct ActivityRuleForm: View {
     @ObservedObject var model: SettingsModel
     @ObservedObject var editor: ActivityRuleEditorState
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HStack(spacing: Tokens.Space.m) {
                 TextField("Activity name", text: $editor.name)
                     .textFieldStyle(.roundedBorder)
+                    .focused($nameFocused)
+                    .onSubmit(save)
                     .accessibilityLabel("Activity name")
                 // The same category menu as the session strip, with Add and
                 // Edit category, so a rule can file work under a category
                 // made on the spot.
                 // The app's own box, as the session strip draws it, not the
                 // platform's bezel: the same menu, Add and Edit category included.
+                // It says "Category" and the chosen one itself.
                 WorkTypePicker(selection: $editor.workType, quiet: true)
-                    .accessibilityLabel("Category")
             }
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 HStack(spacing: Tokens.Space.m) {
@@ -271,14 +325,20 @@ struct ActivityRuleForm: View {
                     .labelsHidden()
                     .frame(width: 130)
                     if editor.dwell == -1 {
-                        TextField("Seconds, 30 to 1800", text: $editor.customDwell)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 150)
-                            .accessibilityLabel("Custom whole seconds")
+                        HStack(spacing: 4) {
+                            TextField("30 to 1800", text: $editor.customDwell)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 96)
+                                .onSubmit(save)
+                                .accessibilityLabel("Start after, whole seconds")
+                            Text("seconds")
+                                .font(Tokens.Typography.metadata)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     Spacer(minLength: Tokens.Space.l)
                     Toggle(isOn: $editor.enabled) {
-                        Text("Rule is on")
+                        Text("Use this rule")
                             .font(Tokens.Typography.control)
                             .fixedSize()
                     }
@@ -300,28 +360,41 @@ struct ActivityRuleForm: View {
                     .font(Tokens.Typography.metadata).foregroundStyle(Tokens.Colour.danger)
                     .accessibilityLabel("Rule error: \(message)")
             }
+            // Return and Escape belong to the rule only while the reader is
+            // in it. The form opens by itself on arrival, and as the Settings
+            // sheet's own shortcuts it would have saved on a stray Return,
+            // while its Escape lost to the sheet's Close and shut Settings.
+            // Return in a field saves; Escape inside the form cancels it.
             HStack(spacing: Tokens.Space.m) {
-                Button(editor.isNew ? "Add rule" : "Save rule") {
-                    // Saving is finishing: the card above now shows the rule.
-                    if let rule = editor.ruleForSaving() {
-                        model.saveActivityRule(rule)
-                        editor.close()
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.defaultAction)
+                Button(editor.isNew ? "Add rule" : "Save rule", action: save)
+                    .buttonStyle(.borderedProminent)
                 Button("Cancel") { editor.close() }
-                    .keyboardShortcut(.cancelAction)
                 Spacer(minLength: 0)
                 if !editor.isNew, let id = editor.selectedID,
-                   model.activityRules.contains(where: { $0.id == id }) {
-                    Button("Delete rule", role: .destructive) {
-                        model.removeActivityRule(id: id)
-                        editor.close()
-                    }
+                   let rule = model.activityRules.first(where: { $0.id == id }) {
+                    Button("Delete rule", role: .destructive) { editor.pendingDeletion = rule }
                 }
             }
         }
+        .onExitCommand { editor.close() }
+        .announcesChanges(to: editor.validationMessage)
+        .onAppear(perform: takeFocusIfAsked)
+        .onChange(of: editor.focusRequest) { _ in takeFocusIfAsked() }
+    }
+
+    private func save() {
+        // Saving is finishing: the card above now shows the rule.
+        if let rule = editor.ruleForSaving() {
+            model.saveActivityRule(rule)
+            editor.close()
+        }
+    }
+
+    private func takeFocusIfAsked() {
+        guard editor.focusRequest != editor.consumedFocusRequest else { return }
+        editor.consumedFocusRequest = editor.focusRequest
+        // The field must be installed before it can take focus.
+        DispatchQueue.main.async { nameFocused = true }
     }
 
     /// The apps in the rule, as chips that remove on click.
@@ -346,7 +419,7 @@ struct ActivityRuleForm: View {
                                 Text(app?.name ?? id).lineLimit(1)
                                 Image(systemName: "xmark")
                                     .font(Tokens.Typography.micro.weight(.bold))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                             .font(Tokens.Typography.metadata)
                             .padding(.horizontal, Tokens.Space.s)
@@ -384,7 +457,7 @@ struct ActivityRuleForm: View {
                                 Text(app.name).lineLimit(1)
                                 Image(systemName: "plus")
                                     .font(Tokens.Typography.micro.weight(.bold))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                             .font(Tokens.Typography.metadata)
                             .padding(.horizontal, Tokens.Space.s)
@@ -440,6 +513,8 @@ struct InstalledAppPicker: View {
                 .font(Tokens.Typography.microLabel)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
+                // The list below carries this name for VoiceOver.
+                .accessibilityHidden(true)
             HStack {
                 TextField("Search applications", text: $query).textFieldStyle(.roundedBorder)
                 Button { catalog.refresh() } label: { Image(systemName: "arrow.clockwise") }
@@ -458,7 +533,7 @@ struct InstalledAppPicker: View {
                                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
                                     .font(Tokens.Typography.control)
                                     .foregroundStyle(isOn ? AnyShapeStyle(Tokens.Colour.focus)
-                                                          : AnyShapeStyle(.tertiary))
+                                                          : AnyShapeStyle(.secondary))
                                     .frame(width: 18)
                                 if let url = application.url {
                                     Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 22))
@@ -493,7 +568,7 @@ struct InstalledAppPicker: View {
             .padding(.vertical, Tokens.Space.xs)
             .background(StoryStyle.well.opacity(0.5),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-            .accessibilityLabel("Applications in this activity")
+            .accessibilityLabel("All applications")
             HStack {
                 Button("Add application…", action: addApplication)
                 if catalog.isLoading { ProgressView().controlSize(.small) }
