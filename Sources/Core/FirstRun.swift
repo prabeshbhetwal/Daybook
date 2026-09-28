@@ -391,23 +391,23 @@ enum FirstRunScript {
         ]),
 
         Chapter(id: .lookingBack, cards: [
-            Card(sentence: "The day here, the longer view in History.",
-                 body: "The story is always one day; its arrows step a day at a time and "
-                     + "the date between them opens a calendar. History is where you "
-                     + "find out what your weeks and months actually look like.",
+            Card(sentence: "The story is a day. History is the longer view.",
+                 body: "Pick how far back to look: 7 or 30 days by day, 3 months by "
+                     + "week, 12 months as a calendar for each month. Pick a bar or a "
+                     + "month to read it, down to a single day's story.",
                  anchor: .scopePills,
                  effect: .showHistory),
             Card(sentence: "History goes back to the day you installed the app.",
-                 body: "Every month as a calendar, every day a square, stronger the "
-                     + "more of your goal it reached. Pick a month to read it. There is "
-                     + "nothing from before the app was here, because nothing was "
-                     + "recorded.",
+                 body: "The arrows step back by the range you chose. The dates between "
+                     + "them open a calendar: click a first day and a last, and History "
+                     + "reads exactly that stretch. There is nothing from before the app "
+                     + "was here, because nothing was recorded.",
                  anchor: .periodNav,
                  effect: .showHistory),
             Card(sentence: "Find any session by name.",
-                 body: "The search finds sessions by what you called them, what you "
-                     + "noted, the app, the category or the date. ⌘F opens it from "
-                     + "anywhere in History.",
+                 body: "The search at the top of History finds sessions by what you "
+                     + "called them, what you noted, the app, the category or the date. "
+                     + "⌘F takes you there from anywhere in the window.",
                  anchor: .search,
                  effect: .showHistory)
         ]),

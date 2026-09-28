@@ -12,8 +12,8 @@ record the tested behaviour and remaining manual-verification limits.
 
 ## Composition
 
-A persistent native chrome row holds Day / Week / Month, period navigation and
-session controls. A readable Story column sits beside a 336-point supporting rail.
+A persistent native chrome row holds day navigation (History: its range buttons
+and span navigation) and session controls. A readable Story column sits beside a 336-point supporting rail.
 The canvas is warm off-white (`#FBFAF8`) with white entry cards; the rail is a
 subtle neutral layer over the warm base. Dark appearance retains the same
 hierarchy, without putting white labels on insufficiently dark fills.
@@ -33,12 +33,13 @@ is used for light-appearance emphasis; dark-appearance text uses `#B6B3FF`
 to stay readable on dark cards instead of copying a low-contrast saturated fill
 into small labels. Action blue is `#0071E3` / `#75B5FF`. Work types retain stable
 identities; app colours are consistent within
-the selected scope. Colour never implies goal credit where only focused duration
+the day or range shown. Colour never implies goal credit where only focused duration
 is known. Native controls preserve visible keyboard focus.
 
 ## Components
 
-- Scope control: rounded rectangle, radius 9, neutral selected thumb radius 7.
+- Range control (History): rounded rectangle, radius 9, neutral selected thumb
+  radius 7. No thumb shows while a span picked on the calendar is read.
 - Entry cards: radius 13, 13-point vertical / 15-point horizontal padding,
   subtle hairline and shadow. The entire header toggles detail.
 - Rail tiles: radius 14, 15-point vertical / 16-point horizontal padding.
@@ -47,24 +48,22 @@ is known. Native controls preserve visible keyboard focus.
   within the supported 980-point minimum shell. No fabricated activity waveform
   or typing claims. Meetings use a compact evidence paragraph and app-duration
   chips; current work uses a short coverage sentence beside a compact chart.
-- Month: responsive square cells, 8-point gaps, 62-point weekly totals column,
-  date and duration together. Intensity is relative focused duration, not goal
-  attainment. Foreground is selected from resolved-fill contrast.
+- Calendar: a picker, not a report. Dates, the chosen day or span, and a
+  4-point dot on days with anything recorded; a day's figures are in its hover
+  text and spoken label. Months and their totals are History's.
 - Preferences: compact bounded native sheet with five groups, backed controls
   and contextual search. Native modal sheets block parent interaction and Escape
   dismisses. History remains searchable and opens historical stories explicitly.
 
 ## Chrome bar
 
-One row, the same columns in every workspace: a slot for the way back, the
-workspace's control, the period, the links to the other workspaces, the
-session control, Settings. The slot is the width of one round button and is
-empty on Story; Insights and History put a bare back arrow in it, so the
-scope pills begin at the same point in every view. Both links are always
-present in the same order; the workspace you are in is set in the text
-colour and is not a link. The bar holds controls and the way back, never a
-title: Insights and History name themselves at the top of their page with a
-page title and one line of metadata. The session control never wraps.
+One row: a slot for the way back, the workspace's controls, the session
+control, Settings. The slot is the width of one round button and is empty on
+the Story; History puts a bare back arrow in it. The Story's controls are its
+day arrows and date, with a History link; History's are its four range buttons
+and its span arrows and dates. The bar holds controls and the way back, never a
+title, and History's search heads its page rather than sitting in the bar. The
+session control never wraps.
 
 ## Vocabulary
 
@@ -220,7 +219,7 @@ The Apps tile always shows at most four apps, sorted by recorded duration, with
 app-list scroller. Individual apps still open their scoped recorded visits.
 The fixed cap keeps the supporting rail subordinate to the Story.
 
-**Open FocusContinuity** reveals the existing Story scope and date and dismisses
+**Open FocusContinuity** reveals the existing Story date and dismisses
 an old secondary sheet. It does not open session controls merely because a timer
 is running. **Session controls** and its explicit keyboard command still open
 the operational sheet. Inspecting history and managing a timer are separate

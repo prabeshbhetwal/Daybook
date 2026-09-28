@@ -25,13 +25,13 @@ lunch into invented productivity. FocusContinuity is built around one rule:
 
 ## Screenshots
 
-| Week, dark appearance | Month |
+| History, 3 months, dark appearance | History, 12 months, a day picked |
 |---|---|
-| ![Week scope in dark mode: focus by day with recorded app use behind each bar](docs/screenshots/week-dark.png) | ![Month scope: a calendar of focused days with weekly totals](docs/screenshots/month.png) |
+| ![History in dark mode over 3 months: search first, focus by week and a when-you-focus grid](docs/screenshots/history-dark.png) | ![History over 12 months: a calendar for each month, with a picked day previewed in the rail](docs/screenshots/history-year.png) |
 
-| Insights | Menu bar | Away decision |
-|---|---|---|
-| ![Insights: focus by week and a when-you-focus grid](docs/screenshots/insights.png) | ![Menu bar popover with a running session and quick switches](docs/screenshots/menu-bar-popover.png) | ![Away prompt asking how 22 minutes away should count](docs/screenshots/away-prompt.png) |
+| Menu bar | Away decision |
+|---|---|
+| ![Menu bar popover with a running session and quick switches](docs/screenshots/menu-bar-popover.png) | ![Away prompt asking how 22 minutes away should count](docs/screenshots/away-prompt.png) |
 
 ## The hard parts
 
@@ -114,13 +114,15 @@ machinery that nothing used any more, with no change in behaviour.
 
 ## Features
 
-- Day, Week and Month stories, newest first, with focus, app use, rhythm and
-  streak tiles beside them
+- The day told as a story, with its goal, app use, rhythm and streak beside
+  it; a calendar jumps to any recorded day
 - Focus sessions with pause, away, breaks and threads you can continue later
 - Optional activity rules that start sessions from the apps you use, always
   saying why and offering Undo
-- Searchable History reaching back to the first recorded day
-- Insights that only state what the record supports: focus trend, a
+- History over the last 7 or 30 days, 3 or 12 months, or any span you pick,
+  grouped by day, week or month to suit, back to the first recorded day
+- Search first in History: sessions by name, note, app, category or date (⌘F)
+- History states only what the record supports: focus trend, a
   when-you-focus grid, category shares and goal rates
 - Custom categories with icons, colours, daily goals and break reminders
 - Session notes with in-app dictation, full session reports and named breaks
@@ -157,7 +159,7 @@ AppUsageTracker          SessionStore (+ read models)   Story columns / rail / c
 AppUsageArchive          SettingsModel                  History / Insights / Awards
 DailyGoal                MainWindowModel                Focus / Settings / Popover
 PeriodStats              Persistence wiring             Tokens / StoryStyle / controls
-PresenceGate             Story scope projections        Away / Reward
+PresenceGate             Day and History projections    Away / Reward
 StoryChronology
 DateFormats
 ```

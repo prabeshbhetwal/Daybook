@@ -139,6 +139,7 @@ struct StoryChromeBar: View {
                          controlLabel: "History range")
             Spacer(minLength: Tokens.Space.s)
             insightNavigation
+                .coachAnchor(.periodNav)
             Spacer(minLength: Tokens.Space.s)
             // No "History" label and no search button: the label named the
             // page being read beside its back button, and the search field

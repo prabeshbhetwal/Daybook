@@ -15,7 +15,8 @@ This is a native macOS tool for repeated daily use, not a web analytics dashboar
 Keep time accounting honest across pauses, absence, screen locks and sleep.
 Make the recorded day understandable without requiring users to reconstruct it
 from disconnected charts. The menu bar provides quick operations; the main
-window provides a chronological Story with Day, Week and Month scopes.
+window tells one day as a chronological Story, and History reads longer
+stretches. Each question has one place, so no figure is shown in two.
 
 ## Brand personality
 
