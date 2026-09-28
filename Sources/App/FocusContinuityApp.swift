@@ -78,6 +78,9 @@ struct FocusContinuityApp: App {
         .windowStyle(.hiddenTitleBar)
         .commands {
             MainWindowCommands(navigation: coordinator.mainWindow)
+            SessionCommands(store: coordinator.store,
+                            state: coordinator.sessionCommandState,
+                            settings: coordinator.settings)
         }
     }
 

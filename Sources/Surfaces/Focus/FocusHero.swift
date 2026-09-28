@@ -90,6 +90,22 @@ extension SessionStore {
         return FocusOperationFailureState(message: correctionError,
                                           hasOriginBoundRetry: correctionRetry != nil)
     }
+
+    /// Executes the tested state-to-primary-action contract. The hero's
+    /// filled button and the Session menu both run this, so a command from
+    /// the keyboard does exactly what the visible button does.
+    func performFocusPrimaryAction() {
+        switch focusSurfaceComposition.mode.primaryAction {
+        case .start:
+            start()
+        case .pause:
+            togglePause()
+        case .resume:
+            isAway ? endAway() : togglePause()
+        case nil:
+            break
+        }
+    }
 }
 
 struct FocusOperationFailureState: Equatable {
@@ -239,6 +255,7 @@ struct FocusHero: View {
         WorkTypePicker(selection: $store.workType)
         StartButton(title: "Start focus", fills: false) { performPrimaryAction() }
             .fixedSize()
+            .help(startHelp)
     }
 
     @ViewBuilder private var liveRowLead: some View {
@@ -278,16 +295,19 @@ struct FocusHero: View {
             FocusActionButton(title: "Pause", symbol: "pause.fill", prominent: true) {
                 performPrimaryAction()
             }
+            .help(pauseHelp)
             FocusActionButton(title: "Away", symbol: "door.right.hand.open") { store.markAway() }
+                .help(awayHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
-                .help("Ends this session and records it. A stretch under "
-                      + "\(Int(store.engine.store.minimumRecordedSession)) seconds is not kept.")
+                .help(stopHelp)
         case .paused, .watching:
             FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
                               symbol: "play.fill", prominent: true) {
                 performPrimaryAction()
             }
+            .help(resumeHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
+                .help(stopHelp)
         case .idle, .awaitingDecision:
             EmptyView()
         }
@@ -345,6 +365,7 @@ struct FocusHero: View {
                     HStack(spacing: Tokens.Space.s) {
                         WorkTypePicker(selection: $store.workType, quiet: true)
                         StartButton(title: "Start focus", fills: true) { performPrimaryAction() }
+                            .help(startHelp)
                     }
                 } else {
                     HStack(spacing: Tokens.Space.s) {
@@ -357,6 +378,7 @@ struct FocusHero: View {
                             performPrimaryAction()
                         }
                         .fixedSize()
+                        .help(startHelp)
                     }
                 }
                 // A note about what happens after an action the reader has not
@@ -383,12 +405,15 @@ struct FocusHero: View {
             FocusActionButton(title: "Pause", symbol: "pause.fill", prominent: true) {
                 performPrimaryAction()
             }
+            .help(pauseHelp)
             FocusActionButton(title: "Away", symbol: "door.right.hand.open") {
                 store.markAway()
             }
+            .help(awayHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") {
                 store.stop()
             }
+            .help(stopHelp)
         }
     }
 
@@ -404,9 +429,11 @@ struct FocusHero: View {
                               symbol: "play.fill", prominent: true) {
                 performPrimaryAction()
             }
+            .help(resumeHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") {
                 store.stop()
             }
+            .help(stopHelp)
         }
     }
 
@@ -419,9 +446,11 @@ struct FocusHero: View {
             FocusActionButton(title: "Resume", symbol: "play.fill", prominent: true) {
                 performPrimaryAction()
             }
+            .help(resumeHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") {
                 store.stop()
             }
+            .help(stopHelp)
         }
     }
 
@@ -616,19 +645,40 @@ struct FocusHero: View {
         return "On your usual pace"
     }
 
-    /// Executes the tested state-to-primary-action contract. Secondary actions
-    /// stay explicit beside their buttons because they do not vary by mode.
+    /// Secondary actions stay explicit beside their buttons because they do
+    /// not vary by mode.
     private func performPrimaryAction() {
-        switch mode.primaryAction {
-        case .start:
-            store.start()
-        case .pause:
-            store.togglePause()
-        case .resume:
-            store.isAway ? store.endAway() : store.togglePause()
-        case nil:
-            break
-        }
+        store.performFocusPrimaryAction()
+    }
+
+    // MARK: - Tooltips
+
+    // Each names the Session menu shortcut that does the same thing, so the
+    // keyboard route is discoverable from the pointer.
+
+    private var startHelp: String {
+        "Starts a focus session (\(SessionShortcut.start.glyphs))"
+    }
+
+    private var pauseHelp: String {
+        "Pauses the focus clock (\(SessionShortcut.pauseOrResume.glyphs))"
+    }
+
+    private var resumeHelp: String {
+        store.isAway
+            ? "Ends the away and starts the focus clock again (\(SessionShortcut.pauseOrResume.glyphs))"
+            : "Starts the focus clock again (\(SessionShortcut.pauseOrResume.glyphs))"
+    }
+
+    /// Away is Pause that also stops recording app use: nobody is at the Mac.
+    private var awayHelp: String {
+        "Stops counting focus and app use until you're back (\(SessionShortcut.stepAway.glyphs))"
+    }
+
+    private var stopHelp: String {
+        "Ends this session and records it. A stretch under "
+            + "\(Int(store.engine.store.minimumRecordedSession)) seconds is not kept. "
+            + "(\(SessionShortcut.stop.glyphs))"
     }
 }
 
