@@ -90,11 +90,18 @@ struct ActivityQuietChoiceView: View {
     @ObservedObject var store: SessionStore
     let choice: ActivityQuietChoice
 
+    private var question: String { choice.candidates.map(\.name).joined(separator: " or ") + "?" }
+
+    /// Choosing starts a session of that activity from when the time in the
+    /// other app began; the time since, spent here, is left out.
+    static let explanation = "Choose the one you were doing. Your time in the other app "
+        + "just now becomes a session of it. Time in FocusContinuity isn't counted."
+
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            Text(choice.candidates.map(\.name).joined(separator: " or ") + "?")
+            Text(question)
                 .font(Tokens.Typography.rowTitle)
-            Text("Choose one activity for the recorded external app interval. Time in FocusContinuity is excluded.")
+            Text(Self.explanation)
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -110,5 +117,13 @@ struct ActivityQuietChoiceView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Choose activity for recorded app use")
         .storyRenderEvidence(.activityQuietChoice)
+        // It arrives on its own, between whatever else is on screen; said
+        // aloud, a listener knows there is a question to answer.
+        .onAppear { announce() }
+        .onChange(of: choice.id) { _ in announce() }
+    }
+
+    private func announce() {
+        Announcement.post("\(question) \(Self.explanation)")
     }
 }
