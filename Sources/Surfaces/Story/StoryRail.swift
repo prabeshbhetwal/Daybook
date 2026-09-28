@@ -151,12 +151,17 @@ struct StoryRail: View {
             .help(arrangement.isArranging ? "Save this order" : "Arrange cards")
             .accessibilityLabel(arrangement.isArranging ? "Save card order" : "Arrange cards")
             if arrangement.isArranging {
-                Button("Reset order") { resetOrder() }
-                    .buttonStyle(StoryPressStyle())
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                    .accessibilityLabel("Reset card order")
+                // The 28pt frame sits inside the label: outside the button it
+                // made room but left only the words clickable.
+                Button { resetOrder() } label: {
+                    Text("Reset order")
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(StoryPressStyle())
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Reset card order")
             }
         }
         .fixedSize()
