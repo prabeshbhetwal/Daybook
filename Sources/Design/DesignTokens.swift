@@ -185,7 +185,7 @@ enum Tokens {
             return "\(hourPart) \(minutes) min"
         }
         if minutes > 0 { return minutes == 1 ? "1 minute" : "\(minutes) minutes" }
-        return "\(total) seconds"
+        return total == 1 ? "1 second" : "\(total) seconds"
     }
 
     /// `4 hours ago`, `just now`.

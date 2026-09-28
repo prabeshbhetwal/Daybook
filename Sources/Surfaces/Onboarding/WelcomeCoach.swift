@@ -115,8 +115,8 @@ struct WelcomeCoachCard: View {
     /// or onto the chapter list when it opens. Only Full Keyboard Access
     /// focuses buttons at all, so without it this moves nothing.
     @FocusState private var focus: CardFocus?
-    /// VoiceOver's cursor, moved onto each new card so the listener is not
-    /// left somewhere in the story below while the welcome carries on.
+    /// VoiceOver's cursor, moved onto the card when the welcome appears so the
+    /// listener is not left somewhere in the story below.
     @AccessibilityFocusState private var readerOnCard: Bool
 
     private enum CardFocus: Hashable {
@@ -164,6 +164,10 @@ struct WelcomeCoachCard: View {
         .accessibilityFocused($readerOnCard)
         .onAppear {
             announce()
+            // Once, when the welcome appears. On later cards the listener is
+            // on Next already, and pulling them back to the card would throw
+            // them off the button they are pressing.
+            readerOnCard = true
             takeFocus()
         }
         .onChange(of: progress) { _ in
@@ -346,7 +350,6 @@ struct WelcomeCoachCard: View {
     /// A card that is waiting for the reader to act leaves the keyboard where
     /// they will act; anything else puts it on the way forward.
     private func takeFocus() {
-        readerOnCard = true
         guard !progress.isWaiting else { return }
         DispatchQueue.main.async { focus = .forward }
     }

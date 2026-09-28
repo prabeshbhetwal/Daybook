@@ -326,8 +326,8 @@ enum FirstRunScript {
 
         Chapter(id: .rail, cards: [
             Card(sentence: "Daily goal: how far today has come.",
-                 body: "The figure is today's goal credit and the ring its share of a "
-                     + "daily goal. Only declared focus counts — sessions, not app use — "
+                 body: "The figure is the focus that counts towards today's goal, and the "
+                     + "ring its share of it. Only declared focus counts — sessions, not app use — "
                      + "and only while you were actually at the keyboard. The day's total "
                      + "focus is the column's headline. The goal is yours to set, in "
                      + "Settings under Sessions.",

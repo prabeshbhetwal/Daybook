@@ -35,8 +35,10 @@ a historical day never substitutes today's data.
 | `Command-]`, `Command-[` | Next and previous card in the welcome tour |
 | Escape | Dismiss a native sheet/app detail or cancel an inline rename |
 
-The Session keys run the same actions as the buttons and do nothing whenever
-the matching button is not shown. Settings › General replays the welcome tour.
+The Session keys run the same actions as the buttons, and each is unavailable
+when the session's state offers no such button: Start only when idle, Step away
+only while running. Settings › General lists every key under Keyboard, says
+whether Control-Option-Space is working, and replays the welcome tour.
 
 ## Reading the story
 
@@ -46,8 +48,8 @@ rail to see that day's recorded visits. The arrows step a day; the date label
 opens the calendar. In History a picked bar or month unfolds in place, down to
 a single day's story; a found session previews its day in the rail, and **Open
 as a story** reads it on the front page. Choose **Arrange cards** to reorder the
-rail; dragging is active only while arranging, and each card also offers
-arrow buttons while arranging, and Move up / Move down for VoiceOver.
+rail. While arranging, drag a card, or use the up and down arrows in its header
+or its right-click menu; VoiceOver offers Move up and Move down.
 
 An expanded entry offers a pencil for renaming and changing category,
 **Continue this**, **Add note** (typed or dictated in the app), **Remove** and
@@ -76,7 +78,7 @@ controls** or `Command-7` when you want that sheet.
 **Activity rules** (Settings → Sessions) are opt-in. Each rule names an
 activity, a work type, the applications that belong to it and how long an app
 must be in front before the activity begins (30 s to 30 min; 3 min by default).
-When rules are on they replace the legacy heuristic rather than run beside it.
+When rules are on they replace guessing from the app in front rather than run beside it.
 One activity owns any moment: an app that belongs to several rules records its
 use once and asks a quiet choice (for example **Coding or Research?**) in the
 session controls and the menu panel instead of starting two sessions. An
@@ -141,7 +143,7 @@ Settings groups the backed controls into five compact pages:
 | Sessions | Daily goal, activity rules and their application picker, guessing sessions from the app in front, ending a paused automatic session, and milestones |
 | Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
 | Recording | App recording and the number of recent app visits initially shown |
-| Privacy | Local storage, accuracy epoch, preserved backup, Reveal data folder and diagnostics |
+| Privacy | Local storage, when app use was first measured precisely, the backup of older app use, Reveal data folder and diagnostics |
 
 Each page or changed search result opens at its first control; search retains
 the result's group context. Long paths and recovery text wrap and are
