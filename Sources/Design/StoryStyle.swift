@@ -12,6 +12,9 @@ enum StoryStyle {
     /// #0071E3, which fell to 4.1:1 on the well and the rail.
     static let action = Color(lightHex: 0x0068D1, darkHex: 0x75B5FF)
     static let successInk = Color(lightHex: 0x087C3B, darkHex: 0x73D79A)
+    /// Warning text and glyphs. System orange stays for tints and borders;
+    /// as text it was 2:1 in light mode. This is Apple's high-contrast orange.
+    static let attentionInk = Color(lightHex: 0xC93400, darkHex: 0xFF9F0A)
     static let successWash = Color(lightHex: 0xEFF8EF, darkHex: 0x25352B)
     static let line = Color(light: NSColor.black.withAlphaComponent(0.07),
                             dark: NSColor.white.withAlphaComponent(0.09))

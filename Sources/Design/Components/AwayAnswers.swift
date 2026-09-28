@@ -219,7 +219,7 @@ struct AwayAnswerGrid: View {
             Label("Away \(Tokens.duration(away))", systemImage: "moon.zzz.fill")
                 .font(compact ? .headline : .title3.weight(.semibold))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Tokens.Colour.attention)
+                .foregroundStyle(StoryStyle.attentionInk)
             if let range {
                 Text(Tokens.timeRange(range.start, range.end))
                     .font(compact ? .caption : .callout)

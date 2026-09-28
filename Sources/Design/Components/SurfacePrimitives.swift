@@ -86,7 +86,7 @@ struct IntegrityNotice: View {
         HStack(alignment: .top, spacing: Tokens.Space.s) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Tokens.Colour.attention)
+                .foregroundStyle(StoryStyle.attentionInk)
             Text(message)
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)

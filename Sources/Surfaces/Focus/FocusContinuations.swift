@@ -206,7 +206,7 @@ struct FocusBreakLine: View {
             .font(Tokens.Typography.metadata)
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(store.isBreakDue
-                             ? AnyShapeStyle(Tokens.Colour.attention)
+                             ? AnyShapeStyle(StoryStyle.attentionInk)
                              : AnyShapeStyle(.secondary))
             .lineLimit(1)
             .accessibilityLabel("Break status: \(store.breakLabel)")
