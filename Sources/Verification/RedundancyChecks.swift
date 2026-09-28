@@ -11,7 +11,8 @@ enum RedundancyChecks {
         ("The hour grid's caption carries the best two hours in full", gridCarriesBestHours),
         ("History's headline carries recorded app use once its total card is gone", historyHeadlineAppUse),
         ("A day opened inside a period does not repeat the period's integrity notice", integrityNoticeOnce),
-        ("A break reminder's body gives the reason, not the title again", breakBodyAddsOnly)
+        ("A break reminder's body gives the reason, not the title again", breakBodyAddsOnly),
+        ("The strip hides today's goal only where the goal card shows it", stripGoalOnlyWhereCardIsNot)
     ]
 
     private static let start = Date(timeIntervalSince1970: 1_800_000_000)
@@ -109,6 +110,23 @@ enum RedundancyChecks {
         let caption = InsightHourGrid.summary(window: (startHour: 9, seconds: 12_000), phrase: "on Tuesdays")
         return caption.hasPrefix("Most focus lands between 9 am and 11 am: 3h 20m, most of it on Tuesdays.")
             ? [] : ["the grid caption lost the best window's figure or place: \(caption)"]
+    }
+
+    private static func stripGoalOnlyWhereCardIsNot() -> [String] {
+        var failures: [String] = []
+        if SessionControlStrip.showsGoal(scope: .day, isToday: true, workspace: .story, sheet: nil) {
+            failures.append("the strip repeated today's goal beside the goal card")
+        }
+        if !SessionControlStrip.showsGoal(scope: .day, isToday: true, workspace: .history, sheet: nil) {
+            failures.append("History has no goal card, yet the strip hid today's goal there")
+        }
+        if !SessionControlStrip.showsGoal(scope: .day, isToday: true, workspace: .story, sheet: .settings) {
+            failures.append("a sheet covers the goal card, yet the strip hid today's goal")
+        }
+        if !SessionControlStrip.showsGoal(scope: .day, isToday: false, workspace: .story, sheet: nil) {
+            failures.append("a past day's card is not today's goal, yet the strip hid it")
+        }
+        return failures
     }
 
     private static func breakBodyAddsOnly() -> [String] {

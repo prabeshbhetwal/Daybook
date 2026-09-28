@@ -20,6 +20,14 @@ struct SessionControlStrip: View {
     @ObservedObject var navigation: MainWindowModel
     @FocusState private var intentFocused: Bool
 
+    /// Whether the strip shows today's goal. Day view of today has the goal
+    /// card in the rail, unless a sheet covers it or History, which has no
+    /// goal card, is in its place.
+    static func showsGoal(scope: StoryScope, isToday: Bool,
+                          workspace: MainReadingWorkspace, sheet: StorySheetKind?) -> Bool {
+        !(scope == .day && isToday && workspace == .story && sheet == nil)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             HStack(alignment: .top, spacing: Tokens.Space.l) {
@@ -27,10 +35,10 @@ struct SessionControlStrip: View {
                           intentFocused: $intentFocused,
                           compact: true,
                           wide: true,
-                          // Day view of today has the goal card in the rail,
-                          // unless a sheet is covering it.
-                          showsGoal: !(navigation.storyScope == .day && store.isToday
-                                       && navigation.sheet == nil))
+                          showsGoal: Self.showsGoal(scope: navigation.storyScope,
+                                                    isToday: store.isToday,
+                                                    workspace: navigation.workspace,
+                                                    sheet: navigation.sheet))
                     .coachAnchor(.activityField)
                 stripChrome
             }
