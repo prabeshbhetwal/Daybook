@@ -30,7 +30,7 @@ private struct StoryActionLabel<Label: View>: View {
             .opacity(enabled ? 1 : 0.45)
             .animation(Tokens.Motion.animation(Tokens.Motion.hover, reduceMotion: reduceMotion),
                        value: hovered.value)
-            .scaleEffect(pressed ? 0.97 : 1)
+            .scaleEffect(reduceMotion ? 1 : pressed ? 0.97 : 1)
             .animation(Tokens.Motion.animation(pressed ? Tokens.Motion.press : Tokens.Motion.release,
                                                reduceMotion: reduceMotion),
                        value: pressed)

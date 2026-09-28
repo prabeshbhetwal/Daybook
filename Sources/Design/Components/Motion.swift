@@ -19,7 +19,10 @@ private struct PressableLabel<Label: View>: View {
 
     var body: some View {
         label
-            .scaleEffect(pressed ? Tokens.Motion.pressedScale
+            // Under Reduce Motion the size holds still too, not just the
+            // animation between sizes; the brightness still answers.
+            .scaleEffect(reduceMotion ? 1
+                         : pressed ? Tokens.Motion.pressedScale
                          : hovered.value && enabled ? Tokens.Motion.hoverScale : 1)
             // A hover lifts a filled control a shade; a press settles it.
             .brightness(!enabled ? 0 : pressed ? -0.08 : hovered.value ? 0.05 : 0)
@@ -61,12 +64,21 @@ extension View {
 
     /// A glyph that acknowledges a change of state with a small dip — the
     /// pin when pinned, the tick when the order is saved. macOS 14 only; on
-    /// 13 the swap is the acknowledgement.
-    @ViewBuilder func symbolNod<Value: Equatable>(on value: Value) -> some View {
-        if #available(macOS 14.0, *) {
-            self.symbolEffect(.bounce.down.byLayer, value: value)
+    /// 13, and under Reduce Motion, the swap is the acknowledgement.
+    func symbolNod<Value: Equatable>(on value: Value) -> some View {
+        modifier(SymbolNod(value: value))
+    }
+}
+
+private struct SymbolNod<Value: Equatable>: ViewModifier {
+    let value: Value
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 14.0, *), !reduceMotion {
+            content.symbolEffect(.bounce.down.byLayer, value: value)
         } else {
-            self
+            content
         }
     }
 }

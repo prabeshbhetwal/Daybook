@@ -91,6 +91,8 @@ struct IconButton: View {
         .buttonStyle(PressableStyle())
         .help(help)
         .accessibilityLabel(label ?? help)
-        .accessibilityAddTraits(isOn == true ? .isSelected : [])
+        // A toggle says its state either way; a selected trait alone left
+        // "off" unspoken.
+        .accessibilityValue(isOn.map { $0 ? "On" : "Off" } ?? "")
     }
 }
