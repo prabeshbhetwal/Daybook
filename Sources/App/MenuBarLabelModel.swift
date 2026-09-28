@@ -25,10 +25,23 @@ struct MenuBarDisplay: Equatable {
         progress = (min(1, max(0, goal.share)) * Self.progressSteps).rounded() / Self.progressSteps
         isMet = goal.isMet
         time = !isIdle && showsTime ? Tokens.duration(elapsed) : nil
-        accessibilityLabel = isIdle
-            ? "FocusContinuity, \(Int((goal.share * 100).rounded())) "
-              + "percent of today's goal, no session running"
-            : "Current session \(Tokens.spent(elapsed))"
+        // Says what the glyph shows: the waiting dot, the pause mark and a
+        // met goal were drawn but never spoken.
+        var spoken = ["FocusContinuity"]
+        if needsAttention { spoken.append("Away question waiting") }
+        if isIdle {
+            spoken.append("\(Int((goal.share * 100).rounded())) "
+                          + "percent of today's goal, no session running")
+        } else {
+            let elapsedText = Tokens.spokenElapsed(elapsed)
+            switch state {
+            case .running: spoken.append("Running, \(elapsedText)")
+            case .paused: spoken.append("Paused, \(elapsedText)")
+            default: spoken.append("\(elapsedText) so far")
+            }
+            if isMet { spoken.append("Daily goal met") }
+        }
+        accessibilityLabel = spoken.joined(separator: ". ")
     }
 
     init(_ store: SessionStore) {
@@ -37,6 +50,16 @@ struct MenuBarDisplay: Equatable {
                   needsAttention: store.pendingAway != nil,
                   goal: store.goal,
                   showsTime: store.menuBarShowsTime)
+    }
+}
+
+extension Tokens {
+    /// Elapsed time as VoiceOver says it: whole minutes, and "under a
+    /// minute" before the first. Read to the second, a live clock changes
+    /// while it is being spoken, and in the first minute it changed every
+    /// second.
+    static func spokenElapsed(_ seconds: TimeInterval) -> String {
+        seconds < 60 ? "under a minute" : spent(seconds)
     }
 }
 

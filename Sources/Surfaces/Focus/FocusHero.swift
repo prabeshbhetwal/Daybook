@@ -178,6 +178,10 @@ struct FocusHero: View {
     /// The window's session strip: compact spacing, toolbar layout.
     private var isStrip: Bool { compact && wide }
     private var isQuiet: Bool { mode == .paused || mode == .watching }
+    /// What the clocks roll on. Rolling on the seconds ran a digit animation
+    /// every second in the corner of the reader's eye; the seconds now swap
+    /// plainly and only a new minute rolls.
+    private var elapsedMinutes: Int? { DurationText.wholeSeconds(store.elapsed).map { $0 / 60 } }
 
     var body: some View {
         VStack(alignment: compact ? .leading : .center,
@@ -261,10 +265,10 @@ struct FocusHero: View {
     @ViewBuilder private var liveRowLead: some View {
         Text(Tokens.clock(store.elapsed))
             .font(Tokens.Typography.rowTimer)
-            .rollingDigits(store.elapsed)
+            .rollingDigits(elapsedMinutes)
             .foregroundStyle(isQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
             .fixedSize()
-            .accessibilityLabel("Elapsed \(Tokens.preciseDuration(store.elapsed))")
+            .elapsedClockAccessibility(store.elapsed)
         VStack(alignment: .leading, spacing: 1) {
             Text(store.activeIntent)
                 .font(Tokens.Typography.rowTitle)
@@ -469,9 +473,9 @@ struct FocusHero: View {
             Text(Tokens.clock(store.elapsed))
                 .font(Tokens.Typography.liveTimer)
                 .monospacedDigit()
-                .rollingDigits(store.elapsed)
+                .rollingDigits(elapsedMinutes)
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
-                .accessibilityLabel("Elapsed \(Tokens.preciseDuration(store.elapsed))")
+                .elapsedClockAccessibility(store.elapsed)
             VStack(alignment: compact ? .leading : .center, spacing: 2) {
                 Text(store.activeIntent)
                     .font(compact ? Tokens.Typography.rowTitle : Tokens.Typography.sectionTitle)
@@ -679,6 +683,17 @@ struct FocusHero: View {
         "Ends this session and records it. A stretch under "
             + "\(Int(store.engine.store.minimumRecordedSession)) seconds is not kept. "
             + "(\(SessionShortcut.stop.glyphs))"
+    }
+}
+
+private extension View {
+    /// The live clock, spoken to the minute. Read to the second it changed
+    /// while VoiceOver was still saying it; the trait tells VoiceOver the
+    /// value moves on its own, so it is not announced as a change each time.
+    func elapsedClockAccessibility(_ elapsed: TimeInterval) -> some View {
+        accessibilityLabel("Elapsed")
+            .accessibilityValue(Tokens.spokenElapsed(elapsed))
+            .accessibilityAddTraits(.updatesFrequently)
     }
 }
 
