@@ -47,6 +47,20 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         }
     }
 
+    /// The glyph drawn on the page's tile. White reaches 3:1 only on the
+    /// darker hues; on grey, orange and green it fell to 2 to 2.9:1, so those
+    /// take a near-black glyph.
+    var glyphColour: Color {
+        [.grey, .orange, .green].contains(hue) ? Color(white: 0.06) : .white
+    }
+
+    /// The page `delta` rows away in `pages`, or nil past either end: a
+    /// sidebar stops at its first and last page rather than wrapping.
+    func neighbour(in pages: [SettingsPage], by delta: Int) -> SettingsPage? {
+        guard let index = pages.firstIndex(of: self), pages.indices.contains(index + delta) else { return nil }
+        return pages[index + delta]
+    }
+
     /// What the page is about, under its title in the detail.
     var summary: String {
         switch self {
@@ -185,6 +199,7 @@ extension SettingsSection {
 struct SettingsSidebarList: View {
     let pages: [SettingsPage]
     @Binding var selected: SettingsPage
+    @FocusState private var focused: SettingsPage?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -193,7 +208,7 @@ struct SettingsSidebarList: View {
                     HStack(spacing: Tokens.Space.s) {
                         Image(systemName: page.symbol)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(page.glyphColour)
                             .frame(width: 24, height: 24)
                             .background(Tokens.Palette.hue(page.hue),
                                         in: RoundedRectangle(cornerRadius: 6, style: .continuous))
@@ -210,9 +225,24 @@ struct SettingsSidebarList: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
-                .accessibilityLabel("\(page.title), \(selected == page ? "selected" : "not selected")")
+                .focused($focused, equals: page)
+                // The trait says "selected"; words in the label said it twice.
+                .accessibilityLabel(page.title)
                 .accessibilityAddTraits(selected == page ? .isSelected : [])
             }
+        }
+        // Up and down arrows move between pages from a focused row, as in a
+        // native sidebar, and the focus follows the page.
+        .onMoveCommand { direction in
+            let delta: Int
+            switch direction {
+            case .up: delta = -1
+            case .down: delta = 1
+            default: return
+            }
+            guard let next = (focused ?? selected).neighbour(in: pages, by: delta) else { return }
+            selected = next
+            focused = next
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Settings pages")
