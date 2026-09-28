@@ -47,7 +47,9 @@ final class AwayPrompter {
             }
     }
 
-    private func present(away: TimeInterval) {
+    /// `takesFocus` when the person asked for the question; the full prompt
+    /// always takes the keyboard, the quick one only then.
+    private func present(away: TimeInterval, takesFocus: Bool = false) {
         let range = store.pendingAwayRange
         let note = store.continuationNote
         let tier = AwayPromptTier.tier(forAbsence: away, fullPromptAfter: fullPromptAfter())
@@ -55,7 +57,7 @@ final class AwayPrompter {
         presentedID = store.engine.pendingDecisionID
         presentedTier = tier
         switch tier {
-        case .quick: quick.show(away: away, range: range, note: note)
+        case .quick: quick.show(away: away, range: range, note: note, takesFocus: takesFocus)
         case .full: full.show(away: away, range: range, note: note)
         }
         if let error = store.pendingAwaySaveError {
@@ -69,10 +71,12 @@ final class AwayPrompter {
     /// Re-opens the already-published question using its ordinary quick/full
     /// policy. The global hotkey calls this after the shared action boundary
     /// returns `.showAwayDecision`; it never manufactures or resolves evidence.
+    /// The quick card takes the keyboard here: a keyboard user who pressed the
+    /// hotkey had no other way to reach it.
     @discardableResult
     func presentPendingDecision() -> Bool {
         guard let away = store.pendingAway else { return false }
-        present(away: away)
+        present(away: away, takesFocus: true)
         wasPending = true
         return true
     }

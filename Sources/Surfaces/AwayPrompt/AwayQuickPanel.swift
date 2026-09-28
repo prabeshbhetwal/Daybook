@@ -8,11 +8,13 @@ private final class QuickPromptModel: ObservableObject {
     @Published var error: String?
 }
 
-/// Carries the hosted view's measured size back to the panel. A reference
-/// object rather than a closure captured at init, because the panel is not
-/// fully initialised when the hosting view is built.
+/// Carries the hosted view's measured size, and whether a reason is being
+/// typed, back to the panel. A reference object rather than a closure
+/// captured at init, because the panel is not fully initialised when the
+/// hosting view is built.
 private final class SizeRelay {
     var onSize: ((CGSize) -> Void)?
+    var onDraft: ((Bool) -> Void)?
 }
 
 private struct QuickSizeKey: PreferenceKey {
@@ -34,7 +36,8 @@ private struct QuickPromptView: View {
                 .frame(width: 18, height: 9)
             AwayAnswerGrid(away: model.away, range: model.range, compact: true,
                            note: model.note, error: model.error, onRetry: onRetry,
-                           onAnswer: onAnswer, onReason: onReason)
+                           onAnswer: onAnswer, onReason: onReason,
+                           onDraftChange: { relay.onDraft?($0) })
                 .padding(Tokens.Space.m)
                 .frame(width: 300, alignment: .leading)
                 .background(Tokens.Colour.surface,
@@ -74,11 +77,24 @@ private struct Triangle: Shape {
 private final class QuickAskPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    /// Told when the panel takes or gives up the keyboard, so the fade can
+    /// wait for someone who is answering.
+    var onKeyChange: (() -> Void)?
+
+    override func becomeKey() {
+        super.becomeKey()
+        onKeyChange?()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        onKeyChange?()
+    }
 }
 
 /// The light way to ask: a small card with an arrow, under the menu-bar item,
 /// that never brings the app forward — one click answers. Fades after twenty
-/// seconds; the popover card stays.
+/// seconds unless someone is answering it; the popover card stays.
 @MainActor
 final class AwayQuickPanel {
     private let panel: QuickAskPanel
@@ -87,6 +103,8 @@ final class AwayQuickPanel {
     private var fade: DispatchWorkItem?
     private var generation = 0
     private var lastSize: CGSize?
+    private var isShowing = false
+    private var hasDraft = false
 
     init(onAnswer: @escaping (UserDecision) -> Bool, onReason: @escaping (String) -> Bool,
          onRetry: @escaping () -> Void = {}) {
@@ -108,6 +126,11 @@ final class AwayQuickPanel {
             rootView: QuickPromptView(model: model, relay: relay,
                                       onAnswer: onAnswer, onReason: onReason, onRetry: onRetry))
         relay.onSize = { [weak self] size in self?.layout(to: size) }
+        relay.onDraft = { [weak self] hasText in
+            self?.hasDraft = hasText
+            self?.scheduleFade()
+        }
+        panel.onKeyChange = { [weak self] in self?.scheduleFade() }
     }
 
     /// The Gallery/PNG harness hosts the exact production SwiftUI root without
@@ -128,10 +151,15 @@ final class AwayQuickPanel {
                                onAnswer: { _ in true }, onReason: { _ in true }, onRetry: {})
     }
 
-    func show(away: TimeInterval, range: (start: Date, end: Date)?, note: String?) {
+    /// `takesFocus` is for the global hotkey: the person asked for the
+    /// question, so the panel takes the keyboard (still without bringing the
+    /// app forward) and can be answered without a pointer. Shown on its own,
+    /// it stays out of the way of whatever has the keyboard.
+    func show(away: TimeInterval, range: (start: Date, end: Date)?, note: String?,
+              takesFocus: Bool = false) {
         generation += 1
-        let current = generation
         fade?.cancel()
+        isShowing = true
         model.away = away
         model.range = range
         model.note = note
@@ -139,7 +167,11 @@ final class AwayQuickPanel {
         // Place it at the last known size now so it appears where it belongs;
         // the preference corrects the size the moment SwiftUI has laid out.
         layout(to: lastSize ?? CGSize(width: 300, height: 220))
-        panel.orderFrontRegardless()
+        if takesFocus {
+            panel.makeKeyAndOrderFront(nil)
+        } else {
+            panel.orderFrontRegardless()
+        }
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             panel.alphaValue = 1
         } else {
@@ -148,6 +180,29 @@ final class AwayQuickPanel {
                 panel.animator().alphaValue = 1
             }
         }
+        // A card that appears under the menu bar is otherwise silent.
+        Announcement.post("Away \(Tokens.duration(away)). How should that time count?")
+        scheduleFade()
+    }
+
+    func showError(_ error: String) {
+        generation += 1
+        fade?.cancel()
+        fade = nil
+        isShowing = true
+        model.error = error
+        panel.alphaValue = 1
+        panel.orderFrontRegardless()
+    }
+
+    /// Fades the card after twenty seconds, unless someone is answering it:
+    /// it has the keyboard, or a reason is half typed. A slow typist used to
+    /// lose the draft mid-word. After a failed save it never fades.
+    private func scheduleFade() {
+        fade?.cancel()
+        fade = nil
+        guard isShowing, model.error == nil, !panel.isKeyWindow, !hasDraft else { return }
+        let current = generation
         let item = DispatchWorkItem { [weak self] in
             guard let self, self.generation == current else { return }
             self.dismiss()
@@ -156,19 +211,11 @@ final class AwayQuickPanel {
         DispatchQueue.main.asyncAfter(deadline: .now() + 20, execute: item)
     }
 
-    func showError(_ error: String) {
-        generation += 1
-        fade?.cancel()
-        fade = nil
-        model.error = error
-        panel.alphaValue = 1
-        panel.orderFrontRegardless()
-    }
-
     func dismiss() {
         generation += 1
         fade?.cancel()
         fade = nil
+        isShowing = false
         guard panel.alphaValue > 0 else { return }
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             panel.alphaValue = 0

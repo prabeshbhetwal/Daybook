@@ -28,12 +28,17 @@ private struct FullPromptView: View {
                                onAnswer: onAnswer, onReason: onReason)
                 HStack {
                     Spacer()
-                    Button("Later", action: onLater)
-                        .buttonStyle(StoryPressStyle())
-                        .foregroundStyle(.secondary)
-                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                        .keyboardShortcut(.cancelAction)
-                        .accessibilityHint("Keeps the question available for later")
+                    // The 28pt frame sits inside the label: outside the button
+                    // it made room but left only the word clickable.
+                    Button(action: onLater) {
+                        Text("Later")
+                            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(StoryPressStyle())
+                    .foregroundStyle(.secondary)
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityHint("Keeps the question available for later")
                 }
             }
             .padding(Tokens.Space.xl)

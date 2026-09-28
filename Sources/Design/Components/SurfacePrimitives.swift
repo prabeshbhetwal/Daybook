@@ -59,6 +59,7 @@ struct EmptyState: View {
                 .font(.system(size: 18, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text(message)
                 .font(Tokens.Typography.rowTitle)
             if let detail {
@@ -70,6 +71,7 @@ struct EmptyState: View {
         .frame(maxWidth: .infinity, minHeight: 96)
         .multilineTextAlignment(.center)
         .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -98,6 +100,9 @@ struct IntegrityNotice: View {
             RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
                 .strokeBorder(Tokens.Colour.attention.opacity(0.22), lineWidth: 1)
         )
+        // One element with one label; without `.ignore` the label sat over
+        // the warning glyph and the message, read again beneath it.
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Integrity notice: \(message)")
     }
 }

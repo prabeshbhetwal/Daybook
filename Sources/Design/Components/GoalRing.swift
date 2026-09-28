@@ -12,6 +12,9 @@ struct GoalRing: View {
     var isMet: Bool = false
     /// The hero's 120pt ring wants a 22pt label; the default suits 56–64pt.
     var labelFont: Font = Tokens.Typography.ringLabel
+    /// What VoiceOver names the ring. Its value is the share, so the words
+    /// stay true on a past day as well as today.
+    var accessibilityTitle = "Daily goal"
 
     var body: some View {
         ZStack {
@@ -46,6 +49,7 @@ struct GoalRing: View {
         .animation(Tokens.Motion.animation(Tokens.Motion.release, reduceMotion: reduceMotion),
                    value: isMet)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(Int((progress * 100).rounded())) percent of today's goal")
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityValue("\(Int((progress * 100).rounded())) per cent" + (isMet ? ", goal met" : ""))
     }
 }

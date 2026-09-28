@@ -12,6 +12,27 @@ extension EnvironmentValues {
         get { self[StoryTilesDraggableKey.self] }
         set { self[StoryTilesDraggableKey.self] = newValue }
     }
+
+    /// Set on a tile while the rail is being arranged; its header then shows
+    /// up and down buttons.
+    var storyTileMoves: StoryTileMoves? {
+        get { self[StoryTileMovesKey.self] }
+        set { self[StoryTileMovesKey.self] = newValue }
+    }
+}
+
+/// The keyboard's way to reorder a tile. A drag needs a pointer and the tile's
+/// menu a right-click, so without these a Full Keyboard Access user who chose
+/// "Arrange cards" had nothing to act on.
+struct StoryTileMoves {
+    let name: String
+    let canMoveUp: Bool
+    let canMoveDown: Bool
+    let move: (Int) -> Void
+}
+
+private struct StoryTileMovesKey: EnvironmentKey {
+    static let defaultValue: StoryTileMoves? = nil
 }
 
 /// Deliberate rail-order state. Every drag, drop and keyboard move passes
@@ -77,10 +98,13 @@ struct StoryRail: View {
     @Environment(\.focusInterfaceDensity) private var density
 
     var body: some View {
-        let shownTiles = visibleTiles
+        // The interval projection is the rail's most expensive read; one pass
+        // serves the visibility test, On this Mac and the goal card.
+        let evidence = breakdown
+        let shownTiles = visibleTiles(evidence)
         VStack(alignment: .leading, spacing: density == .compact ? 10 : 14) {
             ForEach(shownTiles, id: \.self) { kind in
-                arrangedTile(kind, shownTiles: shownTiles)
+                arrangedTile(kind, shownTiles: shownTiles, evidence: evidence)
             }
             droppable(footer(shownTiles), before: nil)
         }
@@ -127,30 +151,51 @@ struct StoryRail: View {
             .help(arrangement.isArranging ? "Save this order" : "Arrange cards")
             .accessibilityLabel(arrangement.isArranging ? "Save card order" : "Arrange cards")
             if arrangement.isArranging {
-                Button("Reset order") { resetOrder() }
-                    .buttonStyle(StoryPressStyle())
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                    .accessibilityLabel("Reset card order")
+                // The 28pt frame sits inside the label: outside the button it
+                // made room but left only the words clickable.
+                Button { resetOrder() } label: {
+                    Text("Reset order")
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(StoryPressStyle())
+                .font(Tokens.Typography.metadata)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Reset card order")
             }
         }
         .fixedSize()
     }
 
     @ViewBuilder private func arrangedTile(_ kind: StoryTileKind,
-                                            shownTiles: [StoryTileKind]) -> some View {
-        let content = draggable(tile(kind).coachAnchor(Self.coachAnchor(for: kind)), as: kind)
+                                            shownTiles: [StoryTileKind],
+                                            evidence: StoryUsageBreakdown) -> some View {
+        let content = draggable(tile(kind, evidence: evidence)
+            .coachAnchor(Self.coachAnchor(for: kind)), as: kind)
         if arrangement.isArranging {
+            let canMoveUp = shownTiles.first != kind
+            let canMoveDown = shownTiles.last != kind
             content
+                .environment(\.storyTileMoves,
+                             StoryTileMoves(name: kind.title, canMoveUp: canMoveUp,
+                                            canMoveDown: canMoveDown,
+                                            move: { moveVertically(kind, by: $0) }))
                 .contextMenu {
                     Button("Move \(kind.title) up") { moveVertically(kind, by: -1) }
-                        .disabled(shownTiles.first == kind)
+                        .disabled(!canMoveUp)
                     Button("Move \(kind.title) down") { moveVertically(kind, by: 1) }
-                        .disabled(shownTiles.last == kind)
+                        .disabled(!canMoveDown)
                 }
-                .accessibilityAction(named: "Move up") { moveVertically(kind, by: -1) }
-                .accessibilityAction(named: "Move down") { moveVertically(kind, by: 1) }
+                // Offered only where they can act, so VoiceOver never lists a
+                // move that would do nothing.
+                .accessibilityActions {
+                    if canMoveUp {
+                        Button("Move up") { moveVertically(kind, by: -1) }
+                    }
+                    if canMoveDown {
+                        Button("Move down") { moveVertically(kind, by: 1) }
+                    }
+                }
         } else {
             content
         }
@@ -174,7 +219,7 @@ struct StoryRail: View {
     /// "Last 14 days" already says it.
     private func footnote(_ shownTiles: [StoryTileKind]) -> String? {
         if arrangement.isArranging && tilesAreDraggable {
-            return "Drag cards to reorder, or use their menu."
+            return "Drag cards or use their arrows to reorder."
         }
         return shownTiles.contains(.streak) && !store.isToday
             ? "The streak always describes recent days." : nil
@@ -208,15 +253,13 @@ struct StoryRail: View {
     }
 
     /// Only the tiles that have something to say, in the stored order.
-    private var visibleTiles: [StoryTileKind] {
+    private func visibleTiles(_ evidence: StoryUsageBreakdown) -> [StoryTileKind] {
         settings.storyTileOrder.filter { kind in
             switch kind {
             // Week and Month headlines already give the total, the focused
             // days and the average; only a day has a goal to show.
             case .focus: return true
-            case .mac:
-                let evidence = breakdown
-                return evidence.tracked > 0 || evidence.uncoveredFocus > 0
+            case .mac: return evidence.tracked > 0 || evidence.uncoveredFocus > 0
             case .apps: return !apps.isEmpty
             case .rhythm: return !store.rhythm.isEmpty
             case .streak: return store.streak > 0
@@ -224,10 +267,11 @@ struct StoryRail: View {
         }
     }
 
-    @ViewBuilder private func tile(_ kind: StoryTileKind) -> some View {
+    @ViewBuilder private func tile(_ kind: StoryTileKind,
+                                   evidence: StoryUsageBreakdown) -> some View {
         switch kind {
-        case .focus: focusTile
-        case .mac: macTile
+        case .focus: focusTile(evidence)
+        case .mac: macTile(evidence)
         case .apps: appsTile
         case .rhythm: rhythmTile
         case .streak: streakTile
@@ -237,13 +281,23 @@ struct StoryRail: View {
     private func move(_ kind: StoryTileKind, before target: StoryTileKind?) {
         arrangement.synchronise(settings.storyTileOrder)
         guard arrangement.move(kind, before: target) else { return }
-        settings.storyTileOrder = arrangement.order
+        saveMove(of: kind)
     }
 
     private func moveVertically(_ kind: StoryTileKind, by delta: Int) {
         arrangement.synchronise(settings.storyTileOrder)
-        guard arrangement.move(kind, by: delta, visible: visibleTiles) else { return }
+        guard arrangement.move(kind, by: delta, visible: visibleTiles(breakdown)) else { return }
+        saveMove(of: kind)
+    }
+
+    /// Saves the order and says where the card landed. A sighted reader
+    /// watches it move; someone listening heard nothing at all.
+    private func saveMove(of kind: StoryTileKind) {
         settings.storyTileOrder = arrangement.order
+        let shown = visibleTiles(breakdown)
+        if let index = shown.firstIndex(of: kind) {
+            Announcement.post("\(kind.title), position \(index + 1) of \(shown.count)")
+        }
     }
 
     private func resetOrder() {
@@ -265,7 +319,7 @@ struct StoryRail: View {
     // MARK: - Daily goal
 
     /// The day's focus total is the headline's; this card is the goal's.
-    private var focusTile: some View {
+    private func focusTile(_ evidence: StoryUsageBreakdown) -> some View {
         let goal = store.selectedDayGoal
         return StoryTile(title: "Daily goal", trailing: store.dayLabel) {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
@@ -274,7 +328,7 @@ struct StoryRail: View {
                         Text(Tokens.preciseDuration(goal.achieved))
                             .font(Tokens.Typography.metricValue.monospacedDigit())
                             .rollingDigits(goal.achieved)
-                        Text("of \(Tokens.duration(goal.goal)) goal credit"
+                        Text("counts towards your \(Tokens.duration(goal.goal)) goal"
                              + (goal.isMet ? " · goal met" : ""))
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
@@ -286,13 +340,20 @@ struct StoryRail: View {
                     }
                 }
                 Spacer(minLength: 0)
-                if goalShare != nil {
-                    GoalRing(progress: goalShare ?? 0, diameter: 56, lineWidth: 7,
-                             label: "\(Int(((goalShare ?? 0) * 100).rounded()))%",
-                             isMet: (goalShare ?? 0) >= 1,
+                if let share = goalShare {
+                    GoalRing(progress: share, diameter: 56, lineWidth: 7,
+                             label: "\(Int((share * 100).rounded()))%",
+                             isMet: share >= 1,
                              labelFont: .system(size: 12, weight: .bold, design: .rounded))
-                        .accessibilityLabel("\(Int(((goalShare ?? 0) * 100).rounded())) per cent of the goal for \(store.dayLabel)")
                 }
+            }
+            // The headline's logged figure and this card's can differ. This
+            // card owns the one sentence that says why.
+            if goal.goal > 0 && evidence.uncoveredFocus > 0 {
+                Text("Only focus with app use recorded counts towards the goal.")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if !categoryGoals.isEmpty {
                 categoryGoalRows
@@ -354,10 +415,7 @@ struct StoryRail: View {
 
     // MARK: - On this Mac
 
-    private var macTile: some View {
-        // Resolve the relatively expensive interval projection once for this
-        // tile, not again for every label, bar part and denominator.
-        let evidence = breakdown
+    private func macTile(_ evidence: StoryUsageBreakdown) -> some View {
         let trackedValue = evidence.tracked
         let insideValue = evidence.insideSessions
         let looseValue = evidence.outsideSessions
@@ -394,12 +452,12 @@ struct StoryRail: View {
             }
             if unrecordedValue > 0 {
                     Divider()
-                    Text("\(Tokens.duration(unrecordedValue)) of focused work has no app-use coverage.")
+                    Text("\(Tokens.duration(unrecordedValue)) of your focus has no app use recorded.")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
             }
-            Text("A session may include pauses. Goal credit counts only focus with recorded app use.")
+            Text("A session may include pauses.")
                 .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -473,27 +531,38 @@ struct StoryRail: View {
     // MARK: - Streak
 
     private var streakTile: some View {
-        StoryTile(title: "Current streak",
+        let days = store.streakDays()
+        return StoryTile(title: "Current streak",
                   trailing: store.streak == 1 ? "1 day" : "\(store.streak) days") {
             HStack(spacing: 3) {
-                ForEach(Array(store.streakDays().enumerated()), id: \.offset) { _, entry in
+                ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
                     RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
                         .fill(entry.met ? Tokens.Palette.app(rank: 4) : Tokens.Colour.elevated)
                         .frame(height: 8)
                 }
             }
+            // The strip's news is which days met the minimum; the streak
+            // length is already the card's trailing figure.
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(store.streak) day streak")
+            .accessibilityLabel("Last \(days.count) days")
+            .accessibilityValue("\(days.filter(\.met).count) of \(days.count) days met")
             HStack(spacing: Tokens.Space.xs) {
-                Text("Last 14 days. At least "
+                Text("Last 14 days. A day counts once it has "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
-                Button("Awards") { navigation.openSheet(.awards) }
-                    .coachAnchor(.awards)
-                    .buttonStyle(StoryPressStyle())
-                    .font(Tokens.Typography.metadata.weight(.semibold))
-                    .foregroundStyle(Tokens.Colour.focus)
+                // The word is about 15pt tall. The padding lifts the target
+                // past 28pt; the negative padding keeps the row where it was.
+                Button { navigation.openSheet(.awards) } label: {
+                    Text("Awards")
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                }
+                .padding(.vertical, -7)
+                .coachAnchor(.awards)
+                .buttonStyle(StoryPressStyle())
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .foregroundStyle(Tokens.Colour.focus)
             }
         }
     }
@@ -538,6 +607,7 @@ struct StoryTile<Content: View>: View {
     let trailing: String?
     @ViewBuilder let content: Content
     @Environment(\.focusInterfaceDensity) private var density
+    @Environment(\.storyTileMoves) private var moves
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
@@ -545,12 +615,23 @@ struct StoryTile<Content: View>: View {
                 Text(title)
                     .font(Tokens.Typography.metadata.weight(.bold))
                     .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: Tokens.Space.xs)
                 if let trailing {
                     Text(trailing)
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                }
+                if let moves {
+                    IconButton(systemImage: "arrow.up", help: "Move \(moves.name) up") {
+                        moves.move(-1)
+                    }
+                    .disabled(!moves.canMoveUp)
+                    IconButton(systemImage: "arrow.down", help: "Move \(moves.name) down") {
+                        moves.move(1)
+                    }
+                    .disabled(!moves.canMoveDown)
                 }
             }
             content
@@ -563,5 +644,6 @@ struct StoryTile<Content: View>: View {
             .strokeBorder(StoryStyle.line))
         .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
         .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
     }
 }
