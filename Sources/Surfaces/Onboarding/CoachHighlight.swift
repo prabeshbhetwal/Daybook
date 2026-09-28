@@ -55,7 +55,8 @@ enum CoachRingGeometry {
 /// The wash is what makes the ring findable. A 2pt line at half opacity was
 /// missed on a page full of tiles; a page that has dropped back a step,
 /// with one part of it left at full strength, is read at a glance. The wash
-/// is the same one the app already draws under a sheet.
+/// starts from the one the app draws under a sheet, and is deeper in the dark
+/// appearance, where 16 per cent black over a dark window changed nothing.
 struct CoachRing: View {
     let rect: CGRect
     /// The overlay's own bounds, so the ring can be held inside them.
@@ -64,7 +65,21 @@ struct CoachRing: View {
     /// it to tell a ring that does not draw from one that is mid-motion.
     var animated = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
     @StateObject private var breathing = BoolBox()
+
+    private var increasedContrast: Bool { contrast == .increased }
+
+    /// Increase Contrast asks for the difference to be plainer still.
+    private var washOpacity: Double {
+        switch (colorScheme == .dark, increasedContrast) {
+        case (false, false): return 0.16
+        case (false, true): return 0.3
+        case (true, false): return 0.4
+        case (true, true): return 0.55
+        }
+    }
 
     var body: some View {
         let frame = CoachRingGeometry.frame(around: rect, within: bounds)
@@ -72,7 +87,8 @@ struct CoachRing: View {
             ZStack {
                 wash(cutOut: frame)
                 RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
-                    .strokeBorder(Tokens.Colour.focus, lineWidth: CoachRingGeometry.lineWidth)
+                    .strokeBorder(Tokens.Colour.focus,
+                                  lineWidth: increasedContrast ? 4 : CoachRingGeometry.lineWidth)
                     .background(
                         RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
                             .fill(Tokens.Colour.focus.opacity(0.06))
@@ -111,6 +127,6 @@ struct CoachRing: View {
                                                    height: CoachRingGeometry.radius),
                                 style: .continuous)
         }
-        .fill(Color.black.opacity(0.16), style: FillStyle(eoFill: true))
+        .fill(Color.black.opacity(washOpacity), style: FillStyle(eoFill: true))
     }
 }
