@@ -14,7 +14,10 @@ enum SelfTest {
     }
 
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
-    private static let suiteName = "com.prabesh.focuscontinuity.selftest"
+    /// One preferences suite per run. A fixed name let two runs at once, such
+    /// as two worktrees building together, overwrite each other's settings
+    /// mid-check and fail checks that were fine.
+    private static let suiteName = "com.prabesh.focuscontinuity.selftest.\(ProcessInfo.processInfo.processIdentifier)"
     private static var scratchDirectories: [URL] = []
 
     private struct UsageEnvelopeFixture: Codable {
@@ -114,7 +117,13 @@ enum SelfTest {
         }
         scratchDirectories.removeAll()
         FixtureFactory.cleanUp()
-        UserDefaults.standard.removePersistentDomain(forName: suiteName)
+        // Empty the suite, flush it, then remove its file: a per-run name
+        // would otherwise leave one plist in Preferences for every run.
+        UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+        CFPreferencesAppSynchronize(suiteName as CFString)
+        let file = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Preferences/\(suiteName).plist")
+        try? FileManager.default.removeItem(at: file)
     }
 
     // MARK: - Runner
