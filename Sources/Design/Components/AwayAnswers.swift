@@ -85,6 +85,9 @@ struct AwayAnswerGrid: View {
     /// reaches the record. Nil hides the field. At most 24 characters: it has
     /// to fit on a timeline label.
     var onReason: ((String) -> Bool)?
+    /// Told whether the reason field holds text, so a surface that fades on
+    /// its own can wait for someone who is still typing.
+    var onDraftChange: ((Bool) -> Void)?
     @StateObject private var reason = AwayReasonDraft()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -163,6 +166,7 @@ struct AwayAnswerGrid: View {
             }
         }
         .onChange(of: range?.start) { _ in reason.text = "" }
+        .onChange(of: reason.text.isEmpty) { onDraftChange?(!$0) }
         .announcesChanges(to: error.map { "Answer not saved. \($0)" })
     }
 
