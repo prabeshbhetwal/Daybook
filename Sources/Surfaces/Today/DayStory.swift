@@ -185,7 +185,9 @@ struct DayStory: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(StoryPressStyle(hovers: true))
-            .accessibilityLabel("\(run.summary). \(isOpen ? "Showing" : "Hidden")")
+            .accessibilityLabel(run.span.map { "\(run.summary), \(Tokens.timeRange($0.start, $0.end))" }
+                                ?? run.summary)
+            .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
             .accessibilityHint(isOpen ? "Fold these intervals" : "Show these intervals")
         }
         if isOpen {
@@ -525,6 +527,12 @@ struct SessionEntryCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle())
+                // The card's one toggle for VoiceOver. The duration button
+                // beside it opens the same detail and is hidden, so the card
+                // is heard once and the running clock is not read every second.
+                .accessibilityLabel(accessibilityLabel)
+                .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+                .accessibilityHint(isOpen ? "Hide this session's detail" : "Show this session's detail")
                 .onPreferenceChange(TitleWidthKey.self) { titleWidth.value = $0 }
                 // The pencil sits by the name it edits: rename and category
                 // in one place, rather than two buttons in the action row.
@@ -573,6 +581,7 @@ struct SessionEntryCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle())
+                .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -585,17 +594,19 @@ struct SessionEntryCard: View {
                           lineWidth: clock != nil ? 1.5 : 1))
         .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(isOpen ? "Hide this session's detail" : "Show this session's detail")
     }
 
+    /// Everything the closed card shows, in one sentence: the hidden duration
+    /// button's figures are said here instead.
     private var accessibilityLabel: String {
         var parts = [session.workType.sessionTitle(named: session.name),
                      session.workType.displayName]
         parts.append(session.isRunning
-                     ? "running since \(Tokens.timeOfDayOnly(session.start))"
+                     ? "\(liveStatus ?? "running"), started \(Tokens.timeOfDayOnly(session.start))"
                      : Tokens.timeRange(session.start, session.end))
         parts.append(Tokens.spent(session.worked))
+        if session.stretches > 1 { parts.append("\(session.stretches) stretches") }
+        if let powerSummary { parts.append(powerSummary.headline) }
         return parts.joined(separator: ", ")
     }
 

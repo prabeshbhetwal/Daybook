@@ -164,10 +164,12 @@ struct StoryLooseAppUse: View {
                         .font(Tokens.Typography.metadata.monospacedDigit())
                     Image(systemName: open ? "chevron.down" : "chevron.right")
                         .font(Tokens.Typography.microLabel).foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(StoryPressStyle())
+            .accessibilityValue(open ? "Expanded" : "Collapsed")
             if open {
                 ForEach(Array(store.appRanks(within: [span]).enumerated()), id: \.element.id) { index, app in
                     StoryAppRow(app: app, rank: store.storyAppColourIndices[app.bundleID] ?? index)
