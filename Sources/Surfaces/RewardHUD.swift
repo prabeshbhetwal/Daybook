@@ -22,7 +22,9 @@ private struct RewardHUDView: View {
         HStack(alignment: .top, spacing: Tokens.Space.m) {
             Image(systemName: model.symbolName)
                 .font(Tokens.Typography.sectionTitle)
-                .foregroundStyle(Tokens.Colour.progress)
+                // The ink, not the swatch: system green on the light panel
+                // was about 2:1, under the 3:1 a meaningful symbol needs.
+                .foregroundStyle(StoryStyle.successInk)
                 .frame(width: Tokens.Space.xl)
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text(model.title)
@@ -178,12 +180,30 @@ final class RewardHUD {
                 panel.animator().alphaValue = 1
             }
         }
+        Announcement.post(Self.spoken(title: title, detail: detail, hasUndo: undo != nil))
 
+        // The panel can never be focused, so VoiceOver cannot move into it:
+        // a listener hears it once and needs time to act on it elsewhere.
+        let shownFor = NSWorkspace.shared.isVoiceOverEnabled ? duration * 3 : duration
         let workItem = DispatchWorkItem { [weak self] in
             self?.fadeOutAndOrderOut(generation: thisGeneration)
         }
         dismissWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + shownFor, execute: workItem)
+    }
+
+    /// What VoiceOver says when the panel appears. The Undo here can only be
+    /// clicked, so a listener is told where the same Undo is: the automatic
+    /// session's controls, which list it for as long as the session runs.
+    static func spoken(title: String, detail: String, hasUndo: Bool) -> String {
+        var sentences = [title, detail].filter { !$0.isEmpty }
+        if hasUndo {
+            sentences.append("To undo it, open session controls with Command-7 "
+                             + "and choose Undo automatic session")
+        }
+        return sentences
+            .map { $0.last.map { ".?!".contains($0) } == true ? $0 : $0 + "." }
+            .joined(separator: " ")
     }
 
     func dismiss() {
