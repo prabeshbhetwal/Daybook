@@ -40,14 +40,22 @@ struct SettingsGroups: View {
                           detail: "Starts FocusContinuity in the menu bar when you sign in, so the "
                             + "record never has a gap at the start of the day.",
                           isOn: $model.opensAtLogin)
-                if let error = model.loginItemError {
-                    explanation("Could not change the login item: \(error)")
+                if let message = loginItemMessage {
+                    explanation(message)
+                }
+                if model.loginItemNeedsApproval {
+                    systemSettingsRow(Self.loginApproval, button: "Open Login Items") {
+                        model.openLoginItemsSettings()
+                    }
                 }
                 rowDivider
                 toggleRow("Show the session time in the menu bar",
                           detail: "Off, the menu bar keeps only the goal ring while a session runs.",
                           isOn: $model.menuBarShowsTime)
             }
+            // A switch that flips back by itself is otherwise silent.
+            .announcesChanges(to: loginItemMessage)
+            .announcesChanges(to: model.loginItemNeedsApproval ? Self.loginApproval : nil)
             if model.canReplayWelcome {
                 SurfacePanel(title: "Getting started", layout: layout) {
                     explanation("The tour walks through every part of the app in twelve short "
@@ -61,6 +69,16 @@ struct SettingsGroups: View {
                 }
             }
         }
+        .onAppear(perform: model.refreshSystemStatus)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshSystemStatus()
+        }
+    }
+
+    private static let loginApproval = "Approve FocusContinuity in System Settings › General › Login Items."
+
+    private var loginItemMessage: String? {
+        model.loginItemError.map { "Could not change the login item: \($0)" }
     }
 
     private var focus: some View {
@@ -177,6 +195,15 @@ struct SettingsGroups: View {
                           detail: "A notice after a long stretch of continuous use, timed from your typing "
                             + "and clicking rather than from sessions.",
                           isOn: $model.remindersEnabled)
+                // Declined notifications drop the Notification Centre copy
+                // without a word; nothing is added while they are allowed.
+                if model.remindersEnabled && model.notificationsDenied {
+                    systemSettingsRow("Notifications are off, so a reminder shows on screen but not in "
+                                      + "Notification Centre.",
+                                      button: "Open Notification Settings") {
+                        model.openNotificationSettings()
+                    }
+                }
                 // Each tier is its own switch: someone who finds the
                 // twenty-minute nudge too frequent keeps the longer two.
                 VStack(alignment: .leading, spacing: Tokens.Space.s) {
@@ -209,6 +236,10 @@ struct SettingsGroups: View {
                 }
                 .padding(.leading, 26)
             }
+        }
+        .onAppear(perform: model.refreshSystemStatus)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshSystemStatus()
         }
     }
 
@@ -391,6 +422,8 @@ struct SettingsGroups: View {
                     .controlSize(.large)
                     .accessibilityHint("Opens the local FocusContinuity data folder in Finder")
             }
+            // Whether the backup worked appears under its button; say it too.
+            .announcesChanges(to: model.backupStatus)
         }
     }
 
@@ -494,6 +527,18 @@ struct SettingsGroups: View {
                 .accessibilityHidden(true)
         }
         .frame(minHeight: layout.rowHeight, alignment: .leading)
+    }
+
+    /// A system state this app cannot change for you, with the button that
+    /// opens the place where you can.
+    private func systemSettingsRow(_ text: String, button: String,
+                                   action: @escaping () -> Void) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
+            explanation(text)
+            Spacer(minLength: Tokens.Space.s)
+            Button(button, action: action)
+                .fixedSize()
+        }
     }
 
     private var rowDivider: some View { Divider() }
