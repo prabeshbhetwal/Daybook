@@ -18,6 +18,11 @@ struct MainWindowCommands: Commands {
             .keyboardShortcut("1", modifiers: [.command])
             Button("History") { route(to: .review) }
                 .keyboardShortcut("2", modifiers: [.command])
+            Button("Find in History") {
+                navigation.findInHistory()
+                revealMainWindow()
+            }
+            .keyboardShortcut("f", modifiers: [.command])
             Divider()
             Button("Awards") { route(to: .awards) }
                 .keyboardShortcut("6", modifiers: [.command])

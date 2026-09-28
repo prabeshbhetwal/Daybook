@@ -140,11 +140,9 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             insightNavigation
             Spacer(minLength: Tokens.Space.s)
-            // No "History" label here: it named the page being read, and the
-            // back button beside the range already says where the story is.
-            // Four ranges need the room at the minimum width.
-            searchButton
-                .coachAnchor(.search)
+            // No "History" label and no search button: the label named the
+            // page being read beside its back button, and the search field
+            // heads the page itself (⌘F puts the cursor in it).
         }
     }
 
@@ -154,16 +152,6 @@ struct StoryChromeBar: View {
     private var crossLinks: some View {
         Button("History") { navigation.open(tab: .review) }
             .buttonStyle(StoryLinkStyle())
-    }
-
-    /// Find a session by name, note, app, category or date. ⌘F anywhere in
-    /// History opens the field; the button is the same for the pointer.
-    private var searchButton: some View {
-        IconButton(systemImage: "magnifyingglass", help: "Find a session (⌘F)") {
-            navigation.historySearchShown.toggle()
-        }
-        .keyboardShortcut("f", modifiers: .command)
-        .accessibilityLabel(navigation.historySearchShown ? "Hide search" : "Find a session")
     }
 
     /// History's period control: arrows page by the range's length, and the

@@ -221,9 +221,9 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     @Published var reviewSection: ReviewSection = .week
     /// The far end of a span picked on History's map, or nil for one day.
     @Published var historySelectedPeriod: Date?
-    /// Whether History's search field is open (⌘F). Results replace the
-    /// chart while a query or filter is active.
-    @Published var historySearchShown = false
+    /// Asks History's search field for the cursor (⌘F). The field is always
+    /// shown; results replace the chart while a query or filter is active.
+    @Published private(set) var historySearchFocusRequest = 0
     /// The range History reads, or nil while a span picked on its calendar
     /// is showing instead.
     @Published private(set) var historyRange: HistoryRange? = .days30
@@ -460,6 +460,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             sheet = nil
             workspace = .story
         }
+    }
+
+    /// History, with the cursor in its search field.
+    func findInHistory() {
+        open(tab: .review)
+        historySearchFocusRequest &+= 1
     }
 
     func selectHistoryRange(_ range: HistoryRange) {

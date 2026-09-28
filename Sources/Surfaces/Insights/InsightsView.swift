@@ -61,15 +61,12 @@ struct InsightsView: View {
 
     // MARK: - Column
 
-    private var searchOpen: Bool { navigation.historySearchShown || store.historyFilter.isActive }
-
     private func column(_ listed: [StoryPeriodProjection], _ facts: InsightRangeFacts) -> some View {
         let reading = InsightRangeReading(periods: listed, scope: navigation.insightRange)
         return VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-            if searchOpen {
-                HistoryFindBar(store: store) { navigation.historySearchShown = false }
-                    .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
-            }
+            // Finding a session comes first: the field is always here.
+            HistoryFindBar(store: store, focusRequest: navigation.historySearchFocusRequest)
+                .coachAnchor(.search)
             if store.historyFilter.isActive {
                 HistoryFindResults(store: store, navigation: navigation)
             } else if reading.isEmpty {
@@ -130,7 +127,7 @@ struct InsightsView: View {
         .animation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion),
                    value: unfolded.id)
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
-                   value: searchOpen)
+                   value: store.historyFilter.isActive)
     }
 
     private var archive: HistoryArchiveFacts { store.historyArchiveFacts() }

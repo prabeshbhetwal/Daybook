@@ -5,8 +5,30 @@ enum StoryNavigationChecks {
     static let tests: [(String, () -> [String])] = [
         ("Story commands present the requested surface, including repeat routes", routes),
         ("A day opened from History shows that day's own evidence", historicalEvidence),
-        ("History ranges read a fixed span at the grouping that suits it", historyRanges)
+        ("History ranges read a fixed span at the grouping that suits it", historyRanges),
+        ("Find in History opens History with the cursor asked for its search", findInHistory)
     ]
+
+    private static func findInHistory() -> [String] {
+        MainActor.assumeIsolated {
+            let navigation = MainWindowModel()
+            let before = navigation.historySearchFocusRequest
+            navigation.findInHistory()
+            var failures: [String] = []
+            if navigation.workspace != .history || navigation.sheet != nil {
+                failures.append("Find in History did not show History")
+            }
+            if navigation.historySearchFocusRequest == before {
+                failures.append("Find in History did not ask the search field for the cursor")
+            }
+            navigation.openSettings()
+            navigation.findInHistory()
+            if navigation.sheet != nil {
+                failures.append("Find in History left Settings covering the search")
+            }
+            return failures
+        }
+    }
 
     private static func historyRanges() -> [String] {
         MainActor.assumeIsolated {

@@ -1,10 +1,12 @@
 import SwiftUI
 
 /// The search that reaches the whole archive: a field for names, notes,
-/// apps, categories and dates, the two menus that narrow it, and a way out.
+/// apps, categories and dates, the two menus that narrow it, and a way to
+/// clear them. It heads History, so it is always there to type into.
 struct HistoryFindBar: View {
     @ObservedObject var store: SessionStore
-    let onClose: () -> Void
+    /// Bumped by ⌘F; each bump puts the cursor in the field.
+    let focusRequest: Int
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
@@ -13,18 +15,18 @@ struct HistoryFindBar: View {
                 field
                 appMenu
                 workTypeMenu
-                closeButton
+                clearButton
             }
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 field
                 HStack(spacing: Tokens.Space.s) {
                     appMenu
                     workTypeMenu
-                    closeButton
+                    clearButton
                 }
             }
         }
-        .onAppear { fieldFocused = true }
+        .onChange(of: focusRequest) { _ in fieldFocused = true }
     }
 
     private var field: some View {
@@ -35,7 +37,7 @@ struct HistoryFindBar: View {
             TextField("Find a session: name, note, app, category or date", text: queryBinding)
                 .textFieldStyle(.plain)
                 .focused($fieldFocused)
-                .onExitCommand(perform: onClose)
+                .onExitCommand { fieldFocused = false }
             if !store.historyFilter.query.isEmpty {
                 Button { store.setHistoryQuery("") } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -54,14 +56,17 @@ struct HistoryFindBar: View {
         .accessibilityLabel("Find a session")
     }
 
-    private var closeButton: some View {
-        Button("Done") {
-            store.clearHistoryFilters()
-            onClose()
+    /// Only while something is being searched: then the charts come back.
+    @ViewBuilder private var clearButton: some View {
+        if store.historyFilter.isActive {
+            Button("Clear") {
+                store.clearHistoryFilters()
+                fieldFocused = false
+            }
+            .buttonStyle(StoryLinkStyle())
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            .accessibilityLabel("Clear search and filters")
         }
-        .buttonStyle(StoryLinkStyle())
-        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-        .accessibilityLabel("Close search")
     }
 
     private var appMenu: some View {
