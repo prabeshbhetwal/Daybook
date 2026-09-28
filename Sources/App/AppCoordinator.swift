@@ -13,7 +13,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private(set) lazy var tracker = AppUsageTracker(
         archive: usage,
         isEnabled: engine.store.isUsageTrackingEnabled)
-    private let hotKey = HotKeyMonitor()
+    /// Readable so a surface can say why ⌃⌥Space does nothing: its `status`
+    /// is published, and tells VoiceOver's claim on the chord apart from
+    /// another app's.
+    let hotKey = HotKeyMonitor()
     private let powerMonitor = PowerSourceMonitor()
     private(set) lazy var store = SessionStore(engine: engine, powerMonitor: powerMonitor)
     /// The status item's view of the store: republishes only what it shows.

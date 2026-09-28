@@ -5,18 +5,40 @@ import Carbon.HIToolbox
 /// Accessibility grant — unlike `NSEvent.addGlobalMonitorForEvents`. Verified:
 /// registration returns `noErr` with no TCC prompt.
 ///
+/// ⌃⌥Space is also VoiceOver's own VO-Space, "activate this item". Held while
+/// VoiceOver runs, it would take that command from every app and start or
+/// stop a session instead, so the chord is let go for as long as VoiceOver
+/// is on and taken back when it turns off.
+///
 /// Registration failure (another app owns the combination) is logged and
-/// ignored; the feature is simply absent and nothing else breaks.
-final class HotKeyMonitor {
+/// recorded in `status`; the feature is simply absent and nothing else breaks.
+final class HotKeyMonitor: ObservableObject {
+
+    enum Status: Equatable {
+        /// Not started, or stopped at quit.
+        case off
+        /// ⌃⌥Space starts and stops sessions.
+        case registered
+        /// Let go because VoiceOver is running; it comes back when VoiceOver stops.
+        case yieldedToVoiceOver
+        /// Another app owns the combination, or the handler could not be installed.
+        case unavailable
+    }
+
+    @Published private(set) var status: Status = .off
 
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
+    private var voiceOverObservation: NSKeyValueObservation?
     private static var onFire: (() -> Void)?
 
     private static let signature: OSType = 0x4643_5459   // 'FCTY'
 
-    func register(onFire: @escaping () -> Void) {
-        guard hotKeyRef == nil else { return }
+    /// Returns whether ⌃⌥Space is held now. False when VoiceOver is running
+    /// as well as on failure; `status` says which.
+    @discardableResult
+    func register(onFire: @escaping () -> Void) -> Bool {
+        guard handlerRef == nil else { return status == .registered }
         HotKeyMonitor.onFire = onFire
 
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
@@ -28,32 +50,58 @@ final class HotKeyMonitor {
 
         guard installStatus == noErr else {
             Diagnostics.log("hot key handler install failed: \(installStatus)")
-            return
+            status = .unavailable
+            return false
         }
 
+        voiceOverObservation = NSWorkspace.shared.observe(\.isVoiceOverEnabled) { [weak self] _, _ in
+            DispatchQueue.main.async { self?.holdUnlessVoiceOverRuns() }
+        }
+        holdUnlessVoiceOverRuns()
+        return status == .registered
+    }
+
+    private func holdUnlessVoiceOverRuns() {
+        guard handlerRef != nil else { return }
+        if NSWorkspace.shared.isVoiceOverEnabled {
+            releaseChord()
+            status = .yieldedToVoiceOver
+            return
+        }
+        guard hotKeyRef == nil else { return }
         let hotKeyID = EventHotKeyID(signature: HotKeyMonitor.signature, id: 1)
-        let status = RegisterEventHotKey(UInt32(kVK_Space),
+        let result = RegisterEventHotKey(UInt32(kVK_Space),
                                          UInt32(controlKey | optionKey),
                                          hotKeyID,
                                          GetApplicationEventTarget(),
                                          0,
                                          &hotKeyRef)
-        if status != noErr {
-            Diagnostics.log("hot key registration failed (\(status)); shortcut unavailable")
+        if result == noErr {
+            status = .registered
+        } else {
+            Diagnostics.log("hot key registration failed (\(result)); shortcut unavailable")
             hotKeyRef = nil
+            status = .unavailable
         }
     }
 
-    func unregister() {
+    private func releaseChord() {
         if let hotKeyRef {
             UnregisterEventHotKey(hotKeyRef)
             self.hotKeyRef = nil
         }
+    }
+
+    func unregister() {
+        voiceOverObservation?.invalidate()
+        voiceOverObservation = nil
+        releaseChord()
         if let handlerRef {
             RemoveEventHandler(handlerRef)
             self.handlerRef = nil
         }
         HotKeyMonitor.onFire = nil
+        status = .off
     }
 
     deinit {
