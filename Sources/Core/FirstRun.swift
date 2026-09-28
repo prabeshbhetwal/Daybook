@@ -88,7 +88,6 @@ enum CoachAnchor: String, CaseIterable, Hashable {
     case awards
     case scopePills
     case periodNav
-    case history
     case search
     case settings
 }

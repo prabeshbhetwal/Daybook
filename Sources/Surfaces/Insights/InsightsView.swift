@@ -47,7 +47,6 @@ struct InsightsView: View {
             selection.id = nil
             unfolded.id = nil
             navigation.clearReviewDay()
-            navigation.historySelectedPeriod = nil
         }
     }
 
