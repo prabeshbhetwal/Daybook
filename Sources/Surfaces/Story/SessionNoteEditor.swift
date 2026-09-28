@@ -48,6 +48,8 @@ struct SessionNoteEditor: View {
                 dictateButton
             }
         }
+        .announcesChanges(to: store.noteError(for: recordID))
+        .announcesChanges(to: dictation.status.message.map { "Dictation error: \($0)" })
         .onAppear { isFocused = true }
         .onChange(of: isFocused) { focused in
             if focused { store.focusedNoteEditorID = recordID }

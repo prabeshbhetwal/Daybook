@@ -32,7 +32,11 @@ struct StoryLegacyBreakActions: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .disabled(store.hasUnresolvedAwayDecision)
-        .accessibilityLabel("Change classification of \(rest.name)")
+        .help(store.hasUnresolvedAwayDecision ? StoryDecisionRow.awayQuestionFirst : "")
+        .accessibilityLabel(rest.name.isEmpty || rest.name == "Break"
+                            ? "Change classification of this break"
+                            : "Change classification of \(rest.name)")
+        .accessibilityHint(store.hasUnresolvedAwayDecision ? StoryDecisionRow.awayQuestionFirst : "")
         .confirmationDialog("Change this recorded interval?", isPresented: $draft.confirming, titleVisibility: .visible) {
             Button(draft.decision == .mergeTime ? "Count as focus" : "Leave uncounted") {
                 store.reclassifyLegacyBreak(recordID: rest.id, decision: draft.decision, focusTargetID: draft.target?.id,

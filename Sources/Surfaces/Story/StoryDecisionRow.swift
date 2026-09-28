@@ -24,7 +24,10 @@ struct StoryDecisionRow: View {
             let name = store.breakName(for: receipt)
             StorySavedActionRow(title: name ?? receipt.title, range: range,
                                 kind: name == nil ? nil : "Break",
-                                canUndo: store.engine.canUndoAwayDecision(expectedID: receipt.id),
+                                // A decision can be undone except while the
+                                // away question is waiting for its answer.
+                                undoBlockReason: store.engine.canUndoAwayDecision(expectedID: receipt.id)
+                                    ? nil : Self.awayQuestionFirst,
                                 scopeNote: StoryDecisionScope.note(visible: range, full: receipt.range),
                                 currentName: name,
                                 onName: store.canNameBreak(for: receipt)
@@ -47,6 +50,8 @@ struct StoryDecisionRow: View {
                         .buttonStyle(StoryActionStyle())
                 }
                 .disabled(store.hasUnresolvedAwayDecision)
+                .help(store.hasUnresolvedAwayDecision ? Self.awayQuestionFirst : "")
+                .accessibilityHint(store.hasUnresolvedAwayDecision ? Self.awayQuestionFirst : "")
                 if let note = StoryDecisionScope.note(visible: range, full: receipt.range) {
                     Text(note)
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
@@ -62,6 +67,9 @@ struct StoryDecisionRow: View {
     private func answer(_ decision: UserDecision) {
         store.applyAwayDecision(decision, reviewing: true, expectedID: receipt.id)
     }
+
+    /// Why a past interval's answers wait: the same words Remove uses.
+    static let awayQuestionFirst = "Answer the away question first."
 }
 
 struct StorySavedActionRow: View {
@@ -69,7 +77,8 @@ struct StorySavedActionRow: View {
     let range: DateInterval
     /// What the row is, when its title is a name rather than a statement.
     var kind: String?
-    var canUndo = true
+    /// Set while Undo cannot act yet; the button says why.
+    var undoBlockReason: String?
     var scopeNote: String?
     var currentName: String?
     /// Present when the row stands for a break that can be named.
@@ -110,9 +119,10 @@ struct StorySavedActionRow: View {
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(StoryStyle.action)
                 .frame(minWidth: 36, minHeight: 28)
-                .disabled(!canUndo)
+                .disabled(undoBlockReason != nil)
+                .help(undoBlockReason ?? "")
                 .accessibilityLabel("Undo \(title.lowercased())")
-                .accessibilityHint(scopeNote ?? "Reverts only this action; later work is unchanged.")
+                .accessibilityHint(undoBlockReason ?? scopeNote ?? "Reverts only this action; later work is unchanged.")
           }
           if editing.value, onName != nil {
               nameField

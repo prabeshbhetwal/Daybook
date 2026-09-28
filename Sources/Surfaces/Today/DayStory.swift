@@ -957,7 +957,7 @@ struct RestEntryRow: View {
         .background(Tokens.Colour.elevated,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(rest.name), recorded break, \(Tokens.spent(rest.length)), "
+        .accessibilityLabel("\(Self.label(rest.name)), \(Tokens.spent(rest.length)), "
                             + Tokens.timeRange(rest.start, rest.end))
     }
 

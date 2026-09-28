@@ -215,6 +215,9 @@ struct ProjectedDayStoryColumn: View {
             DayStory(store: store, projection: projection, opened: disclosure)
                 .coachAnchor(.storyColumn)
         }
+        // Said from the column, which is always there: the notice itself
+        // exists only while it has something to say.
+        .announcesChanges(to: StoryCorrectionNotice.visibleError(in: store))
         .accessibilityIdentifier("story-day-content-\(projection.id)")
         .storyRenderEvidence(.dayStory)
     }
@@ -248,8 +251,16 @@ struct ProjectedDayStoryColumn: View {
 struct StoryCorrectionNotice: View {
     @ObservedObject var store: SessionStore
 
+    /// The failure the notice shows, when it shows one. Today's away prompt
+    /// carries its own save error, so the notice stays out of its way.
+    static func visibleError(in store: SessionStore) -> String? {
+        guard let error = store.correctionError,
+              !store.isToday || store.pendingAwaySaveError == nil else { return nil }
+        return error
+    }
+
     var body: some View {
-        if let error = store.correctionError, !store.isToday || store.pendingAwaySaveError == nil {
+        if let error = Self.visibleError(in: store) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(error).fixedSize(horizontal: false, vertical: true)
                 Button("Retry saving") { store.retryLastCorrection() }
