@@ -145,7 +145,7 @@ struct MainWindowView: View {
                         store.setReviewVisible(true)
                         store.refreshReview()
                     }
-                    .onDisappear { store.setReviewVisible(navigation.storyScope.period != nil) }
+                    .onDisappear { store.setReviewVisible(false) }
             }
         }
         .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
@@ -209,27 +209,21 @@ struct StoryCanvas: View {
         }
         .onAppear {
             navigation.connect(to: store)
-            refresh(for: navigation.storyScope)
+            store.setDashboardVisible(true)
+            store.setReviewVisible(false)
         }
         .onDisappear {
             store.setDashboardVisible(false)
             store.setReviewVisible(false)
         }
-        .onChange(of: navigation.storyScope) { refresh(for: $0) }
     }
 
     private var column: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-            Group {
-                switch navigation.storyScope {
-                case .day: DayStoryColumn(store: store)
-                case .week: WeekStoryColumn(store: store, navigation: navigation)
-                case .month: MonthStoryColumn(store: store, navigation: navigation)
-                }
-            }
-            // A new period is a new reading, so it is a new view: stepping
+            DayStoryColumn(store: store)
+            // A new day is a new reading, so it is a new view: stepping
             // forward nudges it in from the trailing edge, back from the
-            // leading, and a change of scope settles in place.
+            // leading, and a jump settles in place.
             .id(readingKey)
             .transition(Tokens.Motion.transition(readingTransition, reduceMotion: reduceMotion))
         }
@@ -239,10 +233,7 @@ struct StoryCanvas: View {
                    value: readingKey)
     }
 
-    private var readingKey: String {
-        let period = navigation.storyScope == .day ? store.dayLabel : store.reviewPeriodLabel
-        return "\(navigation.storyScope)-\(period)"
-    }
+    private var readingKey: String { store.dayLabel }
 
     private var readingTransition: AnyTransition {
         switch navigation.lastPeriodStep {
@@ -252,15 +243,6 @@ struct StoryCanvas: View {
         }
     }
 
-    private func refresh(for scope: StoryScope) {
-        store.setDashboardVisible(true)
-        if let period = scope.period {
-            store.setReviewVisible(true)
-            store.refreshReview(period: period)
-        } else {
-            store.setReviewVisible(false)
-        }
-    }
 }
 
 /// A sheet that arrives from under the chrome, over a scrim. Escape and the

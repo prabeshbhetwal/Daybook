@@ -35,19 +35,6 @@ struct SettingsGroups: View {
 
     private var general: some View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
-            SurfacePanel(title: "Main window", layout: layout) {
-                preferenceRow("Opens on",
-                              detail: "Which story the window tells when it opens.") {
-                    Picker("Opens on", selection: $model.defaultStoryScope) {
-                        ForEach(StoryScope.allCases) { scope in
-                            Text(scope.title).tag(scope)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 180)
-                    .accessibilityLabel("Opens on")
-                }
-            }
             SurfacePanel(title: "Menu bar and login", layout: layout) {
                 toggleRow("Open at login",
                           detail: "Starts FocusContinuity in the menu bar when you sign in, so the "

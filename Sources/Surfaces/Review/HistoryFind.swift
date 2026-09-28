@@ -149,7 +149,7 @@ struct HistoryFindResults: View {
                                 if picked.id != nil { navigation.selectReviewDay(hit.day) } else { navigation.clearReviewDay() }
                             }
                         } onOpen: {
-                            navigation.openStory(.day, containing: hit.day)
+                            navigation.openDay(hit.day)
                         }
                     }
                 }

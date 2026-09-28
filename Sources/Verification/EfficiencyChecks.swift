@@ -69,7 +69,7 @@ enum EfficiencyChecks {
             let first = noon(daysAgo: 3)
             fixture.usage.checkpoint(AppUsageSession(bundleID: "editor", appName: "Editor",
                                                      start: first, end: first.addingTimeInterval(600)))
-            let navigation = MainWindowModel(opening: .story, storyScope: .day, store: fixture.store)
+            let navigation = MainWindowModel(opening: .story, store: fixture.store)
             _ = navigation
             var problems: [String] = []
             if fixture.store.dashboardVisible {

@@ -13,7 +13,6 @@ private struct StoryRenderedFrame {
 
 enum StoryWorkspaceChecks {
     static let tests: [(String, () -> [String])] = [
-        ("Opening a period child preserves its parent reading context", periodChildPreservesContext),
         ("Explicit day projections use only the requested day's seeded evidence", explicitDayProjection),
         ("History and Insights preserve Story and running-engine context", workspacesPreserveStory),
         ("Insights pages are bounded, newest first and expose every scope", insightPages),
@@ -24,58 +23,6 @@ enum StoryWorkspaceChecks {
         ("Receipt-only dates remain searchable without focus or app-use credit", receiptOnlyHistory),
         ("Story workspaces render sparse and dense reading contexts offscreen", offscreenWorkspaceRenders)
     ]
-
-    private static func periodChildPreservesContext() -> [String] {
-        MainActor.assumeIsolated {
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            defer { FixtureFactory.cleanUp() }
-            let calendar = Calendar.current
-            let navigation = MainWindowModel(storyScope: .week, store: store)
-            guard let child = store.reviewDays.dropFirst().first?.date else {
-                return ["Week fixture did not publish a child day"]
-            }
-            let selectedBefore = store.selectedDay
-            let anchorBefore = store.reviewAnchor
-            let totalBefore = store.reviewSummary.tracked
-
-            navigation.openStoryDay(child)
-
-            var failures: [String] = []
-            if navigation.storyScope != .week {
-                failures.append("Opening a week child changed Story scope")
-            }
-            if !calendar.isDate(store.selectedDay, inSameDayAs: selectedBefore) {
-                failures.append("Opening a week child changed the global Day selection")
-            }
-            if store.reviewAnchor != anchorBefore {
-                failures.append("Opening a week child changed the parent period anchor")
-            }
-            if store.reviewSummary.tracked != totalBefore {
-                failures.append("Opening a week child changed the parent tracked total")
-            }
-            if navigation.expandedStoryDay != child || navigation.storySelectedDay != child {
-                failures.append("Opening a week child did not bind the inline story to that date")
-            }
-            navigation.openStoryDay(child)
-            if navigation.expandedStoryDay != nil {
-                failures.append("The expanded child action did not toggle to Hide story")
-            }
-            navigation.openStoryDay(child)
-            if let other = store.reviewDays.first(where: {
-                !calendar.isDate($0.date, inSameDayAs: child)
-            })?.date {
-                navigation.selectStoryDay(other)
-                if navigation.expandedStoryDay != other {
-                    failures.append("Selecting another period day did not update the open child")
-                }
-            }
-            navigation.stepStoryPeriod(by: -1)
-            if navigation.storySelectedDay != nil || navigation.expandedStoryDay != nil {
-                failures.append("Stepping the parent period retained an incompatible child")
-            }
-            return failures
-        }
-    }
 
     private static func explicitDayProjection() -> [String] {
         MainActor.assumeIsolated {
@@ -121,7 +68,7 @@ enum StoryWorkspaceChecks {
         MainActor.assumeIsolated {
             let store = FixtureFactory.store(for: .running, accurateUsage: true)
             defer { FixtureFactory.cleanUp() }
-            let navigation = MainWindowModel(storyScope: .day, store: store)
+            let navigation = MainWindowModel(store: store)
             let storyDay = store.selectedDay
             let thread = store.engine.activeThreadID
             let state = store.engine.state
@@ -143,8 +90,8 @@ enum StoryWorkspaceChecks {
                 failures.append("Generic Open discarded the current reading workspace")
             }
             navigation.returnToStory()
-            if navigation.workspace != .story || navigation.storyScope != .day {
-                failures.append("Return to Story did not restore Story's scope")
+            if navigation.workspace != .story {
+                failures.append("Return to Story did not restore the day's story")
             }
             if !Calendar.current.isDate(store.selectedDay, inSameDayAs: storyDay)
                 || store.engine.activeThreadID != thread || store.engine.state != state {
@@ -450,34 +397,10 @@ enum StoryWorkspaceChecks {
                 }
             }
             let dense = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            let navigation = MainWindowModel(storyScope: .day, store: dense)
+            let navigation = MainWindowModel(store: dense)
             let denseDay = renderFrame(DayStoryColumn(store: dense), height: 900)
             requireContent("Day story", denseDay)
             requireEvidence("Day story", denseDay, includes: [.dayStory])
-
-            navigation.selectScope(.week)
-            if let day = dense.reviewDays.first?.date { navigation.selectStoryDay(day) }
-            let weekClosed = renderFrame(
-                WeekStoryColumn(store: dense, navigation: navigation), height: 1_200)
-            requireEvidence("Closed Week child", weekClosed, includes: [],
-                            excludes: [.periodChild])
-            if let day = navigation.storySelectedDay { navigation.openStoryDay(day) }
-            let weekOpen = renderFrame(
-                WeekStoryColumn(store: dense, navigation: navigation), height: 1_200)
-            requireContent("Week inline child", weekOpen)
-            requireEvidence("Week inline child", weekOpen, includes: [.periodChild, .dayStory])
-
-            navigation.selectScope(.month)
-            if let day = dense.reviewDays.first?.date { navigation.selectStoryDay(day) }
-            let monthClosed = renderFrame(
-                MonthStoryColumn(store: dense, navigation: navigation), height: 1_600)
-            requireEvidence("Closed Month child", monthClosed, includes: [],
-                            excludes: [.periodChild])
-            if let day = navigation.storySelectedDay { navigation.openStoryDay(day) }
-            let monthOpen = renderFrame(
-                MonthStoryColumn(store: dense, navigation: navigation), height: 1_600)
-            requireContent("Month inline child", monthOpen)
-            requireEvidence("Month inline child", monthOpen, includes: [.periodChild, .dayStory])
 
             navigation.open(tab: .review)
             navigation.selectInsightRange(.month)

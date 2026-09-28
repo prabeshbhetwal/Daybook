@@ -6,7 +6,6 @@ import AppKit
 /// to one real SettingsModel property below; section metadata reuses these keys
 /// so search/navigation cannot advertise a control with no backing behaviour.
 enum SettingsControlKey: String, CaseIterable, Hashable {
-    case opensOn
     case dailyGoal
     case categories
     case breakThreshold
@@ -39,7 +38,6 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
 
     var modelKeyPath: PartialKeyPath<SettingsModel> {
         switch self {
-        case .opensOn: return \SettingsModel.defaultStoryScope
         case .dailyGoal: return \SettingsModel.dailyGoal
         case .categories: return \SettingsModel.workTypeDefinitions
         case .breakThreshold: return \SettingsModel.breakThreshold
@@ -494,12 +492,6 @@ final class SettingsModel: ObservableObject {
         set { write { store.defaultAppTabRawValue = newValue.rawValue } }
     }
 
-    /// Which story the window opens on. The window is the story, so this is the
-    /// launch preference the interface can actually honour.
-    var defaultStoryScope: StoryScope {
-        get { StoryScope(rawValue: store.defaultStoryScopeRawValue) ?? .day }
-        set { write { store.defaultStoryScopeRawValue = newValue.rawValue } }
-    }
 
     /// Whether a session entry opens with its detail already showing. Local
     /// reading preference: it changes how the story is first drawn, never what

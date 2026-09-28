@@ -164,7 +164,7 @@ struct InsightsView: View {
         if let date = navigation.reviewSelectedDate {
             let projection = store.storyDayProjection(on: date)
             HistoryDayPreview(store: store, projection: projection) {
-                navigation.openStory(.day, containing: date)
+                navigation.openDay(date)
             }
             .id(projection.id)
             .accessibilityIdentifier("history-story-detail-content-\(projection.id)")

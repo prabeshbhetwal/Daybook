@@ -30,6 +30,8 @@ final class PersistenceStore {
         static let fullPromptAfter = "fc.fullPromptAfter"
         static let period = "fc.period"
         static let defaultAppTabRawValue = "fc.defaultAppTab"
+        /// No longer read: the window always opens on the day. Kept so erasing
+        /// all data still clears a value an earlier version saved.
         static let defaultStoryScopeRawValue = "fc.defaultStoryScope"
         static let sessionControlsPinned = "fc.sessionControlsPinned"
         static let storyTileOrderRawValue = "fc.storyTileOrder"
@@ -568,10 +570,6 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.defaultAppTabRawValue) }
     }
 
-    var defaultStoryScopeRawValue: String {
-        get { defaults.string(forKey: Key.defaultStoryScopeRawValue) ?? "day" }
-        set { defaults.set(newValue, forKey: Key.defaultStoryScopeRawValue) }
-    }
 
     /// Pinning controls only their presentation in the existing main window.
     /// It is deliberately stored beside other UI preferences and never read by

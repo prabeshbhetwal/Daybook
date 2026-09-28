@@ -391,11 +391,10 @@ enum FirstRunScript {
         ]),
 
         Chapter(id: .lookingBack, cards: [
-            Card(sentence: "Day, Week, Month.",
-                 body: "The same story over a longer stretch. Day is where you work. "
-                     + "Week and Month are where you find out what your weeks actually "
-                     + "look like. The arrows step through time; the label between "
-                     + "them opens a calendar.",
+            Card(sentence: "The day here, the longer view in History.",
+                 body: "The story is always one day; its arrows step a day at a time and "
+                     + "the date between them opens a calendar. History is where you "
+                     + "find out what your weeks and months actually look like.",
                  anchor: .scopePills,
                  effect: .showHistory),
             Card(sentence: "History goes back to the day you installed the app.",
@@ -433,15 +432,15 @@ enum FirstRunScript {
             Card(sentence: "A few keys.",
                  body: "Control-Option-Space, from inside any app, starts a session, "
                      + "pauses or resumes the running one, or brings up an away card "
-                     + "that is waiting for you. In this window: ⌘1, ⌘2 and ⌘3 for Day, "
-                     + "Week and Month; ⌘4 for History; ⌘6 for Awards; ⌘7 for the "
-                     + "session controls; ⌘, for Settings.",
+                     + "that is waiting for you. In this window: ⌘1 for the day's story, "
+                     + "⌘2 for History, ⌘6 for Awards, ⌘7 for the session controls and "
+                     + "⌘, for Settings.",
                  anchor: .sessionControl)
         ]),
 
         Chapter(id: .settings, cards: [
             Card(sentence: "Everything adjustable is behind the gear.",
-                 body: "General for how the window opens and login. Sessions for your "
+                 body: "General for login and the menu bar. Sessions for your "
                      + "daily goal, categories and thresholds. Activities for the rules. "
                      + "Away & Breaks for when it asks. Recording for what is watched "
                      + "and which apps count as work.",

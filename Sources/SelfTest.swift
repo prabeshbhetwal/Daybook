@@ -414,7 +414,7 @@ enum SelfTest {
              testSessionShapeReportsOnlyRecordedEvidence),
             ("Unrecorded focus is the focused span usage never saw",
              testUnrecordedFocusIsTheUncoveredSpan),
-            ("The window opens on the story the preference names",
+            ("The window opens on the day's story, and a sheet route on its sheet",
              testWindowOpensOnPreferredStory),
             ("Narrative diagnostics use a full-width status layout",
              testSettingsDiagnosticLayout),
@@ -6744,19 +6744,17 @@ enum SelfTest {
     /// The Settings information architecture is searchable because its real
     /// controls carry metadata, and every mutable row resolves to one concrete
     /// SettingsModel property rather than a placeholder preference.
-    /// The launch preference must reach the window, and a sheet-backed tab must
+    /// The window opens on the day's story, and a sheet-backed tab must
     /// present its sheet on construction — otherwise restoring a surface shows
     /// the story with no sign of what was asked for.
     private static func testWindowOpensOnPreferredStory() -> [String] {
         var problems: [String] = []
         MainActor.assumeIsolated {
-            for scope in StoryScope.allCases {
-                let window = MainWindowModel(opening: .story, storyScope: scope)
-                expect(window.storyScope == scope,
-                       "a window built for \(scope.title) opens on \(scope.title)", &problems)
-                expect(window.sheet == nil,
-                       "the story itself presents no sheet at \(scope.title)", &problems)
-            }
+            let window = MainWindowModel(opening: .story)
+            expect(window.workspace == .story && window.sheet == nil,
+                   "a window built on the story opens the day's story", &problems)
+            expect(!SettingsControlKey.allCases.map(\.rawValue).contains("opensOn"),
+                   "no setting offers a story other than the day", &problems)
 
             let settings = MainWindowModel(opening: .settings)
             expect(settings.sheet == .settings,
@@ -7024,7 +7022,7 @@ enum SelfTest {
                "searching privacy returns Data and privacy", &problems)
 
         let expectedControls: Set<SettingsControlKey> = [
-            .opensOn, .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,
+            .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,
             .reminders, .activityRuleAutomation, .activityRules,
             .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
             .usageRecording, .appearance, .density, .timelineLabels, .entryDetails,
@@ -7192,11 +7190,10 @@ enum SelfTest {
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
                 .focusSaveFailure,
                 .todayHistory, .todayHistoryExpanded, .todayPast,
-                .reviewWeek, .reviewMonth,
-                .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection,
+                .reviewHistorySelection,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
-                .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
+                .storyDay, .storyDayEntry,
                 .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
                 .welcomeOpening, .welcomeStep,
                 .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
@@ -7233,12 +7230,8 @@ enum SelfTest {
                        "\(tab.rawValue) must have a snapshot scenario", &problems)
             }
 
-            // The selected-day detail is reachable two ways, and both edges of
-            // the chart are where clipping and annotation collisions hide.
-            let selectionScenarios: [SnapshotScenario] = [
-                .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection
-            ]
-            for scenario in selectionScenarios {
+            // History's selected-day detail must stay in the visual matrix.
+            for scenario in [SnapshotScenario.reviewHistorySelection] {
                 expect(required.contains(scenario),
                        "\(scenario.rawValue) must stay in the visual matrix", &problems)
                 expect(scenario.tab == .review,
@@ -7454,7 +7447,9 @@ enum SelfTest {
         // the tab rail is centred lower down and cannot satisfy either probe.
         let bandHeight = min(60, bitmap.pixelsHigh)
         let sideWidth = min(360, bitmap.pixelsWide / 2)
-        let titleContrast = contrast(x: 10..<sideWidth, y: 0..<bandHeight)
+        // The story's chrome leads with its date control, centred; whatever
+        // stands left of the status region must carry the title evidence.
+        let titleContrast = contrast(x: 10..<(bitmap.pixelsWide - sideWidth), y: 0..<bandHeight)
         let statusContrast = contrast(
             x: (bitmap.pixelsWide - sideWidth)..<(bitmap.pixelsWide - 10),
             y: 0..<bandHeight)
@@ -7483,13 +7478,11 @@ enum SelfTest {
             return high - low
         }
 
-        // The chrome's first column is the back slot — empty on Story — so the
-        // scope pills begin at 136pt: 76 of traffic-light clearance, the 28pt
-        // slot, and a 16pt gap either side. That position is the same in every
-        // workspace, which is what the slot is for. The period control is
-        // centred in the same 60pt band at the production minimum.
-        return contrast(x: 136..<180, y: 0..<60) > 0.08
-            && contrast(x: 300..<700, y: 0..<60) > 0.08
+        // The story's chrome is its date control, centred in the 60pt band at
+        // the production minimum, with History and the session control to its
+        // right; the story has no scope row to the left any more.
+        return contrast(x: 300..<700, y: 0..<60) > 0.08
+            && contrast(x: 700..<970, y: 0..<60) > 0.08
     }
 
     /// The visual foundation keeps Compact practical rather than cramped and
@@ -7530,8 +7523,7 @@ enum SelfTest {
             expect(navigation.workspace == .history && navigation.sheet == nil,
                    "review route shows History", &problems)
             navigation.openToday(date: yesterday)
-            expect(navigation.workspace == .story && navigation.storyScope == .day
-                   && navigation.requestedDate == yesterday,
+            expect(navigation.workspace == .story && navigation.requestedDate == yesterday,
                    "day links route into the day's story", &problems)
             navigation.openSettings()
             expect(navigation.sheet == .settings,

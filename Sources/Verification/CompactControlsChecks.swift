@@ -15,8 +15,6 @@ enum CompactControlsChecks {
         ("Popover owns one real overflow region and excludes current continuations", popoverComposition),
         ("Settings keeps one bounded frame across pages and search", settingsFrame),
         ("Settings fixtures retain a real editable search field", settingsSearchField),
-        ("Month remains compact when the Story column grows wider", monthHeight),
-        ("Month duration consumers keep short and invalid evidence factual", monthDurationText),
         ("Rail ordering is gated, one-step and deliberately dismissible", railArrangement),
         ("Scope keyboard commands move one coherent selection", scopeKeyboard),
         ("Native scope adapter owns focus, pointer and key selection", nativeScopeAdapter),
@@ -34,9 +32,8 @@ enum CompactControlsChecks {
 
     private static func focusRoute() -> [String] {
         MainActor.assumeIsolated {
-            let navigation = MainWindowModel(storyScope: .month)
+            let navigation = MainWindowModel(opening: .review)
             let workspace = navigation.workspace
-            let scope = navigation.storyScope
 
             navigation.open(tab: .focus)
 
@@ -44,8 +41,8 @@ enum CompactControlsChecks {
             if navigation.sheet != nil {
                 failures.append("Opening session controls still presents a Focus sheet")
             }
-            if navigation.workspace != workspace || navigation.storyScope != scope {
-                failures.append("Opening session controls changed the Month reading context")
+            if navigation.workspace != workspace {
+                failures.append("Opening session controls changed the History reading context")
             }
             navigation.dismissSessionControls()
             if navigation.focusRestorationRequest != .sessionControls {
@@ -103,7 +100,7 @@ enum CompactControlsChecks {
 
             let reloaded = SettingsModel(store: persistence, isTrackingEnabled: true,
                                          onChange: {}, onTrackingChanged: { _ in })
-            let navigation = MainWindowModel(storyScope: .week, store: store)
+            let navigation = MainWindowModel(store: store)
             var failures: [String] = []
             if !reloaded.sessionControlsPinned
                 || !SessionControlsVisibility.isVisible(
@@ -235,52 +232,6 @@ enum CompactControlsChecks {
     @MainActor private static func containsTextInput(_ view: NSView) -> Bool {
         if view is NSTextField { return true }
         return view.subviews.contains(where: containsTextInput)
-    }
-
-    private static func monthHeight() -> [String] {
-        MainActor.assumeIsolated {
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            defer { FixtureFactory.cleanUp() }
-            store.refreshReview(period: .month)
-            let navigation = MainWindowModel(storyScope: .month, store: store)
-
-            @MainActor func renderedHeight(width: CGFloat) -> CGFloat {
-                let view = MonthStoryGrid(store: store, navigation: navigation)
-                    .frame(width: width)
-                    .fixedSize(horizontal: false, vertical: true)
-                let renderer = ImageRenderer(content: view)
-                renderer.scale = 1
-                return renderer.nsImage?.size.height ?? .infinity
-            }
-
-            let minimum = renderedHeight(width: 600)
-            let comfortable = renderedHeight(width: 780)
-            var failures: [String] = []
-            if !minimum.isFinite || !comfortable.isFinite {
-                failures.append("Month could not be rendered at both supported Story widths")
-            } else if comfortable > minimum + 8 {
-                failures.append("Widening Month increased its height from "
-                                + "\(Int(minimum))pt to \(Int(comfortable))pt")
-            }
-            if max(minimum, comfortable) > 500 {
-                failures.append("Six-row Month leaves too little room for its inline story")
-            }
-            return failures
-        }
-    }
-
-    private static func monthDurationText() -> [String] {
-        var failures: [String] = []
-        if MonthStoryLayout.durationLabel(for: 31) != "31s" {
-            failures.append("A 31-second Month cell was rounded to a whole-minute label")
-        }
-        for value in [TimeInterval.nan, .infinity, -.infinity, -1] {
-            if MonthStoryLayout.durationLabel(for: value) != "—" {
-                failures.append("An invalid Month-cell duration was presented as ordinary time")
-                break
-            }
-        }
-        return failures
     }
 
     private static func railArrangement() -> [String] {
@@ -472,7 +423,6 @@ enum CompactControlsChecks {
         MainActor.assumeIsolated {
             var failures: [String] = []
             let rows: [(String, [String])] = [
-                ("Story scope", StoryScope.allCases.map(\.title)),
                 ("Insights range", InsightRange.allCases.map(\.title)),
                 ("Review section", ReviewSection.allCases.map(\.title))
             ]
@@ -520,7 +470,8 @@ enum CompactControlsChecks {
             // row, never two, whichever route opened History.
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             defer { FixtureFactory.cleanUp() }
-            for (tab, expected) in [(AppTab.story, 1), (.insights, 1), (.review, 1)] {
+            // The story is a day and has no scope row; History has exactly one.
+            for (tab, expected) in [(AppTab.story, 0), (.insights, 1), (.review, 1)] {
                 let navigation = MainWindowModel(store: store)
                 navigation.open(tab: tab)
                 let host = NSHostingView(rootView: StoryChromeBar(store: store,
@@ -568,31 +519,33 @@ enum CompactControlsChecks {
 
     private static func scopeKeyboard() -> [String] {
         var failures: [String] = []
-        if StoryScopeKeyboardSelection.apply(.right, to: .day) != .week
-            || StoryScopeKeyboardSelection.apply(.right, to: .month) != .month
-            || StoryScopeKeyboardSelection.apply(.left, to: .week) != .day
-            || StoryScopeKeyboardSelection.apply(.home, to: .month) != .day
-            || StoryScopeKeyboardSelection.apply(.end, to: .day) != .month {
+        if ScopeKeyboardSelection.apply(.right, to: 0, count: 3) != 1
+            || ScopeKeyboardSelection.apply(.right, to: 2, count: 3) != 2
+            || ScopeKeyboardSelection.apply(.left, to: 1, count: 3) != 0
+            || ScopeKeyboardSelection.apply(.home, to: 2, count: 3) != 0
+            || ScopeKeyboardSelection.apply(.end, to: 0, count: 3) != 2 {
             failures.append("Left, Right, Home or End produced the wrong selected scope")
         }
-        if StoryScopeKeyboardSelection.accessibilityValue(for: .week) != "Week, selected" {
+        if ScopeKeyboardSelection.accessibilityValue(title: "Second") != "Second, selected" {
             failures.append("The coherent scope target did not expose its selected value")
         }
         return failures
     }
 
     private final class ScopeSelectionBox {
-        var value: StoryScope = .day
+        var value = 0
         var writes = 0
     }
 
     private static func nativeScopeAdapter() -> [String] {
         MainActor.assumeIsolated {
             let box = ScopeSelectionBox()
-            let selection = Binding<StoryScope>(
+            let selection = Binding<Int>(
                 get: { box.value },
                 set: { box.value = $0; box.writes += 1 })
-            let host = NSHostingView(rootView: NativeStoryScopeControl(selection: selection)
+            let host = NSHostingView(rootView: NativeScopeControl(titles: ["First", "Second", "Third"],
+                                                                  selectedIndex: selection,
+                                                                  controlLabel: "Scope")
                 .frame(width: 190, height: AccessibilityMetrics.minimumTargetSize))
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 220, height: 60),
                                   styleMask: .borderless, backing: .buffered, defer: false)
@@ -601,7 +554,7 @@ enum CompactControlsChecks {
             host.layoutSubtreeIfNeeded()
             guard let control = embeddedScopeControl(in: host) else {
                 window.contentView = nil
-                return ["Could not locate the native Story scope control"]
+                return ["Could not locate the native scope control"]
             }
             var failures: [String] = []
             if !window.makeFirstResponder(control) || window.firstResponder !== control {
@@ -638,8 +591,8 @@ enum CompactControlsChecks {
             box.writes = 0
             control.keyDown(with: keyEvent(keyCode: 124, modifiers: .numericPad,
                                            windowNumber: window.windowNumber))
-            if box.value != .week || box.writes != 1 || control.selectedSegment != 1 {
-                failures.append("The real Right-key adapter path did not select Week exactly once")
+            if box.value != 1 || box.writes != 1 || control.selectedSegment != 1 {
+                failures.append("The real Right-key adapter path did not select the second segment exactly once")
             }
 
             for modifiers: NSEvent.ModifierFlags in [.command, .option, .control, .shift,
@@ -649,24 +602,24 @@ enum CompactControlsChecks {
                 control.keyDown(with: keyEvent(keyCode: 123, modifiers: modifiers,
                                                windowNumber: window.windowNumber))
                 if box.value != selected || box.writes != 0 {
-                    failures.append("Modified Left with \(modifiers.rawValue) changed Story scope")
+                    failures.append("Modified Left with \(modifiers.rawValue) changed the selection")
                 }
             }
 
             box.writes = 0
             control.keyDown(with: keyEvent(keyCode: 115, modifiers: .function,
                                            windowNumber: window.windowNumber))
-            if box.value != .day || box.writes != 1 {
-                failures.append("Function-flagged Home did not select Day exactly once")
+            if box.value != 0 || box.writes != 1 {
+                failures.append("Function-flagged Home did not select the first segment exactly once")
             }
 
             box.writes = 0
             control.selectedSegment = 2
             control.sendAction(control.action, to: control.target)
-            if box.value != .month || box.writes != 1 {
-                failures.append("The real pointer/action path did not select Month exactly once")
+            if box.value != 2 || box.writes != 1 {
+                failures.append("The real pointer/action path did not select the third segment exactly once")
             }
-            if control.accessibilityValue() as? String != "Month, selected" {
+            if control.accessibilityValue() as? String != "Third, selected" {
                 failures.append("The native target did not expose its current selected value")
             }
             window.contentView = nil

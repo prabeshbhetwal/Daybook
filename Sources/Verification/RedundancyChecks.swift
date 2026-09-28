@@ -10,7 +10,6 @@ enum RedundancyChecks {
         ("An unnamed break is not called a break twice", breakNamedOnce),
         ("The hour grid's caption carries the best two hours in full", gridCarriesBestHours),
         ("History's headline carries recorded app use once its total card is gone", historyHeadlineAppUse),
-        ("A day opened inside a period does not repeat the period's integrity notice", integrityNoticeOnce),
         ("A break reminder's body gives the reason, not the title again", breakBodyAddsOnly),
         ("The strip hides today's goal only where the goal card shows it", stripGoalOnlyWhereCardIsNot)
     ]
@@ -114,16 +113,16 @@ enum RedundancyChecks {
 
     private static func stripGoalOnlyWhereCardIsNot() -> [String] {
         var failures: [String] = []
-        if SessionControlStrip.showsGoal(scope: .day, isToday: true, workspace: .story, sheet: nil) {
+        if SessionControlStrip.showsGoal(isToday: true, workspace: .story, sheet: nil) {
             failures.append("the strip repeated today's goal beside the goal card")
         }
-        if !SessionControlStrip.showsGoal(scope: .day, isToday: true, workspace: .history, sheet: nil) {
+        if !SessionControlStrip.showsGoal(isToday: true, workspace: .history, sheet: nil) {
             failures.append("History has no goal card, yet the strip hid today's goal there")
         }
-        if !SessionControlStrip.showsGoal(scope: .day, isToday: true, workspace: .story, sheet: .settings) {
+        if !SessionControlStrip.showsGoal(isToday: true, workspace: .story, sheet: .settings) {
             failures.append("a sheet covers the goal card, yet the strip hid today's goal")
         }
-        if !SessionControlStrip.showsGoal(scope: .day, isToday: false, workspace: .story, sheet: nil) {
+        if !SessionControlStrip.showsGoal(isToday: false, workspace: .story, sheet: nil) {
             failures.append("a past day's card is not today's goal, yet the strip hid it")
         }
         return failures
@@ -140,18 +139,6 @@ enum RedundancyChecks {
             if !prompt.body.hasPrefix("You have been at the Mac for 20m") && tier != .ultradian {
                 failures.append("\(tier) lost how long you have worked: \(prompt.body)")
             }
-        }
-        return failures
-    }
-
-    private static func integrityNoticeOnce() -> [String] {
-        let note = "App usage from before 1 September 2026 was preserved and may include unattended time."
-        var failures: [String] = []
-        if ProjectedDayStoryColumn.dayNote(note, parentNote: note) != nil {
-            failures.append("the period's notice was repeated inside its day")
-        }
-        if ProjectedDayStoryColumn.dayNote(note, parentNote: nil) != note {
-            failures.append("a day with no notice above it lost its own")
         }
         return failures
     }

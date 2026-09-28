@@ -4,11 +4,10 @@ import AppKit
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure
     case todayHistory, todayHistoryExpanded, todayPast
-    case reviewWeek, reviewMonth
-    case reviewSelectedFirstDay, reviewSelectedLastDay, reviewHistorySelection
+    case reviewHistorySelection
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
-    case storyDay, storyDayEntry, storyWeek, storyMonth
+    case storyDay, storyDayEntry
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
     case welcomeOpening, welcomeStep
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsAutomatic
@@ -28,10 +27,6 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .todayHistory: return "Today — history"
         case .todayHistoryExpanded: return "Today — history expanded recap"
         case .todayPast: return "Today — past day and integrity"
-        case .reviewWeek: return "Review — week"
-        case .reviewMonth: return "Review — month"
-        case .reviewSelectedFirstDay: return "Review — first day selected"
-        case .reviewSelectedLastDay: return "Review — last day selected"
         case .reviewHistorySelection: return "Review — History row selected"
         case .insightsEnough: return "Insights — enough evidence"
         case .insightsEmpty: return "Insights — insufficient evidence"
@@ -39,8 +34,6 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awardsEmpty: return "Awards — nothing earned yet"
         case .storyDay: return "Story — the day"
         case .storyDayEntry: return "Story — an entry opened"
-        case .storyWeek: return "Story — the week"
-        case .storyMonth: return "Story — the month"
         case .storyShape: return "Story — recorded shape and session actions"
         case .storyMeeting: return "Story — meeting evidence"
         case .storyLive: return "Story — current work first"
@@ -112,14 +105,13 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .focus
         case .todayHistory, .todayHistoryExpanded, .todayPast:
             return .today
-        case .reviewWeek, .reviewMonth, .reviewSelectedFirstDay,
-             .reviewSelectedLastDay, .reviewHistorySelection:
+        case .reviewHistorySelection:
             return .review
         case .insightsEnough, .insightsEmpty:
             return .insights
         case .awardsEarned, .awardsEmpty:
             return .awards
-        case .storyDay, .storyDayEntry, .storyWeek, .storyMonth,
+        case .storyDay, .storyDayEntry,
              .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
              .welcomeOpening, .welcomeStep:
             return .story
@@ -374,15 +366,7 @@ enum Snapshotter {
             store.setDashboardVisible(true)
             store.stepDay(by: -1)
             return store
-        case .reviewWeek:
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            store.refreshReview(period: .week)
-            return store
-        case .reviewMonth:
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            store.refreshReview(period: .month)
-            return store
-        case .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection:
+        case .reviewHistorySelection:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.refreshReview(period: .week)
             return store
@@ -402,16 +386,6 @@ enum Snapshotter {
             return store
         case .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport:
             return FixtureFactory.storyInteractionStore(for: scenario)
-        case .storyWeek:
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            store.setDashboardVisible(true)
-            store.refreshReview(period: .week)
-            return store
-        case .storyMonth:
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            store.setDashboardVisible(true)
-            store.refreshReview(period: .month)
-            return store
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
              .settingsActivityRules:
@@ -444,39 +418,10 @@ enum Snapshotter {
         return coach
     }
 
-    /// Days the Review period and the History index both hold. Selecting any
-    /// other date would open no detail, which would make the fixture useless.
-    private static func selectableReviewDays(_ store: SessionStore) -> [Date] {
-        let calendar = Calendar.current
-        return store.reviewDays.map(\.date).filter { day in
-            store.historyDays.contains { calendar.isDate($0.date, inSameDayAs: day) }
-        }
-    }
-
     static func navigation(for scenario: SnapshotScenario,
                                    store: SessionStore) -> MainWindowModel {
         let navigation = MainWindowModel(opening: scenario.tab ?? .story, store: store)
         switch scenario {
-        case .storyDay, .storyDayEntry, .storyShape, .storyMeeting, .storyLive, .storyDecision:
-            navigation.storyScope = .day
-        case .storyWeek:
-            navigation.selectScope(.week)
-            if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
-        case .storyMonth:
-            navigation.selectScope(.month)
-            if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
-        case .reviewWeek:
-            navigation.selectScope(.week)
-        case .reviewMonth:
-            navigation.selectScope(.month)
-        // The first and last selectable bars: the plot edges are exactly where
-        // a clipped mark or a colliding annotation would hide.
-        case .reviewSelectedFirstDay:
-            navigation.selectScope(.week)
-            if let day = selectableReviewDays(store).first { navigation.selectStoryDay(day) }
-        case .reviewSelectedLastDay:
-            navigation.selectScope(.week)
-            if let day = selectableReviewDays(store).last { navigation.selectStoryDay(day) }
         case .reviewHistorySelection:
             navigation.open(tab: .review)
             navigation.insightRange = .month
@@ -490,7 +435,6 @@ enum Snapshotter {
         case .settingsActivityRules:
             navigation.settingsSection = .activities
         case .storyReport:
-            navigation.storyScope = .day
             let sessions = store.daySessions.compactMap { entry -> DaySession? in
                 if case .session(let session) = entry { return session }
                 return nil
@@ -519,13 +463,7 @@ enum Snapshotter {
         // A taller evidence viewport shows the complete Month grid. The real
         // ScrollViews remain in use: sheets keep their production height and
         // cannot grow with the document behind them.
-        case .review:
-            switch item.scenario {
-            case .reviewSelectedFirstDay, .reviewSelectedLastDay, .reviewHistorySelection:
-                height = 1_100
-            default:
-                height = 1_100
-            }
+        case .review: height = 1_100
         case .insights: height = 780
         case .awards: height = 900
         case .story: height = 1_200

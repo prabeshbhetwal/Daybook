@@ -122,11 +122,7 @@ struct StoryChromeBar: View {
     @ViewBuilder private var workspaceControls: some View {
         switch navigation.workspace {
         case .story:
-            ScopePillRow(titles: StoryScope.allCases.map(\.title),
-                         selectedIndex: Binding(
-                            get: { StoryScope.allCases.firstIndex(of: navigation.storyScope) ?? 0 },
-                            set: { navigation.selectScope(StoryScope.allCases[$0]) }),
-                         controlLabel: "Story scope")
+            // The story is a day; how far back to look is History's.
             Spacer(minLength: Tokens.Space.s)
             periodNavigation
                 .coachAnchor(.periodNav)
@@ -276,30 +272,13 @@ struct StoryChromeBar: View {
 
     @StateObject private var calendarShown = BoolBox()
 
-    private var periodLabel: String {
-        switch navigation.storyScope {
-        case .day: return store.dayLabel
-        case .week, .month: return store.reviewPeriodLabel
-        }
-    }
+    private var periodLabel: String { store.dayLabel }
 
-    private func stepHelp(back: Bool) -> String {
-        let unit: String
-        switch navigation.storyScope {
-        case .day: unit = "day"
-        case .week: unit = "week"
-        case .month: unit = "month"
-        }
-        return "\(back ? "Previous" : "Next") \(unit)"
-    }
+    private func stepHelp(back: Bool) -> String { back ? "Previous day" : "Next day" }
 
-    private var canStepBack: Bool {
-        navigation.storyScope == .day ? store.canStepBack : true
-    }
+    private var canStepBack: Bool { store.canStepBack }
 
-    private var canStepForward: Bool {
-        navigation.storyScope == .day ? store.canStepForward : store.reviewCanMoveForward
-    }
+    private var canStepForward: Bool { store.canStepForward }
 
     private func step(_ delta: Int) {
         navigation.stepStoryPeriod(by: delta)

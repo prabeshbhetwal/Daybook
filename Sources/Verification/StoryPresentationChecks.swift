@@ -195,9 +195,7 @@ enum StoryPresentationChecks {
         var failures: [String] = []
         let appDay = StoryNarrative.day(focused: 0, tracked: 900, sessions: 0, rest: 0, isToday: false)
         let restDay = StoryNarrative.day(focused: 0, tracked: 0, sessions: 0, rest: 600, isToday: false)
-        let appWeek = StoryNarrative.period(activeDays: 0, totalDays: 7, focused: 0,
-                                            tracked: 900, best: nil, unit: "week")
-        if !appDay.contains("15m") || !appDay.contains("app use") || !appWeek.contains("15m") {
+        if !appDay.contains("15m") || !appDay.contains("app use") {
             failures.append("Observed app-only evidence was presented as an empty record")
         }
         if !restDay.contains("10m") || !restDay.contains("break") {
@@ -209,14 +207,6 @@ enum StoryPresentationChecks {
     private static func snapshotRoutes() -> [String] {
         MainActor.assumeIsolated {
             var failures: [String] = []
-            for (scenario, scope) in [(SnapshotScenario.reviewWeek, StoryScope.week),
-                                      (.reviewMonth, .month)] {
-                let store = Snapshotter.store(for: scenario)
-                let route = Snapshotter.navigation(for: scenario, store: store)
-                if route.storyScope != scope || route.sheet != nil {
-                    failures.append("\(scenario) rendered a different production surface")
-                }
-            }
             let history = Snapshotter.store(for: .reviewHistorySelection)
             let route = Snapshotter.navigation(for: .reviewHistorySelection, store: history)
             if route.workspace != .history || route.reviewSelectedDate == nil {

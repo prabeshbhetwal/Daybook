@@ -153,19 +153,8 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     /// deliberately separate from `requestedDate`: selecting evidence in Review
     /// explains a day in place, while `requestedDate` moves the user to Today.
     @Published private(set) var reviewSelectedDate: Date?
-    /// Which span the Story surface is telling, the selected period day and the
-    /// independently toggled inline child. Attached-panel state is separate.
+    /// The sheet over the story, if any. The story itself is always a day.
     @Published private(set) var sheet: StorySheetKind?
-    @Published var storyScope: StoryScope = .day {
-        didSet {
-            guard storyScope != oldValue else { return }
-            storySelectedDay = nil
-            expandedStoryDay = nil
-            refreshStoryScope()
-        }
-    }
-    @Published private(set) var storySelectedDay: Date?
-    @Published private(set) var expandedStoryDay: Date?
     /// Transient expansion belongs to navigation, not session state. A
     /// separately persisted pin may keep the strip visible across relaunch.
     @Published private(set) var sessionControlsExpanded = false
@@ -188,13 +177,10 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     @Published private(set) var reportSession: DaySession?
     @Published var settingsQuery: String = ""
     private weak var store: SessionStore?
-    private var periodObservation: AnyCancellable?
 
     init(opening route: AppTab = .story,
-         storyScope: StoryScope = .day,
          requestedDate: Date? = nil,
          store: SessionStore? = nil) {
-        self.storyScope = storyScope
         self.requestedDate = requestedDate
         let insightToday = Calendar.current.startOfDay(for: store?.now() ?? Date())
         self.insightAnchors = Dictionary(uniqueKeysWithValues:
@@ -264,7 +250,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             workspace = .story
             sheet = nil
             showDay(date)
-            storyScope = .day
         }
     }
 
@@ -328,33 +313,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         closeSheet()
     }
 
-    func selectStoryDay(_ date: Date, calendar: Calendar = .current) {
-        let day = calendar.startOfDay(for: date)
-        storySelectedDay = day
-        if expandedStoryDay != nil { expandedStoryDay = day }
-    }
-
-    func toggleExpandedStoryDay(_ date: Date, calendar: Calendar = .current) {
-        let day = calendar.startOfDay(for: date)
-        if let expandedStoryDay, calendar.isDate(expandedStoryDay, inSameDayAs: day) {
-            self.expandedStoryDay = nil
-        } else {
-            storySelectedDay = day
-            expandedStoryDay = day
-        }
-    }
-
-    /// Compatibility action for existing period callers. A period day opens
-    /// inline; only an already-Day-scoped caller changes the global Day date.
-    func openStoryDay(_ date: Date, calendar: Calendar = .current) {
-        if storyScope == .day {
-            workspace = .story
-            showDay(calendar.startOfDay(for: date))
-        } else {
-            toggleExpandedStoryDay(date, calendar: calendar)
-        }
-    }
-
     /// The navigation model owns the route, while SessionStore owns the day.
     /// Bind once at the production composition root; deferred requests from a
     /// menu before the window exists are consumed here as well.
@@ -366,63 +324,24 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         // the story canvas's to claim when it appears; claiming it here kept
         // the dashboard rebuilding every second behind a window never opened.
         if let requestedDate { showDay(requestedDate) }
-        periodObservation = store.$reviewDays.sink { [weak self] days in
-            guard let self else { return }
-            if let selected = self.storySelectedDay,
-               !days.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: selected) }) {
-                self.storySelectedDay = nil
-                self.expandedStoryDay = nil
-            }
-        }
-        refreshStoryScope()
+        refreshStory()
     }
 
-    func selectScope(_ scope: StoryScope) {
-        lastPeriodStep = 0
-        animated(Tokens.Motion.swap) {
-            workspace = .story
-            sheet = nil
-            if scope != storyScope, let store {
-                let anchor = storyScope == .day ? store.selectedDay
-                    : storySelectedDay ?? store.reviewAnchor ?? store.now()
-                if scope == .day {
-                    showDay(anchor)
-                } else {
-                    store.reviewAnchor = Calendar.current.startOfDay(for: anchor)
-                }
-            }
-            storyScope = scope
-            refreshStoryScope()
-        }
-    }
-
-    /// Story may deliberately inspect an empty historical date. Do not silently
-    /// replace it with the earliest recorded day; only future dates are clamped.
-    /// The chrome's calendar picked a day: show it as the day's story,
-    /// whichever span was showing. A week or month is a place to spot a day;
-    /// the day is where it is read.
+    /// The chrome's calendar picked a day: show it as the day's story. Story
+    /// may deliberately inspect an empty historical date; only future dates
+    /// are clamped.
     func jumpToDay(_ date: Date) {
-        if storyScope != .day { selectScope(.day) }
         showDay(date)
     }
 
-    /// Insights and History point at a period; this opens it as its own story,
-    /// at the span it was shown in.
-    func openStory(_ scope: StoryScope, containing date: Date) {
-        guard let store else { return }
+    /// A day found in History, opened as the front page's story.
+    func openDay(_ date: Date) {
         lastPeriodStep = 0
         animated(Tokens.Motion.swap) {
             workspace = .story
             sheet = nil
-            storySelectedDay = nil
-            expandedStoryDay = nil
-            if scope == .day {
-                showDay(date)
-            } else {
-                store.reviewAnchor = Calendar.current.startOfDay(for: date)
-            }
-            storyScope = scope
-            refreshStoryScope()
+            showDay(date)
+            refreshStory()
         }
     }
 
@@ -436,31 +355,21 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 
     /// Which way the reader last stepped: +1 forward, -1 back, 0 when the
-    /// scope changed instead. The story's transition reads it.
+    /// day was jumped to instead. The story's transition reads it.
     @Published private(set) var lastPeriodStep = 0
 
     func stepStoryPeriod(by delta: Int) {
         guard let store else { return }
         lastPeriodStep = delta
-        storySelectedDay = nil
-        expandedStoryDay = nil
-        animated(Tokens.Motion.swap) {
-            switch storyScope {
-            case .day: store.stepDay(by: delta)
-            case .week, .month: store.moveReviewPeriod(by: delta)
-            }
-        }
+        animated(Tokens.Motion.swap) { store.stepDay(by: delta) }
     }
 
-    private func refreshStoryScope() {
+    /// History's search reads the archive's day index, so the review read
+    /// model stays live only while History is showing.
+    private func refreshStory() {
         guard let store else { return }
-        if let period = storyScope.period {
-            store.setReviewVisible(true)
-            store.refreshReview(period: period)
-        } else {
-            store.setReviewVisible(workspace == .history)
-            store.refreshDashboard()
-        }
+        store.setReviewVisible(workspace == .history)
+        store.refreshDashboard()
     }
 
     func openSettings() {

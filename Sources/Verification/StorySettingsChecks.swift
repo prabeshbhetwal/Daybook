@@ -67,7 +67,6 @@ enum StorySettingsChecks {
                                          revealedDirectories.append(url)
                                          return true
                                      })
-        settings.defaultStoryScope = .month
         settings.sessionControlsPinned = true
         settings.dailyGoal = FocusConstants.dailyGoalOptions.last ?? settings.dailyGoal
         settings.breakThreshold = FocusConstants.thresholdOptions.last ?? settings.breakThreshold
@@ -85,7 +84,7 @@ enum StorySettingsChecks {
         settings.isTrackingEnabled = false
         let reloaded = SettingsModel(store: store, isTrackingEnabled: false,
                                      onChange: {}, onTrackingChanged: { _ in })
-        if reloaded.defaultStoryScope != .month || !reloaded.sessionControlsPinned
+        if !reloaded.sessionControlsPinned
             || reloaded.dailyGoal != settings.dailyGoal
             || reloaded.breakThreshold != settings.breakThreshold
             || reloaded.longAwayCap != settings.longAwayCap

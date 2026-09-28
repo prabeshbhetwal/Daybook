@@ -7,9 +7,9 @@ import AppKit
 enum StoryIntegrationChecks {
     static let tests: [(String, () -> [String])] = [
         ("Continuing after a saved note keeps the note on its own stretch", continueAfterNote),
-        ("Undoing an older receipt leaves an open inline Month story in place", undoWithMonthChildOpen),
+        ("Undoing an older receipt leaves the day's story in place", undoWithMonthChildOpen),
         ("Editing activity rules never collapses a pinned session strip", ruleEditWithPinnedStrip),
-        ("Switching Insights scope leaves the Story selection untouched", insightsLeaveStory),
+        ("Switching History's range leaves the story's day untouched", insightsLeaveStory),
         ("Power and no-power fixtures render the same story with factual metadata", powerAndNoPower),
         ("Reduce Motion drops every product animation to instant", reduceMotionContract),
         ("An automatic start reaches the session controls once the main queue turns",
@@ -315,31 +315,16 @@ enum StoryIntegrationChecks {
             f.clock.advance(300)
             f.engine.stop()
             f.store.refresh()
-            let navigation = MainWindowModel(storyScope: .month, store: f.store)
+            let navigation = MainWindowModel(store: f.store)
             let today = f.clock.value
-            navigation.selectStoryDay(today)
-            navigation.openStoryDay(today)
-            let scopeBefore = navigation.storyScope
-            let selectedBefore = navigation.storySelectedDay
-            guard navigation.expandedStoryDay != nil else {
-                return ["the inline Month child did not open before the Undo"]
-            }
+            navigation.jumpToDay(today)
             var failures: [String] = []
             guard f.store.undoAwayDecision(expectedID: first.id) else {
-                return ["the older receipt was unavailable with the Month child open"]
+                return ["the older receipt was unavailable with the day's story open"]
             }
             f.store.refresh()
-            if navigation.storyScope != scopeBefore {
-                failures.append("Undo changed the Story scope")
-            }
-            if navigation.storySelectedDay != selectedBefore {
-                let days = f.store.reviewDays.map { Tokens.longDate($0.date) }
-                failures.append("Undo changed the selected Month day "
-                    + "(selected \(Tokens.longDate(today)); review days \(days); "
-                    + "anchor \(f.store.reviewAnchor.map(Tokens.longDate) ?? "nil"))")
-            }
-            if navigation.expandedStoryDay == nil {
-                failures.append("Undo closed the inline Month child")
+            if navigation.workspace != .story || !Calendar.current.isDate(f.store.selectedDay, inSameDayAs: today) {
+                failures.append("Undo moved the story away from \(Tokens.longDate(today))")
             }
             return failures
         }
@@ -389,17 +374,15 @@ enum StoryIntegrationChecks {
         MainActor.assumeIsolated {
             let store = FixtureFactory.insightsStore(withEvidence: true)
             defer { FixtureFactory.cleanUp() }
-            let navigation = MainWindowModel(storyScope: .week, store: store)
-            guard let day = store.reviewDays.first?.date else { return ["no review day to select"] }
-            navigation.selectStoryDay(day)
+            let navigation = MainWindowModel(store: store)
+            let day = Calendar.current.date(byAdding: .day, value: -2, to: store.now())!
+            navigation.jumpToDay(day)
+            let shown = store.selectedDay
             var failures: [String] = []
             for range in InsightRange.allCases {
                 navigation.selectInsightRange(range)
-                if navigation.storyScope != .week {
-                    failures.append("selecting Insights \(range) changed the Story scope")
-                }
-                if navigation.storySelectedDay != day {
-                    failures.append("selecting Insights \(range) changed the selected Story day")
+                if store.selectedDay != shown {
+                    failures.append("selecting History \(range) changed the story's day")
                 }
             }
             return failures

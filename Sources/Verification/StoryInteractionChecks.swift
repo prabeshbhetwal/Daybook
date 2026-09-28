@@ -357,13 +357,12 @@ enum StoryInteractionChecks {
     private static func revealApplication() -> [String] {
         MainActor.assumeIsolated {
             let f = Fixture(); defer { f.close() }
-            let navigation = MainWindowModel(storyScope: .month, store: f.store)
-            navigation.openStoryDay(f.clock.value.addingTimeInterval(-86_400))
+            let navigation = MainWindowModel(store: f.store)
+            navigation.jumpToDay(f.clock.value.addingTimeInterval(-86_400))
             let day = f.store.selectedDay
-            navigation.selectScope(.month)
             navigation.open(tab: .focus)
             navigation.revealApplication()
-            guard navigation.sheet == nil, navigation.storyScope == .month,
+            guard navigation.sheet == nil, navigation.workspace == .story,
                   Calendar.current.isDate(f.store.selectedDay, inSameDayAs: day) else {
                 return ["Open FocusContinuity forced a session sheet or discarded the selected Story"]
             }

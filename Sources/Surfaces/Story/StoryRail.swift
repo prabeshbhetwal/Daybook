@@ -86,9 +86,7 @@ struct StoryRail: View {
         }
         .padding(StoryStyle.railInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onChange(of: navigation.storyScope) { _ in selectedApp.text = "" }
         .onChange(of: store.dayOffset) { _ in selectedApp.text = "" }
-        .onChange(of: store.reviewAnchor) { _ in selectedApp.text = "" }
         .onChange(of: settings.storyTileOrder) { arrangement.synchronise($0) }
         .onAppear { arrangement.synchronise(settings.storyTileOrder) }
         .onExitCommand { arrangement.escape() }
@@ -172,21 +170,14 @@ struct StoryRail: View {
     }
 
     /// Only says what the visible cards need explaining. A note about the
-    /// streak on a rail with no streak card explains nothing, and on today or
-    /// the current period "Last 14 days" already says it.
+    /// streak on a rail with no streak card explains nothing, and on today
+    /// "Last 14 days" already says it.
     private func footnote(_ shownTiles: [StoryTileKind]) -> String? {
         if arrangement.isArranging && tilesAreDraggable {
             return "Drag cards to reorder, or use their menu."
         }
-        return shownTiles.contains(.streak) && showsPastPeriod
+        return shownTiles.contains(.streak) && !store.isToday
             ? "The streak always describes recent days." : nil
-    }
-
-    /// Whether the page shows a day or period that is not the current one.
-    private var showsPastPeriod: Bool {
-        navigation.storyScope == .day
-            ? !store.isToday
-            : !store.reviewDays.contains { Calendar.current.isDateInToday($0.date) }
     }
 
     @ViewBuilder private func draggable(_ content: some View,
@@ -222,12 +213,12 @@ struct StoryRail: View {
             switch kind {
             // Week and Month headlines already give the total, the focused
             // days and the average; only a day has a goal to show.
-            case .focus: return navigation.storyScope == .day
+            case .focus: return true
             case .mac:
                 let evidence = breakdown
                 return evidence.tracked > 0 || evidence.uncoveredFocus > 0
             case .apps: return !apps.isEmpty
-            case .rhythm: return navigation.storyScope == .day && !store.rhythm.isEmpty
+            case .rhythm: return !store.rhythm.isEmpty
             case .streak: return store.streak > 0
             }
         }
@@ -356,10 +347,8 @@ struct StoryRail: View {
         }
     }
 
-    /// Only the day has a goal to be a share of; a week or a month reports its
-    /// own shape instead of inventing a period target.
     private var goalShare: Double? {
-        guard navigation.storyScope == .day, store.goal.goal > 0 else { return nil }
+        guard store.goal.goal > 0 else { return nil }
         return store.selectedDayGoal.share
     }
 
@@ -419,8 +408,7 @@ struct StoryRail: View {
     /// Temporal membership splits observed use. Missing focus coverage is a
     /// separate measure and is never added to the observed headline or bar.
     private var breakdown: StoryUsageBreakdown {
-        navigation.storyScope == .day
-            ? store.storyUsageBreakdown(on: store.selectedDay) : store.storyUsageBreakdown
+        store.storyUsageBreakdown(on: store.selectedDay)
     }
     private func width(of value: TimeInterval, total: TimeInterval) -> Double {
         guard total > 0 else { return 0 }
@@ -446,14 +434,7 @@ struct StoryRail: View {
 
     // MARK: - Apps
 
-    private var apps: [AppRank] {
-        navigation.storyScope == .day
-            ? store.rankedApps
-            : store.reviewAppGroups.map {
-                AppRank(bundleID: $0.bundleID, appName: $0.appName,
-                        total: $0.total, share: $0.share, longest: $0.longest)
-            }
-    }
+    private var apps: [AppRank] { store.rankedApps }
 
     private var appsTile: some View {
         // The title says what the list is; the trailing figure says how many
@@ -468,7 +449,6 @@ struct StoryRail: View {
                         get: { selectedApp.text == app.bundleID },
                         set: { if !$0 && selectedApp.text == app.bundleID { selectedApp.text = "" } })) {
                             StoryAppDetail(store: store, bundleID: app.bundleID,
-                                           scope: navigation.storyScope,
                                            onDismiss: { selectedApp.text = "" })
                         }
                     .onExitCommand { selectedApp.text = "" }

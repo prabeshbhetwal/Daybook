@@ -6,8 +6,7 @@ enum UsagePersistenceChecks {
     static let tests: [(String, () -> [String])] = [
         ("A checkpoint appends to the journal instead of rewriting the history", journalAppends),
         ("The journal survives a relaunch, a torn last line and compaction", journalReplay),
-        ("History set aside as unreadable is merged back once it reads", setAsideRecovery),
-        ("The week caption names recorded app use, not focus", weekCaption)
+        ("History set aside as unreadable is merged back once it reads", setAsideRecovery)
     ]
 
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
@@ -154,14 +153,5 @@ enum UsagePersistenceChecks {
             failures.append("recovered records must be durable, got \(reopened.sessions.count)")
         }
         return failures
-    }
-
-    private static func weekCaption() -> [String] {
-        let caption = WeekStoryChart.caption(appUseAverage: 2 * 3_600 + 51 * 60)
-        guard caption.contains("Recorded app use averages 2h 51m"),
-              !caption.lowercased().contains("focused days") else {
-            return ["the week caption still labels an app-use figure as focus: \(caption)"]
-        }
-        return []
     }
 }

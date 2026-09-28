@@ -60,17 +60,16 @@ struct StoryAppRow: View {
     }
 }
 
-/// A read-only app drill-in scoped to the same day or period as its source
-/// tile. It honours the backed recent-visit preference without truncating totals.
+/// A read-only app drill-in for the day its source tile shows. It honours
+/// the backed recent-visit preference without truncating totals.
 struct StoryAppDetail: View {
     @ObservedObject var store: SessionStore
     let bundleID: String
-    let scope: StoryScope
     let onDismiss: () -> Void
     @StateObject private var showAll = BoolBox()
 
     var body: some View {
-        let evidence = store.storyAppEvidence(for: bundleID, period: scope.period)
+        let evidence = store.storyAppEvidence(for: bundleID, period: nil)
         let entries = evidence.visits
         let appName = entries.first?.appName ?? bundleID
         let shown = showAll.value ? entries.count : min(store.menuSessionCount, entries.count)
@@ -79,7 +78,7 @@ struct StoryAppDetail: View {
                 AppIcon(bundleID: bundleID, size: 28, appName: appName)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(appName).font(Tokens.Typography.sectionTitle)
-                    Text(scope == .day ? Tokens.longDate(store.selectedDay) : store.reviewPeriodLabel)
+                    Text(Tokens.longDate(store.selectedDay))
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -99,12 +98,7 @@ struct StoryAppDetail: View {
                 LazyVStack(spacing: 8) {
                     ForEach(entries.prefix(shown)) { entry in
                         HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                if scope != .day {
-                                    Text(Tokens.dayLabel(entry.start)).foregroundStyle(.secondary)
-                                }
-                                Text(Tokens.timeRange(entry.start, entry.end))
-                            }
+                            Text(Tokens.timeRange(entry.start, entry.end))
                             Spacer(minLength: 12)
                             Text(Tokens.preciseDuration(entry.seconds)).monospacedDigit()
                         }
@@ -113,13 +107,13 @@ struct StoryAppDetail: View {
                     }
                 }
             }
-            .frame(height: min(260, CGFloat(max(1, shown)) * (scope == .day ? 26 : 42)))
+            .frame(height: min(260, CGFloat(max(1, shown)) * 26))
             if shown < entries.count {
                 Button("Show all \(entries.count) visits") { showAll.value = true }
                     .buttonStyle(StoryLinkStyle())
             }
             if entries.isEmpty {
-                Text("No app use was recorded in this period.")
+                Text("No app use was recorded on this day.")
                     .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
             }
             Text("Visit limits affect this list only, never the total.")

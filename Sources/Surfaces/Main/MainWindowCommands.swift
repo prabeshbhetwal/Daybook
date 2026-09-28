@@ -10,22 +10,15 @@ struct MainWindowCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Navigate") {
-            ForEach(Array(StoryScope.allCases.enumerated()), id: \.element.id) { index, scope in
-                Button(scope.title) {
-                    navigation.selectScope(scope)
-                    revealMainWindow()
-                }
-                .keyboardShortcut(KeyEquivalent(Character(String(index + 1))),
-                                  modifiers: [.command])
-            }
-            Divider()
-            Button("History") { route(to: .review) }
-                .keyboardShortcut("4", modifiers: [.command])
-            Button("Return to Story") {
+            // The day's story and History are the two places to read.
+            Button("Story") {
                 navigation.returnToStory()
                 revealMainWindow()
             }
-            .disabled(navigation.workspace == .story)
+            .keyboardShortcut("1", modifiers: [.command])
+            Button("History") { route(to: .review) }
+                .keyboardShortcut("2", modifiers: [.command])
+            Divider()
             Button("Awards") { route(to: .awards) }
                 .keyboardShortcut("6", modifiers: [.command])
             Divider()

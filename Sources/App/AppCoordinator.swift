@@ -27,9 +27,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) },
         onAppearanceChanged: { [weak self] in self?.applyApplicationAppearance($0) },
         onActivityRulesChanged: { [weak self] in self?.ruleConfigurationChanged() },
-        // A method, not a closure that reads `mainWindow`: the window model is
-        // built from `settings.defaultStoryScope`, so naming it here would make
-        // two lazy properties each other's dependency.
+        // A method, not a closure that reads `mainWindow`, so the two lazy
+        // properties never become each other's dependency.
         replayWelcome: { [weak self] in self?.replayWelcome() },
         diagnostics: .live(usage: usage, sessions: engine.archive),
         installedAppCatalog: InstalledAppCatalog(observed: { [weak self] in
@@ -40,12 +39,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                                       url: nil, isInstalled: false) }
         }))
     /// One route object for the window, menu popover, commands and deep links.
-    /// Its first story comes from the persisted preference exactly once at
-    /// launch.
-    @MainActor private(set) lazy var mainWindow = MainWindowModel(
-        opening: .story,
-        storyScope: settings.defaultStoryScope,
-        store: store)
+    /// It always opens on the day's story.
+    @MainActor private(set) lazy var mainWindow = MainWindowModel(opening: .story, store: store)
 
     /// The welcome. Always present so the window and the menu bar can observe
     /// it; it draws nothing until `begin()`. Whatever ends it — reading it

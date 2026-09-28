@@ -4,13 +4,13 @@ import SwiftUI
 enum StoryNavigationChecks {
     static let tests: [(String, () -> [String])] = [
         ("Story commands present the requested surface, including repeat routes", routes),
-        ("Historical Story routes select canonical evidence and clear stale period detail", historicalEvidence)
+        ("A day opened from History shows that day's own evidence", historicalEvidence)
     ]
 
     private static func routes() -> [String] {
         MainActor.assumeIsolated {
             var failures: [String] = []
-            let navigation = MainWindowModel(storyScope: .month)
+            let navigation = MainWindowModel()
             navigation.open(tab: .insights)
             if navigation.workspace != .history || navigation.sheet != nil {
                 failures.append("Insights command did not present its same-window workspace")
@@ -25,8 +25,8 @@ enum StoryNavigationChecks {
                 failures.append("Opening the same Settings route a second time did not present it")
             }
             navigation.openToday(date: Date(timeIntervalSince1970: 1_782_000_000))
-            if navigation.sheet != nil || navigation.storyScope != .day {
-                failures.append("A named day route did not dismiss its sheet and show Day")
+            if navigation.sheet != nil || navigation.workspace != .story {
+                failures.append("A named day route did not dismiss its sheet and show the day")
             }
             return failures
         }
@@ -58,13 +58,13 @@ enum StoryNavigationChecks {
             let tracker = AppUsageTracker(archive: usage, ownBundleID: "fc.route.test",
                                           idle: .disabled, now: { now })
             store.attach(tracker: tracker, usage: usage)
-            let navigation = MainWindowModel(storyScope: .month)
+            let navigation = MainWindowModel(opening: .review)
             navigation.connect(to: store)
-            navigation.openStoryDay(chosen)
+            navigation.openDay(chosen)
             var failures: [String] = []
             @MainActor func checkDay() {
-                if !calendar.isDate(navigation.expandedStoryDay ?? now, inSameDayAs: chosen) {
-                    failures.append("Opening 21 August did not expand that child in place")
+                if navigation.workspace != .story || !calendar.isDate(store.selectedDay, inSameDayAs: chosen) {
+                    failures.append("Opening 21 August did not show that day's story")
                 }
                 let names = store.storyDayProjection(on: chosen).sessions.compactMap { entry -> String? in
                     if case .session(let session) = entry { return session.name }; return nil
@@ -76,18 +76,12 @@ enum StoryNavigationChecks {
             checkDay()
             navigation.open(tab: .today)
             if store.dayOffset != 0 { failures.append("Today route did not return to the current local day") }
-            navigation.selectScope(.month)
-            navigation.openStoryDay(chosen)
+            navigation.jumpToDay(chosen)
             checkDay()
-            navigation.selectScope(.week)
-            if !store.reviewDays.contains(where: { calendar.isDate($0.date, inSameDayAs: chosen) }) {
-                failures.append("Changing historical Day to Week lost the selected date's context")
-            }
-            navigation.selectScope(.month)
-            navigation.selectStoryDay(chosen)
-            navigation.stepStoryPeriod(by: -1)
-            if navigation.storySelectedDay != nil {
-                failures.append("July retained an August selection")
+            // 21 August is the first recorded day, so the only step is forward.
+            navigation.stepStoryPeriod(by: 1)
+            if !calendar.isDate(store.selectedDay, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: chosen)!) {
+                failures.append("Stepping on from 21 August did not show 22 August")
             }
             navigation.open(tab: .review)
             if navigation.workspace != .history || store.historyDays.isEmpty {

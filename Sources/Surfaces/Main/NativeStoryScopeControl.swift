@@ -24,19 +24,6 @@ enum ScopeKeyboardSelection {
     static func accessibilityValue(title: String) -> String { "\(title), selected" }
 }
 
-enum StoryScopeKeyboardSelection {
-    static func apply(_ command: StoryScopeKeyCommand, to selection: StoryScope) -> StoryScope {
-        let scopes = StoryScope.allCases
-        return scopes[ScopeKeyboardSelection.apply(command,
-                                                   to: scopes.firstIndex(of: selection) ?? 0,
-                                                   count: scopes.count)]
-    }
-
-    static func accessibilityValue(for selection: StoryScope) -> String {
-        ScopeKeyboardSelection.accessibilityValue(title: selection.title)
-    }
-}
-
 /// How keyboard focus reached a control. A focus cue answers "where will my
 /// next key press land?", which only someone using the keyboard is asking; a
 /// control that draws it after a click is answering a question nobody put.
@@ -207,21 +194,6 @@ struct NativeScopeControl: NSViewRepresentable {
 private extension Array {
     subscript(safe index: Int) -> Element? {
         indices.contains(index) ? self[index] : nil
-    }
-}
-
-/// The Story chrome's scope control, kept as its own type so its checks and
-/// call sites read unchanged.
-struct NativeStoryScopeControl: View {
-    @Binding var selection: StoryScope
-
-    var body: some View {
-        NativeScopeControl(
-            titles: StoryScope.allCases.map(\.title),
-            selectedIndex: Binding(
-                get: { StoryScope.allCases.firstIndex(of: selection) ?? 0 },
-                set: { selection = StoryScope.allCases[$0] }),
-            controlLabel: "Story scope")
     }
 }
 

@@ -2,7 +2,6 @@ import SwiftUI
 
 enum StoryRenderEvidence: String, Hashable {
     case dayStory
-    case periodChild
     case historyDetail
     case insightPeriod
     case insightStrongestDay
@@ -82,28 +81,6 @@ enum StoryNarrative {
         }
         return isToday ? "Your day starts here." : "No activity was recorded on this day."
     }
-
-    static func period(activeDays: Int,
-                       totalDays: Int,
-                       focused: TimeInterval,
-                       tracked: TimeInterval = 0,
-                       best: (day: Date, focused: TimeInterval)?,
-                       unit: String) -> String {
-        guard focused > 0 else {
-            if tracked > 0 {
-                return "You recorded \(Tokens.preciseDuration(tracked)) of app use this \(unit), with no focus session."
-            }
-            return "No focus was recorded this \(unit)."
-        }
-        var text = activeDays > 0
-            ? "You focused on \(activeDays) of \(totalDays) days, \(Tokens.preciseDuration(focused)) in total"
-            : "You focused for \(Tokens.preciseDuration(focused)) this \(unit)"
-        if let best, best.focused > 0 {
-            text += "; the strongest day was \(Tokens.longDate(best.day)) "
-                + "with \(Tokens.preciseDuration(best.focused)) logged focus"
-        }
-        return text + "."
-    }
 }
 
 /// The sentence a story opens with, and the plain figures under it. The
@@ -161,9 +138,9 @@ struct DayStoryColumn: View {
 }
 
 /// What already stands beside a day's story, so its opening does not say it
-/// again. The Day view's rail shows the day's recorded app use; a picked-day
-/// card shows the date, focus, sessions and app use; a History row shows the
-/// date, focus and sessions.
+/// again. The Day view's rail shows the day's recorded app use; History's
+/// picked-period card shows the date, focus, sessions and app use; a History
+/// row shows the date, focus and sessions.
 enum DayStoryContext {
     case main, underCard, underRow
 }
@@ -172,8 +149,6 @@ struct ProjectedDayStoryColumn: View {
     @ObservedObject var store: SessionStore
     let projection: StoryDayProjection
     let context: DayStoryContext
-    /// The notice the enclosing period already shows above this day, if any.
-    var parentNote: String? = nil
     @StateObject private var disclosure = StoryDisclosureState()
     /// The measurement disclosure's key in the day's shared open set.
     static let summaryKey = "summary"
@@ -184,9 +159,7 @@ struct ProjectedDayStoryColumn: View {
         let expandable = (projection.summaryFacts.isEmpty ? [] : [Self.summaryKey])
             + DayStory.expandableIDs(in: projection.chronology, fold: store.engine.store.quietFold)
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-            if let note = Self.dayNote(projection.integrityNote, parentNote: parentNote) {
-                IntegrityNotice(note)
-            }
+            if let note = projection.integrityNote { IntegrityNotice(note) }
             if !store.isTrackingEnabled, Calendar.current.isDateInToday(projection.date) {
                 // Sessions are still logged, but nothing says which apps they
                 // were in. Said here, once, rather than left to be inferred
@@ -246,12 +219,6 @@ struct ProjectedDayStoryColumn: View {
         .storyRenderEvidence(.dayStory)
     }
 
-    /// The day's integrity notice, unless the period it opens inside already
-    /// shows the same one.
-    static func dayNote(_ note: String?, parentNote: String?) -> String? {
-        note == parentNote ? nil : note
-    }
-
     /// A focus-led sentence; the longer evidence narrative remains available
     /// below the chronology rather than overwhelming the headline.
     private var sentence: String {
@@ -294,167 +261,5 @@ struct StoryCorrectionNotice: View {
             .background(Tokens.Colour.attention.opacity(0.10),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.well))
         }
-    }
-}
-
-// MARK: - Week
-
-struct WeekStoryColumn: View {
-    @ObservedObject var store: SessionStore
-    @ObservedObject var navigation: MainWindowModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-            if let note = store.reviewIntegrityNote { IntegrityNotice(note) }
-            StoryHeadline(eyebrow: store.reviewPeriodLabel,
-                          sentence: sentence,
-                          facts: facts,
-                          highlight: Tokens.duration(store.reviewFocusedSeconds))
-            WeekStoryChart(days: store.reviewDays,
-                           facts: store.dayFacts(for: .week,
-                                                 containing: store.reviewPeriodStart),
-                           appUseAverage: store.reviewSummary.averagePerActiveDay,
-                           selectedDay: navigation.storySelectedDay,
-                           onPickDay: { navigation.selectStoryDay($0) })
-            WorkTypeLegend(shares: store.reviewWorkTypeShares)
-            if let day = navigation.storySelectedDay {
-                StorySelectedDayCard(store: store, navigation: navigation, day: day)
-            }
-        }
-    }
-
-    private var sentence: String {
-        StoryNarrative.period(activeDays: store.storyFocusSummary.activeDays,
-                              totalDays: store.reviewSummary.totalDays,
-                              focused: store.reviewFocusedSeconds,
-                              tracked: store.reviewSummary.tracked,
-                              best: store.reviewBestDay,
-                              unit: "week")
-    }
-
-    private var facts: [String] {
-        var parts: [String] = []
-        let summary = store.storyFocusSummary
-        if summary.activeDays > 0 {
-            parts.append("\(Tokens.duration(summary.averagePerActiveDay)) per focused day")
-        }
-        if store.reviewLongestFocusSeconds > 0 {
-            parts.append("longest stretch "
-                         + Tokens.preciseDuration(store.reviewLongestFocusSeconds))
-        }
-        return parts
-    }
-}
-
-/// The day chosen from a week bar or a month cell, with the one action that
-/// opens it as its own story.
-struct StorySelectedDayCard: View {
-    @ObservedObject var store: SessionStore
-    @ObservedObject var navigation: MainWindowModel
-    let day: Date
-
-    private var facts: HistoryDay? {
-        store.historyDays.first { Calendar.current.isDate($0.date, inSameDayAs: day) }
-    }
-
-    private var isExpanded: Bool {
-        navigation.expandedStoryDay.map {
-            Calendar.current.isDate($0, inSameDayAs: day)
-        } ?? false
-    }
-
-    var body: some View {
-        // Read once: today's projection is rebuilt on every read, and this
-        // card read it seven times a render.
-        let projection = store.storyDayProjection(on: day)
-        return VStack(alignment: .leading, spacing: Tokens.Space.l) {
-            SurfacePanel(showsHeader: false) {
-                HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
-                    Text(Tokens.longDate(day))
-                        .font(Tokens.Typography.sectionTitle)
-                    Text(Tokens.duration(projection.focused))
-                        .font(Tokens.Typography.metricValue.monospacedDigit())
-                        .foregroundStyle(Tokens.Colour.focus)
-                    Spacer(minLength: Tokens.Space.m)
-                    Button {
-                        navigation.toggleExpandedStoryDay(day)
-                    } label: {
-                        Text(isExpanded ? "Hide story" : "Open as a story ›")
-                            .font(Tokens.Typography.metadata.weight(.semibold))
-                            .foregroundStyle(StoryStyle.action)
-                    }
-                    .buttonStyle(StoryPressStyle())
-                    .accessibilityLabel(isExpanded
-                        ? "Hide \(Tokens.longDate(day)) story"
-                        : "Open \(Tokens.longDate(day)) as a story")
-                }
-                Text(note(projection))
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if isExpanded {
-                ProjectedDayStoryColumn(store: store, projection: projection, context: .underCard,
-                                        parentNote: store.reviewIntegrityNote)
-                    .id(projection.id)
-                    .accessibilityIdentifier("story-period-child-content-\(projection.id)")
-                    .storyRenderEvidence(.periodChild)
-            }
-        }
-    }
-
-    private func note(_ projection: StoryDayProjection) -> String {
-        guard facts != nil || !projection.chronology.isEmpty else {
-            return "Nothing was recorded on this day."
-        }
-        var parts: [String] = []
-        parts.append(projection.focusSessionCount == 1
-                     ? "1 session" : "\(projection.focusSessionCount) sessions")
-        if projection.tracked > 0 {
-            parts.append("\(Tokens.duration(projection.tracked)) recorded app use")
-        }
-        return parts.joined(separator: " · ")
-    }
-}
-
-// MARK: - Month
-
-struct MonthStoryColumn: View {
-    @ObservedObject var store: SessionStore
-    @ObservedObject var navigation: MainWindowModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-            if let note = store.reviewIntegrityNote { IntegrityNotice(note) }
-            StoryHeadline(eyebrow: store.reviewPeriodLabel,
-                          sentence: sentence,
-                          facts: facts,
-                          highlight: Tokens.duration(store.reviewFocusedSeconds))
-            MonthStoryGrid(store: store, navigation: navigation)
-            if let day = navigation.storySelectedDay {
-                StorySelectedDayCard(store: store, navigation: navigation, day: day)
-            }
-        }
-    }
-
-    private var sentence: String {
-        StoryNarrative.period(activeDays: store.storyFocusSummary.activeDays,
-                              totalDays: store.reviewSummary.totalDays,
-                              focused: store.reviewFocusedSeconds,
-                              tracked: store.reviewSummary.tracked,
-                              best: store.reviewBestDay,
-                              unit: "month")
-    }
-
-    private var facts: [String] {
-        var parts: [String] = []
-        let summary = store.storyFocusSummary
-        if summary.activeDays > 0 {
-            parts.append("\(Tokens.duration(summary.averagePerActiveDay)) per focused day")
-        }
-        if summary.longestStretch > 0 {
-            parts.append("longest stretch \(Tokens.preciseDuration(summary.longestStretch))")
-        }
-        return parts
     }
 }
