@@ -110,7 +110,12 @@ struct SessionReportOverlay: View {
                     .opacity.combined(with: .scale(scale: 0.96, anchor: .center)),
                     reduceMotion: reduceMotion))
         }
-        .onAppear { escape.install(onClose) }
+        .onAppear {
+            escape.install(onClose)
+            // The card draws over the story without moving VoiceOver's
+            // cursor, so say that it arrived.
+            Announcement.post("\(session.workType.sessionTitle(named: session.name)) report")
+        }
         .onDisappear { escape.remove() }
     }
 }
@@ -188,6 +193,7 @@ struct SessionReportView: View {
                     Text(report.title)
                         .font(Tokens.Typography.pageTitle)
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
                     HStack(spacing: Tokens.Space.s) {
                         // An unnamed session is titled by its category already.
                         if !session.name.isEmpty {
@@ -279,6 +285,10 @@ struct SessionReportView: View {
                     }
                 }
                 .frame(minHeight: 28)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Stretch \(index + 1), \(Tokens.timeRange(stretch.start, stretch.end)), "
+                                    + Tokens.spent(stretch.worked)
+                                    + (stretch.note.map { ". Note: \($0)" } ?? ""))
             }
         }
     }
@@ -293,7 +303,8 @@ struct SessionReportView: View {
 
     private var activity: some View {
         section("Recorded activity") {
-            StoryShapeChart(activity: report.detail.activity, appColourIndices: report.appColourIndices)
+            StoryShapeChart(activity: report.detail.activity, appColourIndices: report.appColourIndices,
+                            runsListedBelow: true)
             VStack(spacing: 0) {
                 ForEach(Array(report.intervals.enumerated()), id: \.element.id) { index, interval in
                     HStack(spacing: Tokens.Space.s) {
@@ -307,10 +318,12 @@ struct SessionReportView: View {
                             .font(Tokens.Typography.metadata.monospacedDigit())
                             .foregroundStyle(.secondary)
                             .frame(width: 150, alignment: .leading)
-                        Text(interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App"))
+                        let name = interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App")
+                        Text(name)
                             .font(Tokens.Typography.metadata)
-                            .foregroundStyle(interval.isGap ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.primary))
+                            .foregroundStyle(interval.isGap ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                             .lineLimit(1)
+                            .help(name)
                         Spacer(minLength: Tokens.Space.s)
                         Text(Tokens.preciseDuration(interval.duration))
                             .font(Tokens.Typography.metadata.monospacedDigit())

@@ -12,12 +12,22 @@ import Speech
         case idle
         case requesting
         case listening
-        case failed(String)
+        /// `settings` is the Privacy & Security pane that can undo a refusal.
+        case failed(String, settings: URL? = nil)
 
         var message: String? {
-            if case .failed(let text) = self { return text }
+            if case .failed(let text, _) = self { return text }
             return nil
         }
+
+        var privacySettings: URL? {
+            if case .failed(_, let url) = self { return url }
+            return nil
+        }
+    }
+
+    private static func privacyPane(_ anchor: String) -> URL? {
+        URL(string: "x-apple.systempreferences:com.apple.preference.security?" + anchor)
     }
 
     @Published private(set) var status: Status = .idle
@@ -57,8 +67,12 @@ import Speech
                 case .authorized: self.requestMicrophone()
                 case .denied:
                     self.status = .failed("Speech recognition was refused. Allow it in System Settings › "
-                                          + "Privacy & Security › Speech Recognition.")
-                case .restricted, .notDetermined:
+                                          + "Privacy & Security › Speech Recognition.",
+                                          settings: Self.privacyPane("Privacy_SpeechRecognition"))
+                case .restricted:
+                    self.status = .failed("Dictation is restricted on this Mac, for example by Screen Time "
+                                          + "or a device profile.")
+                case .notDetermined:
                     self.status = .failed("Speech recognition is not allowed on this Mac.")
                 @unknown default:
                     self.status = .failed("Speech recognition is not allowed on this Mac.")
@@ -75,7 +89,8 @@ import Speech
                     self.beginListening()
                 } else {
                     self.status = .failed("Microphone access was refused. Allow it in System Settings › "
-                                          + "Privacy & Security › Microphone.")
+                                          + "Privacy & Security › Microphone.",
+                                          settings: Self.privacyPane("Privacy_Microphone"))
                 }
             }
         }

@@ -78,6 +78,7 @@ struct StoryAppDetail: View {
                 AppIcon(bundleID: bundleID, size: 28, appName: appName)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(appName).font(Tokens.Typography.sectionTitle)
+                        .accessibilityAddTraits(.isHeader)
                     Text(Tokens.longDate(store.selectedDay))
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 }
@@ -116,8 +117,12 @@ struct StoryAppDetail: View {
                 Text("No app use was recorded on this day.")
                     .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
             }
-            Text("Visit limits affect this list only, never the total.")
+            Text(shown < entries.count
+                 ? "The list shows the newest \(shown) visits, set by Recent app visits in Settings. "
+                    + "The total counts every visit."
+                 : "The total counts every visit.")
                 .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Tokens.Space.xl)
         .frame(width: 380)
@@ -164,10 +169,12 @@ struct StoryLooseAppUse: View {
                         .font(Tokens.Typography.metadata.monospacedDigit())
                     Image(systemName: open ? "chevron.down" : "chevron.right")
                         .font(Tokens.Typography.microLabel).foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(StoryPressStyle())
+            .accessibilityValue(open ? "Expanded" : "Collapsed")
             if open {
                 ForEach(Array(store.appRanks(within: [span]).enumerated()), id: \.element.id) { index, app in
                     StoryAppRow(app: app, rank: store.storyAppColourIndices[app.bundleID] ?? index)

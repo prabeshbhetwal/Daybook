@@ -24,7 +24,10 @@ struct StoryDecisionRow: View {
             let name = store.breakName(for: receipt)
             StorySavedActionRow(title: name ?? receipt.title, range: range,
                                 kind: name == nil ? nil : "Break",
-                                canUndo: store.engine.canUndoAwayDecision(expectedID: receipt.id),
+                                // A decision can be undone except while the
+                                // away question is waiting for its answer.
+                                undoBlockReason: store.engine.canUndoAwayDecision(expectedID: receipt.id)
+                                    ? nil : Self.awayQuestionFirst,
                                 scopeNote: StoryDecisionScope.note(visible: range, full: receipt.range),
                                 currentName: name,
                                 onName: store.canNameBreak(for: receipt)
@@ -35,6 +38,7 @@ struct StoryDecisionRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("How should this interval be recorded?")
                     .font(Tokens.Typography.rowTitle)
+                    .accessibilityAddTraits(.isHeader)
                 Text("\(Tokens.timeRange(range.start, range.end)) · \(Tokens.preciseDuration(range.duration)) is not counted. Later work is unchanged.")
                     .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -47,6 +51,8 @@ struct StoryDecisionRow: View {
                         .buttonStyle(StoryActionStyle())
                 }
                 .disabled(store.hasUnresolvedAwayDecision)
+                .help(store.hasUnresolvedAwayDecision ? Self.awayQuestionFirst : "")
+                .accessibilityHint(store.hasUnresolvedAwayDecision ? Self.awayQuestionFirst : "")
                 if let note = StoryDecisionScope.note(visible: range, full: receipt.range) {
                     Text(note)
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
@@ -62,6 +68,9 @@ struct StoryDecisionRow: View {
     private func answer(_ decision: UserDecision) {
         store.applyAwayDecision(decision, reviewing: true, expectedID: receipt.id)
     }
+
+    /// Why a past interval's answers wait: the same words Remove uses.
+    static let awayQuestionFirst = "Answer the away question first."
 }
 
 struct StorySavedActionRow: View {
@@ -69,7 +78,8 @@ struct StorySavedActionRow: View {
     let range: DateInterval
     /// What the row is, when its title is a name rather than a statement.
     var kind: String?
-    var canUndo = true
+    /// Set while Undo cannot act yet; the button says why.
+    var undoBlockReason: String?
     var scopeNote: String?
     var currentName: String?
     /// Present when the row stands for a break that can be named.
@@ -77,18 +87,27 @@ struct StorySavedActionRow: View {
     let undo: () -> Void
     @StateObject private var editing = BoolBox()
     @StateObject private var draft = TextBox()
+    @FocusState private var nameFocused: Bool
+    @FocusState private var nameButtonFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
           HStack(spacing: 10) {
-            Image(systemName: "checkmark").font(Tokens.Typography.metadata.weight(.semibold))
-                .foregroundStyle(StoryStyle.successInk)
-            Text(title).font(Tokens.Typography.metadata.weight(.semibold))
-                .lineLimit(1)
-            Text((kind.map { "\($0) · " } ?? "") + Tokens.timeRange(range.start, range.end))
-                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
-                .lineLimit(1)
+            // One sentence to VoiceOver, not a tick and two fragments.
+            HStack(spacing: 10) {
+                Image(systemName: "checkmark").font(Tokens.Typography.metadata.weight(.semibold))
+                    .foregroundStyle(StoryStyle.successInk)
+                Text(title).font(Tokens.Typography.metadata.weight(.semibold))
+                    .lineLimit(1)
+                    .help(title)
+                Text((kind.map { "\($0) · " } ?? "") + Tokens.timeRange(range.start, range.end))
+                    .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel([title, kind, Tokens.timeRange(range.start, range.end)]
+                .compactMap { $0 }.joined(separator: ", "))
             Spacer(minLength: 8)
             if onName != nil, !editing.value {
                 Button(currentName == nil ? "Name it" : "Rename") {
@@ -101,15 +120,17 @@ struct StorySavedActionRow: View {
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .frame(minHeight: 28)
                 .accessibilityLabel(currentName == nil ? "Name this break" : "Rename this break")
+                .focused($nameButtonFocused)
             }
             Button("Undo", action: undo)
                 .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(StoryStyle.action)
                 .frame(minWidth: 36, minHeight: 28)
-                .disabled(!canUndo)
+                .disabled(undoBlockReason != nil)
+                .help(undoBlockReason ?? "")
                 .accessibilityLabel("Undo \(title.lowercased())")
-                .accessibilityHint(scopeNote ?? "Reverts only this action; later work is unchanged.")
+                .accessibilityHint(undoBlockReason ?? scopeNote ?? "Reverts only this action; later work is unchanged.")
           }
           if editing.value, onName != nil {
               nameField
@@ -125,7 +146,7 @@ struct StorySavedActionRow: View {
         .padding(.horizontal, 15)
         .padding(.vertical, Tokens.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onExitCommand { editing.value = false }
+        .onExitCommand { if editing.value { closeNameField() } }
         .background(LinearGradient(colors: [StoryStyle.successWash, StoryStyle.successWash.opacity(0.45)],
                                    startPoint: .leading, endPoint: .trailing),
                     in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
@@ -143,12 +164,20 @@ struct StorySavedActionRow: View {
                 .textFieldStyle(.plain)
                 .font(Tokens.Typography.metadata)
                 .onSubmit(save)
+                .focused($nameFocused)
+                .onAppear {
+                    // The field must be installed before it can take focus;
+                    // the "Name it" button that had it has just gone.
+                    DispatchQueue.main.async {
+                        if editing.value { nameFocused = true }
+                    }
+                }
                 .accessibilityLabel("Break name")
             Button("Save", action: save)
                 .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .disabled(draft.text.trimmingCharacters(in: .whitespaces).isEmpty)
-            Button("Cancel") { editing.value = false }
+            Button("Cancel", action: closeNameField)
                 .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
@@ -164,7 +193,15 @@ struct StorySavedActionRow: View {
     private func save() {
         guard let onName, !draft.text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         if onName(draft.text) || draft.text.trimmingCharacters(in: .whitespaces) == currentName {
-            editing.value = false
+            closeNameField()
         }
+    }
+
+    /// Focus goes back to the button that opened the field, so a keyboard
+    /// reader is not dropped at the top of the window.
+    private func closeNameField() {
+        nameFocused = false
+        editing.value = false
+        DispatchQueue.main.async { nameButtonFocused = true }
     }
 }

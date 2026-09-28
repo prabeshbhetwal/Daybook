@@ -178,14 +178,16 @@ struct DayStory: View {
                     Spacer(minLength: Tokens.Space.xs)
                     Image(systemName: "chevron.down")
                         .font(Tokens.Typography.microLabel)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
             .buttonStyle(StoryPressStyle(hovers: true))
-            .accessibilityLabel("\(run.summary). \(isOpen ? "Showing" : "Hidden")")
+            .accessibilityLabel(run.span.map { "\(run.summary), \(Tokens.timeRange($0.start, $0.end))" }
+                                ?? run.summary)
+            .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
             .accessibilityHint(isOpen ? "Fold these intervals" : "Show these intervals")
         }
         if isOpen {
@@ -220,8 +222,10 @@ struct DayStory: View {
                         }
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                         .padding(.vertical, 10)
+                        .help(reason.explanation ?? "")
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("\(title), \(Tokens.timeRange(span.start, span.end)). "
+                                            + (reason.explanation.map { "\($0) " } ?? "")
                                             + (power.map { "Power: \($0.headline). " } ?? "")
                                             + "This interval is not assumed to be work or rest.")
                     }
@@ -493,6 +497,7 @@ struct SessionEntryCard: View {
                         Text(session.workType.sessionTitle(named: session.name))
                             .font(Tokens.Typography.rowTitle)
                             .lineLimit(2)
+                            .help(session.workType.sessionTitle(named: session.name))
                             // The pencil is placed by this width, so it sits
                             // at the end of the name and not after the wider
                             // category line beneath it.
@@ -517,7 +522,9 @@ struct SessionEntryCard: View {
                             if session.stretches > 1 {
                                 Text("· \(session.stretches) stretches")
                                     .font(Tokens.Typography.metadata)
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
+                                    .help("This session ran as \(session.stretches) separate stretches; "
+                                          + "the gaps between them are not counted.")
                             }
                         }
                     }
@@ -525,6 +532,12 @@ struct SessionEntryCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle())
+                // The card's one toggle for VoiceOver. The duration button
+                // beside it opens the same detail and is hidden, so the card
+                // is heard once and the running clock is not read every second.
+                .accessibilityLabel(accessibilityLabel)
+                .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+                .accessibilityHint(isOpen ? "Hide this session's detail" : "Show this session's detail")
                 .onPreferenceChange(TitleWidthKey.self) { titleWidth.value = $0 }
                 // The pencil sits by the name it edits: rename and category
                 // in one place, rather than two buttons in the action row.
@@ -541,10 +554,16 @@ struct SessionEntryCard: View {
                                 .font(.system(size: editing.value ? 15 : 12, weight: .medium))
                                 .foregroundStyle(editing.value ? AnyShapeStyle(StoryStyle.action)
                                                                : AnyShapeStyle(.secondary))
-                                .frame(width: 22, height: 22)
+                                // A full-size target around the same glyph;
+                                // the offset below takes back the extra 3pt
+                                // so the glyph stays where it was.
+                                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                                       height: AccessibilityMetrics.minimumTargetSize)
+                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 11))
-                        .offset(x: insets.leading + titleWidth.value + Tokens.Space.xs, y: insets.top - 1)
+                        .buttonStyle(StoryPressStyle(hovers: true,
+                                                     cornerRadius: AccessibilityMetrics.minimumTargetSize / 2))
+                        .offset(x: insets.leading + titleWidth.value + Tokens.Space.xs - 3, y: insets.top - 4)
                         .help(editing.value ? "Done editing" : "Rename or change the category")
                         .accessibilityLabel(editing.value ? "Done editing" : "Edit name and category")
                         .focused($renameActionFocused)
@@ -562,17 +581,18 @@ struct SessionEntryCard: View {
                                 .contentTransition(.numericText())
                             if let powerSummary {
                                 Label(powerSummary.headline, systemImage: powerSummary.symbolName)
-                                    .font(Tokens.Typography.microLabel.weight(.regular)).foregroundStyle(.tertiary)
+                                    .font(Tokens.Typography.microLabel.weight(.regular)).foregroundStyle(.secondary)
                             }
                         }
                         Image(systemName: isOpen ? "chevron.down" : "chevron.right")
                             .font(Tokens.Typography.microLabel)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(StoryStyle.entryInsets(for: density))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle())
+                .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -585,17 +605,19 @@ struct SessionEntryCard: View {
                           lineWidth: clock != nil ? 1.5 : 1))
         .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(isOpen ? "Hide this session's detail" : "Show this session's detail")
     }
 
+    /// Everything the closed card shows, in one sentence: the hidden duration
+    /// button's figures are said here instead.
     private var accessibilityLabel: String {
         var parts = [session.workType.sessionTitle(named: session.name),
                      session.workType.displayName]
         parts.append(session.isRunning
-                     ? "running since \(Tokens.timeOfDayOnly(session.start))"
+                     ? "\(liveStatus ?? "running"), started \(Tokens.timeOfDayOnly(session.start))"
                      : Tokens.timeRange(session.start, session.end))
         parts.append(Tokens.spent(session.worked))
+        if session.stretches > 1 { parts.append("\(session.stretches) stretches") }
+        if let powerSummary { parts.append(powerSummary.headline) }
         return parts.joined(separator: ", ")
     }
 
@@ -662,10 +684,10 @@ struct SessionEntryCard: View {
                 if let prefix {
                     Text(prefix)
                         .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                     Text("·")
                         .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
                 Button(title) { openSessionReport(session) }
                     .buttonStyle(StoryLinkStyle())
@@ -705,6 +727,7 @@ struct SessionEntryCard: View {
             .font(Tokens.Typography.microLabel)
             .foregroundStyle(.secondary)
             .textCase(.uppercase)
+            .accessibilityAddTraits(.isHeader)
     }
 
     /// The corrections that belong to this entry. Each one writes to the
@@ -803,7 +826,13 @@ struct SessionEntryCard: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 4)
-                        Button("Edit") { metadataStore.beginNoteEditing(for: recordID) }
+                        Button { metadataStore.beginNoteEditing(for: recordID) } label: {
+                            Text("Edit")
+                                .frame(minWidth: AccessibilityMetrics.minimumTargetSize,
+                                       minHeight: AccessibilityMetrics.minimumTargetSize,
+                                       alignment: .trailing)
+                                .contentShape(Rectangle())
+                        }
                             .buttonStyle(StoryPressStyle()).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                             .accessibilityLabel("Edit note for stretch \(noteRecordIDs.firstIndex(of: recordID).map { $0 + 1 } ?? 1)")
                     }
@@ -824,15 +853,19 @@ struct SessionEntryCard: View {
                 Button {
                     _ = pick(type)
                 } label: {
-                    Label(type.displayName, systemImage: type.symbolName)
+                    // The current kind is marked by a tick as well as its
+                    // tint, and drawn in the darker ink that reads on it.
+                    Label(type.displayName, systemImage: isCurrent ? "checkmark" : type.symbolName)
                         .font(Tokens.Typography.microLabel)
                         .padding(.horizontal, Tokens.Space.s)
                         .padding(.vertical, Tokens.Space.xs)
                         .background(isCurrent ? Tokens.Palette.workType(type).opacity(0.18)
                                               : Tokens.Colour.elevated,
                                     in: Capsule())
-                        .foregroundStyle(isCurrent ? AnyShapeStyle(Tokens.Palette.workType(type))
+                        .foregroundStyle(isCurrent ? AnyShapeStyle(StoryStyle.workTypeInk(type))
                                                    : AnyShapeStyle(.secondary))
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle())
                 .disabled(isCurrent)
@@ -930,7 +963,7 @@ struct RestEntryRow: View {
         .background(Tokens.Colour.elevated,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(rest.name), recorded break, \(Tokens.spent(rest.length)), "
+        .accessibilityLabel("\(Self.label(rest.name)), \(Tokens.spent(rest.length)), "
                             + Tokens.timeRange(rest.start, rest.end))
     }
 
