@@ -178,7 +178,7 @@ struct DayStory: View {
                     Spacer(minLength: Tokens.Space.xs)
                     Image(systemName: "chevron.down")
                         .font(Tokens.Typography.microLabel)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
                 .padding(.vertical, 10)
@@ -519,7 +519,7 @@ struct SessionEntryCard: View {
                             if session.stretches > 1 {
                                 Text("· \(session.stretches) stretches")
                                     .font(Tokens.Typography.metadata)
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -549,10 +549,16 @@ struct SessionEntryCard: View {
                                 .font(.system(size: editing.value ? 15 : 12, weight: .medium))
                                 .foregroundStyle(editing.value ? AnyShapeStyle(StoryStyle.action)
                                                                : AnyShapeStyle(.secondary))
-                                .frame(width: 22, height: 22)
+                                // A full-size target around the same glyph;
+                                // the offset below takes back the extra 3pt
+                                // so the glyph stays where it was.
+                                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                                       height: AccessibilityMetrics.minimumTargetSize)
+                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 11))
-                        .offset(x: insets.leading + titleWidth.value + Tokens.Space.xs, y: insets.top - 1)
+                        .buttonStyle(StoryPressStyle(hovers: true,
+                                                     cornerRadius: AccessibilityMetrics.minimumTargetSize / 2))
+                        .offset(x: insets.leading + titleWidth.value + Tokens.Space.xs - 3, y: insets.top - 4)
                         .help(editing.value ? "Done editing" : "Rename or change the category")
                         .accessibilityLabel(editing.value ? "Done editing" : "Edit name and category")
                         .focused($renameActionFocused)
@@ -570,12 +576,12 @@ struct SessionEntryCard: View {
                                 .contentTransition(.numericText())
                             if let powerSummary {
                                 Label(powerSummary.headline, systemImage: powerSummary.symbolName)
-                                    .font(Tokens.Typography.microLabel.weight(.regular)).foregroundStyle(.tertiary)
+                                    .font(Tokens.Typography.microLabel.weight(.regular)).foregroundStyle(.secondary)
                             }
                         }
                         Image(systemName: isOpen ? "chevron.down" : "chevron.right")
                             .font(Tokens.Typography.microLabel)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(StoryStyle.entryInsets(for: density))
                     .contentShape(Rectangle())
@@ -673,10 +679,10 @@ struct SessionEntryCard: View {
                 if let prefix {
                     Text(prefix)
                         .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                     Text("·")
                         .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
                 Button(title) { openSessionReport(session) }
                     .buttonStyle(StoryLinkStyle())
@@ -814,7 +820,13 @@ struct SessionEntryCard: View {
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 4)
-                        Button("Edit") { metadataStore.beginNoteEditing(for: recordID) }
+                        Button { metadataStore.beginNoteEditing(for: recordID) } label: {
+                            Text("Edit")
+                                .frame(minWidth: AccessibilityMetrics.minimumTargetSize,
+                                       minHeight: AccessibilityMetrics.minimumTargetSize,
+                                       alignment: .trailing)
+                                .contentShape(Rectangle())
+                        }
                             .buttonStyle(StoryPressStyle()).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                             .accessibilityLabel("Edit note for stretch \(noteRecordIDs.firstIndex(of: recordID).map { $0 + 1 } ?? 1)")
                     }
@@ -835,15 +847,19 @@ struct SessionEntryCard: View {
                 Button {
                     _ = pick(type)
                 } label: {
-                    Label(type.displayName, systemImage: type.symbolName)
+                    // The current kind is marked by a tick as well as its
+                    // tint, and drawn in the darker ink that reads on it.
+                    Label(type.displayName, systemImage: isCurrent ? "checkmark" : type.symbolName)
                         .font(Tokens.Typography.microLabel)
                         .padding(.horizontal, Tokens.Space.s)
                         .padding(.vertical, Tokens.Space.xs)
                         .background(isCurrent ? Tokens.Palette.workType(type).opacity(0.18)
                                               : Tokens.Colour.elevated,
                                     in: Capsule())
-                        .foregroundStyle(isCurrent ? AnyShapeStyle(Tokens.Palette.workType(type))
+                        .foregroundStyle(isCurrent ? AnyShapeStyle(StoryStyle.workTypeInk(type))
                                                    : AnyShapeStyle(.secondary))
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle())
                 .disabled(isCurrent)

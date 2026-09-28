@@ -309,7 +309,7 @@ struct SessionReportView: View {
                             .frame(width: 150, alignment: .leading)
                         Text(interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App"))
                             .font(Tokens.Typography.metadata)
-                            .foregroundStyle(interval.isGap ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.primary))
+                            .foregroundStyle(interval.isGap ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                             .lineLimit(1)
                         Spacer(minLength: Tokens.Space.s)
                         Text(Tokens.preciseDuration(interval.duration))
