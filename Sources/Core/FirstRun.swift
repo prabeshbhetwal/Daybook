@@ -434,6 +434,9 @@ enum FirstRunScript {
                      + "that is waiting for you. In this window: ⌘1 for the day's story, "
                      + "⌘2 for History, ⌘6 for Awards, ⌘7 for the session controls and "
                      + "⌘, for Settings.",
+                 note: "⌥⌘N starts a session, ⌥⌘P pauses or resumes it, ⌥⌘A steps away "
+                     + "and ⌥⌘S stops it. While VoiceOver is on, Control-Option-Space "
+                     + "stays VoiceOver's own.",
                  anchor: .sessionControl)
         ]),
 

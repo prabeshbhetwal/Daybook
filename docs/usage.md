@@ -13,7 +13,7 @@ a historical day never substitutes today's data.
 |---|---|---|
 | Story | What happened on this day? | Focus-led summary, chronological stretches, named rest, app use and honest recording gaps; goal, app use, rhythm and streak in the rail |
 | Calendar | Which day, or which span? | A date picker under the date label: a dot marks days with anything recorded; in History, click a first and last day to read that span |
-| Session controls | What should I do now? | Intent, work type, Start, Pause, Resume, Away, Stop and pending-away decisions |
+| Session controls | What should I do now? | Intent, work type, Start, Pause, Resume, Step away, Stop and pending-away decisions |
 | History | How have my days, weeks and months gone? Where is that session? | Search first, with app and category filters; ranges of 7 or 30 days (by day), 3 months (by week) or 12 months (a calendar for each month); a when-you-focus grid, category shares and goal rates; gated pace, quality and continuity statements |
 | Awards | What milestones have I earned? | Achievements derived from recorded evidence, with their criteria |
 | Settings | How should the app behave? | Real persisted controls, privacy evidence and diagnostics |
@@ -27,7 +27,16 @@ a historical day never substitutes today's data.
 | `Command-7` | Session controls |
 | `Command-,` | Settings |
 | `Command-F` | Find in History, from anywhere in the window |
+| `Option-Command-N` | Start focus |
+| `Option-Command-P` | Pause, or resume a paused session |
+| `Option-Command-A` | Step away |
+| `Option-Command-S` | Stop the session |
+| `Control-Option-Space` | From any app: start a session, end the running one, or bring up a waiting away card. Released while VoiceOver is on, because it is VoiceOver's own VO-Space |
+| `Command-]`, `Command-[` | Next and previous card in the welcome tour |
 | Escape | Dismiss a native sheet/app detail or cancel an inline rename |
+
+The Session keys run the same actions as the buttons and do nothing whenever
+the matching button is not shown. Settings › General replays the welcome tour.
 
 ## Reading the story
 
@@ -38,7 +47,7 @@ opens the calendar. In History a picked bar or month unfolds in place, down to
 a single day's story; a found session previews its day in the rail, and **Open
 as a story** reads it on the front page. Choose **Arrange cards** to reorder the
 rail; dragging is active only while arranging, and each card also offers
-keyboard Move up / Move down.
+arrow buttons while arranging, and Move up / Move down for VoiceOver.
 
 An expanded entry offers a pencil for renaming and changing category,
 **Continue this**, **Add note** (typed or dictated in the app), **Remove** and
@@ -129,7 +138,7 @@ Settings groups the backed controls into five compact pages:
 | Page | Controls and information |
 |---|---|
 | General | Login item, menu bar time, appearance, density, Story time gutter, entry expansion and the tour |
-| Sessions | Daily goal, activity rules and their application picker, legacy automatic sessions, automatic gap and milestones |
+| Sessions | Daily goal, activity rules and their application picker, guessing sessions from the app in front, ending a paused automatic session, and milestones |
 | Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
 | Recording | App recording and the number of recent app visits initially shown |
 | Privacy | Local storage, accuracy epoch, preserved backup, Reveal data folder and diagnostics |
