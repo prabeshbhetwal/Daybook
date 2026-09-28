@@ -111,6 +111,18 @@ struct WelcomeCoachCard: View {
     let onSkip: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var listShown = BoolBox()
+    /// Where the keyboard goes when the card changes: onto the way forward,
+    /// or onto the chapter list when it opens. Only Full Keyboard Access
+    /// focuses buttons at all, so without it this moves nothing.
+    @FocusState private var focus: CardFocus?
+    /// VoiceOver's cursor, moved onto each new card so the listener is not
+    /// left somewhere in the story below while the welcome carries on.
+    @AccessibilityFocusState private var readerOnCard: Bool
+
+    private enum CardFocus: Hashable {
+        case forward
+        case chapter(FirstRunChapter)
+    }
 
     static let width: CGFloat = 420
 
@@ -149,10 +161,18 @@ struct WelcomeCoachCard: View {
         .storyRenderEvidence(.firstRun(progress.chapter))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Welcome, \(FirstRunScript.eyebrow(chapter: progress.chapter, card: progress.card))")
-        .onAppear { announce() }
+        .accessibilityFocused($readerOnCard)
+        .onAppear {
+            announce()
+            takeFocus()
+        }
         .onChange(of: progress) { _ in
             listShown.value = false
             announce()
+            takeFocus()
+        }
+        .onChange(of: listShown.value) { shown in
+            focus = shown ? .chapter(progress.chapter) : .forward
         }
     }
 
@@ -160,9 +180,10 @@ struct WelcomeCoachCard: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-            Text(FirstRunScript.eyebrow(chapter: progress.chapter, card: progress.card).uppercased())
-                .font(Tokens.Typography.microLabel.weight(.bold))
-                .kerning(0.8)
+            // Sentence case like every other title in the app; spaced
+            // capitals at this size were the hardest line on the card to read.
+            Text(FirstRunScript.eyebrow(chapter: progress.chapter, card: progress.card))
+                .font(Tokens.Typography.metadata.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: Tokens.Space.s)
@@ -202,7 +223,7 @@ struct WelcomeCoachCard: View {
                     HStack(spacing: Tokens.Space.s) {
                         Text("\(chapter.number)")
                             .font(Tokens.Typography.microValue.monospacedDigit())
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
                             .frame(width: 18, alignment: .trailing)
                         Text(chapter.title)
                             .font(Tokens.Typography.metadata.weight(isCurrent ? .semibold : .regular))
@@ -221,6 +242,7 @@ struct WelcomeCoachCard: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.control))
+                .focused($focus, equals: .chapter(chapter))
                 .accessibilityLabel("Chapter \(chapter.number), \(chapter.title)"
                                     + (isCurrent ? ", current" : seen ? ", read" : ""))
             }
@@ -245,9 +267,12 @@ struct WelcomeCoachCard: View {
                 Text(card.sentence)
                     .font(Tokens.Typography.sectionTitle)
                     .fixedSize(horizontal: false, vertical: true)
+                // The paragraph the whole card exists to say, so it is set
+                // for reading: primary ink at control size, not the grey
+                // metadata style used for asides.
                 Text(card.body)
-                    .font(Tokens.Typography.metadata)
-                    .foregroundStyle(.secondary)
+                    .font(Tokens.Typography.control)
+                    .foregroundStyle(.primary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let note = card.note { self.note(note) }
             }
@@ -280,9 +305,12 @@ struct WelcomeCoachCard: View {
 
     // MARK: - Controls
 
-    /// No keyboard shortcuts. Escape and Return belong to the activity field
-    /// and the Start button that two of these steps send the reader to; binding
-    /// them here would let a cancelled edit dismiss the welcome mid-sentence.
+    /// Escape and Return are left alone: they belong to the activity field
+    /// and the Start button that two of these steps send the reader to, and
+    /// binding them here would let a cancelled edit dismiss the welcome
+    /// mid-sentence. ⌘] and ⌘[ are the page-forward and page-back keys Safari
+    /// and Finder use, and nothing in the window already claims them, so a
+    /// reader without a mouse can still turn the pages.
     private var controls: some View {
         HStack(spacing: Tokens.Space.s) {
             Button("Skip tour", action: onSkip)
@@ -292,9 +320,14 @@ struct WelcomeCoachCard: View {
             if !progress.isFirstCard {
                 Button("Back", action: onBack)
                     .buttonStyle(StoryActionStyle())
+                    .keyboardShortcut("[", modifiers: .command)
+                    .help("Back (⌘[)")
             }
             Button(forwardTitle, action: onForward)
                 .buttonStyle(StoryActionStyle(tint: StoryStyle.focus))
+                .keyboardShortcut("]", modifiers: .command)
+                .focused($focus, equals: .forward)
+                .help("\(forwardTitle) (⌘])")
         }
         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
     }
@@ -307,11 +340,14 @@ struct WelcomeCoachCard: View {
     private func announce() {
         let spoken = showsResult ? (card.result ?? card.sentence)
             : ([card.sentence, card.body, card.note].compactMap { $0 }.joined(separator: " "))
-        NSAccessibility.post(element: NSApp as Any,
-                             notification: .announcementRequested,
-                             userInfo: [
-                                .announcement: spoken,
-                                .priority: NSAccessibilityPriorityLevel.high.rawValue
-                             ])
+        Announcement.post(spoken)
+    }
+
+    /// A card that is waiting for the reader to act leaves the keyboard where
+    /// they will act; anything else puts it on the way forward.
+    private func takeFocus() {
+        readerOnCard = true
+        guard !progress.isWaiting else { return }
+        DispatchQueue.main.async { focus = .forward }
     }
 }
