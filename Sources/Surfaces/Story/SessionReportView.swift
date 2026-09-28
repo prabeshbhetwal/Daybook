@@ -110,7 +110,12 @@ struct SessionReportOverlay: View {
                     .opacity.combined(with: .scale(scale: 0.96, anchor: .center)),
                     reduceMotion: reduceMotion))
         }
-        .onAppear { escape.install(onClose) }
+        .onAppear {
+            escape.install(onClose)
+            // The card draws over the story without moving VoiceOver's
+            // cursor, so say that it arrived.
+            Announcement.post("\(session.workType.sessionTitle(named: session.name)) report")
+        }
         .onDisappear { escape.remove() }
     }
 }
