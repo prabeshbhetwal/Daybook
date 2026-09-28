@@ -509,6 +509,7 @@ struct CategoryEditorForm: View {
                         .accessibilityLabel("SF Symbol name")
                     Button("Use") { editor.acceptTypedSymbol() }
                         .disabled(editor.typedSymbol.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityLabel("Use symbol")
                 }
             } else {
                 glyphPane
@@ -577,6 +578,7 @@ struct CategoryEditorForm: View {
                     .accessibilityLabel("Letter or number")
                 Button("Use") { editor.acceptGlyph() }
                     .disabled(editor.glyphText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .accessibilityLabel("Use letter or number")
                 Spacer(minLength: Tokens.Space.s)
                 Picker("Shape", selection: $editor.glyphStyle) {
                     ForEach(WorkTypeSymbols.GlyphStyle.allCases, id: \.self) { style in

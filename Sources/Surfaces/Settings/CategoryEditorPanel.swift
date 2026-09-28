@@ -173,6 +173,9 @@ struct CategoryEditorPanelView: View {
                 }
             }
         }
+        // A group, so the label names the row instead of replacing each
+        // chip's own name.
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Category to edit")
     }
 
