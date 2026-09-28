@@ -546,11 +546,15 @@ struct StoryRail: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Last \(days.count) days")
             .accessibilityValue("\(days.filter(\.met).count) of \(days.count) days met")
-            HStack(spacing: Tokens.Space.xs) {
+            // On the first line's baseline, so the link stays beside the
+            // sentence it follows when the sentence wraps.
+            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
                 Text("Last 14 days. A day counts once it has "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
                 // The word is about 15pt tall. The padding lifts the target
                 // past 28pt; the negative padding keeps the row where it was.
                 Button { navigation.openSheet(.awards) } label: {
@@ -562,7 +566,9 @@ struct StoryRail: View {
                 .coachAnchor(.awards)
                 .buttonStyle(StoryPressStyle())
                 .font(Tokens.Typography.metadata.weight(.semibold))
-                .foregroundStyle(Tokens.Colour.focus)
+                // The link colour every other text action uses; system blue
+                // was under 4.5:1 on the rail.
+                .foregroundStyle(StoryStyle.action)
             }
         }
     }
