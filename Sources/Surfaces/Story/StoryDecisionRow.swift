@@ -77,6 +77,8 @@ struct StorySavedActionRow: View {
     let undo: () -> Void
     @StateObject private var editing = BoolBox()
     @StateObject private var draft = TextBox()
+    @FocusState private var nameFocused: Bool
+    @FocusState private var nameButtonFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -101,6 +103,7 @@ struct StorySavedActionRow: View {
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .frame(minHeight: 28)
                 .accessibilityLabel(currentName == nil ? "Name this break" : "Rename this break")
+                .focused($nameButtonFocused)
             }
             Button("Undo", action: undo)
                 .buttonStyle(StoryLinkStyle())
@@ -125,7 +128,7 @@ struct StorySavedActionRow: View {
         .padding(.horizontal, 15)
         .padding(.vertical, Tokens.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onExitCommand { editing.value = false }
+        .onExitCommand { if editing.value { closeNameField() } }
         .background(LinearGradient(colors: [StoryStyle.successWash, StoryStyle.successWash.opacity(0.45)],
                                    startPoint: .leading, endPoint: .trailing),
                     in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
@@ -143,12 +146,20 @@ struct StorySavedActionRow: View {
                 .textFieldStyle(.plain)
                 .font(Tokens.Typography.metadata)
                 .onSubmit(save)
+                .focused($nameFocused)
+                .onAppear {
+                    // The field must be installed before it can take focus;
+                    // the "Name it" button that had it has just gone.
+                    DispatchQueue.main.async {
+                        if editing.value { nameFocused = true }
+                    }
+                }
                 .accessibilityLabel("Break name")
             Button("Save", action: save)
                 .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.metadata.weight(.semibold))
                 .disabled(draft.text.trimmingCharacters(in: .whitespaces).isEmpty)
-            Button("Cancel") { editing.value = false }
+            Button("Cancel", action: closeNameField)
                 .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
@@ -164,7 +175,15 @@ struct StorySavedActionRow: View {
     private func save() {
         guard let onName, !draft.text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         if onName(draft.text) || draft.text.trimmingCharacters(in: .whitespaces) == currentName {
-            editing.value = false
+            closeNameField()
         }
+    }
+
+    /// Focus goes back to the button that opened the field, so a keyboard
+    /// reader is not dropped at the top of the window.
+    private func closeNameField() {
+        nameFocused = false
+        editing.value = false
+        DispatchQueue.main.async { nameButtonFocused = true }
     }
 }

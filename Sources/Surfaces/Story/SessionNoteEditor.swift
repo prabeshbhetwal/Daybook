@@ -43,10 +43,7 @@ struct SessionNoteEditor: View {
             }
             HStack(spacing: Tokens.Space.s) {
                 saveButton
-                Button("Cancel") {
-                    if !store.cancelNoteEditing(for: recordID) { state.confirmsDiscard = true }
-                }
-                .font(Tokens.Typography.metadata)
+                cancelButton
                 Spacer(minLength: Tokens.Space.s)
                 dictateButton
             }
@@ -115,6 +112,23 @@ struct SessionNoteEditor: View {
             Button("Save") { _ = store.saveNote(for: recordID) }
                 .font(Tokens.Typography.metadata.weight(.semibold))
         }
+    }
+
+    /// Escape cancels, as Command-Return saves, only in the editor that has
+    /// focus: two open notes must not both answer the one key.
+    @ViewBuilder private var cancelButton: some View {
+        if isFocused {
+            Button("Cancel", action: cancel)
+                .keyboardShortcut(.cancelAction)
+                .font(Tokens.Typography.metadata)
+        } else {
+            Button("Cancel", action: cancel)
+                .font(Tokens.Typography.metadata)
+        }
+    }
+
+    private func cancel() {
+        if !store.cancelNoteEditing(for: recordID) { state.confirmsDiscard = true }
     }
 }
 
