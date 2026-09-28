@@ -18,7 +18,6 @@ enum StoryWorkspaceChecks {
         ("Insights pages are bounded, newest first and expose every scope", insightPages),
         ("History never shows a period from before the record began", insightRecordFloor),
             ("A ticking clock does not rebuild an unchanged page of History", insightReadingIsCached),
-        ("Insights restores each scope's anchor and page depth", insightScopeRestoration),
         ("A projected current-day child owns all running presentation state", projectedCurrentDayLiveState),
         ("Receipt-only dates remain searchable without focus or app-use credit", receiptOnlyHistory),
         ("Story workspaces render sparse and dense reading contexts offscreen", offscreenWorkspaceRenders)
@@ -179,10 +178,11 @@ enum StoryWorkspaceChecks {
             guard let earliest = store.earliestSelectableDay else {
                 return ["The evidence fixture has no first recorded day to clamp to"]
             }
-            for scope in InsightRange.allCases {
-                navigation.selectInsightRange(scope)
+            for range in HistoryRange.allCases {
+                navigation.selectHistoryRange(range)
+                let scope = navigation.insightRange
                 let shown = navigation.insightShownCount
-                let fitting = navigation.insightVisibleCount
+                let fitting = navigation.insightRequestedCount
                 if shown < 1 || shown > fitting {
                     failures.append("\(scope.rawValue) shows \(shown) periods against a capacity of \(fitting)")
                 }
@@ -215,10 +215,10 @@ enum StoryWorkspaceChecks {
             let bare = FixtureFactory.store(for: .firstRun)
             let fresh = MainWindowModel(opening: .insights, store: bare)
             fresh.open(tab: .insights)
-            for scope in InsightRange.allCases {
-                fresh.selectInsightRange(scope)
+            for range in HistoryRange.allCases {
+                fresh.selectHistoryRange(range)
                 if fresh.insightShownCount != 1 {
-                    failures.append("With nothing recorded, \(scope.rawValue) shows "
+                    failures.append("With nothing recorded, \(range.title) shows "
                                     + "\(fresh.insightShownCount) periods instead of the current one")
                 }
             }
@@ -243,60 +243,9 @@ enum StoryWorkspaceChecks {
                     failures.append("\(scope.rawValue) pages were not newest first")
                 }
             }
-            // No Year: a year is twelve months, and Month reaches twelve.
+            // History's bars group by day, week or month, and nothing else.
             if Set(InsightRange.allCases) != Set([.day, .week, .month]) {
-                failures.append("History did not expose exactly Day, Week and Month")
-            }
-            return failures
-        }
-    }
-
-    private static func insightScopeRestoration() -> [String] {
-        MainActor.assumeIsolated {
-            let store = FixtureFactory.insightsStore(withEvidence: true)
-            defer { FixtureFactory.cleanUp() }
-            let calendar = Calendar.current
-            let today = calendar.startOfDay(for: store.now())
-            let navigation = MainWindowModel(store: store)
-            var failures: [String] = []
-
-            navigation.selectInsightRange(.day)
-            navigation.stepInsightPeriod(by: -2)
-            navigation.showEarlierInsights()
-            let dayAnchor = navigation.insightAnchor
-            let dayPages = navigation.insightPageCount
-
-            navigation.selectInsightRange(.week)
-            if !calendar.isDate(navigation.insightAnchor, inSameDayAs: today)
-                || navigation.insightPageCount != 6 {
-                failures.append("Week inherited Day's historical anchor or page depth")
-            }
-            navigation.stepInsightPeriod(by: -1)
-            navigation.showEarlierInsights()
-            let weekAnchor = navigation.insightAnchor
-            let weekPages = navigation.insightPageCount
-
-            navigation.selectInsightRange(.month)
-            if !calendar.isDate(navigation.insightAnchor, inSameDayAs: today)
-                || navigation.insightPageCount != 3 {
-                failures.append("Month inherited Week's historical anchor or page depth")
-            }
-            navigation.stepInsightPeriod(by: -1)
-            navigation.showEarlierInsights()
-            let monthAnchor = navigation.insightAnchor
-            let monthPages = navigation.insightPageCount
-
-            navigation.selectInsightRange(.day)
-            if navigation.insightAnchor != dayAnchor || navigation.insightPageCount != dayPages {
-                failures.append("Day did not restore its anchor and page depth")
-            }
-            navigation.selectInsightRange(.week)
-            if navigation.insightAnchor != weekAnchor || navigation.insightPageCount != weekPages {
-                failures.append("Week did not restore its anchor and page depth")
-            }
-            navigation.selectInsightRange(.month)
-            if navigation.insightAnchor != monthAnchor || navigation.insightPageCount != monthPages {
-                failures.append("Month did not restore its anchor and page depth")
+                failures.append("History did not group by exactly day, week and month")
             }
             return failures
         }
@@ -403,7 +352,7 @@ enum StoryWorkspaceChecks {
             requireEvidence("Day story", denseDay, includes: [.dayStory])
 
             navigation.open(tab: .review)
-            navigation.selectInsightRange(.month)
+            navigation.selectHistoryRange(.months12)
             navigation.clearReviewDay()
             let historyClosed = renderFrame(
                 InsightsView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
@@ -423,9 +372,10 @@ enum StoryWorkspaceChecks {
             let insightDenseNavigation = MainWindowModel(store: insightDense)
             let sparse = FixtureFactory.store(for: .firstRun, accurateUsage: true)
             let sparseNavigation = MainWindowModel(store: sparse)
-            for scope in InsightRange.allCases {
-                insightDenseNavigation.selectInsightRange(scope)
-                sparseNavigation.selectInsightRange(scope)
+            for range in HistoryRange.allCases {
+                insightDenseNavigation.selectHistoryRange(range)
+                sparseNavigation.selectHistoryRange(range)
+                let scope = range
                 let denseFrame = renderFrame(
                     InsightsView(store: insightDense,
                                  navigation: insightDenseNavigation, scrolls: false),
@@ -434,13 +384,13 @@ enum StoryWorkspaceChecks {
                     InsightsView(store: sparse,
                                  navigation: sparseNavigation, scrolls: false),
                     height: 1_100)
-                requireContent("Dense Insights \(scope.rawValue)", denseFrame)
-                requireContent("Sparse Insights \(scope.rawValue)", sparseFrame)
-                requireEvidence("Dense Insights \(scope.rawValue)", denseFrame,
+                requireContent("Dense Insights \(scope.title)", denseFrame)
+                requireContent("Sparse Insights \(scope.title)", sparseFrame)
+                requireEvidence("Dense Insights \(scope.title)", denseFrame,
                                 includes: [.insightPeriod, .insightStrongestDay])
                 // A range holding nothing anywhere states that once, instead of
                 // repeating an identical zero card for every period in it.
-                requireEvidence("Sparse Insights \(scope.rawValue)", sparseFrame,
+                requireEvidence("Sparse Insights \(scope.title)", sparseFrame,
                                 includes: [.insightEmptyPeriod],
                                 excludes: [.insightPeriod, .insightStrongestDay])
             }

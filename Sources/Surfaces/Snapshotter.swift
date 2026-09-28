@@ -424,12 +424,12 @@ enum Snapshotter {
         switch scenario {
         case .reviewHistorySelection:
             navigation.open(tab: .review)
-            navigation.insightRange = .month
+            navigation.selectHistoryRange(.months12)
             if let day = store.filteredHistoryDays.first?.date {
                 navigation.selectReviewDay(day)
             }
         case .insightsEnough, .insightsEmpty:
-            navigation.insightRange = .week
+            navigation.selectHistoryRange(.months3)
         case .activityRuleAmbiguity, .activityRuleAutomatic:
             navigation.performSessionControlsAction(.commandOrMenu)
         case .settingsActivityRules:

@@ -27,20 +27,6 @@ struct InsightsView: View {
                              limit: navigation.insightShownCount)
     }
 
-    /// How many periods a column this wide can draw legibly. The chrome pages
-    /// by this count, so the chart never grows past its measure.
-    static func visibleCount(for width: CGFloat, scope: InsightRange) -> Int {
-        let measure = max(0, width - StoryStyle.columnInsets.leading - StoryStyle.columnInsets.trailing)
-        switch scope {
-        case .day: return min(42, max(7, Int(measure / 50)))
-        case .week: return min(14, max(4, Int(measure / 80)))
-        // A year. The month grids wrap, so this is no longer what fits across
-        // the column — it is how far back the span reaches, and a page of it
-        // is a year.
-        case .month: return 12
-        }
-    }
-
     var body: some View {
         let current = reading
         let listed = current.periods
@@ -49,14 +35,6 @@ struct InsightsView: View {
             pane { column(listed, facts) }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .background(StoryStyle.canvas)
-                .background(GeometryReader { geometry in
-                    Color.clear.preference(key: InsightWidthKey.self, value: geometry.size.width)
-                })
-                .onPreferenceChange(InsightWidthKey.self) { width in
-                    for scope in InsightRange.allCases {
-                        navigation.setInsightVisibleCount(Self.visibleCount(for: width, scope: scope), for: scope)
-                    }
-                }
             Divider()
             pane { rail(listed, facts) }
                 .frame(width: StoryLayout.railWidth)
@@ -65,7 +43,7 @@ struct InsightsView: View {
         .background(Tokens.Colour.ground)
         .onAppear { store.setInsightsVisible(true) }
         .onDisappear { store.setInsightsVisible(false) }
-        .onChange(of: navigation.insightRange) { _ in
+        .onChange(of: navigation.insightWindowLabel) { _ in
             selection.id = nil
             unfolded.id = nil
             navigation.clearReviewDay()
@@ -538,11 +516,6 @@ struct InsightPeriodStory: View {
             + (day.apps.count > 3 ? " +\(day.apps.count - 3)" : "")
         return [typeText, appText].compactMap { $0 }.joined(separator: " · ")
     }
-}
-
-private struct InsightWidthKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 extension InsightRange {

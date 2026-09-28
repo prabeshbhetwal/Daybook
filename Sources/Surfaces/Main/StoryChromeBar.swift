@@ -129,32 +129,31 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .history:
-            // History reads any span of the past, a year included, and
-            // finds a session with ⌘F; the same bar either way.
-            ScopePillRow(titles: InsightRange.allCases.map(\.title),
+            // History reads how far back the reader asks; its bars group by
+            // day, week or month to suit. A span picked on the calendar
+            // selects none of these.
+            ScopePillRow(titles: HistoryRange.allCases.map(\.title),
                          selectedIndex: Binding(
-                            get: { InsightRange.allCases.firstIndex(of: navigation.insightRange) ?? 0 },
-                            set: { navigation.selectInsightRange(InsightRange.allCases[$0]) }),
+                            get: { navigation.historyRange.flatMap { HistoryRange.allCases.firstIndex(of: $0) } ?? -1 },
+                            set: { navigation.selectHistoryRange(HistoryRange.allCases[$0]) }),
                          controlLabel: "History range")
             Spacer(minLength: Tokens.Space.s)
             insightNavigation
             Spacer(minLength: Tokens.Space.s)
+            // No "History" label here: it named the page being read, and the
+            // back button beside the range already says where the story is.
+            // Four ranges need the room at the minimum width.
             searchButton
                 .coachAnchor(.search)
-            crossLinks
-                .coachAnchor(.history)
         }
     }
 
-    /// The other workspaces, as links. Navigation belongs in the chrome; these
-    /// sat below every rail card, so reaching them meant scrolling past the
-    /// content first. Both words are always present in the same order, so
-    /// neither moves when the workspace changes: the one you are in is set in
-    /// the text colour and is not a link, the way a menu marks its own item.
+    /// The way to History, as a link. Navigation belongs in the chrome; it
+    /// sat below every rail card, so reaching it meant scrolling past the
+    /// content first. History's own bar has the back button instead.
     private var crossLinks: some View {
-        HStack(spacing: Tokens.Space.xs) {
-            crossLink("History", current: navigation.workspace != .story) { navigation.open(tab: .review) }
-        }
+        Button("History") { navigation.open(tab: .review) }
+            .buttonStyle(StoryLinkStyle())
     }
 
     /// Find a session by name, note, app, category or date. ⌘F anywhere in
@@ -167,27 +166,9 @@ struct StoryChromeBar: View {
         .accessibilityLabel(navigation.historySearchShown ? "Hide search" : "Find a session")
     }
 
-    @ViewBuilder private func crossLink(_ title: String, current: Bool,
-                                        action: @escaping () -> Void) -> some View {
-        if current {
-            Text(title)
-                .font(Tokens.Typography.metadata.weight(.semibold))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, Tokens.Space.s)
-                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                .accessibilityAddTraits([.isHeader, .isSelected])
-                .accessibilityLabel("\(title), current")
-        } else {
-            Button(title, action: action)
-                .buttonStyle(StoryLinkStyle())
-        }
-    }
-
-    /// History's period control is the Story's: arrows page, and the label
-    /// opens the same calendar, which lands the window on the picked day.
-    /// Back stops at the first day on record; there is nothing before it.
+    /// History's period control: arrows page by the range's length, and the
+    /// label opens the calendar to pick a span of its own, first day then
+    /// last. Back stops at the first day on record; there is nothing before it.
     private var insightNavigation: some View {
         HStack(spacing: Tokens.Space.s) {
             IconButton(systemImage: "chevron.left", help: "Earlier") {
@@ -208,17 +189,18 @@ struct StoryChromeBar: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(StoryPressStyle())
-            .accessibilityLabel("\(navigation.insightWindowLabel), History period. Opens the calendar.")
+            .accessibilityLabel("\(navigation.insightWindowLabel), History period. Opens the calendar to pick a span.")
             .popover(isPresented: Binding(get: { historyCalendarShown.value },
                                           set: { historyCalendarShown.value = $0 }),
                      arrowEdge: .bottom) {
                 DayPickerCalendar(
-                    selected: navigation.insightAnchor,
+                    range: shownHistorySpan,
                     earliest: store.earliestSelectableDay,
                     goal: store.goal.goal,
-                    facts: { store.dayFacts(inMonthOf: $0) }) { day in
-                        navigation.jumpInsights(to: day)
-                        historyCalendarShown.value = false
+                    facts: { store.dayFacts(inMonthOf: $0) }) { start, end in
+                        navigation.setCustomHistoryRange(start, end)
+                        // The first click marks a start; the second completes it.
+                        if start != end { historyCalendarShown.value = false }
                     }
             }
             IconButton(systemImage: "chevron.right", help: "Later") {
@@ -229,6 +211,16 @@ struct StoryChromeBar: View {
     }
 
     @StateObject private var historyCalendarShown = BoolBox()
+
+    /// The days History shows, as the calendar paints them.
+    private var shownHistorySpan: ClosedRange<Date> {
+        let calendar = Calendar.current
+        guard let window = navigation.insightWindow,
+              let last = calendar.date(byAdding: .day, value: -1, to: window.end) else {
+            return navigation.insightAnchor...navigation.insightAnchor
+        }
+        return calendar.startOfDay(for: window.start)...calendar.startOfDay(for: max(window.start, last))
+    }
 
     private var periodNavigation: some View {
         HStack(spacing: Tokens.Space.s) {

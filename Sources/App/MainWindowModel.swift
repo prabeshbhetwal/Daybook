@@ -73,6 +73,65 @@ enum InsightRange: String, CaseIterable {
     case month
 }
 
+/// How far back History reads. Each range is a number of periods at the one
+/// grouping that suits its length, so the reader picks how much time to see
+/// and never the unit it is counted in.
+enum HistoryRange: String, CaseIterable {
+    case days7, days30, months3, months12
+
+    var title: String {
+        switch self {
+        case .days7: return "7 days"
+        case .days30: return "30 days"
+        case .months3: return "3 months"
+        case .months12: return "12 months"
+        }
+    }
+
+    var grouping: InsightRange {
+        switch self {
+        case .days7, .days30: return .day
+        case .months3: return .week
+        case .months12: return .month
+        }
+    }
+
+    var count: Int {
+        switch self {
+        case .days7: return 7
+        case .days30: return 30
+        case .months3: return 13
+        case .months12: return 12
+        }
+    }
+}
+
+/// A span picked on History's calendar, read as a count of periods at the
+/// grouping its length suits.
+struct HistorySpan: Equatable {
+    let grouping: InsightRange
+    let count: Int
+
+    /// Up to six weeks by day, up to fourteen weeks by week, then by month,
+    /// never more than twelve. The limits are what the charts can draw.
+    static func covering(_ start: Date, _ end: Date, calendar: Calendar = .current) -> HistorySpan {
+        let first = calendar.startOfDay(for: min(start, end))
+        let last = calendar.startOfDay(for: max(start, end))
+        let days = (calendar.dateComponents([.day], from: first, to: last).day ?? 0) + 1
+        if days <= 42 { return HistorySpan(grouping: .day, count: days) }
+        if days <= 98,
+           let a = calendar.dateInterval(of: .weekOfYear, for: first)?.start,
+           let b = calendar.dateInterval(of: .weekOfYear, for: last)?.start {
+            let weeks = (calendar.dateComponents([.weekOfYear], from: a, to: b).weekOfYear ?? 0) + 1
+            return HistorySpan(grouping: .week, count: min(14, weeks))
+        }
+        let a = calendar.dateInterval(of: .month, for: first)?.start ?? first
+        let b = calendar.dateInterval(of: .month, for: last)?.start ?? last
+        let months = (calendar.dateComponents([.month], from: a, to: b).month ?? 0) + 1
+        return HistorySpan(grouping: .month, count: min(12, months))
+    }
+}
+
 /// What fills the window below the chrome: the story, or History reading
 /// the past across spans.
 enum MainReadingWorkspace: String, CaseIterable {
@@ -165,9 +224,13 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     /// Whether History's search field is open (⌘F). Results replace the
     /// chart while a query or filter is active.
     @Published var historySearchShown = false
-    @Published var insightRange: InsightRange = .week
-    @Published private var insightAnchors: [InsightRange: Date]
-    @Published private var insightPageCounts: [InsightRange: Int]
+    /// The range History reads, or nil while a span picked on its calendar
+    /// is showing instead.
+    @Published private(set) var historyRange: HistoryRange? = .days30
+    @Published private var historySpan: HistorySpan?
+    /// The last day History reads. Every range ends here, so changing range
+    /// keeps the reader where they are.
+    @Published private var insightEnd: Date
     @Published var settingsSection: SettingsSection = .general
     /// The most recent ask to open a category for editing, or a blank form.
     /// A counter travels with it so the same ask made twice — Add, close,
@@ -182,10 +245,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
          requestedDate: Date? = nil,
          store: SessionStore? = nil) {
         self.requestedDate = requestedDate
-        let insightToday = Calendar.current.startOfDay(for: store?.now() ?? Date())
-        self.insightAnchors = Dictionary(uniqueKeysWithValues:
-            InsightRange.allCases.map { ($0, insightToday) })
-        self.insightPageCounts = [.day: 14, .week: 6, .month: 3]
+        self.insightEnd = Calendar.current.startOfDay(for: store?.now() ?? Date())
         // A model built on a sheet's route is already presenting that sheet, or
         // restoring one would show the story with no sign of what was asked for.
         switch route {
@@ -402,17 +462,33 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         }
     }
 
-    func selectInsightRange(_ range: InsightRange) {
-        animated(Tokens.Motion.swap) { insightRange = range }
+    func selectHistoryRange(_ range: HistoryRange) {
+        animated(Tokens.Motion.swap) {
+            historyRange = range
+            historySpan = nil
+        }
     }
+
+    /// The calendar picked a span: History reads exactly it, grouped to suit.
+    func setCustomHistoryRange(_ start: Date, _ end: Date, calendar: Calendar = .current) {
+        let today = calendar.startOfDay(for: store?.now() ?? Date())
+        animated(Tokens.Motion.swap) {
+            historySpan = HistorySpan.covering(start, end, calendar: calendar)
+            historyRange = nil
+            insightEnd = min(today, calendar.startOfDay(for: max(start, end)))
+            reviewSelectedDate = nil
+        }
+    }
+
+    /// The grouping History reads at: the range's, or the picked span's.
+    var insightRange: InsightRange { historySpan?.grouping ?? historyRange?.grouping ?? .day }
+
+    /// How many periods the range asks for, before the record's start trims it.
+    var insightRequestedCount: Int { historySpan?.count ?? historyRange?.count ?? 30 }
 
     var insightAnchor: Date {
-        get { insightAnchors[insightRange] ?? Calendar.current.startOfDay(for: store?.now() ?? Date()) }
-        set { insightAnchors[insightRange] = newValue }
-    }
-
-    var insightPageCount: Int {
-        insightPageCounts[insightRange] ?? defaultInsightPageCount(for: insightRange)
+        get { insightEnd }
+        set { insightEnd = newValue }
     }
 
     func stepInsightPeriod(by delta: Int, calendar: Calendar = .current) {
@@ -431,31 +507,17 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             let floor = calendar.startOfDay(for: earliest)
             if moved < floor { moved = max(floor, min(moved, insightAnchor)) }
         }
-        insightAnchors[insightRange] = moved
+        insightEnd = moved
     }
 
-    /// How many periods the Insights column can show at its current width.
-    /// The view measures and reports it; paging moves by it.
-    @Published private var insightVisibleCounts: [InsightRange: Int] = [:]
-
-    var insightVisibleCount: Int {
-        insightVisibleCounts[insightRange] ?? defaultInsightPageCount(for: insightRange)
-    }
-
-    func setInsightVisibleCount(_ count: Int, for range: InsightRange) {
-        let clamped = max(1, count)
-        guard insightVisibleCounts[range] != clamped else { return }
-        insightVisibleCounts[range] = clamped
-    }
-
-    /// The periods the column actually shows: as many as fit, but never one
+    /// The periods the column actually shows: as many as the range asks, but never one
     /// that ends before the record begins. History starts the day the app
     /// first saw anything; the blank months before that are not history, they
     /// are absence, and drawing them as empty calendars claims a record that
     /// was never kept. With nothing recorded at all there is one period — the
     /// current one — and it says so itself.
     var insightShownCount: Int {
-        let fitting = insightVisibleCount
+        let fitting = insightRequestedCount
         guard let earliest = store?.earliestSelectableDay else { return 1 }
         let calendar = Calendar.current
         let component: Calendar.Component
@@ -512,7 +574,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: store?.now() ?? Date())
         animated(Tokens.Motion.swap) {
-            insightAnchors[insightRange] = min(today, calendar.startOfDay(for: date))
+            insightEnd = min(today, calendar.startOfDay(for: date))
             reviewSelectedDate = nil
             historySelectedPeriod = nil
         }
@@ -539,26 +601,6 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             else { return DateFormats.australian("MMMM yyyy").string(from: insightAnchor) }
             let first = DateFormats.australian("MMM").string(from: start)
             return "\(first) – \(DateFormats.australian("MMM yyyy").string(from: insightAnchor))"
-        }
-    }
-
-    func showEarlierInsights() {
-        let increment = insightRange == .day ? 14 : insightRange == .week ? 6 : 3
-        insightPageCounts[insightRange] = min(
-            insightMaximumPageCount, insightPageCount + increment)
-    }
-
-    /// Month reaches a full year — three at a time, up to twelve. This is what
-    /// makes Month the year view rather than only the quarter one.
-    private var insightMaximumPageCount: Int {
-        insightRange == .day ? 42 : insightRange == .week ? 14 : 12
-    }
-
-    private func defaultInsightPageCount(for range: InsightRange) -> Int {
-        switch range {
-        case .day: return 14
-        case .week: return 6
-        case .month: return 3
         }
     }
 

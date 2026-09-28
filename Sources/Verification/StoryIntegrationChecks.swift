@@ -379,8 +379,8 @@ enum StoryIntegrationChecks {
             navigation.jumpToDay(day)
             let shown = store.selectedDay
             var failures: [String] = []
-            for range in InsightRange.allCases {
-                navigation.selectInsightRange(range)
+            for range in HistoryRange.allCases {
+                navigation.selectHistoryRange(range)
                 if store.selectedDay != shown {
                     failures.append("selecting History \(range) changed the story's day")
                 }
