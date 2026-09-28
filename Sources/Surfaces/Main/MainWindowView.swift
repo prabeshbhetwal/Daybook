@@ -265,6 +265,7 @@ struct StorySheet<Content: View>: View {
                 HStack {
                     Text(title)
                         .font(Tokens.Typography.sectionTitle)
+                        .accessibilityAddTraits(.isHeader)
                     Spacer(minLength: Tokens.Space.m)
                     Button(action: onClose) {
                         Image(systemName: "xmark")

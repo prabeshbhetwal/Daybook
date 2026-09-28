@@ -84,7 +84,7 @@ struct StoryChromeBar: View {
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: navigation.workspace)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Window chrome")
+        .accessibilityLabel("Toolbar")
         .onChange(of: navigation.focusRestorationRequest) { target in
             guard let target else { return }
             switch target {
@@ -171,7 +171,7 @@ struct StoryChromeBar: View {
                         .lineLimit(1)
                     Image(systemName: "chevron.down")
                         .font(Tokens.Typography.microLabel.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, Tokens.Space.s)
                 .frame(minWidth: Self.periodLabelWidth, minHeight: AccessibilityMetrics.minimumTargetSize)
@@ -225,7 +225,7 @@ struct StoryChromeBar: View {
                         .lineLimit(1)
                     Image(systemName: "chevron.down")
                         .font(Tokens.Typography.microLabel.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, Tokens.Space.s)
                 .frame(minWidth: Self.periodLabelWidth, minHeight: AccessibilityMetrics.minimumTargetSize)
@@ -290,21 +290,32 @@ struct StorySessionControl: View {
             }
             .buttonStyle(PressableStyle())
             .focused(focus, equals: .session)
-            .accessibilityLabel("Start a focus session")
+            .accessibilityLabel("Start focus")
+            .accessibilityHint("Opens the session controls to choose an activity")
         } else {
             Button(action: onDetails) {
                 HStack(spacing: Tokens.Space.s) {
+                    // The story's focus ink: system blue on its own tint was
+                    // 3.3:1 in the light appearance.
                     Circle()
-                        .fill(Tokens.Colour.focus)
+                        .fill(StoryStyle.focus)
                         .frame(width: 7, height: 7)
                         .opacity(store.isPaused ? 0.4 : 1)
+                    // Seconds swap plainly; only a new minute rolls, so the
+                    // corner of the window is not in motion every second.
                     Text(Tokens.clock(store.elapsed))
                         .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(Tokens.Colour.focus)
-                        .rollingDigits(store.elapsed)
+                        .foregroundStyle(StoryStyle.focus)
+                        .rollingDigits(DurationText.wholeSeconds(store.elapsed).map { $0 / 60 })
                     if store.pendingAway != nil {
                         Divider().frame(height: 12)
                         Text("Review away")
+                            .font(Tokens.Typography.metadata)
+                            .foregroundStyle(.secondary)
+                    } else if store.isPaused {
+                        // A dimmer dot was the only sign the clock had stopped.
+                        Divider().frame(height: 12)
+                        Text("Paused")
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
                     }
@@ -313,12 +324,14 @@ struct StorySessionControl: View {
                 .fixedSize()
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
+                .background(StoryStyle.focus.opacity(0.12), in: Capsule())
             }
             .buttonStyle(PressableStyle())
             .focused(focus, equals: .session)
-            .accessibilityLabel("\(Tokens.spent(store.elapsed)) elapsed, "
-                                + (store.isPaused ? "paused" : "running"))
+            .accessibilityLabel("Session, \(Tokens.spokenElapsed(store.elapsed)), "
+                                + (store.pendingAway != nil ? "away question waiting"
+                                   : store.isPaused ? "paused" : "running"))
+            .accessibilityAddTraits(.updatesFrequently)
             .accessibilityHint("Open session controls, including pause, resume and end")
         }
     }
