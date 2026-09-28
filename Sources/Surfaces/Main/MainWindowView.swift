@@ -36,6 +36,9 @@ struct MainWindowView: View {
                 SessionControlStrip(store: store, settings: settings, navigation: navigation)
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
+                    // Start, Pause and Stop come straight after the chrome,
+                    // not after the whole day's story.
+                    .accessibilitySortPriority(2)
                     .transition(Tokens.Motion.transition(Tokens.Motion.slideDown,
                                                          reduceMotion: reduceMotion))
             }
@@ -45,10 +48,16 @@ struct MainWindowView: View {
                 .accessibilitySortPriority(1)
         }
         .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+        // The open report is modal: what is dimmed behind it can be neither
+        // tabbed into nor read, so the keyboard and VoiceOver stay inside it.
+        .disabled(navigation.reportSession != nil)
+        .accessibilityHidden(navigation.reportSession != nil)
         .overlayPreferenceValue(CoachAnchorKey.self) { anchors in
             GeometryReader { coachSpace in
                 WelcomeCoachOverlay(coach: firstRun, anchors: anchors, proxy: coachSpace)
             }
+            // The welcome speaks to whoever is reading, so it is read first.
+            .accessibilitySortPriority(4)
         }
         .overlay {
             // Anchor to the finite window, never a long day's document height.
