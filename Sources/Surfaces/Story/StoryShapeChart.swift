@@ -14,6 +14,9 @@ struct StoryShapeChart: View {
     let appColourIndices: [String: Int]
     var height: CGFloat = 28
     var compact = false
+    /// Set where a list beneath names every interval, so VoiceOver hears the
+    /// strip once as a summary rather than each run again.
+    var runsListedBelow = false
     /// The run under the pointer, named beneath the strip the moment it is
     /// hovered — a tooltip arrives a second later, too late for a glance.
     @StateObject private var hovered = HoveredRunBox()
@@ -27,6 +30,7 @@ struct StoryShapeChart: View {
     private static let minimumCellSeconds: TimeInterval = 10
 
     var body: some View {
+        let summary = Self.summary(of: activity)
         VStack(alignment: .leading, spacing: 5) {
             GeometryReader { geometry in
                 let runs = SessionShape.runs(activity: activity,
@@ -38,7 +42,10 @@ struct StoryShapeChart: View {
                 // bead, and the row read as a string of them.
                 HStack(spacing: 0) {
                     ForEach(runs) { run in
-                        runView(run).frame(width: unit * CGFloat(run.cells))
+                        // The compact strip has no caption line, so its
+                        // tooltip leads with the whole strip before the run.
+                        runView(run, help: compact ? "\(summary)\n\(detail(run))" : detail(run))
+                            .frame(width: unit * CGFloat(run.cells))
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous))
@@ -65,8 +72,33 @@ struct StoryShapeChart: View {
                 .accessibilityHidden(true)
             }
         }
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: runsListedBelow ? .ignore : .contain)
         .accessibilityLabel("App activity: recorded app use, not typing intensity")
+        .accessibilityValue(summary)
+    }
+
+    /// The strip in words: the apps that held the front longest, and how many
+    /// gaps it has.
+    static func summary(of activity: RecordedActivity) -> String {
+        var totals: [String: TimeInterval] = [:]
+        var names: [String: String] = [:]
+        var gaps = 0
+        for interval in activity.intervals {
+            guard let bundleID = interval.bundleID else { gaps += 1; continue }
+            totals[bundleID, default: 0] += interval.duration
+            if names[bundleID] == nil { names[bundleID] = interval.appName ?? bundleID }
+        }
+        let ranked = totals.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
+        var apps = ranked.prefix(3).map { "\(names[$0.key] ?? $0.key) \(Tokens.spent($0.value))" }
+        if ranked.count > 3 {
+            let more = ranked.count - 3
+            apps.append(more == 1 ? "and 1 more app" : "and \(more) more apps")
+        }
+        var text = apps.isEmpty ? "No app use recorded." : apps.joined(separator: ", ") + "."
+        if gaps > 0 {
+            text += gaps == 1 ? " 1 gap with no app recording." : " \(gaps) gaps with no app recording."
+        }
+        return text
     }
 
     private func cellCount(for width: CGFloat) -> Int {
@@ -75,7 +107,7 @@ struct StoryShapeChart: View {
         return max(1, min(byWidth, byTime))
     }
 
-    private func runView(_ run: SessionShape.Run) -> some View {
+    private func runView(_ run: SessionShape.Run, help: String) -> some View {
         Rectangle()
             .fill(colour(run))
             .overlay {
@@ -89,7 +121,7 @@ struct StoryShapeChart: View {
             .onHover { inside in
                 if inside { hovered.run = run } else if hovered.run?.id == run.id { hovered.run = nil }
             }
-            .help(detail(run))
+            .help(help)
             .accessibilityLabel(detail(run))
     }
 

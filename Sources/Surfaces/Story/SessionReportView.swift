@@ -298,7 +298,8 @@ struct SessionReportView: View {
 
     private var activity: some View {
         section("Recorded activity") {
-            StoryShapeChart(activity: report.detail.activity, appColourIndices: report.appColourIndices)
+            StoryShapeChart(activity: report.detail.activity, appColourIndices: report.appColourIndices,
+                            runsListedBelow: true)
             VStack(spacing: 0) {
                 ForEach(Array(report.intervals.enumerated()), id: \.element.id) { index, interval in
                     HStack(spacing: Tokens.Space.s) {
