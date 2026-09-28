@@ -55,13 +55,14 @@ final class SessionCommandState: ObservableObject {
 
 /// Session control from the keyboard. Without Full Keyboard Access the
 /// hero's buttons cannot be reached with Tab, so these are the way a
-/// keyboard-only reader starts, pauses and ends a session. Each item runs the
+/// keyboard-only reader starts, pauses and ends a session. The app is an
+/// LSUIElement and never shows a menu bar, so the menu itself is not seen:
+/// it exists for its key equivalents, which the buttons' tooltips name. Each item runs the
 /// same store action as its button and is disabled exactly when that button
 /// is not shown.
 struct SessionCommands: Commands {
     let store: SessionStore
     @ObservedObject var state: SessionCommandState
-    let settings: SettingsModel
 
     private var mode: FocusSurfaceMode { state.snapshot.mode }
     private var isLive: Bool { mode == .running || mode == .paused || mode == .watching }
@@ -81,12 +82,6 @@ struct SessionCommands: Commands {
             Button("Stop") { store.stop() }
                 .keyboardShortcut(SessionShortcut.stop.shortcut)
                 .disabled(!isLive)
-        }
-
-        // Replaces the stock item, which only says help is not available.
-        CommandGroup(replacing: .help) {
-            Button("Show welcome tour") { settings.replayWelcome() }
-                .disabled(!settings.canReplayWelcome)
         }
     }
 
