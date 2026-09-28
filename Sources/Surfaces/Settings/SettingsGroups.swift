@@ -373,13 +373,6 @@ struct SettingsGroups: View {
             }
 
             SurfacePanel(title: "Data folder", layout: layout) {
-                readOnlyRow("Location", value: model.dataDirectoryURL.path,
-                            valueLayout: .statusBlock)
-                Button("Reveal data folder") { model.revealDataFolder() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .accessibilityHint("Opens the local FocusContinuity data folder in Finder")
-                rowDivider
                 readOnlyRow("Backup", value: "On request",
                             detail: "Copies this folder and your preferences to a new dated folder in "
                                 + "iCloud Drive › \(DataBackup.folderName). Earlier backups are never replaced.")
@@ -393,6 +386,13 @@ struct SettingsGroups: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                rowDivider
+                readOnlyRow("Location", value: model.dataDirectoryURL.path,
+                            valueLayout: .statusBlock)
+                Button("Reveal data folder") { model.revealDataFolder() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .accessibilityHint("Opens the local FocusContinuity data folder in Finder")
             }
         }
     }
