@@ -33,7 +33,10 @@ enum Tokens {
                 case .onFocus: return (0x0F1115, 0x0F1115)
                 case .progress: return (0x34C759, 0x30D158)
                 case .attention: return (0xFF9500, 0xFF9F0A)
-                case .danger: return (0xFF3B30, 0xFF453A)
+                // A red deep enough to be read: danger is mostly error text
+                // and the Remove label, and system red on white is 3.5:1.
+                // These clear 4.5:1 on every surface the app draws them on.
+                case .danger: return (0xC60B00, 0xFF7B73)
                 }
             }
 
@@ -54,12 +57,8 @@ enum Tokens {
         static func resolved(_ token: Name, dark: Bool) -> Resolved {
             let pair = token.swatch
             let alpha = token.alpha
-            let light = token == .danger
-                ? NSColor.systemRed
-                : NSColor(hex: pair.light, alpha: alpha.light)
-            let darkColour = token == .danger
-                ? NSColor.systemRed
-                : NSColor(hex: pair.dark, alpha: alpha.dark)
+            let light = NSColor(hex: pair.light, alpha: alpha.light)
+            let darkColour = NSColor(hex: pair.dark, alpha: alpha.dark)
             return Resolved(color: Color(light: light, dark: darkColour),
                             hex: dark ? pair.dark : pair.light)
         }

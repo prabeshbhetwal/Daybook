@@ -8,7 +8,9 @@ enum StoryStyle {
     static let card = Color(lightHex: 0xFFFFFF, darkHex: 0x2C2C2E)
     static let well = Color(lightHex: 0xF0EFED, darkHex: 0x343437)
     static let focus = Color(lightHex: 0x4E4CCC, darkHex: 0xB6B3FF)
-    static let action = Color(lightHex: 0x0071E3, darkHex: 0x75B5FF)
+    /// Links and text actions. The light value is a shade under Apple's
+    /// #0071E3, which fell to 4.1:1 on the well and the rail.
+    static let action = Color(lightHex: 0x0068D1, darkHex: 0x75B5FF)
     static let successInk = Color(lightHex: 0x087C3B, darkHex: 0x73D79A)
     static let successWash = Color(lightHex: 0xEFF8EF, darkHex: 0x25352B)
     static let line = Color(light: NSColor.black.withAlphaComponent(0.07),
@@ -59,8 +61,6 @@ enum StoryStyle {
     }
 }
 
-/// A restrained press treatment, retaining the native Button's keyboard and
-/// accessibility behaviour. It never adds motion when Reduce Motion is enabled.
 /// A text action in the app's own voice: semibold metadata in the action
 /// colour, a hover tint, a press that dims. Every in-app link wears this —
 /// the chrome's History and Insights, "Show all visits", "Undo", "Retry" —
@@ -89,6 +89,9 @@ struct StoryLinkStyle: ButtonStyle {
     }
 }
 
+/// A restrained press treatment, retaining the native Button's keyboard and
+/// accessibility behaviour. It never adds motion when Reduce Motion is enabled:
+/// the press dims but does not shrink.
 struct StoryPressStyle: ButtonStyle {
     /// Rows and text actions that should also tint under the pointer.
     var hovers = false
@@ -104,7 +107,7 @@ struct StoryPressStyle: ButtonStyle {
             }
         }
         .opacity(configuration.isPressed ? 0.6 : 1)
-        .scaleEffect(configuration.isPressed ? 0.985 : 1)
+        .scaleEffect(configuration.isPressed && !reduceMotion ? 0.985 : 1)
         .animation(Tokens.Motion.animation(configuration.isPressed ? Tokens.Motion.press
                                                                    : Tokens.Motion.release,
                                            reduceMotion: reduceMotion),
