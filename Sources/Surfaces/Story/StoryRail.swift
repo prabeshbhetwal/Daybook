@@ -335,12 +335,11 @@ struct StoryRail: View {
                     }
                 }
                 Spacer(minLength: 0)
-                if goalShare != nil {
-                    GoalRing(progress: goalShare ?? 0, diameter: 56, lineWidth: 7,
-                             label: "\(Int(((goalShare ?? 0) * 100).rounded()))%",
-                             isMet: (goalShare ?? 0) >= 1,
+                if let share = goalShare {
+                    GoalRing(progress: share, diameter: 56, lineWidth: 7,
+                             label: "\(Int((share * 100).rounded()))%",
+                             isMet: share >= 1,
                              labelFont: .system(size: 12, weight: .bold, design: .rounded))
-                        .accessibilityLabel("\(Int(((goalShare ?? 0) * 100).rounded())) per cent of the goal for \(store.dayLabel)")
                 }
             }
             if !categoryGoals.isEmpty {
@@ -519,27 +518,38 @@ struct StoryRail: View {
     // MARK: - Streak
 
     private var streakTile: some View {
-        StoryTile(title: "Current streak",
+        let days = store.streakDays()
+        return StoryTile(title: "Current streak",
                   trailing: store.streak == 1 ? "1 day" : "\(store.streak) days") {
             HStack(spacing: 3) {
-                ForEach(Array(store.streakDays().enumerated()), id: \.offset) { _, entry in
+                ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
                     RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
                         .fill(entry.met ? Tokens.Palette.app(rank: 4) : Tokens.Colour.elevated)
                         .frame(height: 8)
                 }
             }
+            // The strip's news is which days met the minimum; the streak
+            // length is already the card's trailing figure.
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(store.streak) day streak")
+            .accessibilityLabel("Last \(days.count) days")
+            .accessibilityValue("\(days.filter(\.met).count) of \(days.count) days met")
             HStack(spacing: Tokens.Space.xs) {
                 Text("Last 14 days. At least "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
-                Button("Awards") { navigation.openSheet(.awards) }
-                    .coachAnchor(.awards)
-                    .buttonStyle(StoryPressStyle())
-                    .font(Tokens.Typography.metadata.weight(.semibold))
-                    .foregroundStyle(Tokens.Colour.focus)
+                // The word is about 15pt tall. The padding lifts the target
+                // past 28pt; the negative padding keeps the row where it was.
+                Button { navigation.openSheet(.awards) } label: {
+                    Text("Awards")
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                }
+                .padding(.vertical, -7)
+                .coachAnchor(.awards)
+                .buttonStyle(StoryPressStyle())
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .foregroundStyle(Tokens.Colour.focus)
             }
         }
     }
