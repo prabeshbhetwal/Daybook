@@ -468,6 +468,11 @@ final class SessionStore: ObservableObject {
     /// How many times the reading was actually built. Verification reads it to
     /// prove a ticking clock no longer rebuilds an unchanged page.
     var insightReadingComputeCount = 0
+    /// History's journal, kept until the archive behind it changes.
+    var journalCache: (key: JournalKey, entries: [JournalEntry])?
+    /// How many times the journal was built. A check proves the clock alone
+    /// never rebuilds it.
+    var journalComputeCount = 0
     var reviewEvidenceRevision: EvidenceRevision?
     /// Explicit-date Story projections are immutable read models. Historical
     /// values survive ticker frames; current or running dates deliberately
