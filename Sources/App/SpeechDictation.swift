@@ -35,6 +35,7 @@ import Speech
     @Published private(set) var transcript = ""
 
     private let recognizer: SFSpeechRecognizer?
+    private var spoken = DictationTranscript()
     private var audioEngine: AVAudioEngine?
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
@@ -101,6 +102,9 @@ import Speech
         let engine = AVAudioEngine()
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
+        // Sentences end in full stops and questions in question marks, as they
+        // do in a chat app's dictation, rather than one unbroken run of words.
+        request.addsPunctuation = true
         if recognizer.supportsOnDeviceRecognition { request.requiresOnDeviceRecognition = true }
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
@@ -121,12 +125,17 @@ import Speech
         }
         audioEngine = engine
         self.request = request
+        spoken = DictationTranscript()
         transcript = ""
         status = .listening
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             DispatchQueue.main.async {
                 guard let self, self.status == .listening else { return }
-                if let result { self.transcript = result.bestTranscription.formattedString }
+                if let result {
+                    self.transcript = self.spoken.receive(
+                        result.bestTranscription.formattedString,
+                        endsUtterance: result.speechRecognitionMetadata != nil || result.isFinal)
+                }
                 if let error {
                     // Silence long enough for the recogniser to give up is not
                     // a failure worth a message; anything else is.
@@ -168,5 +177,60 @@ import Speech
         if trimmedBase.isEmpty { return spoken }
         if spoken.isEmpty { return trimmedBase }
         return trimmedBase + " " + spoken
+    }
+}
+
+/// Everything said in one listening spell, across pauses.
+///
+/// The recogniser reports the current utterance, not the whole spell: after a
+/// pause it starts afresh, and a note that showed only its latest result lost
+/// every word spoken before the pause. Finished utterances are kept here and
+/// the one in progress is added after them. An utterance counts as finished
+/// when the recogniser says so, or when its next result is plainly a new
+/// start: shorter, and beginning with a different word.
+struct DictationTranscript: Equatable {
+    private var finished: [String] = []
+    private var current = ""
+
+    var text: String { (finished + [current]).filter { !$0.isEmpty }.joined(separator: " ") }
+
+    mutating func receive(_ result: String, endsUtterance: Bool) -> String {
+        let words = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        if current.isEmpty, let last = finished.last,
+           Self.plain(words).hasPrefix(Self.plain(last)) {
+            // Not a new utterance after all: the recogniser went on with the
+            // one it had just finished, or sent it again. Kept once.
+            finished.removeLast()
+        }
+        if Self.startsAfresh(words, after: current) {
+            finished.append(current)
+        }
+        current = words
+        if endsUtterance && !current.isEmpty {
+            finished.append(current)
+            current = ""
+        }
+        return text
+    }
+
+    /// A revision of the utterance in progress keeps its first word and
+    /// rarely shrinks; a new utterance does neither.
+    private static func startsAfresh(_ next: String, after current: String) -> Bool {
+        guard !current.isEmpty, !next.isEmpty, next.count < current.count else { return false }
+        return firstWord(next) != firstWord(current)
+    }
+
+    /// Words only, for comparing results that differ in case or punctuation.
+    private static func plain(_ text: String) -> String {
+        text.lowercased()
+            .unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) || $0 == " " }
+            .map(String.init).joined()
+            .split(separator: " ").joined(separator: " ")
+    }
+
+    private static func firstWord(_ text: String) -> String {
+        String(text.split(separator: " ").first ?? "")
+            .lowercased()
+            .trimmingCharacters(in: .punctuationCharacters)
     }
 }

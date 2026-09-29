@@ -5,8 +5,41 @@ import Foundation
 enum DayStoryAccessibilityChecks {
     static let tests: [(String, () -> [String])] = [
         ("The activity strip's summary names the longest apps first and counts its gaps", stripSummary),
-        ("Compact durations are spoken in words, and nothing else is touched", spokenDurations)
+        ("Compact durations are spoken in words, and nothing else is touched", spokenDurations),
+        ("Dictation keeps what was said before a pause", dictationAcrossPauses)
     ]
+
+    /// Each case is a run of recogniser results, as (text, ends utterance),
+    /// and the note that should come of it.
+    private static func dictationAcrossPauses() -> [String] {
+        let cases: [(String, [(String, Bool)], String)] = [
+            ("partials grow one utterance",
+             [("Hello", false), ("Hello there", false)], "Hello there"),
+            ("a reset after a pause keeps the first utterance",
+             [("Hello there", false), ("And", false), ("And more words", false)],
+             "Hello there And more words"),
+            ("an utterance the recogniser finishes is kept",
+             [("Hello there.", true), ("And", false), ("And more.", true)],
+             "Hello there. And more."),
+            ("a revision replaces, it does not add",
+             [("I scream", false), ("Ice cream", false)], "Ice cream"),
+            ("finished on every partial still says each word once",
+             [("Hello", true), ("Hello there", true), ("Hello there, friend", true)],
+             "Hello there, friend"),
+            ("the last utterance sent again is kept once",
+             [("Hello there.", true), ("Hello there.", false)], "Hello there."),
+            ("a new utterance that happens to be longer is still kept after a finished one",
+             [("Yes.", true), ("That is right, thank you.", true)], "Yes. That is right, thank you.")
+        ]
+        var failures: [String] = []
+        for (name, results, expected) in cases {
+            var transcript = DictationTranscript()
+            var note = ""
+            for (text, ends) in results { note = transcript.receive(text, endsUtterance: ends) }
+            if note != expected { failures.append("\(name): \"\(note)\", expected \"\(expected)\"") }
+        }
+        return failures
+    }
 
     private static func spokenDurations() -> [String] {
         var failures: [String] = []
