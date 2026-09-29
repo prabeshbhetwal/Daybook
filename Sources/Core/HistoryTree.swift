@@ -274,3 +274,33 @@ enum HistoryTreeBuilder {
         }
     }
 }
+
+/// What the keyboard stands on in History: a row, or a session under an
+/// open day.
+enum HistoryFocus: Hashable {
+    case row(HistoryPlace)
+    case session(thread: UUID, day: Date)
+}
+
+extension HistoryTreeBuilder {
+    /// Every stop ↑ and ↓ can land on, in reading order: each root row,
+    /// then, under the one that is open, its rows, and so on down; under an
+    /// open day, its sessions. Breaks are not stops.
+    static func visible(open: [HistoryPlace], rows: (HistoryPlace?) -> [HistoryRow],
+                        threads: (Date) -> [UUID]) -> [HistoryFocus] {
+        var result: [HistoryFocus] = []
+        func walk(_ parent: HistoryPlace?, depth: Int) {
+            for row in rows(parent) {
+                result.append(.row(row.place))
+                guard open.indices.contains(depth), open[depth] == row.place else { continue }
+                if row.place.level == .day {
+                    for thread in threads(row.place.start) { result.append(.session(thread: thread, day: row.place.start)) }
+                } else {
+                    walk(row.place, depth: depth + 1)
+                }
+            }
+        }
+        walk(nil, depth: 0)
+        return result
+    }
+}

@@ -15,7 +15,9 @@ enum HistoryTreeChecks {
         ("Jump to date builds the path down to the day", pathToDay),
         ("A daylight-saving week keeps seven days", daylightSaving),
         ("The tree's summary names the best month for a year and the best day for a month", summaryBest),
-        ("A ticking clock does not rebuild the tree, and today's live figures reach its rows", treeIsCached)
+        ("A ticking clock does not rebuild the tree, and today's live figures reach its rows", treeIsCached),
+        ("Opening a row folds its sibling; folding a row folds everything under it; an empty row cannot open", openAndFold),
+        ("Arrow keys walk the visible rows in reading order, Return toggles, left and right fold and open", keyboardWalk)
     ]
 
     // MARK: - Fixtures
@@ -307,5 +309,73 @@ enum HistoryTreeChecks {
             if store.historyTreeComputeCount != built { failures.append("reading live rows rebuilt the tree") }
             return failures
         }
+    }
+
+    // MARK: - Model
+
+    private static func openAndFold() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            store.refreshReview()
+            let navigation = MainWindowModel(store: store)
+            navigation.open(tab: .review)
+            var failures: [String] = []
+            let top = store.historyTop()
+            let expected = HistoryTreeBuilder.pathToToday(top: top, calendar: SessionStore.historyCalendar)
+            if navigation.historyOpen != expected { failures.append("History did not open to this week: \(navigation.historyOpen.map(\.level))") }
+            let roots = store.historyRows(under: nil).filter { !$0.isEmpty }
+            guard roots.count >= 2 else { return ["the dense fixture has fewer than two root rows with evidence"] }
+            let newest = roots[0], older = roots[1]
+            navigation.toggleHistory(older.place)
+            if navigation.historyOpen != [older.place] { failures.append("opening a sibling did not fold the open root: \(navigation.historyOpen.map(\.level))") }
+            navigation.toggleHistory(newest.place)
+            let children = store.historyRows(under: newest.place)
+            if let child = children.first(where: { !$0.isEmpty }) {
+                navigation.toggleHistory(child.place)
+                if navigation.historyOpen != [newest.place, child.place] { failures.append("a child did not open under its parent") }
+                navigation.toggleHistory(newest.place)
+                if !navigation.historyOpen.isEmpty { failures.append("folding the root left \(navigation.historyOpen.count) open") }
+            }
+            navigation.toggleHistory(newest.place)
+            if let empty = children.first(where: \.isEmpty) {
+                navigation.toggleHistory(empty.place)
+                if navigation.historyOpen.contains(empty.place) { failures.append("an empty row opened") }
+            }
+            // A child of a folded parent cannot be opened out of order.
+            navigation.foldDeepestHistory()
+            if let child = children.first(where: { !$0.isEmpty }) {
+                navigation.toggleHistory(child.place)
+                if navigation.historyOpen.contains(child.place) { failures.append("a child opened under a folded parent") }
+            }
+            // Escape folds one level at a time.
+            navigation.toggleHistory(newest.place)
+            if let child = children.first(where: { !$0.isEmpty }) { navigation.toggleHistory(child.place) }
+            let depth = navigation.historyOpen.count
+            navigation.foldDeepestHistory()
+            if navigation.historyOpen.count != depth - 1 { failures.append("Escape folded \(depth - navigation.historyOpen.count) levels") }
+            return failures
+        }
+    }
+
+    private static func keyboardWalk() -> [String] {
+        let top = HistoryTreeBuilder.top(days: september, today: today, calendar: calendar)
+        let weeks = HistoryTreeBuilder.rows(under: nil, top: top, days: september, calendar: calendar)
+        let thisWeek = weeks[0]
+        let days = HistoryTreeBuilder.rows(under: thisWeek.place, top: top, days: september, calendar: calendar)
+        let a = UUID(), b = UUID()
+        let rows: (HistoryPlace?) -> [HistoryRow] = { parent in
+            HistoryTreeBuilder.rows(under: parent, top: top, days: september, calendar: calendar)
+        }
+        let threads: (Date) -> [UUID] = { $0 == date(9, 28) ? [a, b] : [] }
+        // This week open, and Monday 28 open: its two sessions are stops.
+        let open = [thisWeek.place, days[1].place]
+        let visible = HistoryTreeBuilder.visible(open: open, rows: rows, threads: threads)
+        let expected: [HistoryFocus] = [
+            .row(thisWeek.place), .row(days[0].place), .row(days[1].place),
+            .session(thread: a, day: date(9, 28)), .session(thread: b, day: date(9, 28)),
+            .row(weeks[1].place), .row(weeks[2].place)
+        ]
+        return visible == expected ? [] : ["visible rows read \(visible), expected \(expected)"]
     }
 }

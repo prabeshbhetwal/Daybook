@@ -144,6 +144,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     }
 }
 
+/// A session picked in History: its thread on that day.
+struct HistorySessionPick: Hashable {
+    let thread: UUID
+    let day: Date
+}
+
 /// The window's route. `AppTab` is only the vocabulary callers use to ask for
 /// a place; what is showing is `workspace`, `sheet` and the session strip.
 @MainActor final class MainWindowModel: ObservableObject {
@@ -155,9 +161,24 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     @Published private(set) var historySelection: HistorySelection?
     /// Bumped when the journal should bring the selection into view.
     @Published private(set) var historyScrollRequest = 0
+    /// The rows open in History, root first. One row per level; opening a
+    /// sibling folds the row that was open there.
+    @Published private(set) var historyOpen: [HistoryPlace] = []
+    /// The session the rail describes, under an open day.
+    @Published private(set) var historySession: HistorySessionPick?
+    /// The row the keyboard stands on.
+    @Published private(set) var historyFocus: HistoryFocus?
+    /// The row to bring into view when `historyScrollRequest` bumps.
+    @Published private(set) var historyScrollTarget: String?
+    private var historyPrepared = false
 
-    /// The day History is inspecting: a picked day, or a picked session's day.
-    var reviewSelectedDate: Date? { historySelection?.day }
+    var historyDeepestOpen: HistoryPlace? { historyOpen.last }
+
+    /// The day History is inspecting: an open day, a picked session's day,
+    /// or the journal's selection while it still exists.
+    var reviewSelectedDate: Date? {
+        historySession?.day ?? historyOpen.last(where: { $0.level == .day })?.start ?? historySelection?.day
+    }
     /// The sheet over the story, if any. The story itself is always a day.
     @Published private(set) var sheet: StorySheetKind?
     /// Transient expansion belongs to navigation, not session state. A
@@ -218,10 +239,12 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
                 sheet = nil
                 store?.refreshReview()
                 store?.refreshInsights()
+                prepareHistory()
             case .insights:
                 workspace = .history
                 sheet = nil
                 store?.refreshInsights()
+                prepareHistory()
             case .story:
                 workspace = .story
                 sheet = nil
@@ -286,6 +309,135 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         let next = HistoryJournalBuilder.step(from: historySelectionOrDefault(), by: delta, entries: entries,
                                               threads: { store.journalThreads(on: $0, only: only[$0]) })
         selectHistory(next, scrolling: true)
+    }
+
+    // MARK: - History's tree
+
+    /// The first time History shows: unfold to this week. Later openings
+    /// keep whatever the reader left open.
+    func prepareHistory() {
+        guard !historyPrepared, let store else { return }
+        historyPrepared = true
+        historyOpen = HistoryTreeBuilder.pathToToday(top: store.historyTop(), calendar: SessionStore.historyCalendar)
+    }
+
+    private func historyDepth(of place: HistoryPlace) -> Int? {
+        guard let store else { return nil }
+        let depth = place.level.rawValue - store.historyTop().rootLevel.rawValue
+        // A row is only on screen when every level above it is open.
+        return depth >= 0 && depth <= historyOpen.count ? depth : nil
+    }
+
+    /// Click or Return on a row: open it, folding the sibling that was open
+    /// at its level; or fold it and everything under it.
+    func toggleHistory(_ place: HistoryPlace) {
+        guard let store, let depth = historyDepth(of: place) else { return }
+        let parent = depth == 0 ? nil : historyOpen[depth - 1]
+        guard let row = store.historyRows(under: parent).first(where: { $0.place == place }), !row.isEmpty else { return }
+        animated(Tokens.Motion.reveal) {
+            historySession = nil
+            if historyOpen.indices.contains(depth), historyOpen[depth] == place {
+                historyOpen = Array(historyOpen.prefix(depth))
+            } else {
+                historyOpen = Array(historyOpen.prefix(depth)) + [place]
+                historyScrollTarget = place.id
+                historyScrollRequest &+= 1
+            }
+            historyFocus = .row(place)
+        }
+    }
+
+    /// Escape: fold the deepest open row. False when nothing was open.
+    @discardableResult
+    func foldDeepestHistory() -> Bool {
+        guard let last = historyOpen.last else { return false }
+        animated(Tokens.Motion.dismiss) {
+            historySession = nil
+            historyOpen.removeLast()
+            historyFocus = .row(last)
+        }
+        return true
+    }
+
+    /// Jump to date and search: unfold down to the day and open it.
+    func openHistory(day: Date) {
+        guard let store else { return }
+        let path = HistoryTreeBuilder.path(to: day, top: store.historyTop(), calendar: SessionStore.historyCalendar)
+        animated(Tokens.Motion.reveal) {
+            historySession = nil
+            historyOpen = path
+            if let last = path.last {
+                historyFocus = .row(last)
+                historyScrollTarget = last.id
+                historyScrollRequest &+= 1
+            }
+        }
+    }
+
+    /// A session row clicked: the rail describes it. Its day is opened if
+    /// it was not, so the row is on screen.
+    func selectHistory(session thread: UUID, on day: Date) {
+        let day = SessionStore.historyCalendar.startOfDay(for: day)
+        if historyOpen.last?.level != .day || historyOpen.last?.start != day { openHistory(day: day) }
+        animated(Tokens.Motion.selection) {
+            historySession = HistorySessionPick(thread: thread, day: day)
+            historyFocus = .session(thread: thread, day: day)
+        }
+    }
+
+    private func historyVisible() -> [HistoryFocus] {
+        guard let store else { return [] }
+        return HistoryTreeBuilder.visible(open: historyOpen, rows: { store.historyRows(under: $0) },
+                                          threads: { store.journalThreads(on: $0, only: nil) })
+    }
+
+    /// ↑ and ↓: one visible row at a time. With no focus, ↓ lands on the
+    /// first row and ↑ on the last.
+    func stepHistoryFocus(by delta: Int) {
+        let stops = historyVisible()
+        guard !stops.isEmpty else { return }
+        let next: HistoryFocus
+        if let current = historyFocus, let index = stops.firstIndex(of: current) {
+            next = stops[max(0, min(stops.count - 1, index + delta))]
+        } else {
+            next = delta > 0 ? stops[0] : stops[stops.count - 1]
+        }
+        animated(Tokens.Motion.selection) {
+            historyFocus = next
+            if case .session(let thread, let day) = next { historySession = HistorySessionPick(thread: thread, day: day) }
+            switch next {
+            case .row(let place): historyScrollTarget = place.id
+            case .session(let thread, _): historyScrollTarget = "session-\(thread.uuidString)"
+            }
+            historyScrollRequest &+= 1
+        }
+    }
+
+    /// Return: open or fold the focused row; select the focused session.
+    func activateHistoryFocus() {
+        switch historyFocus {
+        case .row(let place): toggleHistory(place)
+        case .session(let thread, let day): selectHistory(session: thread, on: day)
+        case nil: stepHistoryFocus(by: 1)
+        }
+    }
+
+    /// → opens a folded row; ← folds an open one, or moves to its parent.
+    func moveHistoryFocus(open: Bool) {
+        guard case .row(let place) = historyFocus, let depth = historyDepth(of: place) else {
+            if !open, case .session(_, let day) = historyFocus,
+               let dayPlace = historyOpen.last, dayPlace.level == .day, dayPlace.start == day {
+                animated(Tokens.Motion.selection) { historyFocus = .row(dayPlace) }
+            }
+            return
+        }
+        let isOpen = historyOpen.indices.contains(depth) && historyOpen[depth] == place
+        if open, !isOpen { toggleHistory(place) }
+        if !open {
+            if isOpen { toggleHistory(place) } else if depth > 0 {
+                animated(Tokens.Motion.selection) { historyFocus = .row(historyOpen[depth - 1]) }
+            }
+        }
     }
 
     /// Surfaces transition on these values, and a transition runs only
