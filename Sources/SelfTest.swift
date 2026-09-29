@@ -7192,7 +7192,7 @@ enum SelfTest {
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
                 .focusSaveFailure,
                 .todayHistory, .todayHistoryExpanded, .todayPast,
-                .reviewHistorySelection,
+                .reviewHistorySelection, .historySession, .historySearch,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .storyDay, .storyDayEntry,

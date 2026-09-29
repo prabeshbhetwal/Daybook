@@ -392,16 +392,16 @@ enum FirstRunScript {
 
         Chapter(id: .lookingBack, cards: [
             Card(sentence: "The story is a day. History is the longer view.",
-                 body: "Pick how far back to look: 7 or 30 days by day, 3 months by "
-                     + "week, 12 months as a calendar for each month. Pick a bar or a "
-                     + "month to read it, down to a single day's story.",
-                 anchor: .scopePills,
+                 body: "History lists every day you recorded, newest first: each month "
+                     + "with its total, each day with its sessions. Click a month, a day "
+                     + "or a session to read it beside the list. ↑ and ↓ move through it; "
+                     + "Return opens a day's story.",
+                 anchor: .journal,
                  effect: .showHistory),
             Card(sentence: "History goes back to the day you installed the app.",
-                 body: "The arrows step back by the range you chose. The dates between "
-                     + "them open a calendar: click a first day and a last, and History "
-                     + "reads exactly that stretch. There is nothing from before the app "
-                     + "was here, because nothing was recorded.",
+                 body: "Scroll to go further back, or use Jump to date to pick a day on "
+                     + "the calendar. There is nothing from before the app was here, "
+                     + "because nothing was recorded.",
                  anchor: .periodNav,
                  effect: .showHistory),
             Card(sentence: "Find any session by name.",

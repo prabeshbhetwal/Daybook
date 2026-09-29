@@ -148,8 +148,8 @@ struct MainWindowView: View {
             StoryCanvas(store: store, navigation: navigation, settings: settings,
                         scrolls: reviewScrolls)
             case .history:
-                InsightsView(store: store, navigation: navigation,
-                             scrolls: insightsScrolls)
+                HistoryWorkspace(store: store, navigation: navigation,
+                                 scrolls: insightsScrolls)
                     .onAppear {
                         store.setReviewVisible(true)
                         store.refreshReview()

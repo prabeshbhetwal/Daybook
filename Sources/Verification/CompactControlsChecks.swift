@@ -479,12 +479,12 @@ enum CompactControlsChecks {
             }
 
             // The component having one target is not enough: the real chrome
-            // must actually use it. Story and History each show one scope
-            // row, never two, whichever route opened History.
+            // must actually use it, and only where a scope is chosen —
+            // whichever route opened History.
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             defer { FixtureFactory.cleanUp() }
-            // The story is a day and has no scope row; History has exactly one.
-            for (tab, expected) in [(AppTab.story, 0), (.insights, 1), (.review, 1)] {
+            // Neither the story nor History has a scope row: the story is a day, and History is one list.
+            for (tab, expected) in [(AppTab.story, 0), (.insights, 0), (.review, 0)] {
                 let navigation = MainWindowModel(store: store)
                 navigation.open(tab: tab)
                 let host = NSHostingView(rootView: StoryChromeBar(store: store,
@@ -505,13 +505,12 @@ enum CompactControlsChecks {
                 window.contentView = nil
             }
 
-            // The Insights page must not carry a second copy of the scope the
-            // chrome already owns.
+            // Nor may the History page carry a scope control of its own.
             let insightsNavigation = MainWindowModel(store: store)
             insightsNavigation.open(tab: .insights)
-            let page = NSHostingView(rootView: InsightsView(store: store,
-                                                            navigation: insightsNavigation,
-                                                            scrolls: false)
+            let page = NSHostingView(rootView: HistoryWorkspace(store: store,
+                                                                navigation: insightsNavigation,
+                                                                scrolls: false)
                 .frame(width: 1_000, height: 700))
             page.frame = NSRect(x: 0, y: 0, width: 1_000, height: 700)
             let pageWindow = NSWindow(contentRect: page.frame, styleMask: .borderless,
@@ -522,7 +521,7 @@ enum CompactControlsChecks {
             page.layoutSubtreeIfNeeded()
             let onPage = descendants(in: page, of: ScopeNSSegmentedControl.self).count
             if onPage != 0 {
-                failures.append("The Insights page duplicated the chrome's scope control "
+                failures.append("The History page carried a scope control "
                                 + "(\(onPage) found)")
             }
             pageWindow.contentView = nil
