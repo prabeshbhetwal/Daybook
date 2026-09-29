@@ -56,6 +56,7 @@ The scale stays strictly ascending, so `CompactControlsChecks`' scale check hold
 `‹ Today` · **History** · `Jump to date` · Start focus · Settings
 
 - **Jump to date** opens the existing `DayPickerCalendar` in single-date mode, limited to recorded days. Picking a day scrolls the journal to it and selects it.
+  - The calendar keeps its per-day figures (restored at the user's request on 2026-09-29): each date's focused time or an at-the-Mac dot, a tick for a met goal, and the month sum in the header. This supersedes the 2026-09-28 "calendar is a picker only" rule.
 - The range pills, the ‹ › paging, the span label and the custom-span picking all go.
 
 ### Column: the journal
@@ -127,6 +128,7 @@ Requested by the parallel accessibility session. Everything except the arrow key
 - **Keyboard (needs approval):** with the journal focused, ↑/↓ move the selection through the rows in order (month, day, session), and Return opens the selected day's story, the keyboard twin of double-click.
 - Selection changes and Jump-to-date scrolling animate through `Tokens.Motion` with Reduce Motion honoured, as the rest of the app does.
 - The search result count (`12 sessions match · 8h 20m of focus`) is announced with the accessibility branch's `Announcement.post(_:)`. Rail tiles reuse `StoryTile`, whose titles are already headings.
+- Duration figures in the journal and rail use `Text(durations:)` (`Design/Components/Announcement.swift`), so VoiceOver says "51 minutes", not "51 metres". Row labels built from strings that contain compact durations go through `DurationText.spoken(in:)`.
 
 ## 3. Code
 
