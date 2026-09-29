@@ -43,7 +43,10 @@ enum EfficiencyChecks {
                                    now: { clock.value })
         let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.efficiency",
                                       idle: .disabled, now: { clock.value })
-        let store = SessionStore(engine: engine, now: { clock.value })
+        // The checks tick the store themselves. A live ticker could fall due
+        // during a slow (-Onone) build, sample the build Mac's real HID idle
+        // and close the tracker's open stretch, as it did in check #202.
+        let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
         store.attach(tracker: tracker, usage: usage)
         return Fixture(store: store, usage: usage, tracker: tracker, cleanUp: {
             try? FileManager.default.removeItem(at: directory)
