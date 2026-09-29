@@ -436,7 +436,7 @@ enum CompactControlsChecks {
         MainActor.assumeIsolated {
             var failures: [String] = []
             let rows: [(String, [String])] = [
-                ("Insights range", InsightRange.allCases.map(\.title)),
+                ("Three-title row", ["Day", "Week", "Month"]),
                 ("Review section", ReviewSection.allCases.map(\.title))
             ]
             for (label, titles) in rows {
@@ -506,10 +506,10 @@ enum CompactControlsChecks {
             }
 
             // Nor may the History page carry a scope control of its own.
-            let insightsNavigation = MainWindowModel(store: store)
-            insightsNavigation.open(tab: .insights)
+            let historyNavigation = MainWindowModel(store: store)
+            historyNavigation.open(tab: .insights)
             let page = NSHostingView(rootView: HistoryWorkspace(store: store,
-                                                                navigation: insightsNavigation,
+                                                                navigation: historyNavigation,
                                                                 scrolls: false)
                 .frame(width: 1_000, height: 700))
             page.frame = NSRect(x: 0, y: 0, width: 1_000, height: 700)

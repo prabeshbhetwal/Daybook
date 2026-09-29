@@ -183,8 +183,8 @@ struct NativeScopeControl: NSViewRepresentable {
         coordinator.selectedIndex = $selectedIndex
         coordinator.titles = titles
         control.selectedSegment = selectedIndex
-        // History's range reads -1 when a span was picked on the calendar;
-        // VoiceOver heard ", selected" with no name.
+        // A row with nothing chosen reads -1; VoiceOver heard ", selected"
+        // with no name.
         control.setAccessibilityValue(
             titles[safe: selectedIndex].map(ScopeKeyboardSelection.accessibilityValue(title:))
                 ?? "Custom span")

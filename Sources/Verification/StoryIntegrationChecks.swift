@@ -9,7 +9,7 @@ enum StoryIntegrationChecks {
         ("Continuing after a saved note keeps the note on its own stretch", continueAfterNote),
         ("Undoing an older receipt leaves the day's story in place", undoWithMonthChildOpen),
         ("Editing activity rules never collapses a pinned session strip", ruleEditWithPinnedStrip),
-        ("Switching History's range leaves the story's day untouched", insightsLeaveStory),
+        ("Picking in History leaves the story's day untouched", insightsLeaveStory),
         ("Power and no-power fixtures render the same story with factual metadata", powerAndNoPower),
         ("Reduce Motion drops every product animation to instant", reduceMotionContract),
         ("An automatic start reaches the session controls once the main queue turns",
@@ -379,10 +379,17 @@ enum StoryIntegrationChecks {
             navigation.jumpToDay(day)
             let shown = store.selectedDay
             var failures: [String] = []
-            for range in HistoryRange.allCases {
-                navigation.selectHistoryRange(range)
+            store.refreshReview()
+            navigation.open(tab: .review)
+            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: store.now())!
+            var picks: [HistorySelection] = [.month(yesterday), .day(Calendar.current.startOfDay(for: yesterday))]
+            if let thread = store.journalThreads(on: yesterday, only: nil).first {
+                picks.append(.session(thread: thread, day: Calendar.current.startOfDay(for: yesterday)))
+            }
+            for pick in picks {
+                navigation.selectHistory(pick)
                 if store.selectedDay != shown {
-                    failures.append("selecting History \(range) changed the story's day")
+                    failures.append("picking \(pick) in History changed the story's day")
                 }
             }
             return failures

@@ -2,10 +2,6 @@ import SwiftUI
 
 enum StoryRenderEvidence: String, Hashable {
     case dayStory
-    case historyDetail
-    case insightPeriod
-    case insightStrongestDay
-    case insightEmptyPeriod
     case historyJournal
     case historyEmpty
     case historyMonthRail

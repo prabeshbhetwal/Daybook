@@ -421,7 +421,7 @@ final class SessionStore: ObservableObject {
     // Internal for SessionStore+Dashboard.swift.
     var cachedWindow: (start: Date, end: Date)?
     /// The first day with anything recorded, kept per evidence revision. It
-    /// bounds day stepping, the date picker and Insights paging, which can all
+    /// bounds day stepping, the date picker and History's journal, which can all
     /// be reached while the dashboard is hidden and not rebuilding, so it is
     /// derived on demand rather than left to that rebuild.
     var earliestDay: Date? {

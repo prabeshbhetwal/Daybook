@@ -5,7 +5,6 @@ enum StoryNavigationChecks {
     static let tests: [(String, () -> [String])] = [
         ("Story commands present the requested surface, including repeat routes", routes),
         ("A day opened from History shows that day's own evidence", historicalEvidence),
-        ("History ranges read a fixed span at the grouping that suits it", historyRanges),
         ("Find in History opens History with the cursor asked for its search", findInHistory),
         ("Picking in History changes what the rail reads, never the story's day", historyPicks),
         ("Jump to date and the arrow keys move History's selection and its scroll", historyJumpAndSteps)
@@ -94,52 +93,6 @@ enum StoryNavigationChecks {
             navigation.findInHistory()
             if navigation.sheet != nil {
                 failures.append("Find in History left Settings covering the search")
-            }
-            return failures
-        }
-    }
-
-    private static func historyRanges() -> [String] {
-        MainActor.assumeIsolated {
-            var failures: [String] = []
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            defer { FixtureFactory.cleanUp() }
-            let navigation = MainWindowModel(opening: .review, store: store)
-            let expected: [(HistoryRange, InsightRange, Int)] = [
-                (.days7, .day, 7), (.days30, .day, 30), (.months3, .week, 13), (.months12, .month, 12)
-            ]
-            for (range, grouping, count) in expected {
-                navigation.selectHistoryRange(range)
-                if navigation.insightRange != grouping || navigation.insightRequestedCount != count {
-                    failures.append("\(range.title) read \(navigation.insightRequestedCount) "
-                                    + "\(navigation.insightRange) periods, not \(count) \(grouping)")
-                }
-            }
-            // Changing range keeps where the reader is: the span still ends there.
-            let calendar = Calendar.current
-            let end = calendar.date(byAdding: .day, value: -3, to: calendar.startOfDay(for: store.now()))!
-            navigation.jumpInsights(to: end)
-            navigation.selectHistoryRange(.days7)
-            if !calendar.isDate(navigation.insightAnchor, inSameDayAs: end) {
-                failures.append("changing range moved the end of the span")
-            }
-            // A picked span groups by the length of it.
-            for (days, grouping) in [(10, InsightRange.day), (60, .week), (200, .month)] {
-                let start = calendar.date(byAdding: .day, value: -(days - 1), to: end)!
-                navigation.setCustomHistoryRange(start, end)
-                if navigation.insightRange != grouping || navigation.historyRange != nil {
-                    failures.append("a \(days)-day span read by \(navigation.insightRange), not \(grouping)")
-                }
-            }
-            let tenDays = calendar.date(byAdding: .day, value: -9, to: end)!
-            navigation.setCustomHistoryRange(tenDays, end)
-            if navigation.insightRequestedCount != 10
-                || !calendar.isDate(navigation.insightAnchor, inSameDayAs: end) {
-                failures.append("a ten-day span did not read exactly those ten days")
-            }
-            navigation.selectHistoryRange(.months3)
-            if navigation.historyRange != .months3 || navigation.insightRange != .week {
-                failures.append("choosing a range after a picked span did not return to that range")
             }
             return failures
         }
