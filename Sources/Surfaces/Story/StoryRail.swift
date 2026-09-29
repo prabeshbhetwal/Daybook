@@ -325,10 +325,10 @@ struct StoryRail: View {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     if goal.goal > 0 {
-                        Text(Tokens.preciseDuration(goal.achieved))
+                        Text(durations: Tokens.preciseDuration(goal.achieved))
                             .font(Tokens.Typography.metricValue.monospacedDigit())
                             .rollingDigits(goal.achieved)
-                        Text("counts towards your \(Tokens.duration(goal.goal)) goal"
+                        Text(durations: "counts towards your \(Tokens.duration(goal.goal)) goal"
                              + (goal.isMet ? " · goal met" : ""))
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
@@ -388,7 +388,7 @@ struct StoryRail: View {
                         Text(item.type.displayName)
                             .font(Tokens.Typography.metadata)
                         Spacer(minLength: Tokens.Space.s)
-                        Text("\(Tokens.duration(item.achieved)) of \(Tokens.duration(item.goal))"
+                        Text(durations: "\(Tokens.duration(item.achieved)) of \(Tokens.duration(item.goal))"
                              + (share >= 1 ? " · met" : ""))
                             .font(Tokens.Typography.metadata.monospacedDigit())
                             .foregroundStyle(share >= 1 ? AnyShapeStyle(StoryStyle.successInk)
@@ -404,7 +404,7 @@ struct StoryRail: View {
                     .frame(height: 3)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(item.type.displayName): \(Tokens.duration(item.achieved)) of a \(Tokens.duration(item.goal)) goal")
+                .accessibilityLabel(DurationText.spoken(in: "\(item.type.displayName): \(Tokens.duration(item.achieved)) of a \(Tokens.duration(item.goal)) goal"))
             }
         }
     }
@@ -423,7 +423,7 @@ struct StoryRail: View {
         let unrecordedValue = evidence.uncoveredFocus
         return StoryTile(title: "On this Mac", trailing: nil) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                Text(Tokens.preciseDuration(trackedValue))
+                Text(durations: Tokens.preciseDuration(trackedValue))
                     .rollingDigits(trackedValue)
                     .font(Tokens.Typography.rowTitle.weight(.semibold).monospacedDigit())
                 Text("recorded app use")
@@ -453,7 +453,7 @@ struct StoryRail: View {
             }
             if unrecordedValue > 0 {
                     Divider()
-                    Text("\(Tokens.duration(unrecordedValue)) of your focus has no app use recorded.")
+                    Text(durations: "\(Tokens.duration(unrecordedValue)) of your focus has no app use recorded.")
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -488,7 +488,7 @@ struct StoryRail: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(label), \(value)")
+        .accessibilityLabel(DurationText.spoken(in: "\(label), \(value)"))
     }
 
     // MARK: - Apps
@@ -550,7 +550,7 @@ struct StoryRail: View {
             // On the first line's baseline, so the link stays beside the
             // sentence it follows when the sentence wraps.
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
-                Text("Last 14 days. A day counts once it has "
+                Text(durations: "Last 14 days. A day counts once it has "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)

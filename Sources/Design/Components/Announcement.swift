@@ -28,3 +28,11 @@ extension View {
         }
     }
 }
+
+extension Text {
+    /// Text that shows compact durations and speaks them in words. `2h 15m`
+    /// is what the eye wants in a tile; VoiceOver would say "15 metres".
+    init(durations text: String) {
+        self = Text(text).accessibilityLabel(DurationText.spoken(in: text))
+    }
+}

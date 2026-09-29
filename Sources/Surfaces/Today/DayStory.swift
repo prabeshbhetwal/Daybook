@@ -218,7 +218,7 @@ struct DayStory: View {
                             // is the one thing the row can honestly add.
                             Text(title + (power.map { " · \($0.headline)" } ?? ""))
                             Spacer(minLength: 8)
-                            Text(Tokens.duration(span.duration)).monospacedDigit()
+                            Text(durations: Tokens.duration(span.duration)).monospacedDigit()
                         }
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                         .padding(.vertical, 10)
@@ -952,7 +952,7 @@ struct RestEntryRow: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Tokens.Space.s)
-            Text(Tokens.preciseDuration(rest.length))
+            Text(durations: Tokens.preciseDuration(rest.length))
                 .font(Tokens.Typography.metadata.monospacedDigit())
                 .foregroundStyle(.secondary)
             StoryLegacyBreakActions(store: store, rest: rest)

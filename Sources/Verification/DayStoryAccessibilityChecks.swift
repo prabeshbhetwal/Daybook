@@ -4,8 +4,36 @@ import Foundation
 /// spoken summary loses the figures the picture carries.
 enum DayStoryAccessibilityChecks {
     static let tests: [(String, () -> [String])] = [
-        ("The activity strip's summary names the longest apps first and counts its gaps", stripSummary)
+        ("The activity strip's summary names the longest apps first and counts its gaps", stripSummary),
+        ("Compact durations are spoken in words, and nothing else is touched", spokenDurations)
     ]
+
+    private static func spokenDurations() -> [String] {
+        var failures: [String] = []
+        let cases: [(String, String)] = [
+            ("2h 15m", "2 hours 15 minutes"),
+            ("1h", "1 hour"),
+            ("1m", "1 minute"),
+            ("0m", "0 minutes"),
+            ("45s", "45 seconds"),
+            ("<1s", "under a second"),
+            ("You've logged 51m across one focus session.",
+             "You've logged 51 minutes across one focus session."),
+            ("Daily goal: 30m of a 4h goal", "Daily goal: 30 minutes of a 4 hours goal"),
+            // Left alone: clock times, counts, key glyphs and words with digits.
+            ("9:15 am to 10:45 am", "9:15 am to 10:45 am"),
+            ("Step 1 of 3 · 12 stretches", "Step 1 of 3 · 12 stretches"),
+            ("⌥⌘S", "⌥⌘S"),
+            ("mp3s and 4ms", "mp3s and 4ms")
+        ]
+        for (shown, expected) in cases {
+            let spoken = DurationText.spoken(in: shown)
+            if spoken != expected {
+                failures.append("\"\(shown)\" was spoken as \"\(spoken)\", not \"\(expected)\"")
+            }
+        }
+        return failures
+    }
 
     private static let start = Date(timeIntervalSince1970: 1_800_000_000)
 

@@ -250,7 +250,7 @@ struct SessionReportView: View {
 
     private func figure(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(value)
+            Text(durations: value)
                 .font(Tokens.Typography.sectionTitle.monospacedDigit())
             Text(label)
                 .font(Tokens.Typography.microLabel)
@@ -272,7 +272,7 @@ struct SessionReportView: View {
                         Text(Tokens.timeRange(stretch.start, stretch.end))
                             .font(Tokens.Typography.metadata)
                         Spacer(minLength: Tokens.Space.s)
-                        Text(Tokens.preciseDuration(stretch.worked))
+                        Text(durations: Tokens.preciseDuration(stretch.worked))
                             .font(Tokens.Typography.metadata.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
@@ -325,7 +325,7 @@ struct SessionReportView: View {
                             .lineLimit(1)
                             .help(name)
                         Spacer(minLength: Tokens.Space.s)
-                        Text(Tokens.preciseDuration(interval.duration))
+                        Text(durations: Tokens.preciseDuration(interval.duration))
                             .font(Tokens.Typography.metadata.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }

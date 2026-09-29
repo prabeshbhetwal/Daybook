@@ -110,7 +110,7 @@ struct StoryHeadline: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(eyebrow). \(sentence) \(facts.joined(separator: ", "))")
+        .accessibilityLabel(DurationText.spoken(in: "\(eyebrow). \(sentence) \(facts.joined(separator: ", "))"))
         .accessibilityAddTraits(.isHeader)
     }
 

@@ -26,6 +26,31 @@ enum DurationText {
         return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
     }
 
+    /// The same text with each compact duration in words, for VoiceOver:
+    /// `2h 15m` becomes `2 hours 15 minutes`, `1m` becomes `1 minute` and
+    /// `<1s` becomes `under a second`. The eye reads `15m` as minutes; speech
+    /// reads it as fifteen metres. Numbers inside words or times are left.
+    static func spoken(in text: String) -> String {
+        let text = text.replacingOccurrences(of: "<1s", with: "under a second")
+        let units: [Character: (one: String, many: String)] = [
+            "h": ("hour", "hours"), "m": ("minute", "minutes"), "s": ("second", "seconds")
+        ]
+        let pattern = #"(?<![\w.:])(\d+)([hms])(?!\w)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        var result = ""
+        var cursor = text.startIndex
+        for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let whole = Range(match.range, in: text),
+                  let digits = Range(match.range(at: 1), in: text),
+                  let unit = Range(match.range(at: 2), in: text),
+                  let words = units[text[unit].first ?? " "] else { continue }
+            result += text[cursor..<whole.lowerBound]
+            result += "\(text[digits]) \(text[digits] == "1" ? words.one : words.many)"
+            cursor = whole.upperBound
+        }
+        return result + text[cursor...]
+    }
+
     /// Whole seconds, negatives as zero; nil when the value cannot be an `Int`.
     /// `Int(_:)` traps on NaN, infinity and anything past `Int.max`, and a
     /// corrupted or hand-edited archive can decode a finite value that large.

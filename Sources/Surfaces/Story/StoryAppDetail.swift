@@ -34,7 +34,7 @@ struct StoryAppRow: View {
                 AppIcon(bundleID: app.bundleID, size: 14, appName: app.appName)
                 Text(app.appName).lineLimit(1)
                 Spacer(minLength: 4)
-                Text(Tokens.preciseDuration(app.total))
+                Text(durations: Tokens.preciseDuration(app.total))
                     .monospacedDigit().foregroundStyle(.secondary)
                 if onOpen != nil {
                     Image(systemName: "chevron.right")
@@ -83,7 +83,7 @@ struct StoryAppDetail: View {
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(Tokens.preciseDuration(evidence.total))
+                Text(durations: Tokens.preciseDuration(evidence.total))
                     .font(Tokens.Typography.rowTitle.monospacedDigit())
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
@@ -101,7 +101,7 @@ struct StoryAppDetail: View {
                         HStack(alignment: .firstTextBaseline) {
                             Text(Tokens.timeRange(entry.start, entry.end))
                             Spacer(minLength: 12)
-                            Text(Tokens.preciseDuration(entry.seconds)).monospacedDigit()
+                            Text(durations: Tokens.preciseDuration(entry.seconds)).monospacedDigit()
                         }
                         .font(Tokens.Typography.metadata)
                         .accessibilityElement(children: .combine)
@@ -165,7 +165,7 @@ struct StoryLooseAppUse: View {
                         }
                     }
                     Spacer(minLength: 8)
-                    Text(Tokens.preciseDuration(seconds))
+                    Text(durations: Tokens.preciseDuration(seconds))
                         .font(Tokens.Typography.metadata.monospacedDigit())
                     Image(systemName: open ? "chevron.down" : "chevron.right")
                         .font(Tokens.Typography.microLabel).foregroundStyle(.secondary)
