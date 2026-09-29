@@ -147,7 +147,12 @@ struct HistoryJournal: View {
             switch direction {
             case .up: navigation.stepHistorySelection(by: -1)
             case .down: navigation.stepHistorySelection(by: 1)
-            default: break
+            default: return
+            }
+            // The highlight moves where a sighted reader looks; the row it
+            // landed on is said for everyone else.
+            if let spoken = Self.spoken(navigation.historySelectionOrDefault(), store: store) {
+                Announcement.post(spoken)
             }
         }
         .onCommand(#selector(NSStandardKeyBindingResponding.insertNewline(_:))) {
@@ -171,9 +176,29 @@ struct HistoryJournal: View {
                 navigation.performSessionControlsAction(.commandOrMenu)
             }
             .fixedSize()
-            .accessibilityLabel("Start a focus session")
+            .accessibilityHint("Opens the session controls to choose an activity")
         }
         .frame(maxWidth: 520, alignment: .leading)
+    }
+
+    /// What a row says when the keyboard lands on it: the same words as its
+    /// VoiceOver label.
+    static func spoken(_ selection: HistorySelection, store: SessionStore) -> String? {
+        switch selection {
+        case .month(let start):
+            let month = HistoryJournalBuilder.month(starting: start, days: store.historyDays)
+            return DurationText.spoken(in: "\(HistoryMonthHeader.title(start)), \(HistoryMonthHeader.facts(month))")
+        case .day(let date):
+            let isToday = Calendar.current.isDate(date, inSameDayAs: store.now())
+            let title = HistoryDayHeader.title(date, isToday: isToday)
+            let focused = store.historyJournal().lazy.compactMap { entry -> TimeInterval? in
+                guard case .day(let day) = entry, day.date == date else { return nil }
+                return day.focused
+            }.first ?? 0
+            return focused > 0 ? "\(title), \(Tokens.spent(focused)) focused" : title
+        case .session(let thread, let day):
+            return store.journalSession(thread: thread, on: day).map(HistorySessionRow.spokenLabel)
+        }
     }
 
     /// `12 sessions match · 8h 20m of focus`.
@@ -329,9 +354,10 @@ struct HistoryDayHeader: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
+                // Selection is the tint, as on the month and session rows:
+                // system blue on its own tint was 3.3:1.
                 Text(Self.title(day.date, isToday: isToday))
                     .font(Tokens.Typography.metadata.weight(.bold))
-                    .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.primary))
                 Spacer(minLength: Tokens.Space.s)
                 if showsTotal {
                     Text(durations: Tokens.duration(day.focused))
@@ -480,7 +506,7 @@ struct HistoryQuietRow: View {
     var body: some View {
         Text(Self.text(quiet))
             .font(Tokens.Typography.metadata)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(.secondary)
             .padding(.vertical, Tokens.Space.s)
             .padding(.horizontal, HistoryRowLayout.inset)
             .frame(maxWidth: .infinity, alignment: .leading)
