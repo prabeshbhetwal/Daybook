@@ -6,8 +6,77 @@ enum StoryNavigationChecks {
         ("Story commands present the requested surface, including repeat routes", routes),
         ("A day opened from History shows that day's own evidence", historicalEvidence),
         ("History ranges read a fixed span at the grouping that suits it", historyRanges),
-        ("Find in History opens History with the cursor asked for its search", findInHistory)
+        ("Find in History opens History with the cursor asked for its search", findInHistory),
+        ("Picking in History changes what the rail reads, never the story's day", historyPicks),
+        ("Jump to date and the arrow keys move History's selection and its scroll", historyJumpAndSteps)
     ]
+
+    private static func historyPicks() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            let calendar = Calendar.current
+            let navigation = MainWindowModel(store: store)
+            navigation.open(tab: .review)
+            store.refreshReview()
+            let storyDay = store.selectedDay
+            var failures: [String] = []
+            let month = calendar.dateInterval(of: .month, for: store.now())!.start
+            if navigation.historySelectionOrDefault() != .month(month) {
+                failures.append("History did not open on the current month")
+            }
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: store.now()))!
+            navigation.selectHistory(.day(yesterday))
+            if navigation.reviewSelectedDate != yesterday {
+                failures.append("a picked day was not the day History reads")
+            }
+            if let thread = store.journalThreads(on: yesterday, only: nil).first {
+                navigation.selectHistory(.session(thread: thread, day: yesterday))
+                if navigation.reviewSelectedDate != yesterday {
+                    failures.append("a picked session did not belong to its day")
+                }
+            } else {
+                failures.append("the fixture's yesterday has no session to pick")
+            }
+            if store.selectedDay != storyDay { failures.append("picking in History moved the story's day") }
+            navigation.clearReviewDay()
+            if navigation.historySelectionOrDefault() != .month(month) {
+                failures.append("clearing the pick did not return to the month")
+            }
+            return failures
+        }
+    }
+
+    private static func historyJumpAndSteps() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            let calendar = Calendar.current
+            let navigation = MainWindowModel(store: store)
+            navigation.open(tab: .review)
+            store.refreshReview()
+            var failures: [String] = []
+            let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: store.now()))!
+            let scroll = navigation.historyScrollRequest
+            navigation.jumpToHistoryDay(twoDaysAgo)
+            if navigation.historySelection != .day(twoDaysAgo) {
+                failures.append("Jump to date did not select the day: \(String(describing: navigation.historySelection))")
+            }
+            if navigation.historyScrollRequest == scroll {
+                failures.append("Jump to date did not ask the journal to scroll")
+            }
+            navigation.stepHistorySelection(by: 1)
+            guard case .session(_, let day) = navigation.historySelection ?? .month(twoDaysAgo),
+                  day == twoDaysAgo else {
+                return failures + ["↓ from a day with a session did not reach that session"]
+            }
+            navigation.stepHistorySelection(by: -1)
+            if navigation.historySelection != .day(twoDaysAgo) {
+                failures.append("↑ from the day's first session did not return to its header")
+            }
+            return failures
+        }
+    }
 
     private static func findInHistory() -> [String] {
         MainActor.assumeIsolated {

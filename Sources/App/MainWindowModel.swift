@@ -208,10 +208,15 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 @MainActor final class MainWindowModel: ObservableObject {
     @Published private(set) var workspace: MainReadingWorkspace = .story
     @Published private(set) var requestedDate: Date?
-    /// The day Review is inspecting, or nil when nothing is selected. It is
-    /// deliberately separate from `requestedDate`: selecting evidence in Review
-    /// explains a day in place, while `requestedDate` moves the user to Today.
-    @Published private(set) var reviewSelectedDate: Date?
+    /// What History's rail describes; nil reads as the current month. It is
+    /// deliberately separate from `requestedDate`: picking in History explains
+    /// a month, day or session in place, while `requestedDate` moves the story.
+    @Published private(set) var historySelection: HistorySelection?
+    /// Bumped when the journal should bring the selection into view.
+    @Published private(set) var historyScrollRequest = 0
+
+    /// The day History is inspecting: a picked day, or a picked session's day.
+    var reviewSelectedDate: Date? { historySelection?.day }
     /// The sheet over the story, if any. The story itself is always a day.
     @Published private(set) var sheet: StorySheetKind?
     /// Transient expansion belongs to navigation, not session state. A
@@ -313,11 +318,41 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
     /// the date is normalised so one literal local day identifies the selection
     /// however the caller expressed it.
     func selectReviewDay(_ date: Date, calendar: Calendar = .current) {
-        reviewSelectedDate = calendar.startOfDay(for: date)
+        historySelection = .day(calendar.startOfDay(for: date))
     }
 
     func clearReviewDay() {
-        reviewSelectedDate = nil
+        historySelection = nil
+    }
+
+    func historySelectionOrDefault(calendar: Calendar = .current) -> HistorySelection {
+        if let historySelection { return historySelection }
+        let now = store?.now() ?? Date()
+        return .month(calendar.dateInterval(of: .month, for: now)?.start ?? calendar.startOfDay(for: now))
+    }
+
+    func selectHistory(_ selection: HistorySelection, scrolling: Bool = false) {
+        animated(Tokens.Motion.selection) { historySelection = selection }
+        if scrolling { historyScrollRequest &+= 1 }
+    }
+
+    /// The calendar picked a day: History selects it and scrolls to it. A day
+    /// with nothing recorded has no row, so its month is selected instead.
+    func jumpToHistoryDay(_ date: Date, calendar: Calendar = .current) {
+        let entries = store?.historyJournal() ?? []
+        selectHistory(HistoryJournalBuilder.selection(forJump: date, in: entries, calendar: calendar),
+                      scrolling: true)
+    }
+
+    /// ↑ and ↓ in the journal: one row at a time, the list following.
+    func stepHistorySelection(by delta: Int) {
+        guard let store else { return }
+        let entries = store.historyJournal()
+        var only: [Date: Set<UUID>] = [:]
+        for case .day(let day) in entries { if let threads = day.threads { only[day.date] = threads } }
+        let next = HistoryJournalBuilder.step(from: historySelectionOrDefault(), by: delta, entries: entries,
+                                              threads: { store.journalThreads(on: $0, only: only[$0]) })
+        selectHistory(next, scrolling: true)
     }
 
     /// Surfaces transition on these values, and a transition runs only
@@ -478,7 +513,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
             historySpan = HistorySpan.covering(start, end, calendar: calendar)
             historyRange = nil
             insightEnd = min(today, calendar.startOfDay(for: max(start, end)))
-            reviewSelectedDate = nil
+            historySelection = nil
         }
     }
 
@@ -577,7 +612,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         let today = calendar.startOfDay(for: store?.now() ?? Date())
         animated(Tokens.Motion.swap) {
             insightEnd = min(today, calendar.startOfDay(for: date))
-            reviewSelectedDate = nil
+            historySelection = nil
         }
     }
 
