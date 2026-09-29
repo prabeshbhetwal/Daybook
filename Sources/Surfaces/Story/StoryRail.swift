@@ -625,7 +625,8 @@ struct StoryTile<Content: View>: View {
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: Tokens.Space.xs)
                 if let trailing {
-                    Text(trailing)
+                    // Any card may put a duration here; it is spoken in words.
+                    Text(durations: trailing)
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
