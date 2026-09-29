@@ -1,7 +1,7 @@
 # History journal and a smaller type scale
 
 Date: 2026-09-29
-Status: approved in conversation, awaiting spec review
+Status: approved 2026-09-29 (spec and arrow keys)
 
 ## Why
 
@@ -120,12 +120,12 @@ A selection that disappears (removed session, filter hides it) falls back to the
 
 ### Accessibility
 
-Requested by the parallel accessibility session. Everything except the arrow keys was already implied by the rule that accessibility basics are never cut; the arrow keys need the user's yes.
+Requested by the parallel accessibility session. The arrow keys were approved at spec review; the rest follows the rule that accessibility basics are never cut.
 
 - Month and day headers carry `.accessibilityAddTraits(.isHeader)`, so VoiceOver's heading rotor jumps between them.
 - Each session, break or day row is one VoiceOver element with a spoken summary: `8:30 to 11:35 am, Refactor, Deep work, 2 hours 5 minutes`. The category dot is `accessibilityHidden`.
 - Category is never shown by colour alone: named sessions carry the category chip, unnamed ones use the category as their title, and breaks say "Break".
-- **Keyboard (needs approval):** with the journal focused, ↑/↓ move the selection through the rows in order (month, day, session), and Return opens the selected day's story, the keyboard twin of double-click.
+- **Keyboard (approved):** with the journal focused, ↑/↓ move the selection through the rows in order (month, day, session), and Return opens the selected day's story, the keyboard twin of double-click.
 - Selection changes and Jump-to-date scrolling animate through `Tokens.Motion` with Reduce Motion honoured, as the rest of the app does.
 - The search result count (`12 sessions match · 8h 20m of focus`) is announced with the accessibility branch's `Announcement.post(_:)`. Rail tiles reuse `StoryTile`, whose titles are already headings.
 - Duration figures in the journal and rail use `Text(durations:)` (`Design/Components/Announcement.swift`), so VoiceOver says "51 minutes", not "51 metres". Row labels built from strings that contain compact durations go through `DurationText.spoken(in:)`.
@@ -194,7 +194,7 @@ Self-tests (`./build.sh --test`, run unsandboxed because `sips` fails in the san
 6. A run of empty days renders as one line. An app-use-only day renders its line.
 7. A running session shows `in progress` and only today's group re-reads per tick.
 8. The type scale stays strictly ascending, with the new values.
-9. Month and day headers have the header trait. A session row speaks its time, name, category and length as one element. If approved: ↑/↓ step the selection and Return opens the selected day's story.
+9. Month and day headers have the header trait. A session row speaks its time, name, category and length as one element. ↑/↓ step the selection and Return opens the selected day's story.
 
 Render evidence (snapshot matrix, light and dark, at 980 and 1160 wide):
 - The Day page before and after the scale change.
