@@ -372,10 +372,10 @@ enum HistoryJournalChecks {
 
     private static func dayTotalSaidOnce() -> [String] {
         let start = date(9, 28).addingTimeInterval(9 * 3_600)
-        func session(_ worked: TimeInterval) -> DayEntry {
+        func session(_ worked: TimeInterval, running: Bool = false) -> DayEntry {
             .session(DaySession(id: UUID(), threadID: UUID(), name: "Parser", workType: .deepWork,
                                 start: start, end: start.addingTimeInterval(worked), worked: worked,
-                                stretches: 1, spans: [], isRunning: false))
+                                stretches: 1, spans: [], isRunning: running))
         }
         let rest = DayEntry.rest(RestEntry(id: UUID(), name: "Lunch", start: start.addingTimeInterval(4_000),
                                            end: start.addingTimeInterval(4_600)))
@@ -391,6 +391,9 @@ enum HistoryJournalChecks {
         }
         if !HistoryDayHeader.showsTotal(day: day(3_600), rows: [session(3_600), rest]) {
             failures.append("a session with a break beside it lost the day's total")
+        }
+        if !HistoryDayHeader.showsTotal(day: day(3_600), rows: [session(3_600, running: true)]) {
+            failures.append("a running session's row says \"in progress\", yet the header hid the day's figure")
         }
         if HistoryDayHeader.showsTotal(day: day(0, tracked: 600), rows: []) {
             failures.append("an app-use-only day showed a focus figure")

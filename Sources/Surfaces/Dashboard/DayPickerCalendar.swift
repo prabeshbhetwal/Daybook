@@ -18,9 +18,10 @@ private final class MonthBox: ObservableObject {
     init(month: Date) { self.month = month }
 }
 
-/// A month grid for picking a day, readable at a glance: under each date sits that day's focused time, a tick marks a met
-/// goal, and the header sums the month. Hover a day for the rest. Days in the
-/// future, or before anything was recorded, cannot be picked.
+/// A month grid for picking a day, readable at a glance: under each date sits
+/// that day's focused time, a tick marks a met goal, and the header sums the
+/// month. Hover a day for the rest. Days in the future, or before anything was
+/// recorded, cannot be picked.
 struct DayPickerCalendar: View {
     let selected: Date
     let earliest: Date?

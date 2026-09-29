@@ -333,11 +333,12 @@ struct HistoryDayHeader: View {
         .accessibilityAction(named: "Open as a story", onOpen)
     }
 
-    /// The day's focus, unless the day is one session and nothing else and its
-    /// row shows the same figure: then the header would say it twice.
+    /// The day's focus, unless the day is one finished session and nothing else
+    /// and its row shows the same figure: then the header would say it twice.
+    /// A running session's row says "in progress", so the header keeps the figure.
     static func showsTotal(day: JournalDay, rows: [DayEntry]) -> Bool {
         guard day.focused > 0 else { return false }
-        if rows.count == 1, case .session(let session) = rows[0],
+        if rows.count == 1, case .session(let session) = rows[0], !session.isRunning,
            Tokens.duration(day.focused) == Tokens.duration(session.worked) { return false }
         return true
     }
