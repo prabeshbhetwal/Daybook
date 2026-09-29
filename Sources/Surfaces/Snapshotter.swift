@@ -446,7 +446,7 @@ enum Snapshotter {
         case .insightsEnough, .insightsEmpty, .historySearch, .historySparse:
             navigation.open(tab: .review)
         case .activityRuleAmbiguity, .activityRuleAutomatic:
-            navigation.performSessionControlsAction(.commandOrMenu)
+            navigation.focusSessionControls()
         case .settingsActivityRules:
             navigation.settingsSection = .activities
         case .storyReport:

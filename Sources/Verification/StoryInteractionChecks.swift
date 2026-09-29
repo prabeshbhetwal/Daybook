@@ -367,7 +367,8 @@ enum StoryInteractionChecks {
                 return ["Open FocusContinuity forced a session sheet or discarded the selected Story"]
             }
             navigation.open(tab: .focus)
-            return navigation.sheet == nil && navigation.sessionControlsExpanded
+            return navigation.sheet == nil && navigation.workspace == .story
+                && navigation.focusRestorationRequest == .sessionControls
                 ? [] : ["explicit in-window session controls became unreachable"]
         }
     }

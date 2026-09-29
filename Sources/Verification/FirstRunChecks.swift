@@ -175,8 +175,8 @@ enum FirstRunChecks {
         if progress.phase != .asking {
             failures.append("A later step's signal completed the step being asked")
         }
-        progress.observe(FirstRunSignals(sessionControlsVisible: true))
-        if progress.phase != .done { failures.append("Opening the controls did not complete step one") }
+        progress.observe(FirstRunSignals(activityFieldEngaged: true))
+        if progress.phase != .done { failures.append("Reaching the activity field did not complete step one") }
         if !progress.performed.contains(.openControls) {
             failures.append("A completed step was not recorded as performed")
         }
@@ -184,7 +184,7 @@ enum FirstRunChecks {
         // card away before it has been read.
         if progress.card != 0 { failures.append("A completed step advanced itself past its own result") }
 
-        var signals = FirstRunSignals(sessionControlsVisible: true)
+        var signals = FirstRunSignals(activityFieldEngaged: true)
         progress.advance()
         if progress.task != .startSession || progress.phase != .asking {
             failures.append("Next from a completed step did not open the next one")
@@ -255,7 +255,7 @@ enum FirstRunChecks {
         // Jumping into a step whose condition already holds completes it
         // honestly — it *is* done — and never claims one that does not.
         progress.jump(to: .firstSession)
-        progress.observe(FirstRunSignals(sessionControlsVisible: true))
+        progress.observe(FirstRunSignals(activityFieldEngaged: true))
         if progress.phase != .done { failures.append("A step already satisfied did not show as done") }
         if progress.performed.contains(.startSession) {
             failures.append("A step never satisfied was marked performed")
@@ -373,7 +373,7 @@ enum FirstRunChecks {
         // The completed state is its own reading and must draw the same chapter.
         var done = FirstRunProgress()
         done.advance()
-        done.observe(FirstRunSignals(sessionControlsVisible: true))
+        done.observe(FirstRunSignals(activityFieldEngaged: true))
         if !renderCard(done).contains(.firstRunFirstSession) {
             failures.append("A completed step stopped drawing its chapter")
         }

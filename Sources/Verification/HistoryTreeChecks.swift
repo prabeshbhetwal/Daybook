@@ -525,8 +525,8 @@ enum HistoryTreeChecks {
             let frame = StoryWorkspaceChecks.renderFrame(
                 StoryChromeBar(store: store, navigation: navigation),
                 width: 1_160, height: 60)
-            if !frame.evidence.contains(.storyChromeToday) {
-                failures.append("the story chrome did not draw its Today label: \(frame.evidence.map(\.rawValue).sorted())")
+            if !frame.evidence.contains(.storyChromeControls) {
+                failures.append("the story chrome did not draw the session controls: \(frame.evidence.map(\.rawValue).sorted())")
             }
             return failures
         }

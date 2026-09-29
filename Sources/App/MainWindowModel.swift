@@ -85,11 +85,6 @@ enum MainWindowFocusTarget: Equatable {
     case settings
 }
 
-enum SessionControlsAction {
-    case timerPill
-    case commandOrMenu
-}
-
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case focus
@@ -176,9 +171,9 @@ struct HistorySessionPick: Hashable {
     }
     /// The sheet over the story, if any. The story itself is always a day.
     @Published private(set) var sheet: StorySheetKind?
-    /// Transient expansion belongs to navigation, not session state. A
-    /// separately persisted pin may keep the strip visible across relaunch.
-    @Published private(set) var sessionControlsExpanded = false
+    /// Whether the reader has put the cursor in the bar's activity field,
+    /// by clicking it or by ⌘7. The welcome's first step waits on it.
+    @Published private(set) var activityFieldEngaged = false
     @Published private(set) var focusRestorationRequest: MainWindowFocusTarget?
     /// Asks History's search field for the cursor (⌘F). The field is always
     /// shown; the journal narrows to matches while a query or filter is active.
@@ -203,7 +198,7 @@ struct HistorySessionPick: Hashable {
         case .focus:
             self.workspace = .story
             self.sheet = nil
-            self.sessionControlsExpanded = true
+            self.focusRestorationRequest = .sessionControls
         case .review, .insights:
             self.workspace = .history
             self.sheet = nil
@@ -222,7 +217,7 @@ struct HistorySessionPick: Hashable {
 
     func open(tab: AppTab) {
         if tab == .focus {
-            performSessionControlsAction(.commandOrMenu)
+            focusSessionControls()
             return
         }
         animated(Tokens.Motion.swap) {
@@ -439,23 +434,6 @@ struct HistorySessionPick: Hashable {
         sheet = nil
     }
 
-    /// One source-typed boundary for every session-controls invocation. The
-    /// pill is a disclosure and therefore toggles; commands and menu routes are
-    /// idempotent reveals and can never hide an already-visible strip.
-    func performSessionControlsAction(_ action: SessionControlsAction) {
-        animated(sessionControlsExpanded ? Tokens.Motion.dismiss : Tokens.Motion.reveal) {
-            switch action {
-            case .timerPill: sessionControlsExpanded.toggle()
-            case .commandOrMenu: sessionControlsExpanded = true
-            }
-        }
-    }
-
-    func dismissSessionControls() {
-        animated(Tokens.Motion.dismiss) { sessionControlsExpanded = false }
-        focusRestorationRequest = .sessionControls
-    }
-
     func consumeFocusRestorationRequest() {
         focusRestorationRequest = nil
     }
@@ -508,6 +486,20 @@ struct HistorySessionPick: Hashable {
         categoryEditorRequest = CategoryEditorTicket(id: (categoryEditorRequest?.id ?? 0) &+ 1,
                                                      request: request)
         openSheet(.settings)
+    }
+
+    /// ⌘7, the Session controls menu item, History's pill and the tour: the
+    /// story, with the cursor in the bar's activity field.
+    func focusSessionControls() {
+        animated(Tokens.Motion.swap) {
+            sheet = nil
+            workspace = .story
+        }
+        focusRestorationRequest = .sessionControls
+    }
+
+    func noteActivityFieldEngaged() {
+        if !activityFieldEngaged { activityFieldEngaged = true }
     }
 
     func returnToStory() {

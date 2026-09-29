@@ -559,14 +559,6 @@ final class SettingsModel: ObservableObject {
         set { write { store.storyTileOrderRawValue = StoryTileKind.raw(from: newValue) } }
     }
 
-    /// Presentation preference for the in-window session strip. This setter
-    /// performs only the ordinary settings write; session actions remain owned
-    /// by SessionStore and cannot be triggered by pinning.
-    var sessionControlsPinned: Bool {
-        get { store.sessionControlsPinned }
-        set { write { store.sessionControlsPinned = newValue } }
-    }
-
     var interfaceDensity: InterfaceDensity {
         get { InterfaceDensity(rawValue: store.interfaceDensityRawValue) ?? .comfortable }
         set { write { store.interfaceDensityRawValue = newValue.rawValue } }

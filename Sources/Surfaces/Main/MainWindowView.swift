@@ -23,8 +23,7 @@ struct MainWindowView: View {
     var body: some View {
       GeometryReader { geometry in
         VStack(spacing: 0) {
-            StoryChromeBar(store: store, navigation: navigation,
-                           sessionControlsVisible: sessionControlsVisible)
+            StoryChromeBar(store: store, navigation: navigation)
                 .accessibilitySortPriority(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
@@ -32,12 +31,12 @@ struct MainWindowView: View {
                 .zIndex(1)
             Divider()
                 .zIndex(1)
-            if sessionControlsVisible {
-                SessionControlStrip(store: store, settings: settings, navigation: navigation)
+            if underlineShown {
+                SessionUnderline(store: store)
                     .fixedSize(horizontal: false, vertical: true)
                     .layoutPriority(1)
-                    // Start, Pause and Stop come straight after the chrome,
-                    // not after the whole day's story.
+                    // A question comes straight after the chrome, not after
+                    // the whole day's story.
                     .accessibilitySortPriority(2)
                     .transition(Tokens.Motion.transition(Tokens.Motion.slideDown,
                                                          reduceMotion: reduceMotion))
@@ -90,13 +89,12 @@ struct MainWindowView: View {
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
         .environment(\.openSessionReport) { session in navigation.openReport(for: session) }
-        .environment(\.sessionControlsVisible, sessionControlsVisible)
         .environment(\.openActivityEditor, openActivityEditor)
         .environment(\.openCategoryEditor, openCategoryEditor)
         .tint(StoryStyle.action)
         .animation(Tokens.Motion.animation(Tokens.Motion.reveal,
                                            reduceMotion: reduceMotion),
-                   value: sessionControlsVisible)
+                   value: underlineShown)
         .onAppear {
             navigation.connect(to: store)
             firstRun.observe(coachSignals)
@@ -116,10 +114,7 @@ struct MainWindowView: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var sessionControlsVisible: Bool {
-        SessionControlsVisibility.isVisible(expanded: navigation.sessionControlsExpanded,
-                                            pinned: settings.sessionControlsPinned)
-    }
+    private var underlineShown: Bool { SessionUnderline.hasContent(store) }
 
     private func openActivityEditor(_ request: ActivityEditorRequest) {
         ActivityEditorPanel.shared.show(request, store: store)
@@ -136,7 +131,7 @@ struct MainWindowView: View {
     /// every other surface reads. Nothing here is staged for the welcome.
     private var coachSignals: FirstRunSignals {
         FirstRunSignals(
-            sessionControlsVisible: sessionControlsVisible,
+            activityFieldEngaged: navigation.activityFieldEngaged,
             sessionRunning: store.state.isRunning,
             otherAppRecorded: !store.rankedApps.isEmpty)
     }

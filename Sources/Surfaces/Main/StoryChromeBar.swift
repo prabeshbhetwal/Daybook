@@ -9,30 +9,22 @@ enum StoryChromeFocus: Hashable {
 /// traffic lights, the scope, the period it resolves to, the live session, and
 /// Settings. It never scrolls and it is the only global navigation.
 enum ChromeSessionControl {
-    /// The chrome's control is a way in to the strip, not a second copy of it.
-    /// Idle, both said "Start focus" for two different acts. Running, both
-    /// ticked the same clock — the chrome's at 12pt and the strip's at 23pt,
-    /// one row apart. Either way the strip is the fuller view, so whenever it
-    /// is on screen the chrome stands down.
-    static func isShown(stripVisible: Bool) -> Bool { !stripVisible }
+    /// The story's chrome holds the full controls, so it has no small pill;
+    /// History's chrome holds its own centre, so the pill is its way back to
+    /// the session.
+    static func isShown(workspace: MainReadingWorkspace) -> Bool { workspace == .history }
 }
 
 struct StoryChromeBar: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
-    /// Whether the session strip is on screen. It carries the real Start
-    /// focus; the chrome's only reveals it, so both showing at once offers the
-    /// same words for two different acts.
-    var sessionControlsVisible = false
     @FocusState private var focusedControl: StoryChromeFocus?
+    /// The activity field in the bar, so ⌘7 and the tour can hand it the cursor.
+    @FocusState private var intentFocused: Bool
     @StateObject private var gearHovered = BoolBox()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// A scope pill is the target floor plus the container's 3pt inset each side.
     static let controlRowHeight: CGFloat = AccessibilityMetrics.minimumTargetSize + 6
-    /// Holds the chevrons still across "Today", "Wed 30 Sep", "28 Dec – 3 Jan"
-    /// and "September 2026"; a rarer label grows the column for its stay.
-    static let periodLabelWidth: CGFloat = 150
-
     var body: some View {
         HStack(spacing: Tokens.Space.l) {
             // The real window controls live here; the bar must not draw its own.
@@ -41,12 +33,10 @@ struct StoryChromeBar: View {
                 .accessibilityHidden(true)
             backSlot
             workspaceControls
-            if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible) {
+            if ChromeSessionControl.isShown(workspace: navigation.workspace) {
                 StorySessionControl(store: store,
                                     focus: $focusedControl,
-                                    onDetails: {
-                                        navigation.performSessionControlsAction(.timerPill)
-                                    })
+                                    onDetails: { navigation.focusSessionControls() })
                     .transition(Tokens.Motion.transition(
                         .opacity.combined(with: .scale(scale: 0.9)), reduceMotion: reduceMotion))
                     .coachAnchor(.sessionControl)
@@ -79,19 +69,20 @@ struct StoryChromeBar: View {
         .padding(.vertical, Tokens.Space.s)
         .background(StoryStyle.canvas)
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
-                   value: sessionControlsVisible)
-        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: navigation.workspace)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Toolbar")
         .onChange(of: navigation.focusRestorationRequest) { target in
             guard let target else { return }
             switch target {
-            case .sessionControls: focusedControl = .session
+            case .sessionControls:
+                // The field is only in the story's bar; History has the pill.
+                if navigation.workspace == .story { intentFocused = true } else { focusedControl = .session }
             case .settings: focusedControl = .settings
             }
             navigation.consumeFocusRestorationRequest()
         }
+        .onChange(of: intentFocused) { if $0 { navigation.noteActivityFieldEngaged() } }
     }
 
     /// The way back, in a slot that exists in every workspace. "‹ Story" used
@@ -121,15 +112,15 @@ struct StoryChromeBar: View {
     @ViewBuilder private var workspaceControls: some View {
         switch navigation.workspace {
         case .story:
-            // The story is today. Every other day is History's.
-            Spacer(minLength: Tokens.Space.s)
-            Text("Today")
-                .font(Tokens.Typography.rowTitle)
-                .frame(minWidth: Self.periodLabelWidth, minHeight: AccessibilityMetrics.minimumTargetSize)
-                .accessibilityAddTraits(.isHeader)
-                .coachAnchor(.periodNav)
-                .storyRenderEvidence(.storyChromeToday)
-            Spacer(minLength: Tokens.Space.s)
+            // The story is today, and the bar is where a session begins,
+            // pauses and ends: the controls are its centre.
+            Group {
+                FocusHero(store: store, intentFocused: $intentFocused, compact: true, wide: true,
+                          showsGoal: false, chromePart: .row)
+                    .coachAnchor(.activityField)
+            }
+            .coachAnchor(.sessionControl)
+            .storyRenderEvidence(.storyChromeControls)
             crossLinks
         case .history:
             // History is one list, newest first: the bar names it and offers

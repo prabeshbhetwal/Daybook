@@ -817,13 +817,11 @@ enum ActivityRuleChecks {
             let settings = SettingsModel(store: store.engine.store, isTrackingEnabled: true,
                 onChange: {}, onTrackingChanged: { _ in },
                 installedAppCatalog: FixtureFactory.installedAppCatalog())
-            let navigation = MainWindowModel(store: store)
             var failures: [String] = []
 
             func surfaces() -> [(String, AnyView, CGFloat)] {
-                [("In-window session strip",
-                  AnyView(SessionControlStrip(store: store, settings: settings,
-                                              navigation: navigation)), 900),
+                [("The line under the chrome",
+                  AnyView(SessionUnderline(store: store)), 900),
                  ("Menu panel",
                   AnyView(PopoverView(store: store, settings: settings,
                       metricsOverride: PopoverMetrics.fitting(CGSize(width: 1_000, height: 680)),

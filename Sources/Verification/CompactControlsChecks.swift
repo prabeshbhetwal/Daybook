@@ -7,10 +7,8 @@ import AppKit
 /// actual usable display passed to the menu-bar sizing boundary.
 enum CompactControlsChecks {
     static let tests: [(String, () -> [String])] = [
-        ("Focus routes reveal controls without changing reading context", focusRoute),
-        ("Pill toggles while command routes always reveal through one action boundary",
-         sessionControlActionRouting),
-        ("Pinned controls survive relaunch without mutating the session", pinPersistence),
+        ("Focus routes show the story and hand the activity field the cursor", focusRoute),
+        ("The line under the chrome exists only while a question or a note does", underlineOnlyWithContent),
         ("Menu-bar controls remain a clamped single column", popoverBounds),
         ("Popover owns one real overflow region and excludes current continuations", popoverComposition),
         ("Settings keeps one bounded frame across pages and search", settingsFrame),
@@ -20,7 +18,7 @@ enum CompactControlsChecks {
         ("Native scope adapter owns focus, pointer and key selection", nativeScopeAdapter),
         ("Every scope row presents one native keyboard target", scopeRowsShareOneKeyboardTarget),
         ("One session control is offered at a time", oneSessionControlAtATime),
-        ("The session strip is one row whose chrome sits with its controls",
+        ("The chrome is one row that holds the session controls at every width",
          sessionStripIsOneRow),
         ("The type scale stays a scale", typeScaleHoldsItsShape),
         ("Compact Focus consumers retain general save failures and exact Retry", generalFailurePresentation),
@@ -30,10 +28,29 @@ enum CompactControlsChecks {
         ("Compact goal copy stays quiet at the 340pt menu width", compactGoalLine)
     ]
 
+    private static func underlineOnlyWithContent() -> [String] {
+        MainActor.assumeIsolated {
+            var failures: [String] = []
+            defer { FixtureFactory.cleanUp() }
+            if SessionUnderline.hasContent(FixtureFactory.store(for: .idleWithHistory)) {
+                failures.append("an idle store put a line under the chrome")
+            }
+            if SessionUnderline.hasContent(FixtureFactory.store(for: .running)) {
+                failures.append("a plainly running session put a line under the chrome")
+            }
+            if !SessionUnderline.hasContent(FixtureFactory.store(for: .needsResolution)) {
+                failures.append("an away question had no line under the chrome")
+            }
+            if !SessionUnderline.hasContent(FixtureFactory.activityRuleStore(ambiguous: true)) {
+                failures.append("a quiet activity choice had no line under the chrome")
+            }
+            return failures
+        }
+    }
+
     private static func focusRoute() -> [String] {
         MainActor.assumeIsolated {
             let navigation = MainWindowModel(opening: .review)
-            let workspace = navigation.workspace
 
             navigation.open(tab: .focus)
 
@@ -41,78 +58,26 @@ enum CompactControlsChecks {
             if navigation.sheet != nil {
                 failures.append("Opening session controls still presents a Focus sheet")
             }
-            if navigation.workspace != workspace {
-                failures.append("Opening session controls changed the History reading context")
+            if navigation.workspace != .story {
+                failures.append("Opening session controls did not show the story, where the controls are")
             }
-            navigation.dismissSessionControls()
             if navigation.focusRestorationRequest != .sessionControls {
-                failures.append("Dismissing the strip did not request focus for its timer pill")
+                failures.append("Opening session controls did not ask the activity field for the cursor")
             }
             navigation.consumeFocusRestorationRequest()
+            navigation.open(tab: .review)
+            navigation.focusSessionControls()
+            if navigation.workspace != .story || navigation.focusRestorationRequest != .sessionControls {
+                failures.append("The chrome's pill in History did not return to the story's controls")
+            }
+            navigation.consumeFocusRestorationRequest()
+            if navigation.activityFieldEngaged { failures.append("the field read as engaged before anyone touched it") }
+            navigation.noteActivityFieldEngaged()
+            if !navigation.activityFieldEngaged { failures.append("touching the field was not noted for the tour") }
             navigation.openSettings()
             navigation.closeSheet()
             if navigation.focusRestorationRequest != .settings {
                 failures.append("Closing Settings did not request focus for its invoking control")
-            }
-            return failures
-        }
-    }
-
-    private static func sessionControlActionRouting() -> [String] {
-        MainActor.assumeIsolated {
-            let navigation = MainWindowModel()
-            var failures: [String] = []
-            navigation.performSessionControlsAction(.timerPill)
-            if !navigation.sessionControlsExpanded {
-                failures.append("First timer-pill activation did not reveal the strip")
-            }
-            navigation.performSessionControlsAction(.timerPill)
-            if navigation.sessionControlsExpanded {
-                failures.append("Second timer-pill activation did not collapse the unpinned strip")
-            }
-            navigation.performSessionControlsAction(.commandOrMenu)
-            if !navigation.sessionControlsExpanded {
-                failures.append("Command route did not reveal a hidden strip")
-            }
-            navigation.performSessionControlsAction(.commandOrMenu)
-            if !navigation.sessionControlsExpanded {
-                failures.append("Repeated command route toggled an already-visible strip closed")
-            }
-            return failures
-        }
-    }
-
-    private static func pinPersistence() -> [String] {
-        MainActor.assumeIsolated {
-            let suite = "com.prabesh.focuscontinuity.compact-pin.\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else {
-                return ["Could not create isolated pin defaults"]
-            }
-            defer { defaults.removePersistentDomain(forName: suite) }
-            let persistence = PersistenceStore(defaults: defaults)
-            persistence.removeAll()
-            let store = FixtureFactory.store(for: .running)
-            defer { FixtureFactory.cleanUp() }
-            let stateBefore = store.engine.state
-            let settings = SettingsModel(store: persistence, isTrackingEnabled: true,
-                                         onChange: {}, onTrackingChanged: { _ in })
-            settings.sessionControlsPinned = true
-
-            let reloaded = SettingsModel(store: persistence, isTrackingEnabled: true,
-                                         onChange: {}, onTrackingChanged: { _ in })
-            let navigation = MainWindowModel(store: store)
-            var failures: [String] = []
-            if !reloaded.sessionControlsPinned
-                || !SessionControlsVisibility.isVisible(
-                    expanded: navigation.sessionControlsExpanded,
-                    pinned: reloaded.sessionControlsPinned) {
-                failures.append("A persisted pin did not reveal controls after model relaunch")
-            }
-            if navigation.sessionControlsExpanded {
-                failures.append("Ordinary launch expanded the transient session-controls state")
-            }
-            if store.engine.state != stateBefore {
-                failures.append("Writing or reading the pin changed the running session")
             }
             return failures
         }
@@ -325,13 +290,10 @@ enum CompactControlsChecks {
         return failures
     }
 
-    /// Two buttons reading "Start focus" — one revealing the strip, one
-    /// starting the session — is the same words for two different acts.
-    /// The strip is the window's toolbar. Stacked, it stood 225pt tall in a
-    /// 680pt window and pushed Pin and Close 468pt from the controls they
-    /// govern — 1,088pt at 1,600. This pins the row: bounded height that does
-    /// not grow with width, chrome on the same band as the content, and every
-    /// control at or above the target floor the rest of the app holds to.
+    /// The session controls are the chrome's centre: one row, whether idle or
+    /// running, at any window width, with every control at or above the
+    /// target floor the rest of the app holds to. The strip they replaced
+    /// stood 225pt tall in a 680pt window.
     private static func sessionStripIsOneRow() -> [String] {
         MainActor.assumeIsolated {
             struct Measured {
@@ -348,8 +310,9 @@ enum CompactControlsChecks {
                                              isTrackingEnabled: true,
                                              onChange: {}, onTrackingChanged: { _ in })
                 let navigation = MainWindowModel(store: store)
+                _ = settings
                 let host = NSHostingView(rootView:
-                    SessionControlStrip(store: store, settings: settings, navigation: navigation)
+                    StoryChromeBar(store: store, navigation: navigation)
                         .frame(width: width))
                 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: 600),
                                       styleMask: [.borderless], backing: .buffered, defer: false)
@@ -398,9 +361,7 @@ enum CompactControlsChecks {
                                     + "\(Int(control.rect.height))pt tall, under the "
                                     + "\(Int(AccessibilityMetrics.minimumTargetSize))pt floor")
                 }
-                // Pin and Close are the last two controls in reading order.
-                // They must share the row band with the first one, not sit in
-                // a header of their own.
+                // Every control shares one band: nothing sits in a row of its own.
                 let centres = narrow.controls.map(\.rect.midY)
                 if let lowest = centres.min(), let highest = centres.max(), highest - lowest > 8 {
                     failures.append("The \(state.rawValue) strip spread its controls over "
@@ -412,17 +373,17 @@ enum CompactControlsChecks {
         }
     }
 
-    /// Chrome plus one row of 28–30pt controls, with the strip's own 12pt
-    /// vertical padding. Anything taller is a stack wearing a strip's name.
+    /// One row of 44pt controls with the chrome's own 8pt vertical padding.
+    /// Anything taller is a stack wearing a bar's name.
     private static let sessionStripRowHeightLimit: CGFloat = 72
 
     private static func oneSessionControlAtATime() -> [String] {
         var failures: [String] = []
-        if !ChromeSessionControl.isShown(stripVisible: false) {
-            failures.append("The chrome offered no session control when the strip was closed")
+        if ChromeSessionControl.isShown(workspace: .story) {
+            failures.append("The story's chrome offered the small pill beside the full controls")
         }
-        if ChromeSessionControl.isShown(stripVisible: true) {
-            failures.append("The chrome and the strip both presented the session at once")
+        if !ChromeSessionControl.isShown(workspace: .history) {
+            failures.append("History's chrome offered no way to the session")
         }
         return failures
     }

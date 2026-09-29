@@ -162,6 +162,14 @@ struct CompactGoalPresentation: Equatable {
 
 /// The shared operational hero. Desktop and menu-bar surfaces use the same
 /// state branches and actions; `compact` changes measure and spacing only.
+/// Which part of the window's bar a hero draws: the row of controls in the
+/// chrome, or the line under it that exists only while there is a question
+/// or a note to show.
+enum FocusHeroChromePart: Equatable {
+    case row
+    case underline
+}
+
 struct FocusHero: View {
     @ObservedObject var store: SessionStore
     var intentFocused: FocusState<Bool>.Binding
@@ -174,6 +182,10 @@ struct FocusHero: View {
     /// Whether the strip shows today's goal. The window turns it off where
     /// the rail's goal card already shows the same goal.
     var showsGoal = true
+    /// nil draws the full hero; a part draws only that part of the chrome.
+    var chromePart: FocusHeroChromePart?
+    /// Start and Pause are one pill that changes its word.
+    @Namespace private var primaryPill
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private var composition: FocusSurfaceComposition { store.focusSurfaceComposition }
@@ -187,6 +199,14 @@ struct FocusHero: View {
     private var elapsedMinutes: Int? { DurationText.wholeSeconds(store.elapsed).map { $0 / 60 } }
 
     var body: some View {
+        switch chromePart {
+        case .row: chromeRow
+        case .underline: chromeUnderline
+        case nil: fullBody
+        }
+    }
+
+    private var fullBody: some View {
         VStack(alignment: compact ? .leading : .center,
                spacing: compact ? Tokens.Space.s : Tokens.Space.m) {
             if mode.showsOrdinaryControls {
@@ -203,6 +223,53 @@ struct FocusHero: View {
         // controls for the next rather than snapping.
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: mode)
+    }
+
+    // MARK: - The chrome
+
+    /// The bar's centre: what begins, pauses or ends a session, in one row
+    /// that never changes height. Idle, the activity, its category and
+    /// Start; live, the clock, the session's name and its controls, in the
+    /// same place. Start is the pill that becomes Pause; the field gives way
+    /// to the name; the clock slides in from the left.
+    private var chromeRow: some View {
+        HStack(spacing: Tokens.Space.m) {
+            if mode == .idle {
+                idleRowLead
+                    .transition(Tokens.Motion.transition(
+                        .opacity.combined(with: .scale(scale: 0.96)), reduceMotion: reduceMotion))
+            } else {
+                liveRowLead
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion), value: mode)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Session controls")
+    }
+
+    /// Under the bar, only while there is something the row cannot hold: the
+    /// away question, a note the reader is being held to, the automatic
+    /// session's Adopt and Undo, a save that failed.
+    private var chromeUnderline: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            if !mode.showsOrdinaryControls { decisionBody }
+            stripWrapLines
+            if let failure = store.focusOperationFailure {
+                FocusOperationFailure(store: store, failure: failure)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion), value: mode)
+    }
+
+    /// Whether the underline has anything to draw for this store.
+    static func underlineHasContent(_ store: SessionStore) -> Bool {
+        let composition = store.focusSurfaceComposition
+        return !composition.mode.showsOrdinaryControls
+            || detail(for: composition.mode, store: store) != nil
+            || composition.showsAutomaticSessionControls
+            || store.focusOperationFailure != nil
     }
 
     @ViewBuilder private var ordinaryBody: some View {
@@ -244,9 +311,11 @@ struct FocusHero: View {
     }
 
     @ViewBuilder private var idleRowLead: some View {
-        Text(mode.primaryPrompt)
-            .font(Tokens.Typography.rowTitle)
-            .fixedSize()
+        if chromePart == nil {
+            Text(mode.primaryPrompt)
+                .font(Tokens.Typography.rowTitle)
+                .fixedSize()
+        }
         ActivityChooser(store: store, intentFocused: intentFocused, compact: true) {
             performPrimaryAction()
         }
@@ -262,6 +331,7 @@ struct FocusHero: View {
         WorkTypePicker(selection: $store.workType)
         StartButton(title: "Start focus", fills: false) { performPrimaryAction() }
             .fixedSize()
+            .matchedGeometryEffect(id: "primary", in: primaryPill)
             .help(startHelp)
     }
 
@@ -272,6 +342,8 @@ struct FocusHero: View {
             .foregroundStyle(isQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
             .fixedSize()
             .elapsedClockAccessibility(store.elapsed)
+            .transition(Tokens.Motion.transition(
+                .move(edge: .leading).combined(with: .opacity), reduceMotion: reduceMotion))
         VStack(alignment: .leading, spacing: 1) {
             Text(store.activeIntent)
                 .font(Tokens.Typography.rowTitle)
@@ -282,8 +354,11 @@ struct FocusHero: View {
                 .lineLimit(1)
         }
         .layoutPriority(1)
+        .transition(Tokens.Motion.transition(
+            .opacity.combined(with: .scale(scale: 0.96)), reduceMotion: reduceMotion))
         HStack(spacing: Tokens.Space.s) { liveControls }
             .fixedSize()
+            .transition(Tokens.Motion.transition(.opacity, reduceMotion: reduceMotion))
     }
 
     /// A running clock says "running" without a caption. A stopped one is
@@ -291,6 +366,7 @@ struct FocusHero: View {
     private var liveSubtitle: String {
         var parts: [String] = []
         if isQuiet { parts.append(store.isAway ? "Away" : mode.primaryPrompt) }
+        if mode == .awaitingDecision { parts.append("Away question below") }
         parts.append(store.workType.displayName)
         if let summary = store.threadSummaryLine { parts.append(summary) }
         return parts.joined(separator: " · ")
@@ -302,6 +378,7 @@ struct FocusHero: View {
             FocusActionButton(title: "Pause", symbol: "pause.fill", prominent: true) {
                 performPrimaryAction()
             }
+            .matchedGeometryEffect(id: "primary", in: primaryPill)
             .help(pauseHelp)
             FocusActionButton(title: "Step away", symbol: "door.right.hand.open") { store.markAway() }
                 .help(awayHelp)
@@ -312,6 +389,7 @@ struct FocusHero: View {
                               symbol: "play.fill", prominent: true) {
                 performPrimaryAction()
             }
+            .matchedGeometryEffect(id: "primary", in: primaryPill)
             .help(resumeHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
@@ -322,7 +400,9 @@ struct FocusHero: View {
 
     /// Only the sentences the row cannot carry without truncating them. A
     /// recording rule the user is being held to must never end in an ellipsis.
-    private var stripDetail: String? {
+    private var stripDetail: String? { Self.detail(for: mode, store: store) }
+
+    static func detail(for mode: FocusSurfaceMode, store: SessionStore) -> String? {
         switch mode {
         case .running: return store.isAutoSession ? "Started automatically" : nil
         case .paused: return store.isAway ? "Nothing is counted while you are away." : nil

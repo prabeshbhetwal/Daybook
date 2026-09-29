@@ -32,7 +32,6 @@ final class PersistenceStore {
         static let defaultAppTabRawValue = "fc.defaultAppTab"
         /// No longer read: the window always opens on the day. Kept so erasing
         /// all data still clears a value an earlier version saved.
-        static let sessionControlsPinned = "fc.sessionControlsPinned"
         static let storyTileOrderRawValue = "fc.storyTileOrder"
         static let expandsEntryDetails = "fc.expandsEntryDetails"
         static let interfaceDensityRawValue = "fc.interfaceDensity"
@@ -579,14 +578,6 @@ final class PersistenceStore {
     }
 
 
-    /// Pinning controls only their presentation in the existing main window.
-    /// It is deliberately stored beside other UI preferences and never read by
-    /// SessionEngine, so relaunch cannot start, stop or otherwise mutate work.
-    var sessionControlsPinned: Bool {
-        get { defaults.bool(forKey: Key.sessionControlsPinned) }
-        set { defaults.set(newValue, forKey: Key.sessionControlsPinned) }
-    }
-
     var storyTileOrderRawValue: String {
         get { defaults.string(forKey: Key.storyTileOrderRawValue) ?? "" }
         set { defaults.set(newValue, forKey: Key.storyTileOrderRawValue) }
@@ -672,7 +663,6 @@ final class PersistenceStore {
                     Key.remindersDisabled, Key.workInterval, Key.breakLength,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
-                    Key.sessionControlsPinned,
                     Key.storyTileOrderRawValue,
                     Key.expandsEntryDetails,
                     Key.interfaceDensityRawValue, Key.appearanceRawValue,

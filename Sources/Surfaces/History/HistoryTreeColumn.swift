@@ -170,10 +170,10 @@ struct HistoryTree: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             StartButton(title: "Start focus", fills: false) {
-                navigation.performSessionControlsAction(.commandOrMenu)
+                navigation.focusSessionControls()
             }
             .fixedSize()
-            .accessibilityHint("Opens the session controls to choose an activity")
+            .accessibilityHint("Returns to the story, with the cursor in the activity field")
         }
         .frame(maxWidth: 520, alignment: .leading)
     }

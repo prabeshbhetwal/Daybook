@@ -176,20 +176,6 @@ struct WorkTypePicker: View {
     }
 }
 
-private struct SessionControlsVisibleKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    /// True while the session strip is showing under the chrome. The running
-    /// card then leaves Pause and Stop to the strip rather than repeating them
-    /// a few hundred points lower.
-    var sessionControlsVisible: Bool {
-        get { self[SessionControlsVisibleKey.self] }
-        set { self[SessionControlsVisibleKey.self] = newValue }
-    }
-}
-
 /// What a request to open the activity editor is for.
 enum ActivityEditorRequest: Equatable {
     case new

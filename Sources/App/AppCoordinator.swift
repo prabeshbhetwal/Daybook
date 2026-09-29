@@ -440,7 +440,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     @MainActor private func apply(_ effect: FirstRunEffect) {
         switch effect {
         case .openSessionControls:
-            mainWindow.performSessionControlsAction(.commandOrMenu)
+            mainWindow.focusSessionControls()
         case .previewAwayCard:
             // The real card with sample figures; answers dismiss it and
             // resolve nothing, because there is no absence behind it.

@@ -478,7 +478,6 @@ struct SessionEntryCard: View {
     @FocusState private var renameActionFocused: Bool
     @Environment(\.focusInterfaceDensity) private var density
     @Environment(\.openSessionReport) private var openSessionReport
-    @Environment(\.sessionControlsVisible) private var sessionControlsVisible
 
     private var tint: Color { Tokens.Palette.workType(session.workType) }
 
@@ -771,16 +770,9 @@ struct SessionEntryCard: View {
                                      + "App use stays. Undo is offered in the story.")
                             }
                     }
+                    // Pause and Stop are in the bar, a few hundred points up;
+                    // the card does not repeat them.
                     Spacer(minLength: 0)
-                    // The strip, when it is up, already has these two.
-                    if !sessionControlsVisible {
-                        if let onPause { actionButton(pauseTitle, action: onPause) }
-                        if let onEnd {
-                            actionButton("Stop", action: onEnd)
-                                .help("Ends this session and records it. A stretch under "
-                                      + "\(Int(minimumRecorded)) seconds is not kept.")
-                        }
-                    }
                 }
             }
             // Said where the decision is made: Remove states its own scope in

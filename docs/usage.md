@@ -13,7 +13,7 @@ a historical day never substitutes today's data.
 |---|---|---|
 | Story | What happened on this day? | Focus-led summary, chronological stretches, named rest, app use and honest recording gaps; goal, app use, rhythm and streak in the rail |
 | Calendar | Which day? | Opens from Jump to date in History. Each date shows its focus, or a dot if the Mac only saw app use. A tick marks a met goal, and the month's sum sits in its header |
-| Session controls | What should I do now? | Intent, work type, Start, Pause, Resume, Step away, Stop and pending-away decisions |
+| Session controls | What should I do now? | The centre of the bar on the story: the activity, its category and Start; while a session runs, the clock, its name and Pause, Step away and Stop in the same place. An away question, a quiet activity choice or an automatic session's Adopt and Undo appear on a line under the bar only while they exist |
 | History | How have my years, months, weeks and days gone? Where is that session? | One timeline that unfolds. It opens on the smallest period holding your whole record: this week's days, this month's weeks, this year's months, or every year. Click a row to open it: a year into its months, a month into its weeks, a week into its days, a day into its sessions, each one step in from its parent; one row is open per level. Each row shows its focus, its focused days or sessions, and a thin bar per month or day. Nothing is drawn from before the first recorded day or after today. Search at the top, with app and category filters. The rail describes the deepest open row, or the session you click: category shares, best two hours, goal rates and apps for a period, its best month or day, the day's strip and notes, a session's stretches and full note. Pace, quality and continuity are stated only for the current month, and only when the record supports them |
 | Awards | What milestones have I earned? | Achievements derived from recorded evidence, with their criteria |
 | Settings | How should the app behave? | Real persisted controls, privacy evidence and diagnostics |
@@ -24,7 +24,7 @@ a historical day never substitutes today's data.
 |---|---|
 | `Command-1`, `Command-2` | The day's story, History |
 | `Command-6` | Awards |
-| `Command-7` | Session controls |
+| `Command-7` | The story, with the cursor in the activity field |
 | `Command-,` | Settings |
 | `Command-F` | Find in History, from anywhere in the window |
 | Up, Down | In History, move through the rows |
@@ -73,8 +73,8 @@ separate, labelled classification, not a restriction on the name you can enter.
 The compact menu-bar popover intentionally remains Focus-only. It provides the
 current action, up to three continuation choices, quiet break context, and
 **Open FocusContinuity**, **Settings** and **Quit**. Opening the app reveals
-the Story without automatically presenting the session sheet; use **Session
-controls** or `Command-7` when you want that sheet.
+the Story with the session controls in its bar; **Session controls** or
+`Command-7` put the cursor in the activity field.
 
 ## Activity rules
 

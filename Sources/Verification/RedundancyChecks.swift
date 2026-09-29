@@ -11,7 +11,6 @@ enum RedundancyChecks {
         ("The best two hours are said once, with where they fell", bestHoursSaidOnce),
         ("History's month carries recorded app use in its rail, not its header", monthAppUseOnce),
         ("A break reminder's body gives the reason, not the title again", breakBodyAddsOnly),
-        ("The strip hides today's goal only where the goal card shows it", stripGoalOnlyWhereCardIsNot)
     ]
 
     private static let start = Date(timeIntervalSince1970: 1_800_000_000)
@@ -109,23 +108,6 @@ enum RedundancyChecks {
         let note = HistoryHours.note(seconds: 12_000, phrase: "on Tuesdays")
         return note == "\(Tokens.duration(12_000)) of focus fell here, most of it on Tuesdays."
             ? [] : ["the best-hours note lost its figure or place: \(note)"]
-    }
-
-    private static func stripGoalOnlyWhereCardIsNot() -> [String] {
-        var failures: [String] = []
-        if SessionControlStrip.showsGoal(isToday: true, workspace: .story, sheet: nil) {
-            failures.append("the strip repeated today's goal beside the goal card")
-        }
-        if !SessionControlStrip.showsGoal(isToday: true, workspace: .history, sheet: nil) {
-            failures.append("History has no goal card, yet the strip hid today's goal there")
-        }
-        if !SessionControlStrip.showsGoal(isToday: true, workspace: .story, sheet: .settings) {
-            failures.append("a sheet covers the goal card, yet the strip hid today's goal")
-        }
-        if !SessionControlStrip.showsGoal(isToday: false, workspace: .story, sheet: nil) {
-            failures.append("a past day's card is not today's goal, yet the strip hid it")
-        }
-        return failures
     }
 
     private static func breakBodyAddsOnly() -> [String] {

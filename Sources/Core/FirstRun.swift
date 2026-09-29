@@ -62,7 +62,7 @@ enum FirstRunTask: String, CaseIterable {
 /// Something the app does for a card while it is showing, and undoes when the
 /// card goes. The coach reports the position; the application applies these.
 enum FirstRunEffect: String, Equatable {
-    /// Reveal the session strip, so the card can point into it.
+    /// Put the cursor in the bar's activity field, so the card can point at it.
     case openSessionControls
     /// Show the real away card with sample figures. Answers dismiss it and
     /// record nothing: there is no absence behind it.
@@ -95,13 +95,13 @@ enum CoachAnchor: String, CaseIterable, Hashable {
 /// The window state a card can be waiting on. Gathered by the view and handed
 /// in; nothing in this file knows about SwiftUI.
 struct FirstRunSignals: Equatable {
-    var sessionControlsVisible = false
+    var activityFieldEngaged = false
     var sessionRunning = false
     var otherAppRecorded = false
 
     func satisfies(_ task: FirstRunTask) -> Bool {
         switch task {
-        case .openControls: return sessionControlsVisible
+        case .openControls: return activityFieldEngaged
         case .startSession: return sessionRunning
         case .useAnotherApp: return otherAppRecorded
         }
@@ -255,19 +255,17 @@ enum FirstRunScript {
         ]),
 
         Chapter(id: .firstSession, cards: [
-            Card(sentence: "Open your session controls.",
-                 body: "Press Start focus in the bar above. It does not begin anything "
-                     + "yet — it opens the controls, so you can say what you are about "
-                     + "to do first.",
-                 anchor: .sessionControl,
+            Card(sentence: "The session controls are in the bar.",
+                 body: "Click into the activity field at the top. Everything that "
+                     + "begins, pauses or ends a session lives on that one row, and "
+                     + "it stays there while a session runs.",
+                 anchor: .activityField,
                  task: .openControls,
-                 result: "There they are. Everything that begins, pauses or ends a "
-                     + "session lives in that strip.",
+                 result: "That is the row. Nothing begins until you press Start.",
                  waiting: "Not now"),
             Card(sentence: "Say what you are working on, then start.",
                  body: "Type anything — emails, that report, admin. Then press Start "
-                     + "focus in the strip. You can rename it later; nothing here is "
-                     + "set in stone.",
+                     + "focus. You can rename it later; nothing here is set in stone.",
                  anchor: .activityField,
                  task: .startSession,
                  result: "Look at the sentence at the top of the page. That is your "

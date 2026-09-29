@@ -336,10 +336,7 @@ enum StoryIntegrationChecks {
             let settings = SettingsModel(store: f.persistence, isTrackingEnabled: true,
                 onChange: {}, onTrackingChanged: { _ in },
                 installedAppCatalog: FixtureFactory.installedAppCatalog())
-            let navigation = MainWindowModel(store: f.store)
-            settings.sessionControlsPinned = true
-            navigation.performSessionControlsAction(.commandOrMenu)
-            let expandedBefore = navigation.sessionControlsExpanded
+            _ = settings
             var failures: [String] = []
             f.persistence.activityRules = [
                 ActivityRule(name: "Coding", workType: .deepWork,
@@ -347,24 +344,11 @@ enum StoryIntegrationChecks {
             ]
             f.persistence.activityRuleAutomationEnabled = true
             f.store.refresh()
-            if !SessionControlsVisibility.isVisible(expanded: navigation.sessionControlsExpanded,
-                                                    pinned: settings.sessionControlsPinned) {
-                failures.append("a rule edit hid the pinned session strip")
-            }
-            if navigation.sessionControlsExpanded != expandedBefore {
-                failures.append("a rule edit changed the strip's expanded state")
-            }
             if f.engine.state != .idle {
                 failures.append("adding a rule started a session by itself")
             }
             if f.store.pendingActivityChoice != nil {
                 failures.append("adding a rule presented a quiet choice with no evidence")
-            }
-            let reopened = SettingsModel(store: PersistenceStore(defaults: UserDefaults(suiteName: f.suite)!),
-                isTrackingEnabled: true, onChange: {}, onTrackingChanged: { _ in },
-                installedAppCatalog: FixtureFactory.installedAppCatalog())
-            if !reopened.sessionControlsPinned {
-                failures.append("the pin did not survive alongside the rule edit")
             }
             return failures
         }
