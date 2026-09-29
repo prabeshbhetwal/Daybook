@@ -17,7 +17,13 @@ enum HistoryJournalChecks {
         ("Arrow keys step through months, days and sessions in reading order", keyboardSteps),
         ("Jump to date selects a listed day, or the month of a quiet one", jumpSelects),
         ("The twelve-month chart stops at the first recorded month", recentMonthsFloor),
-        ("A ticking clock does not rebuild the journal", journalIsCached)
+        ("A ticking clock does not rebuild the journal", journalIsCached),
+        ("Journal headers and lines say each figure once, in words for VoiceOver", journalWording),
+        ("A session row speaks its time, name, category and length as one element", sessionSpeech),
+        ("The rail falls back to the month when its session is gone", railFallsBackToMonth),
+        ("The best two hours are said once, with where they fell", bestHoursSaidOnce),
+        ("The month rail carries recorded app use in one line", monthRailAppUse),
+        ("The journal and each rail scope render with their evidence", journalRenders)
     ]
 
     // MARK: - Fixtures
@@ -289,6 +295,140 @@ enum HistoryJournalChecks {
             if store.journalComputeCount != rebuilt {
                 failures.append("reads after the index rebuild rebuilt the journal again")
             }
+            // A search walks every record; five reads under one filter walk them once.
+            store.historyFilter.workType = record.workType
+            let searched = store.searchJournalComputeCount
+            for _ in 0..<5 { _ = store.historyJournal() }
+            if store.searchJournalComputeCount != searched + 1 {
+                failures.append("five reads under one search computed its matches "
+                                + "\(store.searchJournalComputeCount - searched) times")
+            }
+            return failures
+        }
+    }
+
+    // MARK: - Wording
+
+    private static func journalWording() -> [String] {
+        var failures: [String] = []
+        let month = JournalMonth(start: date(9, 1), focused: 5_400, tracked: 6_000, focusedDays: 2,
+                                 dailyFocus: Array(repeating: 0, count: 30))
+        let facts = HistoryMonthHeader.facts(month)
+        let expected = "\(Tokens.duration(5_400)) focused · 2 days · \(Tokens.duration(2_700)) per focused day"
+        if facts != expected { failures.append("month header read \"\(facts)\", expected \"\(expected)\"") }
+        if facts.contains("app use") { failures.append("the month header repeated app use from the rail") }
+        // The quiet line formats in the Mac's own time zone, as the app does.
+        let here = Calendar.current
+        func local(_ day: Int) -> Date { here.date(from: DateComponents(year: 2026, month: 9, day: day))! }
+        let single = HistoryQuietRow.text(JournalQuiet(first: local(22), last: local(22)))
+        if single != "Tue 22 Sep · nothing recorded" { failures.append("a single quiet day read \"\(single)\"") }
+        let run = HistoryQuietRow.text(JournalQuiet(first: local(23), last: local(27)))
+        if run != "23 – 27 Sep · nothing recorded" { failures.append("a quiet run read \"\(run)\"") }
+        let entries: [JournalEntry] = [
+            .month(month),
+            .day(JournalDay(date: date(9, 28), focused: 1_800, tracked: 0, sessions: 2, threads: [])),
+            .day(JournalDay(date: date(9, 22), focused: 600, tracked: 0, sessions: 1, threads: []))
+        ]
+        let summary = HistoryJournal.matchSummary(entries)
+        if summary != "3 sessions match · \(Tokens.duration(2_400)) of focus" {
+            failures.append("the search summary read \"\(summary)\"")
+        }
+        return failures
+    }
+
+    private static func sessionSpeech() -> [String] {
+        let start = date(9, 28).addingTimeInterval(8.5 * 3_600)
+        let named = DaySession(id: UUID(), threadID: UUID(), name: "Refactor", workType: .deepWork,
+                               start: start, end: start.addingTimeInterval(11_100), worked: 7_500,
+                               stretches: 1, spans: [], isRunning: false)
+        var failures: [String] = []
+        let label = HistorySessionRow.spokenLabel(named)
+        for part in [Tokens.timeRange(named.start, named.end), "Refactor",
+                     WorkType.deepWork.displayName, Tokens.spent(7_500)] where !label.contains(part) {
+            failures.append("the row did not say \"\(part)\": \(label)")
+        }
+        if label.contains(Tokens.duration(7_500)) { failures.append("the row spoke a compact duration: \(label)") }
+        let unnamed = DaySession(id: UUID(), threadID: UUID(), name: "", workType: .deepWork,
+                                 start: start, end: start.addingTimeInterval(600), worked: 600,
+                                 stretches: 1, spans: [], isRunning: true)
+        let quiet = HistorySessionRow.spokenLabel(unnamed)
+        if quiet.components(separatedBy: WorkType.deepWork.displayName).count != 2 {
+            failures.append("an unnamed session said its category twice: \(quiet)")
+        }
+        if !quiet.contains("in progress") { failures.append("a running session did not say so: \(quiet)") }
+        if HistorySessionRow.detail(apps: ["Xcode", "Terminal", "Safari", "Notes"], note: "fixed it")
+            != "Xcode, Terminal, Safari · “fixed it”" {
+            failures.append("the second line lost its three apps or the note")
+        }
+        return failures
+    }
+
+    private static func railFallsBackToMonth() -> [String] {
+        let day = date(9, 28)
+        let gone = HistoryRailScope.resolve(.session(thread: UUID(), day: day), session: nil, calendar: calendar)
+        return gone == .month(date(9, 1)) ? [] : ["a vanished session left the rail on \(gone)"]
+    }
+
+    private static func bestHoursSaidOnce() -> [String] {
+        let note = HistoryHours.note(seconds: 12_000, phrase: "on Tuesdays")
+        var failures: [String] = []
+        if note != "\(Tokens.duration(12_000)) of focus fell here, most of it on Tuesdays." {
+            failures.append("the best-hours note read \"\(note)\"")
+        }
+        if HistoryHours.span(from: 9) != "9 am – 11 am" || HistoryHours.label(0) != "12 am"
+            || HistoryHours.label(13) != "1 pm" {
+            failures.append("clock hours were not said as 9 am, 12 am and 1 pm")
+        }
+        return failures
+    }
+
+    private static func monthRailAppUse() -> [String] {
+        let line = HistoryMonthRail.appUseLine(tracked: 59_100)
+        return line == "\(Tokens.duration(59_100)) recorded app use"
+            ? [] : ["the month rail's app use read \"\(line)\""]
+    }
+
+    // MARK: - Render
+
+    private static func journalRenders() -> [String] {
+        MainActor.assumeIsolated {
+            var failures: [String] = []
+            func require(_ label: String, _ frame: StoryRenderedFrame, _ evidence: StoryRenderEvidence) {
+                if !frame.evidence.contains(evidence) {
+                    failures.append("\(label) did not render \(evidence.rawValue): \(frame.evidence.map(\.rawValue).sorted())")
+                }
+            }
+            let dense = FixtureFactory.insightsStore(withEvidence: true)
+            dense.refreshReview()
+            let navigation = MainWindowModel(store: dense)
+            navigation.open(tab: .review)
+            let monthFrame = StoryWorkspaceChecks.renderFrame(
+                HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000)
+            require("History on its month", monthFrame, .historyJournal)
+            require("History on its month", monthFrame, .historyMonthRail)
+            let yesterday = Calendar.current.date(byAdding: .day, value: -1,
+                                                  to: Calendar.current.startOfDay(for: dense.now()))!
+            navigation.selectHistory(.day(yesterday))
+            require("History on a day", StoryWorkspaceChecks.renderFrame(
+                HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000),
+                .historyDayRail)
+            if let thread = dense.journalThreads(on: yesterday, only: nil).first {
+                navigation.selectHistory(.session(thread: thread, day: yesterday))
+                require("History on a session", StoryWorkspaceChecks.renderFrame(
+                    HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000),
+                    .historySessionRail)
+            } else {
+                failures.append("the dense fixture's yesterday has no session")
+            }
+            FixtureFactory.cleanUp()
+            let sparse = FixtureFactory.store(for: .firstRun, accurateUsage: true)
+            sparse.refreshReview()
+            let fresh = MainWindowModel(store: sparse)
+            fresh.open(tab: .review)
+            require("An empty History", StoryWorkspaceChecks.renderFrame(
+                HistoryWorkspace(store: sparse, navigation: fresh, scrolls: false), width: 1_160, height: 800),
+                .historyEmpty)
+            FixtureFactory.cleanUp()
             return failures
         }
     }

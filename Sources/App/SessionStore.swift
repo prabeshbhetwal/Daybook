@@ -473,6 +473,11 @@ final class SessionStore: ObservableObject {
     /// How many times the journal was built. A check proves the clock alone
     /// never rebuilds it.
     var journalComputeCount = 0
+    /// The journal a search narrows to, kept while the search and the archive
+    /// behind it stay the same; its matches walk every record.
+    var searchJournalCache: (key: SearchJournalKey, entries: [JournalEntry])?
+    /// How many times a search's matches were walked.
+    var searchJournalComputeCount = 0
     var reviewEvidenceRevision: EvidenceRevision?
     /// Explicit-date Story projections are immutable read models. Historical
     /// values survive ticker frames; current or running dates deliberately

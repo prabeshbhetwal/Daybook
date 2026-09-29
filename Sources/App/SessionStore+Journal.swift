@@ -334,14 +334,28 @@ struct JournalKey: Equatable {
     let oldest: Date?
 }
 
+/// A search's journal holds while the search and the archive behind it do.
+struct SearchJournalKey: Equatable {
+    let filter: HistoryFilter
+    let evidence: SessionStore.EvidenceRevision
+    let indexGeneration: Int
+}
+
 extension SessionStore {
     /// The journal History lists. Cached until the archive behind it changes;
     /// while a session runs, only today's row and its month are brought up
-    /// to date. A search builds its own narrowed journal from the matches.
+    /// to date. A search builds its own narrowed journal from the matches,
+    /// cached the same way until the search or the archive changes.
     func historyJournal() -> [JournalEntry] {
         let calendar = Calendar.current
         if historyFilter.isActive {
-            return HistoryJournalBuilder.entries(matching: historySearchHits(limit: .max), calendar: calendar)
+            let key = SearchJournalKey(filter: historyFilter, evidence: evidenceRevision,
+                                       indexGeneration: historyIndexGeneration)
+            if let cached = searchJournalCache, cached.key == key { return cached.entries }
+            searchJournalComputeCount &+= 1
+            let entries = HistoryJournalBuilder.entries(matching: historySearchHits(limit: .max), calendar: calendar)
+            searchJournalCache = (key, entries)
+            return entries
         }
         let key = JournalKey(evidence: evidenceRevision, indexGeneration: historyIndexGeneration,
                              dayCount: historyDays.count,

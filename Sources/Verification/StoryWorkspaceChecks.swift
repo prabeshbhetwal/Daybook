@@ -6,7 +6,7 @@ private final class StoryRenderEvidenceBox {
     var values: Set<StoryRenderEvidence> = []
 }
 
-private struct StoryRenderedFrame {
+struct StoryRenderedFrame {
     let bitmap: NSBitmapImageRep?
     let evidence: Set<StoryRenderEvidence>
 }
@@ -399,7 +399,7 @@ enum StoryWorkspaceChecks {
         }
     }
 
-    private static func renderFrame<V: View>(_ view: V,
+    static func renderFrame<V: View>(_ view: V,
                                              width: CGFloat = 980,
                                              height: CGFloat) -> StoryRenderedFrame {
         let evidence = StoryRenderEvidenceBox()
