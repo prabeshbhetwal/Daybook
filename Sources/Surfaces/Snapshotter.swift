@@ -3,7 +3,7 @@ import AppKit
 
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure
-    case todayHistory, todayHistoryExpanded, todayPast
+    case todayHistory, todayHistoryExpanded
     case reviewHistorySelection, historySession, historySearch, historySparse
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
@@ -26,7 +26,6 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusSaveFailure: return "Focus — answer not saved"
         case .todayHistory: return "Today — history"
         case .todayHistoryExpanded: return "Today — history expanded recap"
-        case .todayPast: return "Today — past day and integrity"
         case .reviewHistorySelection: return "History — a day open"
         case .historySession: return "History — a day open and a session picked"
         case .historySearch: return "History — searching"
@@ -106,7 +105,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
              .activityRuleAmbiguity, .activityRuleAutomatic:
             return .focus
-        case .todayHistory, .todayHistoryExpanded, .todayPast:
+        case .todayHistory, .todayHistoryExpanded:
             return .today
         case .reviewHistorySelection, .historySession, .historySearch, .historySparse:
             return .review
@@ -363,11 +362,6 @@ enum Snapshotter {
         case .todayHistory, .todayHistoryExpanded:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
-            return store
-        case .todayPast:
-            let store = FixtureFactory.store(for: .idleWithHistory)
-            store.setDashboardVisible(true)
-            store.stepDay(by: -1)
             return store
         case .reviewHistorySelection:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)

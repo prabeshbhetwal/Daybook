@@ -244,13 +244,7 @@ struct StoryCanvas: View {
 
     private var readingKey: String { store.dayLabel }
 
-    private var readingTransition: AnyTransition {
-        switch navigation.lastPeriodStep {
-        case let step where step > 0: return Tokens.Motion.slide(from: .trailing)
-        case let step where step < 0: return Tokens.Motion.slide(from: .leading)
-        default: return Tokens.Motion.unfold
-        }
-    }
+    private var readingTransition: AnyTransition { Tokens.Motion.unfold }
 
 }
 

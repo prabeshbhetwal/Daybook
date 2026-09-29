@@ -212,9 +212,6 @@ enum StoryPresentationChecks {
             if route.workspace != .history || route.reviewSelectedDate == nil {
                 failures.append("History selection snapshot did not actually present a selected History day")
             }
-            let past = Snapshotter.store(for: .todayPast)
-            _ = Snapshotter.navigation(for: .todayPast, store: past)
-            if past.isToday { failures.append("Past-day snapshot unexpectedly shows today") }
             return failures
         }
     }

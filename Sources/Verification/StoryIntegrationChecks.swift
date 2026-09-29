@@ -317,7 +317,7 @@ enum StoryIntegrationChecks {
             f.store.refresh()
             let navigation = MainWindowModel(store: f.store)
             let today = f.clock.value
-            navigation.jumpToDay(today)
+            f.store.selectDay(offset: 0)
             var failures: [String] = []
             guard f.store.undoAwayDecision(expectedID: first.id) else {
                 return ["the older receipt was unavailable with the day's story open"]
@@ -375,8 +375,7 @@ enum StoryIntegrationChecks {
             let store = FixtureFactory.insightsStore(withEvidence: true)
             defer { FixtureFactory.cleanUp() }
             let navigation = MainWindowModel(store: store)
-            let day = Calendar.current.date(byAdding: .day, value: -2, to: store.now())!
-            navigation.jumpToDay(day)
+            store.selectDay(offset: 2)
             let shown = store.selectedDay
             var failures: [String] = []
             store.refreshReview()

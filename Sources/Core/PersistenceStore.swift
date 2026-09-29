@@ -32,7 +32,6 @@ final class PersistenceStore {
         static let defaultAppTabRawValue = "fc.defaultAppTab"
         /// No longer read: the window always opens on the day. Kept so erasing
         /// all data still clears a value an earlier version saved.
-        static let defaultStoryScopeRawValue = "fc.defaultStoryScope"
         static let sessionControlsPinned = "fc.sessionControlsPinned"
         static let storyTileOrderRawValue = "fc.storyTileOrder"
         static let expandsEntryDetails = "fc.expandsEntryDetails"
@@ -673,7 +672,7 @@ final class PersistenceStore {
                     Key.remindersDisabled, Key.workInterval, Key.breakLength,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
-                    Key.defaultStoryScopeRawValue, Key.sessionControlsPinned,
+                    Key.sessionControlsPinned,
                     Key.storyTileOrderRawValue,
                     Key.expandsEntryDetails,
                     Key.interfaceDensityRawValue, Key.appearanceRawValue,

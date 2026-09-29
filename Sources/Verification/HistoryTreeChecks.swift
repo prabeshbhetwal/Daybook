@@ -21,7 +21,8 @@ enum HistoryTreeChecks {
         ("Rows say their period, figures and state once, in words for VoiceOver", rowWording),
         ("The headline names the top period and its totals", headlineWording),
         ("The rail follows the deepest open row and the picked session, and drops a session that is gone", railFollowsDeepestOpen),
-        ("A period's reading covers exactly its span: one week, one month, a year's months, the record's months", periodReading)
+        ("A period's reading covers exactly its span: one week, one month, a year's months, the record's months", periodReading),
+        ("The dashboard has no step or calendar, and History never moves its day", dashboardIsToday)
     ]
 
     // MARK: - Fixtures
@@ -475,5 +476,31 @@ enum HistoryTreeChecks {
         let week = HistoryPeriodRail.reading(for: weeks[0].place, top: top)
         if week.scope != .week || week.limit != 1 { failures.append("a week read \(week.scope) × \(week.limit)") }
         return failures
+    }
+
+    // MARK: - Dashboard
+
+    private static func dashboardIsToday() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            store.refreshReview()
+            let navigation = MainWindowModel(store: store)
+            navigation.open(tab: .review)
+            var failures: [String] = []
+            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: store.now()))!
+            navigation.openHistory(day: yesterday)
+            if !store.isToday { failures.append("opening a day in History moved the dashboard's day") }
+            if navigation.workspace != .history { failures.append("opening a day left History") }
+            navigation.returnToStory()
+            if !store.isToday { failures.append("returning to the story did not show today") }
+            let frame = StoryWorkspaceChecks.renderFrame(
+                StoryChromeBar(store: store, navigation: navigation),
+                width: 1_160, height: 60)
+            if !frame.evidence.contains(.storyChromeToday) {
+                failures.append("the story chrome did not draw its Today label: \(frame.evidence.map(\.rawValue).sorted())")
+            }
+            return failures
+        }
     }
 }

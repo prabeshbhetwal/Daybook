@@ -4,7 +4,7 @@ import SwiftUI
 enum StoryNavigationChecks {
     static let tests: [(String, () -> [String])] = [
         ("Story commands present the requested surface, including repeat routes", routes),
-        ("A day opened from History shows that day's own evidence", historicalEvidence),
+        ("A day opened in History shows that day's own evidence and leaves today alone", historicalEvidence),
         ("Find in History opens History with the cursor asked for its search", findInHistory),
         ("Picking in History changes what the rail reads, never the story's day", historyPicks),
         ("Jump to date and the arrow keys move History's selection and its scroll", historyJumpAndSteps)
@@ -152,12 +152,17 @@ enum StoryNavigationChecks {
             store.attach(tracker: tracker, usage: usage)
             let navigation = MainWindowModel(opening: .review)
             navigation.connect(to: store)
-            navigation.openDay(chosen)
+            store.refreshReview()
+            navigation.openHistory(day: chosen)
             var failures: [String] = []
             @MainActor func checkDay() {
-                if navigation.workspace != .story || !calendar.isDate(store.selectedDay, inSameDayAs: chosen) {
-                    failures.append("Opening 21 August did not show that day's story")
+                if navigation.workspace != .history
+                    || navigation.reviewSelectedDate != calendar.startOfDay(for: chosen) {
+                    failures.append("Opening 21 August did not open that day in History: workspace \(navigation.workspace), "
+                        + "open \(navigation.historyOpen.map { "\($0.level) \($0.span.start)" }), days \(store.historyDays.count), "
+                        + "top \(store.historyTop())")
                 }
+                if !store.isToday { failures.append("Opening 21 August in History moved the story's day") }
                 let names = store.storyDayProjection(on: chosen).sessions.compactMap { entry -> String? in
                     if case .session(let session) = entry { return session.name }; return nil
                 }
@@ -167,18 +172,15 @@ enum StoryNavigationChecks {
             }
             checkDay()
             navigation.open(tab: .today)
-            if store.dayOffset != 0 { failures.append("Today route did not return to the current local day") }
-            navigation.jumpToDay(chosen)
-            checkDay()
-            // 21 August is the first recorded day, so the only step is forward.
-            navigation.stepStoryPeriod(by: 1)
-            if !calendar.isDate(store.selectedDay, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: chosen)!) {
-                failures.append("Stepping on from 21 August did not show 22 August")
+            if store.dayOffset != 0 || navigation.workspace != .story {
+                failures.append("Today route did not show today's story")
             }
             navigation.open(tab: .review)
             if navigation.workspace != .history || store.historyDays.isEmpty {
                 failures.append("History route did not present searchable evidence")
             }
+            // The day left open is still open when History is shown again.
+            checkDay()
             let emptyDay = calendar.date(byAdding: .day, value: -1, to: chosen)!
             let emptyProjection = store.storyDayProjection(on: emptyDay)
             if !emptyProjection.sessions.isEmpty {

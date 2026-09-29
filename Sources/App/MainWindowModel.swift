@@ -261,17 +261,19 @@ struct HistorySessionPick: Hashable {
         animated(Tokens.Motion.swap) {
             workspace = .story
             sheet = nil
-            showDay(date)
+            store?.selectDay(offset: 0)
         }
     }
 
     // MARK: - History's tree
 
     /// The first time History shows: unfold to this week. Later openings
-    /// keep whatever the reader left open.
+    /// keep whatever the reader left open, as does a day opened before
+    /// History was ever shown, by a search or a Jump to date.
     func prepareHistory() {
-        guard !historyPrepared, let store else { return }
+        guard !historyPrepared else { return }
         historyPrepared = true
+        guard historyOpen.isEmpty, let store else { return }
         historyOpen = HistoryTreeBuilder.pathToToday(top: store.historyTop(), calendar: SessionStore.historyCalendar)
     }
 
@@ -461,45 +463,7 @@ struct HistorySessionPick: Hashable {
         // Binding happens at launch, before any window exists. Visibility is
         // the story canvas's to claim when it appears; claiming it here kept
         // the dashboard rebuilding every second behind a window never opened.
-        if let requestedDate { showDay(requestedDate) }
         refreshStory()
-    }
-
-    /// The chrome's calendar picked a day: show it as the day's story. Story
-    /// may deliberately inspect an empty historical date; only future dates
-    /// are clamped.
-    func jumpToDay(_ date: Date) {
-        showDay(date)
-    }
-
-    /// A day found in History, opened as the front page's story.
-    func openDay(_ date: Date) {
-        lastPeriodStep = 0
-        animated(Tokens.Motion.swap) {
-            workspace = .story
-            sheet = nil
-            showDay(date)
-            refreshStory()
-        }
-    }
-
-    private func showDay(_ date: Date) {
-        guard let store else { return }
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: store.now())
-        let target = min(today, calendar.startOfDay(for: date))
-        let offset = calendar.dateComponents([.day], from: target, to: today).day ?? 0
-        store.selectDay(offset: max(0, offset))
-    }
-
-    /// Which way the reader last stepped: +1 forward, -1 back, 0 when the
-    /// day was jumped to instead. The story's transition reads it.
-    @Published private(set) var lastPeriodStep = 0
-
-    func stepStoryPeriod(by delta: Int) {
-        guard let store else { return }
-        lastPeriodStep = delta
-        animated(Tokens.Motion.swap) { store.stepDay(by: delta) }
     }
 
     /// History's search reads the archive's day index, so the review read

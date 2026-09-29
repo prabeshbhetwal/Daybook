@@ -390,17 +390,15 @@ enum FirstRunScript {
         ]),
 
         Chapter(id: .lookingBack, cards: [
-            Card(sentence: "The story is a day. History is the longer view.",
-                 body: "History lists every day you recorded, newest first: each month "
-                     + "with its total, each day with its sessions. Click a month, a day "
-                     + "or a session to read it beside the list. ↑ and ↓ move through it; "
-                     + "Return opens a day's story.",
+            Card(sentence: "The story is today. History is one timeline that unfolds.",
+                 body: "Years open into months, months into weeks, weeks into days, and a "
+                     + "day into its sessions, each one step in from its parent. Click a "
+                     + "row to open it, or press Return; Escape folds the deepest open row.",
                  anchor: .journal,
                  effect: .showHistory),
             Card(sentence: "History goes back to the day you installed the app.",
-                 body: "Scroll to go further back, or use Jump to date to pick a day on "
-                     + "the calendar. There is nothing from before the app was here, "
-                     + "because nothing was recorded.",
+                 body: "Nothing is drawn from before the app was here, because nothing "
+                     + "was recorded. Jump to date opens any recorded day straight away.",
                  anchor: .periodNav,
                  effect: .showHistory),
             Card(sentence: "Find any session by name.",

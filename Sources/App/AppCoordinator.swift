@@ -595,10 +595,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             return
         }
         if which == "card" { store.previewPendingAway(6 * 60) }
-        if which == "past" {
-            // The view's onAppear returns to today; step after it.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { self.store.stepDay(by: -1) }
-        }
         // The real main shell in a plain preview window, so the requested card
         // or historical day can be inspected without first clicking through
         // the menu-bar extra.

@@ -358,7 +358,7 @@ enum StoryInteractionChecks {
         MainActor.assumeIsolated {
             let f = Fixture(); defer { f.close() }
             let navigation = MainWindowModel(store: f.store)
-            navigation.jumpToDay(f.clock.value.addingTimeInterval(-86_400))
+            f.store.selectDay(offset: 1)
             let day = f.store.selectedDay
             navigation.open(tab: .focus)
             navigation.revealApplication()

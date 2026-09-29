@@ -7262,7 +7262,7 @@ enum SelfTest {
             let required: [SnapshotScenario] = [
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
                 .focusSaveFailure,
-                .todayHistory, .todayHistoryExpanded, .todayPast,
+                .todayHistory, .todayHistoryExpanded,
                 .reviewHistorySelection, .historySession, .historySearch, .historySparse,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
