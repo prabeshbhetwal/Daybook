@@ -221,11 +221,14 @@ extension SessionStore {
                                                focused: existing.focused + contributed,
                                                sessions: storySessionCount(on: day),
                                                appBundleIDs: existing.appBundleIDs,
-                                               workTypes: workTypes)
+                                               workTypes: workTypes,
+                                               focusByWorkType: existing.focusByWorkType
+                                                   .merging([engine.activeWorkType: contributed], uniquingKeysWith: +))
                 } else {
                     result.append(HistoryDay(date: day, tracked: 0, focused: contributed,
                                              sessions: storySessionCount(on: day),
-                                             appBundleIDs: [], workTypes: [engine.activeWorkType]))
+                                             appBundleIDs: [], workTypes: [engine.activeWorkType],
+                                             focusByWorkType: [engine.activeWorkType: contributed]))
                 }
             }
             guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }

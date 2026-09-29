@@ -11,6 +11,9 @@ struct HistoryDay: Identifiable, Equatable {
     let sessions: Int
     let appBundleIDs: Set<String>
     let workTypes: Set<WorkType>
+    /// Focused seconds by category, so a period can name the category it
+    /// spent most of its focus in. Sums to `focused`.
+    var focusByWorkType: [WorkType: TimeInterval] = [:]
 
     var id: Date { date }
 }
@@ -97,6 +100,7 @@ enum HistoryStats {
         var threadIDs: Set<UUID> = []
         var appBundleIDs: Set<String> = []
         var workTypes: Set<WorkType> = []
+        var focusByWorkType: [WorkType: TimeInterval] = [:]
     }
 
     private enum SpanResolution {
@@ -165,6 +169,7 @@ enum HistoryStats {
                     bucket.workTypes.insert(record.workType)
                     if record.workType.countsAsFocus {
                         bucket.focused += worked
+                        bucket.focusByWorkType[record.workType, default: 0] += worked
                         bucket.threadIDs.insert(record.threadID)
                     }
                     buckets[cursor] = bucket
@@ -178,7 +183,8 @@ enum HistoryStats {
             HistoryDay(date: date, tracked: bucket.tracked,
                        focused: bucket.focused, sessions: bucket.threadIDs.count,
                        appBundleIDs: bucket.appBundleIDs,
-                       workTypes: bucket.workTypes)
+                       workTypes: bucket.workTypes,
+                       focusByWorkType: bucket.focusByWorkType)
         }
         .sorted { $0.date > $1.date }
         return HistoryBuildResult(days: days,
