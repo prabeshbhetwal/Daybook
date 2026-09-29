@@ -274,6 +274,21 @@ enum HistoryJournalChecks {
             if store.journalComputeCount != before + 1 {
                 failures.append("a saved note did not rebuild the journal once")
             }
+            // A full History index rebuild can land after the evidence revision
+            // changed; the journal must be rebuilt from the new days, once.
+            let generation = store.historyIndexGeneration
+            store.refreshReview()
+            _ = store.historyJournal()
+            if store.historyIndexGeneration == generation {
+                failures.append("the check's refresh did not rebuild the History index")
+            } else if store.journalComputeCount != before + 2 {
+                failures.append("a rebuilt History index did not rebuild the journal exactly once")
+            }
+            let rebuilt = store.journalComputeCount
+            for _ in 0..<5 { _ = store.historyJournal() }
+            if store.journalComputeCount != rebuilt {
+                failures.append("reads after the index rebuild rebuilt the journal again")
+            }
             return failures
         }
     }

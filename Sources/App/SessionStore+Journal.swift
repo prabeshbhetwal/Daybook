@@ -327,6 +327,9 @@ enum HistoryJournalBuilder {
 
 struct JournalKey: Equatable {
     let evidence: SessionStore.EvidenceRevision
+    /// Bumps on every full rebuild of `historyDays`, which can lag the
+    /// evidence revision; the cache must not settle on days from before it.
+    let indexGeneration: Int
     let dayCount: Int
     let oldest: Date?
 }
@@ -340,7 +343,8 @@ extension SessionStore {
         if historyFilter.isActive {
             return HistoryJournalBuilder.entries(matching: historySearchHits(limit: .max), calendar: calendar)
         }
-        let key = JournalKey(evidence: evidenceRevision, dayCount: historyDays.count,
+        let key = JournalKey(evidence: evidenceRevision, indexGeneration: historyIndexGeneration,
+                             dayCount: historyDays.count,
                              oldest: historyDays.last?.date)
         let entries: [JournalEntry]
         if let cached = journalCache, cached.key == key {
