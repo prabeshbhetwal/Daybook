@@ -476,6 +476,9 @@ final class SessionStore: ObservableObject {
     /// The journal a search narrows to, kept while the search and the archive
     /// behind it stay the same; its matches walk every record.
     var searchJournalCache: (key: SearchJournalKey, entries: [JournalEntry])?
+    /// History's tree, per parent place, held until the archive changes.
+    var historyTreeCache: (key: JournalKey, top: HistoryTop, rows: [String: [HistoryRow]])?
+    var historyTreeComputeCount = 0
     /// How many times a search's matches were walked.
     var searchJournalComputeCount = 0
     var reviewEvidenceRevision: EvidenceRevision?

@@ -14,7 +14,8 @@ enum HistoryTreeChecks {
         ("The opening path unfolds to this week and no further", pathToToday),
         ("Jump to date builds the path down to the day", pathToDay),
         ("A daylight-saving week keeps seven days", daylightSaving),
-        ("The tree's summary names the best month for a year and the best day for a month", summaryBest)
+        ("The tree's summary names the best month for a year and the best day for a month", summaryBest),
+        ("A ticking clock does not rebuild the tree, and today's live figures reach its rows", treeIsCached)
     ]
 
     // MARK: - Fixtures
@@ -264,5 +265,47 @@ enum HistoryTreeChecks {
             failures.append("the month's best day was \(String(describing: monthSummary.best))")
         }
         return failures
+    }
+
+    // MARK: - Store
+
+    private static func treeIsCached() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .running, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            store.refreshReview()
+            var failures: [String] = []
+            let calendar = SessionStore.historyCalendar
+            let top = store.historyTop()
+            _ = store.historyRows(under: nil)
+            let path = HistoryTreeBuilder.pathToToday(top: top, calendar: calendar)
+            for place in path { _ = store.historyRows(under: place) }
+            let built = store.historyTreeComputeCount
+            for _ in 0..<5 {
+                _ = store.historyRows(under: nil)
+                for place in path { _ = store.historyRows(under: place) }
+            }
+            if store.historyTreeComputeCount != built {
+                failures.append("re-reading the tree rebuilt it \(store.historyTreeComputeCount - built) times")
+            }
+            // The running session's live focus reaches today's row and every
+            // row above it, without a rebuild.
+            let today = calendar.startOfDay(for: store.now())
+            let live = store.historyDays.first { calendar.isDate($0.date, inSameDayAs: today) }
+            guard let liveFocus = live?.focused, liveFocus > 0 else { return ["the running fixture has no live focus today"] }
+            var parent: HistoryPlace? = nil
+            for place in path {
+                let rows = store.historyRows(under: parent)
+                guard let row = rows.first(where: { $0.place == place }) else { failures.append("\(place.level) row missing"); break }
+                if row.focused < liveFocus { failures.append("the \(place.level) row shows \(row.focused)s, less than today's \(liveFocus)s") }
+                parent = place
+            }
+            let days = store.historyRows(under: path.last)
+            if days.first(where: { $0.place.span.contains(today) })?.focused != liveFocus {
+                failures.append("today's row does not carry the live figure")
+            }
+            if store.historyTreeComputeCount != built { failures.append("reading live rows rebuilt the tree") }
+            return failures
+        }
     }
 }
