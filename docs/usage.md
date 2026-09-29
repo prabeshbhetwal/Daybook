@@ -5,16 +5,16 @@ the project is and how it is built, start with the [README](../README.md).
 
 ## Surfaces
 
-The main window reads one day at a time; History reads longer stretches.
+The main window reads one day at a time; History reads the whole record.
 Each question has one place, so the same figures are not shown twice. Opening
 a historical day never substitutes today's data.
 
 | Surface | Question it answers | Main content |
 |---|---|---|
 | Story | What happened on this day? | Focus-led summary, chronological stretches, named rest, app use and honest recording gaps; goal, app use, rhythm and streak in the rail |
-| Calendar | Which day, or which span? | A date picker under the date label: a dot marks days with anything recorded; in History, click a first and last day to read that span |
+| Calendar | Which day? | Opens from the date label, and from Jump to date in History. Each date shows its focus, or a dot if the Mac only saw app use. A tick marks a met goal, and the month's sum sits in its header |
 | Session controls | What should I do now? | Intent, work type, Start, Pause, Resume, Step away, Stop and pending-away decisions |
-| History | How have my days, weeks and months gone? Where is that session? | Search first, with app and category filters; ranges of 7 or 30 days (by day), 3 months (by week) or 12 months (a calendar for each month); a when-you-focus grid, category shares and goal rates; gated pace, quality and continuity statements |
+| History | How have my days and months gone? Where is that session? | One list, newest first, back to the first recorded day. Search at the top, with app and category filters. Each month shows its focus, focused days and daily average over a thin bar per day; each day its focus; each session its time, name, category, length, apps and the first line of its note. Days with nothing recorded fold into one line. The rail describes the month, day or session you click: category shares, best two hours and goal rates for a month, the day's strip and notes, a session's stretches and full note. Pace, quality and continuity are stated only for the current month, and only when the record supports them |
 | Awards | What milestones have I earned? | Achievements derived from recorded evidence, with their criteria |
 | Settings | How should the app behave? | Real persisted controls, privacy evidence and diagnostics |
 
@@ -27,6 +27,8 @@ a historical day never substitutes today's data.
 | `Command-7` | Session controls |
 | `Command-,` | Settings |
 | `Command-F` | Find in History, from anywhere in the window |
+| Up, Down | In History, move through months, days and sessions |
+| Return | In History, open the selected day's story |
 | `Option-Command-N` | Start focus |
 | `Option-Command-P` | Pause, or resume a paused session |
 | `Option-Command-A` | Step away |
@@ -45,9 +47,10 @@ whether Control-Option-Space is working, and replays the welcome tour.
 Current work is at the top of the timeline; earlier work and rest continue
 downwards. Click an entry's full header to expand it. Inspect an app from the
 rail to see that day's recorded visits. The arrows step a day; the date label
-opens the calendar. In History a picked bar or month unfolds in place, down to
-a single day's story; a found session previews its day in the rail, and **Open
-as a story** reads it on the front page. Choose **Arrange cards** to reorder the
+opens the calendar. In History, click a month, a day or a session and the rail
+describes just that; **Open as a story** (or Return, or a double-click on a
+day) reads the day on the front page. **Jump to date** scrolls the list to a
+day. Choose **Arrange cards** to reorder the
 rail. While arranging, drag a card, or use the up and down arrows in its header
 or its right-click menu; VoiceOver offers Move up and Move down.
 
@@ -114,17 +117,16 @@ save a different correction made elsewhere.
 
 Historical sessions and app use are clipped by local calendar day, so a
 cross-midnight session contributes only its proper portion to each day.
-History's solid bars are logged focus and the pale bar behind each is recorded
-app use; focus averages use focused days. The daily goal ring uses
+History's month bars are logged focus, one per day; focus averages use focused
+days. The daily goal ring uses
 focused-active credit; the current streak is explicitly recent even while
 browsing older days. Running focus is included in the day's story and in
 History without writing synthetic records into the archive.
 
 The Story preserves separate stretches of resumed work so a later stretch does
 not swallow a break or recording gap. Gaps are not assumed to be work or rest.
-An app-only day still displays its observed use. Each History row states its
-focused time and session count; the rail preview adds recorded app use and the
-longest stretch.
+An app-only day still displays its observed use. Each History day states its
+focused time; the rail adds recorded app use and the longest stretch.
 
 The headline says time **logged across focus sessions**. That total can exceed
 recorded app use without an arithmetic error: these are independently recorded
@@ -172,7 +174,7 @@ preferences. `--fixture-window` opens the real production shell with an
 injected fixture clock and no live-history coordinator or system monitors. Use
 it for native sheets, keyboard focus, appearance, corrections and navigation;
 fixture changes are disposable. `--snapshot` renders light/dark day stories,
-History ranges and a picked day, session controls, Settings, Awards, the
+History with a month, a day and a session picked, session controls, Settings, Awards, the
 tour's opener and first step, and compact prompts through offscreen AppKit
 hosting, including native controls and real scroll views.
 `FC_SNAPSHOT_ONLY=<scenario>` renders one scenario; the whole matrix takes

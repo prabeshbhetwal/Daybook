@@ -12,8 +12,8 @@ record the tested behaviour and remaining manual-verification limits.
 
 ## Composition
 
-A persistent native chrome row holds day navigation (History: its range buttons
-and span navigation) and session controls. A readable Story column sits beside a 336-point supporting rail.
+A persistent native chrome row holds day navigation (History: Jump to date)
+and session controls. A readable Story column sits beside a 300-point supporting rail.
 The canvas is warm off-white (`#FBFAF8`) with white entry cards; the rail is a
 subtle neutral layer over the warm base. Dark appearance retains the same
 hierarchy, without putting white labels on insufficiently dark fills.
@@ -24,8 +24,9 @@ reason to change every legacy surface's spacing.
 
 ## Type and colour
 
-Use the native system typeface. Story headline: 25-point semibold, maximum
+Use the native system typeface. Story headline: 20-point semibold, maximum
 560-point reading width. Row titles: 14 points; secondary metadata: 12 points.
+The type scale is 9, 10, 11, 12, 13, 14, 15, 19, 22, 24 and 36.
 Values use monospaced digits. Prose wraps; diagnostics never truncate silently.
 
 Focus identity is indigo, separate from blue action. The reference's `#4E4CCC`
@@ -38,8 +39,11 @@ is known. Native controls preserve visible keyboard focus.
 
 ## Components
 
-- Range control (History): rounded rectangle, radius 9, neutral selected thumb
-  radius 7. No thumb shows while a span picked on the calendar is read.
+- History journal: one list, newest first. A month header carries the month's
+  totals over a thin bar per day; a day header carries its focus; a session row
+  carries time, name, category, length, apps and the first line of its note.
+  Runs of empty days fold into one line. The selected row is tinted, and a
+  month, day or session selection sets what the rail describes.
 - Entry cards: radius 13, 13-point vertical / 15-point horizontal padding,
   subtle hairline and shadow. The entire header toggles detail.
 - Rail tiles: radius 14, 15-point vertical / 16-point horizontal padding.
@@ -48,9 +52,9 @@ is known. Native controls preserve visible keyboard focus.
   within the supported 980-point minimum shell. No fabricated activity waveform
   or typing claims. Meetings use a compact evidence paragraph and app-duration
   chips; current work uses a short coverage sentence beside a compact chart.
-- Calendar: a picker, not a report. Dates, the chosen day or span, and a
-  4-point dot on days with anything recorded; a day's figures are in its hover
-  text and spoken label. Months and their totals are History's.
+- Calendar: picks one day. Each date shows its focus, or a 4-point dot when
+  only app use was recorded. A tick marks a met goal, and the month's sum sits
+  in its header. The same figures are in each day's spoken label.
 - Preferences: compact bounded native sheet with five groups, backed controls
   and contextual search. Native modal sheets block parent interaction and Escape
   dismisses. History remains searchable and opens historical stories explicitly.
@@ -60,9 +64,9 @@ is known. Native controls preserve visible keyboard focus.
 One row: a slot for the way back, the workspace's controls, the session
 control, Settings. The slot is the width of one round button and is empty on
 the Story; History puts a bare back arrow in it. The Story's controls are its
-day arrows and date, with a History link; History's are its four range buttons
-and its span arrows and dates. The bar holds controls and the way back, never a
-title, and History's search heads its page rather than sitting in the bar. The
+day arrows and date, with a History link; History's is Jump to date, which
+opens the calendar. The bar holds controls and the way back, never a title, and
+History's search heads its page rather than sitting in the bar. The
 session control never wraps.
 
 ## Vocabulary

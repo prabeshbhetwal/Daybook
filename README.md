@@ -25,9 +25,9 @@ lunch into invented productivity. FocusContinuity is built around one rule:
 
 ## Screenshots
 
-| History, 3 months, dark appearance | History, 12 months, a day picked |
+| History, a session picked, dark appearance | History, a month picked |
 |---|---|
-| ![History in dark mode over 3 months: search first, focus by week and a when-you-focus grid](docs/screenshots/history-dark.png) | ![History over 12 months: a calendar for each month, with a picked day previewed in the rail](docs/screenshots/history-year.png) |
+| ![History in dark mode: one journal by month and day, with a picked session described in the rail](docs/screenshots/history-dark.png) | ![History in light mode: one journal by month and day, with the month's focus described in the rail](docs/screenshots/history.png) |
 
 | Menu bar | Away decision |
 |---|---|
@@ -119,11 +119,12 @@ machinery that nothing used any more, with no change in behaviour.
 - Focus sessions with pause, away, breaks and threads you can continue later
 - Optional activity rules that start sessions from the apps you use, always
   saying why and offering Undo
-- History over the last 7 or 30 days, 3 or 12 months, or any span you pick,
-  grouped by day, week or month to suit, back to the first recorded day
-- Search first in History: sessions by name, note, app, category or date (⌘F)
-- History states only what the record supports: focus trend, a
-  when-you-focus grid, category shares and goal rates
+- History as one journal, newest first, back to the first recorded day. Each
+  month, day and session shows its own figures; click one and the rail
+  describes just that. Jump to date opens a calendar that shows each day's focus
+- Search at the top of History: sessions by name, note, app, category or date (⌘F)
+- History states only what the record supports: category shares, best two
+  hours, goal rates and the month's pace, quality and continuity
 - Custom categories with icons, colours, daily goals and break reminders
 - Session notes with in-app dictation, full session reports and named breaks
 - Awards derived from recorded evidence, with their criteria shown
