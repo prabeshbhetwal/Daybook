@@ -271,10 +271,23 @@ struct HistorySessionPick: Hashable {
     /// keep whatever the reader left open, as does a day opened before
     /// History was ever shown, by a search or a Jump to date.
     func prepareHistory() {
-        guard !historyPrepared else { return }
+        guard !historyPrepared else { reconcileHistory(); return }
         historyPrepared = true
         guard historyOpen.isEmpty, let store else { return }
         historyOpen = HistoryTreeBuilder.pathToToday(top: store.historyTop(), calendar: SessionStore.historyCalendar)
+    }
+
+    /// The tree moved under the open path — midnight, or a record that
+    /// stepped the top up a level: each open place becomes the row now drawn
+    /// for it, and a place no longer in the record folds away.
+    func reconcileHistory() {
+        guard let store, !historyOpen.isEmpty else { return }
+        let open = HistoryTreeBuilder.reconcile(open: historyOpen, top: store.historyTop(),
+                                                calendar: SessionStore.historyCalendar)
+        guard open != historyOpen else { return }
+        historyOpen = open
+        if let pick = historySession, open.last?.level != .day || open.last?.start != pick.day { historySession = nil }
+        if case .row(let place) = historyFocus, !open.contains(place) { historyFocus = open.last.map(HistoryFocus.row) }
     }
 
     private func historyDepth(of place: HistoryPlace) -> Int? {

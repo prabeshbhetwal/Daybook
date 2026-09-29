@@ -52,6 +52,9 @@ struct HistoryTree: View {
         .background(StoryStyle.canvas)
         .announcesChanges(to: summary.map(DurationText.spoken(in:)))
         .onAppear { store.setInsightsVisible(true); navigation.prepareHistory() }
+        // Midnight re-clips the rows holding today, and a longer record can
+        // step the top up: the open path is re-read as the rows now drawn.
+        .onChange(of: store.historyTop()) { _ in navigation.reconcileHistory() }
         .onDisappear { store.setInsightsVisible(false) }
         .storyRenderEvidence(isEmptyArchive ? .historyEmpty : .historyTree)
     }
@@ -112,7 +115,9 @@ struct HistoryTree: View {
             case .right: navigation.moveHistoryFocus(open: true)
             @unknown default: return
             }
-            if let spoken = Self.spoken(navigation.historyFocus, store: store) { Announcement.post(spoken) }
+            if let spoken = Self.spoken(navigation.historyFocus, store: store, open: navigation.historyOpen) {
+                Announcement.post(spoken)
+            }
         }
         .onCommand(#selector(NSStandardKeyBindingResponding.insertNewline(_:))) {
             navigation.activateHistoryFocus()
@@ -132,16 +137,23 @@ struct HistoryTree: View {
         return "\(sessions) \(noun) · \(Tokens.duration(worked)) of focus"
     }
 
-    /// What a row says when the keyboard lands on it: its VoiceOver label.
-    static func spoken(_ focus: HistoryFocus?, store: SessionStore) -> String? {
+    /// What a row says when the keyboard lands on it: its VoiceOver label,
+    /// with whether it is open. Nothing for a place the tree no longer draws.
+    static func spoken(_ focus: HistoryFocus?, store: SessionStore, open: [HistoryPlace]) -> String? {
         switch focus {
         case .row(let place):
             let top = store.historyTop()
             let depth = place.level.rawValue - top.rootLevel.rawValue
-            let parent = depth == 0 ? nil : HistoryTreeBuilder.path(to: place.start, top: top,
-                                                                    calendar: SessionStore.historyCalendar)[depth - 1]
+            guard depth >= 0 else { return nil }
+            var parent: HistoryPlace?
+            if depth > 0 {
+                let path = HistoryTreeBuilder.path(to: place.start, top: top, calendar: SessionStore.historyCalendar)
+                guard path.indices.contains(depth - 1) else { return nil }
+                parent = path[depth - 1]
+            }
             guard let row = store.historyRows(under: parent).first(where: { $0.place == place }) else { return nil }
-            return DurationText.spoken(in: HistoryRowText.spoken(row, today: store.now(), isOpen: false, depth: depth,
+            let isOpen = open.indices.contains(depth) && open[depth] == place
+            return DurationText.spoken(in: HistoryRowText.spoken(row, today: store.now(), isOpen: isOpen, depth: depth,
                                                                 calendar: SessionStore.historyCalendar))
         case .session(let thread, let day):
             return store.journalSession(thread: thread, on: day).map(HistorySessionRow.spokenLabel)

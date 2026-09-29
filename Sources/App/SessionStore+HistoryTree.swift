@@ -1,8 +1,22 @@
 import Foundation
 
+/// What the store keeps of History's tree between archive changes. Rows and
+/// summaries are built from `byDate` once; today's live figures are laid
+/// over them on each read rather than rebuilt into them.
+struct HistoryTreeCache {
+    let key: JournalKey
+    let top: HistoryTop
+    let byDate: [Date: HistoryDay]
+    /// Today as the index knew it, so a read can tell whether today moved.
+    let cachedToday: HistoryDay?
+    var rows: [String: [HistoryRow]] = [:]
+    var summaries: [String: HistorySummary] = [:]
+}
+
 extension SessionStore {
-    /// Monday-first, so weeks in History are Monday to Sunday.
-    static let historyCalendar = HistoryTreeBuilder.calendar(.current)
+    /// Monday-first, so weeks in History are Monday to Sunday. Read each
+    /// time, so a Mac that changes time zone is not held to the old one.
+    static var historyCalendar: Calendar { HistoryTreeBuilder.calendar(.current) }
 
     /// The top of History's tree for the current record and today.
     func historyTop() -> HistoryTop {
@@ -21,17 +35,37 @@ extension SessionStore {
             rows = cached
         } else {
             historyTreeComputeCount &+= 1
-            rows = HistoryTreeBuilder.rows(under: parent, top: state.top, days: historyDays, calendar: calendar)
+            rows = HistoryTreeBuilder.rows(under: parent, top: state.top, byDate: state.byDate, calendar: calendar)
             state.rows[key] = rows
             historyTreeCache = state
         }
-        return HistoryTreeBuilder.patching(rows, top: state.top, live: liveToday(calendar), days: historyDays,
-                                           calendar: calendar)
+        return HistoryTreeBuilder.patching(rows, byDate: state.byDate, cachedToday: state.cachedToday,
+                                           live: liveToday(calendar), calendar: calendar)
     }
 
     /// The headline's figures for the top period, live for today.
     func historySummary() -> HistorySummary {
-        HistoryTreeBuilder.summary(top: historyTop(), days: historyDays, calendar: Self.historyCalendar)
+        historySummary(for: nil)
+    }
+
+    /// A place's figures and its best child, or the top period's for nil.
+    /// Cached as the rows are; today's change is laid over the cached total.
+    func historySummary(for place: HistoryPlace?) -> HistorySummary {
+        let calendar = Self.historyCalendar
+        var state = tree()
+        let key = place?.id ?? "root"
+        let top = place.map { HistoryTop(place: $0, firstDay: $0.span.start, today: state.top.today) } ?? state.top
+        let summary: HistorySummary
+        if let cached = state.summaries[key] {
+            summary = cached
+        } else {
+            historyTreeComputeCount &+= 1
+            summary = HistoryTreeBuilder.summary(top: top, byDate: state.byDate, calendar: calendar)
+            state.summaries[key] = summary
+            historyTreeCache = state
+        }
+        return HistoryTreeBuilder.patching(summary, top: top, byDate: state.byDate, cachedToday: state.cachedToday,
+                                           live: liveToday(calendar), calendar: calendar)
     }
 
     private func liveToday(_ calendar: Calendar) -> HistoryDay? {
@@ -39,14 +73,17 @@ extension SessionStore {
         return historyDays.first { calendar.isDate($0.date, inSameDayAs: today) }
     }
 
-    private func tree() -> (key: JournalKey, top: HistoryTop, rows: [String: [HistoryRow]]) {
+    private func tree() -> HistoryTreeCache {
+        let calendar = Self.historyCalendar
         let key = JournalKey(evidence: evidenceRevision, indexGeneration: historyIndexGeneration,
                              dayCount: historyDays.count, oldest: historyDays.last?.date)
-        let today = Self.historyCalendar.startOfDay(for: now())
+        let today = calendar.startOfDay(for: now())
         if let cached = historyTreeCache, cached.key == key, cached.top.today == today { return cached }
         historyTreeComputeCount &+= 1
-        let top = HistoryTreeBuilder.top(days: historyDays, today: now(), calendar: Self.historyCalendar)
-        let fresh = (key, top, [String: [HistoryRow]]())
+        let byDate = HistoryTreeBuilder.index(historyDays, calendar: calendar)
+        let fresh = HistoryTreeCache(key: key,
+                                     top: HistoryTreeBuilder.top(days: historyDays, today: now(), calendar: calendar),
+                                     byDate: byDate, cachedToday: byDate[today])
         historyTreeCache = fresh
         return fresh
     }

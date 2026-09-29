@@ -109,15 +109,19 @@ struct HistoryPeriodRail: View {
     /// nil: the top period.
     let place: HistoryPlace?
 
-    /// Which reading covers a place: a week is one week, a month one
-    /// month, a year its months on record, the record all its months.
+    /// Which reading covers a place: a week is its own days (a week at the
+    /// record's edge, or under one of the two months it straddles, is
+    /// shorter than a calendar week), a month one month, a year its months
+    /// on record, the record all its months.
     static func reading(for place: HistoryPlace?, top: HistoryTop) -> (scope: InsightRange, anchor: Date, limit: Int) {
         let calendar = SessionStore.historyCalendar
         let span = place?.span ?? top.span
         let last = calendar.date(byAdding: .day, value: -1, to: span.end) ?? span.start
         let anchor = min(last, top.today)
         switch place?.level ?? top.place?.level {
-        case .week: return (.week, anchor, 1)
+        case .week:
+            let days = (calendar.dateComponents([.day], from: calendar.startOfDay(for: span.start), to: anchor).day ?? 0) + 1
+            return (.day, anchor, max(1, days))
         case .month: return (.month, anchor, 1)
         case .year, .day, .none:
             let first = calendar.dateInterval(of: .month, for: span.start)?.start ?? span.start
@@ -131,9 +135,9 @@ struct HistoryPeriodRail: View {
         let top = store.historyTop()
         let span = place?.span ?? top.span
         let read = Self.reading(for: place, top: top)
-        let facts = store.insightReading(scope: read.scope, anchoredAt: read.anchor, limit: read.limit).facts
-        let summary = place.map { HistoryTreeBuilder.row($0, byDate: HistoryTreeBuilder.index(store.historyDays, calendar: calendar), calendar: calendar) }
-        let tracked = summary?.tracked ?? store.historySummary().tracked
+        let facts = store.insightReading(scope: read.scope, anchoredAt: read.anchor, limit: read.limit,
+                                         calendar: calendar).facts
+        let tracked = store.historySummary(for: place).tracked
         let isCurrentMonth = (place?.level ?? top.place?.level) == .month && span.contains(top.today)
         let surface = store.insightSurface(for: .month)
         return VStack(alignment: .leading, spacing: Tokens.Space.m) {
@@ -160,7 +164,7 @@ struct HistoryPeriodRail: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            bestTile(span: span, level: place?.level ?? top.place?.level ?? .year)
+            bestTile(store.historySummary(for: place))
             if !facts.goalRates.isEmpty { goalsTile(facts.goalRates) }
             if !facts.apps.isEmpty { appsTile(facts.apps, tracked: tracked) }
             if isCurrentMonth { soFar(surface) }
@@ -168,11 +172,7 @@ struct HistoryPeriodRail: View {
     }
 
     /// The best month of a year or the record; the best day of a month or week.
-    @ViewBuilder private func bestTile(span: DateInterval, level: HistoryLevel) -> some View {
-        let calendar = SessionStore.historyCalendar
-        let top = HistoryTop(place: HistoryPlace(level: level, span: span), firstDay: span.start,
-                             today: store.historyTop().today)
-        let summary = HistoryTreeBuilder.summary(top: top, days: store.historyDays, calendar: calendar)
+    @ViewBuilder private func bestTile(_ summary: HistorySummary) -> some View {
         if let best = summary.best, summary.focusedDays > 1 {
             let isMonth = best.place.level == .month
             StoryTile(title: isMonth ? "Best month" : "Best day", trailing: nil) {

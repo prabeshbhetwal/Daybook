@@ -22,7 +22,10 @@ enum HistoryTreeChecks {
         ("The headline names the top period and its totals", headlineWording),
         ("The rail follows the deepest open row and the picked session, and drops a session that is gone", railFollowsDeepestOpen),
         ("A period's reading covers exactly its span: one week, one month, a year's months, the record's months", periodReading),
-        ("The dashboard has no step or calendar, and History never moves its day", dashboardIsToday)
+        ("The dashboard has no step or calendar, and History never moves its day", dashboardIsToday),
+        ("Open rows survive midnight and the top stepping up", openSurvivesMidnight),
+        ("A zone whose clocks change at midnight keeps every day once", daylightSavingAtMidnight),
+        ("Today's live figures patch the cached summary without a walk", summaryPatching)
     ]
 
     // MARK: - Fixtures
@@ -312,6 +315,13 @@ enum HistoryTreeChecks {
                 failures.append("today's row does not carry the live figure")
             }
             if store.historyTreeComputeCount != built { failures.append("reading live rows rebuilt the tree") }
+            // The headline's summary is cached the same way, and carries the live figure.
+            let summary = store.historySummary()
+            let weekSummary = store.historySummary(for: path.last)
+            let afterSummary = store.historyTreeComputeCount
+            for _ in 0..<5 { _ = store.historySummary(); _ = store.historySummary(for: path.last) }
+            if store.historyTreeComputeCount != afterSummary { failures.append("re-reading the summary walked the record again") }
+            if summary.focused < liveFocus || weekSummary.focused < liveFocus { failures.append("the summary does not carry today's live figure") }
             return failures
         }
     }
@@ -353,6 +363,17 @@ enum HistoryTreeChecks {
                 navigation.toggleHistory(child.place)
                 if navigation.historyOpen.contains(child.place) { failures.append("a child opened under a folded parent") }
             }
+            // The keyboard says an open row is expanded, and a place that is no
+            // longer in the record is spoken as nothing rather than crashing.
+            navigation.toggleHistory(newest.place)
+            if HistoryTree.spoken(.row(newest.place), store: store, open: navigation.historyOpen)?.hasSuffix("expanded") != true {
+                failures.append("an open row was not announced as expanded")
+            }
+            let outside = HistoryPlace(level: .day, span: DateInterval(start: Date(timeIntervalSince1970: 0), duration: 86_400))
+            if HistoryTree.spoken(.row(outside), store: store, open: navigation.historyOpen) != nil {
+                failures.append("a place outside the record was spoken")
+            }
+            navigation.toggleHistory(newest.place)
             // Escape folds one level at a time.
             navigation.toggleHistory(newest.place)
             if let child = children.first(where: { !$0.isEmpty }) { navigation.toggleHistory(child.place) }
@@ -477,8 +498,11 @@ enum HistoryTreeChecks {
         let sep = HistoryPeriodRail.reading(for: months[0].place, top: top)
         if sep.scope != .month || sep.limit != 1 { failures.append("September read \(sep.scope) × \(sep.limit)") }
         let weeks = HistoryTreeBuilder.rows(under: months[0].place, top: top, days: september, calendar: calendar)
+        // A week reads exactly its days: this week is Monday 28 to today, two days.
         let week = HistoryPeriodRail.reading(for: weeks[0].place, top: top)
-        if week.scope != .week || week.limit != 1 { failures.append("a week read \(week.scope) × \(week.limit)") }
+        if week.scope != .day || week.limit != 2 || !calendar.isDate(week.anchor, inSameDayAs: today) {
+            failures.append("this week read \(week.scope) × \(week.limit) anchored \(week.anchor)")
+        }
         return failures
     }
 
@@ -506,5 +530,81 @@ enum HistoryTreeChecks {
             }
             return failures
         }
+    }
+
+    // MARK: - Review fixes
+
+    private static func openSurvivesMidnight() -> [String] {
+        var failures: [String] = []
+        let tuesday = HistoryTreeBuilder.top(days: september, today: today, calendar: calendar)
+        let week = HistoryTreeBuilder.rows(under: nil, top: tuesday, days: september, calendar: calendar)[0]
+        let day = HistoryTreeBuilder.rows(under: week.place, top: tuesday, days: september, calendar: calendar)[0]
+        let open = [week.place, day.place]
+        // Wednesday: the week row now reaches the 30th; the open week must be that row.
+        let wednesday = HistoryTreeBuilder.top(days: september, today: date(9, 30), calendar: calendar)
+        let kept = HistoryTreeBuilder.reconcile(open: open, top: wednesday, calendar: calendar)
+        let weekRow = HistoryTreeBuilder.rows(under: nil, top: wednesday, days: september, calendar: calendar)[0]
+        if kept.count != 2 || kept[0] != weekRow.place || kept[1] != day.place {
+            failures.append("after midnight the open path read \(kept.map { "\($0.level) \($0.span)" })")
+        }
+        // Monday 5 October: the top steps up to the year, so the path gains September.
+        let monday = HistoryTreeBuilder.top(days: september, today: date(10, 5), calendar: calendar)
+        let stepped = HistoryTreeBuilder.reconcile(open: open, top: monday, calendar: calendar)
+        if stepped.map(\.level) != [.month, .week, .day] { failures.append("after the top stepped up the path read \(stepped.map(\.level))") }
+        let months = HistoryTreeBuilder.rows(under: nil, top: monday, days: september, calendar: calendar)
+        if stepped.first.map({ place in months.contains { $0.place == place } }) != true { failures.append("the gained month is not a drawn row") }
+        // A day that is no longer in the record folds away.
+        let later = HistoryTreeBuilder.top(days: [row(10, 2, focused: 60, sessions: 1)], today: date(10, 5), calendar: calendar)
+        if !HistoryTreeBuilder.reconcile(open: open, top: later, calendar: calendar).isEmpty { failures.append("a day outside the record stayed open") }
+        if !HistoryTreeBuilder.reconcile(open: [], top: wednesday, calendar: calendar).isEmpty { failures.append("nothing open became something") }
+        return failures
+    }
+
+    private static func daylightSavingAtMidnight() -> [String] {
+        // Santiago moves its clocks forward at midnight on Sunday 6 September 2026:
+        // that day begins at 01:00. Every day must still be walked once.
+        var base = Calendar(identifier: .gregorian)
+        base.timeZone = TimeZone(identifier: "America/Santiago")!
+        let santiago = HistoryTreeBuilder.calendar(base)
+        func local(_ month: Int, _ day: Int) -> Date { santiago.date(from: DateComponents(year: 2026, month: month, day: day))! }
+        let days = [HistoryDay(date: local(9, 20), tracked: 0, focused: 600, sessions: 1, appBundleIDs: [], workTypes: [.deepWork]),
+                    HistoryDay(date: local(9, 6), tracked: 0, focused: 300, sessions: 1, appBundleIDs: [], workTypes: [.deepWork]),
+                    HistoryDay(date: local(9, 3), tracked: 0, focused: 900, sessions: 1, appBundleIDs: [], workTypes: [.deepWork])]
+        let today = local(9, 25)
+        let top = HistoryTreeBuilder.top(days: days, today: today, calendar: santiago)
+        var failures: [String] = []
+        let weeks = HistoryTreeBuilder.rows(under: nil, top: top, days: days, calendar: santiago)
+        let everyDay = weeks.flatMap { HistoryTreeBuilder.rows(under: $0.place, top: top, days: days, calendar: santiago) }
+        if everyDay.count != 23 { failures.append("3 – 25 September drew \(everyDay.count) days, not 23") }
+        if Set(everyDay.map(\.place.start)).count != everyDay.count { failures.append("a day was drawn twice") }
+        if everyDay.map(\.focused).reduce(0, +) != 1_800 { failures.append("a day's focus was lost across the clock change") }
+        if let sunday = everyDay.first(where: { santiago.component(.day, from: $0.place.start) == 6 }), sunday.focused != 300 {
+            failures.append("the clock-change day lost its focus")
+        }
+        let summary = HistoryTreeBuilder.summary(top: top, days: days, calendar: santiago)
+        if summary.focused != 1_800 || summary.focusedDays != 3 { failures.append("the summary read \(summary.focused)s on \(summary.focusedDays) days") }
+        return failures
+    }
+
+    private static func summaryPatching() -> [String] {
+        let top = HistoryTreeBuilder.top(days: september, today: today, calendar: calendar)
+        let byDate = HistoryTreeBuilder.index(september, calendar: calendar)
+        let cached = HistoryTreeBuilder.summary(top: top, byDate: byDate, calendar: calendar)
+        var failures: [String] = []
+        let small = row(9, 29, focused: 1_200, tracked: 300, sessions: 1, types: [.deepWork: 1_200])
+        let patched = HistoryTreeBuilder.patching(cached, top: top, byDate: byDate, cachedToday: nil, live: small, calendar: calendar)
+        if patched.focused != 7_500 || patched.tracked != 7_800 || patched.focusedDays != 4 || patched.sessions != 5 {
+            failures.append("a live today read \(patched.focused)s, \(patched.tracked)s app use, \(patched.focusedDays) days, \(patched.sessions) sessions")
+        }
+        if patched.best?.place.start != date(9, 28) { failures.append("a small live day displaced the best day") }
+        let big = row(9, 29, focused: 5_000, sessions: 2, types: [.deepWork: 5_000])
+        let overtaken = HistoryTreeBuilder.patching(patched, top: top, byDate: byDate, cachedToday: small, live: big, calendar: calendar)
+        if overtaken.focused != 11_300 || overtaken.tracked != 7_500 || overtaken.best?.place.start != date(9, 29) || overtaken.best?.focused != 5_000 {
+            failures.append("a bigger live day read \(overtaken.focused)s, best \(String(describing: overtaken.best))")
+        }
+        if HistoryTreeBuilder.patching(cached, top: top, byDate: byDate, cachedToday: nil, live: nil, calendar: calendar) != cached {
+            failures.append("no live day changed the summary")
+        }
+        return failures
     }
 }

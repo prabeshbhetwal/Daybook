@@ -104,8 +104,14 @@ enum HistoryTreeBuilder {
         return calendar
     }
 
+    /// The start of the next calendar day. Normalised, because in a zone
+    /// whose clocks change at midnight the transition day begins at 01:00,
+    /// and adding a day to that keeps the hour: the index is keyed by
+    /// `startOfDay`, so every later lookup would miss.
     static func dayAfter(_ day: Date, calendar: Calendar = calendar()) -> Date {
-        calendar.date(byAdding: .day, value: 1, to: day) ?? day.addingTimeInterval(86_400)
+        let next = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: day))
+            ?? day.addingTimeInterval(86_400)
+        return calendar.startOfDay(for: next)
     }
 
     /// The calendar period of `level` holding `date`.
@@ -153,14 +159,18 @@ enum HistoryTreeBuilder {
         return result.reversed()
     }
 
-    /// One row's figures from the days in its span.
-    static func row(_ place: HistoryPlace, byDate: [Date: HistoryDay], calendar: Calendar) -> HistoryRow {
+    /// One row's figures from the days in its span. `live` stands in for its
+    /// own day, so today's running figures reach a row without the index
+    /// being rebuilt.
+    static func row(_ place: HistoryPlace, byDate: [Date: HistoryDay], live: HistoryDay? = nil,
+                    calendar: Calendar) -> HistoryRow {
+        let liveDay = live.map { calendar.startOfDay(for: $0.date) }
         var focused: TimeInterval = 0, tracked: TimeInterval = 0
         var focusedDays = 0, sessions = 0
         var byType: [WorkType: TimeInterval] = [:]
         var evidence = false
         forEachDay(in: place.span, calendar: calendar) { day in
-            guard let row = byDate[day] else { return }
+            guard let row = day == liveDay ? live : byDate[day] else { return }
             focused += row.focused
             tracked += row.tracked
             sessions += row.sessions
@@ -170,12 +180,15 @@ enum HistoryTreeBuilder {
         }
         return HistoryRow(place: place, focused: focused, tracked: tracked, focusedDays: focusedDays,
                           sessions: sessions, mainWorkType: WorkTypeShare.shares(from: byType).first?.workType,
-                          hasEvidence: evidence, bars: bars(for: place, byDate: byDate, calendar: calendar))
+                          hasEvidence: evidence, bars: bars(for: place, byDate: byDate, live: live, calendar: calendar))
     }
 
     /// A year's bars are its months; a month's or week's are its days; a
     /// day has none (its strip is drawn from the day's sessions).
-    private static func bars(for place: HistoryPlace, byDate: [Date: HistoryDay], calendar: Calendar) -> [HistoryBar] {
+    private static func bars(for place: HistoryPlace, byDate: [Date: HistoryDay], live: HistoryDay?,
+                             calendar: Calendar) -> [HistoryBar] {
+        let liveDay = live.map { calendar.startOfDay(for: $0.date) }
+        func focus(on day: Date) -> TimeInterval { (day == liveDay ? live : byDate[day])?.focused ?? 0 }
         switch place.level {
         case .day: return []
         case .year:
@@ -185,35 +198,85 @@ enum HistoryTreeBuilder {
                 let month = period(.month, containing: cursor, calendar: calendar)
                 let span = month.intersection(with: place.span) ?? month
                 var total: TimeInterval = 0
-                forEachDay(in: span, calendar: calendar) { total += byDate[$0]?.focused ?? 0 }
+                forEachDay(in: span, calendar: calendar) { total += focus(on: $0) }
                 result.append(HistoryBar(start: span.start, focused: total))
                 cursor = month.end
             }
             return result
         case .month, .week:
             var result: [HistoryBar] = []
-            forEachDay(in: place.span, calendar: calendar) { result.append(HistoryBar(start: $0, focused: byDate[$0]?.focused ?? 0)) }
+            forEachDay(in: place.span, calendar: calendar) { result.append(HistoryBar(start: $0, focused: focus(on: $0))) }
             return result
         }
     }
 
     /// The headline's figures and its best child.
     static func summary(top: HistoryTop, days: [HistoryDay], calendar: Calendar = calendar()) -> HistorySummary {
-        let byDate = index(days, calendar: calendar)
-        let whole = row(HistoryPlace(level: top.place?.level ?? .year, span: top.span), byDate: byDate, calendar: calendar)
-        let bestLevel: HistoryLevel = (top.place?.level ?? .year) <= .year ? .month : .day
+        summary(top: top, byDate: index(days, calendar: calendar), calendar: calendar)
+    }
+
+    static func summary(top: HistoryTop, byDate: [Date: HistoryDay], live: HistoryDay? = nil,
+                        calendar: Calendar) -> HistorySummary {
+        let whole = row(HistoryPlace(level: top.place?.level ?? .year, span: top.span), byDate: byDate, live: live,
+                        calendar: calendar)
+        let level = bestLevel(for: top)
         var best: (place: HistoryPlace, focused: TimeInterval)?
-        var cursor = period(bestLevel, containing: top.span.start, calendar: calendar).start
+        var cursor = period(level, containing: top.span.start, calendar: calendar).start
         while cursor < top.span.end {
-            let whole = period(bestLevel, containing: cursor, calendar: calendar)
+            let whole = period(level, containing: cursor, calendar: calendar)
             if let span = whole.intersection(with: top.span), span.duration > 0 {
-                let candidate = row(HistoryPlace(level: bestLevel, span: span), byDate: byDate, calendar: calendar)
+                let candidate = row(HistoryPlace(level: level, span: span), byDate: byDate, live: live, calendar: calendar)
                 if candidate.focused > (best?.focused ?? 0) { best = (candidate.place, candidate.focused) }
             }
             cursor = whole.end
         }
         return HistorySummary(focused: whole.focused, tracked: whole.tracked, focusedDays: whole.focusedDays,
                               sessions: whole.sessions, best: best)
+    }
+
+    /// The best month of a year or the record; the best day of a month or week.
+    private static func bestLevel(for top: HistoryTop) -> HistoryLevel {
+        (top.place?.level ?? .year) <= .year ? .month : .day
+    }
+
+    /// A cached summary brought up to today's live figures without walking
+    /// the record: the totals move by today's change, and the best child is
+    /// re-judged only against today's own unit.
+    static func patching(_ summary: HistorySummary, top: HistoryTop, byDate: [Date: HistoryDay],
+                         cachedToday: HistoryDay?, live: HistoryDay?, calendar: Calendar) -> HistorySummary {
+        guard let live, live != cachedToday else { return summary }
+        let today = calendar.startOfDay(for: live.date)
+        guard top.span.contains(today) else { return summary }
+        let was = cachedToday
+        let focused = summary.focused - (was?.focused ?? 0) + live.focused
+        let tracked = summary.tracked - (was?.tracked ?? 0) + live.tracked
+        let sessions = summary.sessions - (was?.sessions ?? 0) + live.sessions
+        let focusedDays = summary.focusedDays - ((was?.focused ?? 0) > 0 ? 1 : 0) + (live.focused > 0 ? 1 : 0)
+        let level = bestLevel(for: top)
+        let unit = period(level, containing: today, calendar: calendar).intersection(with: top.span)
+            ?? DateInterval(start: today, end: dayAfter(today, calendar: calendar))
+        let candidate = row(HistoryPlace(level: level, span: unit), byDate: byDate, live: live, calendar: calendar)
+        var best = summary.best
+        if best?.place == candidate.place {
+            // Today's unit was already the best; focus only grows while a
+            // session runs, so it stays the best at its new figure.
+            best = candidate.focused > 0 ? (candidate.place, candidate.focused) : nil
+        } else if candidate.focused > (best?.focused ?? 0) {
+            best = (candidate.place, candidate.focused)
+        }
+        return HistorySummary(focused: focused, tracked: tracked, focusedDays: focusedDays,
+                              sessions: sessions, best: best)
+    }
+
+    /// The open path after the tree moved under it: midnight re-clips the
+    /// rows holding today, and a longer record can step the top up a level.
+    /// Each open place is rebuilt as the row now drawn for its first day,
+    /// down to the same level; a place no longer in the record folds away.
+    static func reconcile(open: [HistoryPlace], top: HistoryTop, calendar: Calendar = calendar()) -> [HistoryPlace] {
+        guard let deepest = open.last else { return [] }
+        let path = path(to: deepest.start, top: top, calendar: calendar).filter { $0.level <= deepest.level }
+        // The path is only the row if it reached the deepest level.
+        return path.last?.level == deepest.level ? path : []
     }
 
     /// What History opens with: the path from the root down to this week,
@@ -249,15 +312,14 @@ enum HistoryTreeBuilder {
         return result
     }
 
-    /// Rows holding today, rebuilt from the live day; the rest untouched.
-    static func patching(_ rows: [HistoryRow], top: HistoryTop, live: HistoryDay?, days: [HistoryDay],
-                         calendar: Calendar = calendar()) -> [HistoryRow] {
-        guard let live else { return rows }
+    /// Rows holding today, rebuilt with the live day standing in for the
+    /// cached one; the rest untouched, and the index untouched.
+    static func patching(_ rows: [HistoryRow], byDate: [Date: HistoryDay], cachedToday: HistoryDay?,
+                         live: HistoryDay?, calendar: Calendar = calendar()) -> [HistoryRow] {
+        guard let live, live != cachedToday else { return rows }
         let today = calendar.startOfDay(for: live.date)
         guard rows.contains(where: { $0.place.span.contains(today) }) else { return rows }
-        var byDate = index(days, calendar: calendar)
-        byDate[today] = live
-        return rows.map { $0.place.span.contains(today) ? row($0.place, byDate: byDate, calendar: calendar) : $0 }
+        return rows.map { $0.place.span.contains(today) ? row($0.place, byDate: byDate, live: live, calendar: calendar) : $0 }
     }
 
     static func index(_ days: [HistoryDay], calendar: Calendar) -> [Date: HistoryDay] {
