@@ -167,7 +167,9 @@ struct StoryChromeBar: View {
                                       set: { historyCalendarShown.value = $0 }),
                  arrowEdge: .bottom) {
             DayPickerCalendar(
-                selected: navigation.historySelectionOrDefault().day ?? store.now(),
+                // Opens on the picked day, or on the 1st of a picked month.
+                selected: navigation.historySelectionOrDefault().day
+                    ?? navigation.historySelectionOrDefault().monthStart(),
                 earliest: store.earliestSelectableDay,
                 goal: store.goal.goal,
                 facts: { store.dayFacts(inMonthOf: $0) }) { day in

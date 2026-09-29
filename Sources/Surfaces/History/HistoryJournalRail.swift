@@ -21,20 +21,33 @@ enum HistoryHours {
 }
 
 /// What the rail describes once the selection meets the archive: a session
-/// that is gone, or hidden by a search, reads as the month it was in.
+/// that is gone, or a day or session hidden by a search, reads as the month
+/// it was in.
 enum HistoryRailScope: Equatable {
     case month(Date)
     case day(Date)
     case session(DaySession, day: Date)
 
-    static func resolve(_ selection: HistorySelection, session: DaySession?,
+    static func resolve(_ selection: HistorySelection, session: DaySession?, listed: Bool = true,
                         calendar: Calendar = .current) -> HistoryRailScope {
         switch selection {
         case .month(let start): return .month(start)
-        case .day(let day): return .day(day)
+        case .day(let day):
+            return listed ? .day(day) : .month(selection.monthStart(calendar: calendar))
         case .session(_, let day):
-            if let session { return .session(session, day: day) }
+            if listed, let session { return .session(session, day: day) }
             return .month(selection.monthStart(calendar: calendar))
+        }
+    }
+
+    /// Whether a searched journal still lists the selection's day, and for
+    /// a session, that session on it. A month is always listed.
+    static func isListed(_ selection: HistorySelection, in entries: [JournalEntry]) -> Bool {
+        guard let day = selection.day else { return true }
+        return entries.contains { entry in
+            guard case .day(let row) = entry, row.date == day else { return false }
+            if case .session(let thread, _) = selection { return row.threads?.contains(thread) ?? true }
+            return true
         }
     }
 }
@@ -74,17 +87,12 @@ struct HistoryJournalRail: View {
         var session: DaySession?
         if case .session(let thread, let day) = selection {
             session = store.journalSession(thread: thread, on: day)
-            // A search that hides the session, or its whole day, hides it
-            // from the rail too.
-            if store.historyFilter.isActive {
-                let listed = store.historyJournal().contains { entry in
-                    if case .day(let row) = entry { return row.date == day && (row.threads?.contains(thread) ?? true) }
-                    return false
-                }
-                if !listed { session = nil }
-            }
         }
-        return HistoryRailScope.resolve(selection, session: session)
+        // A search that hides the day, or the session on it, hides it from
+        // the rail too.
+        let listed = !store.historyFilter.isActive
+            || HistoryRailScope.isListed(selection, in: store.historyJournal())
+        return HistoryRailScope.resolve(selection, session: session, listed: listed)
     }
 }
 

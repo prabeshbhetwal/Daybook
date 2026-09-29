@@ -12,7 +12,7 @@ enum HistoryJournalChecks {
         ("With nothing recorded the journal is this month and today", emptyArchive),
         ("A new month opens with its own header at midnight on the 1st", monthBoundary),
         ("A daylight-saving month keeps every day once", daylightSaving),
-        ("Search narrows the journal to matching sessions and totals them", searchNarrows),
+        ("Search narrows the journal to matching sessions, never breaks, and totals them", searchNarrows),
         ("Today's live figures reach the cached journal and its month", liveToday),
         ("Arrow keys step through months, days and sessions in reading order", keyboardSteps),
         ("Jump to date selects a listed day, or the month of a quiet one", jumpSelects),
@@ -20,8 +20,10 @@ enum HistoryJournalChecks {
         ("A ticking clock does not rebuild the journal", journalIsCached),
         ("Journal headers and lines say each figure once, in words for VoiceOver", journalWording),
         ("A session row speaks its time, name, category and length as one element", sessionSpeech),
-        ("A day of one session shows its figure on the row, not the header too", dayTotalSaidOnce),
-        ("The rail falls back to the month when its session is gone", railFallsBackToMonth),
+        ("A day of one session shows its figure on the row, not the header too; a break never hides app use",
+         dayTotalSaidOnce),
+        ("The rail falls back to the month when its session or day is gone or searched away",
+         railFallsBackToMonth),
         ("The best two hours are said once, with where they fell", bestHoursSaidOnce),
         ("The month rail carries recorded app use in one line", monthRailAppUse),
         ("The journal and each rail scope render with their evidence", journalRenders)
@@ -169,6 +171,27 @@ enum HistoryJournalChecks {
         }
         if let day = days(entries).first, day.threads != [a, b] || day.sessions != 2 || day.focused != 1_800 {
             failures.append("28 Sep was not narrowed to its two matches")
+        }
+        // A break matches the app filter or the Break category, but it is not
+        // focus: it adds no day, no month and no figure to the summary.
+        func rest(_ month: Int, _ day: Int, _ length: TimeInterval) -> HistorySearchHit {
+            let start = date(month, day).addingTimeInterval(13 * 3_600)
+            return HistorySearchHit(id: UUID(), threadID: UUID(), name: "Break", workType: .breakTime,
+                                    start: start, end: start.addingTimeInterval(length), worked: length,
+                                    day: date(month, day), noteSnippet: nil, matchedApps: [])
+        }
+        let withBreaks = HistoryJournalBuilder.entries(
+            matching: [rest(9, 29, 1_500), hits[0], rest(9, 28, 900), hits[1], hits[2], rest(7, 14, 600)],
+            calendar: calendar)
+        if withBreaks.map(describe) != expected {
+            failures.append("break hits added rows: \(withBreaks.map(describe))")
+        }
+        let summary = HistoryJournal.matchSummary(withBreaks)
+        if summary != "3 sessions match · \(Tokens.duration(2_700)) of focus" {
+            failures.append("break hits reached the search summary: \"\(summary)\"")
+        }
+        if !HistoryJournalBuilder.entries(matching: [rest(9, 29, 1_500)], calendar: calendar).isEmpty {
+            failures.append("a search matching only breaks listed a day")
         }
         return failures
     }
@@ -398,13 +421,50 @@ enum HistoryJournalChecks {
         if HistoryDayHeader.showsTotal(day: day(0, tracked: 600), rows: []) {
             failures.append("an app-use-only day showed a focus figure")
         }
+        // A break beside the day's app use does not hide the app use.
+        let breakDay = JournalDay(date: date(9, 28), focused: 0, tracked: 600, sessions: 0)
+        let appUse = "Recorded app use only · \(Tokens.duration(600))"
+        if HistoryDayGroup.line(day: breakDay, rows: [rest], isToday: false) != appUse {
+            failures.append("a break-only day with app use lost its app-use line")
+        }
+        if HistoryDayGroup.line(day: day(3_600), rows: [session(3_600)], isToday: false) != nil {
+            failures.append("a day with a session carried a placeholder line")
+        }
+        if HistoryDayGroup.line(day: JournalDay(date: date(9, 28), focused: 0, tracked: 0, sessions: 0),
+                                rows: [], isToday: false) != "Nothing recorded" {
+            failures.append("an empty day did not say nothing was recorded")
+        }
         return failures
     }
 
     private static func railFallsBackToMonth() -> [String] {
         let day = date(9, 28)
         let gone = HistoryRailScope.resolve(.session(thread: UUID(), day: day), session: nil, calendar: calendar)
-        return gone == .month(date(9, 1)) ? [] : ["a vanished session left the rail on \(gone)"]
+        var failures = gone == .month(date(9, 1)) ? [] : ["a vanished session left the rail on \(gone)"]
+        // A search that hides a day, or a session on a listed day, leaves the
+        // rail on the month.
+        let a = UUID()
+        let start = day.addingTimeInterval(9 * 3_600)
+        let searched = HistoryJournalBuilder.entries(matching: [
+            HistorySearchHit(id: UUID(), threadID: a, name: "Parser", workType: .deepWork, start: start,
+                             end: start.addingTimeInterval(600), worked: 600, day: day,
+                             noteSnippet: nil, matchedApps: [])
+        ], calendar: calendar)
+        let hiddenDay = HistorySelection.day(date(9, 22))
+        let hiddenSession = HistorySelection.session(thread: UUID(), day: day)
+        if HistoryRailScope.isListed(hiddenDay, in: searched)
+            || HistoryRailScope.resolve(hiddenDay, session: nil, listed: false, calendar: calendar) != .month(date(9, 1)) {
+            failures.append("a day hidden by the search kept its day rail")
+        }
+        if HistoryRailScope.isListed(hiddenSession, in: searched) {
+            failures.append("a session the search hides was listed")
+        }
+        if !HistoryRailScope.isListed(.day(day), in: searched)
+            || !HistoryRailScope.isListed(.session(thread: a, day: day), in: searched)
+            || !HistoryRailScope.isListed(.month(date(8, 1)), in: searched) {
+            failures.append("a listed day, session or any month read as hidden")
+        }
+        return failures
     }
 
     private static func bestHoursSaidOnce() -> [String] {

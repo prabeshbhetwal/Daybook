@@ -24,7 +24,8 @@ struct JournalDay: Identifiable, Equatable {
     var threads: Set<UUID>? = nil
 
     var id: Date { date }
-    /// At the Mac, but no session and no break: the journal says so in one line.
+    /// At the Mac, but no session: the journal says so in one line, above
+    /// any break the day recorded.
     var isAppUseOnly: Bool { sessions == 0 && focused == 0 && tracked > 0 }
 }
 
@@ -130,8 +131,11 @@ enum HistoryJournalBuilder {
     /// Search results as a journal: only the months and days holding a match,
     /// each totalling its matches, each day narrowed to the sessions that
     /// matched. `hits` arrive newest first, as `historySearchHits` lists them.
+    /// A break is not a session and its length is not focus, so a break hit
+    /// adds nothing: no day, no month, no figure.
     static func entries(matching hits: [HistorySearchHit],
                         calendar: Calendar = .current) -> [JournalEntry] {
+        let hits = hits.filter { $0.workType.countsAsFocus }
         var result: [JournalEntry] = []
         var openMonth: Date?
         var monthHits: [HistorySearchHit] = []

@@ -35,7 +35,15 @@ struct HistoryJournal: View {
     @ObservedObject var navigation: MainWindowModel
     @Environment(\.focusInterfaceDensity) private var density
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Rows are buttons, and a clicked button never takes focus on macOS, so
+    /// a pick in the list or the calendar hands focus to the list itself:
+    /// ↑, ↓ and Return then reach it. Typing in the search changes no
+    /// selection, so the search field keeps its cursor.
+    @FocusState private var listFocused: Bool
     var scrolls = true
+
+    /// Spoken on the rows that ↑, ↓ and Return act on.
+    static let keyboardHint = "Up and down arrows move through the list; Return opens the selected day"
 
     private var isEmptyArchive: Bool { !store.historyFilter.isActive && store.historyDays.isEmpty }
 
@@ -60,6 +68,7 @@ struct HistoryJournal: View {
             ScrollViewReader { proxy in
                 pane { content(entries, selection, insets: insets) }
                     .onChange(of: navigation.historyScrollRequest) { _ in
+                        listFocused = true
                         guard let id = HistoryJournalBuilder.anchorID(
                             for: navigation.historySelectionOrDefault(), in: store.historyJournal()) else { return }
                         withAnimation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion)) {
@@ -107,12 +116,13 @@ struct HistoryJournal: View {
                 switch entry {
                 case .month(let month):
                     HistoryMonthHeader(month: month, isSelected: selection == .month(month.start)) {
-                        navigation.selectHistory(.month(month.start))
+                        select(.month(month.start))
                     }
                     .padding(.top, Tokens.Space.m)
                     .id(entry.id)
                 case .day(let day):
-                    HistoryDayGroup(store: store, navigation: navigation, day: day, selection: selection)
+                    HistoryDayGroup(store: store, navigation: navigation, day: day, selection: selection,
+                                    select: select)
                         .id(entry.id)
                 case .quiet(let quiet):
                     HistoryQuietRow(quiet: quiet)
@@ -132,6 +142,7 @@ struct HistoryJournal: View {
         // ↑ and ↓ move the selection; Return opens the selected day's story,
         // the keyboard twin of a double-click.
         .focusable()
+        .focused($listFocused)
         .onMoveCommand { direction in
             switch direction {
             case .up: navigation.stepHistorySelection(by: -1)
@@ -142,7 +153,11 @@ struct HistoryJournal: View {
         .onCommand(#selector(NSStandardKeyBindingResponding.insertNewline(_:))) {
             if let day = navigation.historySelectionOrDefault().day { navigation.openDay(day) }
         }
-        .accessibilityHint("Up and down arrows move through the list; Return opens the selected day")
+    }
+
+    private func select(_ picked: HistorySelection) {
+        navigation.selectHistory(picked)
+        listFocused = true
     }
 
     private var emptyArchive: some View {
@@ -256,6 +271,7 @@ struct HistoryDayGroup: View {
     @ObservedObject var navigation: MainWindowModel
     let day: JournalDay
     let selection: HistorySelection
+    let select: (HistorySelection) -> Void
 
     var body: some View {
         let isToday = Calendar.current.isDate(day.date, inSameDayAs: store.now())
@@ -264,12 +280,10 @@ struct HistoryDayGroup: View {
         return VStack(alignment: .leading, spacing: 0) {
             HistoryDayHeader(day: day, isToday: isToday, isSelected: selection == .day(day.date),
                              showsTotal: HistoryDayHeader.showsTotal(day: day, rows: rows),
-                             onSelect: { navigation.selectHistory(.day(day.date)) },
+                             onSelect: { select(.day(day.date)) },
                              onOpen: { navigation.openDay(day.date) })
-            if rows.isEmpty {
-                Text(durations: day.isAppUseOnly
-                     ? "Recorded app use only · \(Tokens.duration(day.tracked))"
-                     : isToday ? "Nothing recorded yet today" : "Nothing recorded")
+            if let line = Self.line(day: day, rows: rows, isToday: isToday) {
+                Text(durations: line)
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, HistoryRowLayout.inset)
@@ -284,13 +298,21 @@ struct HistoryDayGroup: View {
                                       note: store.journalNote(for: session)
                                           .flatMap { $0.split(whereSeparator: \.isNewline).first.map(String.init) },
                                       isSelected: selection == picked,
-                                      onSelect: { navigation.selectHistory(picked) },
+                                      onSelect: { select(picked) },
                                       onOpen: { navigation.openDay(day.date) })
                 case .rest(let rest):
                     HistoryBreakRow(rest: rest)
                 }
             }
         }
+    }
+
+    /// The line under a day header with no session: its app use, which a
+    /// break beside it does not replace, or that nothing was recorded.
+    static func line(day: JournalDay, rows: [DayEntry], isToday: Bool) -> String? {
+        if day.isAppUseOnly { return "Recorded app use only · \(Tokens.duration(day.tracked))" }
+        guard rows.isEmpty else { return nil }
+        return isToday ? "Nothing recorded yet today" : "Nothing recorded"
     }
 }
 
@@ -330,6 +352,7 @@ struct HistoryDayHeader: View {
             ? "\(Self.title(day.date, isToday: isToday)), \(Tokens.duration(day.focused)) focused"
             : Self.title(day.date, isToday: isToday)))
         .accessibilityAddTraits(isSelected ? [.isHeader, .isButton, .isSelected] : [.isHeader, .isButton])
+        .accessibilityHint(HistoryJournal.keyboardHint)
         .accessibilityAction(named: "Open as a story", onOpen)
     }
 
@@ -400,6 +423,7 @@ struct HistorySessionRow: View {
         .accessibilityLabel(Self.spokenLabel(session))
         .accessibilityValue(Self.detail(apps: apps, note: note) ?? "")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(HistoryJournal.keyboardHint)
         .accessibilityAction(named: "Open its day's story", onOpen)
     }
 

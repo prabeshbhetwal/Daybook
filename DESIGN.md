@@ -34,7 +34,7 @@ is used for light-appearance emphasis; dark-appearance text uses `#B6B3FF`
 to stay readable on dark cards instead of copying a low-contrast saturated fill
 into small labels. Action blue is `#0071E3` / `#75B5FF`. Work types retain stable
 identities; app colours are consistent within
-the day or range shown. Colour never implies goal credit where only focused duration
+the day or month shown. Colour never implies goal credit where only focused duration
 is known. Native controls preserve visible keyboard focus.
 
 ## Components
