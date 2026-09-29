@@ -435,6 +435,10 @@ enum HistoryTreeChecks {
         let oneDay = HistoryTreeBuilder.top(days: [row(9, 28, focused: 60, sessions: 1)], today: today, calendar: calendar)
         let weekLine = HistoryRowText.headline(top: oneDay, summary: HistoryTreeBuilder.summary(top: oneDay, days: [row(9, 28, focused: 60, sessions: 1)], calendar: calendar), calendar: calendar)
         if weekLine.sentence != "You focused \(Tokens.duration(60)) across 1 day." { failures.append("one focused day read \(weekLine.sentence)") }
+        // A record of one day, today: its week is that one day, and says so.
+        let oneToday = HistoryTreeBuilder.top(days: [row(9, 29, focused: 60, sessions: 1)], today: today, calendar: calendar)
+        let todayLine = HistoryRowText.headline(top: oneToday, summary: HistoryTreeBuilder.summary(top: oneToday, days: [row(9, 29, focused: 60, sessions: 1)], calendar: calendar), calendar: calendar)
+        if todayLine.eyebrow != "Tuesday 29 September" { failures.append("a one-day record's eyebrow read \(todayLine.eyebrow)") }
         return failures
     }
 

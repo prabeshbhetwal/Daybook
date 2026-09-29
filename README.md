@@ -25,9 +25,9 @@ lunch into invented productivity. FocusContinuity is built around one rule:
 
 ## Screenshots
 
-| History, a session picked, dark appearance | History, a month picked |
+| History, a day open and a session picked, dark appearance | History, opened to this week |
 |---|---|
-| ![History in dark mode: one journal by month and day, with a picked session described in the rail](docs/screenshots/history-dark.png) | ![History in light mode: one journal by month and day, with the month's focus described in the rail](docs/screenshots/history.png) |
+| ![History in dark mode: one timeline unfolded to a day, with a picked session described in the rail](docs/screenshots/history-dark.png) | ![History in light mode: this week's days under their week, with the week described in the rail](docs/screenshots/history.png) |
 
 | Menu bar | Away decision |
 |---|---|
@@ -114,17 +114,18 @@ machinery that nothing used any more, with no change in behaviour.
 
 ## Features
 
-- The day told as a story, with its goal, app use, rhythm and streak beside
-  it; a calendar jumps to any recorded day
+- Today told as a story, with its goal, app use, rhythm and streak beside it
 - Focus sessions with pause, away, breaks and threads you can continue later
 - Optional activity rules that start sessions from the apps you use, always
   saying why and offering Undo
-- History as one journal, newest first, back to the first recorded day. Each
-  month, day and session shows its own figures; click one and the rail
-  describes just that. Jump to date opens a calendar that shows each day's focus
+- History as one timeline that unfolds: years into months, months into weeks,
+  weeks into days, days into sessions, each a step in from its parent, back to
+  the first recorded day and no further. The rail describes whichever row is
+  open. Jump to date opens a calendar that shows each day's focus
 - Search at the top of History: sessions by name, note, app, category or date (⌘F)
 - History states only what the record supports: category shares, best two
-  hours, goal rates and the month's pace, quality and continuity
+  hours, goal rates, the best month or day, and the current month's pace,
+  quality and continuity
 - Custom categories with icons, colours, daily goals and break reminders
 - Session notes with in-app dictation, full session reports and named breaks
 - Awards derived from recorded evidence, with their criteria shown

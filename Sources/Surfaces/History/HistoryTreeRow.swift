@@ -67,8 +67,11 @@ enum HistoryRowText {
         case .month: eyebrow = DateFormats.australian("MMMM yyyy").string(from: top.span.start)
         case .week:
             let last = calendar.date(byAdding: .day, value: -1, to: top.span.end) ?? top.span.start
-            eyebrow = "\(DateFormats.australian("d").string(from: top.span.start)) – "
-                + DateFormats.australian("d MMMM").string(from: last)
+            // A week of one recorded day is that day.
+            eyebrow = calendar.isDate(top.span.start, inSameDayAs: last)
+                ? DateFormats.australian("EEEE d MMMM").string(from: top.span.start)
+                : "\(DateFormats.australian("d").string(from: top.span.start)) – "
+                    + DateFormats.australian("d MMMM").string(from: last)
         case .day, .none:
             eyebrow = "On record since \(DateFormats.australian("d MMMM yyyy").string(from: top.firstDay))"
         }
