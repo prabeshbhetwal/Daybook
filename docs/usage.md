@@ -84,8 +84,11 @@ must be in front before the activity begins (30 s to 30 min; 3 min by default).
 When rules are on they replace guessing from the app in front rather than run beside it.
 One activity owns any moment: an app that belongs to several rules records its
 use once and asks a quiet choice (for example **Coding or Research?**) in the
-session controls and the menu panel instead of starting two sessions. An
-explicit activity you started is never relabelled. Every automatic start says
+session controls and the menu panel instead of starting two sessions. Rules
+only start a session when none is running: once one is going, moving to
+another rule's apps does not switch it, so alternating between a browser and
+an editor stays one session until you stop it or step away. An explicit
+activity you started is never relabelled. Every automatic start says
 why it happened and offers **Undo**; the application picker lists installed
 apps from the standard application folders and apps already observed, with
 **Add application…** for anything missed.

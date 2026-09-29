@@ -12,7 +12,7 @@ enum ActivityRuleChecks {
         ("Candidate intersections retain exclusive context but never relabel ambiguity", membershipIntersection),
         ("Each supported dwell fires at its literal boundary", dwellBoundaries),
         ("Established and manual activity ownership wins shared support apps", ownershipPrecedence),
-        ("Exclusive automatic switches begin at the exclusive boundary", exclusiveSwitchBoundary),
+        ("A running automatic session is never switched by another rule", noAutomaticSwitch),
         ("Rule deadlines fire once without another app activation", oneShotDeadline),
         ("Rule callbacks fail closed after edits, absence and tracking changes", staleDeadlineSafety),
         ("A Stop mid-dwell never re-credits archived time to a new start", stopMidDwell),
@@ -184,24 +184,19 @@ enum ActivityRuleChecks {
         return failures
     }
 
-    private static func exclusiveSwitchBoundary() -> [String] {
+    /// Alternating between two rules' apps must not cut the work into a new
+    /// session at every change: once a rule has started a session, another
+    /// rule's apps neither schedule a deadline nor act, however long they stay.
+    private static func noAutomaticSwitch() -> [String] {
         var detector = ActivityRuleDetector()
-        _ = detector.evaluate(input(at: 0))
-        _ = detector.evaluate(input(at: 180))
         let automatic = ActivityOwnership.automatic(ruleID: codingID, recordID: recordID)
-        let boundary = detector.evaluate(input(at: 300, app: "com.example.research",
-                                               ownership: automatic))
-        let due = detector.evaluate(input(at: 480, app: "com.example.research",
-                                          ownership: automatic))
         var failures: [String] = []
-        if boundary.deadline?.qualifyingStart != t0.addingTimeInterval(300) {
-            failures.append("Exclusive Research qualification was backdated into earlier ambiguity")
-        }
-        guard case .switchActivity(let action) = due,
-              action.ruleID == researchID,
-              action.evidence.start == t0.addingTimeInterval(300),
-              action.expectedRecordID == recordID else {
-            failures.append("Exclusive Research did not produce an identity-bound switch"); return failures
+        for seconds in [300.0, 480, 1_200, 3_600] {
+            let result = detector.evaluate(input(at: seconds, app: "com.example.research",
+                                                 ownership: automatic))
+            if result != .none {
+                failures.append("Research acted on running Coding at \(Int(seconds))s")
+            }
         }
         return failures
     }
@@ -275,7 +270,7 @@ enum ActivityRuleChecks {
         let owner = UUID()
         var failures: [String] = []
 
-        // Exclusive switch candidacy, then Stop before the dwell elapses.
+        // Another rule's app in front of a running session, then Stop.
         do {
             let scheduler = TestScheduler()
             var current = input(at: 0, app: "com.example.research",
@@ -285,20 +280,17 @@ enum ActivityRuleChecks {
             let automation = ActivityAutomation(scheduler: scheduler,
                 input: { current }, apply: { actions.append($0) })
             automation.observe(current)
-            guard let stale = scheduler.scheduled.first?.2 else {
-                return ["The pre-Stop switch run scheduled no deadline"]
+            if !scheduler.scheduled.isEmpty {
+                failures.append("A running session scheduled another rule's deadline")
             }
             // Stop at t=30: ownership is gone, the app stays in front.
             current = input(at: 30, app: "com.example.research", ownership: .none,
                             customRules: rules)
             automation.observe(current)
-            // The pre-Stop deadline fires anyway at its own time. It is stale.
             current = input(at: 60, app: "com.example.research", ownership: .none,
                             customRules: rules)
-            stale()
             if let bad = actions.compactMap({ result -> ActivityAutomaticAction? in
                 if case .start(let action) = result { return action }
-                if case .switchActivity(let action) = result { return action }
                 return nil
             }).first(where: { $0.evidence.start < t0.addingTimeInterval(30) }) {
                 failures.append("A start after Stop credited time from before the Stop "

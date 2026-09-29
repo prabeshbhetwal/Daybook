@@ -78,7 +78,6 @@ enum ActivityRuleResult: Equatable {
     case none
     case deadline(ActivityQualifyingDeadline)
     case start(ActivityAutomaticAction)
-    case switchActivity(ActivityAutomaticAction)
     case ambiguous(ActivityQuietChoice)
 
     var deadline: ActivityQualifyingDeadline? {
@@ -87,7 +86,6 @@ enum ActivityRuleResult: Equatable {
     }
     var isMutation: Bool {
         if case .start = self { return true }
-        if case .switchActivity = self { return true }
         return false
     }
 }
@@ -104,26 +102,6 @@ struct ActivityRuleDetector {
 
     private var run: Run?
     private var nextGeneration: UInt64 = 0
-    /// The ownership the current run began under. A run's evidence is only
-    /// valid for the session context it was observed in: when that context
-    /// ends or changes — a Stop, a manual start, an automatic switch — the time
-    /// before the change already belongs to a record, so the run must begin
-    /// again rather than carry an interval into a new start.
-    private var ownerKey: OwnerKey?
-
-    private enum OwnerKey: Equatable {
-        case none
-        case manual
-        case automatic(UUID)
-
-        init(_ ownership: ActivityOwnership) {
-            switch ownership {
-            case .none: self = .none
-            case .manual: self = .manual
-            case .automatic(_, let recordID): self = .automatic(recordID)
-            }
-        }
-    }
 
     mutating func reset() {
         if run != nil { nextGeneration &+= 1 }
@@ -145,24 +123,12 @@ struct ActivityRuleDetector {
         let matches = enabled.filter { $0.bundleIDs.contains(bundleID) }
             .sorted { $0.id.uuidString < $1.id.uuidString }
 
-        let key = OwnerKey(input.ownership)
-        if let previous = ownerKey, previous != key { reset() }
-        ownerKey = key
-
-        switch input.ownership {
-        case .manual:
-            reset()
-            return .none
-        case .automatic(let ownerID, _):
-            if matches.contains(where: { $0.id == ownerID }) {
-                reset()
-                return .none
-            }
-        case .none:
-            break
-        }
-
-        guard !matches.isEmpty else { reset(); return .none }
+        // Rules only start a session from idle; they never switch one that is
+        // running. Alternating between two rules' apps would otherwise cut the
+        // work into a new session at every change. A run is only ever observed
+        // while nothing owns the moment, so no interval from before a Stop can
+        // carry into a start.
+        guard input.ownership == .none, !matches.isEmpty else { reset(); return .none }
         let matchedIDs = matches.map(\.id)
         var candidateIDs = matchedIDs
         var beginsNewRun = run == nil || run?.ruleVersion != input.ruleVersion
@@ -223,23 +189,11 @@ struct ActivityRuleDetector {
         }
 
         guard let rule = runRules.first else { reset(); return .none }
-        let expectedRecord: UUID?
-        let result: (ActivityAutomaticAction) -> ActivityRuleResult
-        switch input.ownership {
-        case .automatic(_, let recordID):
-            expectedRecord = recordID
-            result = ActivityRuleResult.switchActivity
-        case .none:
-            expectedRecord = nil
-            result = ActivityRuleResult.start
-        case .manual:
-            return .none
-        }
         let seconds = Int(rule.startAfter)
         let reason = "\(rule.name) after \(seconds) seconds in the assigned application"
-        return result(ActivityAutomaticAction(
+        return .start(ActivityAutomaticAction(
             ruleID: rule.id, ruleName: rule.name, workType: rule.workType,
             evidence: evidence, reason: reason, ruleVersion: current.ruleVersion,
-            generation: current.generation, expectedRecordID: expectedRecord))
+            generation: current.generation, expectedRecordID: nil))
     }
 }

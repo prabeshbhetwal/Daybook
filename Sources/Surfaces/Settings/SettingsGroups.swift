@@ -336,7 +336,8 @@ struct SettingsGroups: View {
             SurfacePanel(title: "Activity rules", layout: layout) {
                 toggleRow("Use my activity rules",
                           // What a rule does is the panel's opening line below.
-                          detail: "When off, your rules are kept but do not start or switch sessions. "
+                          detail: "Rules start a session only when none is running; they never switch one. "
+                            + "When off, your rules are kept but start nothing. "
                             + "Editing a rule never starts a session by itself.",
                           isOn: $model.activityRuleAutomationEnabled)
             }

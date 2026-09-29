@@ -241,7 +241,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         switch result {
         case .ambiguous(let choice):
             store.presentActivityChoice(choice)
-        case .start(let action), .switchActivity(let action):
+        case .start(let action):
             guard let record = store.applyAutomaticActivity(action) else { return }
             let verb = engine.activeThreadWasContinued ? "continued" : "started"
             hud.show(title: "\(action.ruleName) session \(verb)", detail: action.reason,
