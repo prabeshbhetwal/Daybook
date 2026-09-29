@@ -25,10 +25,10 @@ private final class RangeAnchorBox: ObservableObject {
     @Published var day: Date?
 }
 
-/// A month grid for picking a day, or in History a span. It is a picker, not
-/// a report: a dot marks the days with anything recorded, and hovering a day
-/// gives its figures. How the days and months went is History's to show.
-/// Days in the future, or before anything was recorded, cannot be picked.
+/// A month grid for picking a day, or in History a span, readable at a
+/// glance: under each date sits that day's focused time, a tick marks a met
+/// goal, and the header sums the month. Hover a day for the rest. Days in the
+/// future, or before anything was recorded, cannot be picked.
 struct DayPickerCalendar: View {
     let selected: Date
     let earliest: Date?
@@ -98,7 +98,7 @@ struct DayPickerCalendar: View {
     }
 
     private let cellWidth: CGFloat = 44
-    private let cellHeight: CGFloat = 38
+    private let cellHeight: CGFloat = 46
     private let gap: CGFloat = 4
 
     var body: some View {
@@ -118,9 +118,18 @@ struct DayPickerCalendar: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: Tokens.Space.s) {
-            Text(monthTitle)
-                .font(Tokens.Typography.rowTitle.weight(.semibold))
-                .contentTransition(.numericText())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(monthTitle)
+                    .font(Tokens.Typography.rowTitle.weight(.semibold))
+                    .contentTransition(.numericText())
+                Text(durations: monthSummary)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    // Three facts in a narrow popover: one line cut the goal
+                    // count, which is the one worth reading.
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Spacer(minLength: Tokens.Space.s)
             if !calendar.isDate(shown.month, equalTo: Date(), toGranularity: .month) {
                 Button("Today") { shown.month = calendar.startOfDay(for: Date()) }
@@ -143,6 +152,26 @@ struct DayPickerCalendar: View {
 
     private var monthTitle: String {
         DateFormats.local("LLLL yyyy").string(from: shown.month)
+    }
+
+    /// `11 active days · 38h 56m focused · goal met 4×`, or a plain empty line.
+    private var monthSummary: String {
+        let days = shown.facts.values
+        let active = days.filter { $0.tracked > 0 }.count
+        guard active > 0 else { return "Nothing recorded this month" }
+        let focused = days.reduce(0) { $0 + $1.focused }
+        let met = days.filter(metGoal).count
+        var parts = [active == 1 ? "1 active day" : "\(active) active days",
+                     "\(Tokens.duration(focused)) focused"]
+        // Kept on one line when the summary wraps: "goal" alone reads as a fact.
+        if met > 0 { parts.append("goal\u{00A0}met\u{00A0}\(met)×") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Goal credit when the day has it, otherwise focused time, against the
+    /// daily goal. The same test the tick and the month's count use.
+    private func metGoal(_ facts: DayFacts) -> Bool {
+        goal > 0 && (facts.goalAchieved ?? facts.focused) >= goal
     }
 
     private func step(_ months: Int) {
@@ -175,7 +204,7 @@ struct DayPickerCalendar: View {
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
                     .font(Tokens.Typography.tabLabel)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .frame(width: cellWidth)
             }
         }
@@ -225,7 +254,7 @@ struct DayPickerCalendar: View {
         let tooEarly = earliest.map { key < calendar.startOfDay(for: $0) } ?? false
         let pickable = !tooLate && !tooEarly
         let hovered = hover.id == key.description
-        let recorded = facts.tracked > 0 || facts.focused > 0
+        let met = pickable && metGoal(facts)
 
         return Button { if pickable { pick(day) } } label: {
             VStack(spacing: 2) {
@@ -237,12 +266,16 @@ struct DayPickerCalendar: View {
                                      : !pickable ? AnyShapeStyle(.quaternary)
                                      : isToday ? AnyShapeStyle(Tokens.Colour.focus)
                                      : AnyShapeStyle(.primary))
-                // Something was recorded that day: enough to recognise it.
-                Circle()
-                    .fill(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
-                          : AnyShapeStyle(Tokens.Colour.focus.opacity(0.7)))
-                    .frame(width: 4, height: 4)
-                    .opacity(recorded && pickable ? 1 : 0)
+                // The day at a glance: its focused time, or a quiet dot for a
+                // day at the Mac with no session, or nothing at all.
+                Text(!pickable ? " "
+                     : facts.focused > 0 ? Tokens.duration(facts.focused)
+                     : facts.tracked > 0 ? "·" : " ")
+                    .font(Tokens.Typography.microValue.monospacedDigit())
+                    .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
+                                     : AnyShapeStyle(.secondary))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .accessibilityHidden(true)
             }
             .frame(width: cellWidth, height: cellHeight)
@@ -259,6 +292,15 @@ struct DayPickerCalendar: View {
                     .strokeBorder(Tokens.Colour.focus.opacity(isToday && !isSelected ? 0.7 : 0),
                                   lineWidth: 1)
             )
+            .overlay(alignment: .topTrailing) {
+                if met && !isSelected {
+                    Image(systemName: "checkmark")
+                        .font(Tokens.Typography.micro.weight(.heavy))
+                        .foregroundStyle(StoryStyle.focus)
+                        .padding(4)
+                        .accessibilityHidden(true)
+                }
+            }
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested))
         }
         .buttonStyle(StoryPressStyle())
@@ -286,6 +328,7 @@ struct DayPickerCalendar: View {
         if let credit = goalCredit(facts) {
             parts.append("\(Tokens.duration(credit)) towards the goal")
         }
+        if metGoal(facts) { parts.append("goal met") }
         return parts.joined(separator: " · ")
     }
 
@@ -312,6 +355,7 @@ struct DayPickerCalendar: View {
             if let credit = goalCredit(facts) {
                 parts.append("\(Tokens.spent(credit)) counted towards the goal")
             }
+            if metGoal(facts) { parts.append("goal met") }
         }
         return parts.joined(separator: ", ")
     }
@@ -322,12 +366,14 @@ struct DayPickerCalendar: View {
                  ? "Click the first day, then the last."
                  : "Now click the last day of the range.")
                 .font(Tokens.Typography.metadata)
-                .foregroundStyle(anchor.day == nil ? AnyShapeStyle(.tertiary)
-                                                   : AnyShapeStyle(Tokens.Colour.focus))
+                .foregroundStyle(anchor.day == nil ? AnyShapeStyle(.secondary)
+                                                   : AnyShapeStyle(StoryStyle.focus))
         } else {
-            Text("A dot marks a day with something recorded.")
+            Text("Under each date, its focused time. A dot is a day at the Mac with no "
+                 + "session; a tick, a met goal.")
                 .font(Tokens.Typography.metadata)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
