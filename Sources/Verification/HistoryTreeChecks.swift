@@ -17,7 +17,9 @@ enum HistoryTreeChecks {
         ("The tree's summary names the best month for a year and the best day for a month", summaryBest),
         ("A ticking clock does not rebuild the tree, and today's live figures reach its rows", treeIsCached),
         ("Opening a row folds its sibling; folding a row folds everything under it; an empty row cannot open", openAndFold),
-        ("Arrow keys walk the visible rows in reading order, Return toggles, left and right fold and open", keyboardWalk)
+        ("Arrow keys walk the visible rows in reading order, Return toggles, left and right fold and open", keyboardWalk),
+        ("Rows say their period, figures and state once, in words for VoiceOver", rowWording),
+        ("The headline names the top period and its totals", headlineWording)
     ]
 
     // MARK: - Fixtures
@@ -377,5 +379,59 @@ enum HistoryTreeChecks {
             .row(weeks[1].place), .row(weeks[2].place)
         ]
         return visible == expected ? [] : ["visible rows read \(visible), expected \(expected)"]
+    }
+
+    // MARK: - Wording
+
+    private static func rowWording() -> [String] {
+        let top = HistoryTreeBuilder.top(days: september + [row(7, 3, year: 2025, focused: 60, sessions: 1)], today: today, calendar: calendar)
+        let years = HistoryTreeBuilder.rows(under: nil, top: top, days: september, calendar: calendar)
+        var failures: [String] = []
+        guard let year = years.first else { return ["no year row"] }
+        if HistoryRowText.title(year.place, today: today, calendar: calendar) != "2026" { failures.append("the year row was titled \(HistoryRowText.title(year.place, today: today, calendar: calendar))") }
+        let months = HistoryTreeBuilder.rows(under: year.place, top: top, days: september, calendar: calendar)
+        guard let sep = months.first else { return ["no September"] }
+        if HistoryRowText.title(sep.place, today: today, calendar: calendar) != "September" { failures.append("September was titled \(HistoryRowText.title(sep.place, today: today, calendar: calendar))") }
+        if HistoryRowText.facts(sep, today: today) != "\(Tokens.duration(6_300)) · 3 days" { failures.append("September's facts read \(HistoryRowText.facts(sep, today: today))") }
+        let weeks = HistoryTreeBuilder.rows(under: sep.place, top: top, days: september, calendar: calendar)
+        if HistoryRowText.title(weeks[2].place, today: today, calendar: calendar) != "14 – 20 Sep" { failures.append("the third week was titled \(HistoryRowText.title(weeks[2].place, today: today, calendar: calendar))") }
+        if HistoryRowText.title(weeks[0].place, today: today, calendar: calendar) != "28 – 29 Sep" { failures.append("this week was titled \(HistoryRowText.title(weeks[0].place, today: today, calendar: calendar))") }
+        let monthTop = HistoryTreeBuilder.top(days: september, today: today, calendar: calendar)
+        let clippedWeeks = HistoryTreeBuilder.rows(under: nil, top: monthTop, days: september, calendar: calendar)
+        if HistoryRowText.title(clippedWeeks[2].place, today: today, calendar: calendar) != "17 – 20 Sep" { failures.append("the first recorded week was titled \(HistoryRowText.title(clippedWeeks[2].place, today: today, calendar: calendar))") }
+        let days = HistoryTreeBuilder.rows(under: weeks[0].place, top: top, days: september, calendar: calendar)
+        if HistoryRowText.title(days[0].place, today: today, calendar: calendar) != "Today" { failures.append("today was titled \(HistoryRowText.title(days[0].place, today: today, calendar: calendar))") }
+        if HistoryRowText.title(days[1].place, today: today, calendar: calendar) != "Mon 28 Sep" { failures.append("Monday was titled \(HistoryRowText.title(days[1].place, today: today, calendar: calendar))") }
+        if HistoryRowText.facts(days[1], today: today) != "\(Tokens.duration(3_600)) · 2 sessions" { failures.append("Monday's facts read \(HistoryRowText.facts(days[1], today: today))") }
+        if HistoryRowText.facts(days[0], today: today) != "nothing recorded yet today" { failures.append("an empty today read \(HistoryRowText.facts(days[0], today: today))") }
+        let older = HistoryTreeBuilder.rows(under: weeks[2].place, top: top, days: september, calendar: calendar)
+        let empty = older.first { $0.place.start == date(9, 18) }!
+        let appOnly = older.first { $0.place.start == date(9, 19) }!
+        if HistoryRowText.facts(empty, today: today) != "nothing recorded" { failures.append("an empty day read \(HistoryRowText.facts(empty, today: today))") }
+        if HistoryRowText.facts(appOnly, today: today) != "Recorded app use only · \(Tokens.duration(600))" { failures.append("an app-use day read \(HistoryRowText.facts(appOnly, today: today))") }
+        let spoken = HistoryRowText.spoken(sep, today: today, isOpen: false, depth: 1, calendar: calendar)
+        let wanted = "September 2026, \(Tokens.spent(6_300)) across 3 days, month, level 2, collapsed"
+        if spoken != wanted { failures.append("September was spoken as \"\(spoken)\", wanted \"\(wanted)\"") }
+        if spoken.contains("h ") { failures.append("a compact duration reached VoiceOver") }
+        return failures
+    }
+
+    private static func headlineWording() -> [String] {
+        var failures: [String] = []
+        let month = HistoryTreeBuilder.top(days: september, today: today, calendar: calendar)
+        let monthLine = HistoryRowText.headline(top: month, summary: HistoryTreeBuilder.summary(top: month, days: september, calendar: calendar), calendar: calendar)
+        if monthLine.eyebrow != "September 2026" || monthLine.sentence != "You focused \(Tokens.duration(6_300)) across 3 days." {
+            failures.append("the month headline read \(monthLine.eyebrow) / \(monthLine.sentence)")
+        }
+        if !monthLine.facts.contains("best day Mon 28 Sep · \(Tokens.duration(3_600))") { failures.append("the month's facts were \(monthLine.facts)") }
+        let recordDays = september + [row(7, 3, year: 2025, focused: 60, sessions: 1)]
+        let record = HistoryTreeBuilder.top(days: recordDays, today: today, calendar: calendar)
+        let recordLine = HistoryRowText.headline(top: record, summary: HistoryTreeBuilder.summary(top: record, days: recordDays, calendar: calendar), calendar: calendar)
+        if recordLine.eyebrow != "On record since 3 July 2025" { failures.append("the record's eyebrow read \(recordLine.eyebrow)") }
+        if !recordLine.facts.contains("best month September 2026 · \(Tokens.duration(6_300))") { failures.append("the record's facts were \(recordLine.facts)") }
+        let oneDay = HistoryTreeBuilder.top(days: [row(9, 28, focused: 60, sessions: 1)], today: today, calendar: calendar)
+        let weekLine = HistoryRowText.headline(top: oneDay, summary: HistoryTreeBuilder.summary(top: oneDay, days: [row(9, 28, focused: 60, sessions: 1)], calendar: calendar), calendar: calendar)
+        if weekLine.sentence != "You focused \(Tokens.duration(60)) across 1 day." { failures.append("one focused day read \(weekLine.sentence)") }
+        return failures
     }
 }

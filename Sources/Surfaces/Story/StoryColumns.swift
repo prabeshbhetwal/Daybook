@@ -3,6 +3,7 @@ import SwiftUI
 enum StoryRenderEvidence: String, Hashable {
     case dayStory
     case historyJournal
+    case historyTree
     case historyEmpty
     case historyMonthRail
     case historyDayRail

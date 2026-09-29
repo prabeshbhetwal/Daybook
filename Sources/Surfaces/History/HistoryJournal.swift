@@ -10,7 +10,7 @@ struct HistoryWorkspace: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            HistoryJournal(store: store, navigation: navigation, scrolls: scrolls)
+            HistoryTree(store: store, navigation: navigation, scrolls: scrolls)
             Divider()
             Group {
                 if scrolls {
@@ -323,8 +323,7 @@ struct HistoryDayGroup: View {
                                       note: store.journalNote(for: session)
                                           .flatMap { $0.split(whereSeparator: \.isNewline).first.map(String.init) },
                                       isSelected: selection == picked,
-                                      onSelect: { select(picked) },
-                                      onOpen: { navigation.openDay(day.date) })
+                                      onSelect: { select(picked) })
                 case .rest(let rest):
                     HistoryBreakRow(rest: rest)
                 }
@@ -405,7 +404,6 @@ struct HistorySessionRow: View {
     let note: String?
     let isSelected: Bool
     let onSelect: () -> Void
-    let onOpen: () -> Void
 
     var body: some View {
         Button(action: onSelect) {
@@ -444,13 +442,11 @@ struct HistorySessionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.nested))
-        .simultaneousGesture(TapGesture(count: 2).onEnded { onOpen() })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Self.spokenLabel(session))
         .accessibilityValue(Self.detail(apps: apps, note: note) ?? "")
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityHint(HistoryJournal.keyboardHint)
-        .accessibilityAction(named: "Open its day's story", onOpen)
+        .accessibilityHint(HistoryTree.keyboardHint)
     }
 
     /// `8:30 am – 11:35 am, Refactor, Deep work, 2 hours 5 minutes`.

@@ -502,7 +502,7 @@ enum HistoryJournalChecks {
             navigation.open(tab: .review)
             let monthFrame = StoryWorkspaceChecks.renderFrame(
                 HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000)
-            require("History on its month", monthFrame, .historyJournal)
+            require("History on its month", monthFrame, .historyTree)
             require("History on its month", monthFrame, .historyMonthRail)
             let yesterday = Calendar.current.date(byAdding: .day, value: -1,
                                                   to: Calendar.current.startOfDay(for: dense.now()))!
