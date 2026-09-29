@@ -86,7 +86,6 @@ enum CoachAnchor: String, CaseIterable, Hashable {
     case rhythmTile
     case streakTile
     case awards
-    case scopePills
     case periodNav
     case search
     case journal

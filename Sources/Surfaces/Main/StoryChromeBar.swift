@@ -41,7 +41,6 @@ struct StoryChromeBar: View {
                 .accessibilityHidden(true)
             backSlot
             workspaceControls
-                .coachAnchor(.scopePills)
             if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible) {
                 StorySessionControl(store: store,
                                     focus: $focusedControl,
@@ -96,7 +95,7 @@ struct StoryChromeBar: View {
     }
 
     /// The way back, in a slot that exists in every workspace. "‹ Story" used
-    /// to be inserted in front of the scope pills on Insights and History, so
+    /// to be inserted in front of the scope pills on History, so
     /// the pills — and everything after them — moved right by its width and
     /// back again on return. The slot is the width of one round button; Story
     /// leaves it empty, and the pills sit in the same place in every view.

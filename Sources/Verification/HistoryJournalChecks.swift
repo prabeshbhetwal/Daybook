@@ -20,6 +20,7 @@ enum HistoryJournalChecks {
         ("A ticking clock does not rebuild the journal", journalIsCached),
         ("Journal headers and lines say each figure once, in words for VoiceOver", journalWording),
         ("A session row speaks its time, name, category and length as one element", sessionSpeech),
+        ("A day of one session shows its figure on the row, not the header too", dayTotalSaidOnce),
         ("The rail falls back to the month when its session is gone", railFallsBackToMonth),
         ("The best two hours are said once, with where they fell", bestHoursSaidOnce),
         ("The month rail carries recorded app use in one line", monthRailAppUse),
@@ -365,6 +366,34 @@ enum HistoryJournalChecks {
         if HistorySessionRow.detail(apps: ["Xcode", "Terminal", "Safari", "Notes"], note: "fixed it")
             != "Xcode, Terminal, Safari · “fixed it”" {
             failures.append("the second line lost its three apps or the note")
+        }
+        return failures
+    }
+
+    private static func dayTotalSaidOnce() -> [String] {
+        let start = date(9, 28).addingTimeInterval(9 * 3_600)
+        func session(_ worked: TimeInterval) -> DayEntry {
+            .session(DaySession(id: UUID(), threadID: UUID(), name: "Parser", workType: .deepWork,
+                                start: start, end: start.addingTimeInterval(worked), worked: worked,
+                                stretches: 1, spans: [], isRunning: false))
+        }
+        let rest = DayEntry.rest(RestEntry(id: UUID(), name: "Lunch", start: start.addingTimeInterval(4_000),
+                                           end: start.addingTimeInterval(4_600)))
+        func day(_ focused: TimeInterval, tracked: TimeInterval = 0) -> JournalDay {
+            JournalDay(date: date(9, 28), focused: focused, tracked: tracked, sessions: 1)
+        }
+        var failures: [String] = []
+        if HistoryDayHeader.showsTotal(day: day(3_600), rows: [session(3_600)]) {
+            failures.append("a one-session day repeated its session's figure in the header")
+        }
+        if !HistoryDayHeader.showsTotal(day: day(5_400), rows: [session(3_600), session(1_800)]) {
+            failures.append("a two-session day lost its total")
+        }
+        if !HistoryDayHeader.showsTotal(day: day(3_600), rows: [session(3_600), rest]) {
+            failures.append("a session with a break beside it lost the day's total")
+        }
+        if HistoryDayHeader.showsTotal(day: day(0, tracked: 600), rows: []) {
+            failures.append("an app-use-only day showed a focus figure")
         }
         return failures
     }

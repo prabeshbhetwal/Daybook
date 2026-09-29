@@ -263,6 +263,7 @@ struct HistoryDayGroup: View {
         let rows = HistoryJournalBuilder.rows(projection, only: day.threads)
         return VStack(alignment: .leading, spacing: 0) {
             HistoryDayHeader(day: day, isToday: isToday, isSelected: selection == .day(day.date),
+                             showsTotal: HistoryDayHeader.showsTotal(day: day, rows: rows),
                              onSelect: { navigation.selectHistory(.day(day.date)) },
                              onOpen: { navigation.openDay(day.date) })
             if rows.isEmpty {
@@ -298,6 +299,8 @@ struct HistoryDayHeader: View {
     let day: JournalDay
     let isToday: Bool
     let isSelected: Bool
+    /// False when the one row beneath already carries the day's figure.
+    let showsTotal: Bool
     let onSelect: () -> Void
     let onOpen: () -> Void
 
@@ -308,7 +311,7 @@ struct HistoryDayHeader: View {
                     .font(Tokens.Typography.metadata.weight(.bold))
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.primary))
                 Spacer(minLength: Tokens.Space.s)
-                if day.focused > 0 {
+                if showsTotal {
                     Text(durations: Tokens.duration(day.focused))
                         .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
                 }
@@ -323,11 +326,20 @@ struct HistoryDayHeader: View {
         .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.nested))
         .simultaneousGesture(TapGesture(count: 2).onEnded { onOpen() })
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(DurationText.spoken(in: day.focused > 0
+        .accessibilityLabel(DurationText.spoken(in: showsTotal
             ? "\(Self.title(day.date, isToday: isToday)), \(Tokens.duration(day.focused)) focused"
             : Self.title(day.date, isToday: isToday)))
         .accessibilityAddTraits(isSelected ? [.isHeader, .isButton, .isSelected] : [.isHeader, .isButton])
         .accessibilityAction(named: "Open as a story", onOpen)
+    }
+
+    /// The day's focus, unless the day is one session and nothing else and its
+    /// row shows the same figure: then the header would say it twice.
+    static func showsTotal(day: JournalDay, rows: [DayEntry]) -> Bool {
+        guard day.focused > 0 else { return false }
+        if rows.count == 1, case .session(let session) = rows[0],
+           Tokens.duration(day.focused) == Tokens.duration(session.worked) { return false }
+        return true
     }
 
     static func title(_ date: Date, isToday: Bool) -> String {
