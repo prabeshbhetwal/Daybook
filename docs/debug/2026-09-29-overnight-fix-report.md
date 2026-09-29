@@ -178,4 +178,118 @@ That is 484 existing checks plus 6 new ones. The sandboxed `swiftc -typecheck �
 
 ## Commit
 
-This report is committed with the fix, as one commit on `worktree-agent-a78877eb1ffcc58a9`.
+This report was committed with the fix as `f12872b`. The fix round below is a second commit.
+
+## Fix round 1 (independent review: "with fixes")
+
+### Changes
+
+**1. A break-app pause followed by a long lock or idle stretch ends at the pause start.**
+In `SessionEngine.swift`:
+
+- `(.paused, .awayEnded)` (lines 458 and 473) measures the lock before clearing it (`lockedFor`). If `absenceOutgrewCap()` does not apply and the lock ran ≥ cap, it calls `endStretch(leftAt: pauseStart)`.
+- `(.paused, .idleObserved)` (lines 499 and 517) does the same with `unattended`, the larger of the sample's idle seconds and an open lock or sleep. This covers the quiet case and a lock that no wake ever closed.
+- In practice only `.distractionApp` reaches these branches. Cap-eligible reasons are caught first by `absenceOutgrewCap()`, and a watching pause ends at `.awayBegan`.
+- Going through `endStretch` means the pause becomes `.away`, so a refused save keeps its Retry.
+
+**2. An answer after a second absence past the cap is kept.**
+This replaces the first round's end-at-detection.
+
+- `holdSecondAbsence()` (line 836) closes the open absence and sets `pauseStartDate` to where the absence began, **without** dropping the question. The clock stops there, because `elapsed` subtracts the live pause.
+- It is called from:
+  - `.awayEnded` (line 552)
+  - `noteQuietWhileAwaiting` (line 884). Once held, later quiet samples are ignored.
+  - the top of `apply` (line 970)
+- While held, `.awayBegan` opens no new absence (line 544).
+- `apply` computes, records and commits the answer exactly as before: the Break record, the pre-away record and the receipt. Then, as the restore replay does, it ends the stretch the answer continued at the held moment (line 1104).
+  - A fresh successor banked the absence in its paused total, so the absence is un-banked into the closing pause first.
+  - With `.mergeTime`, the live pause is still in place and no un-banking is needed.
+- `decide` (line 963) now returns true for a saved answer that also ended the session. It checks "not awaiting" instead of "running", so the store no longer shows "This interval changed…".
+- Stop or Reset while held ends the record at the held moment, not now (`archiveCurrentSession`, line 1344).
+- A relaunch while held measures the offline gap from the held `pauseStart` and clears it before any replay (restore awaiting branch, line 1898). Past the cap, an unanswered held question is still dropped at relaunch, as in round 1.
+
+**3. Coverage in the existing checks.**
+
+- #109 (`SelfTest.swift` ~6350-6368) adds the live night with no relaunch: an idle pause, 8 h pass, then a 1-second input sample. It asserts idle, a record of 1800 s, and an end at the last keystroke.
+- #93 (~5466-5469) now also asserts that the engine is idle after the relaunch and that the record ends at the snapshot's `savedAt`.
+
+**4. Settings copy.**
+`awayExplanation` (`SettingsGroups.swift:636`) now includes, whenever the cap is not Never: "A pause longer than *cap* ends the session too."
+
+**5. Check 488 covers the work-app path.**
+A work-app activation (Xcode) after a Pause-button pause past the cap ends the stretch at the pause start (`LongAwayRestoreChecks.swift` ~200-218).
+
+### New and changed checks (`Sources/Verification/LongAwayRestoreChecks.swift`)
+
+- **489 (rewritten):** three variants, quiet, locked, and still open at the answer. Each answers `decide(.tookBreak, label: "dinner")`. Each expects:
+  - the answer accepted, with no error
+  - a "Dinner" break record and a `.tookBreak` receipt
+  - no record or live stretch spanning the second absence
+  - idle state and 1500 s of focus
+
+  The short-absence control is unchanged.
+- **491 (new):** a break-app pause past the cap ends where the pause began.
+  - Locked variant: Netflix dwell, a 10 h lock, unlock, then Xcode.
+  - Quiet variant: an idle sample past the cap.
+  - Both expect a record start→pause start with 1220 s and nothing spanning the absence.
+  - Control: a short Netflix pause with a short lock still resumes the same session.
+
+### RED (checks updated, product code as of `f12872b`)
+
+```
+  [FAIL] 489. A second absence past the cap while asked ends the session where it began
+         - quiet: the answer was refused: no error
+         - quiet: the answered break was not recorded
+         - quiet: the answer left no receipt
+         - locked: the answer was refused: no error
+         - locked: the answered break was not recorded
+         - locked: the answer left no receipt
+         - open: the answer was refused: no error
+         - open: the answered break was not recorded
+         - open: the answer left no receipt
+  [PASS] 490. A refused long-away end stays paused with its Retry, never silently running
+  [FAIL] 491. A break-app pause that turns into an absence past the cap ends where the pause began
+         - locked: the live stretch (running) began 2026-08-29 10:40:00 +0000, before the absence ended
+         - locked: no record for the stretch the break app paused
+         - quiet: the live stretch (running) began 2026-08-29 10:40:00 +0000, before the absence ended
+         - quiet: no record for the stretch the break app paused
+489/491 passed
+```
+
+Three additions passed before the fix, because round 1 already provided that behaviour:
+
+- the 488 work-app assertion
+- #109's live-night assertion
+- #93's tighter assertions
+
+Each would fail if that behaviour regressed.
+
+### GREEN
+
+Final `./build.sh --check` (sandbox disabled): exit 0, `Check succeeded`.
+
+```
+  [PASS] 93. An unanswered away card excludes the gap and keeps running
+  [PASS] 109. A night that began idle and then locked still ends the session
+  [PASS] 488. A pressed pause past the cap ends the session; a shorter one resumes it
+  [PASS] 489. A second absence past the cap while asked ends the session where it began
+  [PASS] 491. A break-app pause that turns into an absence past the cap ends where the pause began
+491/491 passed
+```
+
+### Corrections to the concerns above
+
+- **Concern 1:** the Settings explainer now says it (item 4).
+- **Concern 5:** a refused ending after a held answer has changed shape. The answer and its receipt are committed first. Only the stretch ending can then be refused. `decide` returns false with the error, and the async `applyLongAwayResult` installs the `.longAway` Retry.
+- **Concern 6** was wrong in the safe direction: the reviewer confirmed the Retry does show at launch.
+
+### New concerns
+
+- **While held, the clock stops at the second absence.** Any work done after the user returns but before they answer counts toward no session. The same is true of the restore replay. Answering, or any later work-app start from idle, begins fresh.
+- **Idle past the cap during a break-app pause also ends the session.** For example, a two-hour film in Netflix with no input, as the review asked.
+
+### Follow-ups (not fixed here)
+
+- A stale-snapshot "continue" answer is not replayed at restore (concern 4 above).
+- No "Watching" rest record is written when a watching pause ends at relaunch.
+- The live "ask Never" difference: `resolve` does not end past the cap when the ask threshold is Never (concern 2 above).

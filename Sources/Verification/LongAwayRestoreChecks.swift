@@ -12,7 +12,9 @@ enum LongAwayRestoreChecks {
         ("A running stretch carried across a long quit still ends where it was left", runningAcrossRelaunch),
         ("A pressed pause past the cap ends the session; a shorter one resumes it", manualPausePastCap),
         ("A second absence past the cap while asked ends the session where it began", awaitingSecondAbsence),
-        ("A refused long-away end stays paused with its Retry, never silently running", refusedLongAwayEnd)
+        ("A refused long-away end stays paused with its Retry, never silently running", refusedLongAwayEnd),
+        ("A break-app pause that turns into an absence past the cap ends where the pause began",
+         distractionPausePastCap)
     ]
 
     private static let cap: TimeInterval = 3_600
@@ -198,6 +200,25 @@ enum LongAwayRestoreChecks {
             }
         }
         do {
+            // Coming back to a work app instead of pressing Resume.
+            let f = Fixture(); defer { f.close() }
+            let start = f.time
+            f.engine.start(workType: .deepWork, intent: "Coding")
+            f.at(1_200, .manualPause)
+            let paused = f.time
+            f.at(cap + 60, .appActivated(bundleID: "com.apple.dt.Xcode", name: "Xcode"))
+            if let record = f.engine.archive.records.first(where: { $0.start == start }) {
+                if record.end != paused || !close(record.workSeconds, 1_200) {
+                    problems.append("work app: long pause ended \(record.end) with \(record.workSeconds)s; expected \(paused) and 1200s")
+                }
+            } else {
+                problems.append("work app: a pause past the cap resumed the old session instead of ending it")
+            }
+            if f.engine.state != .idle, f.engine.sessionStartDate != f.time {
+                problems.append("work app: the old stretch stayed open from \(f.engine.sessionStartDate)")
+            }
+        }
+        do {
             let f = Fixture(); defer { f.close() }
             let start = f.time
             f.engine.start(workType: .deepWork, intent: "Coding")
@@ -211,34 +232,49 @@ enum LongAwayRestoreChecks {
         return problems
     }
 
-    /// While the question is up, a second absence — quiet or locked — that
-    /// reaches the cap ends the session where it began. A shorter one is still
-    /// banked and excluded from whichever stretch the answer continues.
+    /// While the question is up, a second absence — quiet, locked, or still
+    /// open when the answer comes — that reaches the cap ends the session where
+    /// it began. The answer given afterwards is still kept: its break and its
+    /// receipt are written, and only then is the stretch after the return
+    /// ended. A shorter second absence is still banked and excluded from
+    /// whichever stretch the answer continues.
     private static func awaitingSecondAbsence() -> [String] {
         var problems: [String] = []
-        for locked in [false, true] {
+        for variant in ["quiet", "locked", "open"] {
             let f = Fixture(); defer { f.close() }
-            let start = f.time
             guard f.asked() else { return problems + ["the lock did not raise the question"] }
             f.time.addTimeInterval(300)
             let left = f.time
-            if locked {
+            switch variant {
+            case "locked":
                 f.at(0, .awayBegan(trigger: .screenLock))
                 f.at(cap + 100, .awayEnded)
-            } else {
+            case "quiet":
                 f.at(600, .idleObserved(seconds: 600))
                 f.at(cap, .idleObserved(seconds: 1))
+            default:
+                f.at(600, .idleObserved(seconds: 600))
+                f.time.addTimeInterval(cap)
             }
             let returned = f.time
-            _ = f.engine.decide(.tookBreak)
-            let label = locked ? "locked" : "quiet"
-            problems += f.spanning(DateInterval(start: left, end: returned)).map { "\(label): " + $0 }
-            if let record = f.engine.archive.records.first(where: { $0.start == start }) {
-                if record.end != left || !close(record.workSeconds, 1_500) {
-                    problems.append("\(label): ended \(record.end) with \(record.workSeconds)s; expected \(left) and 1500s")
-                }
-            } else {
-                problems.append("\(label): no record for the stretch the second absence ended")
+            let answered = f.engine.decide(.tookBreak, label: "dinner")
+            problems += f.spanning(DateInterval(start: left, end: returned)).map { "\(variant): " + $0 }
+            if !answered || f.engine.awayDecisionError != nil {
+                problems.append("\(variant): the answer was refused: \(f.engine.awayDecisionError ?? "no error")")
+            }
+            if !f.engine.archive.records.contains(where: { $0.workType == .breakTime && $0.name == "Dinner" }) {
+                problems.append("\(variant): the answered break was not recorded")
+            }
+            if !f.engine.awayDecisions.contains(where: { $0.decision == .tookBreak && $0.insertedRecord?.name == "Dinner" }) {
+                problems.append("\(variant): the answer left no receipt")
+            }
+            if f.engine.state != .idle {
+                problems.append("\(variant): the session outlived the second absence: \(f.engine.state)")
+            }
+            let focus = f.engine.archive.records.filter { $0.workType.countsAsFocus }
+                .reduce(0) { $0 + $1.workSeconds } + (f.engine.state == .idle ? 0 : f.engine.elapsed)
+            if !close(focus, 1_500) {
+                problems.append("\(variant): kept \(focus)s of focus; expected 1500")
             }
         }
         do {
@@ -251,6 +287,57 @@ enum LongAwayRestoreChecks {
             guard f.engine.decide(.tookBreak), f.engine.sessionStartDate == returned,
                   close(f.engine.elapsed, 300) else {
                 return problems + ["a short second absence changed today's answer: \(f.engine.state), \(f.engine.elapsed)s"]
+            }
+        }
+        return problems
+    }
+
+    /// A break-app pause is the user present, so the cap does not end it by
+    /// itself. A lock, a sleep or input stopping past the cap while it stands
+    /// is the user gone, and ends the session where the pause began — not
+    /// resumed from the evening when a work app comes up in the morning.
+    private static func distractionPausePastCap() -> [String] {
+        var problems: [String] = []
+        for variant in ["locked", "quiet"] {
+            let f = Fixture(); defer { f.close() }
+            let start = f.time
+            f.engine.start(workType: .deepWork, intent: "Coding")
+            f.at(1_200, .appActivated(bundleID: "com.netflix.Netflix", name: "Netflix"))
+            f.at(20, .dwellExpired(bundleID: "com.netflix.Netflix"))
+            let paused = f.time
+            guard case .paused(.distractionApp) = f.engine.state else {
+                return problems + ["\(variant): the break app did not pause the session: \(f.engine.state)"]
+            }
+            if variant == "locked" {
+                f.at(600, .awayBegan(trigger: .screenLock))
+                f.at(night, .awayEnded)
+            } else {
+                f.at(cap + 60, .idleObserved(seconds: cap + 60))
+            }
+            let returned = f.time
+            f.at(5, .appActivated(bundleID: "com.apple.dt.Xcode", name: "Xcode"))
+            problems += f.spanning(DateInterval(start: paused.addingTimeInterval(600), end: returned))
+                .map { "\(variant): " + $0 }
+            if let record = f.engine.archive.records.first(where: { $0.start == start }) {
+                if record.end != paused || !close(record.workSeconds, 1_220) {
+                    problems.append("\(variant): ended \(record.end) with \(record.workSeconds)s; expected \(paused) and 1220s")
+                }
+            } else {
+                problems.append("\(variant): no record for the stretch the break app paused")
+            }
+        }
+        do {
+            // Control: a short break-app pause still resumes the same session.
+            let f = Fixture(); defer { f.close() }
+            let start = f.time
+            f.engine.start(workType: .deepWork, intent: "Coding")
+            f.at(1_200, .appActivated(bundleID: "com.netflix.Netflix", name: "Netflix"))
+            f.at(20, .dwellExpired(bundleID: "com.netflix.Netflix"))
+            f.at(600, .awayBegan(trigger: .screenLock))
+            f.at(600, .awayEnded)
+            f.at(5, .appActivated(bundleID: "com.apple.dt.Xcode", name: "Xcode"))
+            if f.engine.state != .running || f.engine.sessionStartDate != start || !f.engine.archive.records.isEmpty {
+                problems.append("a short break-app pause did not resume the same session: \(f.engine.state)")
             }
         }
         return problems

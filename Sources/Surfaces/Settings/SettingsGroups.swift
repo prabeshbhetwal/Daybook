@@ -632,6 +632,9 @@ struct SettingsGroups: View {
                 ? "Past \(Tokens.duration(model.longAwayCap)) the session ends where you left. "
                 : "The session waits for you however long you were gone. "
         }
+        if ends {
+            text += "A pause longer than \(Tokens.duration(model.longAwayCap)) ends the session too. "
+        }
         text += (asks && model.fullPromptAfter > 0
                  ? "From \(Tokens.duration(model.fullPromptAfter)) the question fills the screen."
                  : asks ? "Every absence is asked about from the menu bar." : "")
