@@ -395,7 +395,10 @@ enum StoryAccountingChecks {
                                        now: { clock.value })
             let tracker = AppUsageTracker(archive: usageArchive, ownBundleID: "com.example.capacity",
                                           idle: .disabled, now: { clock.value })
-            let store = SessionStore(engine: engine, now: { clock.value })
+            // The check ticks the store itself. A live ticker would fall due
+            // during a slow (-Onone) rebuild, sample the build Mac's real HID
+            // idle, and close the tracker's open stretch before the live tick.
+            let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
             store.attach(tracker: tracker, usage: usageArchive)
             store.setDashboardVisible(true)
             store.setReviewVisible(true)
