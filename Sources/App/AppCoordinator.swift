@@ -35,6 +35,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // A method, not a closure that reads `mainWindow`, so the two lazy
         // properties never become each other's dependency.
         replayWelcome: { [weak self] in self?.replayWelcome() },
+        resumeWelcome: { [weak self] chapter in self?.replayWelcome(from: chapter) },
         diagnostics: .live(usage: usage, sessions: engine.archive),
         installedAppCatalog: InstalledAppCatalog(observed: { [weak self] in
             guard let self else { return [] }
@@ -52,6 +53,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// through, stepping past or skipping — is written down as answered.
     private(set) lazy var firstRun = FirstRunCoach { [weak self] in
         self?.engine.store.hasOnboarded = true
+        self?.engine.store.welcomeLeftAt = nil
         // Asked when the welcome ends rather than at launch, where the
         // system's prompt landed on the first card with nothing to say why.
         self?.notifier.requestAuthorization()
@@ -408,6 +410,18 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// coach only reports where the reader is; this applies the effect on
     /// the way in and reverses it on the way out — including when the tour
     /// is skipped with the sample away card still up.
+    private var welcomePlace: AnyCancellable?
+
+    /// Where a running tour is, written down as it moves, so a quit or a crash
+    /// mid-tour leaves something Settings can pick up from. The tour's end
+    /// clears it.
+    private func rememberWelcomePlace() {
+        welcomePlace = firstRun.$progress
+            .compactMap { $0?.chapter }
+            .removeDuplicates()
+            .sink { [weak self] chapter in self?.engine.store.welcomeLeftAt = chapter }
+    }
+
     private func observeWelcomeEffects() {
         welcomeEffects = firstRun.$progress
             .map { $0?.current.effect }
@@ -449,10 +463,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     /// Settings is a panel over the story and the welcome points at the story,
     /// so the panel comes down with it.
-    private func replayWelcome() {
+    private func replayWelcome(from chapter: FirstRunChapter? = nil) {
         Task { @MainActor in
             self.mainWindow.closeSheet()
-            self.firstRun.begin()
+            self.firstRun.begin(at: chapter)
         }
     }
 
@@ -515,6 +529,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
         store.refresh()
         observeWelcomeEffects()
+        rememberWelcomePlace()
         Task { @MainActor in
             self.presentWelcomeIfNew()
             self.awayPrompter.start()

@@ -61,6 +61,7 @@ final class PersistenceStore {
         static let breakTiersDisabled = "fc.breakTiersDisabled"
         static let quietFold = "fc.quietFold"
         static let onboarded = "fc.onboarded"
+        static let welcomeLeftAt = "fc.welcomeLeftAt"
     }
 
     private let defaults: UserDefaults
@@ -82,6 +83,14 @@ final class PersistenceStore {
     var hasOnboarded: Bool {
         get { defaults.bool(forKey: Key.onboarded) }
         set { defaults.set(newValue, forKey: Key.onboarded) }
+    }
+
+    /// The chapter a welcome was on when the app last stopped mid-tour. Kept
+    /// while the tour runs and cleared when it ends however it ends, so it is
+    /// only ever present for a tour that was interrupted, by a quit or a crash.
+    var welcomeLeftAt: FirstRunChapter? {
+        get { defaults.string(forKey: Key.welcomeLeftAt).flatMap(FirstRunChapter.init(rawValue:)) }
+        set { defaults.set(newValue?.rawValue, forKey: Key.welcomeLeftAt) }
     }
 
     // MARK: - Learned category choices
@@ -677,7 +686,7 @@ final class PersistenceStore {
                     Key.idlePauseThreshold, Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
-                    Key.quietFold]
+                    Key.quietFold, Key.welcomeLeftAt]
         for key in keys { defaults.removeObject(forKey: key) }
         // And the unreadable values kept aside from those keys, but nothing else.
         for stored in defaults.dictionaryRepresentation().keys

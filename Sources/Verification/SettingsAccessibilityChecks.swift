@@ -14,8 +14,43 @@ enum SettingsAccessibilityChecks {
         ("Settings search finds the plainly worded rows by their new names", plainWordsSearch),
         ("An archive that needed nothing says so plainly", plainRecovery),
         ("Settings says why the global shortcut is off, and lists the Session keys it answers to",
-         keyboardPanel)
+         keyboardPanel),
+        ("A tour left by a quit can be continued at its chapter, and one that ended cannot",
+         interruptedTour)
     ]
+
+    private static func interruptedTour() -> [String] {
+        MainActor.assumeIsolated {
+            var failures: [String] = []
+            let suite = "com.prabesh.focuscontinuity.interrupted-tour.\(UUID().uuidString)"
+            guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
+            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+            let store = PersistenceStore(defaults: defaults)
+            var resumed: FirstRunChapter?
+            let settings = SettingsModel(store: store, isTrackingEnabled: true, onChange: {},
+                                         onTrackingChanged: { _ in }, replayWelcome: {},
+                                         resumeWelcome: { resumed = $0 })
+            if settings.interruptedWelcomeChapter != nil {
+                failures.append("a Mac that never left a tour was offered to continue one")
+            }
+            store.welcomeLeftAt = .steppingAway
+            if settings.interruptedWelcomeChapter != .steppingAway {
+                failures.append("the chapter a tour was left on was not remembered")
+            }
+            settings.resumeWelcome()
+            if resumed != .steppingAway { failures.append("Continue did not start at the chapter left on") }
+            let coach = FirstRunCoach()
+            coach.begin(at: .steppingAway)
+            if coach.progress?.chapter != .steppingAway || coach.progress?.card != 0 {
+                failures.append("the tour did not open at the start of the remembered chapter")
+            }
+            store.welcomeLeftAt = nil
+            if settings.interruptedWelcomeChapter != nil {
+                failures.append("a tour that ended was still offered to continue")
+            }
+            return failures
+        }
+    }
 
     private static func keyboardPanel() -> [String] {
         var failures: [String] = []

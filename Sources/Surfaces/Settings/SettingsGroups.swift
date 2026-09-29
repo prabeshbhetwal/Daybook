@@ -63,10 +63,27 @@ struct SettingsGroups: View {
                                 + "chapters — starting a session, what your Mac records on its "
                                 + "own, the away card, rules, History, the menu bar. About seven "
                                 + "minutes; any chapter can be skipped.")
-                    Button("Show the tour again") { model.replayWelcome() }
+                    // A tour ended by a quit or a crash, not by Skip or its
+                    // last card, can be picked up where it was left.
+                    if let chapter = model.interruptedWelcomeChapter {
+                        explanation("You left the tour at chapter \(chapter.number), \(chapter.title).")
+                    }
+                    HStack(spacing: Tokens.Space.s) {
+                        if let chapter = model.interruptedWelcomeChapter {
+                            Button("Continue the tour") { model.resumeWelcome() }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.large)
+                                .accessibilityHint("Closes Settings and picks the introduction up at chapter "
+                                                   + "\(chapter.number), \(chapter.title)")
+                        }
+                        Button(model.interruptedWelcomeChapter == nil ? "Show the tour again"
+                                                                      : "Start from the beginning") {
+                            model.replayWelcome()
+                        }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
                         .accessibilityHint("Closes Settings and runs the introduction over the story")
+                    }
                 }
             }
         }

@@ -245,6 +245,7 @@ final class SettingsModel: ObservableObject {
     private let onActivityRulesChanged: () -> Void
     private let onRevealDataFolder: (() -> Void)?
     private let onReplayWelcome: (() -> Void)?
+    private let onResumeWelcome: ((FirstRunChapter) -> Void)?
     private let openDataFolder: ((URL) -> Bool)?
     let diagnostics: SettingsDiagnostics
     /// The archive directory displayed and revealed by Privacy. Fixtures pass
@@ -267,6 +268,7 @@ final class SettingsModel: ObservableObject {
          onActivityRulesChanged: @escaping () -> Void = {},
          revealDataFolder: (() -> Void)? = nil,
          replayWelcome: (() -> Void)? = nil,
+         resumeWelcome: ((FirstRunChapter) -> Void)? = nil,
          diagnostics: SettingsDiagnostics = .unavailable,
          dataDirectory: URL = SessionArchive.defaultDirectory,
          openDataFolder: ((URL) -> Bool)? = nil,
@@ -280,6 +282,7 @@ final class SettingsModel: ObservableObject {
         self.onActivityRulesChanged = onActivityRulesChanged
         self.onRevealDataFolder = revealDataFolder
         self.onReplayWelcome = replayWelcome
+        self.onResumeWelcome = resumeWelcome
         self.openDataFolder = openDataFolder
         self.diagnostics = diagnostics
         self.dataDirectoryURL = dataDirectory
@@ -295,6 +298,17 @@ final class SettingsModel: ObservableObject {
     /// a one-off that cannot be recovered is a manual nobody can reopen.
     func replayWelcome() {
         onReplayWelcome?()
+    }
+
+    /// The chapter a tour was left on by a quit or a crash, if one was.
+    var interruptedWelcomeChapter: FirstRunChapter? {
+        onResumeWelcome == nil ? nil : store.welcomeLeftAt
+    }
+
+    /// Picks the tour up at the chapter it was left on.
+    func resumeWelcome() {
+        guard let chapter = interruptedWelcomeChapter else { return }
+        onResumeWelcome?(chapter)
     }
 
     private func write(_ body: () -> Void) {

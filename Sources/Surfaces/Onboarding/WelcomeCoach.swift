@@ -19,9 +19,12 @@ final class FirstRunCoach: ObservableObject {
 
     var isActive: Bool { progress != nil }
 
-    func begin() {
+    /// From the start, or from the chapter an interrupted tour was on.
+    func begin(at chapter: FirstRunChapter? = nil) {
         guard progress == nil else { return }
-        progress = FirstRunProgress()
+        var start = FirstRunProgress()
+        if let chapter { start.jump(to: chapter) }
+        progress = start
     }
 
     func observe(_ signals: FirstRunSignals) {
