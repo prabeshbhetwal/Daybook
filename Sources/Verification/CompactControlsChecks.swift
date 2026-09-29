@@ -298,11 +298,24 @@ enum CompactControlsChecks {
         if steps.count > 12 {
             failures.append("The type scale has grown to \(steps.count) steps")
         }
+        // The Mac-sized scale approved on 2026-09-29: rows at 14, not 15;
+        // a 19pt headline, not 23. Text had run a step above native apps.
+        if steps != [9, 10, 11, 12, 13, 14, 15, 19, 22, 24, 36] {
+            failures.append("The type scale is not the approved Mac-sized scale: \(steps)")
+        }
+        if StoryStyle.headlineSize != 20 {
+            failures.append("The story headline is \(StoryStyle.headlineSize)pt, not 20pt")
+        }
+        if StoryLayout.railWidth != 300 {
+            failures.append("The rail is \(StoryLayout.railWidth)pt wide, not 300pt")
+        }
         // Adjacent steps must differ enough to be seen as different. One point
-        // at reading size is not a hierarchy, it is noise.
+        // at reading size is not a hierarchy, it is noise. The floor is 1.07
+        // since the Mac-sized scale: control/row/section run 13, 14, 15, the
+        // way native macOS text does (14/13 is 1.077, 15/14 is 1.071).
         for (small, large) in zip(steps, steps.dropFirst()) {
             let ratio = large / small
-            if ratio < 1.08 {
+            if ratio < 1.07 {
                 failures.append("Steps \(small) and \(large) are too close to tell apart")
             }
         }

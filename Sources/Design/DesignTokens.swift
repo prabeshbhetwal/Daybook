@@ -114,12 +114,12 @@ enum Tokens {
             static let ring: CGFloat = 11
             static let metadata: CGFloat = 12
             static let control: CGFloat = 13
-            static let row: CGFloat = 15
-            static let section: CGFloat = 17
-            static let headline: CGFloat = 23
-            static let page: CGFloat = 26
-            static let metric: CGFloat = 30
-            static let timer: CGFloat = 46
+            static let row: CGFloat = 14
+            static let section: CGFloat = 15
+            static let headline: CGFloat = 19
+            static let page: CGFloat = 22
+            static let metric: CGFloat = 24
+            static let timer: CGFloat = 36
 
             /// Ascending, for the checks that hold the scale to its shape.
             static let all: [CGFloat] = [micro, smallLabel, ring, metadata, control,
