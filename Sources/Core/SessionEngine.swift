@@ -455,6 +455,7 @@ final class SessionEngine {
             // back-date its pause only to 17:19; the absence is still the
             // earlier of the two. Dropping the interval here left 89 minutes
             // of closed lid standing as work.
+            let lockedFor = awayInterval.map { self.interval(from: $0.start) } ?? 0
             if let interval = awayInterval, let began = pauseStartDate, interval.start < began {
                 pauseStartDate = interval.start
             }
@@ -469,6 +470,12 @@ final class SessionEngine {
             // ended where input stopped.
             if absenceOutgrewCap() {
                 _ = completeLongAway(intent: .endOnly)
+            } else if lockedFor >= store.longAwayCap, let began = pauseStartDate {
+                // A break-app pause is the user present, so the cap leaves it
+                // alone. A lock past the cap is the user gone: Netflix, then
+                // the night, must not resume from the evening when Xcode comes
+                // up in the morning. Ended where the pause began.
+                endStretch(leftAt: began)
             } else if reason == .idle {
                 // Unlocking is the user back. The idle pause ends the way an
                 // observed absence does — asked about past the threshold.
@@ -489,6 +496,7 @@ final class SessionEngine {
             // An absence opened by a lock or a sleep and never closed by a
             // wake folds in first, so the cap and the question measure from
             // where it truly began.
+            let unattended = max(seconds, awayInterval.map { self.interval(from: $0.start) } ?? 0)
             if seconds < FocusConstants.awayDebounce, let interval = awayInterval {
                 if let began = pauseStartDate, interval.start < began {
                     pauseStartDate = interval.start
@@ -506,6 +514,10 @@ final class SessionEngine {
             // no wake event, only samples.
             if absenceOutgrewCap() {
                 _ = completeLongAway(intent: .endOnly)
+            } else if unattended >= store.longAwayCap, let began = pauseStartDate {
+                // A break-app pause with nobody touching the machine, or a
+                // lock never closed by a wake, past the cap: the user left.
+                endStretch(leftAt: began)
             } else if reason == .idle, seconds < store.idlePauseThreshold {
                 // Only an idle pause lifts itself. A pause the user pressed
                 // stays pressed until they say otherwise — the app must not
@@ -527,13 +539,18 @@ final class SessionEngine {
             if isSelf(bundleID) { break }
             recordApp(bundleID: bundleID, name: name)
         case (.awaitingUserDecision, .awayBegan(let trigger)):
-            recordAway(trigger)
+            // Once the stretch is held at a second absence past the cap,
+            // nothing after it belongs to the session.
+            if pauseStartDate == nil { recordAway(trigger) }
         case (.awaitingUserDecision, .awayEnded):
             // The card owns the pending question, but a second absence that
             // ends while it is up is a fact about time, not about the question
             // — bank it so `apply` can exclude it from whichever session
-            // continues.
-            if let interval = awayInterval {
+            // continues. Past the cap there is no session left to continue:
+            // it is held there until the answer, which is still kept.
+            if secondAbsenceOutgrewCap() != nil {
+                holdSecondAbsence()
+            } else if let interval = awayInterval {
                 shadowAway += self.interval(from: interval.start)
                 awayInterval = nil
                 persist()
@@ -716,15 +733,25 @@ final class SessionEngine {
         resolve(away: absence, startedAt: began)
     }
 
-    /// True when an unattended pause has outgrown `longAwayCap`. Only the two
-    /// reasons that mean "nobody is here" qualify: a `.manual` pause is a
-    /// deliberate act about a session the user is still sitting in front of,
-    /// and overruling it would be the app un-pressing their button.
+    /// True when an unattended pause has outgrown `longAwayCap`. A `.manual`
+    /// pause used to be exempt, as a deliberate act about a session the user
+    /// was still sitting in front of. Past the cap that stops being true: a
+    /// Pause left on over a quit and a night made one record of 22:46 to 11:02.
+    /// Pressing Pause keeps the session only as long as any other absence.
     private func absenceOutgrewCap() -> Bool {
-        guard case .paused(let reason) = state,
-              reason == .idle || reason == .away,
+        guard case .paused(let reason) = state, Self.pauseMeansNobodyHere(reason),
               let began = pauseStartDate else { return false }
         return interval(from: began) >= store.longAwayCap
+    }
+
+    /// Whether a pause says nobody is at the session. Two do not: a break app
+    /// the user is looking at, and something on screen they are watching.
+    /// Both end with the user's own next move, not with the cap.
+    private static func pauseMeansNobodyHere(_ reason: PauseReason) -> Bool {
+        switch reason {
+        case .distractionApp, .watching: return false
+        case .manual, .away, .idle, .systemSleep, .extendedBreak: return true
+        }
     }
 
     /// Ends a session whose absence outgrew the cap, archived where the absence
@@ -759,6 +786,58 @@ final class SessionEngine {
         let result = LongAwayTransitionResult(request: request, outcome: outcome)
         lastLongAwayTransition = result
         return result
+    }
+
+    /// Ends a stretch nobody has been at since `left`, through the one
+    /// long-away ending. Used where the absence is found some other way than
+    /// a pause outgrowing the cap: the app was closed across it, `resolve` is
+    /// only now measuring it, or a question sat through it. Whatever the
+    /// stretch was doing, it becomes what it really was, an away pause from
+    /// `left`. The record then ends there with exactly the work before it, and
+    /// a refused save leaves that pause standing with its Retry, the cap judged
+    /// again on the next event. A live stretch with the absence banked would
+    /// instead carry on, and count it as work the next time it resumed.
+    /// A pending question goes with the stretch, unanswered, as it does when a
+    /// session is ended with the card up. An absence past the cap is never
+    /// asked about.
+    private func endStretch(leftAt left: Date) {
+        // Second absences the card already sat through stay excluded, as any
+        // answer would have excluded them.
+        totalPausedDuration += shadowAway
+        shadowAway = 0
+        awayInterval = nil
+        decisionStartDate = nil
+        awayReturnedAt = nil
+        pendingDecisionID = nil
+        workBeforePendingAway = nil
+        departureApp = nil
+        pendingAwayLabel = nil
+        pauseStartDate = min(left, now())
+        state = .paused(reason: .away)
+        completeLongAway(intent: .endOnly)
+    }
+
+    /// Where a second absence the question sat through began, once it has
+    /// outgrown the cap. Past that it is no longer a pause inside the question
+    /// but the end of the session, as it would have been with no question up.
+    /// An answer given afterwards must not continue a stretch across it.
+    private func secondAbsenceOutgrewCap() -> Date? {
+        guard case .awaitingUserDecision = state, let began = awayInterval?.start,
+              interval(from: began) >= store.longAwayCap else { return nil }
+        return began
+    }
+
+    /// Stops the stretch at a second absence past the cap without dropping
+    /// the question it sat through. The absence becomes a live pause from
+    /// where it began — `elapsed` subtracts it, so nothing after it is work —
+    /// and the question stays up. Its answer is applied as usual, receipt and
+    /// break included, and then `apply` ends the stretch there. Only an
+    /// awaiting stretch held this way has a `pauseStartDate`.
+    private func holdSecondAbsence() {
+        guard let left = secondAbsenceOutgrewCap() else { return }
+        awayInterval = nil
+        pauseStartDate = left
+        persist()
     }
 
     @discardableResult
@@ -801,6 +880,10 @@ final class SessionEngine {
     /// it. Without this, a question left up over a forty-minute errand handed
     /// the errand to the session that started when the user came back.
     private func noteQuietWhileAwaiting(_ seconds: TimeInterval) {
+        // Judged first, whatever this sample says, as for a paused stretch.
+        if secondAbsenceOutgrewCap() != nil { holdSecondAbsence() }
+        // Held: the stretch already stops there, so later quiet is nobody's.
+        guard pauseStartDate == nil else { return }
         if seconds >= store.idlePauseThreshold {
             guard awayInterval == nil else { return }
             awayInterval = (start: now().addingTimeInterval(-seconds), trigger: .idle)
@@ -832,6 +915,18 @@ final class SessionEngine {
 
     private func resolve(away: TimeInterval, startedAt: Date? = nil) {
         if away < FocusConstants.awayDebounce { return }
+        // An absence this long was not a break inside a session, it was the end
+        // of one. Keeping the session open across it is what produced records
+        // spanning thirty-two hours, and a record that covers two nights has to
+        // guess which day its work belongs to no matter how the guess is made.
+        // There is also nothing to ask: nobody answers "was that a break?" about
+        // a night's sleep with "I was working". Judged before the absence is
+        // banked, so a refused save leaves it the pause the session ends in,
+        // with its Retry, not a running session that said nothing.
+        if away >= breakThreshold, away >= store.longAwayCap {
+            endStretch(leftAt: now().addingTimeInterval(-away))
+            return
+        }
         // Excluded the instant it is noticed, whether or not anyone answers.
         // Leaving it in the total until the card was dismissed meant an
         // overnight sleep read as nine hours of work on the goal bar — the
@@ -844,24 +939,6 @@ final class SessionEngine {
             return
         }
         cancelDwell()
-
-        // An absence this long was not a break inside a session, it was the end
-        // of one. Keeping the session open across it is what produced records
-        // spanning thirty-two hours, and a record that covers two nights has to
-        // guess which day its work belongs to no matter how the guess is made.
-        // There is also nothing to ask: nobody answers "was that a break?" about
-        // a night's sleep with "I was working".
-        if away >= store.longAwayCap {
-            guard archiveCurrentSession(endingAt: now().addingTimeInterval(-away)) else { return }
-            activeIsAuto = false
-            activeAutomaticAction = nil
-            pauseStartDate = nil
-            decisionStartDate = nil
-            awayReturnedAt = nil
-            state = .idle
-            persist()
-            return
-        }
 
         decisionStartDate = now()
         awayReturnedAt = decisionStartDate
@@ -881,12 +958,17 @@ final class SessionEngine {
         awayDecisionError = nil
         pendingAwayLabel = label?.trimmingCharacters(in: .whitespacesAndNewlines)
         transition(on: .decision(decision))
-        return awayDecisionError == nil && state == .running
+        // An answer to a question held at a second absence past the cap is
+        // kept and then ends the session, so idle is a saved answer too.
+        return awayDecisionError == nil && !isAwaitingCorrection
     }
 
     private func apply(_ decision: UserDecision) {
         guard case .awaitingUserDecision(let away, _) = state else { return }
         guard prepareCorrection() else { return }
+        // Answered before any sample saw the second absence close.
+        holdSecondAbsence()
+        let heldAt = pauseStartDate
         let before = snapshot()
         let departureBefore = departureApp
         // Capitalised for the record — the timeline shows it as a title — and
@@ -1014,6 +1096,16 @@ final class SessionEngine {
         linkCreditRecords(additions)
         if !commitCorrection(before: before, adding: newRecords, allowsEviction: true), isAwaitingCorrection {
             departureApp = departureBefore
+        }
+        // Held at a second absence past the cap: the answer is kept, then the
+        // stretch it continued ends where that absence began — as the restore
+        // replay does. A fresh successor banked the absence in its paused
+        // total; `endStretch` carries it as the closing pause instead.
+        if let heldAt, !isAwaitingCorrection {
+            if pauseStartDate == nil {
+                totalPausedDuration = max(0, totalPausedDuration - interval(from: heldAt))
+            }
+            endStretch(leftAt: heldAt)
         }
     }
 
@@ -1247,7 +1339,10 @@ final class SessionEngine {
         // A start immediately followed by a stop is a misclick, not a session.
         // Nine such records sit in the shipped archive inflating the day's
         // session count and the quick-start tallies.
-        let end = min(max(endMoment ?? now(), sessionStartDate), now())
+        // A question held at a second absence past the cap already stopped
+        // the stretch there; Stop or Reset must not stretch it to now.
+        let held = isAwaitingCorrection ? pauseStartDate : nil
+        let end = min(max(endMoment ?? held ?? now(), sessionStartDate), now())
         let record: SessionRecord? = elapsed < store.minimumRecordedSession ? nil : SessionRecord(id: activeRecordID,
                                      name: sessionName,
                                      workType: activeWorkType,
@@ -1746,6 +1841,34 @@ final class SessionEngine {
         shadowAway = 0
         let receiptReconciled = decisionHistory.metadata == nil ? reconcileAwayReceipt() : false
 
+        // Closed past the cap, the stretch ended where it was left, whatever
+        // the snapshot says it was doing. Only a running one used to be
+        // measured, through `resolve`. A pause or a question left up carried
+        // the whole gap into a stretch that stayed open, and one resume or
+        // answer the next morning made a record of the night. Nobody has been
+        // here since the earliest of the pause, an absence still open at the
+        // write, and the write, except that a break app or a video the user
+        // was present for says nothing about when they left. The work stopped
+        // where any pause began.
+        let presentWhilePaused = snapshot.kind == .paused
+            && !Self.pauseMeansNobodyHere(snapshot.restoredPauseReason)
+        let absentSince = [presentWhilePaused ? nil : snapshot.pauseStart, snapshot.awayStart, snapshot.savedAt]
+            .compactMap { $0 }.min() ?? snapshot.savedAt
+        let left = min(snapshot.pauseStart ?? absentSince, absentSince)
+        let leftPastCap = snapshot.kind != .idle && interval(from: absentSince) >= store.longAwayCap
+        // A saved answer to the question is replayed below first, so its
+        // records stand, and its successor is ended after it.
+        let answerSaved = snapshot.kind == .awaiting && archive.records.contains {
+            $0.id == snapshot.pendingDecisionID || $0.id == activeRecordID
+        }
+        if leftPastCap, !answerSaved {
+            shadowAway = snapshot.shadowAway ?? 0
+            endStretch(leftAt: left)
+            persist()
+            onStateChanged?(state)
+            return
+        }
+
         switch snapshot.kind {
         case .idle:
             state = .idle
@@ -1769,8 +1892,11 @@ final class SessionEngine {
             // settled here too, onto the session that lived through them —
             // `apply` would otherwise hand it to a successor that starts after
             // they happened and whose span cannot contain them.
+            // A question held at a second absence past the cap stopped the
+            // stretch at its `pauseStart`; the gap runs from there instead.
             totalPausedDuration += (snapshot.shadowAway ?? 0)
-                + interval(from: snapshot.awayStart ?? snapshot.savedAt)
+                + interval(from: snapshot.pauseStart ?? snapshot.awayStart ?? snapshot.savedAt)
+            pauseStartDate = nil
             pausedSpans = []
             // `?? 0`, never the threshold: `.mergeTime` subtracts this from the
             // paused total, and a fabricated value would subtract time that was
@@ -1805,6 +1931,12 @@ final class SessionEngine {
                 // a saved answer and opened its successor. Only real return
                 // may close this new tail; replay is not a presence signal.
                 awayInterval = (start: now(), trigger: snapshot.awayTrigger ?? .screenLock)
+            }
+            if leftPastCap, state == .running {
+                // The replayed successor began at the return and was left with
+                // the app. Its gap, banked above, becomes the closing pause.
+                totalPausedDuration = max(0, totalPausedDuration - interval(from: left))
+                endStretch(leftAt: left)
             }
         case .running:
             state = .running
