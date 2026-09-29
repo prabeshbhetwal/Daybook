@@ -5,7 +5,7 @@ enum StoryRenderEvidence: String, Hashable {
     case historyJournal
     case historyTree
     case historyEmpty
-    case historyMonthRail
+    case historyPeriodRail
     case historyDayRail
     case historySessionRail
     case activityQuietChoice

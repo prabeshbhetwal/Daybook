@@ -38,13 +38,6 @@ struct JournalQuiet: Identifiable, Equatable {
     var isSingleDay: Bool { first == last }
 }
 
-/// One month's focus, for the rail's twelve-month chart.
-struct JournalMonthTotal: Identifiable, Equatable {
-    let start: Date
-    let focused: TimeInterval
-    var id: Date { start }
-}
-
 enum JournalEntry: Identifiable, Equatable {
     case month(JournalMonth)
     case day(JournalDay)
@@ -267,27 +260,6 @@ enum HistoryJournalBuilder {
     static func month(starting start: Date, days: [HistoryDay],
                       calendar: Calendar = .current) -> JournalMonth {
         month(starting: start, byDate: index(days, calendar: calendar), calendar: calendar)
-    }
-
-    /// Up to `count` months ending with the one holding `end`, oldest first,
-    /// never reaching before the month the record began in.
-    static func recentMonths(endingAt end: Date, focusByDay: [Date: TimeInterval],
-                             firstDay: Date?, count: Int = 12,
-                             calendar: Calendar = .current) -> [JournalMonthTotal] {
-        let last = calendar.dateInterval(of: .month, for: end)?.start ?? end
-        let floor = firstDay.flatMap { calendar.dateInterval(of: .month, for: $0)?.start } ?? last
-        var totals: [Date: TimeInterval] = [:]
-        for (day, seconds) in focusByDay {
-            if let start = calendar.dateInterval(of: .month, for: day)?.start { totals[start, default: 0] += seconds }
-        }
-        var result: [JournalMonthTotal] = []
-        var cursor = last
-        while result.count < count, cursor >= floor {
-            result.append(JournalMonthTotal(start: cursor, focused: totals[cursor] ?? 0))
-            guard let previous = calendar.date(byAdding: .month, value: -1, to: cursor) else { break }
-            cursor = previous
-        }
-        return Array(result.reversed())
     }
 
     /// A journal day's rows from its projection, newest first, narrowed to

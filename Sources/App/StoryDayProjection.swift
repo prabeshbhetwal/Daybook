@@ -150,7 +150,7 @@ extension SessionStore {
         switch scope {
         case .day: limit = min(max(1, requestedLimit), 42)
         case .week: limit = min(max(1, requestedLimit), 14)
-        case .month: limit = min(max(1, requestedLimit), 12)
+        case .month: limit = min(max(1, requestedLimit), 240)
         }
         let component: Calendar.Component
         switch scope {

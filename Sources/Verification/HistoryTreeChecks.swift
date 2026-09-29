@@ -19,7 +19,9 @@ enum HistoryTreeChecks {
         ("Opening a row folds its sibling; folding a row folds everything under it; an empty row cannot open", openAndFold),
         ("Arrow keys walk the visible rows in reading order, Return toggles, left and right fold and open", keyboardWalk),
         ("Rows say their period, figures and state once, in words for VoiceOver", rowWording),
-        ("The headline names the top period and its totals", headlineWording)
+        ("The headline names the top period and its totals", headlineWording),
+        ("The rail follows the deepest open row and the picked session, and drops a session that is gone", railFollowsDeepestOpen),
+        ("A period's reading covers exactly its span: one week, one month, a year's months, the record's months", periodReading)
     ]
 
     // MARK: - Fixtures
@@ -432,6 +434,46 @@ enum HistoryTreeChecks {
         let oneDay = HistoryTreeBuilder.top(days: [row(9, 28, focused: 60, sessions: 1)], today: today, calendar: calendar)
         let weekLine = HistoryRowText.headline(top: oneDay, summary: HistoryTreeBuilder.summary(top: oneDay, days: [row(9, 28, focused: 60, sessions: 1)], calendar: calendar), calendar: calendar)
         if weekLine.sentence != "You focused \(Tokens.duration(60)) across 1 day." { failures.append("one focused day read \(weekLine.sentence)") }
+        return failures
+    }
+
+    // MARK: - Rail
+
+    private static func railFollowsDeepestOpen() -> [String] {
+        let top = HistoryTreeBuilder.top(days: september, today: today, calendar: calendar)
+        let week = HistoryTreeBuilder.rows(under: nil, top: top, days: september, calendar: calendar)[0]
+        let day = HistoryTreeBuilder.rows(under: week.place, top: top, days: september, calendar: calendar)[1]
+        var failures: [String] = []
+        if HistoryRailScope.resolve(open: [], session: nil, pick: nil) != .period(nil) { failures.append("nothing open did not describe the top") }
+        if HistoryRailScope.resolve(open: [week.place], session: nil, pick: nil) != .period(week.place) { failures.append("an open week was not described") }
+        if HistoryRailScope.resolve(open: [week.place, day.place], session: nil, pick: nil) != .day(day.place.start) { failures.append("an open day was not described") }
+        let pick = HistorySessionPick(thread: UUID(), day: day.place.start)
+        if HistoryRailScope.resolve(open: [week.place, day.place], session: nil, pick: pick) != .day(day.place.start) {
+            failures.append("a picked session that is gone did not fall back to its day")
+        }
+        return failures
+    }
+
+    private static func periodReading() -> [String] {
+        var failures: [String] = []
+        let top = HistoryTreeBuilder.top(days: september + [row(7, 3, year: 2025, focused: 60, sessions: 1)], today: today, calendar: calendar)
+        let record = HistoryPeriodRail.reading(for: nil, top: top)
+        if record.scope != .month || record.limit != 15 || !calendar.isDate(record.anchor, inSameDayAs: today) {
+            failures.append("the record read \(record.scope) × \(record.limit) anchored \(record.anchor)")
+        }
+        let years = HistoryTreeBuilder.rows(under: nil, top: top, days: september, calendar: calendar)
+        let thisYear = HistoryPeriodRail.reading(for: years[0].place, top: top)
+        if thisYear.scope != .month || thisYear.limit != 9 { failures.append("2026 read \(thisYear.scope) × \(thisYear.limit)") }
+        let lastYear = HistoryPeriodRail.reading(for: years[1].place, top: top)
+        if lastYear.limit != 6 || !calendar.isDate(lastYear.anchor, inSameDayAs: date(12, 31, year: 2025)) {
+            failures.append("2025 read × \(lastYear.limit) anchored \(lastYear.anchor)")
+        }
+        let months = HistoryTreeBuilder.rows(under: years[0].place, top: top, days: september, calendar: calendar)
+        let sep = HistoryPeriodRail.reading(for: months[0].place, top: top)
+        if sep.scope != .month || sep.limit != 1 { failures.append("September read \(sep.scope) × \(sep.limit)") }
+        let weeks = HistoryTreeBuilder.rows(under: months[0].place, top: top, days: september, calendar: calendar)
+        let week = HistoryPeriodRail.reading(for: weeks[0].place, top: top)
+        if week.scope != .week || week.limit != 1 { failures.append("a week read \(week.scope) × \(week.limit)") }
         return failures
     }
 }

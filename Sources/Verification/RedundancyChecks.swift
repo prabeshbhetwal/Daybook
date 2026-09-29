@@ -147,10 +147,13 @@ enum RedundancyChecks {
         let month = JournalMonth(start: Date(timeIntervalSince1970: 1_800_000_000), focused: 3_600,
                                  tracked: 7_200, focusedDays: 1, dailyFocus: [3_600])
         var failures: [String] = []
-        if HistoryMonthHeader.facts(month).contains("app use") {
+        let monthRow = HistoryRow(place: HistoryPlace(level: .month, span: DateInterval(start: month.start, duration: 86_400 * 30)),
+                                  focused: month.focused, tracked: month.tracked, focusedDays: month.focusedDays,
+                                  sessions: 3, mainWorkType: .deepWork, hasEvidence: true, bars: [])
+        if HistoryRowText.facts(monthRow, today: Date()).contains("app use") {
             failures.append("the month header repeated recorded app use")
         }
-        if HistoryMonthRail.appUseLine(tracked: month.tracked) != "\(Tokens.duration(7_200)) recorded app use" {
+        if HistoryPeriodRail.appUseLine(tracked: month.tracked) != "\(Tokens.duration(7_200)) recorded app use" {
             failures.append("the month rail lost recorded app use")
         }
         return failures

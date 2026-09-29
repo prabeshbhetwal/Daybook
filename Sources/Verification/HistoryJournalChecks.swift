@@ -16,14 +16,11 @@ enum HistoryJournalChecks {
         ("Today's live figures reach the cached journal and its month", liveToday),
         ("Arrow keys step through months, days and sessions in reading order", keyboardSteps),
         ("Jump to date selects a listed day, or the month of a quiet one", jumpSelects),
-        ("The twelve-month chart stops at the first recorded month", recentMonthsFloor),
         ("A ticking clock does not rebuild the journal", journalIsCached),
         ("Journal headers and lines say each figure once, in words for VoiceOver", journalWording),
         ("A session row speaks its time, name, category and length as one element", sessionSpeech),
         ("A day of one session shows its figure on the row, not the header too; a break never hides app use",
          dayTotalSaidOnce),
-        ("The rail falls back to the month when its session or day is gone or searched away",
-         railFallsBackToMonth),
         ("The best two hours are said once, with where they fell", bestHoursSaidOnce),
         ("The month rail carries recorded app use in one line", monthRailAppUse),
         ("The journal and each rail scope render with their evidence", journalRenders)
@@ -263,22 +260,6 @@ enum HistoryJournalChecks {
         return failures
     }
 
-    private static func recentMonthsFloor() -> [String] {
-        let focus = [date(8, 29): 900.0, date(9, 28): 3_600.0]
-        var failures: [String] = []
-        let short = HistoryJournalBuilder.recentMonths(endingAt: date(9, 15), focusByDay: focus,
-                                                       firstDay: date(8, 29), calendar: calendar)
-        if short.map(\.start) != [date(8, 1), date(9, 1)] || short.map(\.focused) != [900, 3_600] {
-            failures.append("a two-month record drew \(short.map(\.start))")
-        }
-        let long = HistoryJournalBuilder.recentMonths(endingAt: date(9, 15), focusByDay: focus,
-                                                      firstDay: date(1, 1, year: 2025), calendar: calendar)
-        if long.count != 12 || long.first?.start != date(10, 1, year: 2025) || long.last?.start != date(9, 1) {
-            failures.append("a long record drew \(long.count) months from \(String(describing: long.first?.start))")
-        }
-        return failures
-    }
-
     // MARK: - Store
 
     private static func journalIsCached() -> [String] {
@@ -437,36 +418,6 @@ enum HistoryJournalChecks {
         return failures
     }
 
-    private static func railFallsBackToMonth() -> [String] {
-        let day = date(9, 28)
-        let gone = HistoryRailScope.resolve(.session(thread: UUID(), day: day), session: nil, calendar: calendar)
-        var failures = gone == .month(date(9, 1)) ? [] : ["a vanished session left the rail on \(gone)"]
-        // A search that hides a day, or a session on a listed day, leaves the
-        // rail on the month.
-        let a = UUID()
-        let start = day.addingTimeInterval(9 * 3_600)
-        let searched = HistoryJournalBuilder.entries(matching: [
-            HistorySearchHit(id: UUID(), threadID: a, name: "Parser", workType: .deepWork, start: start,
-                             end: start.addingTimeInterval(600), worked: 600, day: day,
-                             noteSnippet: nil, matchedApps: [])
-        ], calendar: calendar)
-        let hiddenDay = HistorySelection.day(date(9, 22))
-        let hiddenSession = HistorySelection.session(thread: UUID(), day: day)
-        if HistoryRailScope.isListed(hiddenDay, in: searched)
-            || HistoryRailScope.resolve(hiddenDay, session: nil, listed: false, calendar: calendar) != .month(date(9, 1)) {
-            failures.append("a day hidden by the search kept its day rail")
-        }
-        if HistoryRailScope.isListed(hiddenSession, in: searched) {
-            failures.append("a session the search hides was listed")
-        }
-        if !HistoryRailScope.isListed(.day(day), in: searched)
-            || !HistoryRailScope.isListed(.session(thread: a, day: day), in: searched)
-            || !HistoryRailScope.isListed(.month(date(8, 1)), in: searched) {
-            failures.append("a listed day, session or any month read as hidden")
-        }
-        return failures
-    }
-
     private static func bestHoursSaidOnce() -> [String] {
         let note = HistoryHours.note(seconds: 12_000, phrase: "on Tuesdays")
         var failures: [String] = []
@@ -481,7 +432,7 @@ enum HistoryJournalChecks {
     }
 
     private static func monthRailAppUse() -> [String] {
-        let line = HistoryMonthRail.appUseLine(tracked: 59_100)
+        let line = HistoryPeriodRail.appUseLine(tracked: 59_100)
         return line == "\(Tokens.duration(59_100)) recorded app use"
             ? [] : ["the month rail's app use read \"\(line)\""]
     }
@@ -503,15 +454,15 @@ enum HistoryJournalChecks {
             let monthFrame = StoryWorkspaceChecks.renderFrame(
                 HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000)
             require("History on its month", monthFrame, .historyTree)
-            require("History on its month", monthFrame, .historyMonthRail)
+            require("History on its month", monthFrame, .historyPeriodRail)
             let yesterday = Calendar.current.date(byAdding: .day, value: -1,
                                                   to: Calendar.current.startOfDay(for: dense.now()))!
-            navigation.selectHistory(.day(yesterday))
+            navigation.openHistory(day: yesterday)
             require("History on a day", StoryWorkspaceChecks.renderFrame(
                 HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000),
                 .historyDayRail)
             if let thread = dense.journalThreads(on: yesterday, only: nil).first {
-                navigation.selectHistory(.session(thread: thread, day: yesterday))
+                navigation.selectHistory(session: thread, on: yesterday)
                 require("History on a session", StoryWorkspaceChecks.renderFrame(
                     HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000),
                     .historySessionRail)

@@ -23,32 +23,21 @@ enum HistoryHours {
 /// What the rail describes once the selection meets the archive: a session
 /// that is gone, or a day or session hidden by a search, reads as the month
 /// it was in.
+/// What the rail describes: the deepest open row, or the picked session.
 enum HistoryRailScope: Equatable {
-    case month(Date)
+    /// A year, month or week; nil is the top period itself.
+    case period(HistoryPlace?)
     case day(Date)
     case session(DaySession, day: Date)
 
-    static func resolve(_ selection: HistorySelection, session: DaySession?, listed: Bool = true,
-                        calendar: Calendar = .current) -> HistoryRailScope {
-        switch selection {
-        case .month(let start): return .month(start)
-        case .day(let day):
-            return listed ? .day(day) : .month(selection.monthStart(calendar: calendar))
-        case .session(_, let day):
-            if listed, let session { return .session(session, day: day) }
-            return .month(selection.monthStart(calendar: calendar))
+    /// `session` is the picked session if its day still has it; a pick
+    /// whose session is gone, or hidden by a search, reads as its day.
+    static func resolve(open: [HistoryPlace], session: DaySession?, pick: HistorySessionPick?) -> HistoryRailScope {
+        if let pick, let session, open.last?.level == .day, open.last?.start == pick.day {
+            return .session(session, day: pick.day)
         }
-    }
-
-    /// Whether a searched journal still lists the selection's day, and for
-    /// a session, that session on it. A month is always listed.
-    static func isListed(_ selection: HistorySelection, in entries: [JournalEntry]) -> Bool {
-        guard let day = selection.day else { return true }
-        return entries.contains { entry in
-            guard case .day(let row) = entry, row.date == day else { return false }
-            if case .session(let thread, _) = selection { return row.threads?.contains(thread) ?? true }
-            return true
-        }
+        guard let deepest = open.last else { return .period(nil) }
+        return deepest.level == .day ? .day(deepest.start) : .period(deepest)
     }
 }
 
@@ -62,20 +51,16 @@ struct HistoryJournalRail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             switch scope {
-            case .month(let start):
-                HistoryMonthRail(store: store, navigation: navigation, monthStart: start)
-                    .storyRenderEvidence(.historyMonthRail)
+            case .period(let place):
+                HistoryPeriodRail(store: store, place: place)
+                    .storyRenderEvidence(.historyPeriodRail)
             case .day(let day):
-                HistoryDayRail(store: store, projection: store.storyDayProjection(on: day)) {
-                    navigation.openDay(day)
-                }
-                .storyRenderEvidence(.historyDayRail)
+                HistoryDayRail(store: store, projection: store.storyDayProjection(on: day))
+                    .storyRenderEvidence(.historyDayRail)
             case .session(let session, let day):
                 HistorySessionRail(store: store, session: session, day: day,
-                                   apps: store.storyDayProjection(on: day).sessionDetails[session.id]?.apps ?? []) {
-                    navigation.openDay(day)
-                }
-                .storyRenderEvidence(.historySessionRail)
+                                   apps: store.storyDayProjection(on: day).sessionDetails[session.id]?.apps ?? [])
+                    .storyRenderEvidence(.historySessionRail)
             }
         }
         .padding(StoryStyle.railInsets(for: density))
@@ -83,16 +68,17 @@ struct HistoryJournalRail: View {
     }
 
     private var scope: HistoryRailScope {
-        let selection = navigation.historySelectionOrDefault()
         var session: DaySession?
-        if case .session(let thread, let day) = selection {
-            session = store.journalSession(thread: thread, on: day)
+        if let pick = navigation.historySession {
+            session = store.journalSession(thread: pick.thread, on: pick.day)
+            // A search that hides the session hides it from the rail too.
+            if store.historyFilter.isActive, let found = session,
+               !store.historyJournal().contains(where: { entry in
+                   if case .day(let row) = entry, row.date == pick.day { return row.threads?.contains(found.threadID) ?? true }
+                   return false
+               }) { session = nil }
         }
-        // A search that hides the day, or the session on it, hides it from
-        // the rail too.
-        let listed = !store.historyFilter.isActive
-            || HistoryRailScope.isListed(selection, in: store.historyJournal())
-        return HistoryRailScope.resolve(selection, session: session, listed: listed)
+        return HistoryRailScope.resolve(open: navigation.historyOpen, session: session, pick: navigation.historySession)
     }
 }
 
@@ -115,31 +101,48 @@ struct HistoryRailHeading: View {
     }
 }
 
-/// A month: where its focus went, when, which goals it met, which apps, how
-/// it compares with the months before, and for this month, how it is going.
-struct HistoryMonthRail: View {
+/// A year, month, week or the whole record: where its focus went, when,
+/// which goals it met, which apps; for this month, how it is going; for a
+/// year or the record, its best month; for a month or week, its best day.
+struct HistoryPeriodRail: View {
     @ObservedObject var store: SessionStore
-    @ObservedObject var navigation: MainWindowModel
-    let monthStart: Date
+    /// nil: the top period.
+    let place: HistoryPlace?
+
+    /// Which reading covers a place: a week is one week, a month one
+    /// month, a year its months on record, the record all its months.
+    static func reading(for place: HistoryPlace?, top: HistoryTop) -> (scope: InsightRange, anchor: Date, limit: Int) {
+        let calendar = SessionStore.historyCalendar
+        let span = place?.span ?? top.span
+        let last = calendar.date(byAdding: .day, value: -1, to: span.end) ?? span.start
+        let anchor = min(last, top.today)
+        switch place?.level ?? top.place?.level {
+        case .week: return (.week, anchor, 1)
+        case .month: return (.month, anchor, 1)
+        case .year, .day, .none:
+            let first = calendar.dateInterval(of: .month, for: span.start)?.start ?? span.start
+            let months = (calendar.dateComponents([.month], from: first, to: anchor).month ?? 0) + 1
+            return (.month, anchor, max(1, months))
+        }
+    }
 
     var body: some View {
-        let calendar = Calendar.current
-        let now = store.now()
-        let isCurrent = calendar.isDate(monthStart, equalTo: now, toGranularity: .month)
-        let anchor = isCurrent ? now
-            : (calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart) ?? monthStart)
-        let facts = store.insightReading(scope: .month, anchoredAt: anchor, limit: 1).facts
-        let month = HistoryJournalBuilder.month(starting: monthStart, days: store.historyDays, calendar: calendar)
-        let archive = store.historyArchiveFacts()
-        let recent = HistoryJournalBuilder.recentMonths(endingAt: monthStart, focusByDay: archive.focusByDay,
-                                                        firstDay: archive.firstDay, calendar: calendar)
+        let calendar = SessionStore.historyCalendar
+        let top = store.historyTop()
+        let span = place?.span ?? top.span
+        let read = Self.reading(for: place, top: top)
+        let facts = store.insightReading(scope: read.scope, anchoredAt: read.anchor, limit: read.limit).facts
+        let summary = place.map { HistoryTreeBuilder.row($0, byDate: HistoryTreeBuilder.index(store.historyDays, calendar: calendar), calendar: calendar) }
+        let tracked = summary?.tracked ?? store.historySummary().tracked
+        let isCurrentMonth = (place?.level ?? top.place?.level) == .month && span.contains(top.today)
         let surface = store.insightSurface(for: .month)
         return VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            HistoryRailHeading(title: HistoryMonthHeader.title(monthStart))
+            HistoryRailHeading(title: place.map { HistoryRowText.title($0, today: top.today, calendar: calendar) }
+                                    ?? HistoryRowText.headline(top: top, summary: store.historySummary(), calendar: calendar).eyebrow)
             if !facts.categories.isEmpty {
                 StoryTile(title: "Focus by category", trailing: nil) {
                     CategoryShareBar(shares: facts.categories)
-                    if isCurrent, let placed = surface.categories {
+                    if isCurrentMonth, let placed = surface.categories {
                         Text("Where each lands in the day: \(placed.headline).")
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
@@ -157,14 +160,33 @@ struct HistoryMonthRail: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            bestTile(span: span, level: place?.level ?? top.place?.level ?? .year)
             if !facts.goalRates.isEmpty { goalsTile(facts.goalRates) }
-            if !facts.apps.isEmpty { appsTile(facts.apps, tracked: month.tracked) }
-            if recent.count > 1 { recentTile(recent) }
-            if isCurrent { soFar(surface) }
+            if !facts.apps.isEmpty { appsTile(facts.apps, tracked: tracked) }
+            if isCurrentMonth { soFar(surface) }
         }
     }
 
-    /// `16h 25m recorded app use`: the month's app use, said once, here.
+    /// The best month of a year or the record; the best day of a month or week.
+    @ViewBuilder private func bestTile(span: DateInterval, level: HistoryLevel) -> some View {
+        let calendar = SessionStore.historyCalendar
+        let top = HistoryTop(place: HistoryPlace(level: level, span: span), firstDay: span.start,
+                             today: store.historyTop().today)
+        let summary = HistoryTreeBuilder.summary(top: top, days: store.historyDays, calendar: calendar)
+        if let best = summary.best, summary.focusedDays > 1 {
+            let isMonth = best.place.level == .month
+            StoryTile(title: isMonth ? "Best month" : "Best day", trailing: nil) {
+                Text(isMonth ? DateFormats.australian("MMMM yyyy").string(from: best.place.start)
+                             : Tokens.longDate(best.place.start))
+                    .font(Tokens.Typography.sectionTitle)
+                Text(durations: "\(Tokens.duration(best.focused)) focused")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// `16h 25m recorded app use`: the period's app use, said once, here.
     static func appUseLine(tracked: TimeInterval) -> String {
         "\(Tokens.duration(tracked)) recorded app use"
     }
@@ -218,34 +240,6 @@ struct HistoryMonthRail: View {
         }
     }
 
-    private func recentTile(_ recent: [JournalMonthTotal]) -> some View {
-        let peak = max(recent.map(\.focused).max() ?? 0, 1)
-        return StoryTile(title: recent.count >= 12 ? "Last 12 months" : "Months on record", trailing: nil) {
-            HStack(alignment: .bottom, spacing: 3) {
-                ForEach(recent) { total in
-                    let isShown = total.start == monthStart
-                    Button { navigation.selectHistory(.month(total.start), scrolling: true) } label: {
-                        VStack(spacing: 2) {
-                            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .fill(Tokens.Colour.focus.opacity(isShown ? 1 : 0.35))
-                                .frame(height: max(2, 44 * total.focused / peak))
-                            Text(DateFormats.australian("MMMMM").string(from: total.start))
-                                .font(Tokens.Typography.micro)
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 60, alignment: .bottom)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(DurationText.spoken(in:
-                        "\(HistoryMonthHeader.title(total.start)), \(Tokens.duration(total.focused)) focused"))
-                    .accessibilityAddTraits(isShown ? .isSelected : [])
-                }
-            }
-        }
-    }
-
     @ViewBuilder private func soFar(_ surface: InsightSurface) -> some View {
         Text("This month so far")
             .font(Tokens.Typography.metadata.weight(.bold))
@@ -270,7 +264,6 @@ struct HistoryMonthRail: View {
 struct HistoryDayRail: View {
     @ObservedObject var store: SessionStore
     let projection: StoryDayProjection
-    let onOpen: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
@@ -291,9 +284,6 @@ struct HistoryDayRail: View {
                     HistoryStripAxis(leading: 0, trailing: 0)
                 }
                 .padding(.top, Tokens.Space.xs)
-                Button("Open as a story ›", action: onOpen)
-                    .buttonStyle(StoryLinkStyle())
-                    .accessibilityLabel("Open \(Tokens.longDate(projection.date)) as a story")
             }
             if !projection.apps.isEmpty {
                 let limit = store.engine.store.menuAppCount
@@ -353,7 +343,6 @@ struct HistorySessionRail: View {
     let session: DaySession
     let day: Date
     let apps: [AppRank]
-    let onOpen: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
@@ -378,9 +367,6 @@ struct HistorySessionRail: View {
                         }
                     }
                 }
-                Button("Open its day ›", action: onOpen)
-                    .buttonStyle(StoryLinkStyle())
-                    .accessibilityLabel("Open \(Tokens.longDate(day)) as a story")
             }
             if !apps.isEmpty {
                 let limit = store.engine.store.menuAppCount
