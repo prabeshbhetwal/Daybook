@@ -303,6 +303,12 @@ enum HistoryJournalChecks {
                 failures.append("five reads under one search computed its matches "
                                 + "\(store.searchJournalComputeCount - searched) times")
             }
+            // A changed filter is a new search: it must be computed again, once.
+            store.historyFilter.query = "a different search"
+            _ = store.historyJournal()
+            if store.searchJournalComputeCount != searched + 2 {
+                failures.append("a changed search reused the previous search's matches")
+            }
             return failures
         }
     }

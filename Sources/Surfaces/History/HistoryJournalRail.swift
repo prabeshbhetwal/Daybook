@@ -351,7 +351,9 @@ struct HistorySessionRail: View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HistoryRailHeading(title: session.workType.sessionTitle(named: session.name),
                                detail: Tokens.longDate(day))
-            StoryTile(title: session.workType.displayName, trailing: nil) {
+            // An unnamed session's heading is already its category.
+            StoryTile(title: session.name.isEmpty ? "Session" : session.workType.displayName,
+                      trailing: nil) {
                 Text(durations: session.isRunning ? "In progress" : Tokens.preciseDuration(session.worked))
                     .font(Tokens.Typography.metricValue.monospacedDigit())
                 Text(Tokens.timeRange(session.start, session.end))
