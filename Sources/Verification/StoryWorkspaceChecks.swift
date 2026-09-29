@@ -6,7 +6,7 @@ private final class StoryRenderEvidenceBox {
     var values: Set<StoryRenderEvidence> = []
 }
 
-private struct StoryRenderedFrame {
+struct StoryRenderedFrame {
     let bitmap: NSBitmapImageRep?
     let evidence: Set<StoryRenderEvidence>
 }
@@ -16,7 +16,7 @@ enum StoryWorkspaceChecks {
         ("Explicit day projections use only the requested day's seeded evidence", explicitDayProjection),
         ("History and Insights preserve Story and running-engine context", workspacesPreserveStory),
         ("Insights pages are bounded, newest first and expose every scope", insightPages),
-        ("History never shows a period from before the record began", insightRecordFloor),
+        ("History's journal never lists a day from before the record began", journalRecordFloor),
             ("A ticking clock does not rebuild an unchanged page of History", insightReadingIsCached),
         ("A projected current-day child owns all running presentation state", projectedCurrentDayLiveState),
         ("Receipt-only dates remain searchable without focus or app-use credit", receiptOnlyHistory),
@@ -100,9 +100,6 @@ enum StoryWorkspaceChecks {
         }
     }
 
-    /// The column, its chrome label and its paging all stop at the first day
-    /// the app ever saw. A page of blank months before the install is not
-    /// history; it is a claim of a record that was never kept.
     /// History's reading and the usage snapshot beneath it are built once per
     /// change of evidence, not once per read. The view reads them from `body`,
     /// and `body` runs every second while a session ticks; a page that was
@@ -167,60 +164,37 @@ enum StoryWorkspaceChecks {
         }
     }
 
-    private static func insightRecordFloor() -> [String] {
+    /// The journal stops at the first day the app ever saw. Blank months before
+    /// the install are not history; listing them claims a record that was never kept.
+    private static func journalRecordFloor() -> [String] {
         MainActor.assumeIsolated {
             var failures: [String] = []
             let calendar = Calendar.current
             let store = FixtureFactory.insightsStore(withEvidence: true)
             defer { FixtureFactory.cleanUp() }
-            let navigation = MainWindowModel(opening: .insights, store: store)
-            navigation.open(tab: .insights)
+            store.refreshReview()
             guard let earliest = store.earliestSelectableDay else {
-                return ["The evidence fixture has no first recorded day to clamp to"]
+                return ["The evidence fixture has no first recorded day to stop at"]
             }
-            for range in HistoryRange.allCases {
-                navigation.selectHistoryRange(range)
-                let scope = navigation.insightRange
-                let shown = navigation.insightShownCount
-                let fitting = navigation.insightRequestedCount
-                if shown < 1 || shown > fitting {
-                    failures.append("\(scope.rawValue) shows \(shown) periods against a capacity of \(fitting)")
-                }
-                let pages = store.insightPeriodProjections(scope: scope,
-                                                           anchoredAt: navigation.insightAnchor,
-                                                           limit: shown)
-                guard let oldest = pages.last else {
-                    failures.append("\(scope.rawValue) shows no period at all"); continue
-                }
-                if oldest.end <= earliest {
-                    failures.append("\(scope.rawValue) drew \(oldest.start) – \(oldest.end), "
-                                    + "which ends before the record began on \(earliest)")
-                }
-                if shown < fitting, oldest.start > earliest {
-                    failures.append("\(scope.rawValue) stopped short: room for more, and "
-                                    + "\(oldest.start) is after the first recorded day \(earliest)")
-                }
-                if let window = navigation.insightWindow {
-                    if let floor = calendar.dateInterval(of: scope == .day ? .day
-                                                          : scope == .week ? .weekOfYear : .month,
-                                                          for: earliest)?.start, window.start < floor {
-                        failures.append("\(scope.rawValue) chrome window starts \(window.start), before the record")
-                    }
-                    if shown < fitting, navigation.insightCanPageBack {
-                        failures.append("\(scope.rawValue) offers to page back past the first recorded day")
-                    }
+            let entries = store.historyJournal()
+            let listed = entries.compactMap { entry -> Date? in
+                switch entry {
+                case .day(let day): return day.date
+                case .quiet(let quiet): return quiet.first
+                case .month: return nil
                 }
             }
-            // Nothing recorded: one period, the current one, and no invented past.
+            if let oldest = listed.min(), oldest < calendar.startOfDay(for: earliest) {
+                failures.append("the journal reached \(oldest), before the record began on \(earliest)")
+            }
+            if listed.min().map({ $0 > calendar.startOfDay(for: earliest) }) ?? true {
+                failures.append("the journal stopped short of the first recorded day \(earliest)")
+            }
             let bare = FixtureFactory.store(for: .firstRun)
-            let fresh = MainWindowModel(opening: .insights, store: bare)
-            fresh.open(tab: .insights)
-            for range in HistoryRange.allCases {
-                fresh.selectHistoryRange(range)
-                if fresh.insightShownCount != 1 {
-                    failures.append("With nothing recorded, \(range.title) shows "
-                                    + "\(fresh.insightShownCount) periods instead of the current one")
-                }
+            bare.refreshReview()
+            if bare.historyJournal().count != 2 {
+                failures.append("with nothing recorded the journal listed \(bare.historyJournal().count) rows, "
+                                + "not this month and today")
             }
             return failures
         }
@@ -346,60 +320,15 @@ enum StoryWorkspaceChecks {
                 }
             }
             let dense = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            let navigation = MainWindowModel(store: dense)
             let denseDay = renderFrame(DayStoryColumn(store: dense), height: 900)
             requireContent("Day story", denseDay)
             requireEvidence("Day story", denseDay, includes: [.dayStory])
-
-            navigation.open(tab: .review)
-            navigation.selectHistoryRange(.months12)
-            navigation.clearReviewDay()
-            let historyClosed = renderFrame(
-                InsightsView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
-            requireEvidence("Closed History detail", historyClosed, includes: [],
-                            excludes: [.historyDetail])
-            if let day = dense.filteredHistoryDays.first?.date { navigation.selectReviewDay(day) }
-            let historyOpen = renderFrame(
-                InsightsView(store: dense, navigation: navigation, scrolls: false), height: 1_400)
-            requireContent("History day preview", historyOpen)
-            // The picked day previews in the rail; its full story is one
-            // action away, not unfolded inside the list.
-            requireEvidence("History day preview", historyOpen,
-                            includes: [.historyDetail], excludes: [.dayStory])
-            FixtureFactory.cleanUp()
-
-            let insightDense = FixtureFactory.insightsStore(withEvidence: true)
-            let insightDenseNavigation = MainWindowModel(store: insightDense)
-            let sparse = FixtureFactory.store(for: .firstRun, accurateUsage: true)
-            let sparseNavigation = MainWindowModel(store: sparse)
-            for range in HistoryRange.allCases {
-                insightDenseNavigation.selectHistoryRange(range)
-                sparseNavigation.selectHistoryRange(range)
-                let scope = range
-                let denseFrame = renderFrame(
-                    InsightsView(store: insightDense,
-                                 navigation: insightDenseNavigation, scrolls: false),
-                    height: 1_100)
-                let sparseFrame = renderFrame(
-                    InsightsView(store: sparse,
-                                 navigation: sparseNavigation, scrolls: false),
-                    height: 1_100)
-                requireContent("Dense Insights \(scope.title)", denseFrame)
-                requireContent("Sparse Insights \(scope.title)", sparseFrame)
-                requireEvidence("Dense Insights \(scope.title)", denseFrame,
-                                includes: [.insightPeriod, .insightStrongestDay])
-                // A range holding nothing anywhere states that once, instead of
-                // repeating an identical zero card for every period in it.
-                requireEvidence("Sparse Insights \(scope.title)", sparseFrame,
-                                includes: [.insightEmptyPeriod],
-                                excludes: [.insightPeriod, .insightStrongestDay])
-            }
             FixtureFactory.cleanUp()
             return failures
         }
     }
 
-    private static func renderFrame<V: View>(_ view: V,
+    static func renderFrame<V: View>(_ view: V,
                                              width: CGFloat = 980,
                                              height: CGFloat) -> StoryRenderedFrame {
         let evidence = StoryRenderEvidenceBox()

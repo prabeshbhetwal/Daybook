@@ -445,7 +445,7 @@ enum SelfTest {
             + CompactControlsChecks.tests + SessionMetadataChecks.tests + ActivityRuleChecks.tests
             + StoryIntegrationChecks.tests + CategoryChecks.tests + SessionReportChecks.tests
             + SavedActivityChecks.tests + FirstRunChecks.tests + EfficiencyChecks.tests
-            + RedundancyChecks.tests
+            + RedundancyChecks.tests + HistoryJournalChecks.tests
             + SessionAccessibilityChecks.tests + SettingsAccessibilityChecks.tests
             + DayStoryAccessibilityChecks.tests + RailAccessibilityChecks.tests
 
@@ -7192,7 +7192,7 @@ enum SelfTest {
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
                 .focusSaveFailure,
                 .todayHistory, .todayHistoryExpanded, .todayPast,
-                .reviewHistorySelection,
+                .reviewHistorySelection, .historySession, .historySearch,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .storyDay, .storyDayEntry,

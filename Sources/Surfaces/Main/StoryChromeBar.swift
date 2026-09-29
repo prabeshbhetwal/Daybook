@@ -41,7 +41,6 @@ struct StoryChromeBar: View {
                 .accessibilityHidden(true)
             backSlot
             workspaceControls
-                .coachAnchor(.scopePills)
             if ChromeSessionControl.isShown(stripVisible: sessionControlsVisible) {
                 StorySessionControl(store: store,
                                     focus: $focusedControl,
@@ -96,7 +95,7 @@ struct StoryChromeBar: View {
     }
 
     /// The way back, in a slot that exists in every workspace. "‹ Story" used
-    /// to be inserted in front of the scope pills on Insights and History, so
+    /// to be inserted in front of the scope pills on History, so
     /// the pills — and everything after them — moved right by its width and
     /// back again on return. The slot is the width of one round button; Story
     /// leaves it empty, and the pills sit in the same place in every view.
@@ -129,21 +128,15 @@ struct StoryChromeBar: View {
             Spacer(minLength: Tokens.Space.s)
             crossLinks
         case .history:
-            // History reads how far back the reader asks; its bars group by
-            // day, week or month to suit. A span picked on the calendar
-            // selects none of these.
-            ScopePillRow(titles: HistoryRange.allCases.map(\.title),
-                         selectedIndex: Binding(
-                            get: { navigation.historyRange.flatMap { HistoryRange.allCases.firstIndex(of: $0) } ?? -1 },
-                            set: { navigation.selectHistoryRange(HistoryRange.allCases[$0]) }),
-                         controlLabel: "History range")
+            // History is one list, newest first: the bar names it and offers
+            // the calendar. Scrolling replaces paging, so there are no arrows.
+            Text("History")
+                .font(Tokens.Typography.sectionTitle)
+                .accessibilityAddTraits(.isHeader)
             Spacer(minLength: Tokens.Space.s)
-            insightNavigation
+            jumpToDate
                 .coachAnchor(.periodNav)
             Spacer(minLength: Tokens.Space.s)
-            // No "History" label and no search button: the label named the
-            // page being read beside its back button, and the search field
-            // heads the page itself (⌘F puts the cursor in it).
         }
     }
 
@@ -155,60 +148,35 @@ struct StoryChromeBar: View {
             .buttonStyle(StoryLinkStyle())
     }
 
-    /// History's period control: arrows page by the range's length, and the
-    /// label opens the calendar to pick a span of its own, first day then
-    /// last. Back stops at the first day on record; there is nothing before it.
-    private var insightNavigation: some View {
-        HStack(spacing: Tokens.Space.s) {
-            IconButton(systemImage: "chevron.left", help: "Earlier") {
-                navigation.pageInsights(by: -1)
-            }
-            .disabled(!navigation.insightCanPageBack)
-            Button { historyCalendarShown.value.toggle() } label: {
-                HStack(spacing: Tokens.Space.xs) {
-                    Text(navigation.insightWindowLabel)
-                        .font(Tokens.Typography.rowTitle)
-                        .lineLimit(1)
-                    Image(systemName: "chevron.down")
-                        .font(Tokens.Typography.microLabel.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, Tokens.Space.s)
-                .frame(minWidth: Self.periodLabelWidth, minHeight: AccessibilityMetrics.minimumTargetSize)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(StoryPressStyle())
-            .accessibilityLabel("\(navigation.insightWindowLabel), History period. Opens the calendar to pick a span.")
-            .popover(isPresented: Binding(get: { historyCalendarShown.value },
-                                          set: { historyCalendarShown.value = $0 }),
-                     arrowEdge: .bottom) {
-                DayPickerCalendar(
-                    range: shownHistorySpan,
-                    earliest: store.earliestSelectableDay,
-                    goal: store.goal.goal,
-                    facts: { store.dayFacts(inMonthOf: $0) }) { start, end in
-                        navigation.setCustomHistoryRange(start, end)
-                        // The first click marks a start; the second completes it.
-                        if start != end { historyCalendarShown.value = false }
-                    }
-            }
-            IconButton(systemImage: "chevron.right", help: "Later") {
-                navigation.pageInsights(by: 1)
-            }
-            .disabled(!navigation.insightCanPageForward)
-        }
-    }
-
     @StateObject private var historyCalendarShown = BoolBox()
 
-    /// The days History shows, as the calendar paints them.
-    private var shownHistorySpan: ClosedRange<Date> {
-        let calendar = Calendar.current
-        guard let window = navigation.insightWindow,
-              let last = calendar.date(byAdding: .day, value: -1, to: window.end) else {
-            return navigation.insightAnchor...navigation.insightAnchor
+    /// History's calendar: pick a day and the journal selects it and scrolls
+    /// there. Each date shows its focus, so the calendar is also a map.
+    private var jumpToDate: some View {
+        Button { historyCalendarShown.value.toggle() } label: {
+            Label("Jump to date", systemImage: "calendar")
+                .font(Tokens.Typography.metadata.weight(.semibold))
+                .padding(.horizontal, Tokens.Space.m)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                .contentShape(Rectangle())
         }
-        return calendar.startOfDay(for: window.start)...calendar.startOfDay(for: max(window.start, last))
+        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
+        .help("Pick a day to read in History")
+        .accessibilityHint("Opens the calendar; the day you pick is selected in the list")
+        .popover(isPresented: Binding(get: { historyCalendarShown.value },
+                                      set: { historyCalendarShown.value = $0 }),
+                 arrowEdge: .bottom) {
+            DayPickerCalendar(
+                // Opens on the picked day, or on the 1st of a picked month.
+                selected: navigation.historySelectionOrDefault().day
+                    ?? navigation.historySelectionOrDefault().monthStart(),
+                earliest: store.earliestSelectableDay,
+                goal: store.goal.goal,
+                facts: { store.dayFacts(inMonthOf: $0) }) { day in
+                    navigation.jumpToHistoryDay(day)
+                    historyCalendarShown.value = false
+                }
+        }
     }
 
     private var periodNavigation: some View {

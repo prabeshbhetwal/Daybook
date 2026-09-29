@@ -4,7 +4,7 @@ import AppKit
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure
     case todayHistory, todayHistoryExpanded, todayPast
-    case reviewHistorySelection
+    case reviewHistorySelection, historySession, historySearch
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
     case storyDay, storyDayEntry
@@ -28,6 +28,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .todayHistoryExpanded: return "Today — history expanded recap"
         case .todayPast: return "Today — past day and integrity"
         case .reviewHistorySelection: return "Review — History row selected"
+        case .historySession: return "History — a session selected"
+        case .historySearch: return "History — searching"
         case .insightsEnough: return "Insights — enough evidence"
         case .insightsEmpty: return "Insights — insufficient evidence"
         case .awardsEarned: return "Awards — earned and in progress"
@@ -105,7 +107,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .focus
         case .todayHistory, .todayHistoryExpanded, .todayPast:
             return .today
-        case .reviewHistorySelection:
+        case .reviewHistorySelection, .historySession, .historySearch:
             return .review
         case .insightsEnough, .insightsEmpty:
             return .insights
@@ -370,6 +372,15 @@ enum Snapshotter {
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.refreshReview(period: .week)
             return store
+        case .historySession:
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            store.refreshReview()
+            return store
+        case .historySearch:
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            store.refreshReview()
+            store.setHistoryQuery("Build")
+            return store
         case .insightsEnough:
             return FixtureFactory.insightsStore(withEvidence: true)
         case .insightsEmpty:
@@ -424,12 +435,17 @@ enum Snapshotter {
         switch scenario {
         case .reviewHistorySelection:
             navigation.open(tab: .review)
-            navigation.selectHistoryRange(.months12)
-            if let day = store.filteredHistoryDays.first?.date {
+            if let day = store.historyDays.first(where: { $0.sessions > 0 })?.date {
                 navigation.selectReviewDay(day)
             }
-        case .insightsEnough, .insightsEmpty:
-            navigation.selectHistoryRange(.months3)
+        case .historySession:
+            navigation.open(tab: .review)
+            if let day = store.historyDays.first(where: { $0.sessions > 0 })?.date,
+               let thread = store.journalThreads(on: day, only: nil).first {
+                navigation.selectHistory(.session(thread: thread, day: day))
+            }
+        case .insightsEnough, .insightsEmpty, .historySearch:
+            navigation.open(tab: .review)
         case .activityRuleAmbiguity, .activityRuleAutomatic:
             navigation.performSessionControlsAction(.commandOrMenu)
         case .settingsActivityRules:

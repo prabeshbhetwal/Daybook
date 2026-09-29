@@ -4,13 +4,13 @@ import SwiftUI
 /// What the session surfaces say to someone who cannot see them, and the
 /// keyboard route to the controls. These break if the menu bar item stops
 /// speaking its marks, the praise panel stops saying where its Undo is, the
-/// Session menu's shortcuts collide, or History's range goes nameless.
+/// Session menu's shortcuts collide, or a scope row with nothing chosen goes nameless.
 enum SessionAccessibilityChecks {
     static let tests: [(String, () -> [String])] = [
         ("The menu bar item speaks its marks and holds still within a minute", menuBarSpeaksMarks),
         ("The praise panel's spoken line says where its Undo also lives", hudSpokenLine),
         ("The Session menu's shortcuts are distinct and leave Navigate's alone", sessionShortcutsDistinct),
-        ("History's range control names a span picked on the calendar", scopeNamesCustomSpan)
+        ("A scope control with nothing chosen is still named", scopeNamesCustomSpan)
     ]
 
     private static func menuBarSpeaksMarks() -> [String] {

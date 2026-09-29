@@ -5,9 +5,77 @@ enum StoryNavigationChecks {
     static let tests: [(String, () -> [String])] = [
         ("Story commands present the requested surface, including repeat routes", routes),
         ("A day opened from History shows that day's own evidence", historicalEvidence),
-        ("History ranges read a fixed span at the grouping that suits it", historyRanges),
-        ("Find in History opens History with the cursor asked for its search", findInHistory)
+        ("Find in History opens History with the cursor asked for its search", findInHistory),
+        ("Picking in History changes what the rail reads, never the story's day", historyPicks),
+        ("Jump to date and the arrow keys move History's selection and its scroll", historyJumpAndSteps)
     ]
+
+    private static func historyPicks() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            let calendar = Calendar.current
+            let navigation = MainWindowModel(store: store)
+            navigation.open(tab: .review)
+            store.refreshReview()
+            let storyDay = store.selectedDay
+            var failures: [String] = []
+            let month = calendar.dateInterval(of: .month, for: store.now())!.start
+            if navigation.historySelectionOrDefault() != .month(month) {
+                failures.append("History did not open on the current month")
+            }
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: store.now()))!
+            navigation.selectHistory(.day(yesterday))
+            if navigation.reviewSelectedDate != yesterday {
+                failures.append("a picked day was not the day History reads")
+            }
+            if let thread = store.journalThreads(on: yesterday, only: nil).first {
+                navigation.selectHistory(.session(thread: thread, day: yesterday))
+                if navigation.reviewSelectedDate != yesterday {
+                    failures.append("a picked session did not belong to its day")
+                }
+            } else {
+                failures.append("the fixture's yesterday has no session to pick")
+            }
+            if store.selectedDay != storyDay { failures.append("picking in History moved the story's day") }
+            navigation.clearReviewDay()
+            if navigation.historySelectionOrDefault() != .month(month) {
+                failures.append("clearing the pick did not return to the month")
+            }
+            return failures
+        }
+    }
+
+    private static func historyJumpAndSteps() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            let calendar = Calendar.current
+            let navigation = MainWindowModel(store: store)
+            navigation.open(tab: .review)
+            store.refreshReview()
+            var failures: [String] = []
+            let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: store.now()))!
+            let scroll = navigation.historyScrollRequest
+            navigation.jumpToHistoryDay(twoDaysAgo)
+            if navigation.historySelection != .day(twoDaysAgo) {
+                failures.append("Jump to date did not select the day: \(String(describing: navigation.historySelection))")
+            }
+            if navigation.historyScrollRequest == scroll {
+                failures.append("Jump to date did not ask the journal to scroll")
+            }
+            navigation.stepHistorySelection(by: 1)
+            guard case .session(_, let day) = navigation.historySelection ?? .month(twoDaysAgo),
+                  day == twoDaysAgo else {
+                return failures + ["↓ from a day with a session did not reach that session"]
+            }
+            navigation.stepHistorySelection(by: -1)
+            if navigation.historySelection != .day(twoDaysAgo) {
+                failures.append("↑ from the day's first session did not return to its header")
+            }
+            return failures
+        }
+    }
 
     private static func findInHistory() -> [String] {
         MainActor.assumeIsolated {
@@ -25,52 +93,6 @@ enum StoryNavigationChecks {
             navigation.findInHistory()
             if navigation.sheet != nil {
                 failures.append("Find in History left Settings covering the search")
-            }
-            return failures
-        }
-    }
-
-    private static func historyRanges() -> [String] {
-        MainActor.assumeIsolated {
-            var failures: [String] = []
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            defer { FixtureFactory.cleanUp() }
-            let navigation = MainWindowModel(opening: .review, store: store)
-            let expected: [(HistoryRange, InsightRange, Int)] = [
-                (.days7, .day, 7), (.days30, .day, 30), (.months3, .week, 13), (.months12, .month, 12)
-            ]
-            for (range, grouping, count) in expected {
-                navigation.selectHistoryRange(range)
-                if navigation.insightRange != grouping || navigation.insightRequestedCount != count {
-                    failures.append("\(range.title) read \(navigation.insightRequestedCount) "
-                                    + "\(navigation.insightRange) periods, not \(count) \(grouping)")
-                }
-            }
-            // Changing range keeps where the reader is: the span still ends there.
-            let calendar = Calendar.current
-            let end = calendar.date(byAdding: .day, value: -3, to: calendar.startOfDay(for: store.now()))!
-            navigation.jumpInsights(to: end)
-            navigation.selectHistoryRange(.days7)
-            if !calendar.isDate(navigation.insightAnchor, inSameDayAs: end) {
-                failures.append("changing range moved the end of the span")
-            }
-            // A picked span groups by the length of it.
-            for (days, grouping) in [(10, InsightRange.day), (60, .week), (200, .month)] {
-                let start = calendar.date(byAdding: .day, value: -(days - 1), to: end)!
-                navigation.setCustomHistoryRange(start, end)
-                if navigation.insightRange != grouping || navigation.historyRange != nil {
-                    failures.append("a \(days)-day span read by \(navigation.insightRange), not \(grouping)")
-                }
-            }
-            let tenDays = calendar.date(byAdding: .day, value: -9, to: end)!
-            navigation.setCustomHistoryRange(tenDays, end)
-            if navigation.insightRequestedCount != 10
-                || !calendar.isDate(navigation.insightAnchor, inSameDayAs: end) {
-                failures.append("a ten-day span did not read exactly those ten days")
-            }
-            navigation.selectHistoryRange(.months3)
-            if navigation.historyRange != .months3 || navigation.insightRange != .week {
-                failures.append("choosing a range after a picked span did not return to that range")
             }
             return failures
         }

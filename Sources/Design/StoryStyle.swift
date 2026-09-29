@@ -24,7 +24,10 @@ enum StoryStyle {
     static let tileInsets = EdgeInsets(top: 15, leading: 16, bottom: 15, trailing: 16)
     static let entryRadius: CGFloat = 13
     static let tileRadius: CGFloat = 14
-    static let headline = Font.system(size: 25, weight: .semibold)
+    /// The story's sentence. 20pt since 2026-09-29: at 25 it wrapped to three
+    /// lines on History and read a step larger than the Mac around it.
+    static let headlineSize: CGFloat = 20
+    static let headline = Font.system(size: headlineSize, weight: .semibold)
     static let headlineMeasure: CGFloat = 560
 
     /// Text-weight colour for a category: darker than its swatch in light

@@ -104,22 +104,23 @@ enum Tokens {
 
     enum Typography {
         /// Every text size the product may use. Ad-hoc sizes had grown to
-        /// nineteen steps, with 6/7/8/9 doing one job between them and
-        /// 12/13/14/15/16 doing no perceptual work apart — a list, not a
-        /// scale. Each step here earns its place, and `Size` is the only
-        /// source: a font built from a number not in this set is a defect.
+        /// nineteen steps, with 6/7/8/9 doing one job between them — a list,
+        /// not a scale. Each step here earns its place: 13, 14 and 15 sit
+        /// one point apart on purpose, as native macOS control, row and
+        /// section text do. `Size` is the only source: a font built from a
+        /// number not in this set is a defect.
         enum Size {
             static let micro: CGFloat = 9
             static let smallLabel: CGFloat = 10
             static let ring: CGFloat = 11
             static let metadata: CGFloat = 12
             static let control: CGFloat = 13
-            static let row: CGFloat = 15
-            static let section: CGFloat = 17
-            static let headline: CGFloat = 23
-            static let page: CGFloat = 26
-            static let metric: CGFloat = 30
-            static let timer: CGFloat = 46
+            static let row: CGFloat = 14
+            static let section: CGFloat = 15
+            static let headline: CGFloat = 19
+            static let page: CGFloat = 22
+            static let metric: CGFloat = 24
+            static let timer: CGFloat = 36
 
             /// Ascending, for the checks that hold the scale to its shape.
             static let all: [CGFloat] = [micro, smallLabel, ring, metadata, control,

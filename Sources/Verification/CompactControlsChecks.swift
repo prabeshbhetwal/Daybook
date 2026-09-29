@@ -298,11 +298,24 @@ enum CompactControlsChecks {
         if steps.count > 12 {
             failures.append("The type scale has grown to \(steps.count) steps")
         }
+        // The Mac-sized scale approved on 2026-09-29: rows at 14, not 15;
+        // a 19pt headline, not 23. Text had run a step above native apps.
+        if steps != [9, 10, 11, 12, 13, 14, 15, 19, 22, 24, 36] {
+            failures.append("The type scale is not the approved Mac-sized scale: \(steps)")
+        }
+        if StoryStyle.headlineSize != 20 {
+            failures.append("The story headline is \(StoryStyle.headlineSize)pt, not 20pt")
+        }
+        if StoryLayout.railWidth != 300 {
+            failures.append("The rail is \(StoryLayout.railWidth)pt wide, not 300pt")
+        }
         // Adjacent steps must differ enough to be seen as different. One point
-        // at reading size is not a hierarchy, it is noise.
+        // at reading size is not a hierarchy, it is noise. The floor is 1.07
+        // since the Mac-sized scale: control/row/section run 13, 14, 15, the
+        // way native macOS text does (14/13 is 1.077, 15/14 is 1.071).
         for (small, large) in zip(steps, steps.dropFirst()) {
             let ratio = large / small
-            if ratio < 1.08 {
+            if ratio < 1.07 {
                 failures.append("Steps \(small) and \(large) are too close to tell apart")
             }
         }
@@ -423,7 +436,7 @@ enum CompactControlsChecks {
         MainActor.assumeIsolated {
             var failures: [String] = []
             let rows: [(String, [String])] = [
-                ("Insights range", InsightRange.allCases.map(\.title)),
+                ("Three-title row", ["Day", "Week", "Month"]),
                 ("Review section", ReviewSection.allCases.map(\.title))
             ]
             for (label, titles) in rows {
@@ -466,12 +479,12 @@ enum CompactControlsChecks {
             }
 
             // The component having one target is not enough: the real chrome
-            // must actually use it. Story and History each show one scope
-            // row, never two, whichever route opened History.
+            // must actually use it, and only where a scope is chosen —
+            // whichever route opened History.
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             defer { FixtureFactory.cleanUp() }
-            // The story is a day and has no scope row; History has exactly one.
-            for (tab, expected) in [(AppTab.story, 0), (.insights, 1), (.review, 1)] {
+            // Neither the story nor History has a scope row: the story is a day, and History is one list.
+            for (tab, expected) in [(AppTab.story, 0), (.insights, 0), (.review, 0)] {
                 let navigation = MainWindowModel(store: store)
                 navigation.open(tab: tab)
                 let host = NSHostingView(rootView: StoryChromeBar(store: store,
@@ -492,13 +505,12 @@ enum CompactControlsChecks {
                 window.contentView = nil
             }
 
-            // The Insights page must not carry a second copy of the scope the
-            // chrome already owns.
-            let insightsNavigation = MainWindowModel(store: store)
-            insightsNavigation.open(tab: .insights)
-            let page = NSHostingView(rootView: InsightsView(store: store,
-                                                            navigation: insightsNavigation,
-                                                            scrolls: false)
+            // Nor may the History page carry a scope control of its own.
+            let historyNavigation = MainWindowModel(store: store)
+            historyNavigation.open(tab: .insights)
+            let page = NSHostingView(rootView: HistoryWorkspace(store: store,
+                                                                navigation: historyNavigation,
+                                                                scrolls: false)
                 .frame(width: 1_000, height: 700))
             page.frame = NSRect(x: 0, y: 0, width: 1_000, height: 700)
             let pageWindow = NSWindow(contentRect: page.frame, styleMask: .borderless,
@@ -509,7 +521,7 @@ enum CompactControlsChecks {
             page.layoutSubtreeIfNeeded()
             let onPage = descendants(in: page, of: ScopeNSSegmentedControl.self).count
             if onPage != 0 {
-                failures.append("The Insights page duplicated the chrome's scope control "
+                failures.append("The History page carried a scope control "
                                 + "(\(onPage) found)")
             }
             pageWindow.contentView = nil

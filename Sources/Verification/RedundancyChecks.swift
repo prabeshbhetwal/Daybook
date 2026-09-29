@@ -8,8 +8,8 @@ enum RedundancyChecks {
         ("A session's prose leaves the leading app to the app list beside it", proseLeavesTopApp),
         ("A session's caption adds only what its figures do not show", captionsAddOnly),
         ("An unnamed break is not called a break twice", breakNamedOnce),
-        ("The hour grid's caption carries the best two hours in full", gridCarriesBestHours),
-        ("History's headline carries recorded app use once its total card is gone", historyHeadlineAppUse),
+        ("The best two hours are said once, with where they fell", bestHoursSaidOnce),
+        ("History's month carries recorded app use in its rail, not its header", monthAppUseOnce),
         ("A break reminder's body gives the reason, not the title again", breakBodyAddsOnly),
         ("The strip hides today's goal only where the goal card shows it", stripGoalOnlyWhereCardIsNot)
     ]
@@ -105,10 +105,10 @@ enum RedundancyChecks {
         return failures
     }
 
-    private static func gridCarriesBestHours() -> [String] {
-        let caption = InsightHourGrid.summary(window: (startHour: 9, seconds: 12_000), phrase: "on Tuesdays")
-        return caption.hasPrefix("Most focus lands between 9 am and 11 am: 3h 20m, most of it on Tuesdays.")
-            ? [] : ["the grid caption lost the best window's figure or place: \(caption)"]
+    private static func bestHoursSaidOnce() -> [String] {
+        let note = HistoryHours.note(seconds: 12_000, phrase: "on Tuesdays")
+        return note == "\(Tokens.duration(12_000)) of focus fell here, most of it on Tuesdays."
+            ? [] : ["the best-hours note lost its figure or place: \(note)"]
     }
 
     private static func stripGoalOnlyWhereCardIsNot() -> [String] {
@@ -143,18 +143,16 @@ enum RedundancyChecks {
         return failures
     }
 
-    private static func historyHeadlineAppUse() -> [String] {
-        MainActor.assumeIsolated {
-            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
-            defer { FixtureFactory.cleanUp() }
-            let periods = store.insightPeriodProjections(scope: .week, anchoredAt: store.now(), limit: 2)
-            let reading = InsightRangeReading(periods: periods, scope: .week)
-            guard reading.focused > 0, reading.tracked > 0 else {
-                return ["the History fixture has no focus and app use to read"]
-            }
-            let expected = "\(Tokens.preciseDuration(reading.tracked)) recorded app use"
-            return reading.facts.contains(expected)
-                ? [] : ["History's headline facts lost recorded app use: \(reading.facts)"]
+    private static func monthAppUseOnce() -> [String] {
+        let month = JournalMonth(start: Date(timeIntervalSince1970: 1_800_000_000), focused: 3_600,
+                                 tracked: 7_200, focusedDays: 1, dailyFocus: [3_600])
+        var failures: [String] = []
+        if HistoryMonthHeader.facts(month).contains("app use") {
+            failures.append("the month header repeated recorded app use")
         }
+        if HistoryMonthRail.appUseLine(tracked: month.tracked) != "\(Tokens.duration(7_200)) recorded app use" {
+            failures.append("the month rail lost recorded app use")
+        }
+        return failures
     }
 }
