@@ -14,34 +14,35 @@ enum StoryNavigationChecks {
         MainActor.assumeIsolated {
             let store = FixtureFactory.insightsStore(withEvidence: true)
             defer { FixtureFactory.cleanUp() }
-            let calendar = Calendar.current
+            let calendar = SessionStore.historyCalendar
             let navigation = MainWindowModel(store: store)
             navigation.open(tab: .review)
             store.refreshReview()
             let storyDay = store.selectedDay
             var failures: [String] = []
-            let month = calendar.dateInterval(of: .month, for: store.now())!.start
-            if navigation.historySelectionOrDefault() != .month(month) {
-                failures.append("History did not open on the current month")
+            let top = store.historyTop()
+            if navigation.historyOpen != HistoryTreeBuilder.pathToToday(top: top, calendar: calendar) {
+                failures.append("History did not open to this week")
             }
             let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: store.now()))!
-            navigation.selectHistory(.day(yesterday))
+            navigation.openHistory(day: yesterday)
             if navigation.reviewSelectedDate != yesterday {
-                failures.append("a picked day was not the day History reads")
+                failures.append("Jump to date did not open the day: \(String(describing: navigation.reviewSelectedDate))")
             }
             if let thread = store.journalThreads(on: yesterday, only: nil).first {
-                navigation.selectHistory(.session(thread: thread, day: yesterday))
-                if navigation.reviewSelectedDate != yesterday {
-                    failures.append("a picked session did not belong to its day")
+                navigation.selectHistory(session: thread, on: yesterday)
+                if navigation.historySession?.thread != thread { failures.append("picking a session did not select it") }
+                if navigation.reviewSelectedDate != yesterday { failures.append("a picked session did not belong to its day") }
+                navigation.stepHistoryFocus(by: -1)
+                if navigation.historyFocus != .row(navigation.historyOpen.last!) {
+                    failures.append("↑ from the first session did not land on its day")
                 }
             } else {
                 failures.append("the fixture's yesterday has no session to pick")
             }
             if store.selectedDay != storyDay { failures.append("picking in History moved the story's day") }
-            navigation.clearReviewDay()
-            if navigation.historySelectionOrDefault() != .month(month) {
-                failures.append("clearing the pick did not return to the month")
-            }
+            navigation.foldDeepestHistory()
+            if navigation.reviewSelectedDate != nil { failures.append("Escape left a day open") }
             return failures
         }
     }
@@ -50,28 +51,28 @@ enum StoryNavigationChecks {
         MainActor.assumeIsolated {
             let store = FixtureFactory.insightsStore(withEvidence: true)
             defer { FixtureFactory.cleanUp() }
-            let calendar = Calendar.current
+            let calendar = SessionStore.historyCalendar
             let navigation = MainWindowModel(store: store)
             navigation.open(tab: .review)
             store.refreshReview()
             var failures: [String] = []
             let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: store.now()))!
             let scroll = navigation.historyScrollRequest
-            navigation.jumpToHistoryDay(twoDaysAgo)
-            if navigation.historySelection != .day(twoDaysAgo) {
-                failures.append("Jump to date did not select the day: \(String(describing: navigation.historySelection))")
+            navigation.openHistory(day: twoDaysAgo)
+            if navigation.historyOpen.last?.level != .day || navigation.historyOpen.last?.start != twoDaysAgo {
+                failures.append("Jump to date did not open the day: \(navigation.historyOpen.map(\.level))")
             }
-            if navigation.historyScrollRequest == scroll {
-                failures.append("Jump to date did not ask the journal to scroll")
+            if navigation.historyScrollRequest == scroll || navigation.historyScrollTarget != navigation.historyOpen.last?.id {
+                failures.append("Jump to date did not ask the tree to scroll to the day")
             }
-            navigation.stepHistorySelection(by: 1)
-            guard case .session(_, let day) = navigation.historySelection ?? .month(twoDaysAgo),
+            navigation.stepHistoryFocus(by: 1)
+            guard case .session(_, let day) = navigation.historyFocus ?? .row(navigation.historyOpen[0]),
                   day == twoDaysAgo else {
                 return failures + ["↓ from a day with a session did not reach that session"]
             }
-            navigation.stepHistorySelection(by: -1)
-            if navigation.historySelection != .day(twoDaysAgo) {
-                failures.append("↑ from the day's first session did not return to its header")
+            navigation.stepHistoryFocus(by: -1)
+            if navigation.historyFocus != .row(navigation.historyOpen.last!) {
+                failures.append("↑ from the day's first session did not return to its row")
             }
             return failures
         }

@@ -7263,7 +7263,7 @@ enum SelfTest {
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
                 .focusSaveFailure,
                 .todayHistory, .todayHistoryExpanded, .todayPast,
-                .reviewHistorySelection, .historySession, .historySearch,
+                .reviewHistorySelection, .historySession, .historySearch, .historySparse,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .storyDay, .storyDayEntry,
@@ -7605,7 +7605,7 @@ enum SelfTest {
             // Selecting a day in Review is inspection, not navigation: only the
             // explicit action may move the user to another tab.
             let reviewNavigation = MainWindowModel(opening: .review)
-            reviewNavigation.selectReviewDay(yesterday, calendar: calendar)
+            reviewNavigation.openHistory(day: yesterday)
             expect(reviewNavigation.workspace == .history,
                    "selecting a Review day keeps History showing", &problems)
             expect(calendar.isDate(reviewNavigation.reviewSelectedDate ?? base,
@@ -7613,7 +7613,7 @@ enum SelfTest {
                    "Review stores the literal selected local day", &problems)
             expect(reviewNavigation.requestedDate == nil,
                    "Review selection does not change Today scope", &problems)
-            reviewNavigation.clearReviewDay()
+            reviewNavigation.foldDeepestHistory()
             expect(reviewNavigation.reviewSelectedDate == nil,
                    "closing the Review detail clears its selected day", &problems)
             return problems
@@ -7782,14 +7782,13 @@ enum SelfTest {
     private static func testReviewContentHierarchy() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let calendar = Calendar.current
             let yesterday = base.addingTimeInterval(-24 * 3_600)
 
             let navigation = MainWindowModel(opening: .review)
-            navigation.selectReviewDay(yesterday, calendar: calendar)
+            navigation.openHistory(day: yesterday)
             expect(navigation.workspace == .history,
                    "selecting a day does not leave History", &problems)
-            navigation.clearReviewDay()
+            navigation.foldDeepestHistory()
             expect(navigation.workspace == .history,
                    "closing the detail does not leave History", &problems)
             return problems
@@ -8030,7 +8029,7 @@ enum SelfTest {
                 return problems + ["Week chart did not contain yesterday's literal date"]
             }
             let navigation = MainWindowModel(opening: .review)
-            navigation.selectReviewDay(routedDate)
+            navigation.openHistory(day: routedDate)
             expect(navigation.workspace == .history,
                    "a selected Review bar keeps the user in History", &problems)
             expect(calendar.isDate(navigation.reviewSelectedDate ?? base,

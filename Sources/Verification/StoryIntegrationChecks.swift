@@ -382,16 +382,13 @@ enum StoryIntegrationChecks {
             store.refreshReview()
             navigation.open(tab: .review)
             let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: store.now())!
-            var picks: [HistorySelection] = [.month(yesterday), .day(Calendar.current.startOfDay(for: yesterday))]
+            navigation.openHistory(day: yesterday)
             if let thread = store.journalThreads(on: yesterday, only: nil).first {
-                picks.append(.session(thread: thread, day: Calendar.current.startOfDay(for: yesterday)))
+                navigation.selectHistory(session: thread, on: yesterday)
             }
-            for pick in picks {
-                navigation.selectHistory(pick)
-                if store.selectedDay != shown {
-                    failures.append("picking \(pick) in History changed the story's day")
-                }
-            }
+            navigation.foldDeepestHistory()
+            if store.selectedDay != shown { failures.append("opening a day in History changed the story's day") }
+            if navigation.workspace != .history { failures.append("opening a day in History left History") }
             return failures
         }
     }

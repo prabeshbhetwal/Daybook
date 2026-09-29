@@ -23,7 +23,7 @@ struct HistoryTree: View {
     var body: some View {
         let insets = StoryStyle.columnInsets(for: density)
         let searched = store.historyFilter.isActive ? store.historyJournal() : nil
-        let summary = searched.map { $0.isEmpty ? nil : HistoryJournal.matchSummary($0) } ?? nil
+        let summary = searched.map { $0.isEmpty ? nil : Self.matchSummary($0) } ?? nil
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 HistoryFindBar(store: store, focusRequest: navigation.historySearchFocusRequest)
@@ -120,6 +120,18 @@ struct HistoryTree: View {
         .onExitCommand { navigation.foldDeepestHistory() }
     }
 
+    /// `12 sessions match · 8h 20m of focus`.
+    static func matchSummary(_ entries: [JournalEntry]) -> String {
+        var sessions = 0
+        var worked: TimeInterval = 0
+        for case .day(let day) in entries {
+            sessions += day.sessions
+            worked += day.focused
+        }
+        let noun = sessions == 1 ? "session matches" : "sessions match"
+        return "\(sessions) \(noun) · \(Tokens.duration(worked)) of focus"
+    }
+
     /// What a row says when the keyboard lands on it: its VoiceOver label.
     static func spoken(_ focus: HistoryFocus?, store: SessionStore) -> String? {
         switch focus {
@@ -180,8 +192,6 @@ struct HistorySearchResults: View {
                         .padding(.top, Tokens.Space.s)
                         .accessibilityAddTraits(.isHeader)
                     HistoryDaySessions(store: store, navigation: navigation, day: day.date, only: day.threads)
-                case .quiet:
-                    EmptyView()
                 }
             }
         }

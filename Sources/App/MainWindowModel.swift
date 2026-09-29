@@ -155,10 +155,6 @@ struct HistorySessionPick: Hashable {
 @MainActor final class MainWindowModel: ObservableObject {
     @Published private(set) var workspace: MainReadingWorkspace = .story
     @Published private(set) var requestedDate: Date?
-    /// What History's rail describes; nil reads as the current month. It is
-    /// deliberately separate from `requestedDate`: picking in History explains
-    /// a month, day or session in place, while `requestedDate` moves the story.
-    @Published private(set) var historySelection: HistorySelection?
     /// Bumped when the journal should bring the selection into view.
     @Published private(set) var historyScrollRequest = 0
     /// The rows open in History, root first. One row per level; opening a
@@ -174,10 +170,9 @@ struct HistorySessionPick: Hashable {
 
     var historyDeepestOpen: HistoryPlace? { historyOpen.last }
 
-    /// The day History is inspecting: an open day, a picked session's day,
-    /// or the journal's selection while it still exists.
+    /// The day History is inspecting: an open day, or a picked session's day.
     var reviewSelectedDate: Date? {
-        historySession?.day ?? historyOpen.last(where: { $0.level == .day })?.start ?? historySelection?.day
+        historySession?.day ?? historyOpen.last(where: { $0.level == .day })?.start
     }
     /// The sheet over the story, if any. The story itself is always a day.
     @Published private(set) var sheet: StorySheetKind?
@@ -270,47 +265,6 @@ struct HistorySessionPick: Hashable {
         }
     }
 
-    /// Inspection, not navigation. The tab and Today's own scope are untouched;
-    /// the date is normalised so one literal local day identifies the selection
-    /// however the caller expressed it.
-    func selectReviewDay(_ date: Date, calendar: Calendar = .current) {
-        historySelection = .day(calendar.startOfDay(for: date))
-    }
-
-    func clearReviewDay() {
-        historySelection = nil
-    }
-
-    func historySelectionOrDefault(calendar: Calendar = .current) -> HistorySelection {
-        if let historySelection { return historySelection }
-        let now = store?.now() ?? Date()
-        return .month(calendar.dateInterval(of: .month, for: now)?.start ?? calendar.startOfDay(for: now))
-    }
-
-    func selectHistory(_ selection: HistorySelection, scrolling: Bool = false) {
-        animated(Tokens.Motion.selection) { historySelection = selection }
-        if scrolling { historyScrollRequest &+= 1 }
-    }
-
-    /// The calendar picked a day: History selects it and scrolls to it. A day
-    /// with nothing recorded has no row, so its month is selected instead.
-    func jumpToHistoryDay(_ date: Date, calendar: Calendar = .current) {
-        let entries = store?.historyJournal() ?? []
-        selectHistory(HistoryJournalBuilder.selection(forJump: date, in: entries, calendar: calendar),
-                      scrolling: true)
-    }
-
-    /// ↑ and ↓ in the journal: one row at a time, the list following.
-    func stepHistorySelection(by delta: Int) {
-        guard let store else { return }
-        let entries = store.historyJournal()
-        var only: [Date: Set<UUID>] = [:]
-        for case .day(let day) in entries { if let threads = day.threads { only[day.date] = threads } }
-        let next = HistoryJournalBuilder.step(from: historySelectionOrDefault(), by: delta, entries: entries,
-                                              threads: { store.journalThreads(on: $0, only: only[$0]) })
-        selectHistory(next, scrolling: true)
-    }
-
     // MARK: - History's tree
 
     /// The first time History shows: unfold to this week. Later openings
@@ -361,8 +315,16 @@ struct HistorySessionPick: Hashable {
 
     /// Jump to date and search: unfold down to the day and open it.
     func openHistory(day: Date) {
-        guard let store else { return }
-        let path = HistoryTreeBuilder.path(to: day, top: store.historyTop(), calendar: SessionStore.historyCalendar)
+        let calendar = SessionStore.historyCalendar
+        let path: [HistoryPlace]
+        if let store {
+            path = HistoryTreeBuilder.path(to: day, top: store.historyTop(), calendar: calendar)
+        } else {
+            // No store yet: the day is still the one History is inspecting.
+            let start = calendar.startOfDay(for: day)
+            path = [HistoryPlace(level: .day, span: DateInterval(start: start,
+                                                                   end: HistoryTreeBuilder.dayAfter(start, calendar: calendar)))]
+        }
         animated(Tokens.Motion.reveal) {
             historySession = nil
             historyOpen = path

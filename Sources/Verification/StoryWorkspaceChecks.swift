@@ -16,7 +16,7 @@ enum StoryWorkspaceChecks {
         ("Explicit day projections use only the requested day's seeded evidence", explicitDayProjection),
         ("History and Insights preserve Story and running-engine context", workspacesPreserveStory),
         ("Insights pages are bounded, newest first and expose every scope", insightPages),
-        ("History's journal never lists a day from before the record began", journalRecordFloor),
+        ("History's tree never lists a day from before the record began", journalRecordFloor),
             ("A ticking clock does not rebuild an unchanged page of History", insightReadingIsCached),
         ("A projected current-day child owns all running presentation state", projectedCurrentDayLiveState),
         ("Receipt-only dates remain searchable without focus or app-use credit", receiptOnlyHistory),
@@ -164,37 +164,37 @@ enum StoryWorkspaceChecks {
         }
     }
 
-    /// The journal stops at the first day the app ever saw. Blank months before
+    /// The tree stops at the first day the app ever saw. Blank periods before
     /// the install are not history; listing them claims a record that was never kept.
     private static func journalRecordFloor() -> [String] {
         MainActor.assumeIsolated {
             var failures: [String] = []
-            let calendar = Calendar.current
+            let calendar = SessionStore.historyCalendar
             let store = FixtureFactory.insightsStore(withEvidence: true)
             defer { FixtureFactory.cleanUp() }
             store.refreshReview()
             guard let earliest = store.earliestSelectableDay else {
                 return ["The evidence fixture has no first recorded day to stop at"]
             }
-            let entries = store.historyJournal()
-            let listed = entries.compactMap { entry -> Date? in
-                switch entry {
-                case .day(let day): return day.date
-                case .quiet(let quiet): return quiet.first
-                case .month: return nil
+            // Every day row the tree can show, by opening every row down to its days.
+            func days(under parent: HistoryPlace?) -> [Date] {
+                store.historyRows(under: parent).flatMap { row -> [Date] in
+                    row.place.level == .day ? [row.place.start] : days(under: row.place)
                 }
             }
+            let listed = days(under: nil)
             if let oldest = listed.min(), oldest < calendar.startOfDay(for: earliest) {
-                failures.append("the journal reached \(oldest), before the record began on \(earliest)")
+                failures.append("the tree reached \(oldest), before the record began on \(earliest)")
             }
             if listed.min().map({ $0 > calendar.startOfDay(for: earliest) }) ?? true {
-                failures.append("the journal stopped short of the first recorded day \(earliest)")
+                failures.append("the tree stopped short of the first recorded day \(earliest)")
             }
+            if listed.max() != calendar.startOfDay(for: store.now()) { failures.append("the tree's newest day is not today") }
             let bare = FixtureFactory.store(for: .firstRun)
             bare.refreshReview()
-            if bare.historyJournal().count != 2 {
-                failures.append("with nothing recorded the journal listed \(bare.historyJournal().count) rows, "
-                                + "not this month and today")
+            let bareRows = bare.historyRows(under: nil)
+            if bareRows.count != 1 || bareRows.first?.place.level != .day {
+                failures.append("with nothing recorded the tree listed \(bareRows.count) rows, not today alone")
             }
             return failures
         }

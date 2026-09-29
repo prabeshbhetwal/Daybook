@@ -468,11 +468,6 @@ final class SessionStore: ObservableObject {
     /// How many times the reading was actually built. Verification reads it to
     /// prove a ticking clock no longer rebuilds an unchanged page.
     var insightReadingComputeCount = 0
-    /// History's journal, kept until the archive behind it changes.
-    var journalCache: (key: JournalKey, entries: [JournalEntry])?
-    /// How many times the journal was built. A check proves the clock alone
-    /// never rebuilds it.
-    var journalComputeCount = 0
     /// The journal a search narrows to, kept while the search and the archive
     /// behind it stay the same; its matches walk every record.
     var searchJournalCache: (key: SearchJournalKey, entries: [JournalEntry])?
