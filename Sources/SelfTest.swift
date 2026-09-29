@@ -117,18 +117,39 @@ enum SelfTest {
         }
         scratchDirectories.removeAll()
         FixtureFactory.cleanUp()
-        // Empty the suite, flush it, then remove its file: a per-run name
-        // would otherwise leave one plist in Preferences for every run.
+        // Empty this run's suite. Its plist goes in a sweep once cfprefsd has
+        // written it: here, or when the next run starts.
         UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
-        CFPreferencesAppSynchronize(suiteName as CFString)
-        let file = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Preferences/\(suiteName).plist")
-        try? FileManager.default.removeItem(at: file)
+        removeEmptiedPreferenceFiles()
+    }
+
+    /// Deletes the plists that emptied suites leave in Preferences. Emptying a
+    /// suite is not enough: cfprefsd writes the empty plist about 15 seconds
+    /// later, after the check that owned it has finished, so a file deleted at
+    /// cleanup time comes straight back. Sweeping when each run starts and ends
+    /// removes every one written by then, whichever run or check made it. Only
+    /// a file that holds nothing is removed, so no setting is ever lost, and
+    /// the app's own preferences file is never touched.
+    private static func removeEmptiedPreferenceFiles(in folder: URL = FileManager.default
+        .homeDirectoryForCurrentUser.appendingPathComponent("Library/Preferences")) {
+        let prefix = FocusConstants.bundleIdentifier + "."
+        let appFile = FocusConstants.bundleIdentifier + ".plist"
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        for name in names where name.hasPrefix(prefix) && name.hasSuffix(".plist") && name != appFile {
+            let file = folder.appendingPathComponent(name)
+            guard let data = try? Data(contentsOf: file),
+                  let contents = (try? PropertyListSerialization.propertyList(from: data, format: nil))
+                    as? [String: Any],
+                  contents.isEmpty else { continue }
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 
     // MARK: - Runner
 
     static func run() -> Bool {
+        // Earlier runs' suites that cfprefsd emptied after those runs ended.
+        removeEmptiedPreferenceFiles()
         var failures: [String] = []
         var passed = 0
         let tests: [(String, () -> [String])] = [
@@ -146,6 +167,7 @@ enum SelfTest {
             ("Dwell guard: leaving the break app cancels the pause", testDwellCancellation),
             ("Pure helpers: title format, archive ring, defaults", testPureHelpers),
             ("Self-test scratch directories are removed during cleanup", testScratchDirectoryCleanup),
+            ("Cleanup removes only emptied preference files", testEmptiedPreferenceSweep),
             ("Decision accounting: deliberation and Reset are honest", testDecisionAccounting),
             ("Archive queries: today, sessions, longest, week bars", testArchiveQueries),
             ("Streak rule: 25m minimum, yesterday still counts", testStreakRule),
@@ -884,6 +906,29 @@ enum SelfTest {
         cleanUp()
         expect(!FileManager.default.fileExists(atPath: directory.path),
                "cleanup should remove every tracked scratch directory", &problems)
+        return problems
+    }
+
+    private static func testEmptiedPreferenceSweep() -> [String] {
+        var problems: [String] = []
+        let folder = scratchDirectory()
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        func write(_ name: String, _ contents: [String: Any]) {
+            let data = try? PropertyListSerialization.data(fromPropertyList: contents,
+                                                           format: .binary, options: 0)
+            try? data?.write(to: folder.appendingPathComponent(name))
+        }
+        let app = FocusConstants.bundleIdentifier
+        let emptied = "\(app).activity-rules.\(UUID().uuidString).plist"
+        let holding = "\(app).rule-consumer.\(UUID().uuidString).plist"
+        let other = "com.example.other.plist"
+        write(emptied, [:]); write(holding, ["key": 1]); write("\(app).plist", [:]); write(other, [:])
+        removeEmptiedPreferenceFiles(in: folder)
+        let left = Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? [])
+        expect(!left.contains(emptied), "an emptied suite's plist was not removed", &problems)
+        expect(left.contains(holding), "a suite that still holds settings was removed", &problems)
+        expect(left.contains("\(app).plist"), "the app's own preferences file was removed", &problems)
+        expect(left.contains(other), "another app's preferences file was removed", &problems)
         return problems
     }
 

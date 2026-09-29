@@ -175,6 +175,7 @@ enum SessionMetadataChecks {
         defer {
             try? FileManager.default.removeItem(at: folder)
             UserDefaults.standard.removePersistentDomain(forName: suite)
+            UserDefaults.standard.removePersistentDomain(forName: suite + ".reload")
         }
         let date = Date(timeIntervalSince1970: 1_788_580_000)
         guard let source = engine(at: date, directory: folder, suite: suite) else {
@@ -461,7 +462,9 @@ enum SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.harden-id.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                for name in [suite, suite + ".first", suite + ".second"] {
+                    UserDefaults.standard.removePersistentDomain(forName: name)
+                }
             }
             let moment = Date(timeIntervalSince1970: 1_788_601_000)
             guard let source = engine(at: moment, directory: folder, suite: suite) else {
