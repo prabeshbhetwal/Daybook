@@ -448,6 +448,7 @@ enum SelfTest {
             + RedundancyChecks.tests + HistoryJournalChecks.tests
             + SessionAccessibilityChecks.tests + SettingsAccessibilityChecks.tests
             + DayStoryAccessibilityChecks.tests + RailAccessibilityChecks.tests
+            + LongAwayRestoreChecks.tests
 
         print("FocusContinuity self-test")
         for (index, test) in tests.enumerated() {
@@ -5456,7 +5457,11 @@ enum SelfTest {
         let later = Clock(saved.value.addingTimeInterval(2 * 86_400))
         let reopened = makeEngine(later)
         reopened.restore(from: snapshot)
-        expectClose(reopened.elapsed, work,
+        // Two days is past the cap, so the stretch now ends at the relaunch
+        // where it was left; its work is on the record rather than the clock.
+        let kept = reopened.archive.records.reduce(0) { $0 + $1.workSeconds }
+            + (reopened.state == .idle ? 0 : reopened.elapsed)
+        expectClose(kept, work,
                     "two days with the app shut must not become work", &problems)
         return problems
     }
@@ -6331,7 +6336,9 @@ enum SelfTest {
         clock2.advance(8 * 3_600)
         let morning = makeEngine(clock2)                          // fresh process
         morning.restore(from: blob)
-        expect(morning.state == .paused(reason: .idle), "restores paused", &problems)
+        // The relaunch itself now sees the night past the cap and ends it.
+        expect(morning.state == .idle, "a relaunch past the cap ends the paused stretch, got \(morning.state)",
+               &problems)
         morning.transition(on: .idleObserved(seconds: 1))         // the user is typing
         expect(morning.state == .idle,
                "a sample showing input does not rescue a night past the cap, got \(morning.state)",
@@ -9269,7 +9276,6 @@ enum SelfTest {
                 switch pause {
                 case .away:
                     engine.transition(on: .markedAway)
-                    clock.advance(declaredAwayFor)
                 case .watching:
                     engine.transition(on: .watchingObserved(
                         seconds: FocusConstants.idlePauseThreshold))
@@ -9282,6 +9288,10 @@ enum SelfTest {
             var snapshot = engine.snapshot()
             snapshot.isAuto = true
             engine.restore(from: snapshot)
+            // The away runs on after the restore, in the live engine. Restoring
+            // a snapshot already past the cap would end the stretch at launch,
+            // which is a relaunch, not the live Undo this scenario exercises.
+            clock.advance(declaredAwayFor)
             return (SessionStore(engine: engine, now: { clock.value }),
                     engine, archive, clock)
         }
