@@ -140,6 +140,12 @@ enum StoryWorkspaceChecks {
             if store.insightReadingComputeCount - before != 2 {
                 failures.append("Changing the span did not build a new reading")
             }
+            // Back to the first page: still held. Opening a week, its month
+            // and the week again used to build the week twice.
+            _ = store.insightReading(scope: .month, anchoredAt: anchor, limit: 3)
+            if store.insightReadingComputeCount - before != 2 {
+                failures.append("Returning to a page read a moment ago rebuilt it")
+            }
             // Evidence changing must invalidate it: a saved note bumps the
             // metadata revision the key carries.
             guard let record = store.engine.archive.records.first else {

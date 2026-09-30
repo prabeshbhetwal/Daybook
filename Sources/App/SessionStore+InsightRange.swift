@@ -18,7 +18,7 @@ struct InsightReading {
     let facts: InsightRangeFacts
 }
 
-struct InsightReadingKey: Equatable {
+struct InsightReadingKey: Hashable {
     let scope: InsightRange
     let anchor: Date
     let limit: Int
@@ -114,14 +114,18 @@ extension SessionStore {
             ? Int(now().timeIntervalSinceReferenceDate / 60) : 0
         let key = InsightReadingKey(scope: scope, anchor: day, limit: limit,
                                     evidence: evidenceRevision, minute: minute)
-        if let cached = insightReadingCache, cached.key == key { return cached.reading }
+        if let cached = insightReadingCache[key] { return cached }
         insightReadingComputeCount &+= 1
         let periods = insightPeriodProjections(scope: scope, anchoredAt: anchor,
                                                limit: limit, calendar: calendar)
         let reading = InsightReading(periods: periods,
                                      facts: insightRangeFacts(periods: periods, scope: scope,
                                                               calendar: calendar))
-        insightReadingCache = (key, reading)
+        insightReadingCache[key] = reading
+        insightReadingCacheOrder.append(key)
+        while insightReadingCacheOrder.count > 8 {
+            insightReadingCache.removeValue(forKey: insightReadingCacheOrder.removeFirst())
+        }
         return reading
     }
 

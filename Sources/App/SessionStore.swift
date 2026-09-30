@@ -444,7 +444,7 @@ final class SessionStore: ObservableObject {
     var dashboardArchiveRefreshPending = false
     var dashboardLiveTailRefreshPending = false
     var dashboardReadModelDay: Date?
-    struct EvidenceRevision: Equatable {
+    struct EvidenceRevision: Hashable {
         let day: Date
         let sessions: Int
         let usageID: ObjectIdentifier?
@@ -471,8 +471,11 @@ final class SessionStore: ObservableObject {
     /// The archive-wide facts History's map shows, kept until the evidence
     /// behind them changes.
     var historyArchiveFactsCache: (revision: EvidenceRevision, facts: HistoryArchiveFacts)?
-    /// History's current reading; one entry, because the view asks for one.
-    var insightReadingCache: (key: InsightReadingKey, reading: InsightReading)?
+    /// History's recent readings: the rail asks for one at a time, but a
+    /// reader who opens a week, then its month, then the week again should
+    /// not pay for the week twice. Bounded; the oldest goes first.
+    var insightReadingCache: [InsightReadingKey: InsightReading] = [:]
+    var insightReadingCacheOrder: [InsightReadingKey] = []
     /// How many times the reading was actually built. Verification reads it to
     /// prove a ticking clock no longer rebuilds an unchanged page.
     var insightReadingComputeCount = 0

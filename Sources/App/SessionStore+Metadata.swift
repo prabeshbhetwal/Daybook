@@ -173,7 +173,8 @@ extension SessionStore {
             if focusedNoteEditorID == recordID { focusedNoteEditorID = nil }
             storyProjectionCache.removeAll(keepingCapacity: true)
             storyProjectionCacheOrder.removeAll(keepingCapacity: true)
-            insightReadingCache = nil
+            insightReadingCache.removeAll(keepingCapacity: true)
+            insightReadingCacheOrder.removeAll(keepingCapacity: true)
             objectWillChange.send()
             return true
         case .failed(let error):
