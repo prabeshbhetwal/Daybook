@@ -193,10 +193,6 @@ struct FocusHero: View {
     /// The window's session strip: compact spacing, toolbar layout.
     private var isStrip: Bool { compact && wide }
     private var isQuiet: Bool { mode == .paused || mode == .watching }
-    /// What the clocks roll on. Rolling on the seconds ran a digit animation
-    /// every second in the corner of the reader's eye; the seconds now swap
-    /// plainly and only a new minute rolls.
-    private var elapsedMinutes: Int? { DurationText.wholeSeconds(store.elapsed).map { $0 / 60 } }
 
     var body: some View {
         switch chromePart {
@@ -336,9 +332,8 @@ struct FocusHero: View {
     }
 
     @ViewBuilder private var liveRowLead: some View {
-        Text(Tokens.clock(store.elapsed))
+        ClockText(seconds: store.elapsed)
             .font(Tokens.Typography.rowTimer)
-            .rollingDigits(elapsedMinutes)
             .foregroundStyle(isQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
             .fixedSize()
             .elapsedClockAccessibility(store.elapsed)
@@ -577,10 +572,8 @@ struct FocusHero: View {
                 // on the panel in both appearances.
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary)
                                        : AnyShapeStyle(StoryStyle.focus))
-            Text(Tokens.clock(store.elapsed))
+            ClockText(seconds: store.elapsed)
                 .font(Tokens.Typography.liveTimer)
-                .monospacedDigit()
-                .rollingDigits(elapsedMinutes)
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 .elapsedClockAccessibility(store.elapsed)
             VStack(alignment: compact ? .leading : .center, spacing: 2) {

@@ -210,10 +210,9 @@ struct StorySessionControl: View {
                         .opacity(store.isPaused ? 0.4 : 1)
                     // Seconds swap plainly; only a new minute rolls, so the
                     // corner of the window is not in motion every second.
-                    Text(Tokens.clock(store.elapsed))
-                        .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
+                    ClockText(seconds: store.elapsed)
+                        .font(Tokens.Typography.metadata.weight(.semibold))
                         .foregroundStyle(StoryStyle.focus)
-                        .rollingDigits(DurationText.wholeSeconds(store.elapsed).map { $0 / 60 })
                     if store.pendingAway != nil {
                         Divider().frame(height: 12)
                         Text("Review away")

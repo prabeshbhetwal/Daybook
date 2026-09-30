@@ -24,7 +24,7 @@ extension SelfTest {
             + SessionAccessibilityChecks.tests + SettingsAccessibilityChecks.tests
             + DayStoryAccessibilityChecks.tests + RailAccessibilityChecks.tests
             + LongAwayRestoreChecks.tests + PanelRestChecks.tests
-            + AutomaticNamingChecks.tests + GlobalShortcutChecks.tests
+            + AutomaticNamingChecks.tests + GlobalShortcutChecks.tests + ClockTextChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

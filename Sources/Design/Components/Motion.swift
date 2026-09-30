@@ -109,3 +109,30 @@ private struct RollingDigits<Value: Equatable>: ViewModifier {
                        value: value)
     }
 }
+
+/// The live clock: hours and minutes roll to their next value, the seconds
+/// swap plainly. Not one `Text` on purpose: text under
+/// `.contentTransition(.numericText())` that changes every second grew glyph
+/// memory by about 5 MB a minute per clock on macOS 27 (measured 2026-09-30
+/// with a probe; plain text stayed flat), and two such clocks are on screen
+/// while the window shows a running session.
+struct ClockText: View {
+    let seconds: TimeInterval
+
+    var body: some View {
+        let parts = Self.parts(seconds)
+        HStack(spacing: 0) {
+            Text(parts.rolling).rollingDigits(parts.rolling)
+            Text(parts.plain)
+        }
+        .monospacedDigit()
+    }
+
+    /// `("00:45", ":12")`; `("—", "")` when the value cannot be shown. Joined,
+    /// it is exactly `Tokens.clock`.
+    static func parts(_ seconds: TimeInterval) -> (rolling: String, plain: String) {
+        guard let total = DurationText.wholeSeconds(seconds) else { return ("—", "") }
+        return (String(format: "%02d:%02d", total / 3600, (total % 3600) / 60),
+                String(format: ":%02d", total % 60))
+    }
+}
