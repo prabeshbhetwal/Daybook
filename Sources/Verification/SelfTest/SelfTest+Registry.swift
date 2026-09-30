@@ -180,6 +180,8 @@ extension SelfTest {
              testGlanceStaysToday),
             ("A second absence during the away card is never work",
              testShadowAwayIsNotWork),
+            ("A due break is said once: HUD when present, notification when not",
+             testBreakReminderUsesOneChannel),
         ]
     }
 }

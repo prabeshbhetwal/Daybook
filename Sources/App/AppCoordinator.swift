@@ -568,12 +568,23 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // idle trim, which only notices three minutes after the fact.
         store.onAwayBegan = { [weak self] in self?.tracker.suspend() }
         store.onAwayEnded = { [weak self] in self?.resumeTracking() }
-        // Two channels, deliberately. The HUD is for when you are at the screen
-        // — it is the one that can actually interrupt a stretch of work, and it
-        // never takes focus. The notification is for when you are not looking at
-        // this display, and it is the one that survives in Notification Centre.
+        // One channel per moment. At the screen, the HUD: it can interrupt a
+        // stretch of work and never takes focus. Away from it — locked, asleep
+        // or declared away — the notification, which survives in Notification
+        // Centre until you are back. Both at once said the same thing twice.
         store.onBreakDue = { [weak self] prompt in
             guard let self else { return }
+            let away: Bool
+            if case .paused(reason: .away) = self.engine.state { away = true } else { away = false }
+            let reachesScreen = AppCoordinator.breakReminderReachesScreen(
+                screenLocked: self.screenLocked,
+                displayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0,
+                machineSleeping: self.machineSleeping,
+                away: away)
+            guard reachesScreen else {
+                self.notifier.postBreakReminder(title: prompt.title, body: prompt.body)
+                return
+            }
             Task { @MainActor in
                 self.hud.show(title: prompt.title,
                               detail: prompt.body + " " + prompt.tier.reason,
@@ -581,7 +592,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                               duration: FocusConstants.breakHUDSeconds,
                               undo: nil)
             }
-            self.notifier.postAwayResolution(title: prompt.title, body: prompt.body)
         }
     }
 
@@ -677,6 +687,16 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     static func permitsInitialUsageSeed(screenLocked: Bool,
                                         displayAsleep: Bool) -> Bool {
         !screenLocked && !displayAsleep
+    }
+
+    /// Whether a break reminder shown on this display would be seen. When it
+    /// would, the HUD alone carries it; when it would not, the notification
+    /// alone does. Pure so the four absences can be verified headless.
+    static func breakReminderReachesScreen(screenLocked: Bool,
+                                           displayAsleep: Bool,
+                                           machineSleeping: Bool,
+                                           away: Bool) -> Bool {
+        !screenLocked && !displayAsleep && !machineSleeping && !away
     }
 
     /// Cold-launch restoration boundary. Implemented separately from monitor

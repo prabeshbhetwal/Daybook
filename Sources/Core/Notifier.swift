@@ -1,9 +1,10 @@
 import Foundation
 import UserNotifications
 
-/// Local notifications for away resolution. Every call is guarded so that an
-/// unavailable or denied notification centre is a silent no-op — the attention
-/// badge and the popover resolve card carry the flow on their own.
+/// Local notifications for break reminders that come due while nobody is at
+/// the screen. Every call is guarded so that an unavailable or denied
+/// notification centre is a silent no-op — the HUD carries the flow when
+/// someone is there.
 ///
 /// Takes pre-formatted strings: `Core` must not import `Design`.
 final class Notifier {
@@ -28,7 +29,7 @@ final class Notifier {
     /// without restarting the app, and someone who turns them off is not
     /// posted to. If nobody has been asked yet (a welcome left before its
     /// end), the first reminder is the moment to ask.
-    func postAwayResolution(title: String, body: String) {
+    func postBreakReminder(title: String, body: String) {
         guard hasCentre else { return }
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { [weak self] settings in
@@ -50,7 +51,10 @@ final class Notifier {
         content.title = title
         content.body = body
         content.sound = .default
-        let request = UNNotificationRequest(identifier: "away-\(UUID().uuidString)",
+        content.threadIdentifier = "break-reminder"
+        // A fixed identifier: the next reminder replaces the last one in
+        // Notification Centre instead of stacking three requests for one rest.
+        let request = UNNotificationRequest(identifier: "break-reminder",
                                             content: content,
                                             trigger: nil)
         center.add(request) { error in
