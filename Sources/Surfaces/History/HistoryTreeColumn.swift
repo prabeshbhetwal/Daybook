@@ -105,8 +105,18 @@ struct HistoryTree: View {
             }
         }
         .coachAnchor(.journal)
-        .focusable()
-        .focused($treeFocused)
+        // Key focus lives on a point-sized proxy off the left edge: the arrow,
+        // Return and Escape handlers below still receive it, and macOS draws
+        // its focus ring around nothing. On the list itself, the ring framed
+        // the whole tree after every click.
+        .overlay(alignment: .topLeading) {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .offset(x: -4_000)
+                .focusable()
+                .focused($treeFocused)
+                .accessibilityHidden(true)
+        }
         .onMoveCommand { direction in
             switch direction {
             case .up: navigation.stepHistoryFocus(by: -1)
