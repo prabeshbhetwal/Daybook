@@ -86,6 +86,7 @@ struct HistoryFindBar: View {
         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .accessibilityLabel("App filter, selected "
                             + (store.historyFilter.appBundleID.map(store.historyAppName(for:)) ?? "all apps"))
+        .redrawn(on: [store.historyFilter.appBundleID ?? ""] + store.historyAppBundleIDs)
     }
 
     private var workTypeMenu: some View {
@@ -108,6 +109,8 @@ struct HistoryFindBar: View {
         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .accessibilityLabel("Category filter, selected "
                             + (store.historyFilter.workType?.displayName ?? "all categories"))
+        .redrawn(on: [store.historyFilter.workType?.rawValue ?? ""]
+                    + WorkType.allCases.map { "\($0.rawValue)|\($0.displayName)|\($0.symbolName)" })
     }
 
     private var queryBinding: Binding<String> {

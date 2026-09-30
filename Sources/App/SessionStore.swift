@@ -900,8 +900,12 @@ final class SessionStore: ObservableObject {
             refreshSessionMetadataRetention()
 
             weekBars = engine.archive.weekBars()
+            // A recent name that is only a category's name repeats the
+            // category picker beside the field, so it is not offered.
+            let categoryNames = Set(WorkType.allCases.map { SavedActivities.key($0.displayName) })
             quickStarts = ActivityChoices.merging(engine.store.recentActivities,
                 engine.archive.quickStarts(limit: ActivityChoices.limit))
+                .filter { !categoryNames.contains(SavedActivities.key($0.name)) }
             savedActivities = engine.store.savedActivities
             // A running session shows its own category; while idle, the one the
             // user picked for the next session stays picked.

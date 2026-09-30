@@ -8,10 +8,31 @@ private final class LegacyClassificationDraft: ObservableObject {
 }
 
 /// Explicit classification, not a fabricated exact Undo of legacy evidence.
-struct StoryLegacyBreakActions: View {
-    @ObservedObject var store: SessionStore
+///
+/// The store publishes every second while anything is live, and a menu whose
+/// view is redrawn while it is open loses the item under the pointer. So the
+/// store is held, not observed, and the view redraws only when what it shows
+/// changes: the break, the archive behind its targets, or whether it is
+/// blocked. Place it with `.equatable()`.
+struct StoryLegacyBreakActions: View, Equatable {
+    let store: SessionStore
     let rest: RestEntry
+    /// The archive's revision, so the targets follow a change to it.
+    let archiveRevision: Int
+    let isBlocked: Bool
     @StateObject private var draft = LegacyClassificationDraft()
+
+    init(store: SessionStore, rest: RestEntry) {
+        self.store = store
+        self.rest = rest
+        archiveRevision = store.evidenceRevision.sessions
+        isBlocked = store.hasUnresolvedAwayDecision
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.store === rhs.store && lhs.rest == rhs.rest
+            && lhs.archiveRevision == rhs.archiveRevision && lhs.isBlocked == rhs.isBlocked
+    }
 
     var body: some View {
         let targets = store.legacyFocusTargets(for: rest)
@@ -32,12 +53,12 @@ struct StoryLegacyBreakActions: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .disabled(store.hasUnresolvedAwayDecision)
-        .help(store.hasUnresolvedAwayDecision ? StoryDecisionRow.awayQuestionFirst : "")
+        .disabled(isBlocked)
+        .help(isBlocked ? StoryDecisionRow.awayQuestionFirst : "")
         .accessibilityLabel(rest.name.isEmpty || rest.name == "Break"
                             ? "Change how this break counts"
                             : "Change how \(rest.name) counts")
-        .accessibilityHint(store.hasUnresolvedAwayDecision ? StoryDecisionRow.awayQuestionFirst : "")
+        .accessibilityHint(isBlocked ? StoryDecisionRow.awayQuestionFirst : "")
         .confirmationDialog("Change this recorded interval?", isPresented: $draft.confirming, titleVisibility: .visible) {
             Button(draft.decision == .mergeTime ? "Count as focus" : "Leave uncounted") {
                 store.reclassifyLegacyBreak(recordID: rest.id, decision: draft.decision, focusTargetID: draft.target?.id,

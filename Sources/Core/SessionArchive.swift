@@ -460,7 +460,9 @@ final class SessionArchive {
         let cutoff = now().addingTimeInterval(-Double(quickStartWindowDays) * 86_400)
         var tally: [String: (item: QuickStart, count: Int, last: Date)] = [:]
 
-        for record in cache where record.end >= cutoff && !record.name.isEmpty {
+        // Only names a person gave. An automatic session carries its rule's
+        // name, usually a category's, which the category picker already offers.
+        for record in cache where record.end >= cutoff && !record.name.isEmpty && !record.isAuto {
             let key = "\(record.workType.rawValue)|\(record.name)"
             let existing = tally[key]
             tally[key] = (item: QuickStart(id: key, name: record.name, workType: record.workType),

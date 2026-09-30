@@ -107,3 +107,24 @@ struct IntegrityNotice: View {
     }
 }
 
+
+/// Draws its content only when `value` changes. The store publishes every
+/// second while anything is live, and a menu redrawn while it is open loses
+/// the item under the pointer: the highlight blinks off each second. A menu
+/// is wrapped in one of these, keyed by everything it shows, so it redraws
+/// only when that does. Nothing inside may observe the store itself.
+private struct RedrawsOn<Value: Equatable, Content: View>: View, Equatable {
+    let value: Value
+    let content: Content
+
+    var body: some View { content }
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.value == rhs.value }
+}
+
+extension View {
+    /// See `RedrawsOn`.
+    func redrawn<Value: Equatable>(on value: Value) -> some View {
+        RedrawsOn(value: value, content: self).equatable()
+    }
+}

@@ -1,11 +1,48 @@
 import Foundation
 
-/// "Change how this counts" on a recorded break: the sessions it offers to
-/// count the break into.
+/// What the story's menus offer: the sessions a recorded break can be
+/// counted into, and the recent names beside the activity field.
 enum BreakCountingChecks {
     static let tests: [(String, () -> [String])] = [
-        ("A break offers only its own day's sessions, nearest first, each with its time", sameDayTargets)
+        ("A break offers only its own day's sessions, nearest first, each with its time", sameDayTargets),
+        ("Recent activities are names a person typed, never a rule's or a category's", typedRecentsOnly)
     ]
+
+    private static func typedRecentsOnly() -> [String] {
+        MainActor.assumeIsolated {
+            let now = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 18))!
+            func record(_ name: String, auto: Bool, hoursAgo: Double) -> SessionRecord {
+                let end = now.addingTimeInterval(-hoursAgo * 3_600)
+                return SessionRecord(name: name, workType: .deepWork, start: end.addingTimeInterval(-1_800),
+                                     end: end, workSeconds: 1_800, isAuto: auto)
+            }
+            let records = [record("Coding", auto: true, hoursAgo: 1),
+                           record(WorkType.deepWork.displayName, auto: false, hoursAgo: 2),
+                           record("Parser refactor", auto: false, hoursAgo: 3)]
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-recents-\(UUID())")
+            let suite = "fc.recents.\(UUID())"
+            defer {
+                UserDefaults.standard.removePersistentDomain(forName: suite)
+                try? FileManager.default.removeItem(at: directory)
+            }
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            guard let data = try? JSONEncoder().encode(records),
+                  (try? data.write(to: directory.appendingPathComponent("sessions.json"))) != nil,
+                  let defaults = UserDefaults(suiteName: suite) else { return ["could not write the fixture archive"] }
+            let persistence = PersistenceStore(defaults: defaults)
+            // A category's name submitted from the field before this rule.
+            persistence.rememberActivity(name: WorkType.deepWork.displayName, workType: .deepWork)
+            let engine = SessionEngine(store: persistence,
+                                       archive: SessionArchive(directory: directory, now: { now }),
+                                       ownBundleID: "fc.recents.test", schedulesDwell: false, now: { now })
+            let store = SessionStore(engine: engine, schedulesTicker: false,
+                                     applicationIsRunning: { _ in false }, activateApplication: { _, _ in },
+                                     now: { now })
+            store.refresh()
+            let names = store.recentActivities.map(\.name)
+            return names == ["Parser refactor"] ? [] : ["recent activities read \(names), not only the typed Parser refactor"]
+        }
+    }
 
     private static func sameDayTargets() -> [String] {
         MainActor.assumeIsolated {

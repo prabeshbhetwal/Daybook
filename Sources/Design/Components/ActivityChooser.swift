@@ -82,6 +82,8 @@ struct ActivityChooser: View {
             .fixedSize()
             .accessibilityLabel("Choose an activity")
             .help("Choose one of your activities or a recent name. This does not start a session.")
+            .redrawn(on: MenuContents(pinned: store.savedActivities, recent: store.recentActivities,
+                                      canEdit: openActivityEditor != nil))
         }
         .padding(.leading, Tokens.Space.m)
         .padding(.trailing, Tokens.Space.xs)
@@ -99,6 +101,13 @@ struct ActivityChooser: View {
     }
 
     private var fieldHeight: CGFloat { compact ? 34 : 38 }
+
+    /// What the menu lists; it redraws only when this changes.
+    private struct MenuContents: Equatable {
+        let pinned: [SavedActivity]
+        let recent: [QuickStart]
+        let canEdit: Bool
+    }
 
     private func select(name: String, type: WorkType) {
         store.intent = name

@@ -951,7 +951,7 @@ struct RestEntryRow: View {
             Text(durations: Tokens.preciseDuration(rest.length))
                 .font(Tokens.Typography.metadata.monospacedDigit())
                 .foregroundStyle(.secondary)
-            StoryLegacyBreakActions(store: store, rest: rest)
+            StoryLegacyBreakActions(store: store, rest: rest).equatable()
         }
         .padding(.horizontal, Tokens.Space.m)
         .padding(.vertical, Tokens.Space.s)
