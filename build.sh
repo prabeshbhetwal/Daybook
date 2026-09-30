@@ -55,16 +55,26 @@ BINARY="${MACOS_DIR}/${APP_NAME}"
 
 mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
 
-# SessionEngine spans Core/SessionEngine*.swift, so Swift's `private` can no
-# longer keep its internals in. This does: no other file may call the engine's
-# helpers, read its bookkeeping, or set the state it publishes.
-ENGINE_INTERNALS='absenceOutgrewCap|addPausedSpan|apply|applyExactCorrectionState|archiveCurrentSession|awayInterval|awayReturnedAt|beginFreshSession|cancelDwell|completeLongAway|continuedThread|correctionGeneration|decisionStartDate|departureApp|endAbsentSession|endDeclaredAway|endIdlePause|endStretch|endWatchingPause|enterPause|holdSecondAbsence|interval|isAwaitingCorrection|isSelf|leavePause|legacyActiveRecordID|linkCreditRecords|liveCorrectionGeneration|liveGeneration|noteQuietWhileAwaiting|now|ownBundleID|pauseMeansNobodyHere|pauseStartDate|pausedSpans|pendingDwell|reconcileAwayReceipt|recordApp|recordAway|removePausedSpan|resolve|resolveAway|scheduleDwell|schedulesDwell|secondAbsenceOutgrewCap|shadowAway|synchroniseCommittedCorrectionMetadata|transitionFrom[A-Za-z]*|transitionRevision|trustedPausedSpans|validateDecisionEffects|workBeforePendingAway'
-ENGINE_SETTERS='activeAutomaticAction|activeDetectedApp|activeIsAuto|activeRecordID|activeThreadID|activeThreadWasContinued|activeWorkType|awayDecisionError|awayDecisions|currentAppBundleID|currentAppName|lastAwayDecision|lastLongAwayTransition|pendingDecisionID|sessionStartDate|state|totalPausedDuration'
-if grep -rnE "engine\.(${ENGINE_INTERNALS})([^A-Za-z0-9_]|$)|engine\.elapsed\(endingAt|engine\.(${ENGINE_SETTERS})[[:space:]]*[-+*/]?=[^=]" \
-     Sources --include='*.swift' | grep -v '^Sources/Core/SessionEngine'; then
-  echo "error: the lines above reach into SessionEngine's internals; add an engine method instead" >&2
-  exit 1
-fi
+# SessionEngine and SessionStore each span several files, so Swift's `private`
+# can no longer keep their internals in. This does: no other file may call
+# their helpers, read their bookkeeping, or set the state they publish.
+# Arguments: the name callers use, the owning files' path prefix, the internal
+# members, and the members only the owner may set.
+keep_internals() {
+  if grep -rnE "${1}\.(${3})([^A-Za-z0-9_]|$)|${1}\.(${4})[[:space:]]*[-+*/]?=[^=]" \
+       Sources --include='*.swift' | grep -v "^${2}"; then
+    echo "error: the lines above reach into the internals of ${2}*.swift; add a method there instead" >&2
+    exit 1
+  fi
+}
+keep_internals engine Sources/Core/SessionEngine \
+  'absenceOutgrewCap|addPausedSpan|apply|applyExactCorrectionState|archiveCurrentSession|awayInterval|awayReturnedAt|beginFreshSession|cancelDwell|completeLongAway|continuedThread|correctionGeneration|decisionStartDate|departureApp|elapsed\(endingAt|endAbsentSession|endDeclaredAway|endIdlePause|endStretch|endWatchingPause|enterPause|holdSecondAbsence|interval|isAwaitingCorrection|isSelf|leavePause|legacyActiveRecordID|linkCreditRecords|liveCorrectionGeneration|liveGeneration|noteQuietWhileAwaiting|now|ownBundleID|pauseMeansNobodyHere|pauseStartDate|pausedSpans|pendingDwell|reconcileAwayReceipt|recordApp|recordAway|removePausedSpan|resolve|resolveAway|scheduleDwell|schedulesDwell|secondAbsenceOutgrewCap|shadowAway|synchroniseCommittedCorrectionMetadata|transitionFrom[A-Za-z]*|transitionRevision|trustedPausedSpans|validateDecisionEffects|workBeforePendingAway' \
+  'activeAutomaticAction|activeDetectedApp|activeIsAuto|activeRecordID|activeThreadID|activeThreadWasContinued|activeWorkType|awayDecisionError|awayDecisions|currentAppBundleID|currentAppName|lastAwayDecision|lastLongAwayTransition|pendingDecisionID|sessionStartDate|state|totalPausedDuration'
+# PersistenceStore, also often called `store`, has its own automaticActivityRecord,
+# savedActivities and state, so those three setters cannot be told apart here.
+keep_internals store Sources/App/SessionStore \
+  'LiveFrame|appliedDefaultWorkType|apply|cachedTypical|cachedTypicalMinute|deferredAutomationPending|earliestDayCache|idle|lastLiveFrame|lastSampleWatching|pendingWakeActivation|presenceGate|refreshBreak|schedulesTicker|startTicker|stopTicker|tick|ticker|updateTicker|watchingCache|watchingEndedAt' \
+  'activityAutomationError|breakCountdown|canUndoCorrection|correctionError|dashboardArchiveReadModelGeneration|dashboardReadModelGeneration|elapsed|goal|historyIndexGeneration|isBreakDue|longestToday|nextBreakTier|pendingActivityChoice|pendingAway|pendingAwayRange|previousSession|quickStarts|reviewReadModelGeneration|sessionsToday|streak|streakBest|threadElapsed|todayTotal|trackedToday|weekBars'
 
 echo "Compiling for ${TARGET_TRIPLE}…"
 SOURCE_FILES=()
