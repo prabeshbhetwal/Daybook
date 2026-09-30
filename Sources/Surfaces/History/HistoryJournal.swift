@@ -166,7 +166,7 @@ struct HistoryBreakRow: View {
         .padding(.vertical, 3)
         .padding(.horizontal, HistoryRowLayout.inset)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(Tokens.timeRange(rest.start, rest.end)), \(RestEntryRow.label(rest.name)), "
+        .accessibilityLabel("\(Tokens.timeRange(rest.start, rest.end)), \(StoryBreakRow.label(rest.name)), "
                             + Tokens.spent(rest.length))
     }
 }

@@ -485,6 +485,29 @@ extension SessionStore {
         engine.archive.records.first { $0.id == id && $0.workType == .breakTime }
     }
 
+    /// Names a break that no away answer recorded. The name is a correction
+    /// to its record, so the story offers Undo for it like any rename.
+    @discardableResult
+    func renameBreak(recordID: UUID, to name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let record = legacyBreakRecord(id: recordID) else { return false }
+        let titled = trimmed.prefix(1).uppercased() + trimmed.dropFirst()
+        return applyCorrection(threadID: record.threadID, correction: .rename(titled))
+    }
+
+    /// Re-answers a break the away question recorded: the answer is undone
+    /// and the new one saved over the same interval, counted into the session
+    /// the absence interrupted or left uncounted. Undo on the new answer
+    /// reopens the question, where "Call it a break" restores the break.
+    @discardableResult
+    func changeBreak(_ receipt: AwayDecisionReceipt, to decision: UserDecision) -> Bool {
+        guard receipt.decision == .tookBreak, decision == .mergeTime || decision == .continueSession,
+              undoAwayDecision(expectedID: receipt.id),
+              let reopened = engine.lastAwayDecision, !reopened.isResolved,
+              reopened.range == receipt.range else { return false }
+        return applyAwayDecision(decision, reviewing: true, expectedID: reopened.id)
+    }
+
     @discardableResult
     func reclassifyLegacyBreak(recordID: UUID, decision: UserDecision, focusTargetID: UUID? = nil,
                               expectedRecord: SessionRecord? = nil, expectedTarget: SessionRecord? = nil) -> Bool {

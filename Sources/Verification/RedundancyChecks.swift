@@ -94,12 +94,12 @@ enum RedundancyChecks {
 
     private static func breakNamedOnce() -> [String] {
         var failures: [String] = []
-        if RestEntryRow.label("Break") != "Recorded break, not counted as focus"
-            || RestEntryRow.label("") != "Recorded break, not counted as focus" {
-            failures.append("an unnamed break read as \(RestEntryRow.label("Break"))")
+        if StoryBreakRow.label("Break") != "Recorded break, not counted as focus"
+            || StoryBreakRow.label("") != "Recorded break, not counted as focus" {
+            failures.append("an unnamed break read as \(StoryBreakRow.label("Break"))")
         }
-        if RestEntryRow.label("Lunch") != "Lunch — recorded break, not counted as focus" {
-            failures.append("a named break lost its name: \(RestEntryRow.label("Lunch"))")
+        if StoryBreakRow.label("Lunch") != "Lunch — recorded break, not counted as focus" {
+            failures.append("a named break lost its name: \(StoryBreakRow.label("Lunch"))")
         }
         return failures
     }

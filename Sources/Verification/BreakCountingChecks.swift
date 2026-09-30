@@ -5,8 +5,120 @@ import Foundation
 enum BreakCountingChecks {
     static let tests: [(String, () -> [String])] = [
         ("A break offers only its own day's sessions, nearest first, each with its time", sameDayTargets),
-        ("Recent activities are names a person typed, never a rule's or a category's", typedRecentsOnly)
+        ("Recent activities are names a person typed, never a rule's or a category's", typedRecentsOnly),
+        ("A break with no away answer can be named, and Undo restores its name", renameUnansweredBreak),
+        ("An answered break can be counted as focus or left uncounted, and Undo reopens its question",
+         changeAnsweredBreak)
     ]
+
+    /// A running Parser session, a 20-minute absence answered "took a break"
+    /// named Walk, then 10 more minutes of work.
+    private final class AnsweredBreak {
+        var time = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-break-row-\(UUID())")
+        let suite = "fc.break-row.\(UUID())"
+        lazy var defaults = UserDefaults(suiteName: suite)!
+        lazy var archive = SessionArchive(directory: directory, now: { self.time })
+        lazy var engine = SessionEngine(store: PersistenceStore(defaults: defaults), archive: archive,
+                                        ownBundleID: "fc.break-row.test", schedulesDwell: false, now: { self.time })
+        lazy var store = SessionStore(engine: engine, schedulesTicker: false,
+                                      applicationIsRunning: { _ in false }, activateApplication: { _, _ in },
+                                      now: { self.time })
+        var thread = UUID()
+
+        func build() -> AwayDecisionReceipt? {
+            engine.start(workType: .deepWork, intent: "Parser")
+            thread = engine.activeThreadID
+            time.addTimeInterval(600)
+            engine.transition(on: .awayBegan(trigger: .screenLock))
+            time.addTimeInterval(1_200)
+            engine.transition(on: .awayEnded)
+            guard store.resolve(.tookBreak, label: "walk") else { return nil }
+            time.addTimeInterval(600)
+            engine.stop()
+            return engine.lastAwayDecision
+        }
+
+        func cleanUp() {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: directory)
+        }
+    }
+
+    private static func changeAnsweredBreak() -> [String] {
+        MainActor.assumeIsolated {
+            var failures: [String] = []
+            for decision in [UserDecision.mergeTime, .continueSession] {
+                let f = AnsweredBreak(); defer { f.cleanUp() }
+                guard let receipt = f.build(), receipt.decision == .tookBreak,
+                      f.archive.records.contains(where: { $0.workType == .breakTime && $0.name == "Walk" }) else {
+                    return ["the answered break was not recorded"]
+                }
+                guard f.store.changeBreak(receipt, to: decision) else {
+                    failures.append("changing the break to \(decision) was refused")
+                    continue
+                }
+                let breaks = f.archive.records.filter { $0.workType == .breakTime }
+                let covering = f.archive.records.filter {
+                    $0.threadID == f.thread && $0.start <= receipt.range.start && $0.end >= receipt.range.end
+                }
+                if !breaks.isEmpty { failures.append("\(decision) left the break recorded") }
+                if decision == .mergeTime, covering.isEmpty {
+                    failures.append("counting as focus did not put the interval into Parser")
+                }
+                if decision == .continueSession, !covering.isEmpty {
+                    failures.append("leaving it uncounted still counted the interval as Parser")
+                }
+                guard let changed = f.engine.lastAwayDecision, changed.decision == decision else {
+                    failures.append("the new answer \(decision) was not the interval's receipt")
+                    continue
+                }
+                if !f.store.undoAwayDecision(expectedID: changed.id) || f.engine.lastAwayDecision?.isResolved != false {
+                    failures.append("Undo after \(decision) did not reopen the question")
+                }
+            }
+            return failures
+        }
+    }
+
+    private static func renameUnansweredBreak() -> [String] {
+        MainActor.assumeIsolated {
+            let now = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 18))!
+            let walk = SessionRecord(name: "Break", workType: .breakTime, start: now.addingTimeInterval(-7_200),
+                                     end: now.addingTimeInterval(-5_400), workSeconds: 1_800)
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-rename-break-\(UUID())")
+            let suite = "fc.rename-break.\(UUID())"
+            defer {
+                UserDefaults.standard.removePersistentDomain(forName: suite)
+                try? FileManager.default.removeItem(at: directory)
+            }
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            guard let data = try? JSONEncoder().encode([walk]),
+                  (try? data.write(to: directory.appendingPathComponent("sessions.json"))) != nil,
+                  let defaults = UserDefaults(suiteName: suite) else { return ["could not write the fixture archive"] }
+            let engine = SessionEngine(store: PersistenceStore(defaults: defaults),
+                                       archive: SessionArchive(directory: directory, now: { now }),
+                                       ownBundleID: "fc.rename-break.test", schedulesDwell: false, now: { now })
+            let store = SessionStore(engine: engine, schedulesTicker: false,
+                                     applicationIsRunning: { _ in false }, activateApplication: { _, _ in },
+                                     now: { now })
+            var failures: [String] = []
+            guard store.renameBreak(recordID: walk.id, to: " walk by the river ") else {
+                return ["naming an unanswered break was refused"]
+            }
+            if store.legacyBreakRecord(id: walk.id)?.name != "Walk by the river" {
+                failures.append("the break reads \(store.legacyBreakRecord(id: walk.id)?.name ?? "nothing")")
+            }
+            guard let correction = store.corrections.last,
+                  store.undoCorrection(expectedID: correction.id) else {
+                return failures + ["the rename offered no Undo"]
+            }
+            if store.legacyBreakRecord(id: walk.id)?.name != "Break" {
+                failures.append("Undo left the break named \(store.legacyBreakRecord(id: walk.id)?.name ?? "nothing")")
+            }
+            return failures
+        }
+    }
 
     private static func typedRecentsOnly() -> [String] {
         MainActor.assumeIsolated {

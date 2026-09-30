@@ -254,8 +254,12 @@ struct DayStory: View {
                 }
             }
         case .decision(let receipt, let range):
-            storyRow(time: range.start, tint: receipt.isResolved ? StoryStyle.successInk : Tokens.Colour.attention,
-                     dotSize: 8, isFirst: isFirst, isLast: isLast) {
+            // A break reads as a break whichever way it was recorded.
+            let isBreak = receipt.decision == .tookBreak
+            storyRow(time: range.start,
+                     tint: isBreak ? Tokens.Palette.workType(.breakTime)
+                         : receipt.isResolved ? StoryStyle.successInk : Tokens.Colour.attention,
+                     dotSize: isBreak ? 7 : 8, isFirst: isFirst, isLast: isLast) {
                 StoryDecisionRow(store: store, receipt: receipt, range: range)
             }
         case .correction(let id, let title, let range):
@@ -349,7 +353,7 @@ struct DayStory: View {
                      tint: Tokens.Palette.workType(.breakTime),
                      dotSize: 7,
                      isFirst: isFirst, isLast: isLast) {
-                RestEntryRow(store: store, rest: rest)
+                StoryBreakRow(store: store, rest: rest).equatable()
             }
         }
     }
@@ -933,43 +937,6 @@ final class WidthBox: ObservableObject {
 private struct TitleWidthKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
-}
-
-/// Rest is not work, so it is a quiet row rather than a card: named where the
-/// user named it, and never coloured like a session.
-struct RestEntryRow: View {
-    @ObservedObject var store: SessionStore
-    let rest: RestEntry
-
-    var body: some View {
-        HStack(spacing: Tokens.Space.m) {
-            Text(Self.label(rest.name))
-                .font(Tokens.Typography.metadata)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: Tokens.Space.s)
-            Text(durations: Tokens.preciseDuration(rest.length))
-                .font(Tokens.Typography.metadata.monospacedDigit())
-                .foregroundStyle(.secondary)
-            StoryLegacyBreakActions(store: store, rest: rest).equatable()
-        }
-        .padding(.horizontal, Tokens.Space.m)
-        .padding(.vertical, Tokens.Space.s)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Tokens.Colour.elevated,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(Self.label(rest.name)), \(Tokens.spent(rest.length)), "
-                            + Tokens.timeRange(rest.start, rest.end))
-    }
-
-    /// An unnamed break is already called one; only a name the user gave is
-    /// worth putting before the explanation.
-    static func label(_ name: String) -> String {
-        name.isEmpty || name == "Break"
-            ? "Recorded break, not counted as focus"
-            : "\(name) — recorded break, not counted as focus"
-    }
 }
 
 /// The unresolved gap, asked where it happened. The answers are the existing
