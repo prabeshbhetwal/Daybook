@@ -33,6 +33,10 @@ enum PanelRestChecks: CheckSuite {
             panel.contentView = host
             func spin() { RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
 
+            // Built while hidden and ordered in before the next turn of the
+            // run loop, as the menu bar panel is on its first click: a stale
+            // "hidden" from building must not blank the open panel.
+            host.layoutSubtreeIfNeeded()
             panel.orderFront(nil)
             spin()
             if beat.evaluations == 0 { problems.append("The shown panel never drew its content") }

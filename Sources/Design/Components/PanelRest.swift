@@ -53,8 +53,13 @@ private struct WindowVisibility: NSViewRepresentable {
             visibility = nil
             guard let window else { return }
             // Arriving happens inside a SwiftUI update, which must not publish.
-            let visible = window.isVisible
-            DispatchQueue.main.async { [weak self] in self?.onChange?(visible) }
+            // The window is read when the report runs, not now: it can be
+            // ordered in meanwhile, and a stale "hidden" landing after that
+            // left the open panel showing its empty stand-in.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window = self.window else { return }
+                self.onChange?(window.isVisible)
+            }
             // Ordering in flips `isVisible` synchronously, ahead of the first
             // draw, so the content is back before the panel shows.
             visibility = window.observe(\.isVisible, options: [.new]) { [weak self] window, _ in
