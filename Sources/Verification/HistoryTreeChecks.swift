@@ -666,8 +666,13 @@ enum HistoryTreeChecks {
             let day = calendar.date(byAdding: .day, value: -3, to: calendar.startOfDay(for: store.now()))!
             let start = day.addingTimeInterval(9 * 3_600)
             let before = store.historyDays.first { calendar.isDate($0.date, inSameDayAs: day) }?.tracked ?? 0
-            usage.checkpoint(AppUsageSession(bundleID: "fc.check.newcomer", appName: "Newcomer",
-                                             start: start, end: start.addingTimeInterval(1_800)))
+            // As the tracker does it: the checkpoint lands, the ticker's
+            // figures are read, then the one refresh is consumed.
+            store.withRefreshTransaction {
+                usage.checkpoint(AppUsageSession(bundleID: "fc.check.newcomer", appName: "Newcomer",
+                                                 start: start, end: start.addingTimeInterval(1_800)))
+                store.updateTimeDrivenFigures()
+            }
             if store.historyIndexGeneration != generation {
                 failures.append("an app-use checkpoint rebuilt the whole index")
             }

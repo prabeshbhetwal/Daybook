@@ -1020,7 +1020,14 @@ final class SessionStore: ObservableObject {
             refreshLiveFigures(at: moment)
             let revision = evidenceRevision
             if dashboardEvidenceRevision != revision { dashboardArchiveRefreshPending = true }
-            if reviewEvidenceRevision != revision { reviewRefreshPending = true }
+            // App use alone is patched into the days it touched; anything
+            // else is a full rebuild. Read before the tracker's own refresh,
+            // so this decides which one a checkpoint gets.
+            if reviewEvidenceRevision?.sameArchive(as: revision) != true {
+                reviewRefreshPending = true
+            } else if reviewEvidenceRevision != revision {
+                reviewLiveTailRefreshPending = true
+            }
             // Open tails genuinely advance each second; an idle archive does
             // not. Keep live data current without republishing large unchanged
             // Dashboard/History read models at rest.
