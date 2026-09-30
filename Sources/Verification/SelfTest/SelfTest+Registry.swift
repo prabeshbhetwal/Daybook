@@ -23,7 +23,7 @@ extension SelfTest {
             + HistorySearchChecks.tests + BreakCountingChecks.tests
             + SessionAccessibilityChecks.tests + SettingsAccessibilityChecks.tests
             + DayStoryAccessibilityChecks.tests + RailAccessibilityChecks.tests
-            + LongAwayRestoreChecks.tests
+            + LongAwayRestoreChecks.tests + PanelRestChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

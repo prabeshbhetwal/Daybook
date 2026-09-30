@@ -34,7 +34,9 @@ struct FocusContinuityApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PopoverView(
+            // Closing the panel only orders it out; this rests its content
+            // until it is shown again, so a closed panel costs nothing.
+            PanelRest { PopoverView(
                 store: coordinator.store,
                 settings: coordinator.settings,
                 onOpenApplication: { openMainWindow() },
@@ -47,10 +49,7 @@ struct FocusContinuityApp: App {
                 onOpenActivityEditor: { request in
                     ActivityEditorPanel.shared.show(request, store: coordinator.store)
                 }
-            )
-            // Closing the panel only orders it out; this rests its content
-            // until it is shown again, so a closed panel costs nothing.
-            .background(WindowDormancy())
+            ) }
         } label: {
             MenuBarLabelView(model: coordinator.menuBarLabel)
                 // The app is an LSUIElement, so nothing is on screen at first
