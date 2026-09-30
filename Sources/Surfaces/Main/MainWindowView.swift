@@ -145,10 +145,7 @@ struct MainWindowView: View {
             case .history:
                 HistoryWorkspace(store: store, navigation: navigation, settings: settings,
                                  scrolls: insightsScrolls)
-                    .onAppear {
-                        store.setReviewVisible(true)
-                        store.refreshReview()
-                    }
+                    .onAppear { store.setReviewVisible(true) }
                     .onDisappear { store.setReviewVisible(false) }
             }
         }
@@ -211,10 +208,12 @@ struct StoryCanvas: View {
             .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                        value: readingKey)
         }
+        // History claims and releases its own visibility as it appears and
+        // goes; the window saying "not visible" here un-claimed it whenever
+        // the window appeared already on History, and the page went stale.
         .onAppear {
             navigation.connect(to: store)
             store.setDashboardVisible(true)
-            store.setReviewVisible(false)
         }
         .onDisappear {
             store.setDashboardVisible(false)

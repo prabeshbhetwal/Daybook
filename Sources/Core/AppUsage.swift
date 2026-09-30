@@ -300,6 +300,10 @@ final class AppUsageArchive {
     private var cache: [AppUsageSession]
 
     private(set) var revision = 0
+    /// The earliest start among records changed since a reader last took it.
+    /// History keeps a figure per day; with this it repairs only the days a
+    /// checkpoint touched instead of walking the whole uncapped archive.
+    private(set) var pendingChangeStart: Date?
     private(set) var metadata: AppUsageMetadata
     private(set) var legacyBackupURL: URL?
     /// Unsupported schema or failed evidence preservation makes the archive a
@@ -516,6 +520,13 @@ final class AppUsageArchive {
     private func persistMutation(_ change: JournalChange,
                                  applying mutate: (inout [AppUsageSession]) -> Void) -> Bool {
         guard !isReadOnly else { return false }
+        let touched: Date?
+        switch change {
+        case .upsert(let session):
+            touched = min(session.start, cache.first { $0.id == session.id }?.start ?? session.start)
+        case .remove(let id):
+            touched = cache.first { $0.id == id }?.start
+        }
         if journalEntries + 1 < AppUsageConstants.journalCompactionThreshold {
             guard appendToJournal(change) else { return false }
             mutate(&cache)
@@ -526,8 +537,20 @@ final class AppUsageArchive {
             cache = candidate
         }
         revision += 1
+        noteChange(from: touched)
         onDidChange?()
         return true
+    }
+
+    private func noteChange(from start: Date?) {
+        guard let start else { return }
+        pendingChangeStart = min(pendingChangeStart ?? start, start)
+    }
+
+    /// The pending change window, cleared: the caller now covers it.
+    func takePendingChangeStart() -> Date? {
+        defer { pendingChangeStart = nil }
+        return pendingChangeStart
     }
 
     private func appendToJournal(_ change: JournalChange) -> Bool {
@@ -662,6 +685,7 @@ final class AppUsageArchive {
                 guard compact(to: merged) else { return }
                 cache = merged
                 revision += 1
+                noteChange(from: missing.map(\.start).min())
                 Diagnostics.log("recovered \(missing.count) app usage records from \(name)")
             }
             let restored = directory.appendingPathComponent(

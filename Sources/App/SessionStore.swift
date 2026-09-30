@@ -451,6 +451,14 @@ final class SessionStore: ObservableObject {
         let usage: Int
         let overlay: Int
         let metadata: Int
+
+        /// True when only app use moved: the live overlay, or a checkpoint
+        /// the usage archive can name the days of. Sessions, corrections
+        /// and midnight change any day, so those still rebuild.
+        func sameArchive(as other: EvidenceRevision) -> Bool {
+            day == other.day && sessions == other.sessions && usageID == other.usageID
+                && metadata == other.metadata
+        }
     }
     var evidenceRevision: EvidenceRevision {
         EvidenceRevision(day: Calendar.current.startOfDay(for: now()),
@@ -468,6 +476,9 @@ final class SessionStore: ObservableObject {
     /// How many times the reading was actually built. Verification reads it to
     /// prove a ticking clock no longer rebuilds an unchanged page.
     var insightReadingComputeCount = 0
+    /// How many times the Insights surfaces were built. Verification reads it
+    /// to prove a page that does not show them does not build them.
+    var insightsComputeCount = 0
     /// The journal a search narrows to, kept while the search and the archive
     /// behind it stay the same; its matches walk every record.
     var searchJournalCache: (key: SearchJournalKey, entries: [JournalEntry])?
@@ -771,8 +782,7 @@ final class SessionStore: ObservableObject {
                 self.glanceArchiveRefreshPending = true
                 self.dashboardArchiveRefreshPending = true
                 self.insightsRefreshPending = true
-                self.reviewLiveTailRefreshPending = false
-                self.reviewRefreshPending = true
+                self.reviewLiveTailRefreshPending = true
             } else {
                 self.archiveUsageDidChange()
             }
@@ -795,10 +805,11 @@ final class SessionStore: ObservableObject {
             updateTicker()
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
+            // App use alone patches the days it touched; a session change
+            // already pending keeps its full rebuild.
             if reviewVisible {
-                reviewLiveTailRefreshPending = false
-                refreshReview()
-            } else { reviewRefreshPending = true }
+                refreshReview(rebuildingHistory: reviewRefreshPending)
+            } else { reviewLiveTailRefreshPending = true }
         }
     }
 

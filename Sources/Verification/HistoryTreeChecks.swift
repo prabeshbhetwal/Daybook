@@ -26,7 +26,9 @@ enum HistoryTreeChecks {
         ("Open rows survive midnight and the top stepping up", openSurvivesMidnight),
         ("A zone whose clocks change at midnight keeps every day once", daylightSavingAtMidnight),
         ("Today's live figures patch the cached summary without a walk", summaryPatching),
-        ("A day's rail in History reads exactly what the dashboard reads for that day", railDayMatchesDashboard)
+        ("A day's rail in History reads exactly what the dashboard reads for that day", railDayMatchesDashboard),
+        ("An app-use checkpoint repairs the days it touched in place; a session change rebuilds the index", checkpointPatchesIndex),
+        ("Opening History again on unchanged evidence rebuilds neither the index nor Insights", reopenRebuildsNothing)
     ]
 
     // MARK: - Fixtures
@@ -637,6 +639,80 @@ enum HistoryTreeChecks {
             // Read while the dashboard shows today: History still gets yesterday.
             if store.storyRailDay(on: yesterday).apps != reading.apps {
                 failures.append("History's reading for yesterday followed the dashboard's day")
+            }
+            return failures
+        }
+    }
+
+    // MARK: - Cost
+
+    /// Every app switch checkpoints app use. With History showing, that used
+    /// to walk the whole uncapped archive again (a third of a second at two
+    /// months of record); now the archive names the days the checkpoint
+    /// touched and only those are rebuilt. A session change still rebuilds.
+    private static func checkpointPatchesIndex() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            guard let usage = store.usage else { return ["the history fixture attaches no usage archive"] }
+            var failures: [String] = []
+            let calendar = Calendar.current
+            store.setReviewVisible(true)
+            store.refreshReview()
+            let generation = store.historyIndexGeneration
+            // Three days back: not today, so the live tail alone would not cover it.
+            let day = calendar.date(byAdding: .day, value: -3, to: calendar.startOfDay(for: store.now()))!
+            let start = day.addingTimeInterval(9 * 3_600)
+            let before = store.historyDays.first { calendar.isDate($0.date, inSameDayAs: day) }?.tracked ?? 0
+            usage.checkpoint(AppUsageSession(bundleID: "fc.check.newcomer", appName: "Newcomer",
+                                             start: start, end: start.addingTimeInterval(1_800)))
+            if store.historyIndexGeneration != generation {
+                failures.append("an app-use checkpoint rebuilt the whole index")
+            }
+            let after = store.historyDays.first { calendar.isDate($0.date, inSameDayAs: day) }?.tracked ?? 0
+            if after != before + 1_800 {
+                failures.append("the checkpointed day's app use read \(after)s, not \(before + 1_800)s")
+            }
+            if store.historyAppName(for: "fc.check.newcomer") != "Newcomer" {
+                failures.append("the find bar does not know the app the checkpoint brought")
+            }
+            if store.reviewRefreshPending || store.reviewLiveTailRefreshPending {
+                failures.append("the checkpoint left a refresh pending after it was applied")
+            }
+            // A session is any day's evidence: the index is rebuilt.
+            store.engine.archive.append(SessionRecord(name: "Late entry", workType: .deepWork,
+                                                      start: start.addingTimeInterval(3_600),
+                                                      end: start.addingTimeInterval(5_400),
+                                                      workSeconds: 1_800))
+            store.refresh()
+            if store.historyIndexGeneration == generation {
+                failures.append("a session change did not rebuild the index")
+            }
+            return failures
+        }
+    }
+
+    /// ⌘2 used to rebuild the index and both Insights surfaces every time,
+    /// changed or not. The page now takes what the visibility gate owes it.
+    private static func reopenRebuildsNothing() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            var failures: [String] = []
+            let navigation = MainWindowModel(store: store)
+            navigation.open(tab: .review)
+            if store.historyDays.isEmpty { failures.append("opening History did not build its index") }
+            let generation = store.historyIndexGeneration
+            let insights = store.insightsComputeCount
+            for _ in 0..<3 {
+                navigation.returnToStory()
+                navigation.open(tab: .review)
+            }
+            if store.historyIndexGeneration != generation {
+                failures.append("reopening History on unchanged evidence rebuilt the index \(store.historyIndexGeneration - generation) times")
+            }
+            if store.insightsComputeCount != insights {
+                failures.append("reopening History built Insights \(store.insightsComputeCount - insights) times")
             }
             return failures
         }

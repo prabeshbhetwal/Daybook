@@ -97,8 +97,7 @@ extension SessionStore {
             glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
             insightsRefreshPending = true
-            reviewLiveTailRefreshPending = false
-            reviewRefreshPending = true
+            reviewLiveTailRefreshPending = true
         }
     }
 

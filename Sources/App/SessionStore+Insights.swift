@@ -253,6 +253,7 @@ extension SessionStore {
             insightsRefreshPending = false
             return
         }
+        insightsComputeCount &+= 1
         let calendar = Calendar.current
         let moment = now()
         let snapshot = effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage)

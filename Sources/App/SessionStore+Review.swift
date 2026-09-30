@@ -35,7 +35,9 @@ extension SessionStore {
 
     func setReviewVisible(_ visible: Bool) {
         reviewVisible = visible
-        if visible && (reviewRefreshPending || reviewLiveTailRefreshPending) { refreshReview() }
+        if visible && (reviewRefreshPending || reviewLiveTailRefreshPending) {
+            refreshReview(rebuildingHistory: reviewRefreshPending)
+        }
     }
 
     /// Rebuilds period Review and canonical History from one authoritative usage
@@ -55,7 +57,7 @@ extension SessionStore {
         reviewRefreshPending = false
         reviewLiveTailRefreshPending = false
         let revision = evidenceRevision
-        let canPatch = !rebuildingHistory && reviewEvidenceRevision == revision
+        let canPatch = !rebuildingHistory && reviewEvidenceRevision?.sameArchive(as: revision) == true
         reviewEvidenceRevision = revision
         if let requestedPeriod, requestedPeriod != .day { reviewPeriod = requestedPeriod }
         guard let usage else {
@@ -63,13 +65,15 @@ extension SessionStore {
             return
         }
 
-        // A ticker-only live tail changes at most today's evidence. Keep the
-        // stable period/index data and replace that one day rather than walking
-        // every day and every history row on the main actor.
+        // A live tail or an app-use checkpoint changes a few known days. Keep
+        // the stable period/index data and replace those days rather than
+        // walking every day and every history row on the main actor.
         if canPatch, requestedPeriod == nil, !reviewDays.isEmpty {
             refreshReviewLiveTail(usage: usage)
             return
         }
+        // A full walk covers every pending change.
+        _ = usage.takePendingChangeStart()
 
         let calendar = Calendar.current
         let snapshot = effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage)
@@ -193,7 +197,7 @@ extension SessionStore {
     /// A one-second live tail replaces its current-day row only, preserving the
     /// open History sheet without repeatedly walking every archived day.
     private func refreshHistory(snapshot: AppUsageSnapshot, calendar: Calendar,
-                                fully: Bool) {
+                                fully: Bool, within interval: DateInterval? = nil) {
         if fully {
             let previousNewest = historyDays.first?.date
             let previousOldest = historyDays.last?.date
@@ -209,11 +213,15 @@ extension SessionStore {
         }
         let previousNewest = historyDays.first?.date
         let previousOldest = historyDays.last?.date
-        let interval = liveHistoryBounds(calendar: calendar)
+        let interval = interval ?? liveHistoryBounds(calendar: calendar)
+        let usage = snapshot.sessions.filter { $0.end > interval.start && $0.start < interval.end }
         let rebuilt = HistoryStats.build(
             sessionRecords: engine.archive.records.filter { $0.end > interval.start && $0.start < interval.end },
-            usage: snapshot.sessions.filter { $0.end > interval.start && $0.start < interval.end },
-            calendar: calendar)
+            usage: usage, calendar: calendar)
+        // The names the find bar offers: a checkpoint can bring a new app.
+        for session in usage.sorted(by: { $0.end < $1.end }) where historyAppNames[session.bundleID] != session.appName {
+            historyAppNames[session.bundleID] = session.appName
+        }
         // The builder deliberately clips each source record across all of its
         // days. Keep only the affected keys, then replace them exactly once.
         let current = storyHistoryDaysIncludingDecisionReceipts(
@@ -229,11 +237,13 @@ extension SessionStore {
 
     /// Every day touched by a changing live projection, not merely today. A
     /// paused overnight session can redistribute its clipped credit across both
-    /// dates; a tracker tail can also start before midnight.
+    /// dates; a tracker tail can also start before midnight, and so can the
+    /// checkpoint that just closed one, which the archive names.
     private func liveHistoryBounds(calendar: Calendar) -> DateInterval {
         let moment = now()
         let starts = (tracker?.usageOverlaySessions() ?? []).map(\.start)
             + [storyRunningSpan?.start ?? moment, moment]
+            + [usage?.takePendingChangeStart()].compactMap { $0 }
         let first = calendar.startOfDay(for: starts.min() ?? moment)
         let end = calendar.date(byAdding: .day, value: 1,
                                 to: calendar.startOfDay(for: moment)) ?? moment
@@ -265,8 +275,8 @@ extension SessionStore {
         let periodStats = PeriodStats(sessions: engine.archive, usage: usage,
                                       usageSnapshot: snapshot, calendar: calendar, now: now)
         let bounds = periodStats.bounds(for: reviewPeriod, containing: anchor)
-        refreshHistory(snapshot: snapshot, calendar: calendar, fully: false)
         let affected = liveHistoryBounds(calendar: calendar)
+        refreshHistory(snapshot: snapshot, calendar: calendar, fully: false, within: affected)
         let changedDays = reviewDays.map(\.date).filter {
             $0 >= affected.start && $0 < affected.end
         }

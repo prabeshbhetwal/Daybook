@@ -227,13 +227,14 @@ struct HistorySessionPick: Hashable {
                 // days feed its search.
                 workspace = .history
                 sheet = nil
-                store?.refreshReview()
-                store?.refreshInsights()
+                // The opening path is read from the index, so it is brought
+                // up to date first; nothing is rebuilt when nothing changed.
+                store?.setReviewVisible(true)
                 prepareHistory()
             case .insights:
                 workspace = .history
                 sheet = nil
-                store?.refreshInsights()
+                store?.setReviewVisible(true)
                 prepareHistory()
             case .story:
                 workspace = .story
