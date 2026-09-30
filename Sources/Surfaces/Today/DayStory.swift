@@ -580,12 +580,22 @@ struct SessionEntryCard: View {
                     HStack(alignment: .top, spacing: Tokens.Space.m) {
                         Spacer(minLength: Tokens.Space.s)
                         VStack(alignment: .trailing, spacing: 2) {
-                            Text(clock ?? Tokens.preciseDuration(session.worked))
-                                .font(Tokens.Typography.metadata.weight(clock == nil ? .regular : .semibold)
-                                    .monospacedDigit())
-                                .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
-                                                              : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
-                                .contentTransition(.numericText())
+                            // Live, the clock is ClockText: its seconds change every
+                            // second and, under the numeric transition, each change
+                            // kept its glyphs (see ClockText). A finished total changes
+                            // rarely and rolls.
+                            Group {
+                                if clock != nil {
+                                    ClockText(seconds: session.worked)
+                                } else {
+                                    Text(Tokens.preciseDuration(session.worked))
+                                        .contentTransition(.numericText())
+                                }
+                            }
+                            .font(Tokens.Typography.metadata.weight(clock == nil ? .regular : .semibold)
+                                .monospacedDigit())
+                            .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
+                                                          : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
                             if let powerSummary {
                                 Label(powerSummary.headline, systemImage: powerSummary.symbolName)
                                     .font(Tokens.Typography.microLabel.weight(.regular)).foregroundStyle(.secondary)

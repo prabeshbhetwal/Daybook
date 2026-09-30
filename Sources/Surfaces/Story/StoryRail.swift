@@ -330,9 +330,12 @@ struct StoryRail: View {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     if goal.goal > 0 {
+                        // Keyed on the printed text, not the seconds behind it: keyed
+                        // on the seconds, the roll restarted every tick and drew the
+                        // same figure again each time.
                         Text(durations: Tokens.preciseDuration(goal.achieved))
                             .font(Tokens.Typography.metricValue.monospacedDigit())
-                            .rollingDigits(goal.achieved)
+                            .rollingDigits(Tokens.preciseDuration(goal.achieved))
                         Text(durations: "counts towards your \(Tokens.duration(goal.goal)) goal"
                              + (goal.isMet ? " · goal met" : ""))
                             .font(Tokens.Typography.metadata)
@@ -437,7 +440,7 @@ struct StoryRail: View {
         return StoryTile(title: "On this Mac", trailing: nil) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(durations: Tokens.preciseDuration(trackedValue))
-                    .rollingDigits(trackedValue)
+                    .rollingDigits(Tokens.preciseDuration(trackedValue))
                     .font(Tokens.Typography.rowTitle.weight(.semibold).monospacedDigit())
                 Text("recorded app use")
                     .font(Tokens.Typography.metadata)

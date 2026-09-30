@@ -27,8 +27,11 @@ struct GoalRing: View {
                 .stroke(Color.accentColor,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                // The arc follows `progress` exactly on every draw; the settle
+                // runs only when it has moved half a per cent. Keyed on the raw
+                // share it restarted every second, for a change no eye could see.
                 .animation(Tokens.Motion.animation(Tokens.Motion.settle, reduceMotion: reduceMotion),
-                           value: progress)
+                           value: (progress * 200).rounded())
             if isMet {
                 Image(systemName: "checkmark")
                     .font(.system(size: diameter * 0.3, weight: .bold))
