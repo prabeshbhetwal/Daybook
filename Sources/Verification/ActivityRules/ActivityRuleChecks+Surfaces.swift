@@ -104,11 +104,25 @@ extension ActivityRuleChecks {
             host.layoutSubtreeIfNeeded()
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
             host.layoutSubtreeIfNeeded()
-            if descendantCount(NSScrollView.self, in: host) < 1 {
-                failures.append("Long installed-app picker did not render a genuine scroll region")
+            // Nothing under the list until a rule is chosen: the form's app
+            // picker is the page's only scroll region, so its absence says the
+            // form stayed closed on arrival.
+            if descendantCount(NSScrollView.self, in: host) != 0 {
+                failures.append("The rule form opened on arrival, before any rule was chosen")
             }
             if discoveries != 3 {
                 failures.append("Fixture editor did not use only its three injected discovery sources")
+            }
+            let opened = ActivityRuleEditorState()
+            opened.edit(persistence.activityRules[0])
+            let form = NSHostingView(rootView: ActivityRuleForm(model: model, editor: opened)
+                .frame(width: 680, height: 500))
+            form.frame = NSRect(x: 0, y: 0, width: 680, height: 500)
+            form.layoutSubtreeIfNeeded()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+            form.layoutSubtreeIfNeeded()
+            if descendantCount(NSScrollView.self, in: form) < 1 {
+                failures.append("Long installed-app picker did not render a genuine scroll region")
             }
             return failures
         }

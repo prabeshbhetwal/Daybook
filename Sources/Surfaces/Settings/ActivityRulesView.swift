@@ -156,12 +156,10 @@ struct ActivityRulesView: View {
                 .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
             }
         }
-        .onAppear {
-            model.installedAppCatalog.refresh()
-            // The first rule opens itself, so the page shows what a rule is
-            // made of without a click.
-            if editor.selectedID == nil, let first = model.activityRules.first { editor.edit(first) }
-        }
+        // The form opens only when a rule is chosen or New rule is pressed.
+        // Opening the first rule on arrival put an editor under the list that
+        // nobody had asked for.
+        .onAppear { model.installedAppCatalog.refresh() }
     }
 
     private func open(_ change: () -> Void) {
