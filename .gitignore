@@ -16,3 +16,6 @@
 
 # iCloud File Provider conflict copies of the built bundle
 /FocusContinuity *.app/
+
+# Claude Code harness state (worktrees, scratch)
+/.claude/
