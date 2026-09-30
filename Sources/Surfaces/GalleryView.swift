@@ -450,6 +450,8 @@ struct GalleryView: View {
 }
 
 struct GalleryApp: App {
+    @NSApplicationDelegateAdaptor(FixtureCleanupDelegate.self) private var delegate
+
     var body: some Scene {
         Window("Gallery", id: "gallery") {
             GalleryView()
