@@ -21,16 +21,11 @@ enum StoryIntegrationChecks {
     // MARK: - Fixture
 
     /// Injected time, so every duration is deterministic and no test sleeps.
-    private final class Clock {
-        var value: Date
-        init(_ value: Date) { self.value = value }
-        func advance(_ seconds: TimeInterval) { value = value.addingTimeInterval(seconds) }
-    }
 
     private final class Fixture {
         let directory: URL
         let suite: String
-        let clock: Clock
+        let clock: TestClock
         let persistence: PersistenceStore
         let archive: SessionArchive
         let engine: SessionEngine
@@ -42,7 +37,7 @@ enum StoryIntegrationChecks {
                 .appendingPathComponent("fc-integration-\(UUID().uuidString)", isDirectory: true)
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             suite = "com.prabesh.focuscontinuity.integration.\(UUID().uuidString)"
-            clock = Clock(Date(timeIntervalSince1970: 1_788_598_000))
+            clock = TestClock(Date(timeIntervalSince1970: 1_788_598_000))
             persistence = PersistenceStore(defaults: UserDefaults(suiteName: suite)!)
             archive = SessionArchive(directory: directory, now: { [clock] in clock.value })
             engine = SessionEngine(store: persistence, archive: archive,

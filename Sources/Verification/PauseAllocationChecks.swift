@@ -55,11 +55,7 @@ enum PauseAllocationChecks {
     }
 
     private static func liveAllocation() -> [String] {
-        final class Clock {
-            var value: Date
-            init(_ value: Date) { self.value = value }
-        }
-        let clock = Clock(date(20, hour: 23))
+        let clock = TestClock(date(20, hour: 23))
         let suite = "fc.pause.allocation.\(UUID().uuidString)"
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-pause-allocation-\(UUID().uuidString)", isDirectory: true)

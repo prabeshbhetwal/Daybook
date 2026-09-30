@@ -6,7 +6,7 @@ import IOKit.ps
 /// Focused contracts for local record-scoped notes and observed power context.
 /// Every fixture owns a complete isolated data directory; no check reads or
 /// writes the live Application Support folder or samples the current Mac.
-enum SessionMetadataChecks {
+enum SessionMetadataChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("Session metadata: note persists by exact stretch identity", notePersistsByRecordID),
         ("Session metadata: failed atomic note write preserves durable evidence", failedWriteIsNonMutating),
@@ -41,11 +41,6 @@ enum SessionMetadataChecks {
     private static func directory() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-session-metadata-\(UUID().uuidString)", isDirectory: true)
-    }
-
-    private static func expect(_ condition: @autoclosure () -> Bool,
-                               _ message: String, _ problems: inout [String]) {
-        if !condition() { problems.append(message) }
     }
 
     private static func notePersistsByRecordID() -> [String] {
@@ -233,12 +228,6 @@ enum SessionMetadataChecks {
         }
     }
 
-    private final class Clock {
-        var value: Date
-        init(_ value: Date) { self.value = value }
-        func advance(_ seconds: TimeInterval) { value.addTimeInterval(seconds) }
-    }
-
     private static func retentionAndCorrectionCoexistence() -> [String] {
         MainActor.assumeIsolated {
             let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.retention.\(UUID())"
@@ -246,7 +235,7 @@ enum SessionMetadataChecks {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)
             }
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_595_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_595_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
             let subject = SessionEngine(store: PersistenceStore(
                 defaults: UserDefaults(suiteName: suite)!), archive: archive,
@@ -314,7 +303,7 @@ enum SessionMetadataChecks {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)
             }
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_598_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_598_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
             let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
                 archive: archive, ownBundleID: "com.example.metadata", schedulesDwell: false,
@@ -630,7 +619,7 @@ enum SessionMetadataChecks {
         return problems
     }
 
-    private static func makePowerFixture(_ clock: Clock, folder: URL, suite: String,
+    private static func makePowerFixture(_ clock: TestClock, folder: URL, suite: String,
                                          sample: PowerObservation) -> (SessionStore, SessionEngine,
                                             SessionMetadataArchive, FakePowerMonitor) {
         let archive = SessionArchive(directory: folder, now: { clock.value })
@@ -652,7 +641,7 @@ enum SessionMetadataChecks {
             do {
                 let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.boundary.normal.\(UUID())"
                 defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
-                let clock = Clock(Date(timeIntervalSince1970: 1_788_610_000))
+                let clock = TestClock(Date(timeIntervalSince1970: 1_788_610_000))
                 let fixture = makePowerFixture(clock, folder: folder, suite: suite,
                     sample: PowerObservation(timestamp: clock.value, source: .battery,
                         percentage: 78, charging: .notCharging))
@@ -679,13 +668,13 @@ enum SessionMetadataChecks {
                     UserDefaults.standard.removePersistentDomain(forName: reloadSuite)
                 }
                 let old = Date(timeIntervalSince1970: 1_788_620_000)
-                let sourceClock = Clock(old)
+                let sourceClock = TestClock(old)
                 let source = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: sourceSuite)!),
                     archive: SessionArchive(directory: folder, now: { sourceClock.value }),
                     schedulesDwell: false, now: { sourceClock.value })
                 source.start(workType: .deepWork, intent: "Restored")
                 var snapshot = source.snapshot()
-                let clock = Clock(old.addingTimeInterval(3_600))
+                let clock = TestClock(old.addingTimeInterval(3_600))
                 snapshot.savedAt = clock.value
                 let fixture = makePowerFixture(clock, folder: folder, suite: reloadSuite,
                     sample: PowerObservation(timestamp: clock.value, source: .battery,
@@ -702,7 +691,7 @@ enum SessionMetadataChecks {
             do {
                 let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.boundary.auto.\(UUID())"
                 defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
-                let clock = Clock(Date(timeIntervalSince1970: 1_788_630_000))
+                let clock = TestClock(Date(timeIntervalSince1970: 1_788_630_000))
                 let fixture = makePowerFixture(clock, folder: folder, suite: suite,
                     sample: PowerObservation(timestamp: clock.value, source: .external,
                         percentage: 64, charging: .charging))
@@ -743,7 +732,7 @@ enum SessionMetadataChecks {
                     try? FileManager.default.removeItem(at: folder)
                     UserDefaults.standard.removePersistentDomain(forName: suite)
                 }
-                let clock = Clock(Date(timeIntervalSince1970: 1_788_640_000))
+                let clock = TestClock(Date(timeIntervalSince1970: 1_788_640_000))
                 let fixture = makePowerFixture(clock, folder: folder, suite: suite,
                     sample: PowerObservation(timestamp: clock.value, source: .battery,
                         percentage: 78, charging: .notCharging))
@@ -805,7 +794,7 @@ enum SessionMetadataChecks {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)
             }
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_660_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_660_000))
             let fixture = makePowerFixture(clock, folder: folder, suite: suite,
                 sample: PowerObservation(timestamp: clock.value, source: .battery,
                     percentage: 70, charging: .notCharging))
@@ -873,7 +862,7 @@ enum SessionMetadataChecks {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)
             }
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_680_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_680_000))
             let idleStart = clock.value
             let fixture = makePowerFixture(clock, folder: folder, suite: suite,
                 sample: PowerObservation(timestamp: clock.value, source: .battery,
@@ -1009,7 +998,7 @@ enum SessionMetadataChecks {
         MainActor.assumeIsolated {
             let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.transfer.retry.\(UUID())"
             defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_660_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_660_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
             let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
                 archive: archive, schedulesDwell: false, now: { clock.value })
@@ -1115,7 +1104,7 @@ enum SessionMetadataChecks {
         MainActor.assumeIsolated {
             let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.transfer.order.\(UUID())"
             defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_670_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_670_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
             let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
                 archive: archive, schedulesDwell: false, now: { clock.value })
@@ -1172,7 +1161,7 @@ enum SessionMetadataChecks {
             guard let defaults = UserDefaults(suiteName: suite) else {
                 return ["could not create cold-launch preferences"]
             }
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_680_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_680_000))
             var failNext = false
             var firstArchive: SessionArchive? = SessionArchive(directory: folder, now: { clock.value })
             var firstEngine: SessionEngine? = SessionEngine(
@@ -1268,7 +1257,7 @@ enum SessionMetadataChecks {
                 return queue
             }
 
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_690_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_690_000))
             var failNext = false
             var firstArchive: SessionArchive? = SessionArchive(
                 directory: folder, now: { clock.value })

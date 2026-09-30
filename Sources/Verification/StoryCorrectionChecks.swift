@@ -2,7 +2,7 @@ import Foundation
 
 /// Regression coverage for durable, reversible corrections. Each case owns an
 /// isolated archive and preferences suite; no check can see personal history.
-enum StoryCorrectionChecks {
+enum StoryCorrectionChecks: CheckSuite {
 
     static let tests: [(String, () -> [String])] = [
         ("Story corrections: running and resumed threads update as one work item", runningAndResumedThreadsUpdateTogether),
@@ -16,12 +16,6 @@ enum StoryCorrectionChecks {
         ("Story corrections: combined undo fails atomically and retries", combinedUndoIsAtomicAndRetryable)
     ]
 
-    private final class Clock {
-        var value: Date
-        init(_ value: Date) { self.value = value }
-        func advance(_ seconds: TimeInterval) { value = value.addingTimeInterval(seconds) }
-    }
-
     private struct Fixture {
         let store: SessionStore
         let engine: SessionEngine
@@ -30,7 +24,7 @@ enum StoryCorrectionChecks {
         let cleanUp: () -> Void
     }
 
-    private static func makeFixture(_ clock: Clock,
+    private static func makeFixture(_ clock: TestClock,
                                     writeOverride: (([SessionRecord]) -> String?)? = nil) -> Fixture? {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-story-correction-\(UUID().uuidString)", isDirectory: true)
@@ -57,11 +51,6 @@ enum StoryCorrectionChecks {
                    isRunning: isRunning)
     }
 
-    private static func expect(_ condition: @autoclosure () -> Bool,
-                               _ message: String, _ problems: inout [String]) {
-        if !condition() { problems.append(message) }
-    }
-
     private static func archiveBytes(in directory: URL) -> Data? {
         try? Data(contentsOf: directory.appendingPathComponent("sessions.json"))
     }
@@ -71,7 +60,7 @@ enum StoryCorrectionChecks {
     private static func runningAndResumedThreadsUpdateTogether() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_000_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_000_000))
             guard let fixture = makeFixture(clock) else {
                 return ["could not create isolated correction preferences"]
             }
@@ -108,7 +97,7 @@ enum StoryCorrectionChecks {
     private static func noOpsAndFailedWritesStayHonest() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_100_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_100_000))
             guard let fixture = makeFixture(clock) else {
                 return ["could not create isolated correction preferences"]
             }
@@ -144,7 +133,7 @@ enum StoryCorrectionChecks {
     private static func undoRestoresAffectedFields() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_200_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_200_000))
             guard let fixture = makeFixture(clock) else {
                 return ["could not create isolated correction preferences"]
             }
@@ -175,7 +164,7 @@ enum StoryCorrectionChecks {
     private static func activeBreakExcludesLiveFocus() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_300_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_300_000))
             guard let fixture = makeFixture(clock) else {
                 return ["could not create isolated correction preferences"]
             }
@@ -211,7 +200,7 @@ enum StoryCorrectionChecks {
     private static func undoPreservesNewerEvidence() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_400_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_400_000))
             guard let fixture = makeFixture(clock) else {
                 return ["could not create isolated correction preferences"]
             }
@@ -267,7 +256,7 @@ enum StoryCorrectionChecks {
     private static func activeCorrectionPersistsAcrossRestore() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_500_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_500_000))
             guard let fixture = makeFixture(clock) else {
                 return ["could not create isolated correction preferences"]
             }
@@ -312,7 +301,7 @@ enum StoryCorrectionChecks {
     private static func continueAndUndoLifecycle() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_600_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_600_000))
             guard let fixture = makeFixture(clock) else {
                 return ["could not create isolated correction preferences"]
             }
@@ -391,7 +380,7 @@ enum StoryCorrectionChecks {
     private static func undoRestoresEmptyActiveName() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_700_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_700_000))
             guard let fixture = makeFixture(clock) else {
                 return ["could not create isolated correction preferences"]
             }
@@ -429,7 +418,7 @@ enum StoryCorrectionChecks {
             }
 
             var problems: [String] = []
-            let clock = Clock(Date(timeIntervalSince1970: 1_788_800_000))
+            let clock = TestClock(Date(timeIntervalSince1970: 1_788_800_000))
             let gate = WriteGate()
             guard let fixture = makeFixture(clock, writeOverride: { gate.error(for: $0) }) else {
                 return ["could not create isolated correction preferences"]

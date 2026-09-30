@@ -17,12 +17,6 @@ enum EfficiencyChecks {
         ("Live Day and Month refreshes read the period and agree with a full rebuild", liveRefreshesMatchFullRebuild)
     ]
 
-    private final class Clock {
-        var value: Date
-        init(_ value: Date) { self.value = value }
-        func advance(_ seconds: TimeInterval) { value = value.addingTimeInterval(seconds) }
-    }
-
     private struct Fixture {
         let store: SessionStore
         let usage: AppUsageArchive
@@ -30,7 +24,7 @@ enum EfficiencyChecks {
         let cleanUp: () -> Void
     }
 
-    private static func makeFixture(_ clock: Clock) -> Fixture? {
+    private static func makeFixture(_ clock: TestClock) -> Fixture? {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-efficiency-\(UUID().uuidString)", isDirectory: true)
         let suiteName = "com.prabesh.focuscontinuity.efficiency.\(UUID().uuidString)"
@@ -66,7 +60,7 @@ enum EfficiencyChecks {
     /// Insights and the day stepper bound themselves by it.
     private static func launchBindingStaysHidden() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(noon())
+            let clock = TestClock(noon())
             guard let fixture = makeFixture(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             let first = noon(daysAgo: 3)
@@ -93,7 +87,7 @@ enum EfficiencyChecks {
     /// stretch first becomes long enough to be shown.
     private static func patchedSnapshotMatchesRebuild() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(noon())
+            let clock = TestClock(noon())
             guard let fixture = makeFixture(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             for hour in 1...4 {
@@ -289,7 +283,7 @@ enum EfficiencyChecks {
     /// must give exactly what a scan of every record gives.
     private static func dayTotalsReadOnlyTheDay() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(noon())
+            let clock = TestClock(noon())
             guard let fixture = makeFixture(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             let calendar = Calendar.current
@@ -336,7 +330,7 @@ enum EfficiencyChecks {
     /// day. It reads the day's records now, and must read exactly the same.
     private static func dayStoryReadsOnlyTheDay() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(noon())
+            let clock = TestClock(noon())
             guard let fixture = makeFixture(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             let calendar = Calendar.current
@@ -422,7 +416,7 @@ enum EfficiencyChecks {
     /// publish what a full rebuild over every record publishes.
     private static func liveRefreshesMatchFullRebuild() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(noon())
+            let clock = TestClock(noon())
             guard let fixture = makeFixture(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             let calendar = Calendar.current

@@ -5,13 +5,7 @@ import AppKit
 
 /// Headless logic tests (§7). Pure state-machine and time arithmetic with an
 /// injected clock — no UI, no notifications, no run loop.
-enum SelfTest {
-
-    private final class Clock {
-        var value: Date
-        init(_ start: Date) { value = start }
-        func advance(_ seconds: TimeInterval) { value = value.addingTimeInterval(seconds) }
-    }
+enum SelfTest: CheckSuite {
 
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
     /// One preferences suite per run. A fixed name let two runs at once, such
@@ -33,11 +27,11 @@ enum SelfTest {
         return directory
     }
 
-    private static func makeArchive(_ clock: Clock) -> SessionArchive {
+    private static func makeArchive(_ clock: TestClock) -> SessionArchive {
         SessionArchive(directory: scratchDirectory(), now: { clock.value })
     }
 
-    private static func makeArchive(_ clock: Clock,
+    private static func makeArchive(_ clock: TestClock,
                                     records: [SessionRecord],
                                     calendar: Calendar = .current) -> SessionArchive {
         let directory = scratchDirectory()
@@ -51,7 +45,7 @@ enum SelfTest {
                               now: { clock.value })
     }
 
-    private static func makeEngine(_ clock: Clock) -> SessionEngine {
+    private static func makeEngine(_ clock: TestClock) -> SessionEngine {
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
@@ -62,7 +56,7 @@ enum SelfTest {
                              now: { clock.value })
     }
 
-    private static func makeUsageArchive(_ clock: Clock,
+    private static func makeUsageArchive(_ clock: TestClock,
                                          sessions: [AppUsageSession],
                                          accurateFrom: Date? = nil) -> AppUsageArchive {
         let directory = scratchDirectory()
@@ -493,12 +487,6 @@ enum SelfTest {
         return failures.isEmpty
     }
 
-    private static func expect(_ condition: Bool,
-                               _ message: @autoclosure () -> String,
-                               _ problems: inout [String]) {
-        if !condition { problems.append(message()) }
-    }
-
     private static func expectClose(_ actual: TimeInterval,
                                     _ expected: TimeInterval,
                                     _ label: String,
@@ -528,7 +516,7 @@ enum SelfTest {
 
     private static func testElapsedWithPauseCycles() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.transition(on: .launch)
@@ -552,7 +540,7 @@ enum SelfTest {
 
     private static func testDebounce() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.transition(on: .launch)
@@ -571,7 +559,7 @@ enum SelfTest {
 
     private static func testMicroBreak() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         var decisions = 0
         engine.onNeedsDecision = { _, _ in decisions += 1 }
@@ -593,7 +581,7 @@ enum SelfTest {
 
     private static func testExtendedBreak() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         var raised: TimeInterval?
         engine.onNeedsDecision = { away, _ in raised = away }
@@ -631,7 +619,7 @@ enum SelfTest {
         let away: TimeInterval = 1320
 
         func elapsedAfter(_ decision: UserDecision) -> TimeInterval {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let engine = makeEngine(clock)
             engine.transition(on: .launch)
             clock.advance(60)
@@ -658,7 +646,7 @@ enum SelfTest {
 
     private static func testCategoryPrecedence() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         let terminal = "com.apple.Terminal"
 
@@ -681,7 +669,7 @@ enum SelfTest {
 
     private static func testCoalescing() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.transition(on: .launch)
@@ -702,7 +690,7 @@ enum SelfTest {
 
     private static func testClockSkew() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         // A pause that ends "before" it began must contribute 0, not a negative
@@ -734,7 +722,7 @@ enum SelfTest {
 
     private static func testCodableRoundTrip() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.sessionName = "Refactor"
@@ -752,7 +740,7 @@ enum SelfTest {
             expect(decoded.pauseBundleID == "com.spotify.client",
                    "snapshot should carry the distraction bundle id", &problems)
 
-            let restoreClock = Clock(clock.value)
+            let restoreClock = TestClock(clock.value)
             let restored = makeEngine(restoreClock)
             restored.restore(from: decoded)
             expect(restored.state == .paused(reason: .distractionApp(bundleID: "com.spotify.client")),
@@ -770,7 +758,7 @@ enum SelfTest {
     /// gap longer than the threshold, must escalate exactly as a live wake would.
     private static func testRestoreWithGap() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.sessionName = "Refactor"
@@ -780,7 +768,7 @@ enum SelfTest {
         let snapshot = engine.snapshot()
 
         // Short gap: absorbed as a micro-break, session continues.
-        let shortClock = Clock(clock.value.addingTimeInterval(120))
+        let shortClock = TestClock(clock.value.addingTimeInterval(120))
         let shortEngine = makeEngine(shortClock)
         var shortDecisions = 0
         shortEngine.onNeedsDecision = { _, _ in shortDecisions += 1 }
@@ -790,7 +778,7 @@ enum SelfTest {
         expect(shortDecisions == 0, "a 2m gap should raise no alert", &problems)
 
         // Long gap: escalates through the same extended-break path.
-        let longClock = Clock(clock.value.addingTimeInterval(1_320))
+        let longClock = TestClock(clock.value.addingTimeInterval(1_320))
         let longEngine = makeEngine(longClock)
         var raised: TimeInterval?
         longEngine.onNeedsDecision = { away, _ in raised = away }
@@ -812,7 +800,7 @@ enum SelfTest {
     /// D6 — a dwell that fires after focus has moved on must not pause.
     private static func testDwellCancellation() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.transition(on: .launch)
@@ -867,7 +855,7 @@ enum SelfTest {
                     "default threshold", &problems)
 
         // The archive ring caps at capacity, dropping the oldest entries.
-        let clock = Clock(base.addingTimeInterval(60))
+        let clock = TestClock(base.addingTimeInterval(60))
         let dir = scratchDirectory()
         let ring = SessionArchive(directory: dir, now: { clock.value }, capacity: 3)
         let overflow = 5
@@ -947,7 +935,7 @@ enum SelfTest {
 
         /// Drives a session to the decision point, waits `deliberation`, answers.
         func engineAfter(_ decision: UserDecision) -> SessionEngine {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let engine = makeEngine(clock)
             engine.sessionName = "Refactor"
             engine.transition(on: .launch)
@@ -987,7 +975,7 @@ enum SelfTest {
         }
 
         // The manual escape hatch behaves like Continue Session.
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let escaped = makeEngine(clock)
         escaped.transition(on: .launch)
         clock.advance(work)
@@ -1008,7 +996,7 @@ enum SelfTest {
 
     private static func testArchiveQueries() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
         let archive = SessionArchive(directory: dir, now: { clock.value })
 
@@ -1039,7 +1027,7 @@ enum SelfTest {
 
     private static func testStreakRule() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
         let archive = SessionArchive(directory: dir, now: { clock.value })
         let day: TimeInterval = 86_400
@@ -1079,7 +1067,7 @@ enum SelfTest {
 
     private static func testArchivePersistence() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
 
         let first = SessionArchive(directory: dir, now: { clock.value })
@@ -1108,7 +1096,7 @@ enum SelfTest {
 
     private static func testQuickStarts() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
         let archive = SessionArchive(directory: dir, now: { clock.value })
 
@@ -1145,7 +1133,7 @@ enum SelfTest {
 
     private static func testDiscreteSessions() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.start(workType: .deepWork, intent: "Refactor")
@@ -1187,7 +1175,7 @@ enum SelfTest {
 
     private static func testAwayInsideSession() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.start(workType: .deepWork, intent: "Write")
@@ -1210,7 +1198,7 @@ enum SelfTest {
     /// must reach an observer, so a view bound to it can redraw.
     private static func testEngineNotifiesObservers() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         var seen: [SessionState] = []
@@ -1241,7 +1229,7 @@ enum SelfTest {
 
     private static func testUsageTracker() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
         let usage = AppUsageArchive(directory: dir, now: { clock.value })
         // Idle disabled: this test is about segmenting, and the real monitor
@@ -1319,7 +1307,7 @@ enum SelfTest {
     /// saved view before a later active stretch begins.
     private static func testPeriodicCheckpointRollsBackIdleTail() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
@@ -1378,7 +1366,7 @@ enum SelfTest {
     /// terminal for that candidate, so an old confirmation cannot reopen it.
     private static func testUsageWaitingStateLifecycle() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let tracker = AppUsageTracker(archive: AppUsageArchive(directory: directory,
@@ -1414,7 +1402,7 @@ enum SelfTest {
     /// an unlock or a second, downward reset is evidence of a person.
     private static func testWakePresenceGate() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         var gate = PresenceGate()
         gate.confirm(at: clock.value)
 
@@ -1471,7 +1459,7 @@ enum SelfTest {
     /// that confirmed return, never at the machine wake.
     private static func testWakeDoesNotCreateUsage() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
@@ -1529,7 +1517,7 @@ enum SelfTest {
     /// the engine as if it were still merely quiet.
     private static func testAgedWakeResetEndsAbsence() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -1587,7 +1575,7 @@ enum SelfTest {
     /// permission to record; ordinary stopped activation remains immediate.
     private static func testWaitingActivationUpdatesCandidate() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
@@ -1639,8 +1627,8 @@ enum SelfTest {
     private static func testWakeActivationDefersEngineAndAutomation() -> [String] {
         var problems: [String] = []
 
-        func makeContext() -> (Clock, SessionEngine, SessionStore, AppUsageTracker) {
-            let clock = Clock(base)
+        func makeContext() -> (TestClock, SessionEngine, SessionStore, AppUsageTracker) {
+            let clock = TestClock(base)
             let directory = scratchDirectory()
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             let persistence = PersistenceStore(defaults: defaults)
@@ -1738,7 +1726,7 @@ enum SelfTest {
     /// a stopped tracker to begin before the shared presence gate confirms it.
     private static func testUnpreparedWakeActivationRemainsGated() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
         let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
@@ -1795,7 +1783,7 @@ enum SelfTest {
     /// stopped only after its checkpoint has settled.
     private static func testUsageTrackerLifecycleCallbacks() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
         let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
@@ -1828,7 +1816,7 @@ enum SelfTest {
         weak var releasedUsage: AppUsageArchive?
         weak var releasedTracker: AppUsageTracker?
         do {
-            let lifecycleClock = Clock(base)
+            let lifecycleClock = TestClock(base)
             let lifecycleDirectory = scratchDirectory()
             let lifecycleUsage = AppUsageArchive(directory: lifecycleDirectory,
                                                  now: { lifecycleClock.value })
@@ -1852,7 +1840,7 @@ enum SelfTest {
     /// survives exactly as recorded.
     private static func testLegacyUsageMigrationPreservesHistory() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base.addingTimeInterval(12_345))
+        let clock = TestClock(base.addingTimeInterval(12_345))
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
@@ -1910,7 +1898,7 @@ enum SelfTest {
     /// meaningful mutations notify exactly once, while no-op corrections do not.
     private static func testUsageCheckpointReplacesByIdentity() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let archive = AppUsageArchive(directory: directory, now: { clock.value })
@@ -2010,7 +1998,7 @@ enum SelfTest {
         var problems: [String] = []
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let directory = scratchDirectory()
             let usage = AppUsageArchive(directory: directory, now: { clock.value })
             let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
@@ -2034,7 +2022,7 @@ enum SelfTest {
         }
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let directory = scratchDirectory()
             let usage = AppUsageArchive(directory: directory, now: { clock.value })
             let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
@@ -2058,7 +2046,7 @@ enum SelfTest {
     /// exact same stretch can be retried after storage becomes writable.
     private static func testUsageWriteFailureRollsBack() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let root = scratchDirectory()
         try? FileManager.default.createDirectory(at: root,
                                                  withIntermediateDirectories: true)
@@ -2123,7 +2111,7 @@ enum SelfTest {
         var problems: [String] = []
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let root = scratchDirectory()
             let directory = root.appendingPathComponent("usage")
             let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2158,7 +2146,7 @@ enum SelfTest {
         }
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let root = scratchDirectory()
             let directory = root.appendingPathComponent("usage")
             let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2209,7 +2197,7 @@ enum SelfTest {
         var problems: [String] = []
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let root = scratchDirectory()
             let directory = root.appendingPathComponent("usage")
             let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2264,7 +2252,7 @@ enum SelfTest {
         }
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let root = scratchDirectory()
             let directory = root.appendingPathComponent("usage")
             let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2321,7 +2309,7 @@ enum SelfTest {
     /// five minutes, without filling the four-minute absence between them.
     private static func testQueuedUsageIntervalsFeedFocusedActiveTotals() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let root = scratchDirectory()
         let directory = root.appendingPathComponent("usage")
         let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2375,7 +2363,7 @@ enum SelfTest {
         var problems: [String] = []
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let root = scratchDirectory()
             let directory = root.appendingPathComponent("usage")
             let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2404,7 +2392,7 @@ enum SelfTest {
         }
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let root = scratchDirectory()
             let directory = root.appendingPathComponent("usage")
             let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2445,7 +2433,7 @@ enum SelfTest {
         var problems: [String] = []
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let root = scratchDirectory()
             let directory = root.appendingPathComponent("usage")
             let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2491,7 +2479,7 @@ enum SelfTest {
         }
 
         do {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let root = scratchDirectory()
             let directory = root.appendingPathComponent("usage")
             let savedDirectory = root.appendingPathComponent("saved-usage")
@@ -2548,7 +2536,7 @@ enum SelfTest {
     /// later mutation is allowed to overwrite them in that process.
     private static func testUsagePreservationFailureFailsClosed() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let manager = FileManager.default
 
         do {
@@ -2613,7 +2601,7 @@ enum SelfTest {
         }
 
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         try? FileManager.default.createDirectory(at: directory,
                                                  withIntermediateDirectories: true)
@@ -2648,7 +2636,7 @@ enum SelfTest {
     /// the selected interval and accuracy cutoff are respected.
     private static func testIntegrityUsageQuery() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
@@ -2708,7 +2696,7 @@ enum SelfTest {
 
     private static func testDashboardTimeline() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let sessions = SessionArchive(directory: sessionDir, now: { clock.value })
@@ -2759,7 +2747,7 @@ enum SelfTest {
 
     private static func testTimelineClipsAcrossMidnight() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let dayStart = Calendar.current.startOfDay(for: base)
@@ -2792,7 +2780,7 @@ enum SelfTest {
 
     private static func testFocusQualityAndRunning() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let sessions = SessionArchive(directory: sessionDir, now: { clock.value })
@@ -2839,7 +2827,7 @@ enum SelfTest {
 
     private static func testInsightGating() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let sessions = SessionArchive(directory: sessionDir, now: { clock.value })
@@ -2883,7 +2871,7 @@ enum SelfTest {
     /// session with nothing completed. Every figure must agree.
     private static func testRunningSessionCountsEverywhere() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.start(workType: .deepWork, intent: "Refactor")
@@ -2899,7 +2887,7 @@ enum SelfTest {
                     "longest today includes the running session", &problems)
 
         // Under the 25 minute bar the streak stays honest.
-        let clock2 = Clock(base)
+        let clock2 = TestClock(base)
         let engine2 = makeEngine(clock2)
         engine2.start(workType: .deepWork, intent: "Short")
         clock2.advance(10 * 60)
@@ -2914,7 +2902,7 @@ enum SelfTest {
     /// nobody is at the keyboard must not accrue time.
     private static func testIdleTrimsUsage() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
         let usage = AppUsageArchive(directory: dir, now: { clock.value })
         var idle: TimeInterval = 0
@@ -2966,7 +2954,7 @@ enum SelfTest {
         expect(Tokens.preciseDuration(7_980) == "2h 13m", "hours and minutes", &problems)
 
         // D-1: "1 session today" and "No sessions yet today" must never disagree.
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let sessions = SessionArchive(directory: sessionDir, now: { clock.value })
@@ -2993,7 +2981,7 @@ enum SelfTest {
 
     private static func testWindowSnappingAndStretches() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let calendar = Calendar.current
@@ -3048,7 +3036,7 @@ enum SelfTest {
 
     private static func testEndReasonsAndMigration() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
         let usage = AppUsageArchive(directory: dir, now: { clock.value })
         var idle: TimeInterval = 0
@@ -3072,7 +3060,7 @@ enum SelfTest {
                "an idle-trimmed stretch records .idle, saw \(reasons)", &problems)
 
         // Stretches are no longer merged at write time: the gaps must survive.
-        let clock2 = Clock(base)
+        let clock2 = TestClock(base)
         let dir2 = scratchDirectory()
         let usage2 = AppUsageArchive(directory: dir2, now: { clock2.value })
         let tracker2 = AppUsageTracker(archive: usage2,
@@ -3166,7 +3154,7 @@ enum SelfTest {
 
     private static func testHourlyBuckets() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let dayStart = Calendar.current.startOfDay(for: base)
@@ -3437,7 +3425,7 @@ enum SelfTest {
 
     private static func testInsightCopyAndRunningFilter() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let sessions = SessionArchive(directory: sessionDir, now: { clock.value })
@@ -3483,7 +3471,7 @@ enum SelfTest {
     /// Two defects found by tracing what happens across a sleep.
     private static func testSleepWakeTracking() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
         let usage = AppUsageArchive(directory: dir, now: { clock.value })
         // Zero idle throughout: the user is actively typing.
@@ -3540,7 +3528,7 @@ enum SelfTest {
 
     private static func testPeriodStats() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let sessions = SessionArchive(directory: sessionDir, now: { clock.value })
@@ -3601,7 +3589,7 @@ enum SelfTest {
     /// separate Work type donut and must not determine the bar's height.
     private static func testPeriodChartUsesTrackedTime() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let calendar = Calendar.current
@@ -3637,7 +3625,7 @@ enum SelfTest {
     /// cache must therefore key on revision, or it serves the old duration.
     private static func testDashboardDaySliceInvalidatesOnRevision() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let day = Calendar.current.startOfDay(for: base)
@@ -3670,7 +3658,7 @@ enum SelfTest {
     /// screen. Hidden mutations are coalesced until the next appearance.
     private static func testDashboardArchiveVisibility() -> [String] {
         var problems: [String] = []
-        let clock = Clock(anchoredNow())
+        let clock = TestClock(anchoredNow())
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
@@ -3727,7 +3715,7 @@ enum SelfTest {
     /// selected-day/period rebuild and publishing every figure twice.
     private static func testDashboardRefreshCoalescesCheckpointCallback() -> [String] {
         var problems: [String] = []
-        let clock = Clock(anchoredNow())
+        let clock = TestClock(anchoredNow())
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
@@ -3767,7 +3755,7 @@ enum SelfTest {
     /// visible, but the selected day carries the approved qualification.
     private static func testSelectedDayIntegrityNote() -> [String] {
         var problems: [String] = []
-        let clock = Clock(anchoredNow())
+        let clock = TestClock(anchoredNow())
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let calendar = Calendar.current
@@ -3839,7 +3827,7 @@ enum SelfTest {
             return ["the anchored period has no pre-epoch interval to exercise"]
         }
 
-        let clock = Clock(accurateFrom)
+        let clock = TestClock(accurateFrom)
         let directory = scratchDirectory()
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
         usage.record(AppUsageSession(bundleID: "com.example.week", appName: "Week Legacy",
@@ -3882,7 +3870,7 @@ enum SelfTest {
 
     private static func testPeriodLog() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usageDir = scratchDirectory(), sessionDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
         let calendar = Calendar.current
@@ -4176,7 +4164,7 @@ enum SelfTest {
 
     private static func testThreadContinuity() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         engine.start(workType: .deepWork, intent: "Refactor")
@@ -4235,7 +4223,7 @@ enum SelfTest {
 
     private static func testThreadSummaries() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let sessionDir = scratchDirectory(), usageDir = scratchDirectory()
         let archive = SessionArchive(directory: sessionDir, now: { clock.value })
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
@@ -4316,7 +4304,7 @@ enum SelfTest {
 
     private static func testThreadApps() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let sessionDir = scratchDirectory(), usageDir = scratchDirectory()
         let archive = SessionArchive(directory: sessionDir, now: { clock.value })
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
@@ -4404,7 +4392,7 @@ enum SelfTest {
 
     private static func testContinueThread() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         let usageDir = scratchDirectory()
         let usage = AppUsageArchive(directory: usageDir, now: { clock.value })
@@ -4538,7 +4526,7 @@ enum SelfTest {
     /// history at this same hour, not against the clock or the raw target.
     private static func testDailyGoal() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let dir = scratchDirectory()
         let archive = SessionArchive(directory: dir, now: { clock.value })
         let calendar = Calendar.current
@@ -4659,7 +4647,7 @@ enum SelfTest {
     /// instead of the one authoritative focused-active hour.
     private static func testHistoricalPaceUsesFocusedActiveTime() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         let archive = SessionArchive(directory: directory, now: { clock.value })
         let calendar = Calendar.current
@@ -4729,7 +4717,7 @@ enum SelfTest {
             return calendar.date(from: components) ?? base
         }
         let current = date(2024, 1, 10, 10)
-        let clock = Clock(current)
+        let clock = TestClock(current)
         let directory = scratchDirectory()
         let archive = SessionArchive(directory: directory, calendar: calendar, now: { clock.value })
         var usage: [AppUsageSession] = []
@@ -4812,7 +4800,7 @@ enum SelfTest {
         // 02:30 does not exist on 10 March 2024. The historical cutoff is the
         // next valid local time (03:00), so the 03:00-03:30 work is excluded.
         let springCurrent = date(2024, 3, 12, 2, 30)
-        let springClock = Clock(springCurrent)
+        let springClock = TestClock(springCurrent)
         let springDirectory = scratchDirectory()
         let springArchive = SessionArchive(directory: springDirectory, calendar: calendar,
                                            now: { springClock.value })
@@ -4832,7 +4820,7 @@ enum SelfTest {
         // A 23:30 cutoff on the 23-hour spring-forward day must end at 23:30,
         // never at 00:30 on 11 March where this distinct 50-minute record sits.
         let lateCurrent = date(2024, 3, 13, 23, 30)
-        let lateClock = Clock(lateCurrent)
+        let lateClock = TestClock(lateCurrent)
         let lateDirectory = scratchDirectory()
         let lateArchive = SessionArchive(directory: lateDirectory, calendar: calendar,
                                          now: { lateClock.value })
@@ -4851,7 +4839,7 @@ enum SelfTest {
         // controller-selected cutoff, so work in the second occurrence remains
         // after the comparison point.
         let fallCurrent = date(2024, 11, 5, 1, 30)
-        let fallClock = Clock(fallCurrent)
+        let fallClock = TestClock(fallCurrent)
         let fallDirectory = scratchDirectory()
         let fallArchive = SessionArchive(directory: fallDirectory, calendar: calendar,
                                          now: { fallClock.value })
@@ -4895,7 +4883,7 @@ enum SelfTest {
         let dayStart = calendar.startOfDay(for: anchoredNow())
 
         do {
-            let clock = Clock(dayStart.addingTimeInterval(10 * 3_600))
+            let clock = TestClock(dayStart.addingTimeInterval(10 * 3_600))
             let directory = scratchDirectory()
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             let persistence = PersistenceStore(defaults: defaults)
@@ -4927,7 +4915,7 @@ enum SelfTest {
 
         do {
             let start = dayStart.addingTimeInterval(23 * 3_600 + 59 * 60)
-            let clock = Clock(start)
+            let clock = TestClock(start)
             let directory = scratchDirectory()
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             let persistence = PersistenceStore(defaults: defaults)
@@ -4967,7 +4955,7 @@ enum SelfTest {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: anchoredNow())
         let current = today.addingTimeInterval(10 * 3_600)
-        let clock = Clock(calendar.date(byAdding: .day, value: -20, to: current) ?? base)
+        let clock = TestClock(calendar.date(byAdding: .day, value: -20, to: current) ?? base)
         let directory = scratchDirectory()
         let archive = SessionArchive(directory: directory, now: { clock.value })
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
@@ -5163,7 +5151,7 @@ enum SelfTest {
     /// Reward engine: gating rules must skip fabricated comparisons and never nag.
     private static func testRewardEngine() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
 
         func neutralGoal(goal: TimeInterval = 4 * 3_600, achieved: TimeInterval = 0,
                          typicalByNow: TimeInterval? = nil) -> GoalProgress {
@@ -5346,7 +5334,7 @@ enum SelfTest {
 
     private static func testAdoptAndSystemProcesses() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
 
         // An automatic session is running.
@@ -5469,7 +5457,7 @@ enum SelfTest {
         let away: TimeInterval = 2 * 3_600
         let since: TimeInterval = 480
 
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.transition(on: .launch)
         clock.advance(work)
@@ -5491,7 +5479,7 @@ enum SelfTest {
                     "merge adds the gap back exactly once", &problems)
 
         // A card left up across a quit must not turn the downtime into work.
-        let saved = Clock(base)
+        let saved = TestClock(base)
         let stale = makeEngine(saved)
         stale.transition(on: .launch)
         saved.advance(work)
@@ -5500,7 +5488,7 @@ enum SelfTest {
         stale.transition(on: .awayEnded)
         let snapshot = stale.snapshot()
 
-        let later = Clock(saved.value.addingTimeInterval(2 * 86_400))
+        let later = TestClock(saved.value.addingTimeInterval(2 * 86_400))
         let reopened = makeEngine(later)
         reopened.restore(from: snapshot)
         // Two days is past the cap, so the stretch now ends at the relaunch
@@ -5526,7 +5514,7 @@ enum SelfTest {
         var problems: [String] = []
         let work: TimeInterval = 40 * 60
 
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.sessionName = "Evening"
         engine.transition(on: .launch)
@@ -5549,7 +5537,7 @@ enum SelfTest {
 
         // The threshold is a cap, not a replacement for the card: a two-hour
         // lunch still asks.
-        let lunchClock = Clock(base)
+        let lunchClock = TestClock(base)
         let lunch = makeEngine(lunchClock)
         lunch.transition(on: .launch)
         lunchClock.advance(work)
@@ -5562,7 +5550,7 @@ enum SelfTest {
 
         // The cap is a setting, not a constant: raise it and the same nine-hour
         // absence becomes a question again rather than an ending.
-        let patientClock = Clock(base)
+        let patientClock = TestClock(base)
         let patient = makeEngine(patientClock)
         patient.store.longAwayCap = 12 * 3_600
         patient.transition(on: .launch)
@@ -5576,7 +5564,7 @@ enum SelfTest {
         }
 
         // A misclick is not history.
-        let quickClock = Clock(base)
+        let quickClock = TestClock(base)
         let quick = makeEngine(quickClock)
         quick.start(workType: .deepWork, intent: "oops")
         quickClock.advance(3)
@@ -5590,7 +5578,7 @@ enum SelfTest {
 
     private static func testManualAway() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.transition(on: .launch)
         clock.advance(300)
@@ -5620,11 +5608,11 @@ enum SelfTest {
         expectClose(stretch?.end.timeIntervalSince(base) ?? 0, 300, "and ends where they left", &problems)
 
         // A short away stays a pause inside the stretch.
-        let short = makeEngine(Clock(base))
+        let short = makeEngine(TestClock(base))
         short.breakThreshold = 5 * 60
         short.transition(on: .launch)
         short.transition(on: .markedAway)
-        let shortClock = Clock(base)
+        let shortClock = TestClock(base)
         _ = shortClock
         short.transition(on: .manualResume)
         expect(short.state == .running && short.archive.records.isEmpty,
@@ -5640,7 +5628,7 @@ enum SelfTest {
     }
 
     private static func makeAwayEngine() -> SessionEngine {
-        let engine = makeEngine(Clock(base))
+        let engine = makeEngine(TestClock(base))
         engine.transition(on: .launch)
         engine.transition(on: .markedAway)
         return engine
@@ -5691,7 +5679,7 @@ enum SelfTest {
         // Through the archive: the streak must not break on the earlier day.
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let clock = Clock(day2.addingTimeInterval(12 * 3_600))
+        let clock = TestClock(day2.addingTimeInterval(12 * 3_600))
         let archive = SessionArchive(directory: directory, now: { clock.value })
         // 50 minutes each side of midnight — both days clear the 25-minute bar
         // only if the split happens.
@@ -5722,7 +5710,7 @@ enum SelfTest {
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let archive = AppUsageArchive(directory: directory, now: { clock.value })
         let tracker = AppUsageTracker(archive: archive, ownBundleID: "self",
                                       idle: .disabled, now: { clock.value })
@@ -5779,7 +5767,7 @@ enum SelfTest {
         let away: TimeInterval = 33 * 60
 
         func engineAfter(_ decision: UserDecision) -> (SessionEngine, Date) {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let engine = makeEngine(clock)
             engine.transition(on: .launch)
             clock.advance(work)
@@ -5831,7 +5819,7 @@ enum SelfTest {
 
         // Against a real focus record, the break must be invisible to totals but
         // visible to anything listing the day.
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let mixed = makeArchive(clock)
         mixed.append(SessionRecord(name: "Work", workType: .deepWork,
                                    start: base, end: base.addingTimeInterval(3_600),
@@ -5857,7 +5845,7 @@ enum SelfTest {
     /// idle pause auto-resumes: a pause the user pressed is a deliberate act.
     private static func testIdleAutoPause() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.transition(on: .launch)
         clock.advance(600)                       // ten minutes of real work
@@ -5904,7 +5892,7 @@ enum SelfTest {
         expectClose(engine.elapsed, 3_300, "with the absence added back as work", &problems)
 
         // A pause the user pressed must not be undone by typing.
-        let manualClock = Clock(base)
+        let manualClock = TestClock(base)
         let manual = makeEngine(manualClock)
         manual.transition(on: .launch)
         manualClock.advance(60)
@@ -5914,7 +5902,7 @@ enum SelfTest {
                "input must not undo a deliberate pause, got \(manual.state)", &problems)
 
         // The reason survives persistence.
-        let idleClock = Clock(base)
+        let idleClock = TestClock(base)
         let persisted = makeEngine(idleClock)
         persisted.transition(on: .launch)
         idleClock.advance(1_200)
@@ -6001,7 +5989,7 @@ enum SelfTest {
 
         func run(_ decision: UserDecision) -> (engine: SessionEngine,
                                                left: Date, back: Date) {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let engine = makeEngine(clock)
             engine.start(workType: .deepWork, intent: "Refactor")
             clock.advance(work)
@@ -6069,7 +6057,7 @@ enum SelfTest {
     /// not measure different things.
     private static func testRunningStretch() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let stats = DashboardStats(
@@ -6163,7 +6151,7 @@ enum SelfTest {
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: clock.value)
@@ -6208,7 +6196,7 @@ enum SelfTest {
         let workedAfter: TimeInterval = 5 * 60    // unlocked and working, then answered
 
         func run(_ decision: UserDecision) -> SessionEngine {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let engine = makeEngine(clock)
             engine.start(workType: .deepWork, intent: "Refactor")
             clock.advance(work)
@@ -6244,7 +6232,7 @@ enum SelfTest {
     /// whole night on resume.
     private static func testUnlockedAbsenceEndsSession() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.start(workType: .deepWork, intent: "Evening")
         clock.advance(50 * 60)
@@ -6270,7 +6258,7 @@ enum SelfTest {
                     "ending where input stopped", &problems)
 
         // The marked-away version comes back through a button, not a tick.
-        let clock2 = Clock(base)
+        let clock2 = TestClock(base)
         let engine2 = makeEngine(clock2)
         engine2.start(workType: .deepWork, intent: "Errand")
         clock2.advance(20 * 60)
@@ -6349,7 +6337,7 @@ enum SelfTest {
     /// the lock-while-running path ended it, the idle-then-lock path did not.
     private static func testIdleThenLockedNightEndsSession() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.start(workType: .deepWork, intent: "Evening")
         clock.advance(45 * 60)
@@ -6376,7 +6364,7 @@ enum SelfTest {
 
         // The same night with the machine never locked and the app relaunched
         // in the morning: the first sample after restore already sees input.
-        let clock2 = Clock(base)
+        let clock2 = TestClock(base)
         let engine2 = makeEngine(clock2)
         engine2.start(workType: .deepWork, intent: "Evening")
         clock2.advance(30 * 60)
@@ -6394,7 +6382,7 @@ enum SelfTest {
 
         // The same night with the app never quit: the first sample in the
         // morning already sees input, and must not rescue the paused stretch.
-        let clockLive = Clock(base)
+        let clockLive = TestClock(base)
         let live = makeEngine(clockLive)
         live.start(workType: .deepWork, intent: "Evening")
         clockLive.advance(30 * 60)
@@ -6412,7 +6400,7 @@ enum SelfTest {
                     "ending where the pause began", &problems)
 
         // Under the asking threshold, input still resumes an idle pause quietly.
-        let clock3 = Clock(base)
+        let clock3 = TestClock(base)
         let engine3 = makeEngine(clock3)
         engine3.start(workType: .deepWork, intent: "Short")
         clock3.advance(20 * 60)
@@ -6439,7 +6427,7 @@ enum SelfTest {
                     "'I was away' closes the session with its 25 worked minutes", &problems)
 
         // The same through an unlock: idle, then locked, then back under the cap.
-        let clock4 = Clock(base)
+        let clock4 = TestClock(base)
         let engine4 = makeEngine(clock4)
         engine4.start(workType: .deepWork, intent: "Lunch")
         clock4.advance(30 * 60)
@@ -6466,7 +6454,7 @@ enum SelfTest {
     private static func testShadowAwaySurvivesRelaunch() -> [String] {
         var problems: [String] = []
         // A closed second absence, then a quit while working.
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.start(workType: .deepWork, intent: "Refactor")
         clock.advance(40 * 60)
@@ -6500,7 +6488,7 @@ enum SelfTest {
                     52 * 60, "all fifty-two worked minutes survive", &problems)
 
         // The same, but the second absence is still open at the quit.
-        let clock2 = Clock(base)
+        let clock2 = TestClock(base)
         let engine2 = makeEngine(clock2)
         engine2.start(workType: .deepWork, intent: "Refactor")
         clock2.advance(40 * 60)
@@ -6530,7 +6518,7 @@ enum SelfTest {
     /// what the figure measures.
     private static func testDayScopedSessionFigures() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let archive = makeArchive(clock)
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: clock.value)
@@ -6560,7 +6548,7 @@ enum SelfTest {
     /// only one hour intersects app usage.
     private static func testHistoricalGoalStatusUsesFocusedActiveTime() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: clock.value)
         guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
@@ -6943,7 +6931,7 @@ enum SelfTest {
     /// into two differently-named halves.
     private static func testCorrectingASessionRewritesItsThread() -> [String] {
         var problems: [String] = []
-        let clock = Clock(anchoredNow())
+        let clock = TestClock(anchoredNow())
         let thread = UUID()
         let other = UUID()
         let base = Calendar.current.startOfDay(for: clock.value).addingTimeInterval(9 * 3_600)
@@ -7048,7 +7036,7 @@ enum SelfTest {
     /// or the tile would describe more time than the day can account for.
     private static func testUnrecordedFocusIsTheUncoveredSpan() -> [String] {
         var problems: [String] = []
-        let clock = Clock(anchoredNow())
+        let clock = TestClock(anchoredNow())
         let day = Calendar.current.startOfDay(for: clock.value)
         let start = day.addingTimeInterval(9 * 3_600)
         let archive = makeArchive(clock, records: [
@@ -7803,7 +7791,7 @@ enum SelfTest {
     private static func testReviewSelectedDayDetail() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(periodAnchor())
+            let clock = TestClock(periodAnchor())
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: clock.value)
             guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
@@ -7913,7 +7901,7 @@ enum SelfTest {
     private static func testReviewHistoryFiltersAndDayRouting() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(periodAnchor())
+            let clock = TestClock(periodAnchor())
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: clock.value)
             guard let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
@@ -8092,7 +8080,7 @@ enum SelfTest {
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
         let today = calendar.startOfDay(for: base)
         let current = today.addingTimeInterval(10 * 3_600)
-        let clock = Clock(current)
+        let clock = TestClock(current)
         let archive = SessionArchive(directory: scratchDirectory(), calendar: calendar,
                                      now: { clock.value })
         var usage: [AppUsageSession] = []
@@ -8237,7 +8225,7 @@ enum SelfTest {
                 byAdding: .month, value: -3, to: monthBoundary) else {
             return problems + ["could not build unequal-month Insights boundaries"]
         }
-        let boundaryClock = Clock(monthBoundary)
+        let boundaryClock = TestClock(monthBoundary)
         let currentStart = Calendar.current.startOfDay(for: monthBoundary)
             .addingTimeInterval(9 * 3_600)
         let previousStart = Calendar.current.startOfDay(for: previousMonthDay)
@@ -8285,7 +8273,7 @@ enum SelfTest {
         var problems: [String] = []
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: periodAnchor(calendar: calendar))
-        let clock = Clock(today.addingTimeInterval(12 * 3_600))
+        let clock = TestClock(today.addingTimeInterval(12 * 3_600))
         guard let accurateDay = calendar.date(byAdding: .day, value: -2, to: today),
               let legacyDay = calendar.date(byAdding: .day, value: -3, to: today) else {
             return ["could not build mixed-accuracy Insights dates"]
@@ -8369,7 +8357,7 @@ enum SelfTest {
             return ["could not build cross-day Insights quality fixture"]
         }
         let secondDay = calendar.startOfDay(for: moment)
-        let clock = Clock(moment)
+        let clock = TestClock(moment)
         let threadID = UUID()
         let firstStart = firstDay.addingTimeInterval(23.5 * 3_600)
         let secondStart = secondDay.addingTimeInterval(10 * 60)
@@ -8428,7 +8416,7 @@ enum SelfTest {
         var problems: [String] = []
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: anchoredNow())
-        let clock = Clock(today.addingTimeInterval(9 * 3_600))
+        let clock = TestClock(today.addingTimeInterval(9 * 3_600))
         guard let accurateFrom = calendar.date(byAdding: .day, value: -3, to: today) else {
             return ["could not build tracker Insights accuracy epoch"]
         }
@@ -8522,7 +8510,7 @@ enum SelfTest {
               let anchor = calendar.date(byAdding: .hour, value: 12, to: recentDay) else {
             return ["could not build the bounded period fixture"]
         }
-        let clock = Clock(anchor)
+        let clock = TestClock(anchor)
         var stretches: [AppUsageSession] = []
         for index in 0..<500 {
             let dayOffset = index / 18
@@ -8617,7 +8605,7 @@ enum SelfTest {
     private static func testReviewDetailRetainsUncappedDayEntries() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(anchoredNow())
+            let clock = TestClock(anchoredNow())
             let calendar = Calendar.current
             let day = calendar.startOfDay(for: clock.value)
             let start = day.addingTimeInterval(3_600)
@@ -8661,7 +8649,7 @@ enum SelfTest {
     private static func testReviewFocusOnlyPeriodEvidence() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let calendar = Calendar.current
             guard let bounds = calendar.dateInterval(of: .weekOfYear,
                                                       for: clock.value) else {
@@ -8722,7 +8710,7 @@ enum SelfTest {
     private static func testReviewFocusRowsAreBoundedAndQualified() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(anchoredNow())
+            let clock = TestClock(anchoredNow())
             let calendar = Calendar.current
             guard let bounds = calendar.dateInterval(of: .weekOfYear,
                                                       for: clock.value) else {
@@ -8786,7 +8774,7 @@ enum SelfTest {
     private static func testHistorySearchesDisplayedAppName() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let day = Calendar.current.startOfDay(for: clock.value)
             let usage = makeUsageArchive(clock, sessions: [
                 AppUsageSession(bundleID: "org.example.product", appName: "Quill Writer",
@@ -8877,7 +8865,7 @@ enum SelfTest {
         var problems: [String] = []
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: anchoredNow())
-        let clock = Clock(today.addingTimeInterval(12 * 3_600))
+        let clock = TestClock(today.addingTimeInterval(12 * 3_600))
         guard let legacyDay = calendar.date(byAdding: .day, value: -2, to: today),
               let malformedStart = calendar.date(byAdding: .day, value: -500, to: today),
               let accurateFrom = calendar.date(byAdding: .day, value: -1, to: today)?
@@ -8941,7 +8929,7 @@ enum SelfTest {
     private static func testReviewLongestFocusClipsBoundsAndExcludesBreaks() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let calendar = Calendar.current
             guard let bounds = calendar.dateInterval(of: .weekOfYear, for: clock.value) else {
                 return ["could not build Review week bounds"]
@@ -9154,7 +9142,7 @@ enum SelfTest {
     /// App seam while leaving the exact pending evidence intact.
     private static func testAwayDecisionRejectsOrdinarySessionMutations() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.start(workType: .deepWork, intent: "Pending evidence")
         clock.advance(20 * 60)
@@ -9189,7 +9177,7 @@ enum SelfTest {
     private static func testHotKeyRoutesPendingAwayDecision() -> [String] {
         var problems: [String] = []
 
-        let idleClock = Clock(base)
+        let idleClock = TestClock(base)
         let idleEngine = makeEngine(idleClock)
         let idleStore = SessionStore(engine: idleEngine, now: { idleClock.value })
         expect(idleStore.performSessionHotKeyAction() == .started,
@@ -9201,7 +9189,7 @@ enum SelfTest {
         expect(idleEngine.state == .idle,
                "ordinary live hotkey leaves an idle session", &problems)
 
-        let pendingClock = Clock(base)
+        let pendingClock = TestClock(base)
         let pendingEngine = makeEngine(pendingClock)
         pendingEngine.start(workType: .learning, intent: "Pending")
         pendingClock.advance(20 * 60)
@@ -9227,7 +9215,7 @@ enum SelfTest {
         var problems: [String] = []
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: anchoredNow())
-        let clock = Clock(day.addingTimeInterval(12 * 3_600))
+        let clock = TestClock(day.addingTimeInterval(12 * 3_600))
         let app = "org.example.editor"
         let usageSessions = (0..<5).map { index -> AppUsageSession in
             let start = day.addingTimeInterval(9 * 3_600 + Double(index * 10 * 60))
@@ -9266,7 +9254,7 @@ enum SelfTest {
         var problems: [String] = []
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: base)
-        let clock = Clock(day.addingTimeInterval(12 * 3_600))
+        let clock = TestClock(day.addingTimeInterval(12 * 3_600))
         let sharedThread = UUID()
         let secondThread = UUID()
         let records = [
@@ -9320,8 +9308,8 @@ enum SelfTest {
 
         func makeAutomatic(_ pause: PauseReason?, declaredAwayFor: TimeInterval = 0)
             -> (store: SessionStore, engine: SessionEngine,
-                archive: SessionArchive, clock: Clock) {
-            let clock = Clock(base)
+                archive: SessionArchive, clock: TestClock) {
+            let clock = TestClock(base)
             let archive = SessionArchive(directory: scratchDirectory(), now: { clock.value })
             let persistence = PersistenceStore(
                 defaults: UserDefaults(suiteName: suiteName) ?? .standard)
@@ -9512,7 +9500,7 @@ enum SelfTest {
         var problems: [String] = []
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let calendar = Calendar.current
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
         let stats = PeriodStats(sessions: SessionArchive(directory: directory,
@@ -9610,7 +9598,7 @@ enum SelfTest {
     /// length beside it.
     private static func testPendingAwayRange() -> [String] {
         var problems: [String] = []
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.start(workType: .deepWork, intent: "Range")
         expect(engine.pendingAwayRange == nil, "nothing pending while running", &problems)
@@ -9703,7 +9691,7 @@ enum SelfTest {
         var problems: [String] = []
         func scenario(returnTo app: String?, decision: UserDecision,
                       matcher: ((String?) -> Bool)?) -> (same: Bool, name: String) {
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let engine = makeEngine(clock)
             engine.threadContextMatcher = matcher
             engine.transition(on: .appActivated(bundleID: "com.ide", name: "IDE"))
@@ -9784,13 +9772,13 @@ enum SelfTest {
     /// for the next question.
     private static func testNamedBreak() -> [String] {
         var problems: [String] = []
-        func absence(_ engine: SessionEngine, _ clock: Clock) {
+        func absence(_ engine: SessionEngine, _ clock: TestClock) {
             clock.advance(600)
             engine.transition(on: .awayBegan(trigger: .screenLock))
             clock.advance(22 * 60)
             engine.transition(on: .awayEnded)
         }
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let engine = makeEngine(clock)
         engine.start(workType: .deepWork, intent: "Work")
         absence(engine, clock)
@@ -9867,7 +9855,7 @@ enum SelfTest {
         var problems: [String] = []
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: base)
         guard let yesterday = calendar.date(byAdding: .day, value: -1, to: day) else {
@@ -9971,7 +9959,7 @@ enum SelfTest {
         var problems: [String] = []
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: base)
-        let clock = Clock(day.addingTimeInterval(-30 * 60))
+        let clock = TestClock(day.addingTimeInterval(-30 * 60))
         let directory = scratchDirectory()
         let archive = SessionArchive(directory: directory, calendar: calendar,
                                      now: { clock.value })
@@ -10018,7 +10006,7 @@ enum SelfTest {
         var problems: [String] = []
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let usage = AppUsageArchive(directory: directory, now: { clock.value })
         let day = Calendar.current.startOfDay(for: base)
         func at(_ h: Double) -> Date { day.addingTimeInterval(h * 3_600) }
@@ -10199,13 +10187,13 @@ enum SelfTest {
     /// cap the question is about the whole of it.
     private static func testAbsenceFromWhereItBegan() -> [String] {
         var problems: [String] = []
-        func scenario(capHours: Double) -> (engine: SessionEngine, archive: SessionArchive, clock: Clock) {
+        func scenario(capHours: Double) -> (engine: SessionEngine, archive: SessionArchive, clock: TestClock) {
             let directory = scratchDirectory()
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             let prefs = PersistenceStore(defaults: defaults)
             prefs.removeAll()
             prefs.longAwayCap = capHours * 3_600
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let archive = SessionArchive(directory: directory, now: { clock.value })
             let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
                                        schedulesDwell: false, now: { clock.value })
@@ -10251,7 +10239,7 @@ enum SelfTest {
         let prefs = PersistenceStore(defaults: defaults)
         prefs.removeAll()
         prefs.longAwayCap = 4 * 3_600
-        let clock = Clock(base)
+        let clock = TestClock(base)
         let archive = SessionArchive(directory: directory, now: { clock.value })
         let first = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
                                   schedulesDwell: false, now: { clock.value })
@@ -10354,14 +10342,14 @@ enum SelfTest {
     /// begins the absence at the lock.
     private static func testWatchingIsNotAbsence() -> [String] {
         var problems: [String] = []
-        func make(_ type: WorkType) -> (engine: SessionEngine, archive: SessionArchive, clock: Clock) {
+        func make(_ type: WorkType) -> (engine: SessionEngine, archive: SessionArchive, clock: TestClock) {
             let directory = scratchDirectory()
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             let prefs = PersistenceStore(defaults: defaults)
             prefs.removeAll()
             prefs.longAwayCap = 4 * 3_600
             prefs.breakThreshold = 5 * 60
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let archive = SessionArchive(directory: directory, now: { clock.value })
             let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
                                        schedulesDwell: false, now: { clock.value })
@@ -10445,7 +10433,7 @@ enum SelfTest {
             prefs.removeAll()
             prefs.longAwayCap = 4 * 3_600
             prefs.breakThreshold = 5 * 60
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let archive = SessionArchive(directory: directory, now: { clock.value })
             let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
                                        schedulesDwell: false, now: { clock.value })
@@ -10536,14 +10524,14 @@ enum SelfTest {
     /// and a late idle pause cannot shorten what is asked.
     private static func testWakeIsNotAReturn() -> [String] {
         var problems: [String] = []
-        func make(capHours: Double) -> (engine: SessionEngine, archive: SessionArchive, clock: Clock) {
+        func make(capHours: Double) -> (engine: SessionEngine, archive: SessionArchive, clock: TestClock) {
             let directory = scratchDirectory()
             let defaults = UserDefaults(suiteName: suiteName) ?? .standard
             let prefs = PersistenceStore(defaults: defaults)
             prefs.removeAll()
             prefs.longAwayCap = capHours * 3_600
             prefs.breakThreshold = 5 * 60
-            let clock = Clock(base)
+            let clock = TestClock(base)
             let archive = SessionArchive(directory: directory, now: { clock.value })
             let engine = SessionEngine(store: prefs, archive: archive, ownBundleID: "com.test",
                                        schedulesDwell: false, now: { clock.value })
@@ -10668,7 +10656,7 @@ enum SelfTest {
     private static func testExhaustiveTransitions() -> [String] {
         var problems: [String] = []
 
-        let setups: [(String, (SessionEngine, Clock) -> Void)] = [
+        let setups: [(String, (SessionEngine, TestClock) -> Void)] = [
             ("idle", { _, _ in }),
             ("running", { engine, _ in engine.transition(on: .launch) }),
             ("paused", { engine, _ in
@@ -10708,7 +10696,7 @@ enum SelfTest {
 
         for (label, setup) in setups {
             for event in events {
-                let clock = Clock(base)
+                let clock = TestClock(base)
                 let engine = makeEngine(clock)
                 setup(engine, clock)
                 let before = engine.state

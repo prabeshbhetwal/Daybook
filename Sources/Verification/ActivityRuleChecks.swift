@@ -465,11 +465,6 @@ enum ActivityRuleChecks {
         return failures
     }
 
-    private final class TestClock {
-        var now: Date
-        init(_ now: Date) { self.now = now }
-    }
-
     private struct ConsumerContext {
         let directory: URL
         let defaults: UserDefaults
@@ -493,12 +488,12 @@ enum ActivityRuleChecks {
         persistence.activityRules = rules
         persistence.activityRuleAutomationEnabled = true
         let clock = TestClock(now)
-        let archive = SessionArchive(directory: directory, now: { clock.now },
+        let archive = SessionArchive(directory: directory, now: { clock.value },
                                      writeOverride: archiveFailure)
         let engine = SessionEngine(store: persistence, archive: archive,
             ownBundleID: "com.example.self", schedulesDwell: false,
-            correctionWriteOverride: correctionFailure, now: { clock.now })
-        let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.now })
+            correctionWriteOverride: correctionFailure, now: { clock.value })
+        let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
         return ConsumerContext(directory: directory, defaults: defaults, suiteName: suite,
             persistence: persistence, archive: archive, engine: engine, store: store, clock: clock)
     }
@@ -522,17 +517,17 @@ enum ActivityRuleChecks {
         defer { clean(context) }
         let version = context.persistence.activityRuleVersion
         let start = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: t0, end: context.clock.now, version: version, generation: 11)
+            start: t0, end: context.clock.value, version: version, generation: 11)
         guard let applied = context.store.applyAutomaticActivity(start),
               let snapshot = context.persistence.loadState() else {
             return ["Real SessionStore refused a valid automatic start"]
         }
         let reloaded = SessionEngine(store: context.persistence,
-            archive: SessionArchive(directory: context.directory, now: { context.clock.now }),
-            ownBundleID: "com.example.self", schedulesDwell: false, now: { context.clock.now })
+            archive: SessionArchive(directory: context.directory, now: { context.clock.value }),
+            ownBundleID: "com.example.self", schedulesDwell: false, now: { context.clock.value })
         reloaded.restore(from: snapshot)
         let restoredStore = SessionStore(engine: reloaded, schedulesTicker: false,
-                                         now: { context.clock.now })
+                                         now: { context.clock.value })
         var failures: [String] = []
         if reloaded.activeRecordID != applied.resultingRecordID
             || reloaded.activeAutomaticAction?.reason != start.reason
@@ -551,13 +546,13 @@ enum ActivityRuleChecks {
         defer { clean(context) }
         let version = context.persistence.activityRuleVersion
         let first = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: t0, end: context.clock.now, version: version, generation: 1)
+            start: t0, end: context.clock.value, version: version, generation: 1)
         guard let firstRecord = context.store.applyAutomaticActivity(first) else {
             return ["Could not seed automatic Coding"]
         }
-        context.clock.now = context.clock.now.addingTimeInterval(5 * 60)
+        context.clock.value = context.clock.value.addingTimeInterval(5 * 60)
         let second = action(rule: researchID, name: "Research", type: .deepWork,
-            start: t0.addingTimeInterval(10 * 60), end: context.clock.now,
+            start: t0.addingTimeInterval(10 * 60), end: context.clock.value,
             version: version, generation: 2, expected: firstRecord.resultingRecordID)
         guard let secondRecord = context.store.applyAutomaticActivity(second) else {
             return ["Real automatic A-to-B switch was refused"]
@@ -587,7 +582,7 @@ enum ActivityRuleChecks {
 
         // Coding, then Research, then Coding again: one Coding thread.
         let coding = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: t0, end: context.clock.now, version: version, generation: 41)
+            start: t0, end: context.clock.value, version: version, generation: 41)
         guard let first = context.store.applyAutomaticActivity(coding) else {
             return ["Could not seed automatic Coding"]
         }
@@ -595,9 +590,9 @@ enum ActivityRuleChecks {
         if context.engine.activeThreadWasContinued {
             failures.append("The first automatic Coding claimed to continue something")
         }
-        context.clock.now = context.clock.now.addingTimeInterval(5 * 60)
+        context.clock.value = context.clock.value.addingTimeInterval(5 * 60)
         let research = action(rule: researchID, name: "Research", type: .deepWork,
-            start: t0.addingTimeInterval(10 * 60), end: context.clock.now,
+            start: t0.addingTimeInterval(10 * 60), end: context.clock.value,
             version: version, generation: 42, expected: first.resultingRecordID)
         guard let second = context.store.applyAutomaticActivity(research) else {
             return ["Coding to Research switch was refused"]
@@ -605,9 +600,9 @@ enum ActivityRuleChecks {
         if context.engine.activeThreadWasContinued {
             failures.append("The first automatic Research claimed to continue something")
         }
-        context.clock.now = context.clock.now.addingTimeInterval(5 * 60)
+        context.clock.value = context.clock.value.addingTimeInterval(5 * 60)
         let back = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: t0.addingTimeInterval(15 * 60), end: context.clock.now,
+            start: t0.addingTimeInterval(15 * 60), end: context.clock.value,
             version: version, generation: 43, expected: second.resultingRecordID)
         guard context.store.applyAutomaticActivity(back) != nil else {
             return ["Research back to Coding switch was refused"]
@@ -629,11 +624,11 @@ enum ActivityRuleChecks {
         }
 
         // A thread the user adopted is theirs: a later rule starts afresh.
-        context.clock.now = context.clock.now.addingTimeInterval(60)
-        let adoptedStart = context.clock.now
-        context.clock.now = context.clock.now.addingTimeInterval(4 * 60)
+        context.clock.value = context.clock.value.addingTimeInterval(60)
+        let adoptedStart = context.clock.value
+        context.clock.value = context.clock.value.addingTimeInterval(4 * 60)
         let again = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: adoptedStart, end: context.clock.now, version: version, generation: 44)
+            start: adoptedStart, end: context.clock.value, version: version, generation: 44)
         guard context.store.applyAutomaticActivity(again) != nil else {
             return ["Automatic Coding after a stop was refused"]
         }
@@ -642,11 +637,11 @@ enum ActivityRuleChecks {
         }
         context.engine.adopt(intent: "")
         _ = context.engine.stop()
-        context.clock.now = context.clock.now.addingTimeInterval(60)
-        let afterAdopt = context.clock.now
-        context.clock.now = context.clock.now.addingTimeInterval(4 * 60)
+        context.clock.value = context.clock.value.addingTimeInterval(60)
+        let afterAdopt = context.clock.value
+        context.clock.value = context.clock.value.addingTimeInterval(4 * 60)
         let onceMore = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: afterAdopt, end: context.clock.now, version: version, generation: 45)
+            start: afterAdopt, end: context.clock.value, version: version, generation: 45)
         guard context.store.applyAutomaticActivity(onceMore) != nil else {
             return ["Automatic Coding after an adopted stretch was refused"]
         }
@@ -657,11 +652,11 @@ enum ActivityRuleChecks {
 
         // Beyond the Continue affordance's window, a rule starts afresh too.
         let latestThread = context.archive.records.last?.threadID
-        context.clock.now = context.clock.now.addingTimeInterval(ContinuationPolicy.maximumAge + 60)
-        let lateStart = context.clock.now
-        context.clock.now = context.clock.now.addingTimeInterval(4 * 60)
+        context.clock.value = context.clock.value.addingTimeInterval(ContinuationPolicy.maximumAge + 60)
+        let lateStart = context.clock.value
+        context.clock.value = context.clock.value.addingTimeInterval(4 * 60)
         let late = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: lateStart, end: context.clock.now, version: version, generation: 46)
+            start: lateStart, end: context.clock.value, version: version, generation: 46)
         guard context.store.applyAutomaticActivity(late) != nil else {
             return ["Automatic Coding after a long gap was refused"]
         }
@@ -681,14 +676,14 @@ enum ActivityRuleChecks {
         defer { clean(context) }
         let version = context.persistence.activityRuleVersion
         let first = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: t0, end: context.clock.now, version: version, generation: 21)
+            start: t0, end: context.clock.value, version: version, generation: 21)
         guard let firstRecord = context.store.applyAutomaticActivity(first),
               let beforeSwitch = context.persistence.loadState() else {
             return ["Could not seed interruption fixture"]
         }
-        context.clock.now = context.clock.now.addingTimeInterval(5 * 60)
+        context.clock.value = context.clock.value.addingTimeInterval(5 * 60)
         let second = action(rule: researchID, name: "Research", type: .deepWork,
-            start: t0.addingTimeInterval(10 * 60), end: context.clock.now,
+            start: t0.addingTimeInterval(10 * 60), end: context.clock.value,
             version: version, generation: 22, expected: firstRecord.resultingRecordID)
         guard let secondRecord = context.store.applyAutomaticActivity(second) else {
             return ["Committed automatic switch was treated as an unapplied failure"]
@@ -696,8 +691,8 @@ enum ActivityRuleChecks {
         // Emulate termination before the ordinary preference snapshot publish.
         context.persistence.saveState(beforeSwitch)
         let restored = SessionEngine(store: context.persistence,
-            archive: SessionArchive(directory: context.directory, now: { context.clock.now }),
-            ownBundleID: "com.example.self", schedulesDwell: false, now: { context.clock.now })
+            archive: SessionArchive(directory: context.directory, now: { context.clock.value }),
+            ownBundleID: "com.example.self", schedulesDwell: false, now: { context.clock.value })
         restored.restore(from: beforeSwitch)
         var failures: [String] = []
         if restored.activeRecordID != secondRecord.resultingRecordID
@@ -718,14 +713,14 @@ enum ActivityRuleChecks {
         defer { clean(context) }
         let version = context.persistence.activityRuleVersion
         let first = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: t0, end: context.clock.now, version: version, generation: 31)
+            start: t0, end: context.clock.value, version: version, generation: 31)
         guard let owner = context.store.applyAutomaticActivity(first) else {
             return ["Could not seed failed-switch fixture"]
         }
         blockArchive = true
-        context.clock.now = context.clock.now.addingTimeInterval(5 * 60)
+        context.clock.value = context.clock.value.addingTimeInterval(5 * 60)
         let second = action(rule: researchID, name: "Research", type: .deepWork,
-            start: t0.addingTimeInterval(10 * 60), end: context.clock.now,
+            start: t0.addingTimeInterval(10 * 60), end: context.clock.value,
             version: version, generation: 32, expected: owner.resultingRecordID)
         let applied = context.store.applyAutomaticActivity(second)
         var failures: [String] = []
@@ -745,7 +740,7 @@ enum ActivityRuleChecks {
         defer { clean(context) }
         let version = context.persistence.activityRuleVersion
         let start = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: t0, end: context.clock.now, version: version, generation: 41)
+            start: t0, end: context.clock.value, version: version, generation: 41)
         guard let record = context.store.applyAutomaticActivity(start) else {
             return ["Could not seed Undo fixture"]
         }
@@ -757,9 +752,9 @@ enum ActivityRuleChecks {
             failures.append("Undo cooldown allowed the same guess to return immediately")
         }
         context.persistence.activityRuleCooldownUntil = nil
-        context.clock.now = context.clock.now.addingTimeInterval(60)
+        context.clock.value = context.clock.value.addingTimeInterval(60)
         let newer = action(rule: codingID, name: "Coding", type: .deepWork,
-            start: context.clock.now.addingTimeInterval(-60), end: context.clock.now,
+            start: context.clock.value.addingTimeInterval(-60), end: context.clock.value,
             version: context.persistence.activityRuleVersion, generation: 42)
         guard let newerRecord = context.store.applyAutomaticActivity(newer) else {
             failures.append("Could not seed newer automatic work"); return failures

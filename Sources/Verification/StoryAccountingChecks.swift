@@ -3,7 +3,7 @@ import Combine
 
 /// Regression coverage for the Story read model. Every fixture uses isolated
 /// preferences and on-disk archives; no test reads or writes the user's data.
-enum StoryAccountingChecks {
+enum StoryAccountingChecks: CheckSuite {
 
     static let tests: [(String, () -> [String])] = [
         ("Repeated overnight ticks retain unique days and full-period stretches", overnightTicksKeepCanonicalEvidence),
@@ -25,17 +25,11 @@ enum StoryAccountingChecks {
         ("Idle visible ticks preserve capacity read models without rebuilding", idleTicksDoNotRebuildCapacityReadModels)
     ]
 
-    private final class Clock {
-        var value: Date
-        init(_ value: Date) { self.value = value }
-        func advance(_ seconds: TimeInterval) { value = value.addingTimeInterval(seconds) }
-    }
-
     private static func overnightTicksKeepCanonicalEvidence() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
             for includesStoredSpan in [false, true] {
-                let clock = Clock(date(2026, 8, 19, 23, 50))
+                let clock = TestClock(date(2026, 8, 19, 23, 50))
                 guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
                 defer { fixture.cleanUp() }
                 fixture.engine.start(workType: .deepWork, intent: "Overnight")
@@ -79,7 +73,7 @@ enum StoryAccountingChecks {
 
     private static func refreshPriorityIsMonotonic() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let clock = TestClock(date(2026, 8, 19, 12, 0))
             guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             fixture.engine.start(workType: .deepWork, intent: "Live")
@@ -126,7 +120,7 @@ enum StoryAccountingChecks {
 
     private static func livePublicationPreservesNewEvidence() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let clock = TestClock(date(2026, 8, 19, 12, 0))
             guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             fixture.store.setDashboardVisible(true)
@@ -163,7 +157,7 @@ enum StoryAccountingChecks {
 
     private static func unchangedPausedFrame() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let clock = TestClock(date(2026, 8, 19, 12, 0))
             guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             fixture.engine.start(workType: .deepWork, intent: "Pause")
@@ -218,7 +212,7 @@ enum StoryAccountingChecks {
 
     private static func liveDashboardMatchesFullRefresh() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let clock = TestClock(date(2026, 8, 19, 12, 0))
             guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             fixture.engine.start(workType: .deepWork, intent: "Live day")
@@ -250,7 +244,7 @@ enum StoryAccountingChecks {
 
     private static func visiblePeriodFollowsLiveEvidence() -> [String] {
         MainActor.assumeIsolated {
-            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let clock = TestClock(date(2026, 8, 19, 12, 0))
             guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             let start = clock.value
@@ -291,7 +285,7 @@ enum StoryAccountingChecks {
     private static func historyDetailKeepsLegacyAndLiveIdentity() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let clock = TestClock(date(2026, 8, 19, 12, 0))
             guard let fixture = makeStore(clock) else {
                 return ["could not create isolated preferences suite"]
             }
@@ -320,7 +314,7 @@ enum StoryAccountingChecks {
     private static func appRanksUseEffectiveLiveUsage() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let clock = TestClock(date(2026, 8, 19, 12, 0))
             guard let fixture = makeStore(clock) else {
                 return ["could not create isolated preferences suite"]
             }
@@ -345,7 +339,7 @@ enum StoryAccountingChecks {
     private static func idleTicksDoNotRebuildCapacityReadModels() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            let clock = Clock(date(2026, 8, 19, 12, 0))
+            let clock = TestClock(date(2026, 8, 19, 12, 0))
             let sessionDirectory = scratchDirectory()
             let usageDirectory = scratchDirectory()
             let suiteName = "com.prabesh.focuscontinuity.story-capacity.\(UUID().uuidString)"
@@ -438,7 +432,7 @@ enum StoryAccountingChecks {
             .appendingPathComponent("fc-story-accounting-\(UUID().uuidString)", isDirectory: true)
     }
 
-    private static func makeStore(_ clock: Clock,
+    private static func makeStore(_ clock: TestClock,
                                   calendar: Calendar = .current)
         -> (store: SessionStore, engine: SessionEngine, usage: AppUsageArchive, cleanUp: () -> Void)? {
         let sessionDirectory = scratchDirectory()
@@ -478,17 +472,12 @@ enum StoryAccountingChecks {
         }
     }
 
-    private static func expect(_ condition: @autoclosure () -> Bool,
-                               _ label: String, _ problems: inout [String]) {
-        if !condition() { problems.append(label) }
-    }
-
     private static func runningWorkStaysConsistentAcrossScopes() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
             let calendar = Calendar.current
             let start = date(2026, 8, 19, 12, 0, calendar: calendar)
-            let clock = Clock(start)
+            let clock = TestClock(start)
             guard let fixture = makeStore(clock, calendar: calendar) else {
                 return ["could not create isolated preferences suite"]
             }
@@ -527,7 +516,7 @@ enum StoryAccountingChecks {
             var problems: [String] = []
             let calendar = Calendar.current
             let anchor = date(2026, 8, 19, 12, 0, calendar: calendar)
-            let clock = Clock(anchor)
+            let clock = TestClock(anchor)
             guard let fixture = makeStore(clock, calendar: calendar) else {
                 return ["could not create isolated preferences suite"]
             }
@@ -554,7 +543,7 @@ enum StoryAccountingChecks {
             var problems: [String] = []
             let calendar = Calendar.current
             let anchor = date(2026, 8, 19, 12, 0, calendar: calendar)
-            let clock = Clock(anchor)
+            let clock = TestClock(anchor)
             guard let fixture = makeStore(clock, calendar: calendar) else {
                 return ["could not create isolated preferences suite"]
             }
@@ -596,7 +585,7 @@ enum StoryAccountingChecks {
             var problems: [String] = []
             let calendar = Calendar.current
             let anchor = date(2026, 8, 19, 12, 0, calendar: calendar)
-            let clock = Clock(anchor)
+            let clock = TestClock(anchor)
             guard let fixture = makeStore(clock, calendar: calendar) else {
                 return ["could not create isolated preferences suite"]
             }
@@ -635,7 +624,7 @@ enum StoryAccountingChecks {
             var problems: [String] = []
             let calendar = Calendar.current
             let start = date(2026, 8, 18, 23, 30, calendar: calendar)
-            let clock = Clock(date(2026, 8, 19, 12, 0, calendar: calendar))
+            let clock = TestClock(date(2026, 8, 19, 12, 0, calendar: calendar))
             guard let fixture = makeStore(clock, calendar: calendar) else {
                 return ["could not create isolated preferences suite"]
             }
@@ -687,7 +676,7 @@ enum StoryAccountingChecks {
             var problems: [String] = []
             let calendar = Calendar.current
             let start = date(2026, 8, 18, 23, 50, calendar: calendar)
-            let clock = Clock(start)
+            let clock = TestClock(start)
             guard let fixture = makeStore(clock, calendar: calendar) else {
                 return ["could not create isolated preferences suite"]
             }
@@ -739,7 +728,7 @@ enum StoryAccountingChecks {
             var problems: [String] = []
             let calendar = Calendar.current
             let anchor = date(2026, 8, 19, 12, 0, calendar: calendar)
-            let clock = Clock(anchor)
+            let clock = TestClock(anchor)
             guard let fixture = makeStore(clock, calendar: calendar) else {
                 return ["could not create isolated preferences suite"]
             }

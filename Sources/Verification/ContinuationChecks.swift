@@ -16,13 +16,8 @@ enum ContinuationChecks {
         ("Starting a different activity creates a new session", differentActivityStartsNewThread)
     ]
 
-    private final class Clock {
-        var value = Date(timeIntervalSinceReferenceDate: 800_000_000)
-        func advance(_ seconds: TimeInterval) { value.addTimeInterval(seconds) }
-    }
-
     private final class Fixture {
-        let clock = Clock()
+        let clock = TestClock(Date(timeIntervalSinceReferenceDate: 800_000_000))
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-continuation-\(UUID().uuidString)")
         let suite = "fc.continuation.\(UUID().uuidString)"

@@ -34,13 +34,8 @@ enum StoryInteractionChecks {
         ("An away prompt retry cannot save an unrelated failed correction", scopedAwayRetry)
     ]
 
-    private final class Clock {
-        var value = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
-        func advance(_ seconds: TimeInterval) { value.addTimeInterval(seconds) }
-    }
-
     private final class Fixture {
-        let clock = Clock()
+        let clock = TestClock(Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!)
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-story-interaction-\(UUID().uuidString)")
         let suite = "fc.story.interaction.\(UUID().uuidString)"
