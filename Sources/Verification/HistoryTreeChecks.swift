@@ -29,7 +29,8 @@ enum HistoryTreeChecks {
         ("A day's rail in History reads exactly what the dashboard reads for that day", railDayMatchesDashboard),
         ("An app-use checkpoint repairs the days it touched in place; a session change rebuilds the index", checkpointPatchesIndex),
         ("Opening History again on unchanged evidence rebuilds neither the index nor Insights", reopenRebuildsNothing),
-        ("Insights are built only while this month's rail shows them", insightsOnlyForThisMonth)
+        ("Insights are built only while this month's rail shows them", insightsOnlyForThisMonth),
+        ("The find bar's app list is sorted once per archive state, and learns a new app", appListIsCached)
     ]
 
     // MARK: - Fixtures
@@ -727,6 +728,34 @@ enum HistoryTreeChecks {
             store.setInsightsVisible(true)
             if store.insightsComputeCount != built + 1 {
                 failures.append("this month's rail got \(store.insightsComputeCount - built) builds, not one")
+            }
+            return failures
+        }
+    }
+
+    /// The find bar's app menu is drawn on every render of History, once a
+    /// second while anything is live. Its list was gathered and sorted by
+    /// localised name each time.
+    private static func appListIsCached() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            guard let usage = store.usage else { return ["the history fixture attaches no usage archive"] }
+            var failures: [String] = []
+            store.setReviewVisible(true)
+            store.refreshReview()
+            let first = store.historyAppBundleIDs
+            let built = store.historyAppListComputeCount
+            for _ in 0..<5 where store.historyAppBundleIDs != first { failures.append("the app list changed between reads") }
+            if store.historyAppListComputeCount != built {
+                failures.append("five reads of an unchanged archive sorted the app list \(store.historyAppListComputeCount - built) more times")
+            }
+            let today = Calendar.current.startOfDay(for: store.now())
+            let start = today.addingTimeInterval(8 * 3_600)
+            usage.checkpoint(AppUsageSession(bundleID: "fc.check.arrival", appName: "Arrival",
+                                             start: start, end: start.addingTimeInterval(600)))
+            if !store.historyAppBundleIDs.contains("fc.check.arrival") {
+                failures.append("the app list did not learn the app a checkpoint brought")
             }
             return failures
         }

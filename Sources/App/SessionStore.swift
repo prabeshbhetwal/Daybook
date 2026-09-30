@@ -491,6 +491,10 @@ final class SessionStore: ObservableObject {
     /// The dashboard rail's figures for a day History has open.
     var storyRailDayCache: (day: Date, revision: EvidenceRevision, minute: Int, reading: StoryRailDay)?
     var historyTreeComputeCount = 0
+    /// The find bar's app list, sorted by name once per archive state; it
+    /// was sorted afresh on every render, once a second.
+    var historyAppListCache: (key: JournalKey, ids: [String])?
+    var historyAppListComputeCount = 0
     /// How many times a search's matches were walked.
     var searchJournalComputeCount = 0
     var reviewEvidenceRevision: EvidenceRevision?

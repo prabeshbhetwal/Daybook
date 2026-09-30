@@ -478,10 +478,16 @@ extension SessionStore {
     }
 
     var historyAppBundleIDs: [String] {
-        Set(historyDays.flatMap(\.appBundleIDs)).sorted {
+        let key = JournalKey(evidence: evidenceRevision, indexGeneration: historyIndexGeneration,
+                             dayCount: historyDays.count, oldest: historyDays.last?.date)
+        if let cached = historyAppListCache, cached.key == key { return cached.ids }
+        historyAppListComputeCount &+= 1
+        let ids = Set(historyDays.flatMap(\.appBundleIDs)).sorted {
             historyAppName(for: $0).localizedCaseInsensitiveCompare(historyAppName(for: $1))
                 == .orderedAscending
         }
+        historyAppListCache = (key, ids)
+        return ids
     }
 
     func historyAppName(for bundleID: String) -> String {
