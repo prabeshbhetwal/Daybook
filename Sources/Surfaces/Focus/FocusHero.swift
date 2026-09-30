@@ -380,7 +380,7 @@ struct FocusHero: View {
             }
             .matchedGeometryEffect(id: "primary", in: primaryPill)
             .help(pauseHelp)
-            FocusActionButton(title: "Step away", symbol: "door.right.hand.open") { store.markAway() }
+            FocusActionButton(title: "Away", symbol: "door.right.hand.open") { store.markAway() }
                 .help(awayHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
@@ -410,7 +410,10 @@ struct FocusHero: View {
                        isStrip: Bool = false) -> String? {
         switch mode {
         case .running: return store.isAutoSession && !isStrip ? "Started automatically" : nil
-        case .paused: return store.isAway ? "Nothing is counted while you are away." : nil
+        // Pause and Away look alike until one is pressed; the line under the
+        // bar then says which it was and what is still being recorded.
+        case .paused: return store.isAway ? "Nothing is counted while you are away."
+                                          : "The clock is paused. App use is still recorded."
         case .watching:
             return "The focus clock is paused while you watch. "
                 + "This time is recorded as Watching, not focus."
@@ -512,7 +515,7 @@ struct FocusHero: View {
                 performPrimaryAction()
             }
             .help(pauseHelp)
-            FocusActionButton(title: "Step away", symbol: "door.right.hand.open") {
+            FocusActionButton(title: "Away", symbol: "door.right.hand.open") {
                 store.markAway()
             }
             .help(awayHelp)
@@ -528,7 +531,7 @@ struct FocusHero: View {
             title: store.isAway ? "Away" : mode.primaryPrompt,
             detail: store.isAway
                 ? "Nothing is counted while you are away."
-                : "The focus clock is paused.",
+                : "The focus clock is paused. App use is still recorded.",
             quiet: true
         ) {
             FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
@@ -815,7 +818,7 @@ struct FocusHero: View {
     }
 
     private var pauseHelp: String {
-        "Pauses the focus clock (\(SessionShortcut.pauseOrResume.glyphs))"
+        "Pauses the focus clock; app use is still recorded (\(SessionShortcut.pauseOrResume.glyphs))"
     }
 
     private var resumeHelp: String {
@@ -879,7 +882,7 @@ private struct FocusOperationFailure: View {
 
 /// A word-labelled action keeps the Focus panel understandable without relying
 /// on tooltip-only icon controls. Only the state-appropriate primary action is
-/// filled; Step away and Stop remain quiet secondary choices.
+/// filled; Away and Stop remain quiet secondary choices.
 private struct FocusActionButton: View {
     let title: String
     let symbol: String

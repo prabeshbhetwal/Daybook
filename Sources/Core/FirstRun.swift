@@ -352,9 +352,11 @@ enum FirstRunScript {
         ]),
 
         Chapter(id: .steppingAway, cards: [
-            Card(sentence: "Step away, and it will ask.",
-                 body: "Leave your Mac during a session and, when you come back, this "
-                     + "card asks what that gap was. The one on screen now is a "
+            Card(sentence: "Pause stops the clock. Away stops everything, then asks.",
+                 body: "Pause is for staying at the Mac: the clock stops, what you do is "
+                     + "still recorded. Away is for leaving it: nothing is recorded until "
+                     + "you're back, and when you come back this card asks what that gap "
+                     + "was. The one on screen now is a "
                      + "rehearsal with made-up figures — press any answer and nothing "
                      + "is recorded.",
                  note: "It was a break is written down as rest. I was working adds the "

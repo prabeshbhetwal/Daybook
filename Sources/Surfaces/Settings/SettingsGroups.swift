@@ -116,6 +116,11 @@ struct SettingsGroups: View {
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(entry.action), \(entry.spoken)")
                 }
+                Text(Self.pauseOrAwayNote)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, Tokens.Space.xs)
             }
             .padding(.vertical, Tokens.Space.s)
         }
@@ -136,13 +141,19 @@ struct SettingsGroups: View {
         }
     }
 
+    /// Pause and Away sit side by side on the bar and read as one thing
+    /// until pressed; the keyboard list is where the difference is written down.
+    static let pauseOrAwayNote = "Pause is for staying at the Mac: the clock stops, app use is still "
+        + "recorded. Away is for leaving it: nothing is recorded until you're back, and a long "
+        + "gap is asked about."
+
     /// The window's own keys. The session keys come from `SessionShortcut`,
     /// so this list cannot drift from what the Session commands answer to.
     static let windowKeys: [KeyEntry] = [
         KeyEntry(keys: SessionShortcut.start.glyphs, spoken: "Option-Command-N", action: "Start focus"),
         KeyEntry(keys: SessionShortcut.pauseOrResume.glyphs, spoken: "Option-Command-P",
                  action: "Pause or resume"),
-        KeyEntry(keys: SessionShortcut.stepAway.glyphs, spoken: "Option-Command-A", action: "Step away"),
+        KeyEntry(keys: SessionShortcut.stepAway.glyphs, spoken: "Option-Command-A", action: "Away"),
         KeyEntry(keys: SessionShortcut.stop.glyphs, spoken: "Option-Command-S", action: "Stop the session"),
         KeyEntry(keys: "⌘1", spoken: "Command-1", action: "The day's story"),
         KeyEntry(keys: "⌘2", spoken: "Command-2", action: "History"),

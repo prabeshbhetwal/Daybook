@@ -75,7 +75,7 @@ struct SessionCommands: Commands {
             Button(pauseOrResumeTitle) { store.performFocusPrimaryAction() }
                 .keyboardShortcut(SessionShortcut.pauseOrResume.shortcut)
                 .disabled(!isLive)
-            Button("Step away") { store.markAway() }
+            Button("Away") { store.markAway() }
                 .keyboardShortcut(SessionShortcut.stepAway.shortcut)
                 .disabled(mode != .running)
             Divider()
