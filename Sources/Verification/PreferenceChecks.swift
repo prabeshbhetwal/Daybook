@@ -77,9 +77,10 @@ enum PreferenceChecks {
     }
 
     private static func streakCacheFollowsMinimum() -> [String] {
-        let archive = SessionArchive(directory: FileManager.default.temporaryDirectory
-            .appendingPathComponent("fc-streak-cache-\(UUID().uuidString)", isDirectory: true),
-                                     now: { noon })
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("fc-streak-cache-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let archive = SessionArchive(directory: directory, now: { noon })
         _ = archive.append(SessionRecord(name: "Ten minutes", workType: .deepWork,
                                          start: noon.addingTimeInterval(-1_200),
                                          end: noon.addingTimeInterval(-600), workSeconds: 600))
