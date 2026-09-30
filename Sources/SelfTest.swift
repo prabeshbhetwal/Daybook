@@ -468,7 +468,7 @@ enum SelfTest {
             + StoryIntegrationChecks.tests + CategoryChecks.tests + SessionReportChecks.tests
             + SavedActivityChecks.tests + FirstRunChecks.tests + EfficiencyChecks.tests
             + RedundancyChecks.tests + HistoryJournalChecks.tests + HistoryTreeChecks.tests
-            + HistorySearchChecks.tests
+            + HistorySearchChecks.tests + BreakCountingChecks.tests
             + SessionAccessibilityChecks.tests + SettingsAccessibilityChecks.tests
             + DayStoryAccessibilityChecks.tests + RailAccessibilityChecks.tests
             + LongAwayRestoreChecks.tests

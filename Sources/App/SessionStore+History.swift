@@ -457,11 +457,28 @@ extension SessionStore {
 
     // MARK: - Correcting a recorded session
 
-    var legacyFocusTargets: [SessionRecord] {
-        var threads = Set<UUID>()
-        return engine.archive.records.sorted { $0.end > $1.end }.filter {
-            $0.workType.countsAsFocus && $0.end > $0.start && threads.insert($0.threadID).inserted
+    /// The focus sessions a recorded break can be counted into: those on the
+    /// break's own day, nearest to it first, one per session. The whole
+    /// archive made a menu of hundreds of look-alike rows.
+    func legacyFocusTargets(for rest: RestEntry, calendar: Calendar = .current) -> [SessionRecord] {
+        func distance(_ record: SessionRecord) -> TimeInterval {
+            record.end <= rest.start ? rest.start.timeIntervalSince(record.end)
+                : max(0, record.start.timeIntervalSince(rest.end))
         }
+        var threads = Set<UUID>()
+        return engine.archive.records
+            .filter { $0.workType.countsAsFocus && $0.end > $0.start
+                && calendar.isDate($0.start, inSameDayAs: rest.start) }
+            .sorted { distance($0) == distance($1) ? $0.start < $1.start : distance($0) < distance($1) }
+            .filter { threads.insert($0.threadID).inserted }
+    }
+
+    /// `Browsing · Deep work · 2:24 pm – 3:11 pm`: the time tells apart
+    /// sessions that share a name.
+    static func legacyFocusTargetLabel(_ record: SessionRecord) -> String {
+        let time = DateFormats.australian("h:mm a")
+        return "\(record.name.isEmpty ? "Unnamed session" : record.name) · \(record.workType.displayName) · "
+            + "\(time.string(from: record.start)) – \(time.string(from: record.end))"
     }
 
     func legacyBreakRecord(id: UUID) -> SessionRecord? {

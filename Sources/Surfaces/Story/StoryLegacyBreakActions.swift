@@ -14,15 +14,16 @@ struct StoryLegacyBreakActions: View {
     @StateObject private var draft = LegacyClassificationDraft()
 
     var body: some View {
-        Menu("Change how this counts") {
+        let targets = store.legacyFocusTargets(for: rest)
+        return Menu("Change how this counts") {
             Button("Leave uncounted") { choose(.continueSession) }
-            if store.legacyFocusTargets.isEmpty {
-                Text("No recorded focus session is available for attribution.")
+            if targets.isEmpty {
+                Text("No focus session was recorded on this day.")
                 Text("You can still leave this interval uncounted.")
             } else {
                 Menu("Count as focus in…") {
-                    ForEach(store.legacyFocusTargets) { record in
-                        Button("\(record.name.isEmpty ? "Unnamed session" : record.name) · \(record.workType.displayName)") {
+                    ForEach(targets) { record in
+                        Button(SessionStore.legacyFocusTargetLabel(record)) {
                             choose(.mergeTime, target: record)
                         }
                     }
