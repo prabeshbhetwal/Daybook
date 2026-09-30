@@ -122,6 +122,7 @@ extension SessionStore {
 
     func stop() {
         guard !hasUnresolvedAwayDecision else { return }
+        isNamingAutomaticSession = false
         let thread = engine.activeThreadID, start = engine.sessionStartDate
         engine.stop()
         if let error = engine.awayDecisionError {

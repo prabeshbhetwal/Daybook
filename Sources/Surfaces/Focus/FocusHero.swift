@@ -267,8 +267,8 @@ struct FocusHero: View {
     static func underlineHasContent(_ store: SessionStore) -> Bool {
         let composition = store.focusSurfaceComposition
         return !composition.mode.showsOrdinaryControls
-            || detail(for: composition.mode, store: store) != nil
-            || composition.showsAutomaticSessionControls
+            || detail(for: composition.mode, store: store, isStrip: true) != nil
+            || showsAutomaticRow(composition, isStrip: true, naming: store.isNamingAutomaticSession)
             || store.focusOperationFailure != nil
     }
 
@@ -384,6 +384,7 @@ struct FocusHero: View {
                 .help(awayHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
+            automaticNameButton
         case .paused, .watching:
             FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
                               symbol: "play.fill", prominent: true) {
@@ -393,6 +394,7 @@ struct FocusHero: View {
             .help(resumeHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
+            automaticNameButton
         case .idle, .awaitingDecision:
             EmptyView()
         }
@@ -400,11 +402,14 @@ struct FocusHero: View {
 
     /// Only the sentences the row cannot carry without truncating them. A
     /// recording rule the user is being held to must never end in an ellipsis.
-    private var stripDetail: String? { Self.detail(for: mode, store: store) }
+    private var stripDetail: String? { Self.detail(for: mode, store: store, isStrip: isStrip) }
 
-    static func detail(for mode: FocusSurfaceMode, store: SessionStore) -> String? {
+    /// In the strip the Name button says a session started automatically,
+    /// so the caption under the bar would say it twice.
+    static func detail(for mode: FocusSurfaceMode, store: SessionStore,
+                       isStrip: Bool = false) -> String? {
         switch mode {
-        case .running: return store.isAutoSession ? "Started automatically" : nil
+        case .running: return store.isAutoSession && !isStrip ? "Started automatically" : nil
         case .paused: return store.isAway ? "Nothing is counted while you are away." : nil
         case .watching:
             return "The focus clock is paused while you watch. "
@@ -413,15 +418,27 @@ struct FocusHero: View {
         }
     }
 
+    /// The strip keeps the automatic session's row folded until Name is
+    /// pressed: a question under the bar all session long was noise once the
+    /// name was right. Every other layout has the room and shows it outright.
+    static func showsAutomaticRow(_ composition: FocusSurfaceComposition,
+                                  isStrip: Bool, naming: Bool) -> Bool {
+        composition.showsAutomaticSessionControls && (!isStrip || naming)
+    }
+
+    private var showsAutomaticRow: Bool {
+        Self.showsAutomaticRow(composition, isStrip: isStrip, naming: store.isNamingAutomaticSession)
+    }
+
     @ViewBuilder private var stripWrapLines: some View {
         // The strip's automatic row says "Started automatically" itself.
-        if let stripDetail, !(isStrip && composition.showsAutomaticSessionControls) {
+        if let stripDetail, !showsAutomaticRow {
             Text(stripDetail)
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        if composition.showsAutomaticSessionControls { automaticControls }
+        if showsAutomaticRow { automaticControls }
     }
 
     // MARK: - Idle
@@ -601,6 +618,17 @@ struct FocusHero: View {
                          : "Name or reclassify this automatic session, or discard it."
     }
 
+    /// Beside Stop, only in the strip and only for an automatic session:
+    /// unfolds the naming row under the bar, and folds it again.
+    @ViewBuilder private var automaticNameButton: some View {
+        if isStrip && composition.showsAutomaticSessionControls {
+            FocusActionButton(title: "Name", symbol: "pencil") {
+                store.isNamingAutomaticSession.toggle()
+            }
+            .help("Started automatically. " + automaticSentence)
+        }
+    }
+
     @ViewBuilder private var automaticControls: some View {
         if isStrip {
             // The window's strip: one row. The field, the category, Adopt
@@ -656,6 +684,8 @@ struct FocusHero: View {
     private var automaticIntentField: some View {
         IntentField(text: $store.intent) { store.applyAutomaticSessionCorrection() }
             .focused(intentFocused)
+            // Unfolded by Name, the row is there to be typed into.
+            .onAppear { if isStrip { intentFocused.wrappedValue = true } }
             .padding(.horizontal, Tokens.Space.s)
             .frame(maxWidth: Tokens.formMeasure, minHeight: 30)
             .background(Tokens.Colour.elevated,

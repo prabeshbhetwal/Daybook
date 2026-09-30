@@ -25,6 +25,11 @@ final class SessionStore: ObservableObject {
     @Published var expandedNoteEditorIDs: Set<UUID> = []
     @Published var focusedNoteEditorID: UUID?
     @Published var powerMetadataError: String?
+    /// Whether the window's strip has unfolded the automatic session's
+    /// naming row. The row and the bar are two views of one store, so the
+    /// bar's Name button and the underline's row meet here. Adopt, Undo and
+    /// Stop fold it again.
+    @Published var isNamingAutomaticSession = false
     var lastPowerState: SessionState = .idle
     var lastPowerRecordID: UUID?
     /// Set on machine wake, consumed by the next power reconcile. Sleep is the

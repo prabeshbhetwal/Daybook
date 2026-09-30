@@ -126,6 +126,7 @@ extension SessionStore {
     /// existing adopt/reclassify semantics of `start()`.
     func applyAutomaticSessionCorrection() {
         guard isAutoSession, !hasUnresolvedAwayDecision else { return }
+        isNamingAutomaticSession = false
         if isAway {
             // `endAway()` refreshes `workType` from the still-active session.
             // Preserve the user's pending correction across that required
@@ -156,6 +157,7 @@ extension SessionStore {
     /// resume the App-level tracker exactly once.
     func undoAutomaticSessionCorrection() {
         guard isAutoSession, !hasUnresolvedAwayDecision else { return }
+        isNamingAutomaticSession = false
         _ = undoAutoSession(resumeTracking: isAway)
     }
 }
