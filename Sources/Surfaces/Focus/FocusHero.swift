@@ -414,7 +414,8 @@ struct FocusHero: View {
     }
 
     @ViewBuilder private var stripWrapLines: some View {
-        if let stripDetail {
+        // The strip's automatic row says "Started automatically" itself.
+        if let stripDetail, !(isStrip && composition.showsAutomaticSessionControls) {
             Text(stripDetail)
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
@@ -592,13 +593,43 @@ struct FocusHero: View {
         }
     }
 
-    private var automaticControls: some View {
+    /// What the controls ask, in one sentence: the strip's row says it to
+    /// VoiceOver, the stacked layouts print it.
+    private var automaticSentence: String {
+        mode == .running ? "Name this session, reclassify it, or discard it."
+                         : "Name or reclassify this automatic session, or discard it."
+    }
+
+    @ViewBuilder private var automaticControls: some View {
+        if isStrip {
+            // The window's strip: one row. The field, the category, Adopt
+            // and Undo say "name, reclassify or discard" between them; that
+            // sentence used to stand on its own line under a divider, with
+            // Undo on a third, five lines under the bar for one question.
+            HStack(spacing: Tokens.Space.m) {
+                Text("Started automatically")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                automaticIntentField
+                WorkTypePicker(selection: $store.workType)
+                automaticAdoptButton
+                automaticUndoButton
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(automaticSentence)
+        } else {
+            automaticControlsStacked
+        }
+    }
+
+    private var automaticControlsStacked: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Divider()
             // While running, "Started automatically" is the line above; paused,
             // nothing else says the session was automatic.
-            Text(mode == .running ? "Name this session, reclassify it, or discard it."
-                                  : "Name or reclassify this automatic session, or discard it.")
+            Text(automaticSentence)
                 .font(Tokens.Typography.metadata)
                 .foregroundStyle(.secondary)
             if compact {
@@ -640,9 +671,10 @@ struct FocusHero: View {
     }
 
     private var automaticUndoButton: some View {
-        Button(compact ? "Undo automatic session" : "Undo") {
+        Button(compact && !isStrip ? "Undo automatic session" : "Undo") {
             store.undoAutomaticSessionCorrection()
         }
+        .accessibilityLabel("Undo automatic session")
         .buttonStyle(StoryPressStyle())
         .font(Tokens.Typography.metadata)
         .foregroundStyle(.secondary)
