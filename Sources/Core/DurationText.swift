@@ -30,13 +30,16 @@ enum DurationText {
     /// `2h 15m` becomes `2 hours 15 minutes`, `1m` becomes `1 minute` and
     /// `<1s` becomes `under a second`. The eye reads `15m` as minutes; speech
     /// reads it as fifteen metres. Numbers inside words or times are left.
+    /// Compiled once: every accessibility label on the story went through
+    /// this, and each call was compiling the pattern again.
+    private static let compactDuration = try? NSRegularExpression(pattern: #"(?<![\w.:])(\d+)([hms])(?!\w)"#)
+
     static func spoken(in text: String) -> String {
         let text = text.replacingOccurrences(of: "<1s", with: "under a second")
         let units: [Character: (one: String, many: String)] = [
             "h": ("hour", "hours"), "m": ("minute", "minutes"), "s": ("second", "seconds")
         ]
-        let pattern = #"(?<![\w.:])(\d+)([hms])(?!\w)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        guard let regex = compactDuration else { return text }
         var result = ""
         var cursor = text.startIndex
         for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {

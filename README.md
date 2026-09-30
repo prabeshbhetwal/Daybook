@@ -146,6 +146,9 @@ Xcode is not needed.
 ./build.sh --check  # Build and run the checks without replacing the app
 ```
 
+The binary is built with `-Osize` and stripped of local symbols. To profile
+with `sample`, build once with `FC_KEEP_SYMBOLS=1 ./build.sh`.
+
 The app is ad-hoc signed for local use; it is not notarised or distributed.
 Builds that replace the local app take a lock at `.build/promotion.lock`, so a
 second build waits its turn. If a build is killed outright, remove that
