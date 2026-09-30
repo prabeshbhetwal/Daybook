@@ -6,6 +6,7 @@ import AppKit
 struct HistoryWorkspace: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    @ObservedObject var settings: SettingsModel
     var scrolls = true
 
     var body: some View {
@@ -14,9 +15,9 @@ struct HistoryWorkspace: View {
             Divider()
             Group {
                 if scrolls {
-                    ScrollView { HistoryJournalRail(store: store, navigation: navigation) }
+                    ScrollView { HistoryJournalRail(store: store, navigation: navigation, settings: settings) }
                 } else {
-                    HistoryJournalRail(store: store, navigation: navigation)
+                    HistoryJournalRail(store: store, navigation: navigation, settings: settings)
                         .frame(maxHeight: .infinity, alignment: .top)
                 }
             }

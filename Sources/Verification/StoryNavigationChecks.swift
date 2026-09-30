@@ -33,9 +33,11 @@ enum StoryNavigationChecks {
                 navigation.selectHistory(session: thread, on: yesterday)
                 if navigation.historySession?.thread != thread { failures.append("picking a session did not select it") }
                 if navigation.reviewSelectedDate != yesterday { failures.append("a picked session did not belong to its day") }
+                // The open day is the dashboard's story: the arrows walk rows,
+                // never into its cards.
                 navigation.stepHistoryFocus(by: -1)
-                if navigation.historyFocus != .row(navigation.historyOpen.last!) {
-                    failures.append("↑ from the first session did not land on its day")
+                guard case .row = navigation.historyFocus else {
+                    return failures + ["↑ from a picked session did not land on a row"]
                 }
             } else {
                 failures.append("the fixture's yesterday has no session to pick")
@@ -65,14 +67,17 @@ enum StoryNavigationChecks {
             if navigation.historyScrollRequest == scroll || navigation.historyScrollTarget != navigation.historyOpen.last?.id {
                 failures.append("Jump to date did not ask the tree to scroll to the day")
             }
+            // The open day is the dashboard's story, whose cards are reached
+            // with Tab: ↓ goes to the next row, and ↑ comes back to the day.
+            let dayRow = HistoryFocus.row(navigation.historyOpen.last!)
             navigation.stepHistoryFocus(by: 1)
-            guard case .session(_, let day) = navigation.historyFocus ?? .row(navigation.historyOpen[0]),
-                  day == twoDaysAgo else {
-                return failures + ["↓ from a day with a session did not reach that session"]
+            guard case .row(let next) = navigation.historyFocus, navigation.historyFocus != dayRow else {
+                return failures + ["↓ from an open day did not reach the next row: \(String(describing: navigation.historyFocus))"]
             }
+            _ = next
             navigation.stepHistoryFocus(by: -1)
-            if navigation.historyFocus != .row(navigation.historyOpen.last!) {
-                failures.append("↑ from the day's first session did not return to its row")
+            if navigation.historyFocus != dayRow {
+                failures.append("↑ from the next row did not return to the open day")
             }
             return failures
         }

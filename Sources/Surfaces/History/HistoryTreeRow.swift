@@ -197,7 +197,12 @@ struct HistoryTreeRow: View {
 
     @ViewBuilder private var children: some View {
         if row.place.level == .day {
-            HistoryDaySessions(store: store, navigation: navigation, day: row.place.start, only: nil)
+            // The dashboard's own day, for this date: the same headline, the
+            // same timeline, the same cards.
+            ProjectedDayStoryColumn(store: store, projection: store.storyDayProjection(on: row.place.start),
+                                    context: .main)
+                .padding(.vertical, Tokens.Space.m)
+                .padding(.leading, Tokens.Space.s)
         } else {
             let rows = store.historyRows(under: row.place)
             // AnyView breaks the recursion in the opaque type; the tree is at

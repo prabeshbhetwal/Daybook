@@ -65,11 +65,13 @@ struct StoryAppRow: View {
 struct StoryAppDetail: View {
     @ObservedObject var store: SessionStore
     let bundleID: String
+    /// History's open day; nil is the dashboard's.
+    var day: Date?
     let onDismiss: () -> Void
     @StateObject private var showAll = BoolBox()
 
     var body: some View {
-        let evidence = store.storyAppEvidence(for: bundleID, period: nil)
+        let evidence = store.storyAppEvidence(for: bundleID, period: nil, day: day)
         let entries = evidence.visits
         let appName = entries.first?.appName ?? bundleID
         let shown = showAll.value ? entries.count : min(store.menuSessionCount, entries.count)
@@ -79,7 +81,7 @@ struct StoryAppDetail: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(appName).font(Tokens.Typography.sectionTitle)
                         .accessibilityAddTraits(.isHeader)
-                    Text(Tokens.longDate(store.selectedDay))
+                    Text(Tokens.longDate(day ?? store.selectedDay))
                         .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
                 }
                 Spacer()

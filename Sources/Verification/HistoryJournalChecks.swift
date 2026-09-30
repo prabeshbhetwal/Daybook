@@ -256,22 +256,26 @@ enum HistoryJournalChecks {
             }
             let dense = FixtureFactory.insightsStore(withEvidence: true)
             dense.refreshReview()
+            let denseSettings = SettingsModel(store: dense.engine.store, isTrackingEnabled: true,
+                                              onChange: {}, onTrackingChanged: { _ in })
             let navigation = MainWindowModel(store: dense)
             navigation.open(tab: .review)
             let monthFrame = StoryWorkspaceChecks.renderFrame(
-                HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000)
+                HistoryWorkspace(store: dense, navigation: navigation, settings: denseSettings, scrolls: false), width: 1_160, height: 1_000)
             require("History on its month", monthFrame, .historyTree)
             require("History on its month", monthFrame, .historyPeriodRail)
             let yesterday = Calendar.current.date(byAdding: .day, value: -1,
                                                   to: Calendar.current.startOfDay(for: dense.now()))!
             navigation.openHistory(day: yesterday)
-            require("History on a day", StoryWorkspaceChecks.renderFrame(
-                HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000),
-                .historyDayRail)
+            let dayFrame = StoryWorkspaceChecks.renderFrame(
+                HistoryWorkspace(store: dense, navigation: navigation, settings: denseSettings, scrolls: false), width: 1_160, height: 1_600)
+            require("History on a day", dayFrame, .historyDayRail)
+            // The open day is the dashboard's own day story, not a list of rows.
+            require("History on a day", dayFrame, .dayStory)
             if let thread = dense.journalThreads(on: yesterday, only: nil).first {
                 navigation.selectHistory(session: thread, on: yesterday)
                 require("History on a session", StoryWorkspaceChecks.renderFrame(
-                    HistoryWorkspace(store: dense, navigation: navigation, scrolls: false), width: 1_160, height: 1_000),
+                    HistoryWorkspace(store: dense, navigation: navigation, settings: denseSettings, scrolls: false), width: 1_160, height: 1_000),
                     .historySessionRail)
             } else {
                 failures.append("the dense fixture's yesterday has no session")
@@ -282,7 +286,7 @@ enum HistoryJournalChecks {
             let fresh = MainWindowModel(store: sparse)
             fresh.open(tab: .review)
             require("An empty History", StoryWorkspaceChecks.renderFrame(
-                HistoryWorkspace(store: sparse, navigation: fresh, scrolls: false), width: 1_160, height: 800),
+                HistoryWorkspace(store: sparse, navigation: fresh, settings: SettingsModel(store: sparse.engine.store, isTrackingEnabled: true, onChange: {}, onTrackingChanged: { _ in }), scrolls: false), width: 1_160, height: 800),
                 .historyEmpty)
             FixtureFactory.cleanUp()
             return failures

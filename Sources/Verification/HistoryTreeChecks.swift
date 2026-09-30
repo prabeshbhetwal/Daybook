@@ -25,7 +25,8 @@ enum HistoryTreeChecks {
         ("The dashboard has no step or calendar, and History never moves its day", dashboardIsToday),
         ("Open rows survive midnight and the top stepping up", openSurvivesMidnight),
         ("A zone whose clocks change at midnight keeps every day once", daylightSavingAtMidnight),
-        ("Today's live figures patch the cached summary without a walk", summaryPatching)
+        ("Today's live figures patch the cached summary without a walk", summaryPatching),
+        ("A day's rail in History reads exactly what the dashboard reads for that day", railDayMatchesDashboard)
     ]
 
     // MARK: - Fixtures
@@ -606,5 +607,38 @@ enum HistoryTreeChecks {
             failures.append("no live day changed the summary")
         }
         return failures
+    }
+
+    // MARK: - The day, as the dashboard draws it
+
+    private static func railDayMatchesDashboard() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            defer { FixtureFactory.cleanUp() }
+            store.setDashboardVisible(true)
+            let calendar = Calendar.current
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: store.now()))!
+            // The dashboard, stepped to yesterday, is the reference.
+            store.selectDay(offset: 1)
+            var failures: [String] = []
+            let reading = store.storyRailDay(on: yesterday)
+            if reading.apps != store.rankedApps { failures.append("History's apps for yesterday differ from the dashboard's") }
+            if reading.rhythm != store.rhythm || reading.rhythmPeak != store.rhythmPeak {
+                failures.append("History's rhythm for yesterday differs from the dashboard's")
+            }
+            if reading.goal != store.selectedDayGoal { failures.append("History's goal for yesterday differs from the dashboard's") }
+            if reading.apps.isEmpty { failures.append("the fixture's yesterday has no apps, so nothing was compared") }
+            if let app = reading.apps.first,
+               store.storyAppEvidence(for: app.bundleID, period: nil, day: yesterday)
+                != store.storyAppEvidence(for: app.bundleID, period: nil) {
+                failures.append("an app's detail for yesterday differs from the dashboard's")
+            }
+            store.selectDay(offset: 0)
+            // Read while the dashboard shows today: History still gets yesterday.
+            if store.storyRailDay(on: yesterday).apps != reading.apps {
+                failures.append("History's reading for yesterday followed the dashboard's day")
+            }
+            return failures
+        }
     }
 }

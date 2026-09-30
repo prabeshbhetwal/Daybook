@@ -469,8 +469,11 @@ enum CompactControlsChecks {
             // Nor may the History page carry a scope control of its own.
             let historyNavigation = MainWindowModel(store: store)
             historyNavigation.open(tab: .insights)
+            let historySettings = SettingsModel(store: store.engine.store, isTrackingEnabled: true,
+                                                onChange: {}, onTrackingChanged: { _ in })
             let page = NSHostingView(rootView: HistoryWorkspace(store: store,
                                                                 navigation: historyNavigation,
+                                                                settings: historySettings,
                                                                 scrolls: false)
                 .frame(width: 1_000, height: 700))
             page.frame = NSRect(x: 0, y: 0, width: 1_000, height: 700)

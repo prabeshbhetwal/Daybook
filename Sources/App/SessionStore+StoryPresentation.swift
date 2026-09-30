@@ -49,9 +49,10 @@ extension SessionStore {
         Dictionary(uniqueKeysWithValues: rankedApps.enumerated().map { ($0.element.bundleID, $0.offset) })
     }
 
-    func storyAppEvidence(for bundleID: String, period: TrackingPeriod?) -> StoryAppEvidence {
+    /// `day` is History's open day; nil is the dashboard's.
+    func storyAppEvidence(for bundleID: String, period: TrackingPeriod?, day: Date? = nil) -> StoryAppEvidence {
         let bounds = period == nil
-            ? Calendar.current.dateInterval(of: .day, for: selectedDay) : storyReviewBounds()
+            ? Calendar.current.dateInterval(of: .day, for: day ?? selectedDay) : storyReviewBounds()
         guard let bounds else { return StoryAppEvidence(visits: []) }
         return StoryAppEvidence.clipped(effectiveUsageSnapshot?.sessions ?? [],
                                         bundleID: bundleID, to: bounds)

@@ -46,25 +46,29 @@ enum HistoryRailScope: Equatable {
 struct HistoryJournalRail: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    @ObservedObject var settings: SettingsModel
     @Environment(\.focusInterfaceDensity) private var density
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            switch scope {
-            case .period(let place):
-                HistoryPeriodRail(store: store, place: place)
-                    .storyRenderEvidence(.historyPeriodRail)
-            case .day(let day):
-                HistoryDayRail(store: store, projection: store.storyDayProjection(on: day))
-                    .storyRenderEvidence(.historyDayRail)
-            case .session(let session, let day):
-                HistorySessionRail(store: store, session: session, day: day,
-                                   apps: store.storyDayProjection(on: day).sessionDetails[session.id]?.apps ?? [])
-                    .storyRenderEvidence(.historySessionRail)
-            }
+        switch scope {
+        case .day(let day):
+            // The dashboard's own rail, for this day. It sets its own insets.
+            StoryRail(store: store, navigation: navigation, settings: settings, day: day)
+                .storyRenderEvidence(.historyDayRail)
+        case .period(let place):
+            padded(HistoryPeriodRail(store: store, place: place)
+                .storyRenderEvidence(.historyPeriodRail))
+        case .session(let session, let day):
+            padded(HistorySessionRail(store: store, session: session, day: day,
+                                      apps: store.storyDayProjection(on: day).sessionDetails[session.id]?.apps ?? [])
+                .storyRenderEvidence(.historySessionRail))
         }
-        .padding(StoryStyle.railInsets(for: density))
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func padded(_ content: some View) -> some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.m) { content }
+            .padding(StoryStyle.railInsets(for: density))
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var scope: HistoryRailScope {
@@ -256,83 +260,6 @@ struct HistoryPeriodRail: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-}
-
-/// A day: its focus and shape, its apps, its notes in full, and the way into
-/// its story. Its sessions are in the journal already.
-struct HistoryDayRail: View {
-    @ObservedObject var store: SessionStore
-    let projection: StoryDayProjection
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            HistoryRailHeading(title: Tokens.longDate(projection.date))
-            StoryTile(title: "Focus", trailing: nil) {
-                Text(durations: Tokens.preciseDuration(projection.focused))
-                    .font(Tokens.Typography.metricValue.monospacedDigit())
-                    .foregroundStyle(projection.focused > 0 ? AnyShapeStyle(Tokens.Colour.focus)
-                                                            : AnyShapeStyle(.secondary))
-                if let note = summaryNote {
-                    Text(durations: note)
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                VStack(spacing: 3) {
-                    HistoryDayStrip(date: projection.date, entries: projection.sessions, height: 10)
-                    HistoryStripAxis(leading: 0, trailing: 0)
-                }
-                .padding(.top, Tokens.Space.xs)
-            }
-            if !projection.apps.isEmpty {
-                let limit = store.engine.store.menuAppCount
-                StoryTile(title: projection.apps.count > limit ? "Top \(limit) apps" : "Apps",
-                          trailing: projection.apps.count == 1 ? "1 recorded" : "\(projection.apps.count) recorded") {
-                    ForEach(Array(projection.apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
-                        StoryAppRow(app: app, rank: index)
-                    }
-                }
-            }
-            if !notes.isEmpty {
-                StoryTile(title: "Notes", trailing: nil) {
-                    ForEach(notes, id: \.id) { note in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(note.title).font(Tokens.Typography.metadata.weight(.semibold))
-                            Text(note.text)
-                                .font(Tokens.Typography.metadata)
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var summaryNote: String? {
-        var parts: [String] = []
-        if projection.tracked > 0 { parts.append("\(Tokens.duration(projection.tracked)) recorded app use") }
-        if projection.longestFocusStretch > 0 {
-            parts.append("longest stretch \(Tokens.preciseDuration(projection.longestFocusStretch))")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    /// Notes saved against any stretch of the day's sessions, oldest first.
-    private var notes: [(id: UUID, title: String, text: String)] {
-        var result: [(id: UUID, title: String, text: String)] = []
-        for entry in projection.sessions {
-            guard case .session(let session) = entry else { continue }
-            for recordID in session.recordIDs {
-                let text = (store.metadataArchive.metadata(for: recordID)?.note ?? "")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !text.isEmpty {
-                    result.append((recordID, session.workType.sessionTitle(named: session.name), text))
-                }
-            }
-        }
-        return result
     }
 }
 

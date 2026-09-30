@@ -89,6 +89,9 @@ struct StoryRail: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
     @ObservedObject var settings: SettingsModel
+    /// A day History has open; nil is the dashboard's own day. Every figure
+    /// is that day's, and the streak — which is about now — is left out.
+    var day: Date?
     /// The tile under the pointer during a drag, so the drop target is visible
     /// before the mouse is released.
     @StateObject private var dropTarget = TileBox()
@@ -106,11 +109,13 @@ struct StoryRail: View {
             ForEach(shownTiles, id: \.self) { kind in
                 arrangedTile(kind, shownTiles: shownTiles, evidence: evidence)
             }
-            droppable(footer(shownTiles), before: nil)
+            // Cards are arranged on the dashboard; History shows them in that order.
+            if day == nil { droppable(footer(shownTiles), before: nil) }
         }
         .padding(StoryStyle.railInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .leading)
         .onChange(of: store.dayOffset) { _ in selectedApp.text = "" }
+        .onChange(of: day) { _ in selectedApp.text = "" }
         .onChange(of: settings.storyTileOrder) { arrangement.synchronise($0) }
         .onAppear { arrangement.synchronise(settings.storyTileOrder) }
         .onExitCommand { arrangement.escape() }
@@ -261,8 +266,8 @@ struct StoryRail: View {
             case .focus: return true
             case .mac: return evidence.tracked > 0 || evidence.uncoveredFocus > 0
             case .apps: return !apps.isEmpty
-            case .rhythm: return !store.rhythm.isEmpty
-            case .streak: return store.streak > 0
+            case .rhythm: return !rhythmHours.isEmpty
+            case .streak: return day == nil && store.streak > 0
             }
         }
     }
@@ -320,8 +325,8 @@ struct StoryRail: View {
 
     /// The day's focus total is the headline's; this card is the goal's.
     private func focusTile(_ evidence: StoryUsageBreakdown) -> some View {
-        let goal = store.selectedDayGoal
-        return StoryTile(title: "Daily goal", trailing: store.dayLabel) {
+        let goal = railGoal
+        return StoryTile(title: "Daily goal", trailing: day.map { Tokens.dayLabel($0) } ?? store.dayLabel) {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     if goal.goal > 0 {
@@ -364,7 +369,7 @@ struct StoryRail: View {
 
     /// Categories with a goal of their own, with the day's seconds against it.
     private var categoryGoals: [(type: WorkType, goal: TimeInterval, achieved: TimeInterval)] {
-        let seconds = store.storyCategorySeconds(on: store.selectedDay)
+        let seconds = store.storyCategorySeconds(on: shownDay)
         return WorkType.startable.compactMap { type in
             guard let goal = type.dailyGoal, goal > 0 else { return nil }
             return (type, goal, seconds[type] ?? 0)
@@ -411,8 +416,16 @@ struct StoryRail: View {
 
     private var goalShare: Double? {
         guard store.goal.goal > 0 else { return nil }
-        return store.selectedDayGoal.share
+        return railGoal.share
     }
+
+    // MARK: - The day shown
+
+    private var shownDay: Date { day ?? store.selectedDay }
+    private var reading: StoryRailDay? { day.map { store.storyRailDay(on: $0) } }
+    private var railGoal: GoalProgress { reading?.goal ?? store.selectedDayGoal }
+    private var rhythmHours: [RhythmHour] { reading?.rhythm ?? store.rhythm }
+    private var rhythmPeak: String? { day == nil ? store.rhythmPeak : reading?.rhythmPeak }
 
     // MARK: - On this Mac
 
@@ -467,7 +480,7 @@ struct StoryRail: View {
     /// Temporal membership splits observed use. Missing focus coverage is a
     /// separate measure and is never added to the observed headline or bar.
     private var breakdown: StoryUsageBreakdown {
-        store.storyUsageBreakdown(on: store.selectedDay)
+        store.storyUsageBreakdown(on: shownDay)
     }
     private func width(of value: TimeInterval, total: TimeInterval) -> Double {
         guard total > 0 else { return 0 }
@@ -493,7 +506,7 @@ struct StoryRail: View {
 
     // MARK: - Apps
 
-    private var apps: [AppRank] { store.rankedApps }
+    private var apps: [AppRank] { reading?.apps ?? store.rankedApps }
 
     private var appsTile: some View {
         // The title says what the list is; the trailing figure says how many
@@ -507,7 +520,7 @@ struct StoryRail: View {
                     .popover(isPresented: Binding(
                         get: { selectedApp.text == app.bundleID },
                         set: { if !$0 && selectedApp.text == app.bundleID { selectedApp.text = "" } })) {
-                            StoryAppDetail(store: store, bundleID: app.bundleID,
+                            StoryAppDetail(store: store, bundleID: app.bundleID, day: day,
                                            onDismiss: { selectedApp.text = "" })
                         }
                     .onExitCommand { selectedApp.text = "" }
@@ -519,8 +532,8 @@ struct StoryRail: View {
 
     private var rhythmTile: some View {
         StoryTile(title: "Rhythm", trailing: "by hour") {
-            RhythmChart(hours: store.rhythm, height: 54, compactLabels: true)
-            if let peak = store.rhythmPeak {
+            RhythmChart(hours: rhythmHours, height: 54, compactLabels: true)
+            if let peak = rhythmPeak {
                 Text("Most recorded app use: \(peak).")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)

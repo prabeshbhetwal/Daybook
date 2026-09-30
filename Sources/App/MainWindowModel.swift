@@ -359,8 +359,10 @@ struct HistorySessionPick: Hashable {
 
     private func historyVisible() -> [HistoryFocus] {
         guard let store else { return [] }
+        // An open day is the dashboard's day story; its cards are reached
+        // with Tab and VoiceOver, as they are on the dashboard.
         return HistoryTreeBuilder.visible(open: historyOpen, rows: { store.historyRows(under: $0) },
-                                          threads: { store.journalThreads(on: $0, only: nil) })
+                                          threads: { _ in [] })
     }
 
     /// ↑ and ↓: one visible row at a time. With no focus, ↓ lands on the

@@ -474,6 +474,8 @@ final class SessionStore: ObservableObject {
     /// History's tree: its index, its rows per parent place and its
     /// summaries per place, held until the archive changes.
     var historyTreeCache: HistoryTreeCache?
+    /// The dashboard rail's figures for a day History has open.
+    var storyRailDayCache: (day: Date, revision: EvidenceRevision, minute: Int, reading: StoryRailDay)?
     var historyTreeComputeCount = 0
     /// How many times a search's matches were walked.
     var searchJournalComputeCount = 0

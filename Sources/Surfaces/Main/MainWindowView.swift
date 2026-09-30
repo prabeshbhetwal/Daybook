@@ -143,7 +143,7 @@ struct MainWindowView: View {
             StoryCanvas(store: store, navigation: navigation, settings: settings,
                         scrolls: reviewScrolls)
             case .history:
-                HistoryWorkspace(store: store, navigation: navigation,
+                HistoryWorkspace(store: store, navigation: navigation, settings: settings,
                                  scrolls: insightsScrolls)
                     .onAppear {
                         store.setReviewVisible(true)
