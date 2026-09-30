@@ -28,6 +28,31 @@ struct HistoryBuildResult: Equatable {
     let droppedRestSpans: Int
 }
 
+/// How History reads a query: each word must turn up somewhere in what a
+/// thing is known by, in any order, ignoring case and accents. So
+/// "cafe tuesday" finds the break named "Café" on a Tuesday, and
+/// "parser notes" finds the session called Parser whose note says "notes".
+enum SearchWords {
+    /// Lower-cased, accents dropped: the form both sides are compared in.
+    static func fold(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+    }
+
+    /// The query's words, folded, with stray punctuation at their edges
+    /// dropped so "parser," still finds Parser. Inner punctuation stays, so
+    /// "2026-09-28" and "28/9" are still one word each.
+    static func words(in query: String) -> [String] {
+        fold(query).split(whereSeparator: \.isWhitespace)
+            .map { $0.trimmingCharacters(in: .punctuationCharacters.union(.symbols)) }
+            .filter { !$0.isEmpty }
+    }
+
+    /// True when every word is in `text`. `text` must already be folded.
+    static func all(_ words: [String], in text: String) -> Bool {
+        words.allSatisfy(text.contains)
+    }
+}
+
 /// Every non-nil condition must match. A query searches the date plus the
 /// canonical app and work-type identifiers carried by `HistoryDay`; the
 /// optional app and work-type controls then narrow that result by intersection.
@@ -38,7 +63,7 @@ struct HistoryFilter: Equatable {
 
     func apply(to days: [HistoryDay],
                appNamesByBundleID: [String: String] = [:]) -> [HistoryDay] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let words = SearchWords.words(in: query)
         let descriptive = DateFormatter()
         descriptive.locale = Locale(identifier: "en_AU")
         descriptive.calendar = Calendar(identifier: .gregorian)
@@ -50,10 +75,9 @@ struct HistoryFilter: Equatable {
         stable.dateFormat = "yyyy-MM-dd"
 
         return days.filter { day in
-            let queryMatches = needle.isEmpty
-                || Self.searchText(for: day, appNamesByBundleID: appNamesByBundleID,
-                                   descriptive: descriptive, stable: stable)
-                    .contains(needle)
+            let queryMatches = words.isEmpty
+                || SearchWords.all(words, in: Self.searchText(for: day, appNamesByBundleID: appNamesByBundleID,
+                                                              descriptive: descriptive, stable: stable))
             let appMatches = appBundleID.map(day.appBundleIDs.contains) ?? true
             let workTypeMatches = workType.map(day.workTypes.contains) ?? true
             return queryMatches && appMatches && workTypeMatches
@@ -77,10 +101,9 @@ struct HistoryFilter: Equatable {
             .sorted { $0.rawValue < $1.rawValue }
             .flatMap { [$0.rawValue, $0.displayName] }
             .joined(separator: " ")
-        return [descriptive.string(from: day.date), stable.string(from: day.date),
-                apps, appNames, types]
-            .joined(separator: " ")
-            .lowercased()
+        return SearchWords.fold([descriptive.string(from: day.date), stable.string(from: day.date),
+                                 apps, appNames, types]
+            .joined(separator: " "))
     }
 }
 

@@ -15,6 +15,9 @@ struct HistorySearchHit: Identifiable, Equatable {
     let noteSnippet: String?
     /// App names on the day when an app matched.
     let matchedApps: [String]
+    /// Every record folded into this result. A break lists as its records'
+    /// rows, so the journal finds it by these rather than by its thread.
+    var recordIDs: [UUID] = []
 }
 
 /// Everything on record, summed once: what the History page opens with.
@@ -46,64 +49,118 @@ struct HistoryArchiveFacts: Equatable {
 }
 
 extension SessionStore {
-    /// Sessions whose name, note, category, apps or date contain the query,
-    /// newest first. The app and category menus narrow the same list.
+    /// Sessions and breaks holding every word of the query, newest first.
+    /// A session is known by its name and any name it had before a rename,
+    /// its category, its notes in full, the app it began in and the apps used
+    /// that day, its date and time of day, whether the app started it, and
+    /// what the Mac ran on. A break is known by the name it was given, where
+    /// you were, and by its date and time. The app and category menus narrow
+    /// the same list; a break joins it only through words or the Break
+    /// category, since a day's apps say nothing about a break.
     func historySearchHits(limit: Int = 200) -> [HistorySearchHit] {
         let calendar = Calendar.current
         let filter = historyFilter
-        let needle = filter.query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !needle.isEmpty || filter.appBundleID != nil || filter.workType != nil else { return [] }
-        let dayFormatter = DateFormats.australian("EEEE d MMMM yyyy")
+        let words = SearchWords.words(in: filter.query)
+        guard !words.isEmpty || filter.appBundleID != nil || filter.workType != nil else { return [] }
+        let formats = ["EEEE d MMMM yyyy", "d/M/yyyy", "h:mm a", "HH:mm"].map { DateFormats.australian($0) }
         let stable = DateFormatter()
         stable.locale = Locale(identifier: "en_US_POSIX")
         stable.dateFormat = "yyyy-MM-dd"
         let daysByDate = Dictionary(uniqueKeysWithValues: historyDays.map { (calendar.startOfDay(for: $0.date), $0) })
+        let today = calendar.startOfDay(for: now())
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)
+        let formerNames = formerSessionNames()
+
+        // Stretches of one session on one day are one result, as they are
+        // one card in the story, and are searched as one: a name in one
+        // stretch and a word in another's note still find the session.
+        struct ThreadDay: Hashable { let thread: UUID; let day: Date }
+        var groups: [[SessionRecord]] = []
+        var groupIndex: [ThreadDay: Int] = [:]
+        for record in engine.archive.records.sorted(by: { $0.start > $1.start }) {
+            if let type = filter.workType, record.workType != type { continue }
+            let key = ThreadDay(thread: record.threadID, day: calendar.startOfDay(for: record.start))
+            if let index = groupIndex[key] {
+                groups[index].append(record)
+            } else {
+                groupIndex[key] = groups.count
+                groups.append([record])
+            }
+        }
 
         var hits: [HistorySearchHit] = []
-        for record in engine.archive.records.sorted(by: { $0.start > $1.start }) {
-            let day = calendar.startOfDay(for: record.start)
+        for records in groups {
+            let first = records[0]
+            let day = calendar.startOfDay(for: first.start)
             let historyDay = daysByDate[day]
-            if let type = filter.workType, record.workType != type { continue }
+            let isBreak = !first.workType.countsAsFocus
+            if isBreak, words.isEmpty, filter.workType != first.workType { continue }
             if let app = filter.appBundleID, !(historyDay?.appBundleIDs.contains(app) ?? false) { continue }
-            let note = metadataArchive.metadata(for: record.id)?.note ?? ""
             var noteSnippet: String?
             var matchedApps: [String] = []
-            if !needle.isEmpty {
-                let name = record.name.lowercased()
-                let type = record.workType.displayName.lowercased()
-                let dateText = (dayFormatter.string(from: record.start) + " " + stable.string(from: record.start)).lowercased()
-                let apps = (historyDay?.appBundleIDs ?? []).map(historyAppName(for:))
-                matchedApps = apps.filter { $0.lowercased().contains(needle) }
-                let noteMatches = note.lowercased().contains(needle)
-                guard name.contains(needle) || type.contains(needle) || dateText.contains(needle)
-                        || noteMatches || !matchedApps.isEmpty else { continue }
-                if noteMatches {
-                    noteSnippet = note.split(whereSeparator: \.isNewline)
-                        .first { $0.lowercased().contains(needle) }
-                        .map { String($0).trimmingCharacters(in: .whitespaces) }
+            if !words.isEmpty {
+                let notes = records.compactMap { metadataArchive.metadata(for: $0.id)?.note }
+                let apps = isBreak ? [] : (historyDay?.appBundleIDs ?? []).map(historyAppName(for:))
+                var text = [first.workType.sessionTitle(named: first.name), first.workType.displayName]
+                text += records.map(\.name) + (formerNames[first.threadID] ?? []) + notes + apps
+                text += records.compactMap(\.detectedApp).map(historyAppName(for:))
+                for record in records {
+                    text += formats.map { $0.string(from: record.start) }
+                    text += [stable.string(from: record.start), Self.timeOfDay(record.start, calendar: calendar)]
+                    if let power = metadataArchive.metadata(for: record.id)?.power, !power.isEmpty,
+                       let summary = PowerContextSummary.make(
+                           observations: power,
+                           interval: DateInterval(start: record.start, end: max(record.start, record.end))) {
+                        text += [summary.headline, summary.detail ?? ""]
+                    }
                 }
+                if day == today { text.append("today") }
+                if day == yesterday { text.append("yesterday") }
+                if records.contains(where: \.isAuto) { text.append("automatic auto-started") }
+                guard SearchWords.all(words, in: SearchWords.fold(text.joined(separator: " "))) else { continue }
+                func holdsAWord(_ text: String) -> Bool {
+                    let folded = SearchWords.fold(text)
+                    return words.contains { folded.contains($0) }
+                }
+                noteSnippet = notes.lazy.flatMap { $0.split(whereSeparator: \.isNewline) }
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .first(where: holdsAWord)
+                matchedApps = apps.filter(holdsAWord)
             }
-            // Stretches of one session on one day are one result, as they are
-            // one card in the story.
-            if let index = hits.firstIndex(where: { $0.threadID == record.threadID && $0.day == day }) {
-                let joined = hits[index]
-                hits[index] = HistorySearchHit(id: joined.id, threadID: joined.threadID,
-                                               name: joined.name, workType: joined.workType,
-                                               start: min(joined.start, record.start),
-                                               end: max(joined.end, record.end),
-                                               worked: joined.worked + record.workSeconds, day: day,
-                                               noteSnippet: joined.noteSnippet ?? noteSnippet,
-                                               matchedApps: joined.matchedApps)
-                continue
-            }
-            hits.append(HistorySearchHit(id: record.id, threadID: record.threadID,
-                                         name: record.workType.sessionTitle(named: record.name),
-                                         workType: record.workType, start: record.start, end: record.end,
-                                         worked: record.workSeconds, day: day,
-                                         noteSnippet: noteSnippet, matchedApps: matchedApps))
+            hits.append(HistorySearchHit(id: first.id, threadID: first.threadID,
+                                         name: first.workType.sessionTitle(named: first.name),
+                                         workType: first.workType,
+                                         start: records.map(\.start).min() ?? first.start,
+                                         end: records.map(\.end).max() ?? first.end,
+                                         worked: records.reduce(0) { $0 + $1.workSeconds }, day: day,
+                                         noteSnippet: noteSnippet, matchedApps: matchedApps,
+                                         recordIDs: records.map(\.id)))
             if hits.count >= limit { break }
         }
         return hits
+    }
+
+    /// The names each thread carried before a rename, so a session is still
+    /// found by what it used to be called.
+    private func formerSessionNames() -> [UUID: [String]] {
+        var names: [UUID: [String]] = [:]
+        for correction in corrections {
+            guard case .rename = correction.correction else { continue }
+            names[correction.threadID, default: []].append(correction.originalFields.name)
+            names[correction.threadID, default: []] += correction.archiveSnapshot?.fields.map(\.name) ?? []
+        }
+        return names
+    }
+
+    /// Morning, afternoon, evening or night, as someone would say when a
+    /// session began.
+    static func timeOfDay(_ date: Date, calendar: Calendar) -> String {
+        switch calendar.component(.hour, from: date) {
+        case 5..<12: return "morning"
+        case 12..<17: return "afternoon"
+        case 17..<21: return "evening"
+        default: return "night"
+        }
     }
 
     /// The whole archive summed once per evidence revision.

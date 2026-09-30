@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The search that reaches the whole archive: a field for names, notes,
-/// apps, categories and dates, the two menus that narrow it, and a way to
-/// clear them. It heads History, so it is always there to type into.
+/// The search that reaches the whole archive: a field whose words can be
+/// anything a session or break is known by (see `historySearchHits`), the
+/// two menus that narrow it, and a way to clear them. It heads History, so
+/// it is always there to type into.
 struct HistoryFindBar: View {
     @ObservedObject var store: SessionStore
     /// Bumped by ⌘F; each bump puts the cursor in the field.
@@ -34,7 +35,7 @@ struct HistoryFindBar: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
-            TextField("Find a session: name, note, app, category or date", text: queryBinding)
+            TextField("Find anything: a name, note, break, app, category, date or time", text: queryBinding)
                 .textFieldStyle(.plain)
                 .focused($fieldFocused)
                 .onExitCommand { fieldFocused = false }

@@ -15,13 +15,16 @@ struct JournalMonth: Identifiable, Equatable {
 }
 
 /// A day the journal lists under its own header. While History is searched,
-/// `threads` holds the sessions that matched; nil lists every session.
+/// `threads` holds the sessions that matched, by thread, and the breaks that
+/// matched, by record; nil lists every row.
 struct JournalDay: Identifiable, Equatable {
     let date: Date
     let focused: TimeInterval
     let tracked: TimeInterval
     let sessions: Int
     var threads: Set<UUID>? = nil
+    /// Breaks that matched a search. Always 0 outside one.
+    var breaks = 0
 
     var id: Date { date }
     /// At the Mac, but no session: the journal says so in one line, above
@@ -50,24 +53,31 @@ enum HistoryJournalBuilder {
     /// Search results as a journal: only the months and days holding a match,
     /// each totalling its matches, each day narrowed to the sessions that
     /// matched. `hits` arrive newest first, as `historySearchHits` lists them.
-    /// A break is not a session and its length is not focus, so a break hit
-    /// adds nothing: no day, no month, no figure.
+    /// A break that matched lists as its row under its day, but it is not a
+    /// session and its length is not focus: it adds no session and no figure.
     static func entries(matching hits: [HistorySearchHit],
                         calendar: Calendar = .current) -> [JournalEntry] {
-        let hits = hits.filter { $0.workType.countsAsFocus }
         var result: [JournalEntry] = []
         var openMonth: Date?
         var monthHits: [HistorySearchHit] = []
         func flushMonth() {
             guard let start = openMonth, !monthHits.isEmpty else { return }
             var worked: [Date: TimeInterval] = [:]
-            var threads: [Date: Set<UUID>] = [:]
+            var sessions: [Date: Set<UUID>] = [:]
+            var listed: [Date: Set<UUID>] = [:]
+            var breaks: [Date: Int] = [:]
             var order: [Date] = []
             for hit in monthHits {
                 let day = calendar.startOfDay(for: hit.day)
-                if worked[day] == nil { order.append(day) }
-                worked[day, default: 0] += hit.worked
-                threads[day, default: []].insert(hit.threadID)
+                if listed[day] == nil { order.append(day) }
+                if hit.workType.countsAsFocus {
+                    worked[day, default: 0] += hit.worked
+                    sessions[day, default: []].insert(hit.threadID)
+                    listed[day, default: []].insert(hit.threadID)
+                } else {
+                    breaks[day, default: 0] += 1
+                    listed[day, default: []].formUnion(hit.recordIDs.isEmpty ? [hit.id] : hit.recordIDs)
+                }
             }
             let count = calendar.range(of: .day, in: .month, for: start)?.count ?? 31
             let daily = (0..<count).map { offset -> TimeInterval in
@@ -75,11 +85,12 @@ enum HistoryJournalBuilder {
                 return worked[date] ?? 0
             }
             result.append(.month(JournalMonth(start: start, focused: daily.reduce(0, +), tracked: 0,
-                                              focusedDays: order.count, dailyFocus: daily)))
+                                              focusedDays: sessions.count, dailyFocus: daily)))
             for day in order {
                 result.append(.day(JournalDay(date: day, focused: worked[day] ?? 0, tracked: 0,
-                                              sessions: threads[day]?.count ?? 0,
-                                              threads: threads[day] ?? [])))
+                                              sessions: sessions[day]?.count ?? 0,
+                                              threads: listed[day] ?? [],
+                                              breaks: breaks[day] ?? 0)))
             }
         }
         for hit in hits {
@@ -107,8 +118,10 @@ enum HistoryJournalBuilder {
         projection.sessions
             .filter { entry in
                 guard let only else { return true }
-                if case .session(let session) = entry { return only.contains(session.threadID) }
-                return false
+                switch entry {
+                case .session(let session): return only.contains(session.threadID)
+                case .rest(let rest): return only.contains(rest.id)
+                }
             }
             .sorted { $0.start > $1.start }
     }
@@ -196,5 +209,23 @@ extension SessionStore {
             if !note.isEmpty { return note }
         }
         return nil
+    }
+
+    /// The one line of a session's notes its row shows: while History is
+    /// searched, the first line holding a word of the search, so the row
+    /// says why it matched; otherwise the first line of the note.
+    func journalNoteLine(for session: DaySession) -> String? {
+        let words = SearchWords.words(in: historyFilter.query)
+        if !words.isEmpty {
+            for id in session.recordIDs {
+                let note = metadataArchive.metadata(for: id)?.note ?? ""
+                if let line = note.split(whereSeparator: \.isNewline)
+                    .map({ $0.trimmingCharacters(in: .whitespaces) })
+                    .first(where: { line in words.contains { SearchWords.fold(line).contains($0) } }) {
+                    return line
+                }
+            }
+        }
+        return journalNote(for: session).flatMap { $0.split(whereSeparator: \.isNewline).first.map(String.init) }
     }
 }

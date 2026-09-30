@@ -231,8 +231,7 @@ struct HistoryDaySessions: View {
                 case .session(let session):
                     HistorySessionRow(session: session,
                                       apps: (projection.sessionDetails[session.id]?.apps ?? []).map(\.appName),
-                                      note: store.journalNote(for: session)
-                                          .flatMap { $0.split(whereSeparator: \.isNewline).first.map(String.init) },
+                                      note: store.journalNoteLine(for: session),
                                       isSelected: navigation.historySession == HistorySessionPick(thread: session.threadID, day: day)
                                           || navigation.historyFocus == .session(thread: session.threadID, day: day),
                                       onSelect: { navigation.selectHistory(session: session.threadID, on: day) })

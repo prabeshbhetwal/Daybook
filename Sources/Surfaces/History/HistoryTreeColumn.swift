@@ -70,7 +70,8 @@ struct HistoryTree: View {
     private func content(searched: [JournalEntry]?, insets: EdgeInsets) -> some View {
         if let searched, searched.isEmpty {
             EmptyState("No matching sessions",
-                       detail: "Try a session name, a word from a note, an app, a category or a date.",
+                       detail: "Try fewer words, or a session name, an old name, a word from a note, "
+                           + "a named break, an app, a category, a date or a time of day.",
                        icon: "magnifyingglass")
                 .padding(insets)
         } else if isEmptyArchive {
@@ -134,16 +135,22 @@ struct HistoryTree: View {
         .onExitCommand { navigation.foldDeepestHistory() }
     }
 
-    /// `12 sessions match · 8h 20m of focus`.
+    /// `12 sessions match · 8h 20m of focus`, then `· 2 breaks` when breaks
+    /// matched too; `2 breaks match` when only breaks did.
     static func matchSummary(_ entries: [JournalEntry]) -> String {
         var sessions = 0
+        var breaks = 0
         var worked: TimeInterval = 0
         for case .day(let day) in entries {
             sessions += day.sessions
+            breaks += day.breaks
             worked += day.focused
         }
+        let breakCount = breaks == 1 ? "1 break" : "\(breaks) breaks"
+        if sessions == 0 && breaks > 0 { return breakCount + (breaks == 1 ? " matches" : " match") }
         let noun = sessions == 1 ? "session matches" : "sessions match"
-        return "\(sessions) \(noun) · \(Tokens.duration(worked)) of focus"
+        let summary = "\(sessions) \(noun) · \(Tokens.duration(worked)) of focus"
+        return breaks > 0 ? summary + " · " + breakCount : summary
     }
 
     /// What a row says when the keyboard lands on it: its VoiceOver label,

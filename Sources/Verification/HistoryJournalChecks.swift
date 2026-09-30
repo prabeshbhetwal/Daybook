@@ -6,7 +6,7 @@ import Foundation
 enum HistoryJournalChecks {
     static let tests: [(String, () -> [String])] = [
         ("Month headers total their own days once", monthTotals),
-        ("Search narrows the journal to matching sessions, never breaks, and totals them", searchNarrows),
+        ("Search narrows the journal to matching sessions and breaks, and totals only focus", searchNarrows),
         ("A ticking clock does not recompute a search", searchIsCached),
         ("The search summary says its figures once", journalWording),
         ("A session row speaks its time, name, category and length as one element", sessionSpeech),
@@ -101,26 +101,43 @@ enum HistoryJournalChecks {
         if let day = days(entries).first, day.threads != [a, b] || day.sessions != 2 || day.focused != 1_800 {
             failures.append("28 Sep was not narrowed to its two matches")
         }
-        // A break matches the app filter or the Break category, but it is not
-        // focus: it adds no day, no month and no figure to the summary.
-        func rest(_ month: Int, _ day: Int, _ length: TimeInterval) -> HistorySearchHit {
+        // A break that matched lists as its own row under its day, but it is
+        // not focus: it adds no session, no focused day and no focus figure.
+        let restIDs = (0..<3).map { _ in UUID() }
+        func rest(_ index: Int, _ month: Int, _ day: Int, _ length: TimeInterval) -> HistorySearchHit {
             let start = date(month, day).addingTimeInterval(13 * 3_600)
-            return HistorySearchHit(id: UUID(), threadID: UUID(), name: "Break", workType: .breakTime,
+            return HistorySearchHit(id: restIDs[index], threadID: UUID(), name: "Café", workType: .breakTime,
                                     start: start, end: start.addingTimeInterval(length), worked: length,
-                                    day: date(month, day), noteSnippet: nil, matchedApps: [])
+                                    day: date(month, day), noteSnippet: nil, matchedApps: [],
+                                    recordIDs: [restIDs[index]])
         }
         let withBreaks = HistoryJournalBuilder.entries(
-            matching: [rest(9, 29, 1_500), hits[0], rest(9, 28, 900), hits[1], hits[2], rest(7, 14, 600)],
+            matching: [rest(0, 9, 29, 1_500), hits[0], rest(1, 9, 28, 900), hits[1], hits[2], rest(2, 7, 14, 600)],
             calendar: calendar)
-        if withBreaks.map(describe) != expected {
-            failures.append("break hits added rows: \(withBreaks.map(describe))")
+        let expectedWithBreaks = ["month 9", "day 9/29", "day 9/28", "month 8", "day 8/29", "month 7", "day 7/14"]
+        if withBreaks.map(describe) != expectedWithBreaks {
+            failures.append("break hits read \(withBreaks.map(describe)), expected \(expectedWithBreaks)")
+        }
+        if let september = months(withBreaks).first, september.focused != 1_800 || september.focusedDays != 1 {
+            failures.append("a break hit changed September's figures: \(september.focused)s over \(september.focusedDays) days")
+        }
+        let breakDays = days(withBreaks)
+        if let breakOnly = breakDays.first,
+           breakOnly.sessions != 0 || breakOnly.focused != 0 || breakOnly.breaks != 1
+            || breakOnly.threads != [restIDs[0]] {
+            failures.append("29 Sep did not list its one matched break by record")
+        }
+        if breakDays.count > 1, breakDays[1].threads != [a, b, restIDs[1]] || breakDays[1].sessions != 2 {
+            failures.append("28 Sep did not list its two sessions and its break")
         }
         let summary = HistoryTree.matchSummary(withBreaks)
-        if summary != "3 sessions match · \(Tokens.duration(2_700)) of focus" {
-            failures.append("break hits reached the search summary: \"\(summary)\"")
+        if summary != "3 sessions match · \(Tokens.duration(2_700)) of focus · 3 breaks" {
+            failures.append("search summary with breaks read \"\(summary)\"")
         }
-        if !HistoryJournalBuilder.entries(matching: [rest(9, 29, 1_500)], calendar: calendar).isEmpty {
-            failures.append("a search matching only breaks listed a day")
+        let onlyBreaks = HistoryTree.matchSummary(
+            HistoryJournalBuilder.entries(matching: [rest(0, 9, 29, 1_500)], calendar: calendar))
+        if onlyBreaks != "1 break matches" {
+            failures.append("a search matching one break summed \"\(onlyBreaks)\"")
         }
         return failures
     }
