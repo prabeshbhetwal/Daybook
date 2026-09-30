@@ -28,7 +28,8 @@ enum HistoryTreeChecks {
         ("Today's live figures patch the cached summary without a walk", summaryPatching),
         ("A day's rail in History reads exactly what the dashboard reads for that day", railDayMatchesDashboard),
         ("An app-use checkpoint repairs the days it touched in place; a session change rebuilds the index", checkpointPatchesIndex),
-        ("Opening History again on unchanged evidence rebuilds neither the index nor Insights", reopenRebuildsNothing)
+        ("Opening History again on unchanged evidence rebuilds neither the index nor Insights", reopenRebuildsNothing),
+        ("Insights are built only while this month's rail shows them", insightsOnlyForThisMonth)
     ]
 
     // MARK: - Fixtures
@@ -687,6 +688,45 @@ enum HistoryTreeChecks {
             store.refresh()
             if store.historyIndexGeneration == generation {
                 failures.append("a session change did not rebuild the index")
+            }
+            return failures
+        }
+    }
+
+    /// The Insights surfaces (pace, rhythm, quality) appear on this month's
+    /// rail alone. History opens on this week, whose rail shows none of
+    /// them, yet every app switch rebuilt both surfaces for it.
+    private static func insightsOnlyForThisMonth() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            guard let usage = store.usage else { return ["the history fixture attaches no usage archive"] }
+            var failures: [String] = []
+            let calendar = SessionStore.historyCalendar
+            store.setReviewVisible(true)
+            store.refreshReview()
+            let top = store.historyTop()
+            let today = calendar.startOfDay(for: store.now())
+            let month = HistoryPlace(level: .month, span: HistoryTreeBuilder.period(.month, containing: today, calendar: calendar))
+            let week = HistoryPlace(level: .week, span: HistoryTreeBuilder.period(.week, containing: today, calendar: calendar))
+            let lastMonth = calendar.date(byAdding: .month, value: -1, to: today)!
+            let earlier = HistoryPlace(level: .month, span: HistoryTreeBuilder.period(.month, containing: lastMonth, calendar: calendar))
+            if !HistoryPeriodRail.showsThisMonth(place: month, top: top) { failures.append("this month's rail does not claim Insights") }
+            if HistoryPeriodRail.showsThisMonth(place: week, top: top) { failures.append("a week's rail claims Insights") }
+            if HistoryPeriodRail.showsThisMonth(place: earlier, top: top) { failures.append("an earlier month's rail claims Insights") }
+            // Without a claim, app use comes and goes and Insights stay unbuilt.
+            store.setInsightsVisible(false)
+            let built = store.insightsComputeCount
+            let start = today.addingTimeInterval(8 * 3_600)
+            usage.checkpoint(AppUsageSession(bundleID: "fc.check.quiet", appName: "Quiet",
+                                             start: start, end: start.addingTimeInterval(600)))
+            if store.insightsComputeCount != built {
+                failures.append("a checkpoint built Insights \(store.insightsComputeCount - built) times for a rail that shows none")
+            }
+            // The claim consumes what is owed, once.
+            store.setInsightsVisible(true)
+            if store.insightsComputeCount != built + 1 {
+                failures.append("this month's rail got \(store.insightsComputeCount - built) builds, not one")
             }
             return failures
         }

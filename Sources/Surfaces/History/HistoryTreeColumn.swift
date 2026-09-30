@@ -51,11 +51,10 @@ struct HistoryTree: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(StoryStyle.canvas)
         .announcesChanges(to: summary.map(DurationText.spoken(in:)))
-        .onAppear { store.setInsightsVisible(true); navigation.prepareHistory() }
+        .onAppear { navigation.prepareHistory() }
         // Midnight re-clips the rows holding today, and a longer record can
         // step the top up: the open path is re-read as the rows now drawn.
         .onChange(of: store.historyTop()) { _ in navigation.reconcileHistory() }
-        .onDisappear { store.setInsightsVisible(false) }
         .storyRenderEvidence(isEmptyArchive ? .historyEmpty : .historyTree)
     }
 

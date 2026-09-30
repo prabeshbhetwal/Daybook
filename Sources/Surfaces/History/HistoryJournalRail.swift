@@ -134,15 +134,22 @@ struct HistoryPeriodRail: View {
         }
     }
 
+    /// This month's rail also says how the month is going, from the Insights
+    /// surfaces. Those are built only while a rail shows them: every app
+    /// switch used to rebuild both, for a week's rail that shows neither.
+    static func showsThisMonth(place: HistoryPlace?, top: HistoryTop) -> Bool {
+        let span = place?.span ?? top.span
+        return (place?.level ?? top.place?.level) == .month && span.contains(top.today)
+    }
+
     var body: some View {
         let calendar = SessionStore.historyCalendar
         let top = store.historyTop()
-        let span = place?.span ?? top.span
         let read = Self.reading(for: place, top: top)
         let facts = store.insightReading(scope: read.scope, anchoredAt: read.anchor, limit: read.limit,
                                          calendar: calendar).facts
         let tracked = store.historySummary(for: place).tracked
-        let isCurrentMonth = (place?.level ?? top.place?.level) == .month && span.contains(top.today)
+        let isCurrentMonth = Self.showsThisMonth(place: place, top: top)
         let surface = store.insightSurface(for: .month)
         return VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HistoryRailHeading(title: place.map { HistoryRowText.title($0, today: top.today, calendar: calendar) }
@@ -173,6 +180,9 @@ struct HistoryPeriodRail: View {
             if !facts.apps.isEmpty { appsTile(facts.apps, tracked: tracked) }
             if isCurrentMonth { soFar(surface) }
         }
+        .onAppear { store.setInsightsVisible(isCurrentMonth) }
+        .onChange(of: isCurrentMonth) { store.setInsightsVisible($0) }
+        .onDisappear { store.setInsightsVisible(false) }
     }
 
     /// The best month of a year or the record; the best day of a month or week.
