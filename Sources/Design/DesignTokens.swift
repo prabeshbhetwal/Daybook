@@ -102,6 +102,13 @@ enum Tokens {
         static let bar: CGFloat = 3
     }
 
+    /// The height of the menu bar panel's controls: the activity field, the
+    /// category menu and Start. Each set its own, and Start stood 6pt shorter
+    /// than the two beside it.
+    enum Control {
+        static let compactHeight: CGFloat = 34
+    }
+
     enum Typography {
         /// Every text size the product may use. Ad-hoc sizes had grown to
         /// nineteen steps, with 6/7/8/9 doing one job between them — a list,

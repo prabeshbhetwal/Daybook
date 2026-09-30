@@ -452,7 +452,8 @@ struct FocusHero: View {
                     // Start taking the rest of the row.
                     HStack(spacing: Tokens.Space.s) {
                         WorkTypePicker(selection: $store.workType, quiet: true)
-                        StartButton(title: "Start focus", fills: true) { performPrimaryAction() }
+                        StartButton(title: "Start focus", fills: true,
+                                    height: Tokens.Control.compactHeight) { performPrimaryAction() }
                             .help(startHelp)
                     }
                 } else {

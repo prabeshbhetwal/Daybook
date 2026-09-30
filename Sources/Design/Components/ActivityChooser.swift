@@ -100,7 +100,7 @@ struct ActivityChooser: View {
         .onTapGesture { intentFocused.wrappedValue = true }
     }
 
-    private var fieldHeight: CGFloat { compact ? 34 : 38 }
+    private var fieldHeight: CGFloat { compact ? Tokens.Control.compactHeight : 38 }
 
     /// What the menu lists; it redraws only when this changes.
     private struct MenuContents: Equatable {

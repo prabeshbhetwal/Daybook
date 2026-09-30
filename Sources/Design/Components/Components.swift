@@ -37,14 +37,15 @@ struct StartButton: View {
     /// The caller decides how wide. It used to force `maxWidth: .infinity`,
     /// which was right in a 320pt panel and absurd in a 560pt one.
     var fills: Bool = true
+    /// Beside other controls, the height they share.
+    var height: CGFloat = AccessibilityMetrics.minimumTargetSize
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: "play.fill")
                 .font(Tokens.Typography.metadata.weight(.semibold))
-                .frame(maxWidth: fills ? .infinity : nil,
-                       minHeight: AccessibilityMetrics.minimumTargetSize)
+                .frame(maxWidth: fills ? .infinity : nil, minHeight: height)
                 .padding(.horizontal, Tokens.Space.m)
                 .background(Tokens.Colour.focus,
                             in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
@@ -108,7 +109,7 @@ struct WorkTypePicker: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, Tokens.Space.m)
-            .frame(height: 34)
+            .frame(height: Tokens.Control.compactHeight)
             .background(Tokens.Colour.elevated,
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
