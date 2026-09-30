@@ -87,6 +87,10 @@ extension EnvironmentValues {
 struct DayStory: View {
     @ObservedObject var store: SessionStore
     var projection: StoryDayProjection? = nil
+    /// History reads a day. Its cards keep the corrections a record carries
+    /// — name, category, note, the full report — and drop what starts,
+    /// controls or removes a session; that is the dashboard's.
+    var isHistory = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Entries the reader has opened. A reading aid, not state the product
     /// remembers; the column owns it so its header can open them all.
@@ -330,14 +334,14 @@ struct DayStory: View {
                                  onToggle: { toggle(key) },
                                  onRename: { store.renameSession(session, to: $0) },
                                  onWorkType: { store.setWorkType($0, for: session) },
-                                 onContinue: { store.continueSession(session) },
-                                 onStartNewSession: { store.startNewSession(from: session) },
-                                 onRemove: store.canRemoveSession(session)
+                                 onContinue: isHistory ? nil : { store.continueSession(session) },
+                                 onStartNewSession: isHistory ? nil : { store.startNewSession(from: session) },
+                                 onRemove: !isHistory && store.canRemoveSession(session)
                                     ? { store.removeSession(session) } : nil,
-                                 removeBlockReason: store.removalBlockReason(for: session),
+                                 removeBlockReason: isHistory ? nil : store.removalBlockReason(for: session),
                                  pauseTitle: live.pauseTitle,
-                                 onPause: live.canControl ? { store.togglePause() } : nil,
-                                 onEnd: live.canControl ? { store.stop() } : nil,
+                                 onPause: live.canControl && !isHistory ? { store.togglePause() } : nil,
+                                 onEnd: live.canControl && !isHistory ? { store.stop() } : nil,
                                  minimumRecorded: store.engine.store.minimumRecordedSession)
             }
         case .rest(let rest):
@@ -667,16 +671,16 @@ struct SessionEntryCard: View {
                 if apps.count > 4 {
                     // The one door to the report, put where the question
                     // comes up: what were the other nine?
-                    reportLink(prefix: "\(apps.count - 4) more app\(apps.count - 4 == 1 ? "" : "s")",
-                               title: "See all")
+                    reportLink(prefix: "\(apps.count - 4) more app\(apps.count - 4 == 1 ? "" : "s")")
                 }
             }
         }
     }
 
-    /// The single way into the full report. "See all" when it finishes the
-    /// thought "N more apps"; "See full report" where nothing is cut short,
-    /// so the report is reachable from every kind of card, running included.
+    /// The single way into the full report, with the same words on every
+    /// card: after "N more apps" where the list is cut short, on its own
+    /// where nothing is, so the report is reachable from every kind of card,
+    /// running included.
     @ViewBuilder private func reportLink(prefix: String? = nil, title: String = "See full report") -> some View {
         if let openSessionReport {
             HStack(spacing: Tokens.Space.xs) {

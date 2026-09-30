@@ -200,7 +200,7 @@ struct HistoryTreeRow: View {
             // The dashboard's own day, for this date: the same headline, the
             // same timeline, the same cards.
             ProjectedDayStoryColumn(store: store, projection: store.storyDayProjection(on: row.place.start),
-                                    context: .main)
+                                    context: .main, isHistory: true)
                 .padding(.vertical, Tokens.Space.m)
                 .padding(.leading, Tokens.Space.s)
         } else {

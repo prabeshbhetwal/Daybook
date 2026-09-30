@@ -153,6 +153,8 @@ struct ProjectedDayStoryColumn: View {
     @ObservedObject var store: SessionStore
     let projection: StoryDayProjection
     let context: DayStoryContext
+    /// History reads the day: no Start again, Remove, Pause or Stop.
+    var isHistory = false
     @StateObject private var disclosure = StoryDisclosureState()
     /// The measurement disclosure's key in the day's shared open set.
     static let summaryKey = "summary"
@@ -216,7 +218,7 @@ struct ProjectedDayStoryColumn: View {
                     StoryExpandAllControl(disclosure: disclosure, ids: expandable)
                 }
             }
-            DayStory(store: store, projection: projection, opened: disclosure)
+            DayStory(store: store, projection: projection, isHistory: isHistory, opened: disclosure)
                 .coachAnchor(.storyColumn)
         }
         // Said from the column, which is always there: the notice itself
