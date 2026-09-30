@@ -55,7 +55,7 @@ enum SettingsAccessibilityChecks {
     private static func keyboardPanel() -> [String] {
         var failures: [String] = []
         let statuses: [HotKeyMonitor.Status] = [.registered, .yieldedToVoiceOver, .unavailable, .off]
-        let details = statuses.map(SettingsGroups.globalShortcutDetail)
+        let details = statuses.map { SettingsGroups.globalShortcutDetail($0) }
         if Set(details).count != statuses.count {
             failures.append("two shortcut states read the same: \(details)")
         }

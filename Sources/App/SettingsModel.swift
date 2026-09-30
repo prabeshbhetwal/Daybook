@@ -474,6 +474,30 @@ final class SettingsModel: ObservableObject {
     /// Whether Control-Option-Space is working, as the coordinator's hot key
     /// reports it. Settings is the one place that says why it might not be.
     @Published var globalShortcutStatus: HotKeyMonitor.Status = .off
+    /// Why the last recorded chord was not taken, until one is.
+    @Published var globalShortcutMessage: String?
+    /// The coordinator's hot key takes the chord; false when macOS refused it.
+    var applyGlobalShortcut: ((GlobalShortcut?) -> Bool)?
+
+    var globalShortcut: GlobalShortcut? { store.globalShortcut }
+
+    /// Records a chord, or nil to turn the shortcut off. A chord that could
+    /// not be global is refused here; one another app holds is refused by
+    /// macOS through `applyGlobalShortcut`, and the one held is kept.
+    func setGlobalShortcut(_ shortcut: GlobalShortcut?) {
+        if let shortcut, let reason = GlobalShortcut.refusal(modifiers: shortcut.modifiers) {
+            globalShortcutMessage = reason
+            return
+        }
+        if let shortcut, let apply = applyGlobalShortcut, !apply(shortcut) {
+            let kept = store.globalShortcut.map { "\($0.glyphs) is kept." } ?? "The shortcut stays off."
+            globalShortcutMessage = "\(shortcut.glyphs) is taken by another app. \(kept)"
+            return
+        }
+        if shortcut == nil { _ = applyGlobalShortcut?(nil) }
+        globalShortcutMessage = nil
+        write { store.globalShortcut = shortcut }
+    }
 
     /// Registered, but macOS will not open the app at login until the user
     /// approves it. The switch reads off then, since that is the truth, and

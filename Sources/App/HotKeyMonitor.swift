@@ -1,7 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Global ⌃⌥Space via Carbon's `RegisterEventHotKey`, which needs no
+/// The global chord, ⌃⌥Space unless the user recorded another, via Carbon's
+/// `RegisterEventHotKey`, which needs no
 /// Accessibility grant — unlike `NSEvent.addGlobalMonitorForEvents`. Verified:
 /// registration returns `noErr` with no TCC prompt.
 ///
@@ -26,6 +27,8 @@ final class HotKeyMonitor: ObservableObject {
     }
 
     @Published private(set) var status: Status = .off
+    /// The chord held, or nil while the shortcut is turned off.
+    private(set) var shortcut: GlobalShortcut? = .standard
 
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
@@ -34,11 +37,12 @@ final class HotKeyMonitor: ObservableObject {
 
     private static let signature: OSType = 0x4643_5459   // 'FCTY'
 
-    /// Returns whether ⌃⌥Space is held now. False when VoiceOver is running
+    /// Returns whether the chord is held now. False when VoiceOver is running
     /// as well as on failure; `status` says which.
     @discardableResult
-    func register(onFire: @escaping () -> Void) -> Bool {
+    func register(_ shortcut: GlobalShortcut?, onFire: @escaping () -> Void) -> Bool {
         guard handlerRef == nil else { return status == .registered }
+        self.shortcut = shortcut
         HotKeyMonitor.onFire = onFire
 
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
@@ -61,17 +65,36 @@ final class HotKeyMonitor: ObservableObject {
         return status == .registered
     }
 
+    /// Takes a new chord, or none. When macOS refuses the new one (another
+    /// app holds it) the old one is taken back and false is returned.
+    @discardableResult
+    func apply(_ next: GlobalShortcut?) -> Bool {
+        let previous = shortcut
+        releaseChord()
+        shortcut = next
+        holdUnlessVoiceOverRuns()
+        guard next != nil, handlerRef != nil, status == .unavailable else { return true }
+        shortcut = previous
+        holdUnlessVoiceOverRuns()
+        return false
+    }
+
     private func holdUnlessVoiceOverRuns() {
         guard handlerRef != nil else { return }
-        if NSWorkspace.shared.isVoiceOverEnabled {
+        guard let shortcut else {
+            releaseChord()
+            status = .off
+            return
+        }
+        if NSWorkspace.shared.isVoiceOverEnabled, shortcut.isVoiceOverChord {
             releaseChord()
             status = .yieldedToVoiceOver
             return
         }
         guard hotKeyRef == nil else { return }
         let hotKeyID = EventHotKeyID(signature: HotKeyMonitor.signature, id: 1)
-        let result = RegisterEventHotKey(UInt32(kVK_Space),
-                                         UInt32(controlKey | optionKey),
+        let result = RegisterEventHotKey(shortcut.keyCode,
+                                         shortcut.modifiers,
                                          hotKeyID,
                                          GetApplicationEventTarget(),
                                          0,

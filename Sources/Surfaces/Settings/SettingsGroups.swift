@@ -99,8 +99,7 @@ struct SettingsGroups: View {
     /// them in, and the welcome names them once and moves on.
     private var keyboard: some View {
         SurfacePanel(title: "Keyboard", layout: layout) {
-            readOnlyRow("Start or end a session from any app", value: "Control-Option-Space",
-                        detail: Self.globalShortcutDetail(model.globalShortcutStatus))
+            globalShortcutRow
             rowDivider
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 ForEach(Self.windowKeys, id: \.keys) { entry in
@@ -126,18 +125,53 @@ struct SettingsGroups: View {
         }
     }
 
-    static func globalShortcutDetail(_ status: HotKeyMonitor.Status) -> String {
+    /// The chord, a button that records a new one, and the way back to the
+    /// standard chord or to none. The line under it says whether it is held.
+    private var globalShortcutRow: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
+                Text("Start or end a session from any app")
+                    .font(Tokens.Typography.rowTitle)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: Tokens.Space.m)
+                ShortcutRecorder(shortcut: model.globalShortcut) { model.setGlobalShortcut($0) }
+                if model.globalShortcut != .standard {
+                    Button("Reset") { model.setGlobalShortcut(.standard) }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("Reset the shortcut to Control-Option-Space")
+                }
+                if model.globalShortcut != nil {
+                    Button("Turn off") { model.setGlobalShortcut(nil) }
+                        .buttonStyle(.bordered)
+                        .accessibilityLabel("Turn the global shortcut off")
+                }
+            }
+            explanation(Self.globalShortcutDetail(model.globalShortcutStatus, shortcut: model.globalShortcut))
+            if let message = model.globalShortcutMessage {
+                Text(message)
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(Tokens.Colour.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(minHeight: layout.rowHeight)
+        .announcesChanges(to: model.globalShortcutMessage)
+    }
+
+    static func globalShortcutDetail(_ status: HotKeyMonitor.Status,
+                                     shortcut: GlobalShortcut? = .standard) -> String {
+        let chord = shortcut?.spoken ?? "The shortcut"
         switch status {
         case .registered:
-            return "Works in any app. It also brings up an away card that is waiting for you."
+            return "\(chord) works in any app. It also brings up an away card that is waiting for you."
         case .yieldedToVoiceOver:
-            return "Off while VoiceOver is on, because VoiceOver uses these keys. "
-                + "It comes back when VoiceOver turns off."
+            return "Off while VoiceOver is on, because VoiceOver uses Control-Option chords. "
+                + "It comes back when VoiceOver turns off, or record a chord without both."
         case .unavailable:
-            return "Another app is using these keys, so this shortcut is off. Free them in "
-                + "that app, then quit and reopen FocusContinuity."
+            return "Another app is using \(chord), so this shortcut is off. Record a different "
+                + "one, or free the keys in that app, then quit and reopen FocusContinuity."
         case .off:
-            return "Not set up yet."
+            return "Off. Record a shortcut to turn it on."
         }
     }
 

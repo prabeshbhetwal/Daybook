@@ -60,6 +60,7 @@ final class PersistenceStore {
         static let quietFold = "fc.quietFold"
         static let onboarded = "fc.onboarded"
         static let welcomeLeftAt = "fc.welcomeLeftAt"
+        static let globalShortcut = "fc.globalShortcut"
     }
 
     private let defaults: UserDefaults
@@ -480,6 +481,20 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.continueWindow) }
     }
 
+    /// The chord that reaches the app from any other, or nil once turned
+    /// off. Absent means the standard Control-Option-Space.
+    var globalShortcut: GlobalShortcut? {
+        get {
+            guard defaults.object(forKey: Key.globalShortcut) != nil else { return .standard }
+            return decode(GlobalShortcutPreference.self, forKey: Key.globalShortcut)?.shortcut
+        }
+        set {
+            if let data = try? encoder.encode(GlobalShortcutPreference(shortcut: newValue)) {
+                defaults.set(data, forKey: Key.globalShortcut)
+            }
+        }
+    }
+
     /// Whether the menu bar shows the running time beside the ring.
     var menuBarShowsTime: Bool {
         get { defaults.object(forKey: Key.menuBarShowsTime) as? Bool ?? true }
@@ -675,7 +690,7 @@ final class PersistenceStore {
                     Key.idlePauseThreshold, Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
-                    Key.quietFold, Key.welcomeLeftAt]
+                    Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut]
         for key in keys { defaults.removeObject(forKey: key) }
         // And the unreadable values kept aside from those keys, but nothing else.
         for stored in defaults.dictionaryRepresentation().keys

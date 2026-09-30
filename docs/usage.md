@@ -35,14 +35,14 @@ a historical day never substitutes today's data.
 | `Option-Command-P` | Pause, or resume a paused session |
 | `Option-Command-A` | Away |
 | `Option-Command-S` | Stop the session |
-| `Control-Option-Space` | From any app: start a session, end the running one, or bring up a waiting away card. Released while VoiceOver is on, because it is VoiceOver's own VO-Space |
+| `Control-Option-Space` | From any app: start a session, end the running one, or bring up a waiting away card. Record a different chord in Settings › General, or turn it off there; a chord needs Control or Option, and one another app already holds is refused with the old one kept. Control-Option chords are released while VoiceOver is on, because that is VoiceOver's own modifier |
 | `Command-]`, `Command-[` | Next and previous card in the welcome tour |
 | Escape | Dismiss a native sheet/app detail or cancel an inline rename |
 
 The Session keys run the same actions as the buttons, and each is unavailable
 when the session's state offers no such button: Start only when idle, Away
 only while running. Settings › General lists every key under Keyboard, says
-whether Control-Option-Space is working, and replays the welcome tour.
+whether the global shortcut is working, lets you record another, and replays the welcome tour.
 
 ## Reading the story
 

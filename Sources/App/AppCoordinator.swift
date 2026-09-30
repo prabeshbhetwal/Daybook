@@ -540,9 +540,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         observeMusicPlayback()
         wireSessionCallbacks()
 
-        hotKey.register { [weak self] in
+        hotKey.register(engine.store.globalShortcut) { [weak self] in
             self?.toggleSessionFromHotKey()
         }
+        settings.applyGlobalShortcut = { [weak self] chord in self?.hotKey.apply(chord) ?? false }
         hotKey.$status
             .receive(on: DispatchQueue.main)
             .assign(to: &settings.$globalShortcutStatus)
