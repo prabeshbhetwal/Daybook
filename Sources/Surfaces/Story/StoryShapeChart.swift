@@ -49,8 +49,12 @@ struct StoryShapeChart: View {
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous))
+                // Runs settle when one arrives or goes, not as the live one
+                // grows: keyed on the coverage, a running session restarted
+                // the spring every second, and the dashboard drew every frame
+                // (40% of a core) for as long as a session ran.
                 .animation(Tokens.Motion.animation(Tokens.Motion.settle, reduceMotion: reduceMotion),
-                           value: activity.coverage)
+                           value: activity.intervals.count)
             }
             .frame(height: height)
             if !compact, let first = activity.intervals.first, let last = activity.intervals.last {
