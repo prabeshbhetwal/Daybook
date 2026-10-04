@@ -2,6 +2,7 @@ import ServiceManagement
 import SwiftUI
 import AppKit
 import UserNotifications
+import Combine
 
 /// Exhaustive identifiers for rows that can mutate behaviour. Each case maps
 /// to one real SettingsModel property below; section metadata reuses these keys
@@ -258,7 +259,12 @@ final class SettingsModel: ObservableObject {
     /// Mirrored here because the tracker — not the preference — is the truth
     /// about whether recording is on, and the tracker lives with the store.
     private var trackingEnabled: Bool
+    /// Fills in the background after Activities opens. Its changes are
+    /// republished as the model's own: the pages read it through the model,
+    /// and unrepublished they kept dashed icons and bundle ids until
+    /// something else redrew them.
     let installedAppCatalog: InstalledAppCatalog
+    private var catalogChanges: AnyCancellable?
 
     init(store: PersistenceStore,
          isTrackingEnabled: Bool,
@@ -288,6 +294,8 @@ final class SettingsModel: ObservableObject {
         self.dataDirectoryURL = dataDirectory
         self.backupRoot = backupRoot
         self.installedAppCatalog = installedAppCatalog
+        catalogChanges = installedAppCatalog.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
     }
 
     /// Whether the welcome can be shown again. Absent outside the running
