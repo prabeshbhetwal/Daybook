@@ -234,6 +234,11 @@ extension SessionStore {
         recordIDs.lazy.compactMap { self.powerMetadataError(for: $0) }.first
     }
 
+    /// Every power reading kept for these stretches, for marks drawn per row.
+    func powerObservations(for recordIDs: [UUID]) -> [PowerObservation] {
+        Set(recordIDs).flatMap { metadataArchive.metadata(for: $0)?.power ?? [] }
+    }
+
     func powerSummary(for recordIDs: [UUID], interval: DateInterval) -> PowerContextSummary? {
         var seen = Set<UUID>()
         let uniqueRecordIDs = recordIDs.filter { seen.insert($0).inserted }

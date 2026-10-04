@@ -98,6 +98,19 @@ extension SessionMetadataChecks {
         ], interval: interval)
         expect(postCommitBoundary?.headline == "Using battery · 78% → 64%",
                "summary grace admitted a post-interval source change", &problems)
+        // Each report row shows the state it ended on: the latest reading at
+        // or before its end, never one taken after it.
+        expect(PowerReading.at(start.addingTimeInterval(-1), in: chargingTransition) == nil,
+               "a row before any reading claimed a power state", &problems)
+        let early = PowerReading.at(start.addingTimeInterval(600), in: chargingTransition)
+        expect(early?.symbolName == "powerplug" && early?.level == "64%",
+               "a row before charging began did not read plugged in: \(early?.spoken ?? "nil")", &problems)
+        let late = PowerReading.at(start.addingTimeInterval(1_000), in: chargingTransition)
+        expect(late?.symbolName == "bolt.fill" && late?.spoken == "Charging, 64%",
+               "a row after charging began did not read charging: \(late?.spoken ?? "nil")", &problems)
+        let onBattery = PowerReading.at(start.addingTimeInterval(1_800), in: battery)
+        expect(onBattery?.symbolName == "battery.75percent" && onBattery?.spoken == "On battery, 64%",
+               "a battery row did not show its level: \(onBattery?.spoken ?? "nil")", &problems)
         return problems
     }
 

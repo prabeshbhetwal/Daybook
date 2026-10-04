@@ -29,6 +29,8 @@ struct SessionReport {
     let detail: StorySessionDetail
     let stretches: [Stretch]
     let power: PowerContextSummary?
+    /// Every power reading of the session, so each visit can show its own.
+    let powerObservations: [PowerObservation]
     let appColourIndices: [String: Int]
 
     var title: String { session.workType.sessionTitle(named: session.name) }
@@ -36,6 +38,11 @@ struct SessionReport {
     /// Every recorded visit and every gap, in order.
     var intervals: [RecordedActivity.Interval] { detail.activity.intervals }
     var visitCount: Int { intervals.filter { !$0.isGap }.count }
+
+    /// The power state a visit ended on. Nil for a gap, or before any reading.
+    func power(for interval: RecordedActivity.Interval) -> PowerReading? {
+        interval.isGap ? nil : PowerReading.at(interval.end, in: powerObservations)
+    }
 
     static func make(for session: DaySession, store: SessionStore) -> SessionReport {
         // The session's own day, not whichever day the Story happens to be
@@ -54,6 +61,7 @@ struct SessionReport {
             : store.powerSummary(for: session.recordIDs, interval: interval)
         return SessionReport(session: session, detail: detail, stretches: stretches,
                              power: power,
+                             powerObservations: store.powerObservations(for: session.recordIDs),
                              appColourIndices: colourIndices(apps: detail.apps,
                                                              dayIndices: store.storyAppColourIndices))
     }
@@ -305,8 +313,10 @@ struct SessionReportView: View {
         section("Recorded activity") {
             StoryShapeChart(activity: report.detail.activity, appColourIndices: report.appColourIndices,
                             runsListedBelow: true)
+            // Latest first: the reader opens a report to see where it ended.
+            // The chart above stays left-to-right in time.
             VStack(spacing: 0) {
-                ForEach(Array(report.intervals.enumerated()), id: \.element.id) { index, interval in
+                ForEach(Array(report.intervals.reversed().enumerated()), id: \.element.id) { index, interval in
                     HStack(spacing: Tokens.Space.s) {
                         Circle()
                             .fill(interval.isGap ? AnyShapeStyle(StoryStyle.line)
@@ -325,6 +335,7 @@ struct SessionReportView: View {
                             .lineLimit(1)
                             .help(name)
                         Spacer(minLength: Tokens.Space.s)
+                        powerMark(report.power(for: interval))
                         Text(durations: Tokens.preciseDuration(interval.duration))
                             .font(Tokens.Typography.metadata.monospacedDigit())
                             .foregroundStyle(.secondary)
@@ -335,6 +346,28 @@ struct SessionReportView: View {
                 }
             }
         }
+    }
+
+    /// Fixed width so the durations stay in one column whether a row has a
+    /// reading, a shorter one, or none.
+    private func powerMark(_ reading: PowerReading?) -> some View {
+        HStack(spacing: 4) {
+            if let reading {
+                Image(systemName: reading.symbolName)
+                    .foregroundStyle(reading.symbolName == "bolt.fill" ? AnyShapeStyle(StoryStyle.successInk)
+                                                                       : AnyShapeStyle(.secondary))
+                    .frame(width: 18)
+                Text(reading.level)
+                    .font(Tokens.Typography.metadata.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(Tokens.Typography.metadata)
+        .frame(width: 70, alignment: .leading)
+        .help(reading?.spoken ?? "")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(reading?.spoken ?? "")
+        .accessibilityHidden(reading == nil)
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
