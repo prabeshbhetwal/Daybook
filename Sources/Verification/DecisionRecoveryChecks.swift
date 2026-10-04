@@ -212,7 +212,13 @@ enum DecisionRecoveryChecks {
                 var automatic = f.engine.snapshot(); automatic.isAuto = true
                 f.engine.restore(from: automatic)
                 f.engine.transition(on: .markedAway)
-                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                // The store learns of Away on a main-queue hop. Wait for that
+                // hop, not a fixed 10 ms: on a busy Mac it had not landed
+                // and the check failed for reasons that were not the code's.
+                let caughtUp = Date().addingTimeInterval(2)
+                while f.store.state != f.engine.state, Date() < caughtUp {
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                }
                 let before = f.engine.snapshot(), records = f.archive.records
                 var stoppedAutomation = 0, resumedTracking = 0, writes = 0
                 f.store.onAutoSessionUndone = { stoppedAutomation += 1 }

@@ -46,8 +46,12 @@ extension SessionStore {
 
     /// True while the user has declared themselves away, as opposed to having
     /// paused a session they are still sitting in front of.
+    ///
+    /// Read from the engine, not the published `state`: that copy arrives on
+    /// an async main-queue hop, and a discard made inside the hop decided
+    /// "not away" and never resumed tracking.
     var isAway: Bool {
-        if case .paused(.away) = state { return true }
+        if case .paused(.away) = engine.state { return true }
         return false
     }
 
