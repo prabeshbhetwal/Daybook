@@ -270,6 +270,18 @@ if [ "${RUN}" -eq 1 ]; then
   # findable by its path to quit. This is our own build product. Strip it
   # again at the last moment, right before opening.
   xattr -dr com.apple.quarantine "${LOCAL_APP_DIR}" 2>/dev/null || true
+  # `open` on a running app only brings it forward: the old process keeps
+  # its old code while the new binary sits unused on disk. Quit any running
+  # copy, from any folder, the ordinary way so it saves on the way out.
+  osascript -e "quit app id \"${BUNDLE_ID}\"" >/dev/null 2>&1 || true
+  for _ in $(seq 1 100); do
+    pgrep -f "/${APP_NAME}.app/Contents/MacOS/${APP_NAME}" >/dev/null || break
+    sleep 0.1
+  done
+  if pgrep -f "/${APP_NAME}.app/Contents/MacOS/${APP_NAME}" >/dev/null; then
+    echo "error: a running ${APP_NAME} did not quit within 10s; quit it, then run again" >&2
+    exit 1
+  fi
   open "${LOCAL_APP_DIR}"
   echo "Launched ${APP_NAME}."
 fi
