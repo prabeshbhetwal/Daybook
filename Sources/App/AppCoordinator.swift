@@ -18,7 +18,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// another app's.
     let hotKey = HotKeyMonitor()
     private let powerMonitor = PowerSourceMonitor()
-    private(set) lazy var store = SessionStore(engine: engine, powerMonitor: powerMonitor)
+    /// The engine is restored here, not in `applicationDidFinishLaunching`:
+    /// SwiftUI draws the menu-bar label first, which builds the store, and the
+    /// store's first refresh pruned metadata against an engine that was still
+    /// idle. Every launch deleted the running session's power readings.
+    private(set) lazy var store: SessionStore = {
+        restoreEngineOnce()
+        return SessionStore(engine: engine, powerMonitor: powerMonitor)
+    }()
+    private var engineRestored = false
     /// The status item's view of the store: republishes only what it shows.
     private(set) lazy var menuBarLabel = MenuBarLabelModel(store: store)
     /// The Session menu's view of the store, on the same terms.
@@ -489,14 +497,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Determine unattended launch state and restore the engine before any
         // lazy SessionStore/prompt/monitor owner can materialise and refresh.
-        screenLocked = AppCoordinator.screenIsLockedNow()
-        let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
-        _ = AppCoordinator.restorePersistedEngine(
-            engine, awayAtLaunch: screenLocked || displayAsleep)
-
-        // From here the store's initial refresh sees the restored active record
-        // and may safely replay metadata recovery without pruning its successor.
+        // Building the store restores the engine first, if the menu-bar label
+        // has not already built it. From here the store's refreshes see the
+        // restored active record and never prune its metadata.
         let store = self.store
+        let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
         store.screenLocked = screenLocked
         applyApplicationAppearance(settings.appearancePreference)
         wireMonitor()
@@ -697,6 +702,17 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                            machineSleeping: Bool,
                                            away: Bool) -> Bool {
         !screenLocked && !displayAsleep && !machineSleeping && !away
+    }
+
+    /// Once per process, before the store exists: locked or asleep at launch
+    /// means the person was away while the app was closed.
+    private func restoreEngineOnce() {
+        guard !engineRestored else { return }
+        engineRestored = true
+        screenLocked = AppCoordinator.screenIsLockedNow()
+        let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
+        _ = AppCoordinator.restorePersistedEngine(
+            engine, awayAtLaunch: screenLocked || displayAsleep)
     }
 
     /// Cold-launch restoration boundary. Implemented separately from monitor
