@@ -62,6 +62,15 @@ extension SelfTest {
         return AppUsageArchive(directory: directory, now: { clock.value })
     }
 
+    /// Gregorian in the Mac's own time zone, for fixtures that name a day by
+    /// year, month and day. Under a Hebrew or Buddhist calendar
+    /// `Calendar.current` reads 2026 as another year entirely.
+    static var gregorian: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        return calendar
+    }
+
     /// "Now", moved to noon when the real clock is within three hours of
     /// midnight, so fixtures built as "two hours ago, today" stay inside today.
     /// Tests 87 and 94 failed at 00:45 because their earlier stretches fell on
@@ -86,7 +95,7 @@ extension SelfTest {
     static func periodAnchor(calendar: Calendar = .current) -> Date {
         var day = calendar.startOfDay(for: Date()).addingTimeInterval(12 * 3_600)
         for _ in 0..<40 {
-            let start = calendar.dateInterval(of: .weekOfYear, for: day)?.start ?? day
+            let start = calendar.weeksFromMonday.dateInterval(of: .weekOfYear, for: day)?.start ?? day
             let daysIntoWeek = calendar.dateComponents([.day], from: start, to: day).day ?? 0
             let dayOfMonth = calendar.component(.day, from: day)
             if daysIntoWeek >= 2, dayOfMonth >= 10 { return day }

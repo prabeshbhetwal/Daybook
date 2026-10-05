@@ -225,6 +225,7 @@ struct InsightGridRows {
     private let weekdays: [Int]
 
     init(scope: InsightRange, periods: [StoryPeriodProjection], calendar: Calendar) {
+        let calendar = calendar.weeksFromMonday
         self.scope = scope
         self.calendar = calendar
         func text(_ format: String, _ date: Date) -> String {

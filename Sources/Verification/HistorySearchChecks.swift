@@ -13,7 +13,7 @@ enum HistorySearchChecks {
     /// café runs 09:20–09:40, then Parser runs again until 09:50. The second
     /// stretch carries a two-line note, and Parser is then renamed Compiler.
     private final class Fixture {
-        var time = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
+        var time = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-history-search-\(UUID())")
         let suite = "fc.history-search.\(UUID())"
         lazy var defaults = UserDefaults(suiteName: suite)!

@@ -11,7 +11,7 @@ extension SelfTest {
             var problems: [String] = []
             let clock = TestClock(base)
             let calendar = Calendar.current
-            guard let bounds = calendar.dateInterval(of: .weekOfYear, for: clock.value) else {
+            guard let bounds = calendar.weeksFromMonday.dateInterval(of: .weekOfYear, for: clock.value) else {
                 return ["could not build Review week bounds"]
             }
             let archive = makeArchive(clock)
