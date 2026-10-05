@@ -10,6 +10,12 @@ enum DateFormats {
         cached(format, locale: Locale(identifier: "en_AU"))
     }
 
+    /// A pattern in the `en_AU` locale, read in `timeZone`: a period worked
+    /// out in one calendar is named in that calendar's zone.
+    static func australian(_ format: String, in timeZone: TimeZone) -> DateFormatter {
+        cached(format, locale: Locale(identifier: "en_AU"), timeZone: timeZone)
+    }
+
     /// A pattern in the user's own locale.
     static func local(_ format: String) -> DateFormatter {
         cached(format, locale: nil)
@@ -32,13 +38,14 @@ enum DateFormats {
         "\(clockTime(start)) – \(clockTime(end))"
     }
 
-    private static func cached(_ format: String, locale: Locale?) -> DateFormatter {
+    private static func cached(_ format: String, locale: Locale?, timeZone: TimeZone? = nil) -> DateFormatter {
         lock.lock()
         defer { lock.unlock() }
-        let key = "\(locale?.identifier ?? "")|\(format)"
+        let key = "\(locale?.identifier ?? "")|\(timeZone?.identifier ?? "")|\(format)"
         if let hit = formatters[key] { return hit }
         let formatter = DateFormatter()
         if let locale { formatter.locale = locale }
+        if let timeZone { formatter.timeZone = timeZone }
         formatter.dateFormat = format
         formatters[key] = formatter
         return formatter

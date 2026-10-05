@@ -54,7 +54,7 @@ extension SessionStore {
         let calendar = Self.historyCalendar
         var state = tree()
         let key = place?.id ?? "root"
-        let top = place.map { HistoryTop(place: $0, firstDay: $0.span.start, today: state.top.today) } ?? state.top
+        let top = place.map { HistoryTop(place: $0, firstDay: $0.span.start, today: state.top.today, calendar: calendar) } ?? state.top
         let summary: HistorySummary
         if let cached = state.summaries[key] {
             summary = cached

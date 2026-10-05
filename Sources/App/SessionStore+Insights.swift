@@ -109,6 +109,7 @@ struct InsightSurface: Equatable {
         guard let date = calendar.date(from: components) else { return "\(hour)" }
         let formatter = DateFormatter()
         formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
         formatter.setLocalizedDateFormatFromTemplate("j")
         return formatter.string(from: date).lowercased()
     }
@@ -376,7 +377,7 @@ extension SessionStore {
             }
         }
         let hours = Rhythm.clockHours(colorIndex: 6, calendar: calendar) { byClockHour[$0] ?? 0 }
-        let peak = Rhythm.peakLabel(hours) { DateFormats.australian("ha").string(from: $0) }
+        let peak = Rhythm.peakLabel(hours) { DateFormats.australian("ha", in: calendar.timeZone).string(from: $0) }
         return (hours, peak)
     }
 

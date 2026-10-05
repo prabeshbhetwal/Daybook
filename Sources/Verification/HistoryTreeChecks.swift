@@ -488,23 +488,23 @@ enum HistoryTreeChecks {
     private static func periodReading() -> [String] {
         var failures: [String] = []
         let top = HistoryTreeBuilder.top(days: september + [row(7, 3, year: 2025, focused: 60, sessions: 1)], today: today, calendar: calendar)
-        let record = HistoryPeriodRail.reading(for: nil, top: top)
+        let record = HistoryPeriodRail.reading(for: nil, top: top, calendar: calendar)
         if record.scope != .month || record.limit != 15 || !calendar.isDate(record.anchor, inSameDayAs: today) {
             failures.append("the record read \(record.scope) × \(record.limit) anchored \(record.anchor)")
         }
         let years = HistoryTreeBuilder.rows(under: nil, top: top, days: september, calendar: calendar)
-        let thisYear = HistoryPeriodRail.reading(for: years[0].place, top: top)
+        let thisYear = HistoryPeriodRail.reading(for: years[0].place, top: top, calendar: calendar)
         if thisYear.scope != .month || thisYear.limit != 9 { failures.append("2026 read \(thisYear.scope) × \(thisYear.limit)") }
-        let lastYear = HistoryPeriodRail.reading(for: years[1].place, top: top)
+        let lastYear = HistoryPeriodRail.reading(for: years[1].place, top: top, calendar: calendar)
         if lastYear.limit != 6 || !calendar.isDate(lastYear.anchor, inSameDayAs: date(12, 31, year: 2025)) {
             failures.append("2025 read × \(lastYear.limit) anchored \(lastYear.anchor)")
         }
         let months = HistoryTreeBuilder.rows(under: years[0].place, top: top, days: september, calendar: calendar)
-        let sep = HistoryPeriodRail.reading(for: months[0].place, top: top)
+        let sep = HistoryPeriodRail.reading(for: months[0].place, top: top, calendar: calendar)
         if sep.scope != .month || sep.limit != 1 { failures.append("September read \(sep.scope) × \(sep.limit)") }
         let weeks = HistoryTreeBuilder.rows(under: months[0].place, top: top, days: september, calendar: calendar)
         // A week reads exactly its days: this week is Monday 28 to today, two days.
-        let week = HistoryPeriodRail.reading(for: weeks[0].place, top: top)
+        let week = HistoryPeriodRail.reading(for: weeks[0].place, top: top, calendar: calendar)
         if week.scope != .day || week.limit != 2 || !calendar.isDate(week.anchor, inSameDayAs: today) {
             failures.append("this week read \(week.scope) × \(week.limit) anchored \(week.anchor)")
         }

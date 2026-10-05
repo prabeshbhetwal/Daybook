@@ -131,8 +131,8 @@ struct HistoryPeriodRail: View {
     /// record's edge, or under one of the two months it straddles, is
     /// shorter than a calendar week), a month one month, a year its months
     /// on record, the record all its months.
-    static func reading(for place: HistoryPlace?, top: HistoryTop) -> (scope: InsightRange, anchor: Date, limit: Int) {
-        let calendar = SessionStore.historyCalendar
+    static func reading(for place: HistoryPlace?, top: HistoryTop,
+                        calendar: Calendar) -> (scope: InsightRange, anchor: Date, limit: Int) {
         let span = place?.span ?? top.span
         let last = calendar.date(byAdding: .day, value: -1, to: span.end) ?? span.start
         let anchor = min(last, top.today)
@@ -159,7 +159,7 @@ struct HistoryPeriodRail: View {
     var body: some View {
         let calendar = SessionStore.historyCalendar
         let top = store.historyTop()
-        let read = Self.reading(for: place, top: top)
+        let read = Self.reading(for: place, top: top, calendar: calendar)
         let facts = store.insightReading(scope: read.scope, anchoredAt: read.anchor, limit: read.limit,
                                          calendar: calendar).facts
         let tracked = store.historySummary(for: place).tracked

@@ -484,7 +484,17 @@ enum CategoryChecks {
         guard let insight = InsightSurface.categoryInsight(byHour: hours, days: 5, calendar: calendar) else {
             return ["No insight for two categories with evidence"]
         }
-        if !insight.headline.hasPrefix("Deep work 9") || !insight.headline.contains("Meetings 2") {
+        // Hours in the region's own clock: "9 am" in Australia, "09" in Britain.
+        func hour(_ hour: Int) -> String {
+            let formatter = DateFormatter()
+            formatter.calendar = calendar
+            formatter.timeZone = calendar.timeZone
+            formatter.setLocalizedDateFormatFromTemplate("j")
+            let date = calendar.date(from: DateComponents(year: 2001, month: 1, day: 15, hour: hour))!
+            return formatter.string(from: date).lowercased()
+        }
+        if !insight.headline.hasPrefix("Deep work \(hour(9))–\(hour(11))")
+            || !insight.headline.contains("Meetings \(hour(14))–\(hour(16))") {
             failures.append("The headline did not place the leaders in their windows: \(insight.headline)")
         }
         if insight.headline.contains("Admin") || insight.detail.contains("Admin") {
