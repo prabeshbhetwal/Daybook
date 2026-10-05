@@ -588,7 +588,7 @@ struct SettingsGroups: View {
                         ForEach(UpdateFrequency.allCases) { Text($0.title).tag($0) }
                     }
                     .labelsHidden()
-                    .frame(width: 180)
+                    .fixedSize()
                     .disabled(!model.checksForUpdatesAutomatically)
                     .accessibilityLabel("How often to check for updates")
                 }
@@ -598,7 +598,7 @@ struct SettingsGroups: View {
                         ForEach(UpdateInstallMode.allCases) { Text($0.title).tag($0) }
                     }
                     .labelsHidden()
-                    .frame(width: 200)
+                    .fixedSize()
                     .accessibilityLabel("When an update is found")
                 }
                 rowDivider
