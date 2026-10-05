@@ -83,11 +83,13 @@ enum HistoryRowText {
         if summary.focusedDays > 1 {
             facts.append("\(Tokens.duration(summary.focused / Double(summary.focusedDays))) per focused day")
         }
-        if let best = summary.best {
-            let name = best.place.level == .month
-                ? DateFormats.australian("MMMM yyyy").string(from: best.place.start)
-                : DateFormats.australian("EEE d MMM").string(from: best.place.start)
-            facts.append("best \(best.place.level.spokenName) \(name) · \(Tokens.duration(best.focused))")
+        // The best month or day is the rail's to say; the headline says how
+        // steady the record has been. The top period holds the whole record.
+        let elapsed = (calendar.dateComponents([.day], from: calendar.startOfDay(for: top.firstDay),
+                                               to: calendar.startOfDay(for: top.today)).day ?? 0) + 1
+        if summary.focusedDays > 0, elapsed > 1 {
+            facts.append(summary.focusedDays >= elapsed ? "focus on every day since you started"
+                         : "focus on \(summary.focusedDays) of the \(elapsed) days since you started")
         }
         return (eyebrow, sentence, facts)
     }
@@ -121,37 +123,50 @@ struct HistoryTreeRow: View {
         .id(row.id)
     }
 
+    /// The top rows are cards: the periods the record is first divided into.
+    /// A day stays a row, since it opens the day's own story.
+    private var isCard: Bool { depth == 0 && row.place.level != .day }
+
     private var header: some View {
         Button { navigation.toggleHistory(row.place) } label: {
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                dot
-                Text(HistoryRowText.title(row.place, today: today, calendar: SessionStore.historyCalendar))
-                    .font(row.place.level == .day ? Tokens.Typography.metadata.weight(.bold)
-                                                  : Tokens.Typography.rowTitle.weight(.medium))
-                    .lineLimit(1)
-                Spacer(minLength: Tokens.Space.s)
-                if showsFacts {
-                    Text(durations: HistoryRowText.facts(row, today: today))
-                        .font(Tokens.Typography.metadata.monospacedDigit())
-                        .foregroundStyle(row.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
-                        .lineLimit(1)
-                }
-                bars
+            if isCard {
+                HistoryPeriodCard(store: store, row: row, isOpen: isOpen, isFocused: isFocused)
+            } else {
+                plainHeader
             }
-            .padding(.vertical, Tokens.Space.xs)
-            .padding(.horizontal, HistoryRowLayout.inset)
-            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-            .background(isFocused ? Tokens.Colour.focus.opacity(0.12) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-            .contentShape(Rectangle())
         }
-        .buttonStyle(StoryPressStyle(hovers: !row.isEmpty, cornerRadius: Tokens.Radius.nested))
+        .buttonStyle(StoryPressStyle(hovers: !row.isEmpty,
+                                     cornerRadius: isCard ? StoryStyle.entryRadius : Tokens.Radius.nested))
         .disabled(row.isEmpty)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(HistoryRowText.spoken(row, today: today, isOpen: isOpen, depth: depth,
                                                   calendar: SessionStore.historyCalendar))
         .accessibilityAddTraits(isFocused ? [.isButton, .isSelected] : .isButton)
         .accessibilityHint(row.isEmpty ? "" : HistoryTree.keyboardHint)
+    }
+
+    private var plainHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
+            dot
+            Text(HistoryRowText.title(row.place, today: today, calendar: SessionStore.historyCalendar))
+                .font(row.place.level == .day ? Tokens.Typography.metadata.weight(.bold)
+                                              : Tokens.Typography.rowTitle.weight(.medium))
+                .lineLimit(1)
+            Spacer(minLength: Tokens.Space.s)
+            if showsFacts {
+                Text(durations: HistoryRowText.facts(row, today: today))
+                    .font(Tokens.Typography.metadata.monospacedDigit())
+                    .foregroundStyle(row.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                    .lineLimit(1)
+            }
+            bars
+        }
+        .padding(.vertical, Tokens.Space.xs)
+        .padding(.horizontal, HistoryRowLayout.inset)
+        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+        .background(isFocused ? Tokens.Colour.focus.opacity(0.12) : Color.clear,
+                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+        .contentShape(Rectangle())
     }
 
     /// A day of one finished session shows its figure on the session row.

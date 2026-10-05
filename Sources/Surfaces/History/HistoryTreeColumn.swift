@@ -31,8 +31,9 @@ struct HistoryTree: View {
                 HistoryFindBar(store: store, focusRequest: navigation.historySearchFocusRequest,
                                matchCount: searched.map { Self.fieldCount($0, lens: lens) })
                     .coachAnchor(.search)
-                // A search replaces the tree, so there is no path to show.
-                if searched == nil, !isEmptyArchive, !crumbs.isEmpty {
+                // A search replaces the tree, so there is no path to show; and
+                // with nothing open the path is only the headline's own name.
+                if searched == nil, !isEmptyArchive, crumbs.count > 1 {
                     HistoryPathBar(crumbs: crumbs) { crumb in
                         switch crumb.focus {
                         case .row(let place): navigation.navigateHistory(to: place)
@@ -101,6 +102,7 @@ struct HistoryTree: View {
                     HistorySearchColumn(store: store, navigation: navigation, entries: searched, lens: lens)
                 } else {
                     headline
+                    overviewChart
                     tree
                 }
             }
@@ -128,11 +130,39 @@ struct HistoryTree: View {
             .id(HistoryPath.topID)
     }
 
+    /// Every day on record as a bar in its main category's colour, against
+    /// the average focused day. A day clicked opens in the tree below.
+    private var overviewChart: some View {
+        let top = store.historyTop()
+        let summary = store.historySummary()
+        let calendar = Calendar.current
+        var values: [Date: HistoryResultChart.Value] = [:]
+        for day in store.historyDays where day.focused > 0 {
+            let main = day.focusByWorkType.max { $0.value == $1.value ? $0.key.rawValue > $1.key.rawValue : $0.value < $1.value }?.key
+            values[calendar.startOfDay(for: day.date)] = HistoryResultChart.Value(
+                primary: day.focused, secondary: 0, colour: main.map(Tokens.Palette.workType))
+        }
+        return HistoryResultChart(firstDay: top.firstDay, today: top.today, values: values, isLens: false,
+                                  onPick: { navigation.openHistory(day: $0) },
+                                  average: summary.focusedDays > 0 ? summary.focused / Double(summary.focusedDays) : nil,
+                                  hint: "Click a day to open it")
+            .padding(.horizontal, HistoryRowLayout.inset)
+    }
+
     private var tree: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(store.historyRows(under: nil)) { row in
                 HistoryTreeRow(store: store, navigation: navigation, row: row, depth: 0)
             }
+        }
+        // The spine the top cards hang from, through their dots.
+        .background(alignment: .leading) {
+            Rectangle()
+                .fill(StoryStyle.line)
+                .frame(width: 2)
+                .padding(.leading, HistoryRowLayout.inset + HistoryTreeRow.dotSize / 2 - 1)
+                .padding(.vertical, Tokens.Space.l)
+                .accessibilityHidden(true)
         }
         .coachAnchor(.journal)
         // Key focus lives on a point-sized proxy off the left edge: the arrow,
