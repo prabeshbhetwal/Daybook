@@ -305,6 +305,35 @@ SIZE="$(du -h "${LOCAL_BINARY}" | cut -f1 | tr -d ' ')"
 echo "Binary: ${LOCAL_BINARY} (${SIZE})"
 echo "Build succeeded: ${LOCAL_APP_DIR}"
 
+# The app itself, from any folder: a process named for it that is not one
+# of its own test runs. Searching command lines instead matched other
+# builds' compilers, whose arguments hold the same path, so a relaunch
+# quit the app and then refused to open the new one.
+app_pids() {
+  for pid in $(pgrep -x "${APP_NAME}"); do
+    case "$(ps -o args= -p "${pid}" 2>/dev/null)" in
+      *--selftest*|*--snapshot*|*--gallery*|*--fixture-window*) ;;
+      *) echo "${pid}" ;;
+    esac
+  done
+}
+local_app_running() {
+  for pid in $(app_pids); do
+    case "$(ps -o args= -p "${pid}" 2>/dev/null)" in
+      "${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}"*) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+# A copy started from this folder is still running from the files the swap
+# just deleted. macOS can no longer find its path, so turning on Open at
+# login fails with "Invalid argument". Finish the swap the way --run does.
+if [ "${RUN}" -eq 0 ] && local_app_running; then
+  echo "Relaunching ${APP_NAME}: the copy running from here was just replaced."
+  RUN=1
+fi
+
 if [ "${RUN}" -eq 1 ]; then
   # A checkout under an iCloud-synced folder is re-quarantined after this
   # script's own xattr -cr, and Launch Services then runs a translocated,
@@ -315,26 +344,6 @@ if [ "${RUN}" -eq 1 ]; then
   # `open` on a running app only brings it forward: the old process keeps
   # its old code while the new binary sits unused on disk. Quit any running
   # copy, from any folder, the ordinary way so it saves on the way out.
-  # The app itself, from any folder: a process named for it that is not one
-  # of its own test runs. Searching command lines instead matched other
-  # builds' compilers, whose arguments hold the same path, so a relaunch
-  # quit the app and then refused to open the new one.
-  app_pids() {
-    for pid in $(pgrep -x "${APP_NAME}"); do
-      case "$(ps -o args= -p "${pid}" 2>/dev/null)" in
-        *--selftest*|*--snapshot*|*--gallery*|*--fixture-window*) ;;
-        *) echo "${pid}" ;;
-      esac
-    done
-  }
-  local_app_running() {
-    for pid in $(app_pids); do
-      case "$(ps -o args= -p "${pid}" 2>/dev/null)" in
-        "${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}"*) return 0 ;;
-      esac
-    done
-    return 1
-  }
   osascript -e "quit app id \"${BUNDLE_ID}\"" >/dev/null 2>&1 || true
   for _ in $(seq 1 100); do
     [ -z "$(app_pids)" ] && break
