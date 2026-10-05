@@ -25,7 +25,7 @@ struct StoryAppRow: View {
     }
 
     private var spokenLabel: String {
-        "\(app.appName), \(Tokens.spent(app.total)), \(Int((app.share * 100).rounded())) per cent"
+        "\(app.appName), \(Tokens.spent(app.total)), \(DurationText.percent(app.share, spoken: true))"
     }
 
     private var row: some View {

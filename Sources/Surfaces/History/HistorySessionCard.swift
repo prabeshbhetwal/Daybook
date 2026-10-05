@@ -88,7 +88,7 @@ struct HistorySessionRow: View {
     /// Where the app was in front along the session, and its share of it.
     private func lensDetail(_ use: HistoryAppLens.SessionUse) -> some View {
         let length = max(use.span.duration, 1)
-        let share = min(100, Int((use.seconds / max(session.worked, use.seconds, 1) * 100).rounded()))
+        let share = DurationText.percent(min(1, use.seconds / max(session.worked, use.seconds, 1)))
         return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
@@ -121,7 +121,7 @@ struct HistorySessionRow: View {
                 if let bundleID { AppIcon(bundleID: bundleID, size: 16, appName: appName ?? "") }
                 Text(durations: Self.figure(use.seconds))
                     .font(Tokens.Typography.metadata.weight(.semibold))
-                Text("of this session · \(share)%")
+                Text("of this session · \(share)")
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
             }
@@ -179,7 +179,7 @@ struct HistorySessionRow: View {
         seconds >= 60 ? Tokens.duration(seconds) : Tokens.preciseDuration(seconds)
     }
 
-    static func percent(_ share: Double) -> String { "\(Int((share * 100).rounded()))%" }
+    static func percent(_ share: Double) -> String { DurationText.percent(share) }
 
     /// `Dia`, `Dia and Gemini`, `Dia, Gemini and ChatGPT`.
     static func list(_ names: [String]) -> String {

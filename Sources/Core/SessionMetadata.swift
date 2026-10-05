@@ -168,7 +168,7 @@ struct PowerContextSummary: Equatable {
     }
 
     private static func formatted(_ percentage: Double) -> String {
-        "\(Int(percentage.rounded()))%"
+        DurationText.wholeSeconds(percentage.rounded()).map { "\($0)%" } ?? "—"
     }
 
     /// What the headline cannot say on its own: why it reads "Power changed".

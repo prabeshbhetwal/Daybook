@@ -350,7 +350,7 @@ struct StoryRail: View {
                 Spacer(minLength: 0)
                 if let share = goalShare {
                     GoalRing(progress: share, diameter: 56, lineWidth: 7,
-                             label: "\(Int((share * 100).rounded()))%",
+                             label: DurationText.percent(share),
                              isMet: share >= 1,
                              labelFont: .system(size: 12, weight: .bold, design: .rounded),
                              accessibilityTitle: "Share of goal")

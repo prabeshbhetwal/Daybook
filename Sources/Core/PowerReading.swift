@@ -37,7 +37,8 @@ struct PowerReading: Equatable {
     }
 
     init(_ observation: PowerObservation) {
-        let percent = observation.percentage.map { Int($0.rounded()) }
+        // A stored level is decoded verbatim; one past `Int` reads as unknown.
+        let percent = observation.percentage.flatMap { DurationText.wholeSeconds($0.rounded()) }
         level = percent.map { "\($0)%" } ?? ""
         let state: String
         switch (observation.source, observation.charging) {

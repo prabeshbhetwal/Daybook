@@ -106,7 +106,7 @@ struct CategoryShareBar: View {
                     HStack(spacing: Tokens.Space.xs) {
                         Circle().fill(Tokens.Palette.workType(share.workType))
                             .frame(width: 8, height: 8)
-                        Text("\(share.workType.displayName) \(Int((share.share * 100).rounded()))%")
+                        Text("\(share.workType.displayName) \(DurationText.percent(share.share))")
                             .font(Tokens.Typography.metadata)
                             .foregroundStyle(.secondary)
                     }

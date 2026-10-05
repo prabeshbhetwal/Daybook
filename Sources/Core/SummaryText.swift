@@ -297,7 +297,7 @@ enum SummaryText {
     }
 
     private static func percent(_ share: Double) -> String {
-        "\(Int((share * 100).rounded()))%"
+        DurationText.percent(share)
     }
 
     private static func weekday(_ date: Date) -> String { DateFormats.local("EEEE").string(from: date) }

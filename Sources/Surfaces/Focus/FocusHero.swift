@@ -755,7 +755,7 @@ struct FocusHero: View {
                 GoalRing(progress: store.goal.share,
                          diameter: 52,
                          lineWidth: 6,
-                         label: "\(Int((min(store.goal.share, 9.99) * 100).rounded()))%",
+                         label: DurationText.percent(min(store.goal.share, 9.99)),
                          isMet: store.goal.isMet)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Today · \(Tokens.preciseDuration(store.goal.achieved)) of "

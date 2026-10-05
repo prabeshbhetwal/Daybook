@@ -53,6 +53,6 @@ struct GoalRing: View {
                    value: isMet)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityTitle)
-        .accessibilityValue("\(Int((progress * 100).rounded())) per cent")
+        .accessibilityValue(DurationText.percent(progress, spoken: true))
     }
 }

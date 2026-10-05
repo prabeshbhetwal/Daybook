@@ -181,7 +181,7 @@ struct InsightSurface: Equatable {
     private static func percentageText(_ share: Double) -> String {
         let percentage = share * 100
         if percentage > 0 && percentage < 1 { return "<1%" }
-        return "\(Int(percentage.rounded()))%"
+        return DurationText.percent(share)
     }
 
     private static func rateText(_ value: Double) -> String {

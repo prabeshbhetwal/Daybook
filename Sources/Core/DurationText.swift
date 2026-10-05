@@ -61,4 +61,13 @@ enum DurationText {
         guard seconds.isFinite, abs(seconds) < TimeInterval(Int.max) else { return nil }
         return max(0, Int(seconds))
     }
+
+    /// `25%`, or `25 per cent` for speech, from a share where 1 is the whole;
+    /// `—` when the share cannot be a whole per cent. Shares are worked out
+    /// from stored durations, and malformed ones make them NaN, infinite or
+    /// far past `Int`, so they go through the same guard as seconds.
+    static func percent(_ share: Double, spoken: Bool = false) -> String {
+        guard let whole = wholeSeconds((share * 100).rounded()) else { return "—" }
+        return spoken ? "\(whole) per cent" : "\(whole)%"
+    }
 }

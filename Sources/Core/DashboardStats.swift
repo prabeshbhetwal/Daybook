@@ -653,9 +653,8 @@ struct DashboardStats {
               trackedTotal(for: day) > 0,
               quality.insideSessionShare > 0 else { return nil }
         let tracked = trackedTotal(for: day)
-        let percent = Int((quality.insideSessionShare * 100).rounded())
         return Insight(id: "inside-session",
-                       headline: "\(percent)% of tracked time was in a focus session",
+                       headline: "\(DurationText.percent(quality.insideSessionShare)) of tracked time was in a focus session",
                        detail: "\(DurationText.compact(tracked * quality.insideSessionShare)) "
                              + "of \(DurationText.compact(tracked)) tracked",
                        symbolName: "target")
