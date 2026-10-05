@@ -31,6 +31,7 @@ extension SelfTest {
             + PercentTextChecks.tests
             + HistoryOverviewChecks.tests
             + HistoryCalendarChecks.tests
+            + HistoryNoticeChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
