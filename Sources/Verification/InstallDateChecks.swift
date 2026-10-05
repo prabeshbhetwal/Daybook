@@ -10,7 +10,25 @@ enum InstallDateChecks: CheckSuite {
          installDateComesFromFolder),
         ("History leaves out and discloses records from before the install date, and keeps the day before it",
          historyStartsAtInstall),
+        ("History's notices count left-out records in the singular or plural each needs",
+         noticeCountsReadAsEnglish),
     ]
+
+    private static func noticeCountsReadAsEnglish() -> [String] {
+        var problems: [String] = []
+        let cases: [((Int, Int, Int), String?)] = [
+            ((0, 0, 0), nil),
+            ((0, 1, 0), "1 focus record"),
+            ((2, 0, 1), "2 app-usage records and 1 rest record"),
+            ((1, 1, 1), "1 app-usage record, 1 focus record and 1 rest record"),
+        ]
+        for ((usage, focus, rest), expected) in cases {
+            let text = SessionStore.recordCounts(usage: usage, focus: focus, rest: rest)
+            expect(text == expected, "\(usage)/\(focus)/\(rest) left out should read \(expected ?? "nothing"), "
+                       + "got \(text ?? "nothing")", &problems)
+        }
+        return problems
+    }
 
     private static func installDateComesFromFolder() -> [String] {
         var problems: [String] = []

@@ -267,18 +267,25 @@ extension SessionStore {
             notices.append("History includes preserved legacy app usage from before "
                            + "\(Tokens.longDate(snapshot.accurateFrom)); it may include unattended time.")
         }
-        if rebuilt.droppedUsageSpans > 0 || rebuilt.droppedFocusSpans > 0 || rebuilt.droppedRestSpans > 0 {
-            var dropped: [String] = []
-            if rebuilt.droppedUsageSpans > 0 { dropped.append("\(rebuilt.droppedUsageSpans) app-usage records") }
-            if rebuilt.droppedFocusSpans > 0 { dropped.append("\(rebuilt.droppedFocusSpans) focus records") }
-            if rebuilt.droppedRestSpans > 0 { dropped.append("\(rebuilt.droppedRestSpans) rest records") }
-            notices.append("History omitted \(dropped.joined(separator: " and ")) from derived day rows because each spans at least \(HistoryStats.maximumCalendarDaysPerRecord) calendar days. Source records remain preserved in local data.")
+        if let dropped = Self.recordCounts(usage: rebuilt.droppedUsageSpans, focus: rebuilt.droppedFocusSpans,
+                                           rest: rebuilt.droppedRestSpans) {
+            notices.append("History omitted \(dropped) from derived day rows because each spans at least \(HistoryStats.maximumCalendarDaysPerRecord) calendar days. Source records remain preserved in local data.")
         }
         if rebuilt.droppedBeforeInstall > 0, let installed = engine.store.installDate {
             let count = rebuilt.droppedBeforeInstall
             notices.append("History omitted \(count) \(count == 1 ? "record" : "records") dated before Daybook was installed on \(Tokens.longDate(installed)). Source records remain preserved in local data.")
         }
         return notices
+    }
+
+    /// `1 focus record`, `2 app-usage records and 1 rest record`, or all three
+    /// as `1 app-usage record, 1 focus record and 1 rest record`; nil for none.
+    nonisolated static func recordCounts(usage: Int, focus: Int, rest: Int) -> String? {
+        let parts = [(usage, "app-usage"), (focus, "focus"), (rest, "rest")]
+            .filter { $0.0 > 0 }
+            .map { "\($0.0) \($0.1) \($0.0 == 1 ? "record" : "records")" }
+        guard let last = parts.last else { return nil }
+        return parts.count == 1 ? last : parts.dropLast().joined(separator: ", ") + " and " + last
     }
 
     private func refreshReviewLiveTail(usage: AppUsageArchive) {
