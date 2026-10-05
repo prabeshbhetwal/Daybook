@@ -29,6 +29,7 @@ extension SelfTest {
             + HistoryAppLensChecks.tests
             + JournalRecoveryChecks.tests
             + PercentTextChecks.tests
+            + HistoryOverviewChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
