@@ -115,7 +115,7 @@ struct ActivityRulesView: View {
                 Text("A rule starts a session by itself once you have been in one of its apps "
                      + "for its wait, files the session under its category and names it after "
                      + "the rule. An app in two rules asks which one, instead of guessing.")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if model.activityRules.isEmpty {
@@ -192,20 +192,20 @@ struct ActivityRuleCard: View {
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(spacing: Tokens.Space.s) {
                             Text(rule.name)
-                                .font(Tokens.Typography.rowTitle.weight(.medium))
+                                .font(Tokens.Typography.rowTitle)
                                 .lineLimit(1)
                             WorkTypeChip(workType: rule.workType)
                             // Said in words, so an off rule is not told only
                             // by its faded icons.
                             if !rule.isEnabled {
                                 Text("Off")
-                                    .font(Tokens.Typography.microLabel)
+                                    .font(Tokens.Typography.caption)
                                     .foregroundStyle(.secondary)
                                     .fixedSize()
                             }
                         }
                         Text(detail)
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -267,7 +267,7 @@ struct ActivityRuleCard: View {
             }
             if ruleApps.count > 4 {
                 Text("+\(ruleApps.count - 4)")
-                    .font(Tokens.Typography.microLabel)
+                    .font(Tokens.Typography.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 10)
             }
@@ -319,7 +319,7 @@ struct ActivityRuleForm: View {
                 Label("\(named.displayName) is also a category. Sessions from this rule will count toward "
                       + "\(editor.workType.displayName), not \(named.displayName).",
                       systemImage: "exclamationmark.triangle")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(Tokens.Colour.attention)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -343,7 +343,7 @@ struct ActivityRuleForm: View {
                                 .onSubmit(save)
                                 .accessibilityLabel("Start after, whole seconds")
                             Text("seconds")
-                                .font(Tokens.Typography.metadata)
+                                .font(Tokens.Typography.body)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -358,7 +358,7 @@ struct ActivityRuleForm: View {
                     .fixedSize()
                 }
                 Text("How long you must be in one of its apps before the session begins.")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -368,7 +368,7 @@ struct ActivityRuleForm: View {
                                query: $editor.appQuery, selection: $editor.bundleIDs)
             if let message = editor.validationMessage {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(Tokens.Typography.metadata).foregroundStyle(Tokens.Colour.danger)
+                    .font(Tokens.Typography.body).foregroundStyle(Tokens.Colour.danger)
                     .accessibilityLabel("Rule error: \(message)")
             }
             // Return and Escape belong to the rule only while the reader is
@@ -415,7 +415,7 @@ struct ActivityRuleForm: View {
         if !editor.bundleIDs.isEmpty {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text("In this activity")
-                    .font(Tokens.Typography.microLabel)
+                    .font(Tokens.Typography.caption)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 ChipFlow(spacing: Tokens.Space.xs) {
@@ -431,10 +431,10 @@ struct ActivityRuleForm: View {
                                 }
                                 Text(app?.name ?? id).lineLimit(1)
                                 Image(systemName: "xmark")
-                                    .font(Tokens.Typography.micro.weight(.bold))
+                                    .font(Tokens.Typography.micro)
                                     .foregroundStyle(.secondary)
                             }
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .padding(.horizontal, Tokens.Space.s)
                             .frame(minHeight: 26)
                             .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
@@ -454,7 +454,7 @@ struct ActivityRuleForm: View {
         if !running.isEmpty {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text("Running now")
-                    .font(Tokens.Typography.microLabel)
+                    .font(Tokens.Typography.caption)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 ChipFlow(spacing: Tokens.Space.xs) {
@@ -469,10 +469,10 @@ struct ActivityRuleForm: View {
                                 }
                                 Text(app.name).lineLimit(1)
                                 Image(systemName: "plus")
-                                    .font(Tokens.Typography.micro.weight(.bold))
+                                    .font(Tokens.Typography.micro)
                                     .foregroundStyle(.secondary)
                             }
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .padding(.horizontal, Tokens.Space.s)
                             .frame(minHeight: 26)
                             .background(Tokens.Colour.elevated, in: Capsule())
@@ -523,7 +523,7 @@ struct InstalledAppPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Text("All applications")
-                .font(Tokens.Typography.microLabel)
+                .font(Tokens.Typography.caption)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 // The list below carries this name for VoiceOver.
@@ -560,7 +560,7 @@ struct InstalledAppPicker: View {
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(application.displayName)
                                         .font(Tokens.Typography.control)
-                                    Text(application.bundleID).font(Tokens.Typography.metadata)
+                                    Text(application.bundleID).font(Tokens.Typography.body)
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)

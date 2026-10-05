@@ -20,12 +20,12 @@ struct StoryDisclosure<Content: View>: View {
                 HStack(spacing: 6) {
                     // One glyph that turns, not two that swap.
                     Image(systemName: "chevron.right")
-                        .font(Tokens.Typography.microLabel)
+                        .font(Tokens.Typography.caption)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     Text(title)
                     Spacer(minLength: 0)
                 }
-                .font(Tokens.Typography.metadata.weight(.medium))
+                .font(Tokens.Typography.label)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .contentShape(Rectangle())
             }

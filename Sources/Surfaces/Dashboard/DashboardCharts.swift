@@ -15,7 +15,7 @@ struct RhythmChart: View {
     var body: some View {
         if hours.allSatisfy({ $0.seconds == 0 }) {
             Text("Nothing recorded in this window yet.")
-                .font(.callout)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .frame(height: height + 18, alignment: .leading)
         } else {
@@ -45,13 +45,13 @@ struct RhythmChart: View {
                         Spacer()
                         Text(DateFormats.hourLabel(last.hour))
                     }
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.caption).foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 } else {
                   HStack(spacing: labelStep == 1 ? 8 : 4) {
                     ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
                         Text(index % labelStep == 0 ? DateFormats.hourLabel(hour.hour) : "")
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity)

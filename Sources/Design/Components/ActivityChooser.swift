@@ -105,8 +105,7 @@ struct ActivityChooser: View {
     /// The menu's chevron, centred in an image 16pt tall: bordered and large,
     /// that makes a 28pt button whichever framework draws it.
     private static let chevron: NSImage = {
-        let configuration = NSImage.SymbolConfiguration(pointSize: Tokens.Typography.Size.metadata,
-                                                        weight: .semibold)
+        let configuration = Tokens.Typography.labelSymbol
         guard let symbol = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
             .withSymbolConfiguration(configuration) else { return NSImage() }
         let height: CGFloat = 16

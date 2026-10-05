@@ -22,11 +22,11 @@ enum MenuBarGlyph {
                     .rotationEffect(.degrees(-90))
                 if isMet {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 7, weight: .heavy))
+                        .font(Tokens.Typography.fitted(7, weight: .heavy))
                         .foregroundStyle(.black)
                 } else if paused {
                     Image(systemName: "pause.fill")
-                        .font(.system(size: 6.5, weight: .heavy))
+                        .font(Tokens.Typography.fitted(6.5, weight: .heavy))
                         .foregroundStyle(.black)
                 }
                 if attention {

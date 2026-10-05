@@ -52,7 +52,7 @@ struct HistoryPathBar: View {
                 let isCurrent = index == crumbs.count - 1
                 if index > 0 {
                     Image(systemName: "chevron.right")
-                        .font(Tokens.Typography.microLabel)
+                        .font(Tokens.Typography.caption)
                         .foregroundStyle(.tertiary)
                         .accessibilityHidden(true)
                 }

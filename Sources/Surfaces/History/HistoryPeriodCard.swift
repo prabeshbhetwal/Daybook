@@ -31,11 +31,11 @@ struct HistoryPeriodCard: View {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                     Text(HistoryRowText.title(row.place, today: top.today, calendar: calendar))
-                        .font(.system(size: Tokens.Typography.Size.headline, weight: .bold))
+                        .font(Tokens.Typography.rowTitle)
                         .lineLimit(1)
                     if row.place.span.contains(top.today) {
                         Text("So far")
-                            .font(Tokens.Typography.microLabel)
+                            .font(Tokens.Typography.caption)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
                             .background(StoryStyle.focus.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
@@ -43,15 +43,15 @@ struct HistoryPeriodCard: View {
                     }
                     Spacer(minLength: Tokens.Space.s)
                     Text(durations: Self.figure(row))
-                        .font(Tokens.Typography.rowTimer.monospacedDigit())
+                        .font(Tokens.Typography.rowTitle.monospacedDigit())
                     Image(systemName: "chevron.right")
-                        .font(Tokens.Typography.microLabel)
+                        .font(Tokens.Typography.caption)
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
                 }
                 Text(durations: Self.detail(row, summary: store.historySummary(for: row.place), today: top.today,
                                             calendar: calendar))
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                 bars(Self.slots(row, top: top, calendar: calendar), colour: colour)
                     .padding(.top, Tokens.Space.s)

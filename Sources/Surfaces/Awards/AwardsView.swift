@@ -23,13 +23,13 @@ struct AwardCard: View {
                     // only difference someone who cannot tell the colours
                     // apart would otherwise have.
                     Text(award.isEarned ? "Earned" : "Not yet")
-                        .font(Tokens.Typography.metadata.weight(.semibold))
+                        .font(Tokens.Typography.label)
                         .foregroundStyle(award.isEarned ? AnyShapeStyle(StoryStyle.successInk)
                                                         : AnyShapeStyle(.secondary))
                         // The card's own label already says it.
                         .accessibilityHidden(true)
                     Text(award.detail)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -38,14 +38,14 @@ struct AwardCard: View {
             DisclosureGroup(isExpanded: Binding(get: { expanded.value },
                                                 set: { expanded.value = $0 })) {
                 Text(award.method)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, Tokens.Space.xs)
             } label: {
                 Text("How this is measured")
-                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .font(Tokens.Typography.label)
                     .foregroundStyle(.secondary)
             }
             .animation(Tokens.Motion.animation(Tokens.Motion.rise, reduceMotion: reduceMotion),
@@ -74,7 +74,7 @@ struct AwardCard: View {
                             startPoint: .topLeading, endPoint: .bottomTrailing))
                       : AnyShapeStyle(Tokens.Colour.elevated))
             Image(systemName: award.isEarned ? award.symbolName : "circle.dotted")
-                .font(Tokens.Typography.sectionTitle)
+                .font(Tokens.Typography.heading)
                 .foregroundStyle(award.isEarned ? AnyShapeStyle(.white)
                                                 : AnyShapeStyle(.secondary))
         }
@@ -124,9 +124,9 @@ struct AwardsView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Awards")
-                .font(Tokens.Typography.pageTitle)
+                .font(Tokens.Typography.title)
             Text("Earned quietly, never announced. Nothing here interrupts a session.")
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
         }
     }
@@ -138,10 +138,10 @@ struct AwardsView: View {
                           trailing: store.streakBest > 0 ? "best \(store.streakBest) days" : nil)
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                 Text("\(store.streak)")
-                    .font(Tokens.Typography.metricValue.monospacedDigit())
+                    .font(Tokens.Typography.figure)
                 Text("days with at least "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
@@ -154,7 +154,7 @@ struct AwardsView: View {
                 }
                 // The count the bars show by colour alone.
                 Text("\(days.filter(\.met).count) of the last \(days.count) days")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .ignore)

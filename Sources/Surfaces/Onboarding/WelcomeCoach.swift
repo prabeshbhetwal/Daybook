@@ -190,7 +190,7 @@ struct WelcomeCoachCard: View {
             // Sentence case like every other title in the app; spaced
             // capitals at this size were the hardest line on the card to read.
             Text(FirstRunScript.eyebrow(chapter: progress.chapter, card: progress.card))
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer(minLength: Tokens.Space.s)
@@ -229,17 +229,17 @@ struct WelcomeCoachCard: View {
                 } label: {
                     HStack(spacing: Tokens.Space.s) {
                         Text("\(chapter.number)")
-                            .font(Tokens.Typography.microValue.monospacedDigit())
+                            .font(Tokens.Typography.microFigure)
                             .foregroundStyle(.secondary)
                             .frame(width: 18, alignment: .trailing)
                         Text(chapter.title)
-                            .font(Tokens.Typography.metadata.weight(isCurrent ? .semibold : .regular))
+                            .font(Tokens.Typography.body.weight(isCurrent ? .semibold : .regular))
                             .foregroundStyle(isCurrent ? AnyShapeStyle(StoryStyle.focus)
                                                        : AnyShapeStyle(.primary))
                         Spacer(minLength: 0)
                         if seen {
                             Image(systemName: "checkmark")
-                                .font(Tokens.Typography.micro.weight(.heavy))
+                                .font(Tokens.Typography.micro)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -265,14 +265,14 @@ struct WelcomeCoachCard: View {
                     .font(Tokens.Typography.rowTitle)
                     .foregroundStyle(StoryStyle.successInk)
                 Text(result)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         } else {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 Text(card.sentence)
-                    .font(Tokens.Typography.sectionTitle)
+                    .font(Tokens.Typography.heading)
                     .fixedSize(horizontal: false, vertical: true)
                 // The paragraph the whole card exists to say, so it is set
                 // for reading: primary ink at control size, not the grey
@@ -300,7 +300,7 @@ struct WelcomeCoachCard: View {
                     .accessibilityHidden(true)
             }
             Text(text)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

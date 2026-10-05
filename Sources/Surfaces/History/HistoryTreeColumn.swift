@@ -277,7 +277,7 @@ struct HistoryTree: View {
         StoryTile(title: "Nothing recorded yet", trailing: nil) {
             Text("History fills in as you work. Each day you record appears here, newest first, "
                  + "with its sessions one click away.")
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             StartButton(title: "Start focus", fills: false) {

@@ -21,17 +21,17 @@ private struct RewardHUDView: View {
     var body: some View {
         HStack(alignment: .top, spacing: Tokens.Space.m) {
             Image(systemName: model.symbolName)
-                .font(Tokens.Typography.sectionTitle)
+                .font(Tokens.Typography.heading)
                 // The ink, not the swatch: system green on the light panel
                 // was about 2:1, under the 3:1 a meaningful symbol needs.
                 .foregroundStyle(StoryStyle.successInk)
                 .frame(width: Tokens.Space.xl)
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text(model.title)
-                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .font(Tokens.Typography.label)
                     .lineLimit(2)
                 Text(model.detail)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     // A break prompt carries its reason, which is two sentences.
                     // At two lines the reason was the half that got truncated,
@@ -41,7 +41,7 @@ private struct RewardHUDView: View {
                 if model.undo != nil {
                     Button("Undo", action: onUndoTapped)
                         .buttonStyle(StoryLinkStyle())
-                        .font(Tokens.Typography.metadata.weight(.medium))
+                        .font(Tokens.Typography.label)
                         .foregroundStyle(Tokens.Colour.focus)
                         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 }

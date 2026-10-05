@@ -21,7 +21,7 @@ struct PopoverFooter: View {
             }
             footerButton("Quit") { NSApp.terminate(nil) }
         }
-        .font(Tokens.Typography.metadata)
+        .font(Tokens.Typography.body)
     }
 
     private func footerButton(_ title: String, action: @escaping () -> Void) -> some View {

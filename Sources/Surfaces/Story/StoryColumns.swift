@@ -100,16 +100,16 @@ struct StoryHeadline: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Text(eyebrow.uppercased())
-                .font(Tokens.Typography.microLabel.weight(.bold))
+                .font(Tokens.Typography.eyebrow)
                 .kerning(0.8)
                 .foregroundStyle(.secondary)
             emphasised
-                .font(StoryStyle.headline)
+                .font(Tokens.Typography.headline)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: StoryStyle.headlineMeasure, alignment: .leading)
             if !facts.isEmpty {
                 Text(facts.joined(separator: "  ·  "))
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -182,7 +182,7 @@ struct ProjectedDayStoryColumn: View {
                               highlight: Tokens.preciseDuration(projection.focused))
             } else if !facts.isEmpty {
                 Text(facts.joined(separator: "  ·  "))
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -198,7 +198,7 @@ struct ProjectedDayStoryColumn: View {
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text("•").accessibilityHidden(true)
                                 Text(fact)
-                                .font(Tokens.Typography.metadata)
+                                .font(Tokens.Typography.body)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                             }
@@ -274,7 +274,7 @@ struct StoryCorrectionNotice: View {
                 Button("Retry saving") { store.retryLastCorrection() }
                     .buttonStyle(StoryLinkStyle())
             }
-            .font(Tokens.Typography.metadata)
+            .font(Tokens.Typography.body)
             .padding(Tokens.Space.m)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Tokens.Colour.attention.opacity(0.10),

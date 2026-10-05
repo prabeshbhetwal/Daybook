@@ -44,11 +44,11 @@ struct InsightSection: View {
                     CategoryShareBar(shares: shares)
                 }
                 Text(presentation.headline)
-                    .font(Tokens.Typography.sectionTitle)
+                    .font(Tokens.Typography.heading)
                     .fixedSize(horizontal: false, vertical: true)
                 if expanded.value {
                     Text(presentation.provenance)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
@@ -107,7 +107,7 @@ struct CategoryShareBar: View {
                         Circle().fill(Tokens.Palette.workType(share.workType))
                             .frame(width: 8, height: 8)
                         Text("\(share.workType.displayName) \(DurationText.percent(share.share))")
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .combine)

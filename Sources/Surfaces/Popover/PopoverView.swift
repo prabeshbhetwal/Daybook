@@ -79,7 +79,7 @@ struct PopoverView: View {
             }
             if let error = store.activityAutomationError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(Tokens.Typography.metadata).foregroundStyle(Tokens.Colour.danger)
+                    .font(Tokens.Typography.body).foregroundStyle(Tokens.Colour.danger)
             }
             if store.focusSurfaceComposition.showsContinuationSection {
                 ContinueTodaySection(store: store, limit: 3)

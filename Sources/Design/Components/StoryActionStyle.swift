@@ -20,7 +20,7 @@ private struct StoryActionLabel<Label: View>: View {
 
     var body: some View {
         label
-            .font(Tokens.Typography.metadata.weight(.semibold))
+            .font(Tokens.Typography.label)
             .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
             .padding(.horizontal, 11)
             .padding(.vertical, 5)

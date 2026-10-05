@@ -108,11 +108,11 @@ struct HistoryRailHeading: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(Tokens.Typography.sectionTitle)
+                .font(Tokens.Typography.heading)
                 .accessibilityAddTraits(.isHeader)
             if let detail {
                 Text(durations: detail)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
         }
@@ -173,7 +173,7 @@ struct HistoryPeriodRail: View {
                     CategoryShareBar(shares: facts.categories)
                     if isCurrentMonth, let placed = surface.categories {
                         Text("Where each lands in the day: \(placed.headline).")
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -182,9 +182,9 @@ struct HistoryPeriodRail: View {
             if let window = facts.bestWindow {
                 StoryTile(title: "Best two hours", trailing: nil) {
                     Text(HistoryHours.span(from: window.startHour))
-                        .font(Tokens.Typography.sectionTitle)
+                        .font(Tokens.Typography.heading)
                     Text(durations: HistoryHours.note(seconds: window.seconds, phrase: facts.bestWindowPhrase))
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -206,9 +206,9 @@ struct HistoryPeriodRail: View {
             StoryTile(title: isMonth ? "Best month" : "Best day", trailing: nil) {
                 Text(isMonth ? DateFormats.australian("MMMM yyyy").string(from: best.place.start)
                              : Tokens.longDate(best.place.start))
-                    .font(Tokens.Typography.sectionTitle)
+                    .font(Tokens.Typography.heading)
                 Text(durations: "\(Tokens.duration(best.focused)) focused")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
         }
@@ -225,16 +225,16 @@ struct HistoryPeriodRail: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: Tokens.Space.xs) {
                         Image(systemName: rate.workType.symbolName)
-                            .font(Tokens.Typography.microLabel)
+                            .font(Tokens.Typography.caption)
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(Tokens.Palette.workType(rate.workType))
                             .frame(width: 14)
                             .accessibilityHidden(true)
                         Text(rate.workType.displayName)
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                         Spacer(minLength: Tokens.Space.s)
                         Text("\(rate.metDays) of \(rate.focusedDays)")
-                            .font(Tokens.Typography.metadata.monospacedDigit())
+                            .font(Tokens.Typography.body.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                     GeometryReader { geometry in
@@ -259,7 +259,7 @@ struct HistoryPeriodRail: View {
                          trailing: apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
             if tracked > 0 {
                 Text(durations: Self.appUseLine(tracked: tracked))
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
             ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
@@ -270,7 +270,7 @@ struct HistoryPeriodRail: View {
 
     @ViewBuilder private func soFar(_ surface: InsightSurface) -> some View {
         Text("This month so far")
-            .font(Tokens.Typography.metadata.weight(.bold))
+            .font(Tokens.Typography.label)
             .foregroundStyle(.secondary)
             .accessibilityAddTraits(.isHeader)
             .padding(.top, Tokens.Space.s)
@@ -280,7 +280,7 @@ struct HistoryPeriodRail: View {
             if let continuity = surface.continuity { InsightSection(title: "Continuity", insight: continuity) }
         } else {
             Text(InsightSurface.insufficientEvidenceCopy)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -303,17 +303,17 @@ struct HistorySessionRail: View {
             StoryTile(title: session.name.isEmpty ? "Session" : session.workType.displayName,
                       trailing: nil) {
                 Text(durations: session.isRunning ? "In progress" : Tokens.preciseDuration(session.worked))
-                    .font(Tokens.Typography.metricValue.monospacedDigit())
+                    .font(Tokens.Typography.figure)
                 Text(Tokens.timeRange(session.start, session.end))
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                 if session.spans.count > 1 {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(session.spans.count) stretches")
-                            .font(Tokens.Typography.metadata.weight(.semibold))
+                            .font(Tokens.Typography.label)
                         ForEach(Array(session.spans.enumerated()), id: \.offset) { _, span in
                             Text(Tokens.timeRange(span.start, span.end))
-                                .font(Tokens.Typography.metadata.monospacedDigit())
+                                .font(Tokens.Typography.body.monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -332,7 +332,7 @@ struct HistorySessionRail: View {
                 StoryTile(title: notes.count == 1 ? "Note" : "Notes", trailing: nil) {
                     ForEach(Array(notes.enumerated()), id: \.offset) { _, text in
                         Text(text)
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }

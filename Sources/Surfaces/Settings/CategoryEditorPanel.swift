@@ -158,7 +158,7 @@ struct CategoryEditorPanelView: View {
         ChipFlow(spacing: Tokens.Space.xs) {
             chip(title: "New", selected: editingNew) {
                 Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Tokens.Typography.label)
                     .frame(width: 20, height: 20)
                     .background(Tokens.Colour.elevated, in: Circle())
                     .accessibilityHidden(true)
@@ -186,7 +186,7 @@ struct CategoryEditorPanelView: View {
             HStack(spacing: Tokens.Space.xs) {
                 mark()
                 Text(title)
-                    .font(Tokens.Typography.metadata.weight(selected ? .semibold : .regular))
+                    .font(Tokens.Typography.body.weight(selected ? .semibold : .regular))
                     .lineLimit(1)
             }
             .padding(.leading, 4)

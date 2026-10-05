@@ -69,7 +69,7 @@ struct StoryShapeChart: View {
                         Text(Tokens.timeOfDayOnly(last.end))
                     }
                 }
-                .font(Tokens.Typography.metadata.monospacedDigit())
+                .font(Tokens.Typography.body.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .animation(Tokens.Motion.animation(Tokens.Motion.tick, reduceMotion: reduceMotion),
                            value: hovered.run?.id)

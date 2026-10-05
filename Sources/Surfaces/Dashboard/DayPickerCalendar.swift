@@ -71,10 +71,10 @@ struct DayPickerCalendar: View {
         HStack(alignment: .top, spacing: Tokens.Space.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(monthTitle)
-                    .font(Tokens.Typography.rowTitle.weight(.semibold))
+                    .font(Tokens.Typography.heading)
                     .contentTransition(.numericText())
                 Text(durations: monthSummary)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     // Three facts in a narrow popover: one line cut the goal
                     // count, which is the one worth reading.
@@ -85,7 +85,7 @@ struct DayPickerCalendar: View {
             if !calendar.isDate(shown.month, equalTo: Date(), toGranularity: .month) {
                 Button("Today") { shown.month = calendar.startOfDay(for: Date()) }
                     .buttonStyle(StoryPressStyle())
-                    .font(.caption.weight(.medium))
+                    .font(Tokens.Typography.caption)
                     .foregroundStyle(Tokens.Colour.focus)
                     .padding(.horizontal, Tokens.Space.s)
                     .padding(.vertical, 3)
@@ -154,7 +154,7 @@ struct DayPickerCalendar: View {
         HStack(spacing: gap) {
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
-                    .font(Tokens.Typography.tabLabel)
+                    .font(Tokens.Typography.control)
                     .foregroundStyle(.secondary)
                     .frame(width: cellWidth)
             }
@@ -207,7 +207,7 @@ struct DayPickerCalendar: View {
         return Button { if pickable { pick(day) } } label: {
             VStack(spacing: 2) {
                 Text("\(calendar.component(.day, from: day))")
-                    .font(Tokens.Typography.tabLabel
+                    .font(Tokens.Typography.control
                         .weight(isToday || isSelected ? .semibold : .regular)
                         .monospacedDigit())
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)
@@ -219,7 +219,7 @@ struct DayPickerCalendar: View {
                 Text(!pickable ? " "
                      : facts.focused > 0 ? Tokens.duration(facts.focused)
                      : facts.tracked > 0 ? "·" : " ")
-                    .font(Tokens.Typography.microValue.monospacedDigit())
+                    .font(Tokens.Typography.microFigure)
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
                                      : AnyShapeStyle(.secondary))
                     .lineLimit(1)
@@ -241,7 +241,7 @@ struct DayPickerCalendar: View {
             .overlay(alignment: .topTrailing) {
                 if met && !isSelected {
                     Image(systemName: "checkmark")
-                        .font(Tokens.Typography.micro.weight(.heavy))
+                        .font(Tokens.Typography.micro)
                         .foregroundStyle(StoryStyle.focus)
                         .padding(4)
                         .accessibilityHidden(true)
@@ -308,7 +308,7 @@ struct DayPickerCalendar: View {
     private var legend: some View {
         Text("Under each date, its focused time. A dot is a day at the Mac with no "
              + "session; a tick, a met goal.")
-            .font(Tokens.Typography.metadata)
+            .font(Tokens.Typography.body)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }

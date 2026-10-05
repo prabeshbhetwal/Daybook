@@ -263,13 +263,15 @@ enum CompactControlsChecks {
         if steps.count > 12 {
             failures.append("The type scale has grown to \(steps.count) steps")
         }
-        // The Mac-sized scale approved on 2026-09-29: rows at 14, not 15;
-        // a 19pt headline, not 23. Text had run a step above native apps.
-        if steps != [9, 10, 11, 12, 13, 14, 15, 19, 22, 24, 36] {
+        // The Mac-sized scale approved on 2026-09-29: rows at 14, not 15.
+        // Text had run a step above native apps. Since 2026-10-06 the story
+        // headline and the strip clock share one 20pt step; 19 and 20 were
+        // two steps a point apart doing one job.
+        if steps != [9, 10, 11, 12, 13, 14, 15, 20, 22, 24, 36] {
             failures.append("The type scale is not the approved Mac-sized scale: \(steps)")
         }
-        if StoryStyle.headlineSize != 20 {
-            failures.append("The story headline is \(StoryStyle.headlineSize)pt, not 20pt")
+        if Tokens.Typography.Size.headline != 20 {
+            failures.append("The story headline is \(Tokens.Typography.Size.headline)pt, not 20pt")
         }
         if StoryLayout.railWidth != 300 {
             failures.append("The rail is \(StoryLayout.railWidth)pt wide, not 300pt")
