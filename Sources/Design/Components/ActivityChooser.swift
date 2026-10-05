@@ -64,12 +64,12 @@ struct ActivityChooser: View {
                     }
                 }
             } label: {
-                Label("Choose an activity", systemImage: "chevron.down")
+                // A bordered button is sized by its label, so the label's
+                // height has to live in its image: on macOS 26 AppKit draws
+                // this menu and reads only the image, and a SwiftUI frame
+                // around the bare chevron left a 21pt target there.
+                Label { Text("Choose an activity") } icon: { Image(nsImage: Self.chevron) }
                     .labelStyle(.iconOnly)
-                    .font(Tokens.Typography.metadata.weight(.semibold))
-                    // A bordered button is sized by its label. At 12pt the
-                    // chevron alone left a 21pt target.
-                    .frame(height: 16)
             }
             // Same reason as WorkTypePicker: a borderless menu's popup is
             // 14pt tall and no frame around it changes that. Bordered and
@@ -101,6 +101,24 @@ struct ActivityChooser: View {
     }
 
     private var fieldHeight: CGFloat { compact ? Tokens.Control.compactHeight : 38 }
+
+    /// The menu's chevron, centred in an image 16pt tall: bordered and large,
+    /// that makes a 28pt button whichever framework draws it.
+    private static let chevron: NSImage = {
+        let configuration = NSImage.SymbolConfiguration(pointSize: Tokens.Typography.Size.metadata,
+                                                        weight: .semibold)
+        guard let symbol = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration) else { return NSImage() }
+        let height: CGFloat = 16
+        let image = NSImage(size: NSSize(width: symbol.size.width, height: height), flipped: false) { _ in
+            symbol.draw(in: NSRect(x: 0, y: (height - symbol.size.height) / 2,
+                                   width: symbol.size.width, height: symbol.size.height))
+            return true
+        }
+        // A template, so the menu's secondary style tints it as it did the symbol.
+        image.isTemplate = true
+        return image
+    }()
 
     /// What the menu lists; it redraws only when this changes.
     private struct MenuContents: Equatable {
