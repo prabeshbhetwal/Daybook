@@ -82,32 +82,36 @@ struct HistoryTree: View {
         }
     }
 
-    @ViewBuilder
     private func content(searched: [JournalEntry]?, lens: HistoryAppLens?, insets: EdgeInsets) -> some View {
-        // An app used only outside sessions has no matching session, but
-        // still has a story to tell.
-        if let searched, searched.isEmpty, lens?.days.isEmpty ?? true {
-            EmptyState("No matching sessions",
-                       detail: "Try fewer words, or a session name, an old name, a word from a note, "
-                           + "a named break, an app, a category, a date or a time of day.",
-                       icon: "magnifyingglass")
-                .padding(insets)
-        } else if isEmptyArchive {
-            emptyArchive.padding(insets)
-        } else {
-            VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-                if let searched {
-                    // The record's headline describes the record, not the
-                    // matches: a search opens with its own.
-                    HistorySearchColumn(store: store, navigation: navigation, entries: searched, lens: lens)
-                } else {
-                    headline
-                    overviewChart
-                    tree
+        VStack(alignment: .leading, spacing: 0) {
+            // Above every branch: a History emptied by omitted records still
+            // says why, rather than reading as "Nothing recorded yet".
+            HistoryIntegrityNotices(notices: store.historyIntegrityNotices, insets: insets)
+            // An app used only outside sessions has no matching session, but
+            // still has a story to tell.
+            if let searched, searched.isEmpty, lens?.days.isEmpty ?? true {
+                EmptyState("No matching sessions",
+                           detail: "Try fewer words, or a session name, an old name, a word from a note, "
+                               + "a named break, an app, a category, a date or a time of day.",
+                           icon: "magnifyingglass")
+                    .padding(insets)
+            } else if isEmptyArchive {
+                emptyArchive.padding(insets)
+            } else {
+                VStack(alignment: .leading, spacing: Tokens.Space.xl) {
+                    if let searched {
+                        // The record's headline describes the record, not the
+                        // matches: a search opens with its own.
+                        HistorySearchColumn(store: store, navigation: navigation, entries: searched, lens: lens)
+                    } else {
+                        headline
+                        overviewChart
+                        tree
+                    }
                 }
+                .padding(EdgeInsets(top: insets.top, leading: insets.leading - HistoryRowLayout.inset,
+                                    bottom: insets.bottom, trailing: insets.trailing - HistoryRowLayout.inset))
             }
-            .padding(EdgeInsets(top: insets.top, leading: insets.leading - HistoryRowLayout.inset,
-                                bottom: insets.bottom, trailing: insets.trailing - HistoryRowLayout.inset))
         }
     }
 

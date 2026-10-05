@@ -31,6 +31,7 @@ extension SelfTest {
             + PercentTextChecks.tests
             + HistoryOverviewChecks.tests
             + HistoryCalendarChecks.tests
+            + HistoryNoticeChecks.tests
             + FixtureClockChecks.tests
     }
 
