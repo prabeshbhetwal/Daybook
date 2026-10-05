@@ -215,10 +215,7 @@ enum DecisionRecoveryChecks {
                 // The store learns of Away on a main-queue hop. Wait for that
                 // hop, not a fixed 10 ms: on a busy Mac it had not landed
                 // and the check failed for reasons that were not the code's.
-                let caughtUp = Date().addingTimeInterval(2)
-                while f.store.state != f.engine.state, Date() < caughtUp {
-                    RunLoop.current.run(until: Date().addingTimeInterval(0.01))
-                }
+                f.store.catchUpWithEngine()
                 let before = f.engine.snapshot(), records = f.archive.records
                 var stoppedAutomation = 0, resumedTracking = 0, writes = 0
                 f.store.onAutoSessionUndone = { stoppedAutomation += 1 }
@@ -368,7 +365,7 @@ enum DecisionRecoveryChecks {
                     }
                 }
                 f.journalFailure = nil
-                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                f.store.catchUpWithEngine()
                 guard f.store.retryLastCorrection(), callbacks == 1, f.engine.state == .running,
                       f.engine.activeThreadID == thread, f.engine.sessionStartDate == f.time,
                       f.archive.records.count == 1, f.archive.records.first?.workSeconds == 600 else {

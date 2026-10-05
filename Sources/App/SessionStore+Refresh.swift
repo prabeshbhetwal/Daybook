@@ -55,6 +55,20 @@ extension SessionStore {
         onAutomationStateChanged?()
     }
 
+    /// Turns the main run loop until every main-queue hop queued so far has
+    /// run and this mirror shows the engine's state. The engine reaches the
+    /// mirror on such a hop, so code that drives the engine directly waits
+    /// here before reading the store. A fixed wait lost that race whenever
+    /// the hop landed later than the wait. Call it on the main thread,
+    /// outside a main-queue block.
+    @discardableResult
+    func catchUpWithEngine(timeout: TimeInterval = 2) -> Bool {
+        let landed = RunLoopFlag()
+        DispatchQueue.main.async { landed.isSet = true }
+        return InstalledAppCatalog.turnRunLoop(until: { landed.isSet && state == engine.state },
+                                               timeout: timeout)
+    }
+
     /// True whenever something on screen is still moving.
     ///
     /// Not `state.isRunning`: an unanswered away question froze the clock, the
