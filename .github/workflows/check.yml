@@ -29,13 +29,8 @@ jobs:
           xcodebuild -version
           swift --version
 
-      # The self-checks are written on a Mac set to Sydney time and Australian
-      # English, where weeks start on Monday; give the runner the same.
-      - name: Use the time zone and region the checks are written in
-        run: |
-          sudo systemsetup -settimezone Australia/Sydney > /dev/null
-          defaults write -g AppleLocale en_AU
-          date
-
+      # The runner keeps its own time zone and region (UTC, US English). The
+      # self-checks are written to hold in any zone, and running them away
+      # from the Sydney Mac they are written on keeps them to it.
       - name: Build and run the self-checks
         run: ./build.sh --check
