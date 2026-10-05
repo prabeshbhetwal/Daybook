@@ -30,7 +30,9 @@ as one module.
 Core → App → Design/Surfaces, in one direction only; the README has the map.
 
 - Core is UI-free: the session state machine, usage tracking, persistence
-  formats and pure calculations.
+  formats and pure calculations. `build.sh` typechecks `Sources/Core` on its
+  own beside the main compile, so a Core file that uses an App type fails the
+  build; move the type into Core instead.
 - App owns the macOS wiring and publishes read models. It is the only
   boundary for session actions, settings, refresh coalescing and navigation.
 - Views never read storage or recalculate time. The one 1 Hz ticker lives in

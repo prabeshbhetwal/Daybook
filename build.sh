@@ -87,6 +87,14 @@ if [ "${#SOURCE_FILES[@]}" -eq 0 ]; then
   exit 1
 fi
 
+# The layers point one way, Core → App → Design/Surfaces, so Core must compile
+# with nothing above it. Typecheck it alone beside the real build: it takes
+# no extra wall time, and the full build alone cannot see a Core file using an
+# App type.
+find Sources/Core -name '*.swift' -exec swiftc -typecheck -parse-as-library \
+  -swift-version 5 -warnings-as-errors -target "${TARGET_TRIPLE}" {} + &
+CORE_CHECK=$!
+
 # -Osize over -O: the code section is 41% smaller and the self-tests run no
 # slower (measured 2026-09-30: 17.0s against 19.4s), so there is nothing to
 # trade. The app is idle-bound; its speed is in what it does not do per tick.
@@ -100,6 +108,11 @@ swiftc \
   -framework Cocoa \
   -o "${BINARY}" \
   "${SOURCE_FILES[@]}"
+
+if ! wait "${CORE_CHECK}"; then
+  echo "error: Sources/Core does not compile on its own; move what it needs into Core" >&2
+  exit 1
+fi
 
 # Local symbols are half the binary and serve only `sample` and crash reports.
 # Strip them unless a profiling run asks to keep them: FC_KEEP_SYMBOLS=1.
