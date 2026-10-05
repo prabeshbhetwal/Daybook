@@ -26,6 +26,7 @@ enum Entry {
         }
         quitLegacyApp()
         NameMigration.run()
+        PersistenceStore.recordInstallDate(folder: SessionArchive.defaultDirectory)
         DaybookApp.main()
     }
 

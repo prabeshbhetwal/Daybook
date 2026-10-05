@@ -26,6 +26,9 @@ struct HistoryBuildResult: Equatable {
     let droppedUsageSpans: Int
     let droppedFocusSpans: Int
     let droppedRestSpans: Int
+    /// Focus, rest and app-usage records left out for starting before the day
+    /// ahead of the install date.
+    var droppedBeforeInstall = 0
 }
 
 /// How History reads a query: each word must turn up somewhere in what a
@@ -132,18 +135,28 @@ enum HistoryStats {
         case exceedsBound
     }
 
+    /// - Parameter installedOn: when this Mac started keeping history. A record
+    ///   that starts before the day ahead of it is malformed and left out; the
+    ///   day ahead keeps a first session that began before the app first saved.
     static func build(sessionRecords: [SessionRecord],
                       usage: [AppUsageSession],
-                      calendar: Calendar = .current) -> HistoryBuildResult {
+                      calendar: Calendar = .current,
+                      installedOn: Date? = nil) -> HistoryBuildResult {
         var buckets: [Date: DayAccumulator] = [:]
         var droppedUsageSpans = 0
         var droppedFocusSpans = 0
         var droppedRestSpans = 0
+        var droppedBeforeInstall = 0
+        let earliest = earliestDay(installedOn: installedOn, calendar: calendar)
 
         // Split each usage stretch only across the calendar days it touches.
         // This is linear in the archive plus cross-midnight spans, rather than
         // rescanning all 20,000 possible usage records once for every day.
         for session in usage where session.end > session.start {
+            if let earliest, session.start < earliest {
+                droppedBeforeInstall += 1
+                continue
+            }
             let span: (first: Date, last: Date)
             switch boundedSpan(start: session.start, end: session.end, calendar: calendar) {
             case .accepted(let first, let last): span = (first, last)
@@ -173,6 +186,10 @@ enum HistoryStats {
         // Session records keep their established proportional day attribution.
         // Break records add a work-type fact but never focused time or a session.
         for record in sessionRecords {
+            if let earliest, record.start < earliest {
+                droppedBeforeInstall += 1
+                continue
+            }
             let span: (first: Date, last: Date)
             switch boundedSpan(start: record.start, end: record.end, calendar: calendar) {
             case .accepted(let first, let last): span = (first, last)
@@ -213,7 +230,16 @@ enum HistoryStats {
         return HistoryBuildResult(days: days,
                                   droppedUsageSpans: droppedUsageSpans,
                                   droppedFocusSpans: droppedFocusSpans,
-                                  droppedRestSpans: droppedRestSpans)
+                                  droppedRestSpans: droppedRestSpans,
+                                  droppedBeforeInstall: droppedBeforeInstall)
+    }
+
+    /// The first day History shows: the day ahead of the install date, which
+    /// keeps a first session that began before the app first saved.
+    static func earliestDay(installedOn: Date?, calendar: Calendar) -> Date? {
+        installedOn.flatMap {
+            calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: $0))
+        }
     }
 
     private static func boundedSpan(start: Date, end: Date,

@@ -30,6 +30,7 @@ extension SelfTest {
             + JournalRecoveryChecks.tests
             + PercentTextChecks.tests
             + HistoryOverviewChecks.tests
+            + InstallDateChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
