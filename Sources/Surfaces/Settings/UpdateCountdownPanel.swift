@@ -15,7 +15,7 @@ enum UpdateCountdownStep: Equatable {
     }
 }
 
-/// "FocusContinuity 1.1 is ready": installs and relaunches when the count
+/// "Daybook 1.1 is ready": installs and relaunches when the count
 /// reaches zero, or now, or later. The count runs from a deadline the panel
 /// controller owns, not from a timer in the view; at zero it waits while a
 /// note, the away question or a naming is open.
@@ -47,7 +47,7 @@ final class UpdateCountdownPanel {
         panel.center()
         panel.orderFrontRegardless()
         self.panel = panel
-        Announcement.post("FocusContinuity \(version) is ready. It installs in \(Int(Self.seconds)) seconds.")
+        Announcement.post("Daybook \(version) is ready. It installs in \(Int(Self.seconds)) seconds.")
         schedule(at: state.deadline, isBusy: isBusy, install: install)
     }
 
@@ -92,7 +92,7 @@ private struct UpdateCountdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            Label("FocusContinuity \(version) is ready", systemImage: "arrow.down.circle.fill")
+            Label("Daybook \(version) is ready", systemImage: "arrow.down.circle.fill")
                 .font(Tokens.Typography.rowTitle.weight(.semibold))
             // Redrawn once a second only while the panel is up; the deadline,
             // not this view, decides when to install.
@@ -106,7 +106,7 @@ private struct UpdateCountdownView: View {
                 Spacer(minLength: 0)
                 Button("Later", action: onLater)
                     .keyboardShortcut(.cancelAction)
-                    .help("Offers it again in a few hours, and installs it the next time FocusContinuity quits")
+                    .help("Offers it again in a few hours, and installs it the next time Daybook quits")
                 Button("Install Now", action: onInstall)
                     .keyboardShortcut(.defaultAction)
             }

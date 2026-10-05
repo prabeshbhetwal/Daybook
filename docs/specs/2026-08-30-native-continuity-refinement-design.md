@@ -1,4 +1,4 @@
-# FocusContinuity Native Continuity Refinement — Design
+# Daybook Native Continuity Refinement — Design
 
 **Status:** Approved design direction; implementation not started  
 **Date:** 30 August 2026  
@@ -22,7 +22,7 @@ how selections reveal detail, and how the user moves through Settings.
 | Area | Decision | Rationale |
 |---|---|---|
 | Global tabs | Remove the rail's enclosing capsule and leave five self-contained tab buttons. | The outer capsule is redundant framing around already-contained controls and makes the header look heavy. |
-| Window identity | Add a compact FocusContinuity app mark beside the title. | A hidden-titlebar app otherwise has traffic lights and a title but no recognisable product identity. |
+| Window identity | Add a compact Daybook app mark beside the title. | A hidden-titlebar app otherwise has traffic lights and a title but no recognisable product identity. |
 | Today hierarchy | Place the day recap immediately after the day header and any integrity notice. | Users first need a short answer to “how did this day go?” before reading its chronology. |
 | Day detail | Keep a selected session/app detail under the list that caused it; the ribbon only highlights the same evidence. | A click should expand where the user is looking, not insert content above the clicked row and move the visual target. |
 | Recap disclosure | Make the whole “More about this day” row clickable. | A labelled disclosure is a row-level action; requiring a tiny chevron target is not a native-quality interaction. |
@@ -44,7 +44,7 @@ how selections reveal detail, and how the user moves through Settings.
 
 ### 4.1 Brand mark
 
-`FocusContinuityMark` is a 24-point app-icon rendering when the bundle icon is
+`DaybookMark` is a 24-point app-icon rendering when the bundle icon is
 available, with a `target` SF Symbol in the focus colour as the deterministic
 fallback for previews and headless snapshots. It sits immediately before the
 title/subtitle stack and is accessibility-hidden because the adjacent title

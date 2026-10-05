@@ -1,6 +1,6 @@
-# FocusContinuity Premium Interface Redesign Implementation Plan
+# Daybook Premium Interface Redesign Implementation Plan
 
-**Goal:** Make every FocusContinuity surface coherent, legible and native-feeling while fixing Review's implicit cross-tab navigation, chart clipping, History controls and History table hierarchy.
+**Goal:** Make every Daybook surface coherent, legible and native-feeling while fixing Review's implicit cross-tab navigation, chart clipping, History controls and History table hierarchy.
 
 **Architecture:** Preserve Core → App → Design/Surfaces. Core supplies pure canonical records and small layout helpers; App owns Review selection and routes; Design owns tokens and repeatable visual grammar; Surfaces compose controls and read models without recalculating time. Review becomes a stable workbench: selection stays in Review, then an explicit action opens Today.
 
@@ -708,8 +708,8 @@ Expected: the current scenario matrix lacks the required Review-selection varian
 Render to a temporary directory:
 
 ~~~bash
-snapshot_dir=$(mktemp -d /tmp/focuscontinuity-premium-snapshots.XXXXXX)
-FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot "$snapshot_dir"
+snapshot_dir=$(mktemp -d /tmp/daybook-premium-snapshots.XXXXXX)
+Daybook.app/Contents/MacOS/Daybook --snapshot "$snapshot_dir"
 ~~~
 
 Inspect every listed state in light/dark and minimum/comfortable widths. Inspect the running app separately for titlebar/traffic lights, range popover, date-picker keyboard operation, tab focus, scroll behaviour and Review selection. Any observed defect begins a new red/green task; do not weaken a test or omit a scenario.
@@ -723,7 +723,7 @@ Update README only with shipped behaviour: Review stays in context on selection;
 ~~~bash
 ./build.sh --check
 ./build.sh --test
-codesign --verify --deep FocusContinuity.app
+codesign --verify --deep Daybook.app
 git diff --check
 git status --short
 ~~~

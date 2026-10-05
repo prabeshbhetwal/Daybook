@@ -694,7 +694,7 @@ enum FocusConstants {
     static let musicPairingDwell: TimeInterval = 30 * 60
     static let hudDisplaySeconds: TimeInterval = 5
 
-    static let bundleIdentifier = "com.prabesh.focuscontinuity"
+    static let bundleIdentifier = "com.prabesh.daybook"
 }
 
 enum Diagnostics {
@@ -711,6 +711,6 @@ enum Diagnostics {
     static func log(_ message: String) {
         observer?(message)
         logger.error("\(message, privacy: .private)")
-        FileHandle.standardError.write(Data("[FocusContinuity] \(message)\n".utf8))
+        FileHandle.standardError.write(Data("[Daybook] \(message)\n".utf8))
     }
 }

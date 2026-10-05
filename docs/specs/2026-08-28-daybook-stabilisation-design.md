@@ -1,4 +1,4 @@
-# FocusContinuity Stabilisation Design
+# Daybook Stabilisation Design
 
 **Date:** 2026-08-28
 **Status:** Approved for implementation

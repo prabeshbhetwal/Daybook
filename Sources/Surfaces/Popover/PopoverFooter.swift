@@ -10,7 +10,7 @@ struct PopoverFooter: View {
 
     var body: some View {
         HStack(spacing: Tokens.Space.m) {
-            footerButton("Open FocusContinuity", action: onOpenApplication)
+            footerButton("Open Daybook", action: onOpenApplication)
             Spacer(minLength: Tokens.Space.s)
             footerButton("Settings", action: onOpenSettings)
                 .keyboardShortcut(",", modifiers: .command)

@@ -1,6 +1,6 @@
 ---
 name: add-check
-description: Add a headless self-check to FocusContinuity's suite. Use before changing behaviour, when fixing a bug (the check must fail on the old behaviour), or when asked to add a check or test.
+description: Add a headless self-check to Daybook's suite. Use before changing behaviour, when fixing a bug (the check must fail on the old behaviour), or when asked to add a check or test.
 ---
 
 # Add a self-check

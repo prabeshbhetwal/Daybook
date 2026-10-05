@@ -22,7 +22,7 @@
 - Each fact is shown once. Logged focus, recorded app use and goal credit stay separate measures and are never merged.
 - Duration figures in History use `Text(durations:)`. Labels built from strings that contain compact durations go through `DurationText.spoken(in:)`.
 - Motion goes through `Tokens.Motion.animation(_:reduceMotion:)` or `MainWindowModel.animated`, so Reduce Motion is honoured.
-- Never delete a file: retired files move to `/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/_trash/2026-09-29-history-journal/` (the main checkout's `_trash/`, which is gitignored; the worktree's copy would vanish with the worktree).
+- Never delete a file: retired files move to `<main checkout>/_trash/2026-09-29-history-journal/` (the main checkout's `_trash/`, which is gitignored; the worktree's copy would vanish with the worktree).
 - Commit messages follow the repo's style: one plain sentence naming what now works, no `feat:` prefix. Every message ends with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - The self-test count never drops below the baseline recorded in Task 0.
 - Build and test with the sandbox disabled: `./build.sh --check` (the `sips` icon step fails inside the sandbox). The quick compile check runs in the sandbox: `swiftc -typecheck -module-cache-path $TMPDIR/mc -swift-version 5 -parse-as-library -warnings-as-errors -target arm64-apple-macos13.0 $(find Sources -name '*.swift')`.
@@ -56,8 +56,8 @@ Expected: one line `N/N passed`, where N is about 484. Write N down: every later
 ```bash
 ./build.sh
 mkdir -p "$TMPDIR/fc-before"
-FC_SNAPSHOT_ONLY=storyDay ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot "$TMPDIR/fc-before"
-FC_SNAPSHOT_ONLY=insightsEnough ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot "$TMPDIR/fc-before"
+FC_SNAPSHOT_ONLY=storyDay ./Daybook.app/Contents/MacOS/Daybook --snapshot "$TMPDIR/fc-before"
+FC_SNAPSHOT_ONLY=insightsEnough ./Daybook.app/Contents/MacOS/Daybook --snapshot "$TMPDIR/fc-before"
 ls "$TMPDIR/fc-before"
 ```
 Expected: PNGs for `storyDay` and `insightsEnough` in light, dark and system. Keep them for the Task 7 before/after comparison.
@@ -2336,7 +2336,7 @@ Expected: no `[FAIL]`. If a FirstRun check pins the old card text or anchors, up
 ./build.sh
 mkdir -p "$TMPDIR/fc-after"
 for s in insightsEnough reviewHistorySelection historySession historySearch insightsEmpty storyDay; do
-  FC_SNAPSHOT_ONLY=$s ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot "$TMPDIR/fc-after"
+  FC_SNAPSHOT_ONLY=$s ./Daybook.app/Contents/MacOS/Daybook --snapshot "$TMPDIR/fc-after"
 done
 ls "$TMPDIR/fc-after"
 ```
@@ -2362,7 +2362,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 6: The old History is retired
 
 **Files:**
-- Move to `…/FocusContinuity/_trash/2026-09-29-history-journal/`: `Sources/Surfaces/Insights/InsightsView.swift`, `Sources/Surfaces/Insights/InsightCharts.swift`
+- Move to `…/Daybook/_trash/2026-09-29-history-journal/`: `Sources/Surfaces/Insights/InsightsView.swift`, `Sources/Surfaces/Insights/InsightCharts.swift`
 - Modify: `Sources/Surfaces/Review/HistoryFind.swift` (keep only `HistoryFindBar`)
 - Modify: `Sources/Surfaces/Review/HistoryDayList.swift` (keep `HistoryRowLayout`, `HistoryDayStrip`, `HistoryStripAxis`)
 - Modify: `Sources/App/MainWindowModel.swift` (remove range, span and paging state)
@@ -2467,7 +2467,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 2: Move the retired views out**
 
 ```bash
-TRASH=/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/_trash/2026-09-29-history-journal
+TRASH=<main checkout>/_trash/2026-09-29-history-journal
 mkdir -p "$TRASH"
 ls "$TRASH"
 mv Sources/Surfaces/Insights/InsightsView.swift "$TRASH/InsightsView.swift"
@@ -2551,7 +2551,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 **Files:**
 - Modify: `README.md`, `docs/usage.md`, `DESIGN.md` (their History passages)
 - Replace: `docs/screenshots/day-story.png`, `docs/screenshots/history-dark.png`. Add `docs/screenshots/history.png`. Move `docs/screenshots/history-year.png` to `_trash/2026-09-29-history-journal/`.
-- Memory: `/Users/prabeshbhetwal/.claude/projects/-Users-prabeshbhetwal-Desktop-Files-Development-Project-FocusContinuity/memory/redundancy-pass-2026-09-28.md` and `MEMORY.md`
+- Memory: `~/.claude/projects/<project>/memory/redundancy-pass-2026-09-28.md` and `MEMORY.md`
 
 - [ ] **Step 1: Find every stale History sentence**
 
@@ -2568,7 +2568,7 @@ Keep the accessibility session's shortcut table and Keyboard panel in `docs/usag
 ./build.sh
 rm -rf "$TMPDIR/fc-docs"; mkdir -p "$TMPDIR/fc-docs"
 for s in storyDay insightsEnough historySession; do
-  FC_SNAPSHOT_ONLY=$s ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot "$TMPDIR/fc-docs"
+  FC_SNAPSHOT_ONLY=$s ./Daybook.app/Contents/MacOS/Daybook --snapshot "$TMPDIR/fc-docs"
 done
 ls "$TMPDIR/fc-docs"
 ```

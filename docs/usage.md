@@ -1,4 +1,4 @@
-# Using FocusContinuity
+# Using Daybook
 
 The detailed guide to the app's surfaces, controls and review tools. For what
 the project is and how it is built, start with the [README](../README.md).
@@ -72,7 +72,7 @@ separate, labelled classification, not a restriction on the name you can enter.
 
 The compact menu-bar popover intentionally remains Focus-only. It provides the
 current action, up to three continuation choices, quiet break context, and
-**Open FocusContinuity**, **Settings** and **Quit**. Opening the app reveals
+**Open Daybook**, **Settings** and **Quit**. Opening the app reveals
 the Story with the session controls in its bar; **Session controls** or
 `Command-7` put the cursor in the activity field.
 
@@ -162,12 +162,12 @@ destructive data controls are not presented as working features.
 The binary also supports review modes:
 
 ```bash
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --gallery
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
-FC_SNAPSHOT_ONLY=welcomeStep ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --onboarding
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window reviewHistorySelection
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window storyDecision
+./Daybook.app/Contents/MacOS/Daybook --gallery
+./Daybook.app/Contents/MacOS/Daybook --snapshot ./snapshots
+FC_SNAPSHOT_ONLY=welcomeStep ./Daybook.app/Contents/MacOS/Daybook --snapshot ./snapshots
+./Daybook.app/Contents/MacOS/Daybook --onboarding
+./Daybook.app/Contents/MacOS/Daybook --fixture-window reviewHistorySelection
+./Daybook.app/Contents/MacOS/Daybook --fixture-window storyDecision
 ./scripts/build-fixture-app.sh storyShape
 ```
 

@@ -39,7 +39,7 @@ final class InstalledAppCatalog: ObservableObject {
         self.discoverStandard = discoverStandard
         self.discoverSpotlight = discoverSpotlight
         self.observed = observed
-        self.worker = DispatchQueue(label: "com.prabesh.focuscontinuity.app-catalog",
+        self.worker = DispatchQueue(label: "com.prabesh.daybook.app-catalog",
                                     qos: .userInitiated)
     }
 

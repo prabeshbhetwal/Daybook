@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship the current FocusContinuity change to main — check, commit in the repository's style, merge with main, push, and bring the main checkout up to date. Use only when the user asks to ship, commit and merge, merge to main, or push.
+description: Ship the current Daybook change to main — check, commit in the repository's style, merge with main, push, and bring the main checkout up to date. Use only when the user asks to ship, commit and merge, merge to main, or push.
 ---
 
 # Ship to main

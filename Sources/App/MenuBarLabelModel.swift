@@ -27,7 +27,7 @@ struct MenuBarDisplay: Equatable {
         time = !isIdle && showsTime ? Tokens.duration(elapsed) : nil
         // Says what the glyph shows: the waiting dot, the pause mark and a
         // met goal were drawn but never spoken.
-        var spoken = ["FocusContinuity"]
+        var spoken = ["Daybook"]
         if needsAttention { spoken.append("Away question waiting") }
         if isIdle {
             spoken.append("\(Int((goal.share * 100).rounded())) "

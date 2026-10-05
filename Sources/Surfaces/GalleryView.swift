@@ -74,7 +74,7 @@ enum FixtureFactory {
     }
 
     private static func fixtureDefaults(_ label: String) -> UserDefaults {
-        let suite = "com.prabesh.focuscontinuity.gallery.\(label).\(UUID().uuidString)"
+        let suite = "com.prabesh.daybook.gallery.\(label).\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else {
             preconditionFailure("Could not create isolated fixture preferences")
         }
@@ -402,7 +402,7 @@ struct GalleryView: View {
     var body: some View {
         ScrollView([.horizontal, .vertical]) {
             VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-                Text("FocusContinuity — product surface catalogue")
+                Text("Daybook — product surface catalogue")
                     .font(.largeTitle.weight(.semibold))
                 Picker("Scenario", selection: $model.scenario) {
                     ForEach(SnapshotScenario.allCases) { scenario in

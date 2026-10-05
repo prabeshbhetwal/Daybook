@@ -70,7 +70,7 @@ or user preferences are used as test fixtures.
 | --- | --- |
 | `./build.sh --check` | 260/260; staged compilation/signature passed without promotion. |
 | `./build.sh --test` | 260/260; verified 8.3 MB root app promoted. |
-| `codesign --verify --deep FocusContinuity.app` | Exit 0 after promotion and final checks. |
+| `codesign --verify --deep Daybook.app` | Exit 0 after promotion and final checks. |
 | Snapshot matrix | 152/152 from the promoted build, in `final-snapshots/`. |
 | Fixture-only builder | Compiled, signed and passed deep/strict signature verification. |
 | Flagless native relaunch | Reopened the configured failure fixture under its separate identity, never production mode. |

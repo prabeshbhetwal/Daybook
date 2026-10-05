@@ -3,7 +3,7 @@ __pycache__/
 .superpowers/
 .worktrees/
 /_trash/
-/FocusContinuity.app/
+/Daybook.app/
 /.build/
 /snapshots/
 /task-*-report.md
@@ -16,7 +16,7 @@ __pycache__/
 /.10x/
 
 # iCloud File Provider conflict copies of the built bundle
-/FocusContinuity *.app/
+/Daybook *.app/
 
 # Claude Code harness state (worktrees, scratch) stays local. The project's
 # shared settings, hooks, skills and agents are committed so every worktree

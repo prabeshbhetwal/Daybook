@@ -13,7 +13,7 @@ extension SessionMetadataChecks {
 
         return MainActor.assumeIsolated {
             let folder = directory()
-            let suite = "com.prabesh.focuscontinuity.metadata.append.retry.\(UUID())"
+            let suite = "com.prabesh.daybook.metadata.append.retry.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)

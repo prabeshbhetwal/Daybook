@@ -76,7 +76,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private(set) lazy var updater = AppUpdater()
     /// SwiftUI's window actions, handed over by the scene. They live here, not
     /// in the menu bar icon's view, so they still work with the icon hidden.
-    var windowOpener: FocusContinuityApp.WindowOpener?
+    var windowOpener: DaybookApp.WindowOpener?
     var windowRequests: Set<AnyCancellable> = []
     /// Whether the main window is open: shown, or minimised to the Dock.
     var mainWindowOpen = false {
@@ -634,7 +634,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         let window = NSWindow(contentRect: NSRect(x: 200, y: 120, width: 1_160, height: 780),
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
-        window.title = "FocusContinuity (preview)"
+        window.title = "Daybook (preview)"
         window.contentMinSize = NSSize(width: 980, height: 680)
         window.contentView = NSHostingView(rootView: MainWindowView(
             store: store, settings: settings, navigation: mainWindow))

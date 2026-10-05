@@ -50,7 +50,7 @@ enum StorySettingsChecks {
     }
 
     private static func persistence() -> [String] {
-        let suite = "com.prabesh.focuscontinuity.story-settings.\(UUID().uuidString)"
+        let suite = "com.prabesh.daybook.story-settings.\(UUID().uuidString)"
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-story-settings-\(UUID().uuidString)", isDirectory: true)
         guard let defaults = UserDefaults(suiteName: suite) else {

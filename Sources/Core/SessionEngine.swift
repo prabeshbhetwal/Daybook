@@ -169,7 +169,7 @@ final class SessionEngine {
     }
 
     /// Starts one rule-owned thread from exact foreground evidence. A quiet
-    /// choice may be answered after FocusContinuity itself came forward; that
+    /// choice may be answered after Daybook itself came forward; that
     /// control interval is represented as excluded pause time rather than
     /// silently credited.
     /// True while the running automatic session is a continuation of an

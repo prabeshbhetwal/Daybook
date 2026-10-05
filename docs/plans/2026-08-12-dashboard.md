@@ -1,4 +1,4 @@
-# FocusContinuity Dashboard — Implementation Plan
+# Daybook Dashboard — Implementation Plan
 
 **Goal:** Replace the sparse Today window with a two-column dashboard that answers "where did my day go, and was it any good?" — a 24-hour Canvas timeline, icon-led app rankings, live running-apps, focus quality and gated insights — and fix the three computation defects visible in the current build.
 
@@ -520,7 +520,7 @@ private static func testIdleTrimsUsage() -> [String] {
 
 **Files:**
 - Create: `Sources/Surfaces/Dashboard/DashboardView.swift`, `ActiveSessionPanel.swift`
-- Modify: `Sources/App/FocusContinuityApp.swift`
+- Modify: `Sources/App/DaybookApp.swift`
 - Move to `_trash/`: `Sources/Surfaces/TodayView.swift`
 
 - [ ] **Step 1: Build the two-column shell**
@@ -694,7 +694,7 @@ Add to `Fixture`: `dashboardEmpty`, `dashboardTypical`, `dashboardHeavy` (300 se
 
 ```bash
 ./build.sh --test
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
+./Daybook.app/Contents/MacOS/Daybook --snapshot ./snapshots
 ```
 
 Expected: all tests pass; every dashboard fixture renders with no blank frames, no

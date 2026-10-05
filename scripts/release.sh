@@ -1,5 +1,5 @@
 #!/bin/bash
-# Publishes a FocusContinuity release that installed copies update to:
+# Publishes a Daybook release that installed copies update to:
 #
 #   scripts/release.sh 1.1.0             raise the version, test, build, sign,
 #                                        tag, push and upload to GitHub Releases
@@ -7,7 +7,7 @@
 #                                        build.sh back and publishes nothing
 #
 # The update is signed with the EdDSA key in the login Keychain (account
-# FocusContinuity); installed copies accept only updates signed by it. The
+# Daybook); installed copies accept only updates signed by it. The
 # feed (appcast.xml) is uploaded with each release, and the app reads the
 # latest one from releases/latest/download/appcast.xml.
 set -euo pipefail
@@ -15,9 +15,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${ROOT}"
 
-REPO="prabeshbhetwal/FocusContinuity"
-KEY_ACCOUNT="FocusContinuity"
-APP_NAME="FocusContinuity"
+REPO="prabeshbhetwal/Daybook"
+KEY_ACCOUNT="Daybook"
+APP_NAME="Daybook"
 
 VERSION="${1:-}"
 DRY_RUN=0

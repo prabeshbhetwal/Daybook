@@ -1,6 +1,6 @@
 # Native Continuity Refinement Implementation Plan
 
-**Goal:** Make FocusContinuity’s desktop navigation, Today inspection, calendar feedback, Review history, and Settings behave as one calm native macOS interface without changing canonical time data.
+**Goal:** Make Daybook’s desktop navigation, Today inspection, calendar feedback, Review history, and Settings behave as one calm native macOS interface without changing canonical time data.
 
 **Architecture:** Keep Core accounting and persistence untouched. Add small pure presentation contracts in the Design/Surfaces boundary, retain `SessionStore` as the single owner of Today inspection state, and turn Settings from a selected-pane switcher into one scrollable document with a synchronised index. All views continue consuming existing canonical read models.
 
@@ -27,7 +27,7 @@
 | File | Responsibility after this plan |
 |---|---|
 | `Sources/Design/Components/TabRail.swift` | Independent global-tab visual states; no outer rail surface. |
-| `Sources/Surfaces/Main/MainWindowHeader.swift` | Header layout and deterministic FocusContinuity app mark. |
+| `Sources/Surfaces/Main/MainWindowHeader.swift` | Header layout and deterministic Daybook app mark. |
 | `Sources/Surfaces/Today/TodayView.swift` | Day reading order and inspector placement by source. |
 | `Sources/Surfaces/Today/TodayRecap.swift` | Top recap band and complete-row narrative disclosure. |
 | `Sources/Surfaces/Today/TodayInspector.swift` | `TodayInspectorOrigin` contract and source-aware selection state. |
@@ -124,11 +124,11 @@ enum MainWindowChrome {
 
 - [ ] **Step 5: Add the compact app mark**
 
-  Import AppKit and create a private `FocusContinuityMark` view in
+  Import AppKit and create a private `DaybookMark` view in
   `MainWindowHeader.swift`:
 
   ```swift
-  private struct FocusContinuityMark: View {
+  private struct DaybookMark: View {
       private var icon: NSImage? {
           Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
               .flatMap(NSImage.init(contentsOf:))
@@ -891,9 +891,9 @@ enum SettingsScrollPresentation {
   Run:
 
   ```bash
-  snapshot_dir="$(mktemp -d /tmp/focuscontinuity-native-continuity.XXXXXX)"
+  snapshot_dir="$(mktemp -d /tmp/daybook-native-continuity.XXXXXX)"
   ./build.sh --test
-  FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot "$snapshot_dir"
+  Daybook.app/Contents/MacOS/Daybook --snapshot "$snapshot_dir"
   ```
 
   Inspect the 98-plus PNG matrix, focusing on the states listed in Tasks 1–6.
@@ -905,7 +905,7 @@ enum SettingsScrollPresentation {
   Run:
 
   ```bash
-  codesign --verify --deep FocusContinuity.app
+  codesign --verify --deep Daybook.app
   git diff --check
   git status --short
   ```

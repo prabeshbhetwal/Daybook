@@ -1,4 +1,4 @@
-# FocusContinuity
+# Daybook
 
 A native macOS focus tracker that refuses to guess. It records focus sessions
 and local app use, then tells the day back as a story, keeping what you
@@ -15,7 +15,7 @@ hundreds of headless checks
 
 Most time trackers treat "the app was in front" as "you were working". That
 turns a locked screen, a meeting away from the desk or a laptop left open over
-lunch into invented productivity. FocusContinuity is built around one rule:
+lunch into invented productivity. Daybook is built around one rule:
 **evidence comes before interpretation.**
 
 - A focus session is something you declare. App use is something the Mac
@@ -141,7 +141,7 @@ Xcode is not needed.
 
 ```bash
 ./build.sh          # Build and replace the local app after verification
-./build.sh --run    # Build, verify and open FocusContinuity.app
+./build.sh --run    # Build, verify and open Daybook.app
 ./build.sh --test   # Build, run the checks, then replace the local app
 ./build.sh --check  # Build and run the checks without replacing the app
 ```
@@ -180,7 +180,7 @@ One one-second ticker, in `SessionStore`, drives presence checks, usage
 checkpoints, live figures and break evaluation. The UI adds no timers of its
 own.
 
-Data lives in `~/Library/Application Support/FocusContinuity/`:
+Data lives in `~/Library/Application Support/Daybook/`:
 `sessions.json` for sessions and `app-usage.json` (a versioned v2 envelope)
 for app use, both written atomically.
 

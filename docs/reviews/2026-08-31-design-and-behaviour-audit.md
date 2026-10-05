@@ -1,4 +1,4 @@
-# FocusContinuity — design fidelity and behaviour audit
+# Daybook — design fidelity and behaviour audit
 
 Date: 31 August 2026
 
@@ -28,7 +28,7 @@ redesign is unnecessary.
 ## Reference and evidence boundaries
 
 The primary visual reference used was
-Focus Continuity — Day as a Story.
+Daybook — Day as a Story.
 The export README identifies this as the file open at handoff, and the recent
 implementation commits explicitly adopt Story. I inspected its layout, style
 values, state handlers, and its Day, Week, Month, and Settings renderings.
@@ -52,7 +52,7 @@ Evidence is retained locally in
 the ignored audit artefacts folder.
 This contains reference renders, selected live screenshots, problematic fixture
 renders, and the isolated probe source. The complete 126-image render set is
-also at `/tmp/focuscontinuity-audit.L74p1U/snapshots`.
+also at `/tmp/daybook-audit.L74p1U/snapshots`.
 
 ## Findings that affect correctness or task completion
 
@@ -107,7 +107,7 @@ works because it calls `openSheet(.awards)` directly.
 
 Source: [MainWindowCommands.swift](../../Sources/Surfaces/Main/MainWindowCommands.swift#L32),
 [MainWindowModel.swift](../../Sources/App/MainWindowModel.swift#L177),
-[FocusContinuityApp.swift](../../Sources/App/FocusContinuityApp.swift#L62).
+[DaybookApp.swift](../../Sources/App/DaybookApp.swift#L62).
 
 Required correction: define one route contract for Story scopes and sheets,
 connect every menu/popover/shortcut to it, and remove destinations that the

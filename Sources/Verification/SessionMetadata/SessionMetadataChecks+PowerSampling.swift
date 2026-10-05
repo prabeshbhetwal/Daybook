@@ -10,7 +10,7 @@ extension SessionMetadataChecks {
 
             // Ordinary start/end are observed at the contemporaneous injected clock.
             do {
-                let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.boundary.normal.\(UUID())"
+                let folder = directory(), suite = "com.prabesh.daybook.metadata.boundary.normal.\(UUID())"
                 defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
                 let clock = TestClock(Date(timeIntervalSince1970: 1_788_610_000))
                 let fixture = makePowerFixture(clock, folder: folder, suite: suite,
@@ -31,7 +31,7 @@ extension SessionMetadataChecks {
 
             // A restored old stretch begins coverage now; it does not fabricate its old start.
             do {
-                let folder = directory(), sourceSuite = "com.prabesh.focuscontinuity.metadata.boundary.restore.source.\(UUID())"
+                let folder = directory(), sourceSuite = "com.prabesh.daybook.metadata.boundary.restore.source.\(UUID())"
                 let reloadSuite = sourceSuite + ".reload"
                 defer {
                     try? FileManager.default.removeItem(at: folder)
@@ -60,7 +60,7 @@ extension SessionMetadataChecks {
 
             // Automatic backdating samples now as partial coverage, never at backdatedTo.
             do {
-                let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.boundary.auto.\(UUID())"
+                let folder = directory(), suite = "com.prabesh.daybook.metadata.boundary.auto.\(UUID())"
                 defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
                 let clock = TestClock(Date(timeIntervalSince1970: 1_788_630_000))
                 let fixture = makePowerFixture(clock, folder: folder, suite: suite,
@@ -98,7 +98,7 @@ extension SessionMetadataChecks {
             ]
             for (decision, label) in decisions {
                 let folder = directory()
-                let suite = "com.prabesh.focuscontinuity.metadata.boundary.away.\(label).\(UUID())"
+                let suite = "com.prabesh.daybook.metadata.boundary.away.\(label).\(UUID())"
                 defer {
                     try? FileManager.default.removeItem(at: folder)
                     UserDefaults.standard.removePersistentDomain(forName: suite)
@@ -160,7 +160,7 @@ extension SessionMetadataChecks {
     /// store hears about sleep from the coordinator's wake notice.
     static func pauseResumeCoverage() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.boundary.pause.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.boundary.pause.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)

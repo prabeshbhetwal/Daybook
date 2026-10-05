@@ -9,7 +9,7 @@ tracked seconds. Archive revision and change callbacks keep visible data fresh.
 
 **Tech Stack:** Swift 5 language mode, SwiftUI, Charts, Foundation, macOS 13.
 
-**Spec:** `docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
+**Spec:** `docs/specs/2026-08-28-daybook-stabilisation-design.md`
 
 ## Global constraints
 

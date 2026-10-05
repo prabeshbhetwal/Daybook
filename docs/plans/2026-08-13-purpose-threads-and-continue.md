@@ -1271,7 +1271,7 @@ Expected: builds clean; the app appears in the menu bar and stays responsive.
 Run:
 
 ```bash
-ps -o %cpu= -p "$(pgrep -f 'FocusContinuity.app/Contents/MacOS/FocusContinuity' | head -1)"
+ps -o %cpu= -p "$(pgrep -f 'Daybook.app/Contents/MacOS/Daybook' | head -1)"
 ```
 
 Expected: 0.0 with no session running and no app switching. The README's
@@ -1557,7 +1557,7 @@ and pass `threadID: daysAgo == 0 ? todayThread : UUID()` to the `SessionRecord` 
 Run:
 
 ```bash
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./snapshots
+./Daybook.app/Contents/MacOS/Daybook --snapshot ./snapshots
 ```
 
 Inspect the popover in both appearances and confirm: a multi-segment thread reads `2 segments` with a primary icon and side app names; the `firstRun` fixture shows *"No sessions yet today."* rather than dead space; the `running` fixture shows `running` in place of the Continue button; and nothing overflows 320pt.
@@ -1571,7 +1571,7 @@ Run: `./build.sh --run`, work in two apps for a few minutes, start a session, st
 Run:
 
 ```bash
-footprint -p "$(pgrep -f 'FocusContinuity.app/Contents/MacOS/FocusContinuity' | head -1)" | grep phys_footprint
+footprint -p "$(pgrep -f 'Daybook.app/Contents/MacOS/Daybook' | head -1)" | grep phys_footprint
 ```
 
 Expected: at or under 20 MB. `threadApps` is called per row per render, so if this regresses, memoise it in the store beside the day-slice cache rather than making the view do less.

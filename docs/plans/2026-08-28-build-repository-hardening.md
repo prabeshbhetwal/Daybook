@@ -9,7 +9,7 @@ self-cleaning.
 
 **Tech Stack:** Bash, `swiftc`, `codesign`, Git, macOS 13+.
 
-**Spec:** `docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
+**Spec:** `docs/specs/2026-08-28-daybook-stabilisation-design.md`
 
 ## Global constraints
 
@@ -24,7 +24,7 @@ self-cleaning.
 **Files:**
 - Modify: `.gitignore`
 - Modify: `build.sh`
-- Untrack but retain locally: `FocusContinuity.app/`
+- Untrack but retain locally: `Daybook.app/`
 - Untrack: `.DS_Store`
 
 - [ ] Extend parsing with `--check`; it implies self-test and disables promotion.
@@ -46,7 +46,7 @@ self-cleaning.
 - Modify: `Sources/Core/DashboardStats.swift`
 - Modify: `Sources/App/AppCoordinator.swift`
 - Modify: `README.md`
-- Modify: `docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
+- Modify: `docs/specs/2026-08-28-daybook-stabilisation-design.md`
 
 - [ ] Add an internal archive-capacity injection, defaulted to the production
   capacity, and use a small literal capacity in the ring test.
@@ -57,4 +57,4 @@ self-cleaning.
   historical-integrity and signing documentation.
 - [ ] Run `./build.sh --check`, `./build.sh --test`, normal code-signature
   verification, `git diff --check`, and temporary visual snapshots.
-- [ ] Commit as `test: harden FocusContinuity verification`.
+- [ ] Commit as `test: harden Daybook verification`.

@@ -26,7 +26,7 @@ enum Entry {
         }
         quitLegacyApp()
         NameMigration.run()
-        FocusContinuityApp.main()
+        DaybookApp.main()
     }
 
     /// A copy still running under the old name writes the same history, so it
@@ -49,7 +49,7 @@ enum Entry {
     }
 }
 
-struct FocusContinuityApp: App {
+struct DaybookApp: App {
     @NSApplicationDelegateAdaptor(AppCoordinator.self) private var coordinator
     @Environment(\.openWindow) private var openWindow
     /// Read straight from the defaults so the status item comes and goes as
@@ -93,7 +93,7 @@ struct FocusContinuityApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("FocusContinuity", id: "main") {
+        Window("Daybook", id: "main") {
             MainWindowView(
                 store: coordinator.store,
                 settings: coordinator.settings,
@@ -115,7 +115,7 @@ struct FocusContinuityApp: App {
         }
     }
 
-    /// "Check for Updates…" under About in the FocusContinuity menu, where
+    /// "Check for Updates…" under About in the Daybook menu, where
     /// Mac apps keep it.
     struct UpdateCommands: Commands {
         @ObservedObject var updater: AppUpdater

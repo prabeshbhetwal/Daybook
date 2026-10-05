@@ -244,7 +244,7 @@ enum FirstRunScript {
 
     static let chapters: [Chapter] = [
         Chapter(id: .welcome, cards: [
-            Card(sentence: "FocusContinuity keeps two records of your day.",
+            Card(sentence: "Daybook keeps two records of your day.",
                  body: "One is what you decided to work on. The other is what your Mac "
                      + "actually did. Reading them side by side is the whole idea.",
                  note: "This tour walks through every part of the app, about seven minutes "
@@ -287,7 +287,7 @@ enum FirstRunScript {
                  anchor: .rail,
                  task: .useAnotherApp,
                  result: "Your apps appeared on the right, on their own. You never told "
-                     + "FocusContinuity about them: that half is observed, not decided.",
+                     + "Daybook about them: that half is observed, not decided.",
                  waiting: "Not now"),
             Card(sentence: "Observed is not the same as decided.",
                  body: "The Apps tile is what your Mac saw: which app was in front, and "

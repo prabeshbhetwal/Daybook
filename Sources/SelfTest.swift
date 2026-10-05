@@ -11,7 +11,7 @@ enum SelfTest: CheckSuite {
     /// One preferences suite per run. A fixed name let two runs at once, such
     /// as two worktrees building together, overwrite each other's settings
     /// mid-check and fail checks that were fine.
-    static let suiteName = "com.prabesh.focuscontinuity.selftest.\(ProcessInfo.processInfo.processIdentifier)"
+    static let suiteName = "com.prabesh.daybook.selftest.\(ProcessInfo.processInfo.processIdentifier)"
     static var scratchDirectories: [URL] = []
 
     static func cleanUp() {
@@ -57,7 +57,7 @@ enum SelfTest: CheckSuite {
         var passed = 0
         let tests = registeredTests
 
-        print("FocusContinuity self-test")
+        print("Daybook self-test")
         for (index, test) in tests.enumerated() {
             let problems = test.1()
             let number = index < 9 ? " \(index + 1)" : "\(index + 1)"

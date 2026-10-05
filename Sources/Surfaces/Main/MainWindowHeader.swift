@@ -29,7 +29,7 @@ enum MainWindowChrome {
         case .idle:
             status = "Today · \(Tokens.duration(todayTotal)) focused"
         }
-        return Context(title: tab.title, subtitle: "FocusContinuity", status: status)
+        return Context(title: tab.title, subtitle: "Daybook", status: status)
     }
 }
 

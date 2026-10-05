@@ -1,6 +1,6 @@
 import Foundation
 
-/// When FocusContinuity shows a Dock icon, and with it the app's own menus
+/// When Daybook shows a Dock icon, and with it the app's own menus
 /// across the top of the screen. The menu bar icon is the other way in.
 enum DockIconMode: String, CaseIterable {
     case whileWindowOpen

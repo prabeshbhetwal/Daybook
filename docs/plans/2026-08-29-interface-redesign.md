@@ -1,6 +1,6 @@
-# FocusContinuity Interface Redesign Implementation Plan
+# Daybook Interface Redesign Implementation Plan
 
-**Goal:** Replace the vertically exhaustive dashboard with a calm five-tab desktop interface while preserving FocusContinuity's canonical accounting, privacy boundary, compact menu-bar workflow and local build guarantees.
+**Goal:** Replace the vertically exhaustive dashboard with a calm five-tab desktop interface while preserving Daybook's canonical accounting, privacy boundary, compact menu-bar workflow and local build guarantees.
 
 **Architecture:** Keep Core responsible for pure records and reporting, App responsible for navigation, persistence and published presentation data, Design responsible for tokens/primitives, and Surfaces responsible only for composition and interaction. A persistent `MainWindowModel` owns the five-tab route; each tab consumes the existing canonical `SessionStore` snapshot through a purpose-built surface. The compact popover shares Focus presentation primitives but never embeds the global tab system.
 
@@ -22,7 +22,7 @@
 
 ## Execution Baseline
 
-Execution starts in a new `codex/interface-redesign` worktree created from `codex/focuscontinuity-stabilisation`. Bring the approved design specification and this plan from `main` into that branch before Task 1. Do not redesign on the older `main` source tree: the tab surfaces depend on the stabilised usage snapshot, focused-active history, period bars, integrity warnings, build harness and 139-test baseline.
+Execution starts in a new `codex/interface-redesign` worktree created from `codex/daybook-stabilisation`. Bring the approved design specification and this plan from `main` into that branch before Task 1. Do not redesign on the older `main` source tree: the tab surfaces depend on the stabilised usage snapshot, focused-active history, period bars, integrity warnings, build harness and 139-test baseline.
 
 ---
 
@@ -219,7 +219,7 @@ git commit -m "feat: add warm-precision design foundations"
 - Create: `Sources/Surfaces/Main/MainWindowView.swift`
 - Create: `Sources/Surfaces/Main/MainWindowHeader.swift`
 - Create: `Sources/Surfaces/Main/MainWindowCommands.swift`
-- Modify: `Sources/App/FocusContinuityApp.swift`
+- Modify: `Sources/App/DaybookApp.swift`
 - Modify: `Sources/App/AppCoordinator.swift`
 - Modify: `Sources/App/SettingsModel.swift`
 - Modify: `Sources/SelfTest.swift`
@@ -254,7 +254,7 @@ Run `./build.sh --check`. Expected: deep-link/command routing does not exist.
 
 - [ ] **Step 4: Wire application entry and commands**
 
-Rename the window id to `main`, open on `defaultAppTab`, route `Open FocusContinuity` to Focus, and route Settings/`⌘,` into the Settings tab. Update preview-window construction to `MainWindowView`.
+Rename the window id to `main`, open on `defaultAppTab`, route `Open Daybook` to Focus, and route Settings/`⌘,` into the Settings tab. Update preview-window construction to `MainWindowView`.
 
 - [ ] **Step 5: Verify and commit**
 
@@ -298,7 +298,7 @@ Idle shows intent, work type, one filled Start action and supporting goal pace. 
 
 - [ ] **Step 4: Reduce the popover to Focus essentials**
 
-Keep hero, one primary action, concise goal/break status, at most three continuations, and text-labelled footer actions `Open FocusContinuity`, `Settings`, `Quit`. Remove Today/Review/Insights metric-card duplication. `Open FocusContinuity` routes `.focus`; Settings routes `.settings`.
+Keep hero, one primary action, concise goal/break status, at most three continuations, and text-labelled footer actions `Open Daybook`, `Settings`, `Quit`. Remove Today/Review/Insights metric-card duplication. `Open Daybook` routes `.focus`; Settings routes `.settings`.
 
 - [ ] **Step 5: Verify and commit**
 
@@ -466,7 +466,7 @@ git commit -m "feat: add evidence-gated Insights"
 - Create: `Sources/Surfaces/Settings/SettingsSidebar.swift`
 - Create: `Sources/Surfaces/Settings/SettingsGroups.swift`
 - Modify: `Sources/App/SettingsModel.swift`
-- Modify: `Sources/App/FocusContinuityApp.swift`
+- Modify: `Sources/App/DaybookApp.swift`
 - Modify: `Sources/SelfTest.swift`
 
 **Interfaces:**
@@ -497,7 +497,7 @@ Run `./build.sh --check`; render every Settings group, filtered search, both den
 
 ```bash
 git add Sources/Surfaces/Settings Sources/App/SettingsModel.swift \
-        Sources/App/FocusContinuityApp.swift Sources/SelfTest.swift
+        Sources/App/DaybookApp.swift Sources/SelfTest.swift
 git commit -m "feat: make Settings a first-class tab"
 ```
 
@@ -597,7 +597,7 @@ bash -n build.sh scripts/test-build-concurrency.sh
 ./scripts/test-build-concurrency.sh
 ./build.sh --check
 ./build.sh --test
-codesign --verify --deep FocusContinuity.app
+codesign --verify --deep Daybook.app
 git diff --check
 git status --short --untracked-files=all
 ```

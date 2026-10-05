@@ -578,7 +578,7 @@ private static func testDayStepperBounds() -> [String] {
 
 - [ ] **Step 2: Render and inspect**
 
-Run: `./build.sh && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot ./shots`
+Run: `./build.sh && ./Daybook.app/Contents/MacOS/Daybook --snapshot ./shots`
 Expected: the short day fills a four-hour axis rather than one block; the dense day draws
 without visual mush; hour gridlines are visible in both appearances.
 

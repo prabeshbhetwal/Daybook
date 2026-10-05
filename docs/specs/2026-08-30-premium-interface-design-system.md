@@ -1,13 +1,13 @@
-# FocusContinuity Premium Interface Design System
+# Daybook Premium Interface Design System
 
 **Date:** 2026-08-30  
 **Status:** Implemented and verified — headless suite green, visual matrix rendered and inspected
-**Scope:** Main checkout only. This document defines the visual and interaction system for every FocusContinuity surface. It does not change time-accounting semantics, persistence, or historical evidence.  
+**Scope:** Main checkout only. This document defines the visual and interaction system for every Daybook surface. It does not change time-accounting semantics, persistence, or historical evidence.  
 **Supersedes:** The visual-system and Review-routing portions of `2026-08-29-interface-redesign-design.md`. The five-tab product architecture, its privacy constraints, and its truthfulness requirements remain in force.
 
 ## 1. Executive decision
 
-FocusContinuity will be a calm, native-feeling macOS application for understanding and acting on personal focus continuity. It must feel designed as one product, not as a collection of cards, charts, and controls added at different times.
+Daybook will be a calm, native-feeling macOS application for understanding and acting on how continuous a person's focus is. It must feel designed as one product, not as a collection of cards, charts, and controls added at different times.
 
 The chosen interaction model is **Review as a workbench**:
 
@@ -44,7 +44,7 @@ The visual language is **warm precision**: quiet warm-neutral surfaces, a cool b
 
 The system adopts platform guidance rather than copying a generic web dashboard.
 
-| Source | Principle | FocusContinuity translation |
+| Source | Principle | Daybook translation |
 |---|---|---|
 | [Apple: Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars?changes=_2) | A toolbar or titlebar helps orientation, navigation, and action; it should not be overcrowded. | One unified window-chrome row: contextual title left, global navigation centred, live status right. |
 | [Apple: Windows](https://developer.apple.com/design/human-interface-guidelines/windows) | Window controls occupy the leading edge; custom content must not collide with them. | Keep native traffic lights, reserve semantic leading clearance, and never place an important command underneath them. |
@@ -67,7 +67,7 @@ Each global tab owns one question. Any element that does not answer that questio
 | Today | What happened on this calendar day? | Time ribbon | A goal-configuration page |
 | Review | How did time change across a period? | Tracked-time trend | A live session controller |
 | Insights | Which patterns are supported by enough local evidence? | A small set of findings | Generic motivation or predictions |
-| Settings | How does FocusContinuity behave? | Selected setting group | A data dashboard |
+| Settings | How does Daybook behave? | Selected setting group | A data dashboard |
 
 ### 4.2 Four evidence levels
 
@@ -179,7 +179,7 @@ The macOS titlebar is visually integrated with the app chrome. It contains three
 ```
 
 - The title is the selected mode (`Focus`, `Today`, `Review`, `Insights`, `Settings`), not the app name alone.
-- `FocusContinuity` remains a quiet subtitle for orientation, not a competing page heading.
+- `Daybook` remains a quiet subtitle for orientation, not a competing page heading.
 - Status uses literal language, e.g. `Focus active · 45m` or `Today · 2h 5m focused`.
 - The tab rail is the only global route. `⌘1`–`⌘5` and arrow movement retain parity with pointer navigation.
 - The traffic-light clearance is semantic, tested, and leaves every live window control unobscured.

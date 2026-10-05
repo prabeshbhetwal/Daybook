@@ -359,7 +359,7 @@ enum StoryInteractionChecks {
             navigation.revealApplication()
             guard navigation.sheet == nil, navigation.workspace == .story,
                   Calendar.current.isDate(f.store.selectedDay, inSameDayAs: day) else {
-                return ["Open FocusContinuity forced a session sheet or discarded the selected Story"]
+                return ["Open Daybook forced a session sheet or discarded the selected Story"]
             }
             navigation.open(tab: .focus)
             return navigation.sheet == nil && navigation.workspace == .story

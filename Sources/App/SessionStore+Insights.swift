@@ -21,7 +21,7 @@ struct InsightSurface: Equatable {
     var hasRangeEvidence: Bool { rangeEvidence }
 
     static let insufficientEvidenceCopy =
-        "Keep using FocusContinuity; patterns appear once there is enough comparable history."
+        "Keep using Daybook; patterns appear once there is enough comparable history."
 
     static func empty(range: InsightRange) -> InsightSurface {
         InsightSurface(range: range, pace: nil, rhythm: nil,

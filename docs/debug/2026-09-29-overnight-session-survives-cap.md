@@ -218,7 +218,7 @@ I could not determine which. There are no Time Machine snapshots, no historical 
 **Other points I could not pin down:**
 
 - **Power metadata.** It shows `0522F265` first sampled live at 37947's launch (10:58:59, `coverageResumed`) with nothing from 38319 or 97856. That fits a stretch that appeared at 10:58:59, as in the S5 replay, better than one carried from the evening, as in S3. It is weak evidence, because pending-transfer and retention rules can hide samples.
-- **What paused the stretch, if S3.** Probably the Pause button or hotkey around 22:48. The FocusContinuity window was not frontmost then; only the menu-bar panel could have been used.
+- **What paused the stretch, if S3.** Probably the Pause button or hotkey around 22:48. The Daybook window was not frontmost then; only the menu-bar panel could have been used.
 - **The exact moment of the 22:21 answer.** It is not recorded anywhere.
 
 ## Appendix: probe source
@@ -273,7 +273,7 @@ struct Rig {
     static func make(clock: Clock, suite: String, dir: URL, override: (() -> String?)?) -> SessionEngine {
         let store = PersistenceStore(defaults: UserDefaults(suiteName: suite)!)
         return SessionEngine(store: store, archive: SessionArchive(directory: dir, now: { clock.t }),
-                             ownBundleID: "com.prabesh.focuscontinuity", schedulesDwell: false,
+                             ownBundleID: "com.prabesh.daybook", schedulesDwell: false,
                              correctionWriteOverride: override, now: { clock.t })
     }
     /// Quit (persist, as applicationWillTerminate does) and relaunch through

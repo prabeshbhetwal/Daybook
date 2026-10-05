@@ -110,7 +110,7 @@ enum ActivityRuleChecks {
                                      correctionFailure: (() -> String?)? = nil) -> ConsumerContext {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-rule-consumer-\(UUID().uuidString)", isDirectory: true)
-        let suite = "com.prabesh.focuscontinuity.rule-consumer.\(UUID().uuidString)"
+        let suite = "com.prabesh.daybook.rule-consumer.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()

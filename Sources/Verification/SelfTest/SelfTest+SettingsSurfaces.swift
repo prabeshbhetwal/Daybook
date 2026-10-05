@@ -182,8 +182,8 @@ extension SelfTest {
             "App-usage monitoring does not capture text in other apps"),
             "privacy copy states the real app-monitoring boundary", &problems)
         expect(disclosure.storageDetail.contains(
-            "Session names, intent and notes entered into FocusContinuity are stored locally"),
-            "privacy copy states that FocusContinuity-entered text is stored locally", &problems)
+            "Session names, intent and notes entered into Daybook are stored locally"),
+            "privacy copy states that Daybook-entered text is stored locally", &problems)
         expect(!disclosure.storageDetail.contains("anything you type"),
                "privacy copy makes no blanket claim about typed text", &problems)
         return problems

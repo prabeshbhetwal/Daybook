@@ -77,7 +77,7 @@ final class ActivityAutomation {
         if result != .none { applyResult(result) }
     }
 
-    /// FocusContinuity's own foreground time is not evidence for either
+    /// Daybook's own foreground time is not evidence for either
     /// candidate. The already-observed external interval is frozen verbatim.
     func freezeChoiceForControls(at date: Date) -> ActivityQuietChoice? {
         guard let choice = pendingChoice else { return nil }

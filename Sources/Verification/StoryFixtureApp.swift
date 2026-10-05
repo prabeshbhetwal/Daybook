@@ -46,7 +46,7 @@ struct StoryFixtureApp: App {
     @StateObject private var context = StoryFixtureContext()
 
     var body: some Scene {
-        Window("FocusContinuity — isolated verification", id: "main") {
+        Window("Daybook — isolated verification", id: "main") {
             MainWindowView(store: context.store, settings: context.settings,
                            navigation: context.navigation)
                 .environment(\.storyEntryInitiallyOpen, context.opensStoryEntry)

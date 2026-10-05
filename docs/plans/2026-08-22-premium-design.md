@@ -18,8 +18,8 @@
 - **Files under 500 lines**; nothing written to the project root; never delete — move to `_trash/` preserving the filename; confirm-before-move is already granted for the moves this plan names (spec §9).
 - **Snapshot harness** (`--snapshot`, `ImageRenderer`) cannot draw `TextField`, `Toggle`, `Picker`, `DisclosureGroup`, `.borderless` buttons, materials or `ScrollView`. Those are verified in the live app; every other change is checked by rendering and *looking at* the PNG.
 - **Copy:** sentence case; no punctuation on labels; explanatory footers end with a period.
-- Test commands throughout: `./build.sh 2>&1 | grep -E "error|warning|Build succeeded"` then `./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`. Snapshot: `./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot /private/tmp/claude-501/-Users-prabeshbhetwal-Desktop-Files-Development-Project-FocusContinuity/d9e74462-42ba-4aac-8014-68ac6cc6464b/scratchpad/snaps` then open the PNGs.
-- Relaunch after a task that changes what the live app shows: `pkill -x FocusContinuity; sleep 1; open FocusContinuity.app`.
+- Test commands throughout: `./build.sh 2>&1 | grep -E "error|warning|Build succeeded"` then `./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`. Snapshot: `./Daybook.app/Contents/MacOS/Daybook --snapshot /private/tmp/claude-501/-Users-prabeshbhetwal-Desktop-Files-Development-Project-Daybook/d9e74462-42ba-4aac-8014-68ac6cc6464b/scratchpad/snaps` then open the PNGs.
+- Relaunch after a task that changes what the live app shows: `pkill -x Daybook; sleep 1; open Daybook.app`.
 
 ---
 
@@ -36,7 +36,7 @@
 | `Sources/Surfaces/Dashboard/DashboardSections.swift` (modify) | `SectionHeader` restyle; lists become card-ready, day-aware titles |
 | `Sources/App/SettingsModel.swift` (create) | settings bridge for the Settings scene |
 | `Sources/Surfaces/Settings/SettingsView.swift` (create) | four-tab grouped form |
-| `Sources/App/FocusContinuityApp.swift`, `AppCoordinator.swift` (modify) | `Settings` scene; `settings` model |
+| `Sources/App/DaybookApp.swift`, `AppCoordinator.swift` (modify) | `Settings` scene; `settings` model |
 | `Sources/Surfaces/Popover/PopoverView.swift` (move+modify), `HeroCard.swift`, `GlanceCards.swift`, `PopoverFooter.swift` (create) | the popover, split |
 | `Sources/Surfaces/GoalBar.swift` → `_trash/` | superseded by `GoalRing` |
 | `Sources/Surfaces/Dashboard/DashboardView.swift`, `PeriodViews.swift`, `DayTimelineView.swift` (modify) | title band, stat band, cards, palette |
@@ -747,7 +747,7 @@ struct MenuBarLabelView: View {
                      needsAttention: store.pendingAway != nil,
                      goal: store.goal)
             .accessibilityLabel(store.state == .idle
-                                ? "FocusContinuity, \(Int((store.goal.share * 100).rounded())) "
+                                ? "Daybook, \(Int((store.goal.share * 100).rounded())) "
                                   + "percent of today's goal, no session running"
                                 : "Current session \(Tokens.spent(store.elapsed))")
     }
@@ -801,7 +801,7 @@ git commit -m "menubar: goal ring glyph as a template image"
 **Files:**
 - Create: `Sources/App/SettingsModel.swift`
 - Create: `Sources/Surfaces/Settings/SettingsView.swift`
-- Modify: `Sources/App/FocusContinuityApp.swift`
+- Modify: `Sources/App/DaybookApp.swift`
 - Modify: `Sources/App/AppCoordinator.swift` (a `settings` model)
 - Modify: `Sources/App/SessionStore.swift` (settings accessors out)
 - Modify: `Sources/Surfaces/PopoverView.swift` (settings section out; gear in the footer)
@@ -1095,7 +1095,7 @@ In `AppCoordinator.swift`, after `private(set) lazy var store = SessionStore(eng
         onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) })
 ```
 
-In `FocusContinuityApp.swift`, inside `var body: some Scene`, after the `Window("Dashboard", ...)` block add:
+In `DaybookApp.swift`, inside `var body: some Scene`, after the `Window("Dashboard", ...)` block add:
 
 ```swift
 
@@ -1137,7 +1137,7 @@ In `PopoverView.swift`:
             IconButton(systemImage: "gearshape", help: "Settings…") {
                 SettingsModel.openWindow()
             }
-            IconButton(systemImage: "power", help: "Quit FocusContinuity") {
+            IconButton(systemImage: "power", help: "Quit Daybook") {
                 NSApp.terminate(nil)
             }
         }
@@ -1155,7 +1155,7 @@ Relaunch. Live checks: the popover footer shows the break label and three round 
 - [ ] **Step 8: Commit** *(recorded, skipped)*
 
 ```bash
-git add Sources/App/SettingsModel.swift Sources/Surfaces/Settings/SettingsView.swift Sources/App/FocusContinuityApp.swift Sources/App/AppCoordinator.swift Sources/App/SessionStore.swift Sources/Surfaces/PopoverView.swift Sources/Surfaces/Snapshotter.swift Sources/SelfTest.swift
+git add Sources/App/SettingsModel.swift Sources/Surfaces/Settings/SettingsView.swift Sources/App/DaybookApp.swift Sources/App/AppCoordinator.swift Sources/App/SessionStore.swift Sources/Surfaces/PopoverView.swift Sources/Surfaces/Snapshotter.swift Sources/SelfTest.swift
 git commit -m "settings: standard Settings window; settings model; popover loses its form"
 ```
 
@@ -1378,7 +1378,7 @@ struct PopoverFooter: View {
             IconButton(systemImage: "gearshape", help: "Settings…") {
                 SettingsModel.openWindow()
             }
-            IconButton(systemImage: "power", help: "Quit FocusContinuity") {
+            IconButton(systemImage: "power", help: "Quit Daybook") {
                 NSApp.terminate(nil)
             }
         }

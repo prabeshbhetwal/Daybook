@@ -180,7 +180,7 @@ Top to bottom:
    metrics. Continue rows keep the running marker and the `Continue` pill.
 5. **Footer** — break countdown left (`eye` + `Look away in 20m`, `Typography.detail`); right:
    three `IconButton`s with tooltips — `rectangle.grid.2x2` *Open Dashboard*, `gearshape`
-   *Settings…*, `power` *Quit FocusContinuity*. ⌘, and ⌘Q also work.
+   *Settings…*, `power` *Quit Daybook*. ⌘, and ⌘Q also work.
 
 Nothing is stretched to fill width; cards size to content and the ground shows between them.
 
@@ -268,7 +268,7 @@ Modify:
 - `Sources/Surfaces/Dashboard/DashboardView.swift`, `DashboardSections.swift`,
   `DayTimelineView.swift`, `PeriodViews.swift` — restyle to cards and the palette
 - `Sources/Surfaces/ContinueTodaySection.swift` — rows and pills
-- `Sources/App/FocusContinuityApp.swift` — `Settings` scene
+- `Sources/App/DaybookApp.swift` — `Settings` scene
 - `Sources/App/SessionStore.swift` — settings accessors out, `previousPeriodTracked` in
 - `Sources/Core/PeriodStats.swift` — `previousPeriodTracked(for:containing:)`
 - `Sources/Surfaces/Snapshotter.swift`, `GalleryView.swift` — new states, no settings render

@@ -104,7 +104,7 @@ The new file is `Sources/Verification/LongAwayRestoreChecks.swift`, registered a
 
 ```
   [FAIL] 485. A pause carried across a long quit ends where the pause began
-         - the paused stretch survived a 36000s quit: paused(reason: FocusContinuity.PauseReason.manual)
+         - the paused stretch survived a 36000s quit: paused(reason: Daybook.PauseReason.manual)
          - no record for the paused stretch
          - the live stretch (running) began 2026-08-29 10:40:00 +0000, before the absence ended
   [FAIL] 486. A question left up across a long quit cannot carry work across it

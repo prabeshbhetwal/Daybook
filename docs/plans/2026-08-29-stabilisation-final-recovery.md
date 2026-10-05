@@ -1,4 +1,4 @@
-# FocusContinuity Final Recovery Implementation Plan
+# Daybook Final Recovery Implementation Plan
 
 **Goal:** Close the two load-bearing residual findings from the stabilisation review: preserve the exact terminal app-usage boundary across a failed write, and make stale build-lock recovery mutually exclusive.
 
@@ -6,7 +6,7 @@
 
 **Tech Stack:** Swift 5 language mode, Swift 6.4 compiler, SwiftUI, AppKit, CoreGraphics, IOKit, Bash, macOS 13+, direct `swiftc`, no packages or Xcode project.
 
-**Spec:** `docs/specs/2026-08-28-focuscontinuity-stabilisation-design.md`
+**Spec:** `docs/specs/2026-08-28-daybook-stabilisation-design.md`
 
 ## Global Constraints
 
@@ -179,7 +179,7 @@ bash -n build.sh scripts/test-build-concurrency.sh
 ./scripts/test-build-concurrency.sh
 ./build.sh --check
 ./build.sh --test
-codesign --verify --deep FocusContinuity.app
+codesign --verify --deep Daybook.app
 git diff --check
 git status --short
 ```

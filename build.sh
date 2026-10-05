@@ -4,8 +4,8 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "${PROJECT_DIR}"
 
-APP_NAME="FocusContinuity"
-BUNDLE_ID="com.prabesh.focuscontinuity"
+APP_NAME="Daybook"
+BUNDLE_ID="com.prabesh.daybook"
 LOCAL_APP_DIR="${PROJECT_DIR}/${APP_NAME}.app"
 PROMOTION_ROOT="${PROJECT_DIR}/.build"
 PROMOTION_LOCK="${PROMOTION_ROOT}/promotion.lock"
@@ -18,8 +18,8 @@ TARGET_TRIPLE="$(uname -m)-apple-macos${DEPLOYMENT_TARGET}"
 APP_VERSION="1.0.0"
 APP_BUILD="1"
 # The updater checks this feed; the key verifies what it downloads. The
-# matching private key lives in the Keychain (account FocusContinuity).
-UPDATE_FEED_URL="https://github.com/prabeshbhetwal/FocusContinuity/releases/latest/download/appcast.xml"
+# matching private key lives in the Keychain (account Daybook).
+UPDATE_FEED_URL="https://github.com/prabeshbhetwal/Daybook/releases/latest/download/appcast.xml"
 UPDATE_PUBLIC_KEY="oVMwFmTRL3FCl/weIGgo7MQsJFRvSD7muBW936KkiQk="
 
 RUN=0
@@ -210,7 +210,7 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>FocusContinuity listens only while you dictate a session note.</string>
+	<string>Daybook listens only while you dictate a session note.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Spoken session notes are turned into text, on this Mac where your language allows it.</string>
 ${ICON_KEYS}

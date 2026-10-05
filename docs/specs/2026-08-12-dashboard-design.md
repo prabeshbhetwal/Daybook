@@ -1,8 +1,8 @@
-# FocusContinuity — Dashboard Design Spec
+# Daybook — Dashboard Design Spec
 
 **Date:** 2026-08-12
 **Status:** Approved for planning
-**Supersedes:** §6.3 of `2026-08-12-focuscontinuity-ui-design.md` (the four-stat-tile Today view)
+**Supersedes:** §6.3 of `2026-08-12-daybook-ui-design.md` (the four-stat-tile Today view)
 
 ---
 

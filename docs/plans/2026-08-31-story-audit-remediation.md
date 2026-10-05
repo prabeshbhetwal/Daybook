@@ -78,7 +78,7 @@ navigation, `SessionStore.swift`, `SessionStore+History.swift`, or SelfTest.
 **Addresses:** F01, F02, F03, navigation portion of F14.
 
 **Own (controller):** MainWindowModel, MainWindowCommands, MainWindowView,
-StoryChromeBar, StoryColumns, FocusContinuityApp, relevant routing checks.
+StoryChromeBar, StoryColumns, DaybookApp, relevant routing checks.
 
 Unify menu, popover, keyboard and on-screen routes. Opening a historical story
 must select its canonical store date before showing Day. Period changes clear
@@ -111,7 +111,7 @@ which the UI will disclose. Tests expose `StoryCorrectionChecks.tests`.
 
 **Own:** SettingsView, SettingsSidebar, SettingsGroups, SettingsSection metadata,
 SettingsModel, plus a small AppKit appearance helper if needed. Coordinate
-MainWindowModel/FocusContinuityApp/AppCoordinator edits with controller.
+MainWindowModel/DaybookApp/AppCoordinator edits with controller.
 
 Make preferences a compact, bounded sheet matching the reference's five groups:
 General (general + appearance), Sessions (focus + automatic), Away & Breaks,

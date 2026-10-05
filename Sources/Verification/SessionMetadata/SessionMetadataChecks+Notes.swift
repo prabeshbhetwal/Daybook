@@ -74,7 +74,7 @@ extension SessionMetadataChecks {
     }
 
     static func stableStretchIdentity() -> [String] {
-        let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.identity.\(UUID())"
+        let folder = directory(), suite = "com.prabesh.daybook.metadata.identity.\(UUID())"
         defer {
             try? FileManager.default.removeItem(at: folder)
             UserDefaults.standard.removePersistentDomain(forName: suite)
@@ -119,7 +119,7 @@ extension SessionMetadataChecks {
     }
 
     static func pendingIdentityMigration() -> [String] {
-        let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.pending.\(UUID())"
+        let folder = directory(), suite = "com.prabesh.daybook.metadata.pending.\(UUID())"
         defer {
             try? FileManager.default.removeItem(at: folder)
             UserDefaults.standard.removePersistentDomain(forName: suite)
@@ -147,7 +147,7 @@ extension SessionMetadataChecks {
 
     static func draftFailureAndDismissal() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.draft.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.draft.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)
@@ -183,7 +183,7 @@ extension SessionMetadataChecks {
 
     static func retentionAndCorrectionCoexistence() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.retention.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.retention.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)

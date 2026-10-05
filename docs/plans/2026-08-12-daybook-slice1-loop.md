@@ -1,12 +1,12 @@
-# FocusContinuity Slice 1 — The Loop — Implementation Plan
+# Daybook Slice 1 — The Loop — Implementation Plan
 
-**Goal:** Replace FocusContinuity's AppKit menu-bar UI with SwiftUI surfaces implementing the start → focus → reward loop: a menu bar popover with a focused intent field, one-click start, live timer, today's total, streak and weekly chart, plus a Today window and a `--gallery` state catalogue.
+**Goal:** Replace Daybook's AppKit menu-bar UI with SwiftUI surfaces implementing the start → focus → reward loop: a menu bar popover with a focused intent field, one-click start, live timer, today's total, streak and weekly chart, plus a Today window and a `--gallery` state catalogue.
 
 **Architecture:** `Core/` keeps all logic and never imports SwiftUI, so the existing headless self-test keeps running. A single `SessionStore` (`ObservableObject`) subscribes to the engine's callbacks and republishes `@Published` state to views. The engine moves from one continuous session to discrete records persisted to a Codable file store.
 
 **Tech Stack:** Swift 5 language mode, SwiftUI, Swift Charts, AppKit (bridged where needed), Foundation. Built by `swiftc` via `build.sh` — no Xcode project, no SPM.
 
-**Spec:** `docs/specs/2026-08-12-focuscontinuity-ui-design.md`
+**Spec:** `docs/specs/2026-08-12-daybook-ui-design.md`
 
 ## Global Constraints
 
@@ -37,7 +37,7 @@ Every task's requirements implicitly include this section.
 | `Sources/Core/EventMonitor.swift` | Workspace + distributed notification subscriptions |
 | `Sources/Core/HotKeyMonitor.swift` | **New.** Carbon `RegisterEventHotKey` wrapper |
 | `Sources/Core/Notifier.swift` | **New.** `UNUserNotificationCenter` wrapper that degrades to a no-op |
-| `Sources/App/FocusContinuityApp.swift` | `@main`, arg gate, `MenuBarExtra` + `Window` scenes |
+| `Sources/App/DaybookApp.swift` | `@main`, arg gate, `MenuBarExtra` + `Window` scenes |
 | `Sources/App/AppCoordinator.swift` | `NSApplicationDelegate` for lifecycle + monitor wiring |
 | `Sources/App/SessionStore.swift` | The one bridge: engine callbacks → `@Published` view state |
 | `Sources/Surfaces/PopoverView.swift` | Menu bar popover, three zones |
@@ -94,7 +94,7 @@ app.setActivationPolicy(.accessory)
 app.run()
 ```
 
-Bundle it exactly as `build.sh` does (Info.plist with `CFBundleIdentifier = com.prabesh.focuscontinuity.spike`, `LSUIElement = true`), ad-hoc sign, and run it.
+Bundle it exactly as `build.sh` does (Info.plist with `CFBundleIdentifier = com.prabesh.daybook.spike`, `LSUIElement = true`), ad-hoc sign, and run it.
 
 - [ ] **Step 2: Record the notification answer**
 
@@ -554,14 +554,14 @@ Expected: 20/20 passed.
 At the end of this task the app is a SwiftUI menu bar app with a placeholder popover. It must still launch, still track, and still pass every test.
 
 **Files:**
-- Create: `Sources/App/FocusContinuityApp.swift`, `Sources/App/AppCoordinator.swift`
+- Create: `Sources/App/DaybookApp.swift`, `Sources/App/AppCoordinator.swift`
 - Modify: `build.sh`
 - Move to `_trash/`: `Sources/main.swift`, `Sources/MenuBarController.swift`, `Sources/AlertPresenter.swift`
 - Move within repo: existing `Sources/*.swift` into `Sources/Core/`, `SelfTest.swift` stays at `Sources/SelfTest.swift`
 
 **Interfaces:**
 - Consumes: `SessionEngine`, `EventMonitor` (Core).
-- Produces: `FocusContinuityApp` with `static func main()`; `AppCoordinator: NSObject, NSApplicationDelegate`.
+- Produces: `DaybookApp` with `static func main()`; `AppCoordinator: NSObject, NSApplicationDelegate`.
 
 - [ ] **Step 1: Reorganise sources**
 
@@ -595,7 +595,7 @@ swiftc \
 import SwiftUI
 
 @main
-struct FocusContinuityApp: App {
+struct DaybookApp: App {
     @NSApplicationDelegateAdaptor(AppCoordinator.self) private var coordinator
 
     static func main() {
@@ -603,7 +603,7 @@ struct FocusContinuityApp: App {
             exit(SelfTest.run() ? 0 : 1)
         }
         // `--gallery` is handled in Task 9; until then it falls through to the app.
-        FocusContinuityApp.runApp()
+        DaybookApp.runApp()
     }
 
     // The synthesised entry point is unavailable once `main()` is custom, so the
@@ -616,7 +616,7 @@ struct FocusContinuityApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            Text("FocusContinuity")
+            Text("Daybook")
                 .padding()
         } label: {
             Image(systemName: "infinity")
@@ -676,7 +676,7 @@ Note the restore-before-seed order — reversing it overwrites the persisted ses
 Run: `./build.sh --test`
 Expected: `Build succeeded`, 20/20 passed.
 
-Run: `pkill -f FocusContinuity; open FocusContinuity.app; sleep 3; pgrep -f FocusContinuity.app/Contents/MacOS/FocusContinuity`
+Run: `pkill -f Daybook; open Daybook.app; sleep 3; pgrep -f Daybook.app/Contents/MacOS/Daybook`
 Expected: one process, one menu bar item showing the infinity glyph, clicking it shows the placeholder text, and no Dock icon.
 
 - [ ] **Step 6: Commit** *(skipped — not a git repository)*
@@ -914,7 +914,7 @@ Expected: `Build succeeded`, 20/20 passed.
 
 **Files:**
 - Create: `Sources/Surfaces/PopoverView.swift`
-- Modify: `Sources/App/FocusContinuityApp.swift`
+- Modify: `Sources/App/DaybookApp.swift`
 
 **Interfaces:**
 - Consumes: `SessionStore`, all Task 5 components.
@@ -1004,7 +1004,7 @@ Expected: clicking the menu bar item shows the popover with a focused text field
 
 **Files:**
 - Create: `Sources/Surfaces/TodayView.swift`
-- Modify: `Sources/App/FocusContinuityApp.swift`, `Sources/App/AppCoordinator.swift`
+- Modify: `Sources/App/DaybookApp.swift`, `Sources/App/AppCoordinator.swift`
 
 **Interfaces:**
 - Consumes: `SessionStore`, Task 5 components.
@@ -1046,7 +1046,7 @@ Expected: the window opens, shows the same numbers as the popover, resizes grace
 
 **Files:**
 - Create: `Sources/Surfaces/GalleryView.swift`
-- Modify: `Sources/App/FocusContinuityApp.swift`, `Sources/App/SessionStore.swift`
+- Modify: `Sources/App/DaybookApp.swift`, `Sources/App/SessionStore.swift`
 
 **Interfaces:**
 - Consumes: `PopoverView`, `TodayView`, `SessionStore.fixture(_:)`.
@@ -1080,7 +1080,7 @@ if CommandLine.arguments.contains("--gallery") {
 
 - [ ] **Step 4: Verify**
 
-Run: `./build.sh && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --gallery`
+Run: `./build.sh && ./Daybook.app/Contents/MacOS/Daybook --gallery`
 Expected: a window showing all six states in both appearances, no real user data touched.
 
 - [ ] **Step 5: Commit** *(skipped — not a git repository)*
@@ -1182,12 +1182,12 @@ Expected: `Build succeeded`, all tests pass, zero warnings.
 
 - [ ] **Step 2: Gallery review**
 
-Run: `./FocusContinuity.app/Contents/MacOS/FocusContinuity --gallery`
+Run: `./Daybook.app/Contents/MacOS/Daybook --gallery`
 Expected: all six states correct in both appearances; no clipped text, no white boxes in dark mode, no hardcoded colours.
 
 - [ ] **Step 3: Idle cost**
 
-Run the app, leave it idle 60s, then `ps -o %cpu,rss -p $(pgrep -f FocusContinuity)` and `footprint -p <pid>`.
+Run the app, leave it idle 60s, then `ps -o %cpu,rss -p $(pgrep -f Daybook)` and `footprint -p <pid>`.
 Expected: 0.0% CPU idle; `phys_footprint` under 60 MB (SwiftUI and Charts cost more than the AppKit build's 12 MB — the original 25 MB budget was set for a menu-only app and is recorded as superseded here).
 
 - [ ] **Step 4: Accessibility pass**

@@ -28,7 +28,7 @@ enum StoryCorrectionChecks: CheckSuite {
                                     writeOverride: (([SessionRecord]) -> String?)? = nil) -> Fixture? {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-story-correction-\(UUID().uuidString)", isDirectory: true)
-        let suite = "com.prabesh.focuscontinuity.story-correction.\(UUID().uuidString)"
+        let suite = "com.prabesh.daybook.story-correction.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else { return nil }
         defaults.removePersistentDomain(forName: suite)
         let archive = SessionArchive(directory: directory, now: { clock.value },

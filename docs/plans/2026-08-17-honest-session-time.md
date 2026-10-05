@@ -15,7 +15,7 @@
 - **No new TCC permissions.** `CGEventSource.secondsSinceLastEventType` needs none — verified 2026-08-12.
 - **Warnings are errors** (`-warnings-as-errors`). Build with `./build.sh`.
 - **macOS 13.0 deployment target.**
-- Tests live in `Sources/SelfTest.swift` and run headless via `./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest`. Every test uses the injected `Clock`, never `Date()`.
+- Tests live in `Sources/SelfTest.swift` and run headless via `./Daybook.app/Contents/MacOS/Daybook --selftest`. Every test uses the injected `Clock`, never `Date()`.
 - **`idlePauseThreshold` is 600 seconds.** Not configurable.
 - Keep files under 500 lines where practical.
 
@@ -209,7 +209,7 @@ Add `.idleObserved` to the existing documented no-op tuples for `.idle` and `.aw
 
 - [ ] **Step 5: Run the test to verify it passes**
 
-Run: `./build.sh >/dev/null 2>&1 && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh >/dev/null 2>&1 && ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: `68/68 passed`
 
 - [ ] **Step 6: Add `.idleObserved` to the exhaustive sweep**
@@ -221,7 +221,7 @@ Test 10's event list is hand-maintained and has silently let two new cases escap
             .idleObserved(seconds: FocusConstants.idlePauseThreshold + 1),
 ```
 
-Run: `./build.sh >/dev/null 2>&1 && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh >/dev/null 2>&1 && ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: `68/68 passed`
 
 - [ ] **Step 7: Feed idle from the ticker**
@@ -242,7 +242,7 @@ In the ticker closure in `startTicker()`, immediately after `self.tick += 1`:
 
 - [ ] **Step 8: Verify the build and relaunch**
 
-Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | tail -2`
+Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | tail -2`
 Expected: no output from the first command; `68/68 passed`
 
 - [ ] **Step 9: Commit** *(recorded, skipped — not a git repository)*
@@ -430,7 +430,7 @@ enum FocusedActiveTime {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `./build.sh >/dev/null 2>&1 && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh >/dev/null 2>&1 && ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: `69/69 passed`
 
 - [ ] **Step 5: Point the goal at it**
@@ -515,7 +515,7 @@ And in `refresh()`, give the cached median the same collaborators so it cannot d
 
 - [ ] **Step 7: Verify**
 
-Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: no output from the first; `69/69 passed`
 
 - [ ] **Step 8: Commit** *(recorded, skipped — not a git repository)*
@@ -625,7 +625,7 @@ Register it after the `testFocusedActiveTime` entry:
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `./build.sh >/dev/null 2>&1 && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -A 4 "FAIL"`
+Run: `./build.sh >/dev/null 2>&1 && ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -A 4 "FAIL"`
 Expected: FAIL on test 70 — `continueSession: the new session starts fresh` (elapsed is `work`, not 0).
 
 - [ ] **Step 3: Make the decisions symmetric**
@@ -668,7 +668,7 @@ inside `SessionEngine`. No declaration change is needed.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `./build.sh >/dev/null 2>&1 && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed" -A 4`
+Run: `./build.sh >/dev/null 2>&1 && ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed" -A 4`
 Expected: `70/70 passed`
 
 - [ ] **Step 5: Fix the two older tests that assumed the old behaviour**
@@ -699,7 +699,7 @@ Replace that assertion with:
 
 - [ ] **Step 6: Verify**
 
-Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed" -A 4`
+Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed" -A 4`
 Expected: no output from the first; `70/70 passed`
 
 - [ ] **Step 7: Commit** *(recorded, skipped — not a git repository)*
@@ -862,7 +862,7 @@ Then update its assertion in `Sources/SelfTest.swift:1710`:
 
 - [ ] **Step 6: Run the test to verify it passes**
 
-Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed" -A 4`
+Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed" -A 4`
 Expected: no output from the first; `71/71 passed`
 
 - [ ] **Step 7: Commit** *(recorded, skipped — not a git repository)*
@@ -973,7 +973,7 @@ struct PopoverMetrics: Equatable {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `./build.sh >/dev/null 2>&1 && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh >/dev/null 2>&1 && ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: `72/72 passed`
 
 - [ ] **Step 5: Restructure the popover**
@@ -1080,13 +1080,13 @@ Replace the `body` with:
 
 - [ ] **Step 6: Verify the build, then look at the rendered panel**
 
-Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: no output from the first; `72/72 passed`
 
 Then render and inspect — `ScrollView` has no intrinsic content under `ImageRenderer`, so
 confirm the harness still produces all twelve images rather than trusting the build:
 
-Run: `rm -rf /tmp/fcfit && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --snapshot /tmp/fcfit 2>&1 | tail -2`
+Run: `rm -rf /tmp/fcfit && ./Daybook.app/Contents/MacOS/Daybook --snapshot /tmp/fcfit 2>&1 | tail -2`
 Expected: `12/12 snapshots written to /tmp/fcfit`
 
 Open `/tmp/fcfit/running-dark.png` and confirm the header, goal bar and timer are present
@@ -1096,7 +1096,7 @@ exactly as `DashboardView` already does, and have `Snapshotter` set it to `false
 
 - [ ] **Step 7: Relaunch and check the real panel against the real screen**
 
-Run: `pkill -f "FocusContinuity.app/Contents/MacOS"; sleep 1; open ./FocusContinuity.app`
+Run: `pkill -f "Daybook.app/Contents/MacOS"; sleep 1; open ./Daybook.app`
 Then open the menu bar panel, expand Settings, and confirm the Quit button is reachable
 without the panel running off the bottom of the display.
 
@@ -1145,7 +1145,7 @@ label that states the scope:
 
 ```swift
         .accessibilityLabel(state == .idle
-                            ? "FocusContinuity, no session running"
+                            ? "Daybook, no session running"
                             : "Current session \(Tokens.spent(elapsed))")
 ```
 
@@ -1184,7 +1184,7 @@ Update the test count in the `## Test` section from `Sixty-six` to `Seventy-two`
 
 - [ ] **Step 5: Verify**
 
-Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: no output from the first; `72/72 passed`
 
 - [ ] **Step 6: Commit** *(recorded, skipped — not a git repository)*
@@ -1274,7 +1274,7 @@ Register it after the `testPopoverMetrics` entry:
 
 - [ ] **Step 2: Run the test to verify it fails or passes**
 
-Run: `./build.sh >/dev/null 2>&1 && ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh >/dev/null 2>&1 && ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: `73/73 passed` — this test pins `DashboardStats` behaviour that is already
 correct. The defect is in `SessionStore`, which the headless harness cannot drive; the
 test exists so a later refactor cannot collapse the two computations into one.
@@ -1416,12 +1416,12 @@ In `Sources/App/SessionStore.swift`, beside `goToToday()`:
 
 - [ ] **Step 8: Verify**
 
-Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`
+Run: `./build.sh 2>&1 | grep -E "error:|warning:"; ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`
 Expected: no output from the first; `73/73 passed`
 
 - [ ] **Step 9: Check it against the live app**
 
-Run: `pkill -f "FocusContinuity.app/Contents/MacOS"; sleep 1; open ./FocusContinuity.app`
+Run: `pkill -f "Daybook.app/Contents/MacOS"; sleep 1; open ./Daybook.app`
 Then: open the dashboard, step back to Yesterday, open the menu-bar panel and confirm it
 still shows today's apps and timeline. Close the dashboard, reopen it, confirm it reads
 Today. Click the date label and pick a date from the calendar.

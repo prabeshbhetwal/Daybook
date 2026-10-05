@@ -6,7 +6,7 @@ import IOKit.ps
 extension SessionMetadataChecks {
     static func injectedPowerMonitor() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.power.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.power.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)
@@ -62,7 +62,7 @@ extension SessionMetadataChecks {
 
     static func groupedMetadataConsumers() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.grouped.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.grouped.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)
@@ -116,7 +116,7 @@ extension SessionMetadataChecks {
 
     static func focusedEditorCommand() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.focus.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.focus.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)
@@ -156,7 +156,7 @@ extension SessionMetadataChecks {
 
     static func identityAndDraftRetentionHardening() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.harden-id.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.harden-id.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 for name in [suite, suite + ".first", suite + ".second"] {

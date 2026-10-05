@@ -159,7 +159,7 @@ extension SelfTest {
         // Our own popover taking focus must not chop the user's stretch in two.
         tracker.appActivated(bundleID: "com.apple.dt.Xcode", name: "Xcode")
         clock.advance(300)
-        tracker.appActivated(bundleID: FocusConstants.bundleIdentifier, name: "FocusContinuity")
+        tracker.appActivated(bundleID: FocusConstants.bundleIdentifier, name: "Daybook")
         clock.advance(10)
         expect(tracker.currentBundleID == "com.apple.dt.Xcode",
                "our own activation must not end the stretch", &problems)

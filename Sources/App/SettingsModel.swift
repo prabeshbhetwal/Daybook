@@ -186,7 +186,7 @@ struct SettingsDiagnostics {
 }
 
 /// Explicitly separates passive app-usage observation from text the user
-/// chooses to enter into FocusContinuity. A single disclosure feeds both
+/// chooses to enter into Daybook. A single disclosure feeds both
 /// Tracking and Data so those surfaces cannot drift into contradictory claims.
 struct SettingsPrivacyDisclosure {
     enum FocusInput: Hashable {
@@ -210,7 +210,7 @@ struct SettingsPrivacyDisclosure {
 
     var storageDetail: String {
         appUsageDetail
-        + " Session names, intent and notes entered into FocusContinuity are stored locally,"
+        + " Session names, intent and notes entered into Daybook are stored locally,"
         + " with the power source, battery level, charging state and charger wattage"
         + " seen during each session. The only thing sent from this Mac is the update check,"
         + " which asks GitHub for the latest version and sends the app's own."

@@ -36,7 +36,7 @@ enum StoryIntegrationChecks {
             directory = FileManager.default.temporaryDirectory
                 .appendingPathComponent("fc-integration-\(UUID().uuidString)", isDirectory: true)
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            suite = "com.prabesh.focuscontinuity.integration.\(UUID().uuidString)"
+            suite = "com.prabesh.daybook.integration.\(UUID().uuidString)"
             clock = TestClock(Date(timeIntervalSince1970: 1_788_598_000))
             persistence = PersistenceStore(defaults: UserDefaults(suiteName: suite)!)
             archive = SessionArchive(directory: directory, now: { [clock] in clock.value })

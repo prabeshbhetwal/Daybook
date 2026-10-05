@@ -1,4 +1,4 @@
-# FocusContinuity
+# Daybook
 
 A macOS menu-bar app that keeps focus sessions honest from foreground-app
 evidence. Swift in the Swift 5 language mode (`-swift-version 5`), AppKit and
@@ -11,7 +11,7 @@ as one module.
 | Command | What it does |
 |---|---|
 | `./build.sh --check` | Build and run every self-check; never replaces the local app. Run before each commit. |
-| `./build.sh --test` | The same, then replaces `FocusContinuity.app` |
+| `./build.sh --test` | The same, then replaces `Daybook.app` |
 | `./build.sh --run` | Build, verify and relaunch the app |
 | `FC_KEEP_SYMBOLS=1 ./build.sh` | Keep symbols for profiling with `sample` |
 | `scripts/release.sh 1.2.0 [--dry-run]` | Publish a release installed copies update to (Sparkle; key in the Keychain) |
@@ -80,12 +80,20 @@ open-ended bug hunt over an area, use the `probe-hunter` agent.
 
 ## Live data
 
-`~/Library/Application Support/FocusContinuity/` (`sessions.json`,
-`app-usage.json`) and the `com.prabesh.focuscontinuity` defaults domain are the
+`~/Library/Application Support/Daybook/` (`sessions.json`,
+`app-usage.json`) and the `com.prabesh.daybook` defaults domain are the
 user's real history. `.claude/hooks/guard-live-data.py` blocks Claude from
 changing them. `FC_LIVE_DATA_OK=1` in a command lets one through; use it only
 when the user has asked for that exact change. After editing the guard, run
 `python3 .claude/hooks/guard-live-data.py --check`.
+
+Until October 2026 the app was called FocusContinuity
+(`com.prabesh.focuscontinuity`, `Application Support/FocusContinuity`).
+Apart from this note, `Sources/Core/NameMigration.swift` and the guard are the
+only places that may use the old name. Launching a built Daybook (any run without `--selftest`,
+`--gallery`, `--fixture-window` or `--snapshot`) quits a running
+FocusContinuity, force-quitting it after 10 s, and moves the live data folder
+to its new name, so launch one only when the user wants that to happen.
 
 ## Conventions
 

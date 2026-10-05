@@ -144,7 +144,7 @@ extension ActivityRuleChecks {
             failures.append("Opening controls did not freeze the external evidence boundary")
         }
         guard case .start(let action)? = selected, action.evidence.end == t0.addingTimeInterval(180)
-        else { failures.append("A valid quiet choice included FocusContinuity UI time"); return failures }
+        else { failures.append("A valid quiet choice included Daybook UI time"); return failures }
 
         current = input(at: 300, app: "com.example.code",
                         ownership: .manual(activityName: "Newer work", workType: .deepWork))
@@ -168,7 +168,7 @@ extension ActivityRuleChecks {
     }
 
     static func preferenceModes() -> [String] {
-        let suite = "com.prabesh.focuscontinuity.activity-rules.\(UUID().uuidString)"
+        let suite = "com.prabesh.daybook.activity-rules.\(UUID().uuidString)"
         guard let defaults = UserDefaults(suiteName: suite) else { return ["Could not create defaults"] }
         defer { defaults.removePersistentDomain(forName: suite) }
         let persistence = PersistenceStore(defaults: defaults)

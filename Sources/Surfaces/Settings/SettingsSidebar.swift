@@ -68,7 +68,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     /// What the page is about, under its title in the detail.
     var summary: String {
         switch self {
-        case .general: return "Starting at login, and where FocusContinuity shows: menu bar and Dock."
+        case .general: return "Starting at login, and where Daybook shows: menu bar and Dock."
         case .sessions: return "Your goal, your categories, and what starts a session by itself."
         case .activities: return "Rules that start and name a session from the apps you are in."
         case .awayAndBreaks: return "What happens when you step away, and when to be reminded to rest."

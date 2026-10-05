@@ -6,7 +6,7 @@ import IOKit.ps
 extension SessionMetadataChecks {
     static func groupedPowerCoverageHardening() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.harden-power.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.harden-power.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)

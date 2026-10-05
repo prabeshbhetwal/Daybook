@@ -19,7 +19,7 @@
 - Each fact is shown once: the headline gives the top period's totals; a row gives its own; a day of one finished session shows the figure on the session row, not the day row (kept from the journal, `HistoryDayHeader.showsTotal`).
 - Duration figures use `Text(durations:)`. Spoken labels built from strings with compact durations go through `DurationText.spoken(in:)`.
 - Motion goes through `Tokens.Motion.animation(_:reduceMotion:)` / `Tokens.Motion.transition(_:reduceMotion:)` or `MainWindowModel.animated`, so Reduce Motion is honoured.
-- Never delete a file: retired files go to `/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/_trash/2026-09-29-history-tree/` (the main checkout's gitignored `_trash/`; the worktree's copy would vanish with the worktree).
+- Never delete a file: retired files go to `<main checkout>/_trash/2026-09-29-history-tree/` (the main checkout's gitignored `_trash/`; the worktree's copy would vanish with the worktree).
 - Commit messages follow the repo's style: one plain sentence naming what now works, no `feat:` prefix. Every message ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - The self-test count never drops below the Task 0 baseline minus the checks this plan retires by name (listed in Task 6, Step 1).
 - Build and test with the sandbox disabled: `./build.sh --check` (the `sips` icon step fails inside the sandbox). The quick compile check runs in the sandbox: `swiftc -typecheck -module-cache-path $TMPDIR/mc -swift-version 5 -parse-as-library -warnings-as-errors -target arm64-apple-macos13.0 $(find Sources -name '*.swift')`.
@@ -42,7 +42,7 @@
 - [ ] **Step 1: Confirm the branch and the uncommitted activity-rule edits**
 
 ```bash
-cd /Users/prabeshbhetwal/Documents/FocusContinuity/app-size-history-redesign-2628b9
+cd <worktree>
 git status --short
 git log --oneline -3
 ```
@@ -60,7 +60,7 @@ Expected: `514/514 passed` (or the current count). Write the number down; Task 8
 - [ ] **Step 3: Make the trash folder**
 
 ```bash
-mkdir -p "/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/_trash/2026-09-29-history-tree"
+mkdir -p "<main checkout>/_trash/2026-09-29-history-tree"
 ```
 
 ---
@@ -2093,7 +2093,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - [ ] **Step 1: Copy the files being cut down to the trash**
 
 ```bash
-T="/Users/prabeshbhetwal/Desktop/Files/Development/Project/FocusContinuity/_trash/2026-09-29-history-tree"
+T="<main checkout>/_trash/2026-09-29-history-tree"
 cp Sources/Surfaces/History/HistoryJournal.swift "$T/HistoryJournal.swift"
 cp Sources/App/SessionStore+Journal.swift "$T/SessionStore+Journal.swift"
 cp Sources/Verification/HistoryJournalChecks.swift "$T/HistoryJournalChecks.swift"
@@ -2392,7 +2392,7 @@ Calendar row (line 15): "Opens from Jump to date in History." (drop "the date la
 
 ```bash
 ./build.sh
-./FocusContinuity.app/Contents/MacOS/FocusContinuity --fixture-window reviewHistorySelection
+./Daybook.app/Contents/MacOS/Daybook --fixture-window reviewHistorySelection
 ```
 
 Capture the window (⌘⇧4, space, click) to `docs/screenshots/history.png`; repeat with the system in dark appearance and `historySession` to `docs/screenshots/history-dark.png`; and `storyDay` to `docs/screenshots/day-story.png`. Each is a full-window capture at the default 1160×780.

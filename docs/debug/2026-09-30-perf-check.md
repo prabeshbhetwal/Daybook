@@ -80,8 +80,8 @@ Left as it is, on purpose:
 ## How to repeat
 
 ```bash
-P=$(pgrep -x FocusContinuity); top -l 9 -s 2 -pid $P -stats pid,cpu,idlew,mem
+P=$(pgrep -x Daybook); top -l 9 -s 2 -pid $P -stats pid,cpu,idlew,mem
 sample $P 8 -file /tmp/fc.sample.txt        # needs FC_KEEP_SYMBOLS=1 build for names
 leaks $P | tail -3
-/usr/bin/time -l ./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest
+/usr/bin/time -l ./Daybook.app/Contents/MacOS/Daybook --selftest
 ```

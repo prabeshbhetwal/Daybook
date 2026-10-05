@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Not a git repository; commit steps recorded, skipped. No `@State`/`@Observable`; `ObservableObject` + `@Published`. `Sources/Core` imports Foundation/CoreGraphics only. One repeating `Timer`. No new TCC, no packages, no warnings. Never delete — `_trash/`. Files under 500 lines.
-- Build/test: `./build.sh 2>&1 | grep -E "error|warning|Build succeeded"` then `./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`. Snapshot dir: `/private/tmp/claude-501/-Users-prabeshbhetwal-Desktop-Files-Development-Project-FocusContinuity/d9e74462-42ba-4aac-8014-68ac6cc6464b/scratchpad/snaps`. Relaunch: `pkill -x FocusContinuity; sleep 1; open FocusContinuity.app`.
+- Build/test: `./build.sh 2>&1 | grep -E "error|warning|Build succeeded"` then `./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`. Snapshot dir: `/private/tmp/claude-501/-Users-prabeshbhetwal-Desktop-Files-Development-Project-Daybook/d9e74462-42ba-4aac-8014-68ac6cc6464b/scratchpad/snaps`. Relaunch: `pkill -x Daybook; sleep 1; open Daybook.app`.
 - Tokens: `Tokens.Surface.*`, `Tokens.Palette.*`, `Tokens.Typography.*`, `Tokens.Radius.*`, `.card()`, `SectionHeader`, `IconButton`, `HoverBox`.
 
 ---

@@ -199,7 +199,7 @@ final class RewardHUD {
     static func spoken(title: String, detail: String, hasUndo: Bool) -> String {
         var sentences = [title, detail].filter { !$0.isEmpty }
         if hasUndo {
-            sentences.append("To undo it, open FocusContinuity from the menu bar "
+            sentences.append("To undo it, open Daybook from the menu bar "
                              + "and choose Undo automatic session")
         }
         return sentences

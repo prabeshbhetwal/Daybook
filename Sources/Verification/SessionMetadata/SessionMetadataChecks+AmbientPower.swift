@@ -29,7 +29,7 @@ extension SessionMetadataChecks {
     /// seeds the quiet side, and a quiet block reads its span.
     static func ambientPowerBetweenSessions() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.ambient.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.ambient.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)

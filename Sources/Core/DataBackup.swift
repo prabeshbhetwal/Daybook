@@ -1,6 +1,6 @@
 import Foundation
 
-/// A copy of everything FocusContinuity keeps, made only when asked: the data
+/// A copy of everything Daybook keeps, made only when asked: the data
 /// folder, plus the preferences that live outside it (categories, activity
 /// rules, saved activities). Each backup is a new dated folder, and none is
 /// ever overwritten.
@@ -13,7 +13,7 @@ enum DataBackup {
             .appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
     }
 
-    static let folderName = "FocusContinuity Backups"
+    static let folderName = "Daybook Backups"
     static let preferencesFile = "preferences.plist"
 
     enum Failure: LocalizedError {
@@ -25,7 +25,7 @@ enum DataBackup {
     }
 
     /// Copies `dataDirectory` and `preferences` into
-    /// `<root>/FocusContinuity Backups/<yyyy-MM-dd HHmm>` and returns that
+    /// `<root>/Daybook Backups/<yyyy-MM-dd HHmm>` and returns that
     /// folder. A folder already taken gets " 2", " 3" and so on.
     static func make(from dataDirectory: URL, preferences: [String: Any]?,
                      into root: URL, at date: Date,

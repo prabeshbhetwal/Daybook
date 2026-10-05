@@ -226,7 +226,7 @@ enum CompactControlsChecks {
         if arrangement.order != StoryTileKind.allCases {
             failures.append("Reset did not restore the shipped tile order")
         }
-        let suite = "com.prabesh.focuscontinuity.rail-order.\(UUID().uuidString)"
+        let suite = "com.prabesh.daybook.rail-order.\(UUID().uuidString)"
         if let defaults = UserDefaults(suiteName: suite) {
             defer { defaults.removePersistentDomain(forName: suite) }
             let persistence = PersistenceStore(defaults: defaults)
@@ -303,7 +303,7 @@ enum CompactControlsChecks {
 
             @MainActor func measure(_ state: FixtureState, width: CGFloat) -> Measured {
                 let store = FixtureFactory.store(for: state)
-                let suite = "com.prabesh.focuscontinuity.strip-row.\(UUID().uuidString)"
+                let suite = "com.prabesh.daybook.strip-row.\(UUID().uuidString)"
                 guard let defaults = UserDefaults(suiteName: suite) else { return Measured() }
                 defer { defaults.removePersistentDomain(forName: suite) }
                 let settings = SettingsModel(store: PersistenceStore(defaults: defaults),

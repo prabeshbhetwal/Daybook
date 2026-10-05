@@ -1,4 +1,4 @@
-# FocusContinuity — UI/UX Design Spec (Slice 1: The Loop)
+# Daybook — UI/UX Design Spec (Slice 1: The Loop)
 
 **Date:** 2026-08-12
 **Status:** Approved for planning
@@ -8,7 +8,7 @@
 
 ## 1. Goal
 
-Turn FocusContinuity from a menu-bar session-honesty utility into a macOS focus-session
+Turn Daybook from a menu-bar session-honesty utility into a macOS focus-session
 tracker people keep using. Slice 1 ships the loop the product lives or dies by:
 **start → focus → reward**, with near-zero friction to start and a reason to return
 tomorrow. Analytics come later; the research is explicit that a rich dashboard on day one
@@ -22,7 +22,7 @@ These were settled with the user during brainstorming. They are not open in plan
 
 | # | Decision | Rationale |
 |---|---|---|
-| D-1 | **Evolve the existing app.** FocusContinuity becomes this product; the AppKit menu/alert layer is replaced by SwiftUI surfaces. | The `Core` already solves honest timekeeping across lock, sleep, clock skew and crash — the hard part, with tests. Restarting discards it. |
+| D-1 | **Evolve the existing app.** Daybook becomes this product; the AppKit menu/alert layer is replaced by SwiftUI surfaces. | The `Core` already solves honest timekeeping across lock, sleep, clock skew and crash — the hard part, with tests. Restarting discards it. |
 | D-2 | **The original "no SwiftUI" constraint (C1) is retired**, superseded by this spec. | Swift Charts, `MenuBarExtra` and `NavigationSplitView` do not exist outside SwiftUI. |
 | D-3 | **Slice 1 = the loop only.** | Matches the research's must-have list; keeps the plan reviewable. |
 | D-4 | **Idle resolution is non-blocking.** No focus-stealing modal. | The modal contradicts the calm brief and the research's "painless, not a data-integrity lecture". |
@@ -66,7 +66,7 @@ Sources/
     EventMonitor.swift        unchanged — lock, sleep, activate, power-off
     HotKeyMonitor.swift       NEW — Carbon RegisterEventHotKey wrapper
   App/
-    FocusContinuityApp.swift  @main; static main() gates --selftest / --gallery
+    DaybookApp.swift  @main; static main() gates --selftest / --gallery
     SessionStore.swift        ObservableObject; the ONLY file importing both worlds
   Surfaces/
     PopoverView.swift, TodayView.swift, GalleryView.swift
@@ -76,7 +76,7 @@ Sources/
                               WeekChart, ResolveCard, QuickStartRow, IntentField
 ```
 
-**Ownership.** `FocusContinuityApp` owns `SessionStore`, which owns `SessionEngine`,
+**Ownership.** `DaybookApp` owns `SessionStore`, which owns `SessionEngine`,
 `EventMonitor` and `HotKeyMonitor`. `SessionEngine` owns `CategoryManager`,
 `PersistenceStore` and `SessionArchive`. Views own nothing; they receive the store through
 `@EnvironmentObject`.
@@ -112,7 +112,7 @@ minus paused and discarded-away time. That accounting is already tested and does
 ### 5.2 Storage
 
 Preferences (threshold, pinned quick-starts, last work type) stay in `UserDefaults`.
-Session history moves to `~/Library/Application Support/FocusContinuity/sessions.json`,
+Session history moves to `~/Library/Application Support/Daybook/sessions.json`,
 written atomically, decoded on launch, capped at 5000 records (about five years of heavy
 use). Rationale: `UserDefaults` is a preferences store, Apple warns against bulk data in
 it, and the current 50-record ring holds roughly one week — far too little for streaks and

@@ -29,7 +29,7 @@ extension SessionMetadataChecks {
 
             for conflict in conflicts {
                 let folder = directory()
-                let suite = "com.prabesh.focuscontinuity.metadata.append.conflict.\(conflict.label).\(UUID())"
+                let suite = "com.prabesh.daybook.metadata.append.conflict.\(conflict.label).\(UUID())"
                 defer {
                     try? FileManager.default.removeItem(at: folder)
                     UserDefaults.standard.removePersistentDomain(forName: suite)
@@ -105,7 +105,7 @@ extension SessionMetadataChecks {
             }
 
             let exactFolder = directory()
-            let exactSuite = "com.prabesh.focuscontinuity.metadata.append.exact.\(UUID())"
+            let exactSuite = "com.prabesh.daybook.metadata.append.exact.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: exactFolder)
                 UserDefaults.standard.removePersistentDomain(forName: exactSuite)

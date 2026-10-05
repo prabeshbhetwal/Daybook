@@ -61,7 +61,7 @@ final class SessionArchive {
     }
 
     static var namedDirectory: URL {
-        supportDirectory.appendingPathComponent("FocusContinuity", isDirectory: true)
+        supportDirectory.appendingPathComponent("Daybook", isDirectory: true)
     }
 
     static var supportDirectory: URL {

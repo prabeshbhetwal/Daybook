@@ -30,7 +30,7 @@ extension SelfTest {
                 .compactMap { $0 }.isEmpty,
                "missing evidence remains absent rather than rendering zero", &problems)
         expect(InsightSurface.insufficientEvidenceCopy
-                   == "Keep using FocusContinuity; patterns appear once there is enough comparable history.",
+                   == "Keep using Daybook; patterns appear once there is enough comparable history.",
                "first-run copy explains how evidence becomes available", &problems)
 
         let zeroHour = RhythmHour(hour: base, seconds: 0, colorIndex: 6)

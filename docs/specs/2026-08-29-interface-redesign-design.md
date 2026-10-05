@@ -1,17 +1,17 @@
-# FocusContinuity Interface Redesign — Design
+# Daybook Interface Redesign — Design
 
 **Date:** 2026-08-29
 **Status:** Approved design direction; ready for main-thread review before implementation.
 
 ## 1. Decision
 
-FocusContinuity will receive a complete interface redesign built around a calm desktop
+Daybook will receive a complete interface redesign built around a calm desktop
 information architecture: a centred horizontal tab rail, an intentionally quiet
 top-level hierarchy, restrained tonal surfaces, and one dominant piece of information per
 screen.
 
 The interaction grammar uses a calm tab rail, contextual secondary controls, dense but
-readable rows, and data that earns its visual weight. FocusContinuity remains a private
+readable rows, and data that earns its visual weight. Daybook remains a private
 focus-and-time-continuity product with its own purpose, content and cooler focus accent.
 
 The global tabs are:
@@ -31,7 +31,7 @@ metric, chart and list inside one vertically exhaustive dashboard.
    competing for attention.
 4. Give Settings a first-class global tab where every real configurable behaviour is easy
    to find and explain.
-5. Preserve FocusContinuity's hard-won accounting rules, terminology and privacy boundary.
+5. Preserve Daybook's hard-won accounting rules, terminology and privacy boundary.
 6. Work in light and dark appearance, macOS 13+, direct `swiftc`, SwiftUI, no packages,
    no extra TCC permission, and no new repeating timer.
 
@@ -79,7 +79,7 @@ Supporting figures must serve the dominant visual rather than appear as decorati
 
 ### 4.4 Calm density
 
-FocusContinuity uses compact rows, low-contrast structure and direct labels; it avoids
+Daybook uses compact rows, low-contrast structure and direct labels; it avoids
 decorative darkness, excessive glass and a cleaner-utility visual metaphor.
 
 ## 5. Global navigation and shell
@@ -128,9 +128,9 @@ popover**:
 - one primary action appropriate to that state;
 - current daily goal progress and a concise break status;
 - at most three resumable threads or quick starts;
-- footer actions: `Open FocusContinuity`, `Settings`, and `Quit`.
+- footer actions: `Open Daybook`, `Settings`, and `Quit`.
 
-The popover does not duplicate Today, Review or Insights. `Open FocusContinuity` opens the
+The popover does not duplicate Today, Review or Insights. `Open Daybook` opens the
 main window on Focus by default; a deep link from a specific notification may open the
 relevant tab only when that tab directly answers the notification.
 
@@ -345,7 +345,7 @@ Sections may include:
 - **Continuity** — streak, recent active days and change versus a correctly comparable period.
 
 Each insight states its measure or opens a short `How this is calculated` explanation. When
-the data is insufficient, show one useful empty state such as `Keep using FocusContinuity;
+the data is insufficient, show one useful empty state such as `Keep using Daybook;
 patterns appear once there is enough comparable history.` Do not replace missing evidence
 with a zero, an unearned comparison or generic motivational copy.
 

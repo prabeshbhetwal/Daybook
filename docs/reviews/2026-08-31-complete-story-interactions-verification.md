@@ -34,7 +34,7 @@ as eight tasks with an independent review and bounded fix rounds per task.
   strict `codesign --verify --deep --strict`, local bundle not promoted.
   Warnings-as-errors clean.
 - `git diff --check`: clean.
-- `./build.sh` then `FocusContinuity --snapshot`: 252/252 product snapshots
+- `./build.sh` then `Daybook --snapshot`: 252/252 product snapshots
   at 980 pt and 1160 pt in light, dark and system appearance (84 each), plus
   the compact popover and quick/full prompt captures.
 - `scripts/build-fixture-app.sh activityRuleAmbiguity`: fixture-only app

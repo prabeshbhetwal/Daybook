@@ -69,7 +69,7 @@ The final root-source gates include the last live-publication regression:
 | --- | --- |
 | `./build.sh --check` | 234/234 passed; warnings-as-errors compilation and strict staged signature verification passed; root app not replaced by this command. |
 | `./build.sh --test` | 234/234 passed; verified 7.8 MB local bundle promoted. |
-| `codesign --verify --deep FocusContinuity.app` | Exit 0 after promotion. |
+| `codesign --verify --deep Daybook.app` | Exit 0 after promotion. |
 | `git diff --check` | Exit 0. |
 | Targeted accounting/presentation regressions | 25/25, including a demonstrated RED → GREEN live-publication reproduction. |
 | Independent review | Original audit, integration findings and targeted follow-up closed; no open finding within the reviewed scope. |

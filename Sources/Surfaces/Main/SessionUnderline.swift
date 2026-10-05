@@ -46,7 +46,7 @@ struct ActivityQuietChoiceView: View {
     /// Choosing starts a session of that activity from when the time in the
     /// other app began; the time since, spent here, is left out.
     static let explanation = "Choose the one you were doing. Your time in the other app "
-        + "just now becomes a session of it. Time in FocusContinuity isn't counted."
+        + "just now becomes a session of it. Time in Daybook isn't counted."
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {

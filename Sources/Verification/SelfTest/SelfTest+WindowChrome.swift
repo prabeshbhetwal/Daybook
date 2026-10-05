@@ -233,7 +233,7 @@ extension SelfTest {
         )
 
         expect(context.title == "Today", "chrome exposes the selected tab title", &problems)
-        expect(context.subtitle == "FocusContinuity",
+        expect(context.subtitle == "Daybook",
                "chrome keeps the app name beside the tabs", &problems)
         expect(context.status == "Focus active · 21m",
                "chrome keeps the literal live status beside the tabs", &problems)

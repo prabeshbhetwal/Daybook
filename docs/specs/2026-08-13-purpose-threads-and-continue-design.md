@@ -253,7 +253,7 @@ single-segment, running-thread and empty states, both appearances.
 
 ## On the AgentDB plugins
 
-They cannot ship inside FocusContinuity. They are MCP servers running in the
+They cannot ship inside Daybook. They are MCP servers running in the
 assistant's tooling; the app is a self-contained `swiftc` binary with no SPM, no
 network access and no third-party dependencies, and adding any of those would
 break constraints the project is built on.

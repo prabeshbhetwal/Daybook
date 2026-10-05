@@ -146,7 +146,7 @@ enum FirstRunChecks {
                                           hasUsageHistory: true, forced: true),
                true, "--onboarding forces the welcome over every other answer")
 
-        let defaults = UserDefaults(suiteName: "com.prabesh.focuscontinuity.firstruncheck")
+        let defaults = UserDefaults(suiteName: "com.prabesh.daybook.firstruncheck")
             ?? .standard
         defaults.removeObject(forKey: "fc.onboarded")
         let store = PersistenceStore(defaults: defaults)

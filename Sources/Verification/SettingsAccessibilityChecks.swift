@@ -22,7 +22,7 @@ enum SettingsAccessibilityChecks {
     private static func interruptedTour() -> [String] {
         MainActor.assumeIsolated {
             var failures: [String] = []
-            let suite = "com.prabesh.focuscontinuity.interrupted-tour.\(UUID().uuidString)"
+            let suite = "com.prabesh.daybook.interrupted-tour.\(UUID().uuidString)"
             guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
             defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
             let store = PersistenceStore(defaults: defaults)

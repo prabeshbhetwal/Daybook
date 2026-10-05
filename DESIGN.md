@@ -1,8 +1,8 @@
-# FocusContinuity Story design system
+# Daybook Story design system
 
 ## Authority
 
-The final **Focus Continuity - Day as a Story.dc.html** in the supplied research
+The final **Daybook - Day as a Story.dc.html** in the supplied research
 handoff is the visual reference. Earlier prototypes are alternatives. Native
 macOS behaviour, accessible contrast and truthful recorded evidence take priority
 over unsupported sample content. This document records the implemented remediation
@@ -168,7 +168,7 @@ Rule automation is opt-in and, when on, replaces the legacy heuristic. The
 quiet choice is a soft well inside the session controls and the menu panel:
 the question naming the candidates (for example **Coding or Research?**), one factual line stating that the
 recorded external-app interval is credited once and that time in
-FocusContinuity is excluded, and bordered answers. It never modally interrupts.
+Daybook is excluded, and bordered answers. It never modally interrupts.
 An automatic start is announced by the HUD with its reason and an **Undo**
 bound to that exact record; Undo carries a cooldown so the same guess cannot
 return at once. The rule editor validates custom dwell in whole seconds and
@@ -223,7 +223,7 @@ The Apps tile always shows at most four apps, sorted by recorded duration, with
 app-list scroller. Individual apps still open their scoped recorded visits.
 The fixed cap keeps the supporting rail subordinate to the Story.
 
-**Open FocusContinuity** reveals the existing Story date and dismisses
+**Open Daybook** reveals the existing Story date and dismisses
 an old secondary sheet. It does not open session controls merely because a timer
 is running. **Session controls** and its explicit keyboard command still open
 the operational sheet. Inspecting history and managing a timer are separate

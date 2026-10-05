@@ -6,7 +6,7 @@ import IOKit.ps
 extension SessionMetadataChecks {
     static func failedPowerTransferRecovery() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.transfer.retry.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.transfer.retry.\(UUID())"
             defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_660_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
@@ -112,7 +112,7 @@ extension SessionMetadataChecks {
 
     static func orderedPowerTransferRecovery() -> [String] {
         MainActor.assumeIsolated {
-            let folder = directory(), suite = "com.prabesh.focuscontinuity.metadata.transfer.order.\(UUID())"
+            let folder = directory(), suite = "com.prabesh.daybook.metadata.transfer.order.\(UUID())"
             defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_670_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
@@ -163,7 +163,7 @@ extension SessionMetadataChecks {
     static func coldLaunchTransferRecovery() -> [String] {
         MainActor.assumeIsolated {
             let folder = directory()
-            let suite = "com.prabesh.focuscontinuity.metadata.transfer.cold.\(UUID())"
+            let suite = "com.prabesh.daybook.metadata.transfer.cold.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 UserDefaults.standard.removePersistentDomain(forName: suite)

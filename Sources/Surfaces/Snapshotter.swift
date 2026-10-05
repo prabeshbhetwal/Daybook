@@ -498,7 +498,7 @@ enum Snapshotter {
         // Every simultaneously alive product card has a stable persistence
         // domain. Reconstructing the same render is harmless because it writes
         // the same complete configuration; a different card cannot see it.
-        let suiteName = "com.prabesh.focuscontinuity.snapshot.\(item.id).\(density.rawValue)"
+        let suiteName = "com.prabesh.daybook.snapshot.\(item.id).\(density.rawValue)"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             preconditionFailure("Could not create snapshot defaults domain \(suiteName)")
         }

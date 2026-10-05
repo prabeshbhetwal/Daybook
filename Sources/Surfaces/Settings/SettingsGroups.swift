@@ -38,7 +38,7 @@ struct SettingsGroups: View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Menu bar, Dock and login", layout: layout) {
                 toggleRow("Open at login",
-                          detail: "Starts FocusContinuity in the menu bar when you sign in, so the "
+                          detail: "Starts Daybook in the menu bar when you sign in, so the "
                             + "record never has a gap at the start of the day.",
                           isOn: $model.opensAtLogin)
                 if let message = loginItemMessage {
@@ -51,7 +51,7 @@ struct SettingsGroups: View {
                 }
                 rowDivider
                 toggleRow("Show the icon in the menu bar",
-                          detail: "Off, the Dock icon stays so FocusContinuity can always be reached.",
+                          detail: "Off, the Dock icon stays so Daybook can always be reached.",
                           isOn: $model.showsMenuBarIcon)
                 rowDivider
                 toggleRow("Show the session time in the menu bar",
@@ -111,7 +111,7 @@ struct SettingsGroups: View {
         }
     }
 
-    private static let loginApproval = "Approve FocusContinuity in System Settings › General › Login Items."
+    private static let loginApproval = "Approve Daybook in System Settings › General › Login Items."
 
     /// The keys, in one place that stays. The app has no menu bar to list
     /// them in, and the welcome names them once and moves on.
@@ -187,7 +187,7 @@ struct SettingsGroups: View {
                 + "It comes back when VoiceOver turns off, or record a chord without both."
         case .unavailable:
             return "Another app is using \(chord), so this shortcut is off. Record a different "
-                + "one, or free the keys in that app, then quit and reopen FocusContinuity."
+                + "one, or free the keys in that app, then quit and reopen Daybook."
         case .off:
             return "Off. Record a shortcut to turn it on."
         }
@@ -553,7 +553,7 @@ struct SettingsGroups: View {
                 Button("Back up to iCloud Drive") { model.backUpToICloudDrive() }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
-                    .accessibilityHint("Copies your FocusContinuity data and preferences to iCloud Drive")
+                    .accessibilityHint("Copies your Daybook data and preferences to iCloud Drive")
                 if let status = model.backupStatus {
                     Text(status)
                         .font(Tokens.Typography.metadata)
@@ -566,7 +566,7 @@ struct SettingsGroups: View {
                 Button("Reveal data folder") { model.revealDataFolder() }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
-                    .accessibilityHint("Opens the local FocusContinuity data folder in Finder")
+                    .accessibilityHint("Opens the local Daybook data folder in Finder")
             }
             // Whether the backup worked appears under its button; say it too.
             .announcesChanges(to: model.backupStatus)
@@ -741,7 +741,7 @@ struct SettingsGroups: View {
         switch model.dockIconMode {
         case .whileWindowOpen: return "The Dock icon and the app's menus show while the window is open."
         case .always: return "The Dock icon and the app's menus show all the time."
-        case .never: return "FocusContinuity stays in the menu bar, with no Dock icon or app menus."
+        case .never: return "Daybook stays in the menu bar, with no Dock icon or app menus."
         }
     }
 

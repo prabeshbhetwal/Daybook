@@ -16,7 +16,7 @@
 - Exactly one repeating `Timer` (`SessionStore.startTicker()`). The quick prompt's fade uses a `DispatchWorkItem`, not a timer.
 - No new TCC permissions; no packages; no warnings (`./build.sh` prints none).
 - Never delete; move to `_trash/`. Nothing in the project root.
-- Build/test: `./build.sh 2>&1 | grep -E "error|warning|Build succeeded"` then `./FocusContinuity.app/Contents/MacOS/FocusContinuity --selftest 2>&1 | grep -E "FAIL|passed"`. Snapshot dir: `/private/tmp/claude-501/-Users-prabeshbhetwal-Desktop-Files-Development-Project-FocusContinuity/d9e74462-42ba-4aac-8014-68ac6cc6464b/scratchpad/snaps`.
+- Build/test: `./build.sh 2>&1 | grep -E "error|warning|Build succeeded"` then `./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 | grep -E "FAIL|passed"`. Snapshot dir: `/private/tmp/claude-501/-Users-prabeshbhetwal-Desktop-Files-Development-Project-Daybook/d9e74462-42ba-4aac-8014-68ac6cc6464b/scratchpad/snaps`.
 
 ---
 
