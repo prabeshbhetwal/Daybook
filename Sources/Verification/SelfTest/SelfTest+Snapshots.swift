@@ -54,7 +54,7 @@ extension SelfTest {
                 .welcomeOpening, .welcomeStep,
                 .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
                 .settingsActivityRules, .settingsTracking, .settingsAppearance, .settingsData,
-                .settingsAdvanced,
+                .settingsUpdates, .settingsAdvanced,
                 .activityRuleAmbiguity, .activityRuleAutomatic,
                 .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
             ]

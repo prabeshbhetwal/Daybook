@@ -14,6 +14,8 @@ struct PopoverView: View {
     @StateObject private var contentHeight = HeightBox()
     var onOpenApplication: () -> Void = {}
     var onOpenSettings: () -> Void = {}
+    /// Nil where there is no updater: the snapshot harness and previews.
+    var onCheckForUpdates: (() -> Void)? = nil
     /// Nil when nothing can route to Settings — the snapshot harness — so the
     /// pickers do not offer a door that opens on nothing.
     var onOpenCategoryEditor: ((CategoryEditorRequest) -> Void)? = nil
@@ -42,7 +44,8 @@ struct PopoverView: View {
                         : metrics.stackSpacing) {
             operationalContent(cap: bodyCap(metrics))
             PopoverFooter(onOpenApplication: onOpenApplication,
-                          onOpenSettings: onOpenSettings)
+                          onOpenSettings: onOpenSettings,
+                          onCheckForUpdates: onCheckForUpdates)
         }
         .padding(settings.interfaceDensity == .compact
                  ? max(Tokens.Space.m, metrics.outerPadding - 4)

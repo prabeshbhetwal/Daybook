@@ -57,6 +57,7 @@ struct FocusContinuityApp: App {
                 settings: coordinator.settings,
                 onOpenApplication: { openMainWindow() },
                 onOpenSettings: { openMainWindow(on: .settings) },
+                onCheckForUpdates: { coordinator.updater.checkForUpdates() },
                 onOpenCategoryEditor: { request in
                     CategoryEditorPanel.shared.show(request, model: coordinator.settings) { definition, wasNew in
                         if wasNew { coordinator.store.workType = definition.workType }
@@ -89,6 +90,20 @@ struct FocusContinuityApp: App {
             MainWindowCommands(navigation: coordinator.mainWindow)
             SessionCommands(store: coordinator.store,
                             state: coordinator.sessionCommandState)
+            UpdateCommands(updater: coordinator.updater)
+        }
+    }
+
+    /// "Check for Updates…" under About in the FocusContinuity menu, where
+    /// Mac apps keep it.
+    struct UpdateCommands: Commands {
+        @ObservedObject var updater: AppUpdater
+
+        var body: some Commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updater.checkForUpdates() }
+                    .disabled(!updater.canCheckForUpdates)
+            }
         }
     }
 

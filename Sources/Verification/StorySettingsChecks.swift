@@ -17,10 +17,12 @@ enum StorySettingsChecks {
             (.activities, [.activities]),
             (.awayAndBreaks, [.away]),
             (.recording, [.tracking]),
-            (.privacy, [.data, .advanced])
+            (.privacy, [.data]),
+            (.about, [.updates, .advanced])
         ]
-        if SettingsPage.allCases.map(\.title) != ["General", "Sessions", "Activities", "Away & Breaks", "Recording", "Privacy"] {
-            failures.append("Settings did not expose the six page groups in their required order")
+        if SettingsPage.allCases.map(\.title) != ["General", "Sessions", "Activities", "Away & Breaks", "Recording",
+                                                  "Privacy", "About & Updates"] {
+            failures.append("Settings did not expose the seven page groups in their required order")
         }
         for (page, sections) in expectedPages where page.sections != sections {
             failures.append("\(page.title) no longer contains its intended logical settings sections")
@@ -31,8 +33,11 @@ enum StorySettingsChecks {
         if SettingsPage.matching("Story timestamps") != [.general] {
             failures.append("Searching Story timestamps did not retain General context")
         }
-        if SettingsPage.matching("recovery") != [.privacy] {
-            failures.append("Searching recovery did not retain Privacy context")
+        if SettingsPage.matching("recovery") != [.about] {
+            failures.append("Searching recovery did not retain About & Updates context")
+        }
+        if SettingsPage.matching("how often") != [.about] {
+            failures.append("Searching how often did not find the update frequency")
         }
         if SettingsPage.matching("new category") != [.sessions] {
             failures.append("Searching new category did not retain Sessions context")

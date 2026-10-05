@@ -13,6 +13,15 @@ CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.$$"
 BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup.$$"
 DEPLOYMENT_TARGET="13.0"
 TARGET_TRIPLE="$(uname -m)-apple-macos${DEPLOYMENT_TARGET}"
+# Raised by scripts/release.sh for each release. The build number must grow:
+# it is what the updater compares.
+APP_VERSION="1.0.0"
+APP_BUILD="1"
+# The updater checks this feed; the key verifies what it downloads. The
+# matching private key lives in the Keychain (account FocusContinuity).
+UPDATE_FEED_URL="https://github.com/prabeshbhetwal/FocusContinuity/releases/latest/download/appcast.xml"
+UPDATE_PUBLIC_KEY="oVMwFmTRL3FCl/weIGgo7MQsJFRvSD7muBW936KkiQk="
+SPARKLE_DIR="$("${PROJECT_DIR}/scripts/fetch-sparkle.sh")"
 
 RUN=0
 TEST=0
@@ -106,6 +115,9 @@ swiftc \
   -parse-as-library \
   -target "${TARGET_TRIPLE}" \
   -framework Cocoa \
+  -F "${SPARKLE_DIR}" \
+  -framework Sparkle \
+  -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
   -o "${BINARY}" \
   "${SOURCE_FILES[@]}"
 
@@ -119,6 +131,13 @@ fi
 if [ -z "${FC_KEEP_SYMBOLS:-}" ]; then
   strip -x "${BINARY}"
 fi
+
+# The updater ships inside the app. Copied without extended attributes or
+# quarantine: the framework's symlinks carry com.apple.provenance, which
+# codesign rejects as "detritus".
+FRAMEWORKS_DIR="${APP_DIR}/Contents/Frameworks"
+mkdir -p "${FRAMEWORKS_DIR}"
+ditto --noextattr --noqtn "${SPARKLE_DIR}/Sparkle.framework" "${FRAMEWORKS_DIR}/Sparkle.framework"
 
 # Optional app icon. The app is LSUIElement, so it never appears in the Dock.
 ICON_SOURCE="Assets/AppIcon.png"
@@ -169,9 +188,19 @@ cat > "${APP_DIR}/Contents/Info.plist" <<PLIST
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>${APP_VERSION}</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>${APP_BUILD}</string>
+	<key>SUFeedURL</key>
+	<string>${UPDATE_FEED_URL}</string>
+	<key>SUPublicEDKey</key>
+	<string>${UPDATE_PUBLIC_KEY}</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>604800</integer>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
 	<key>LSMinimumSystemVersion</key>
 	<string>${DEPLOYMENT_TARGET}</string>
 	<key>LSUIElement</key>

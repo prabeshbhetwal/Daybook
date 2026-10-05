@@ -11,7 +11,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
     case welcomeOpening, welcomeStep
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsAutomatic
-    case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsAdvanced
+    case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned
 
@@ -51,6 +51,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsTracking: return "Settings — Tracking and apps"
         case .settingsAppearance: return "Settings — Appearance"
         case .settingsData: return "Settings — Data and privacy"
+        case .settingsUpdates: return "Settings — Updates"
         case .settingsAdvanced: return "Settings — Advanced"
         case .settingsActivityRules: return "Settings — Activity rules"
         case .activityRuleAmbiguity: return "Activity rules — quiet shared-app choice"
@@ -73,6 +74,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsTracking: return .tracking
         case .settingsAppearance: return .appearance
         case .settingsData: return .data
+        case .settingsUpdates: return .updates
         case .settingsAdvanced: return .advanced
         case .settingsActivityRules: return .activities
         default: return nil
@@ -118,7 +120,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
              .welcomeOpening, .welcomeStep:
             return .story
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
-             .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
+             .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return .settings
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
@@ -397,7 +399,7 @@ enum Snapshotter {
         case .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport:
             return FixtureFactory.storyInteractionStore(for: scenario)
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
-             .settingsTracking, .settingsAppearance, .settingsData, .settingsAdvanced,
+             .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return FixtureFactory.store(for: .running)
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:

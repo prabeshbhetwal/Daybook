@@ -29,6 +29,7 @@ struct SettingsGroups: View {
         case .tracking: tracking
         case .appearance: appearance
         case .data: data
+        case .updates: updates
         case .advanced: advanced
         }
     }
@@ -570,6 +571,50 @@ struct SettingsGroups: View {
             // Whether the backup worked appears under its button; say it too.
             .announcesChanges(to: model.backupStatus)
         }
+    }
+
+    /// Sparkle reads the release feed on GitHub; only the version is sent.
+    private var updates: some View {
+        SurfacePanel(title: "Updates", layout: layout) {
+            if model.updater == nil {
+                explanation("Updates are checked by the installed app. This copy is a preview or a test.")
+            } else {
+                toggleRow("Check for updates automatically",
+                          detail: "Looks for a new version on GitHub. Only the version number is sent.",
+                          isOn: $model.checksForUpdatesAutomatically)
+                rowDivider
+                preferenceRow("How often") {
+                    Picker("How often", selection: $model.updateFrequency) {
+                        ForEach(UpdateFrequency.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 180)
+                    .disabled(!model.checksForUpdatesAutomatically)
+                    .accessibilityLabel("How often to check for updates")
+                }
+                rowDivider
+                preferenceRow("When an update is found", detail: model.updateInstallMode.detail) {
+                    Picker("When an update is found", selection: $model.updateInstallMode) {
+                        ForEach(UpdateInstallMode.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .frame(width: 200)
+                    .accessibilityLabel("When an update is found")
+                }
+                rowDivider
+                preferenceRow("Check for Updates", detail: lastUpdateCheck) {
+                    Button("Check Now") { model.updater?.checkForUpdates() }
+                        .disabled(model.updater?.canCheckForUpdates != true)
+                }
+            }
+        }
+    }
+
+    private var lastUpdateCheck: String {
+        guard let date = model.updater?.lastCheck else { return "Not checked yet." }
+        let day = Tokens.dayLabel(date)
+        let when = ["Today", "Yesterday"].contains(day) ? day.lowercased() : "on \(day)"
+        return "Last checked \(when) at \(Tokens.timeOfDayOnly(date))."
     }
 
     private var advanced: some View {

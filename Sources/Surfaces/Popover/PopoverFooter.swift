@@ -6,6 +6,7 @@ import AppKit
 struct PopoverFooter: View {
     var onOpenApplication: () -> Void
     var onOpenSettings: () -> Void
+    var onCheckForUpdates: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: Tokens.Space.m) {
@@ -13,6 +14,11 @@ struct PopoverFooter: View {
             Spacer(minLength: Tokens.Space.s)
             footerButton("Settings", action: onOpenSettings)
                 .keyboardShortcut(",", modifiers: .command)
+            if let onCheckForUpdates {
+                footerButton("Updates", action: onCheckForUpdates)
+                    .help("Check for Updates")
+                    .accessibilityLabel("Check for Updates")
+            }
             footerButton("Quit") { NSApp.terminate(nil) }
         }
         .font(Tokens.Typography.metadata)

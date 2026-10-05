@@ -34,6 +34,9 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case menuBarTime
     case menuBarIcon
     case dockIcon
+    case updateChecks
+    case updateFrequency
+    case updateInstall
     case railApps
     case paceWindow
     case suggestionWindow
@@ -68,6 +71,9 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .menuBarTime: return \SettingsModel.menuBarShowsTime
         case .menuBarIcon: return \SettingsModel.showsMenuBarIcon
         case .dockIcon: return \SettingsModel.dockIconMode
+        case .updateChecks: return \SettingsModel.checksForUpdatesAutomatically
+        case .updateFrequency: return \SettingsModel.updateFrequency
+        case .updateInstall: return \SettingsModel.updateInstallMode
         case .railApps: return \SettingsModel.railAppCount
         case .paceWindow: return \SettingsModel.paceWindowDays
         case .suggestionWindow: return \SettingsModel.suggestionWindowDays
@@ -563,6 +569,30 @@ final class SettingsModel: ObservableObject {
             }
             onPresenceChanged()
         }
+    }
+
+    /// The updater, in the running app only: fixtures and the self-test
+    /// leave it nil, and the Updates page then says updates are off here.
+    var updater: AppUpdater? {
+        didSet {
+            updaterChanges = updater?.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        }
+    }
+    private var updaterChanges: AnyCancellable?
+
+    var checksForUpdatesAutomatically: Bool {
+        get { updater?.automaticallyChecks ?? false }
+        set { updater?.automaticallyChecks = newValue }
+    }
+
+    var updateFrequency: UpdateFrequency {
+        get { updater?.frequency ?? .weekly }
+        set { updater?.frequency = newValue }
+    }
+
+    var updateInstallMode: UpdateInstallMode {
+        get { updater?.installMode ?? .askFirst }
+        set { updater?.installMode = newValue }
     }
 
     var dockIconMode: DockIconMode {

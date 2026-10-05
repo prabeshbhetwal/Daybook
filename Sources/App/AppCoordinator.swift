@@ -71,6 +71,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// Opening the app again while it runs, from Finder, Spotlight or the
     /// Dock. The scene observes it: only SwiftUI can open its window.
     let reopenRequests = PassthroughSubject<Void, Never>()
+    /// The updater starts with the first thing that asks for it (the menu's
+    /// command, or launch) and only ever in the running app.
+    private(set) lazy var updater = AppUpdater()
     /// SwiftUI's window actions, handed over by the scene. They live here, not
     /// in the menu bar icon's view, so they still work with the icon hidden.
     var windowOpener: FocusContinuityApp.WindowOpener?
@@ -544,6 +547,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         store.refresh()
         observeWindowRequests()
         applyPresence()
+        settings.updater = updater
         observeWelcomeEffects()
         rememberWelcomePlace()
         Task { @MainActor in

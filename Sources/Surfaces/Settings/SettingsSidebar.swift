@@ -9,6 +9,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     case awayAndBreaks
     case recording
     case privacy
+    case about
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .awayAndBreaks: return "Away & Breaks"
         case .recording: return "Recording"
         case .privacy: return "Privacy"
+        case .about: return "About & Updates"
         }
     }
 
@@ -31,6 +33,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .awayAndBreaks: return "moon.zzz"
         case .recording: return "rectangle.stack.badge.play"
         case .privacy: return "lock.shield"
+        case .about: return "arrow.down.circle"
         }
     }
 
@@ -44,6 +47,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .awayAndBreaks: return .indigo
         case .recording: return .orange
         case .privacy: return .green
+        case .about: return .teal
         }
     }
 
@@ -51,7 +55,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     /// darker hues; on grey, orange and green it fell to 2 to 2.9:1, so those
     /// take a near-black glyph.
     var glyphColour: Color {
-        [.grey, .orange, .green].contains(hue) ? Color(white: 0.06) : .white
+        [.grey, .orange, .green, .teal].contains(hue) ? Color(white: 0.06) : .white
     }
 
     /// The page `delta` rows away in `pages`, or nil past either end: a
@@ -69,7 +73,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .activities: return "Rules that start and name a session from the apps you are in."
         case .awayAndBreaks: return "What happens when you step away, and when to be reminded to rest."
         case .recording: return "What is recorded about the apps you use."
-        case .privacy: return "Where your data lives, and the facts about this build."
+        case .privacy: return "Where your data lives."
+        case .about: return "The version you have, and how it stays up to date."
         }
     }
 
@@ -80,7 +85,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .activities: return [.activities]
         case .awayAndBreaks: return [.away]
         case .recording: return [.tracking]
-        case .privacy: return [.data, .advanced]
+        case .privacy: return [.data]
+        case .about: return [.updates, .advanced]
         }
     }
 
@@ -91,7 +97,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .activities: self = .activities
         case .away: self = .awayAndBreaks
         case .tracking: self = .recording
-        case .data, .advanced: self = .privacy
+        case .data: self = .privacy
+        case .updates, .advanced: self = .about
         }
     }
 
@@ -120,6 +127,7 @@ extension SettingsSection {
         case .tracking: return "Tracking and apps"
         case .appearance: return "Appearance"
         case .data: return "Data and privacy"
+        case .updates: return "Updates"
         case .advanced: return "Advanced"
         }
     }
@@ -135,6 +143,7 @@ extension SettingsSection {
         case .tracking: return "rectangle.stack.badge.play"
         case .appearance: return "circle.lefthalf.filled"
         case .data: return "lock.shield"
+        case .updates: return "arrow.down.circle"
         case .advanced: return "wrench.and.screwdriver"
         }
     }
@@ -167,6 +176,8 @@ extension SettingsSection {
             // "Backup" is the always-shown row; the upgrade copy's row may be absent.
             return ["Privacy", "App use measured precisely since", "Backup",
                     "Reveal data folder"]
+        case .updates: return ["Check for updates automatically", "How often", "When an update is found",
+                               "Check for Updates"]
         case .advanced: return ["Version", "Build", "Recovery"]
         }
     }
@@ -182,6 +193,7 @@ extension SettingsSection {
         case .activities: return [.activityRuleAutomation, .activityRules]
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
         case .appearance: return [.appearance, .density, .timelineLabels, .entryDetails, .quietFold]
+        case .updates: return [.updateChecks, .updateFrequency, .updateInstall]
         case .data, .advanced: return []
         }
     }

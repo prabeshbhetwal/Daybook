@@ -95,6 +95,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case tracking
     case appearance
     case data
+    case updates
     case advanced
 
     var id: String { rawValue }
