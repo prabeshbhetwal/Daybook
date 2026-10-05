@@ -547,6 +547,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         store.refresh()
         observeWindowRequests()
         applyPresence()
+        updater.isBusy = { [weak self] in self?.store.holdsUnsavedWork ?? false }
         settings.updater = updater
         observeWelcomeEffects()
         rememberWelcomePlace()

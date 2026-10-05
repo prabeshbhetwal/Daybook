@@ -542,6 +542,9 @@ enum Snapshotter {
         model.interfaceDensity = density
         model.appearancePreference = item.appearance.preference
         model.showsTimelineLabels = showsTimelineLabels
+        // The Updates page's controls appear only with an updater; this
+        // stand-in draws them without starting Sparkle or the network.
+        model.updater = SnapshotUpdater()
         return model
     }
 
@@ -588,4 +591,14 @@ private extension View {
             self
         }
     }
+}
+
+/// Settings' updater in a still image: fixed answers, no Sparkle, no network.
+private final class SnapshotUpdater: UpdateControlling {
+    let canCheckForUpdates = true
+    let lastCheck: Date? = Date(timeIntervalSinceReferenceDate: 811_000_000)
+    var automaticallyChecks = true
+    var frequency: UpdateFrequency = .weekly
+    var installMode: UpdateInstallMode = .askFirst
+    func checkForUpdates() {}
 }

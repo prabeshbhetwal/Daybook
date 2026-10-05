@@ -212,7 +212,8 @@ struct SettingsPrivacyDisclosure {
         appUsageDetail
         + " Session names, intent and notes entered into FocusContinuity are stored locally,"
         + " with the power source, battery level, charging state and charger wattage"
-        + " seen during each session."
+        + " seen during each session. The only thing sent from this Mac is the update check,"
+        + " which asks GitHub for the latest version and sends the app's own."
     }
 }
 
@@ -573,7 +574,7 @@ final class SettingsModel: ObservableObject {
 
     /// The updater, in the running app only: fixtures and the self-test
     /// leave it nil, and the Updates page then says updates are off here.
-    var updater: AppUpdater? {
+    var updater: (any UpdateControlling)? {
         didSet {
             updaterChanges = updater?.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         }

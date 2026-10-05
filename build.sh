@@ -21,7 +21,6 @@ APP_BUILD="1"
 # matching private key lives in the Keychain (account FocusContinuity).
 UPDATE_FEED_URL="https://github.com/prabeshbhetwal/FocusContinuity/releases/latest/download/appcast.xml"
 UPDATE_PUBLIC_KEY="oVMwFmTRL3FCl/weIGgo7MQsJFRvSD7muBW936KkiQk="
-SPARKLE_DIR="$("${PROJECT_DIR}/scripts/fetch-sparkle.sh")"
 
 RUN=0
 TEST=0
@@ -34,6 +33,7 @@ for arg in "$@"; do
     *) echo "usage: $0 [--run] [--test] [--check]" >&2; exit 2 ;;
   esac
 done
+SPARKLE_DIR="$("${PROJECT_DIR}/scripts/fetch-sparkle.sh")"
 
 # Build only in an isolated directory. The local bundle remains untouched until
 # compilation, signing, strict verification, and any requested self-test pass.

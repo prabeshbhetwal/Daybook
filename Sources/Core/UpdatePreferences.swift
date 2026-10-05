@@ -22,7 +22,11 @@ enum UpdateFrequency: Int, CaseIterable, Identifiable {
     /// The choice closest to an interval the updater stored, so a value set
     /// some other way still shows as one of the four.
     static func nearest(to interval: TimeInterval) -> UpdateFrequency {
-        allCases.min { abs($0.interval - interval) < abs($1.interval - interval) } ?? .weekly
+        // Out-of-range values read as the end they lie beyond: an enormous or
+        // infinite interval once read as Daily, the most frequent choice.
+        guard interval.isFinite, interval < monthly.interval else { return interval > 0 ? .monthly : .daily }
+        guard interval > daily.interval else { return .daily }
+        return allCases.min { abs($0.interval - interval) < abs($1.interval - interval) } ?? .weekly
     }
 }
 

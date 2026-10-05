@@ -21,8 +21,14 @@ APP_NAME="FocusContinuity"
 
 VERSION="${1:-}"
 DRY_RUN=0
-[ "${2:-}" = "--dry-run" ] && DRY_RUN=1
-if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+case "${2:-}" in
+  "") ;;
+  --dry-run) DRY_RUN=1 ;;
+  # Anything else is a mistake, never a quiet real release: "--dryrun"
+  # once fell through to commit, tag, push and publish.
+  *) echo "usage: $0 <major.minor.patch> [--dry-run]" >&2; exit 2 ;;
+esac
+if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || [ "$#" -gt 2 ]; then
   echo "usage: $0 <major.minor.patch> [--dry-run]" >&2
   exit 2
 fi
@@ -33,6 +39,17 @@ fail() { echo "error: $*" >&2; exit 1; }
 [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ] || [ "${DRY_RUN}" -eq 1 ] || fail "release from main"
 [ -z "$(git status --porcelain)" ] || fail "commit or set aside your changes first"
 git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null && fail "v${VERSION} is already tagged"
+if [ "${DRY_RUN}" -eq 0 ]; then
+  # Installed copies fetch the feed without credentials: a private repo
+  # serves them nothing.
+  [ "$(gh repo view "${REPO}" --json visibility --jq .visibility)" = "PUBLIC" ] \
+    || fail "${REPO} is private, so installed copies could not download this release"
+  # A push that would be refused must fail here, before anything is
+  # committed or tagged, not after.
+  git fetch -q origin main
+  [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] \
+    || fail "local main and origin/main differ; pull or push first"
+fi
 
 CURRENT_VERSION="$(sed -n 's/^APP_VERSION="\(.*\)"$/\1/p' build.sh)"
 CURRENT_BUILD="$(sed -n 's/^APP_BUILD="\(.*\)"$/\1/p' build.sh)"
@@ -52,9 +69,18 @@ KEYCHAIN_KEY="$("${SPARKLE}/bin/generate_keys" --account "${KEY_ACCOUNT}" -p 2>/
 
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/${APP_NAME}-release.XXXXXX")"
 cp build.sh "${STAGE}/build.sh.before"
+# Before the release commit, a stop puts build.sh back. After it, the
+# commit is the truth: build.sh is left as committed, and the signed zip and
+# feed are kept in .build/release-<version>/ so the upload can be retried.
+COMMITTED=0
 restore_build_script() {
-  if [ "${DRY_RUN}" -eq 1 ] || [ "${PUBLISHED:-0}" -ne 1 ]; then
+  if [ "${COMMITTED}" -eq 0 ]; then
     cp "${STAGE}/build.sh.before" build.sh
+  elif [ "${PUBLISHED:-0}" -ne 1 ]; then
+    echo "error: the release commit and tag exist, but publishing did not finish." >&2
+    echo "Kept: ${KEEP}. To finish:" >&2
+    echo "  git push origin main v${VERSION}" >&2
+    echo "  gh release create v${VERSION} ${KEEP}/${ZIP_NAME} ${KEEP}/appcast.xml --repo ${REPO} --title \"${APP_NAME} ${VERSION}\" --notes-file ${KEEP}/notes.md" >&2
   fi
   rm -rf "${STAGE}"
 }
@@ -134,11 +160,21 @@ if [ "${DRY_RUN}" -eq 1 ]; then
   exit 0
 fi
 
+KEEP="${ROOT}/.build/release-${VERSION}"
+rm -rf "${KEEP}" && mkdir -p "${KEEP}"
+cp "${ZIP}" "${STAGE}/appcast.xml" "${NOTES}" "${KEEP}/"
+
 git add build.sh
 git commit -q -m "Version ${VERSION}"
 git tag -a "v${VERSION}" -m "${APP_NAME} ${VERSION}"
+COMMITTED=1
 git push origin main "v${VERSION}"
-gh release create "v${VERSION}" "${ZIP}" "${STAGE}/appcast.xml" \
-  --repo "${REPO}" --title "${APP_NAME} ${VERSION}" --notes-file "${NOTES}"
+gh release create "v${VERSION}" "${KEEP}/${ZIP_NAME}" "${KEEP}/appcast.xml" \
+  --repo "${REPO}" --title "${APP_NAME} ${VERSION}" --notes-file "${KEEP}/notes.md"
 PUBLISHED=1
+
+# What installed copies will read, read the way they read it.
+FEED="https://github.com/${REPO}/releases/latest/download/appcast.xml"
+curl -fsSL "${FEED}" | grep -q "<sparkle:version>${NEW_BUILD}</sparkle:version>" \
+  || echo "warning: ${FEED} does not list build ${NEW_BUILD} yet; GitHub may still be caching" >&2
 echo "Released ${APP_NAME} ${VERSION}: https://github.com/${REPO}/releases/tag/v${VERSION}"

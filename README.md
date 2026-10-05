@@ -8,7 +8,7 @@ labelled measures.
 ![The Day story: an expanded session with its apps, app activity and the evidence rail](docs/screenshots/day-story.png)
 
 **SwiftUI · AppKit · Swift Charts · macOS 13+** ·
-no Xcode project, no packages, no network, no telemetry ·
+no Xcode project, one dependency (Sparkle, for updates), no telemetry ·
 hundreds of headless checks
 
 ## Why it exists
