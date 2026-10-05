@@ -64,7 +64,7 @@ enum HistoryOverviewChecks: CheckSuite {
             return ["the year's rows had no September"]
         }
         let summary = HistoryTreeBuilder.summary(top: HistoryTop(place: september.place, firstDay: september.place.span.start,
-                                                                 today: top.today),
+                                                                 today: top.today, calendar: calendar),
                                                  days: year, calendar: calendar)
         let line = HistoryPeriodCard.detail(september, summary: summary, today: today, calendar: calendar)
         let wanted = "3 days · best Mon 28 Sep, \(Tokens.duration(3_600))"

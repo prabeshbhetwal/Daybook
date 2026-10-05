@@ -48,8 +48,9 @@ extension SelfTest {
         expect(zeroRhythm.rhythm == nil && !zeroRhythm.hasEvidence,
                "Rhythm requires at least one non-zero canonical hour", &problems)
 
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        // The calendar SessionStore reads days in. Laid out in UTC, this
+        // fixture failed in Auckland, Apia, Chatham and Pago Pago.
+        let calendar = Calendar.current
         let today = calendar.startOfDay(for: base)
         let current = today.addingTimeInterval(10 * 3_600)
         let clock = TestClock(current)

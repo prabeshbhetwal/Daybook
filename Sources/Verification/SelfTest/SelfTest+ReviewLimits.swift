@@ -9,8 +9,9 @@ extension SelfTest {
     /// silently turn Top Apps into "Top apps among the newest rows".
     static func testPeriodLogRetainsNewestLimit() -> [String] {
         var problems: [String] = []
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        // The calendar Review reads months in. A fixture laid out in UTC put
+        // 1 November's first sessions on 31 October west of Greenwich.
+        let calendar = Calendar.current
         guard let monthStart = calendar.date(from: DateComponents(
             timeZone: calendar.timeZone, year: 2023, month: 11, day: 1)),
               let recentDay = calendar.date(byAdding: .day, value: 28, to: monthStart),

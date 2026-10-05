@@ -16,6 +16,9 @@ extension SelfTest {
         let today = calendar.startOfDay(for: base)
         let thread = UUID()
         let segmentStart = today.addingTimeInterval(9 * 3_600)
+        // 3 pm, after both sessions below and within the window to continue
+        // them, in any time zone (`base` alone is 10 pm in UTC).
+        clock.value = today.addingTimeInterval(15 * 3_600)
 
         archive.append(SessionRecord(name: "Refactor", workType: .deepWork,
                                      start: segmentStart,
