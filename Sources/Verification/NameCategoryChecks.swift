@@ -8,7 +8,7 @@ enum NameCategoryChecks {
          namingRule),
         ("Starting a session named like a category files it there, unnamed",
          startFilesUnderNamedCategory),
-        ("The goal tile's tidy-up names what disagrees, moves it with its rule, and Undo puts it all back",
+        ("The goal tile's tidy-up names today's disagreements, moves them with the rule, and Undo puts it all back",
          tidyMovesAndUndoes)
     ]
 
@@ -53,13 +53,21 @@ enum NameCategoryChecks {
             store.refresh()
             let rule = ActivityRule(name: "Admin", workType: .deepWork, bundleIDs: ["com.example.mail"])
             var problems: [String] = []
-            guard let tidy = store.nameCategoryTidies(rules: [rule]).first(where: { $0.target == .admin }) else {
+            // Another day's session of the same name is not today's to tidy.
+            let earlier = SessionRecord(name: "Admin", workType: .deepWork, start: end.addingTimeInterval(-6 * 86_400),
+                                        end: end.addingTimeInterval(-6 * 86_400 + 1_800), workSeconds: 1_800)
+            store.engine.archive.append(earlier)
+            store.refresh()
+            guard let tidy = store.nameCategoryTidies(rules: [rule], on: end).first(where: { $0.target == .admin }) else {
                 return ["a session and rule named Admin under Deep work were not offered for tidying"]
             }
             if tidy.threads != [named.threadID] || tidy.rules.map(\.id) != [rule.id] {
                 problems.append("the tidy-up gathered \(tidy.threads.count) sessions and \(tidy.rules.count) rules")
             }
-            let sentence = "1 session named “Admin” is filed under Deep work, and the rule “Admin” files new ones there. "
+            if store.nameCategoryTidies(rules: [], on: nil).first(where: { $0.target == .admin })?.threads.count != 2 {
+                problems.append("the whole record did not hold both sessions named Admin")
+            }
+            let sentence = "Today, 1 session named “Admin” is filed under Deep work, and the rule “Admin” files new ones there. "
                 + "They don’t count toward Admin."
             if tidy.sentence != sentence { problems.append("the tidy-up said \"\(tidy.sentence)\"") }
 

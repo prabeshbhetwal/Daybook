@@ -10,27 +10,29 @@ struct NameCategoryTidy: Equatable {
     /// Where those sessions are filed now, for the sentence.
     let filedUnder: [WorkType]
     let rules: [ActivityRule]
+    /// Whether the sessions are one day's, which the sentence then says.
+    var isOneDay = false
 
     /// Changes when a session or rule joins, so a kept tidy-up comes back.
     var signature: String {
         (threads.map(\.uuidString) + rules.map(\.id.uuidString)).sorted().joined(separator: ",")
     }
 
-    /// "2 sessions named “Coding” are filed under Deep work, and the rule
-    /// “Coding” files new ones there. They don't count toward Coding."
+    /// "Today, 2 sessions named “Coding” are filed under Deep work, and the
+    /// rule “Coding” files new ones there. They don't count toward Coding."
     var sentence: String {
         let name = "“\(target.displayName)”"
         let places = filedUnder.map(\.displayName).joined(separator: " and ")
         var parts: [String] = []
         if !threads.isEmpty {
             let noun = threads.count == 1 ? "1 session named \(name) is" : "\(threads.count) sessions named \(name) are"
-            parts.append("\(noun) filed under \(places)")
+            parts.append((isOneDay ? "today, " : "") + "\(noun) filed under \(places)")
         }
         if !rules.isEmpty {
             let ruleNoun = rules.count == 1 ? "the rule \(name) files" : "\(rules.count) rules named \(name) file"
             let destination = Set(rules.map(\.workType)) == Set(filedUnder) && !threads.isEmpty
                 ? "there" : "under " + rules.map(\.workType.displayName).uniqued().joined(separator: " and ")
-            parts.append("\(ruleNoun) new ones \(destination)")
+            parts.append("\(ruleNoun) new \(threads.isEmpty ? "sessions" : "ones") \(destination)")
         }
         let opening = parts.joined(separator: ", and ")
         let subject = threads.isEmpty ? "They" : (threads.count == 1 && rules.isEmpty ? "It" : "They")
@@ -53,9 +55,15 @@ struct NameCategoryTidyUndo {
 }
 
 extension SessionStore {
-    func nameCategoryTidies(rules: [ActivityRule]) -> [NameCategoryTidy] {
+    /// With a day, only sessions with a stretch on that day, and the running
+    /// one: the goal tile is a day's, and offering every past session from it
+    /// read as sixteen of today's when two were.
+    func nameCategoryTidies(rules: [ActivityRule], on day: Date? = nil) -> [NameCategoryTidy] {
+        let calendar = Calendar.current
         var threads: [UUID: (name: String, type: WorkType)] = [:]
         for record in engine.archive.records where record.workType.countsAsFocus {
+            if let day, !calendar.isDate(record.start, inSameDayAs: day),
+               !calendar.isDate(record.end, inSameDayAs: day) { continue }
             threads[record.threadID] = (record.name, record.workType)
         }
         if engine.state != .idle {
@@ -73,7 +81,8 @@ extension SessionStore {
         }
         return WorkType.startable.compactMap { target in
             byTarget[target].map { NameCategoryTidy(target: target, threads: $0.threads,
-                                                    filedUnder: $0.filed, rules: $0.rules) }
+                                                    filedUnder: $0.filed, rules: $0.rules,
+                                                    isOneDay: day != nil) }
         }
     }
 

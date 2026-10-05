@@ -20,7 +20,7 @@ extension SelfTest {
             + StoryIntegrationChecks.tests + CategoryChecks.tests + SessionReportChecks.tests
             + SavedActivityChecks.tests + FirstRunChecks.tests + EfficiencyChecks.tests
             + RedundancyChecks.tests + HistoryJournalChecks.tests + HistoryTreeChecks.tests
-            + HistorySearchChecks.tests + HistoryPathChecks.tests + AppPresenceChecks.tests + NameCategoryChecks.tests + BreakCountingChecks.tests
+            + HistorySearchChecks.tests + HistoryPathChecks.tests + AppPresenceChecks.tests + NameCategoryChecks.tests + StoryRailFiguresChecks.tests + BreakCountingChecks.tests
             + SessionAccessibilityChecks.tests + SettingsAccessibilityChecks.tests
             + DayStoryAccessibilityChecks.tests + RailAccessibilityChecks.tests
             + LongAwayRestoreChecks.tests + PanelRestChecks.tests
