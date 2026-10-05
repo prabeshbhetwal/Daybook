@@ -54,6 +54,8 @@ final class PersistenceStore {
         static let continueWindow = "fc.continueWindow"
         static let defaultWorkType = "fc.defaultWorkType"
         static let menuBarShowsTime = "fc.menuBarShowsTime"
+        static let showsMenuBarIcon = "fc.showsMenuBarIcon"
+        static let dockIconMode = "fc.dockIconMode"
         static let paceWindowDays = "fc.paceWindowDays"
         static let suggestionWindowDays = "fc.suggestionWindowDays"
         static let breakTiersDisabled = "fc.breakTiersDisabled"
@@ -501,6 +503,21 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.menuBarShowsTime) }
     }
 
+    /// The scene reads this key directly so the status item comes and goes
+    /// as it changes; it is published here so that read cannot drift.
+    static let showsMenuBarIconKey = Key.showsMenuBarIcon
+
+    var showsMenuBarIcon: Bool {
+        get { defaults.object(forKey: Key.showsMenuBarIcon) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.showsMenuBarIcon) }
+    }
+
+    /// Stored raw so Core keeps no opinion on how the mode is shown.
+    var dockIconModeRawValue: String {
+        get { defaults.string(forKey: Key.dockIconMode) ?? DockIconMode.whileWindowOpen.rawValue }
+        set { defaults.set(newValue, forKey: Key.dockIconMode) }
+    }
+
     /// How many working days "your usual pace" compares today with.
     var paceWindowDays: Int {
         get {
@@ -689,6 +706,7 @@ final class PersistenceStore {
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,
                     Key.idlePauseThreshold, Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
+                    Key.showsMenuBarIcon, Key.dockIconMode,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
                     Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut]
         for key in keys { defaults.removeObject(forKey: key) }

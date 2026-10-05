@@ -31,9 +31,25 @@ enum Entry {
 struct FocusContinuityApp: App {
     @NSApplicationDelegateAdaptor(AppCoordinator.self) private var coordinator
     @Environment(\.openWindow) private var openWindow
+    /// Read straight from the defaults so the status item comes and goes as
+    /// the setting changes; written only through the settings model.
+    @AppStorage(PersistenceStore.showsMenuBarIconKey) private var showsMenuBarIcon = true
 
     var body: some Scene {
-        MenuBarExtra {
+        let _ = coordinator.windowOpener = WindowOpener(
+            open: { tab in openMainWindow(on: tab) },
+            // Opened again from Finder, Spotlight or the Dock while running:
+            // the window comes forward as it was, with any open sheet and
+            // unsaved form still in it.
+            reopen: {
+                NSApp.activate(ignoringOtherApps: true)
+                openWindow(id: "main")
+            })
+        // SwiftUI writes this binding back whenever it syncs the status item,
+        // unchanged value included. Writing that through saved the default
+        // again, which rebuilt the scene, which wrote again: a busy loop.
+        MenuBarExtra(isInserted: Binding(get: { showsMenuBarIcon },
+                                         set: { if $0 != showsMenuBarIcon { coordinator.settings.showsMenuBarIcon = $0 } })) {
             // Closing the panel only orders it out; this rests its content
             // until it is shown again, so a closed panel costs nothing.
             PanelRest { PopoverView(
@@ -52,19 +68,6 @@ struct FocusContinuityApp: App {
             ) }
         } label: {
             MenuBarLabelView(model: coordinator.menuBarLabel)
-                // The app is an LSUIElement, so nothing is on screen at first
-                // launch. A welcome nobody can see is no welcome: when one
-                // begins, the window it explains has to be in front of them.
-                .onReceive(coordinator.firstRun.$progress.map { $0 != nil }.removeDuplicates()) { active in
-                    if active { openMainWindow() }
-                }
-                // Opened again from Finder or Spotlight while running: the
-                // window comes forward as it was, with any open sheet and
-                // unsaved form still in it.
-                .onReceive(coordinator.reopenRequests) {
-                    NSApp.activate(ignoringOtherApps: true)
-                    openWindow(id: "main")
-                }
         }
         .menuBarExtraStyle(.window)
 
@@ -77,7 +80,7 @@ struct FocusContinuityApp: App {
             )
             // A closed window is kept whole by SwiftUI and would go on
             // re-rendering the story every second; it rests until reopened.
-            .background(WindowDormancy())
+            .background(WindowDormancy(onOpenChange: { coordinator.mainWindowOpen = $0 }))
         }
         .defaultSize(width: 1_160, height: 780)
         .windowResizability(.contentMinSize)
@@ -87,6 +90,12 @@ struct FocusContinuityApp: App {
             SessionCommands(store: coordinator.store,
                             state: coordinator.sessionCommandState)
         }
+    }
+
+    /// Window actions handed to the coordinator, which outlives every view.
+    struct WindowOpener {
+        let open: (AppTab?) -> Void
+        let reopen: () -> Void
     }
 
     private func openMainWindow(on tab: AppTab? = nil) {

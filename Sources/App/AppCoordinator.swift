@@ -39,6 +39,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         onChange: { [weak self] in self?.store.refresh() },
         onTrackingChanged: { [weak self] in self?.store.setTrackingEnabled($0) },
         onAppearanceChanged: { [weak self] in self?.applyApplicationAppearance($0) },
+        onPresenceChanged: { [weak self] in self?.applyPresence() },
         onActivityRulesChanged: { [weak self] in self?.ruleConfigurationChanged() },
         // A method, not a closure that reads `mainWindow`, so the two lazy
         // properties never become each other's dependency.
@@ -70,6 +71,14 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// Opening the app again while it runs, from Finder, Spotlight or the
     /// Dock. The scene observes it: only SwiftUI can open its window.
     let reopenRequests = PassthroughSubject<Void, Never>()
+    /// SwiftUI's window actions, handed over by the scene. They live here, not
+    /// in the menu bar icon's view, so they still work with the icon hidden.
+    var windowOpener: FocusContinuityApp.WindowOpener?
+    var windowRequests: Set<AnyCancellable> = []
+    /// Whether the main window is open: shown, or minimised to the Dock.
+    var mainWindowOpen = false {
+        didSet { if mainWindowOpen != oldValue { applyPresence() } }
+    }
 
     /// Input density, fed only at event boundaries — app activation, lock,
     /// unlock, wake — and never on a timer. A repeating timer would be the only
@@ -533,6 +542,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                                 using: self.activityRuleInput())
         }
         store.refresh()
+        observeWindowRequests()
+        applyPresence()
         observeWelcomeEffects()
         rememberWelcomePlace()
         Task { @MainActor in
@@ -637,6 +648,14 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         true
+    }
+
+    /// Closing the window never ends the app: it records all day from the
+    /// menu bar. While the window is open the app is a regular one (see
+    /// `applyPresence`), and SwiftUI quits a regular app when its last window
+    /// closes unless told not to.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
     }
 
     /// A menu-bar app has no Dock icon to click, so opening it again is how a

@@ -17,14 +17,26 @@ import SwiftUI
 /// A minimised window is left alone: nothing announces its return from the
 /// Dock early enough to restore it unseen.
 struct WindowDormancy: NSViewRepresentable {
-    func makeNSView(context: Context) -> WindowDormancyAnchor { WindowDormancyAnchor() }
-    func updateNSView(_ nsView: WindowDormancyAnchor, context: Context) {}
+    /// True when the window comes on screen, false when it closes. A window
+    /// minimised to the Dock is still open.
+    var onOpenChange: ((Bool) -> Void)?
+
+    func makeNSView(context: Context) -> WindowDormancyAnchor {
+        let anchor = WindowDormancyAnchor()
+        anchor.onOpenChange = onOpenChange
+        return anchor
+    }
+
+    func updateNSView(_ nsView: WindowDormancyAnchor, context: Context) {
+        nsView.onOpenChange = onOpenChange
+    }
 }
 
 final class WindowDormancyAnchor: NSView {
     private weak var host: NSWindow?
     private var visibility: NSKeyValueObservation?
     private var observers: [NSObjectProtocol] = []
+    var onOpenChange: ((Bool) -> Void)?
     /// The window's real content while it rests, and what had focus in it.
     private var resting: NSView?
     private weak var restingResponder: NSResponder?
@@ -43,7 +55,12 @@ final class WindowDormancyAnchor: NSView {
         // Ordering in flips `isVisible` synchronously, ahead of the first
         // draw: the one signal every way of showing a window shares.
         visibility = window.observe(\.isVisible, options: [.new]) { [weak self] window, _ in
-            if window.isVisible { self?.wake() } else { self?.restIfHidden() }
+            if window.isVisible {
+                self?.onOpenChange?(true)
+                self?.wake()
+            } else {
+                self?.restIfHidden()
+            }
         }
         let center = NotificationCenter.default
         observers = [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification,
@@ -52,6 +69,9 @@ final class WindowDormancyAnchor: NSView {
                 self?.restIfHidden()
             }
         }
+        // Closed, not hidden with the app or minimised: only a close ends it.
+        observers.append(center.addObserver(forName: NSWindow.willCloseNotification, object: window,
+                                            queue: .main) { [weak self] _ in self?.onOpenChange?(false) })
     }
 
     /// Only once the window has actually left the screen, checked a turn of

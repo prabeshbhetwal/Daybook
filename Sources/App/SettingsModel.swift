@@ -32,6 +32,8 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case defaultCategory
     case openAtLogin
     case menuBarTime
+    case menuBarIcon
+    case dockIcon
     case railApps
     case paceWindow
     case suggestionWindow
@@ -64,6 +66,8 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .defaultCategory: return \SettingsModel.defaultWorkType
         case .openAtLogin: return \SettingsModel.opensAtLogin
         case .menuBarTime: return \SettingsModel.menuBarShowsTime
+        case .menuBarIcon: return \SettingsModel.showsMenuBarIcon
+        case .dockIcon: return \SettingsModel.dockIconMode
         case .railApps: return \SettingsModel.railAppCount
         case .paceWindow: return \SettingsModel.paceWindowDays
         case .suggestionWindow: return \SettingsModel.suggestionWindowDays
@@ -243,6 +247,7 @@ final class SettingsModel: ObservableObject {
     private let onChange: () -> Void
     private let onTrackingChanged: (Bool) -> Void
     private let onAppearanceChanged: (AppearancePreference) -> Void
+    private let onPresenceChanged: () -> Void
     private let onActivityRulesChanged: () -> Void
     private let onRevealDataFolder: (() -> Void)?
     private let onReplayWelcome: (() -> Void)?
@@ -271,6 +276,7 @@ final class SettingsModel: ObservableObject {
          onChange: @escaping () -> Void,
          onTrackingChanged: @escaping (Bool) -> Void,
          onAppearanceChanged: @escaping (AppearancePreference) -> Void = { _ in },
+         onPresenceChanged: @escaping () -> Void = {},
          onActivityRulesChanged: @escaping () -> Void = {},
          revealDataFolder: (() -> Void)? = nil,
          replayWelcome: (() -> Void)? = nil,
@@ -285,6 +291,7 @@ final class SettingsModel: ObservableObject {
         self.onChange = onChange
         self.onTrackingChanged = onTrackingChanged
         self.onAppearanceChanged = onAppearanceChanged
+        self.onPresenceChanged = onPresenceChanged
         self.onActivityRulesChanged = onActivityRulesChanged
         self.onRevealDataFolder = revealDataFolder
         self.onReplayWelcome = replayWelcome
@@ -543,6 +550,27 @@ final class SettingsModel: ObservableObject {
     var menuBarShowsTime: Bool {
         get { store.menuBarShowsTime }
         set { write { store.menuBarShowsTime = newValue } }
+    }
+
+    var showsMenuBarIcon: Bool {
+        get { store.showsMenuBarIcon }
+        set {
+            write {
+                store.showsMenuBarIcon = newValue
+                // Hidden, the menu bar icon leaves the Dock as the only way
+                // back in, so the picker says so rather than claim otherwise.
+                if !newValue { store.dockIconModeRawValue = DockIconMode.always.rawValue }
+            }
+            onPresenceChanged()
+        }
+    }
+
+    var dockIconMode: DockIconMode {
+        get { DockIconMode(rawValue: store.dockIconModeRawValue) ?? .whileWindowOpen }
+        set {
+            write { store.dockIconModeRawValue = newValue.rawValue }
+            onPresenceChanged()
+        }
     }
 
     var railAppCount: Int {

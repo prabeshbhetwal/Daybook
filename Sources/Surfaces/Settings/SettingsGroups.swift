@@ -35,7 +35,7 @@ struct SettingsGroups: View {
 
     private var general: some View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
-            SurfacePanel(title: "Menu bar and login", layout: layout) {
+            SurfacePanel(title: "Menu bar, Dock and login", layout: layout) {
                 toggleRow("Open at login",
                           detail: "Starts FocusContinuity in the menu bar when you sign in, so the "
                             + "record never has a gap at the start of the day.",
@@ -49,9 +49,26 @@ struct SettingsGroups: View {
                     }
                 }
                 rowDivider
+                toggleRow("Show the icon in the menu bar",
+                          detail: "Off, the Dock icon stays so FocusContinuity can always be reached.",
+                          isOn: $model.showsMenuBarIcon)
+                rowDivider
                 toggleRow("Show the session time in the menu bar",
                           detail: "Off, the menu bar keeps only the goal ring while a session runs.",
                           isOn: $model.menuBarShowsTime)
+                    .disabled(!model.showsMenuBarIcon)
+                rowDivider
+                preferenceRow("Dock icon", detail: dockIconDetail) {
+                    Picker("Dock icon", selection: $model.dockIconMode) {
+                        Text("While the window is open").tag(DockIconMode.whileWindowOpen)
+                        Text("Always").tag(DockIconMode.always)
+                        Text("Never").tag(DockIconMode.never)
+                    }
+                    .labelsHidden()
+                    .frame(width: 220)
+                    .disabled(!model.showsMenuBarIcon)
+                    .accessibilityLabel("Dock icon")
+                }
             }
             // A switch that flips back by itself is otherwise silent.
             .announcesChanges(to: loginItemMessage)
@@ -670,6 +687,18 @@ struct SettingsGroups: View {
     }
 
     private var rowDivider: some View { Divider() }
+
+    /// The app's menus come and go with the Dock icon, so the detail names both.
+    private var dockIconDetail: String {
+        guard model.showsMenuBarIcon else {
+            return "Always, while the menu bar icon is hidden: the Dock is then the only way in."
+        }
+        switch model.dockIconMode {
+        case .whileWindowOpen: return "The Dock icon and the app's menus show while the window is open."
+        case .always: return "The Dock icon and the app's menus show all the time."
+        case .never: return "FocusContinuity stays in the menu bar, with no Dock icon or app menus."
+        }
+    }
 
     private func explanation(_ text: String) -> some View {
         Text(text)

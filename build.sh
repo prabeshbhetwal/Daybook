@@ -282,6 +282,21 @@ if [ "${RUN}" -eq 1 ]; then
     echo "error: a running ${APP_NAME} did not quit within 10s; quit it, then run again" >&2
     exit 1
   fi
-  open "${LOCAL_APP_DIR}"
+  # Launch Services can drop an open that lands while the quit copy is still
+  # being torn down, and `open` reports success either way: wait for the new
+  # process, and ask once more if none appears.
+  launched=0
+  for attempt in 1 2; do
+    open "${LOCAL_APP_DIR}"
+    for _ in $(seq 1 50); do
+      if pgrep -f "${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}" >/dev/null; then launched=1; break; fi
+      sleep 0.1
+    done
+    [ "${launched}" -eq 1 ] && break
+  done
+  if [ "${launched}" -ne 1 ]; then
+    echo "error: ${APP_NAME} did not start; open it from ${LOCAL_APP_DIR}" >&2
+    exit 1
+  fi
   echo "Launched ${APP_NAME}."
 fi
