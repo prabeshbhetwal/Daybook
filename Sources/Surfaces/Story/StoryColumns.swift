@@ -6,6 +6,7 @@ enum StoryRenderEvidence: String, Hashable {
     case historyTree
     case storyChromeControls
     case historyEmpty
+    case historyIntegrityNotice
     case historyPeriodRail
     case historyDayRail
     case historySessionRail
