@@ -315,12 +315,32 @@ if [ "${RUN}" -eq 1 ]; then
   # `open` on a running app only brings it forward: the old process keeps
   # its old code while the new binary sits unused on disk. Quit any running
   # copy, from any folder, the ordinary way so it saves on the way out.
+  # The app itself, from any folder: a process named for it that is not one
+  # of its own test runs. Searching command lines instead matched other
+  # builds' compilers, whose arguments hold the same path, so a relaunch
+  # quit the app and then refused to open the new one.
+  app_pids() {
+    for pid in $(pgrep -x "${APP_NAME}"); do
+      case "$(ps -o args= -p "${pid}" 2>/dev/null)" in
+        *--selftest*|*--snapshot*|*--gallery*|*--fixture-window*) ;;
+        *) echo "${pid}" ;;
+      esac
+    done
+  }
+  local_app_running() {
+    for pid in $(app_pids); do
+      case "$(ps -o args= -p "${pid}" 2>/dev/null)" in
+        "${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}"*) return 0 ;;
+      esac
+    done
+    return 1
+  }
   osascript -e "quit app id \"${BUNDLE_ID}\"" >/dev/null 2>&1 || true
   for _ in $(seq 1 100); do
-    pgrep -f "/${APP_NAME}.app/Contents/MacOS/${APP_NAME}" >/dev/null || break
+    [ -z "$(app_pids)" ] && break
     sleep 0.1
   done
-  if pgrep -f "/${APP_NAME}.app/Contents/MacOS/${APP_NAME}" >/dev/null; then
+  if [ -n "$(app_pids)" ]; then
     echo "error: a running ${APP_NAME} did not quit within 10s; quit it, then run again" >&2
     exit 1
   fi
@@ -331,7 +351,7 @@ if [ "${RUN}" -eq 1 ]; then
   for attempt in 1 2; do
     open "${LOCAL_APP_DIR}"
     for _ in $(seq 1 50); do
-      if pgrep -f "${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}" >/dev/null; then launched=1; break; fi
+      if local_app_running; then launched=1; break; fi
       sleep 0.1
     done
     [ "${launched}" -eq 1 ] && break
