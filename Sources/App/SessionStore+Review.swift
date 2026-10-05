@@ -383,7 +383,7 @@ extension SessionStore {
 
     /// The first day of the shown Review period — what the month grid lays out.
     var reviewPeriodStart: Date {
-        let calendar = Calendar.current
+        let calendar = Calendar.current.weeksFromMonday
         let anchor = reviewAnchor ?? Date()
         let unit: Calendar.Component = reviewPeriod == .week ? .weekOfYear : .month
         return calendar.dateInterval(of: unit, for: anchor)?.start

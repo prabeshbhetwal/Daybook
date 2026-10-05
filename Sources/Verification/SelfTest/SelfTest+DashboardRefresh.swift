@@ -166,7 +166,7 @@ extension SelfTest {
         var problems: [String] = []
         let calendar = Calendar.current
         let anchor = periodAnchor()
-        guard let week = calendar.dateInterval(of: .weekOfYear, for: anchor),
+        guard let week = calendar.weeksFromMonday.dateInterval(of: .weekOfYear, for: anchor),
               let month = calendar.dateInterval(of: .month, for: anchor) else {
             return ["could not construct period integrity bounds"]
         }
