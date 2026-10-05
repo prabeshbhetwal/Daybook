@@ -10,7 +10,7 @@ struct NameCategoryNotice: View {
     @State private var moved: (tidy: NameCategoryTidy, undo: NameCategoryTidyUndo)?
 
     private var offered: NameCategoryTidy? {
-        store.nameCategoryTidies(rules: settings.activityRules)
+        store.nameCategoryTidies(rules: settings.activityRules, on: store.now())
             .first { $0.signature != store.engine.store.nameCategoryKept }
     }
 
