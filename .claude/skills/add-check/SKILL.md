@@ -60,15 +60,10 @@ hours), never multiples of 86 400 seconds.
 
 ## 5. Prove it bites
 
-A check that cannot fail proves nothing. In a scratch copy, put the old
-behaviour back and confirm the new check fails:
-
-```bash
-rsync -a --exclude .git --exclude .build --exclude FocusContinuity.app ./ "$TMPDIR/mutant/"
-# edit the old behaviour back in under $TMPDIR/mutant, then:
-(cd "$TMPDIR/mutant" && ./build.sh --check)   # sandbox disabled; the new check must fail
-rm -rf "$TMPDIR/mutant"
-```
+A check that cannot fail proves nothing. Make a scratch copy (`CLAUDE.md`,
+Runtime probes), put the old behaviour back in the copy, and run
+`./build.sh --check` there with the sandbox disabled: the new check must fail.
+Then remove the copy.
 
 ## 6. Run the suite
 

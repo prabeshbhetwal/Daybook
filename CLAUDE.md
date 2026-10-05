@@ -56,6 +56,25 @@ Core → App → Design/Surfaces, in one direction only; the README has the map.
   a fix to persistence, settings, session state or time arithmetic, run the
   `fix-reviewer` agent on it.
 
+## Runtime probes
+
+A claim that something cannot happen needs a probe, not an argument. Probes
+work in a fresh `mktemp -d` folder, never in the working tree and never on live
+data, and report what they observed (`saved=false published=true`). For an
+open-ended bug hunt over an area, use the `probe-hunter` agent.
+
+- Core logic, about 20 s. Core compiles on its own, so drive it from a
+  `main.swift`: `P="$(mktemp -d "$TMPDIR/fc-probe.XXXXXX")"`, write
+  `"$P/main.swift"`, then
+  `swiftc -module-cache-path "$TMPDIR/mc" -swift-version 5 -target arm64-apple-macos13.0 -o "$P/run" $(find Sources/Core -name '*.swift') "$P/main.swift" && "$P/run"`
+- Anything above Core. `build.sh` reads only itself, `Sources/` and
+  `Assets/`, so copy those:
+  `T="$(mktemp -d "$TMPDIR/fc-tree.XXXXXX")"; rsync -a build.sh Sources Assets "$T/"`.
+  Add a temporary check or change in the copy and run `./build.sh --check`
+  there with the sandbox disabled. The same copy serves a mutation test: put
+  the old behaviour back and confirm the new check fails.
+- Remove the folders when done.
+
 ## Live data
 
 `~/Library/Application Support/FocusContinuity/` (`sessions.json`,
@@ -67,6 +86,8 @@ when the user has asked for that exact change. After editing the guard, run
 
 ## Conventions
 
+- Ship with the `ship` skill: it checks, commits in the style below, merges
+  into `main`, pushes and updates the main checkout.
 - Commit subject: one plain present-tense sentence stating what is now true
   for the user, e.g. "A relaunch no longer deletes the running session's power
   readings". No type prefixes. The body is wrapped prose: what changed and why.

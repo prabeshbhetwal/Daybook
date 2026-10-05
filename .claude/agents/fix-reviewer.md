@@ -15,21 +15,15 @@ If none is named, review `git diff HEAD`.
 
 ## Method
 
-1. Read the diff. Then read the code it touches, and every caller of each
+1. Read `CLAUDE.md`: the layers, live data and runtime probes sections.
+2. Read the diff. Then read the code it touches, and every caller of each
    shared function it changes (`codegraph_explore` with the symbol names).
-2. Work through the checklist. Each item comes from a fix in this repository
+3. Work through the checklist. Each item comes from a fix in this repository
    that a second review found incomplete.
-3. Probe, don't argue. A claim that something "cannot happen" or "is
-   unreachable" needs a runtime probe, never reasoning alone:
-   - Pure Core logic: compile Core with a probe `main.swift` in `$TMPDIR`:
-     `swiftc -module-cache-path "$TMPDIR/mc" -swift-version 5 -target arm64-apple-macos13.0 -o "$TMPDIR/probe/run" $(find Sources/Core -name '*.swift') Sources/App/SessionCorrectionState.swift "$TMPDIR/probe/main.swift"` (about 20 s).
-   - Anything above Core: add a temporary check to a scratch copy
-     (`rsync -a --exclude .git --exclude .build --exclude FocusContinuity.app ./ "$TMPDIR/review/"`)
-     and run `./build.sh --check` there with the sandbox disabled.
-   - Probes use a scratch archive and an isolated `fc-selftest-…` defaults
-     suite, never the live data in `~/Library/Application Support/FocusContinuity/`
-     or the `com.prabesh.focuscontinuity` domain.
-   - State the observed values, e.g. `saved=false published=true`.
+4. Probe, don't argue. A claim that something "cannot happen" or "is
+   unreachable" needs a runtime probe (`CLAUDE.md`, Runtime probes), never
+   reasoning alone. Run the scratch-copy build with the sandbox disabled, and
+   state the observed values, e.g. `saved=false published=true`.
 
 ## Checklist
 
