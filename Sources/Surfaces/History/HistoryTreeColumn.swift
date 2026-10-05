@@ -26,12 +26,25 @@ struct HistoryTree: View {
         let summary = searched.map { $0.isEmpty ? nil : Self.matchSummary($0) } ?? nil
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                HistoryFindBar(store: store, focusRequest: navigation.historySearchFocusRequest)
+                HistoryFindBar(store: store, focusRequest: navigation.historySearchFocusRequest,
+                               matchCount: searched.map(Self.matchCount))
                     .coachAnchor(.search)
-                if let summary {
-                    Text(durations: summary)
+                // The count is in the field; the focus it adds up to, here.
+                if let focus = searched.flatMap(Self.matchFocus) {
+                    Text(durations: focus)
                         .font(Tokens.Typography.metadata)
                         .foregroundStyle(.secondary)
+                }
+                // A search replaces the tree, so there is no path to show.
+                if searched == nil, !isEmptyArchive, !crumbs.isEmpty {
+                    HistoryPathBar(crumbs: crumbs) { crumb in
+                        switch crumb.focus {
+                        case .row(let place): navigation.navigateHistory(to: place)
+                        case nil: navigation.navigateHistory(to: nil)
+                        // The session is the place already; bring it back into view.
+                        case .session: navigation.revealHistory(target: crumb.target, focus: crumb.focus)
+                        }
+                    }
                 }
             }
             .padding(EdgeInsets(top: insets.top, leading: insets.leading,
@@ -42,8 +55,14 @@ struct HistoryTree: View {
                     .onChange(of: navigation.historyScrollRequest) { _ in
                         treeFocused = true
                         guard let target = navigation.historyScrollTarget else { return }
-                        withAnimation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion)) {
-                            proxy.scrollTo(target, anchor: .top)
+                        // A frame later, once the rows that opened or folded are
+                        // laid out: measured against the old layout, a scroll after
+                        // a long day folded stopped where the day had been, below
+                        // the end of the list, and the column showed blank.
+                        DispatchQueue.main.async {
+                            withAnimation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion)) {
+                                proxy.scrollTo(target, anchor: .top)
+                            }
                         }
                     }
             }
@@ -90,12 +109,23 @@ struct HistoryTree: View {
         }
     }
 
+    private var crumbs: [HistoryCrumb] {
+        let session = navigation.historySession.flatMap { pick in
+            store.journalSession(thread: pick.thread, on: pick.day).map {
+                (thread: pick.thread, day: pick.day, title: $0.workType.sessionTitle(named: $0.name))
+            }
+        }
+        return HistoryPath.crumbs(top: store.historyTop(), open: navigation.historyOpen, session: session,
+                                  today: store.now(), calendar: SessionStore.historyCalendar)
+    }
+
     private var headline: some View {
         let line = HistoryRowText.headline(top: store.historyTop(), summary: store.historySummary(),
                                            calendar: SessionStore.historyCalendar)
         return StoryHeadline(eyebrow: line.eyebrow, sentence: line.sentence, facts: line.facts,
                              highlight: Tokens.duration(store.historySummary().focused))
             .padding(.horizontal, HistoryRowLayout.inset)
+            .id(HistoryPath.topID)
     }
 
     private var tree: some View {
@@ -138,6 +168,35 @@ struct HistoryTree: View {
     /// `12 sessions match · 8h 20m of focus`, then `· 2 breaks` when breaks
     /// matched too; `2 breaks match` when only breaks did.
     static func matchSummary(_ entries: [JournalEntry]) -> String {
+        let (sessions, breaks, worked) = tally(entries)
+        let breakCount = breaks == 1 ? "1 break" : "\(breaks) breaks"
+        if sessions == 0 && breaks > 0 { return breakCount + (breaks == 1 ? " matches" : " match") }
+        let noun = sessions == 1 ? "session matches" : "sessions match"
+        let summary = "\(sessions) \(noun) · \(Tokens.duration(worked)) of focus"
+        return breaks > 0 ? summary + " · " + breakCount : summary
+    }
+
+    /// `12 sessions`, `12 sessions · 2 breaks`, `2 breaks` or `No matches`:
+    /// the count in the field while a search runs.
+    static func matchCount(_ entries: [JournalEntry]) -> String {
+        let (sessions, breaks, _) = tally(entries)
+        let sessionCount = sessions == 1 ? "1 session" : "\(sessions) sessions"
+        let breakCount = breaks == 1 ? "1 break" : "\(breaks) breaks"
+        switch (sessions, breaks) {
+        case (0, 0): return "No matches"
+        case (0, _): return breakCount
+        case (_, 0): return sessionCount
+        default: return sessionCount + " · " + breakCount
+        }
+    }
+
+    /// `8h 20m of focus` under the field, when the matches hold any.
+    static func matchFocus(_ entries: [JournalEntry]) -> String? {
+        let worked = tally(entries).worked
+        return worked > 0 ? "\(Tokens.duration(worked)) of focus" : nil
+    }
+
+    private static func tally(_ entries: [JournalEntry]) -> (sessions: Int, breaks: Int, worked: TimeInterval) {
         var sessions = 0
         var breaks = 0
         var worked: TimeInterval = 0
@@ -146,11 +205,7 @@ struct HistoryTree: View {
             breaks += day.breaks
             worked += day.focused
         }
-        let breakCount = breaks == 1 ? "1 break" : "\(breaks) breaks"
-        if sessions == 0 && breaks > 0 { return breakCount + (breaks == 1 ? " matches" : " match") }
-        let noun = sessions == 1 ? "session matches" : "sessions match"
-        let summary = "\(sessions) \(noun) · \(Tokens.duration(worked)) of focus"
-        return breaks > 0 ? summary + " · " + breakCount : summary
+        return (sessions, breaks, worked)
     }
 
     /// What a row says when the keyboard lands on it: its VoiceOver label,

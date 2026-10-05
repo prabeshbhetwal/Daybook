@@ -139,6 +139,16 @@ enum HistoryJournalChecks {
         if onlyBreaks != "1 break matches" {
             failures.append("a search matching one break summed \"\(onlyBreaks)\"")
         }
+        // The field counts; the line under it adds up the focus. Each says it once.
+        let breakOnly = HistoryJournalBuilder.entries(matching: [rest(0, 9, 29, 1_500)], calendar: calendar)
+        let counts = [HistoryTree.matchCount(withBreaks), HistoryTree.matchCount(breakOnly), HistoryTree.matchCount([])]
+        if counts != ["3 sessions · 3 breaks", "1 break", "No matches"] {
+            failures.append("the field's counts read \(counts)")
+        }
+        if HistoryTree.matchFocus(withBreaks) != "\(Tokens.duration(2_700)) of focus"
+            || HistoryTree.matchFocus(breakOnly) != nil {
+            failures.append("the focus line under the field was wrong or claimed focus for breaks")
+        }
         return failures
     }
 

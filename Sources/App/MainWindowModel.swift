@@ -312,6 +312,33 @@ struct HistorySessionPick: Hashable {
         }
     }
 
+    /// The path bar: bring a place on the open path back into view, with the
+    /// keyboard on it. Nothing folds; the path is where the reader already is.
+    func revealHistory(target: String, focus: HistoryFocus?) {
+        if let focus { animated(Tokens.Motion.selection) { historyFocus = focus } }
+        historyScrollTarget = target
+        historyScrollRequest &+= 1
+    }
+
+    /// A place on the path bar clicked: go there, as a file browser goes to a
+    /// folder on its path. Everything under it folds; nil is the top period.
+    func navigateHistory(to place: HistoryPlace?) {
+        let depth: Int
+        if let place {
+            guard let index = historyOpen.firstIndex(of: place) else { return }
+            depth = index + 1
+        } else {
+            depth = 0
+        }
+        // Instant, as a file browser changes folder: an animated fold of a
+        // long day kept shrinking under the scroll that followed it.
+        historySession = nil
+        historyOpen = Array(historyOpen.prefix(depth))
+        historyFocus = place.map(HistoryFocus.row)
+        historyScrollTarget = place?.id ?? HistoryPath.topID
+        historyScrollRequest &+= 1
+    }
+
     /// Escape: fold the deepest open row. False when nothing was open.
     @discardableResult
     func foldDeepestHistory() -> Bool {
