@@ -34,6 +34,11 @@ enum DataBackup {
         // off, and creating it would make an ordinary folder that never syncs.
         guard fileManager.fileExists(atPath: root.path) else { throw Failure.noDestination }
         let parent = root.appendingPathComponent(folderName, isDirectory: true)
+        // Backups made before the rename join the new ones here, not at
+        // launch: launch never reaches into iCloud Drive.
+        NameMigration.carryFolder(from: root.appendingPathComponent(NameMigration.legacyBackupFolderName,
+                                                                    isDirectory: true),
+                                  to: parent, fileManager: fileManager)
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
 
         let stamp = stampFormatter.string(from: date)

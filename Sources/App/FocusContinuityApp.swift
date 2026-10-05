@@ -24,7 +24,28 @@ enum Entry {
                 : FileManager.default.currentDirectoryPath + "/snapshots"
             exit(Snapshotter.run(directory: URL(fileURLWithPath: path)) ? 0 : 1)
         }
+        quitLegacyApp()
+        NameMigration.run()
         FocusContinuityApp.main()
+    }
+
+    /// A copy still running under the old name writes the same history, so it
+    /// is asked to quit before the folder moves, and stopped if it will not.
+    private static func quitLegacyApp() {
+        guard NameMigration.legacyDomain != FocusConstants.bundleIdentifier else { return }
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: NameMigration.legacyDomain)
+        guard !running.isEmpty else { return }
+        running.forEach { $0.terminate() }
+        waitUntilGone(running, seconds: 10)
+        running.filter { !$0.isTerminated }.forEach { $0.forceTerminate() }
+        waitUntilGone(running, seconds: 2)
+    }
+
+    private static func waitUntilGone(_ apps: [NSRunningApplication], seconds: TimeInterval) {
+        let deadline = Date().addingTimeInterval(seconds)
+        while apps.contains(where: { !$0.isTerminated }), Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
     }
 }
 

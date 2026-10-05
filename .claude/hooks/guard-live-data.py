@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""PreToolUse guard: Claude may read FocusContinuity's live data, never change it.
+"""PreToolUse guard: Claude may read Daybook's live data, never change it.
 
 The live data is the user's real history: sessions.json and app-usage.json in
 Application Support, and the app's own preferences domain. Checks and probes
 use a scratch archive and an isolated `fc-selftest-…` defaults suite instead.
-The self-test suites (`com.prabesh.focuscontinuity.selftest.*`) are not live
-data and are not guarded.
+The self-test suites (`com.prabesh.daybook.selftest.*`) are not live data and
+are not guarded. Until the October 2026 rename the app was FocusContinuity;
+its folder and preferences under that name stay guarded too, because the
+first launch as Daybook moves them and the old preferences are never removed.
 
 This is a guardrail against slips, not a sandbox: it reads the command text,
 so indirection (scripts, xargs, $(...)) can get past it. A command that
@@ -22,11 +24,11 @@ import shlex
 import sys
 
 HOME = os.path.expanduser("~")
-DOMAIN = "com.prabesh.focuscontinuity"
-LIVE = [
-    os.path.join(HOME, "Library/Application Support/FocusContinuity"),
-    os.path.join(HOME, "Library/Preferences", DOMAIN + ".plist"),
-]
+DOMAINS = ("com.prabesh.daybook", "com.prabesh.focuscontinuity")
+FOLDERS = ("Daybook", "FocusContinuity")
+LIVE = [os.path.join(HOME, "Library/Application Support", f) for f in FOLDERS] \
+    + [os.path.join(HOME, "Library/Preferences", d + ".plist") for d in DOMAINS] \
+    + [os.path.join(HOME, "Library/Mobile Documents/com~apple~CloudDocs", f + " Backups") for f in FOLDERS]
 BYPASS = "FC_LIVE_DATA_OK=1"
 
 # Verbs that change whatever path they are given.
@@ -64,7 +66,7 @@ def touches(word, *, ancestors=False):
 
 
 def names_live_domain(word):
-    return re.fullmatch(re.escape(DOMAIN) + r"(\.plist)?", word) is not None or touches(word)
+    return any(re.fullmatch(re.escape(d) + r"(\.plist)?", word) for d in DOMAINS) or touches(word)
 
 
 def segments(command):
@@ -129,8 +131,9 @@ def reasons_for(tool, params):
             return [r for r in map(blocked_segment, segments(command)) if r]
         except ValueError:
             # Unbalanced quotes: refuse only when live data is named at all.
-            mentions = "Application Support/FocusContinuity" in command.replace("\\ ", " ") \
-                or DOMAIN + ".plist" in command
+            flat = command.replace("\\ ", " ")
+            mentions = any(f"Application Support/{f}" in flat for f in FOLDERS) \
+                or any(d + ".plist" in command for d in DOMAINS)
             return ["the command could not be parsed and names live data"] if mentions else []
     path = params.get("file_path") or params.get("notebook_path") or ""
     return [f"{tool} would change {path}"] if path and touches(path) else []
@@ -138,28 +141,37 @@ def reasons_for(tool, params):
 
 def check():
     """`python3 guard-live-data.py --check`: every case must land on its side."""
-    data = "~/Library/Application\\ Support/FocusContinuity"
+    data = "~/Library/Application\\ Support/Daybook"
+    legacy = "~/Library/Application\\ Support/FocusContinuity"
     blocked = [
         f"rm -rf {data}",
-        'rm "$HOME/Library/Application Support/FocusContinuity/sessions.json"',
+        'rm "$HOME/Library/Application Support/Daybook/sessions.json"',
         f"mv {data} /tmp/old",
         f"echo '{{}}' > {data}/app-usage.json",
         f"cp /tmp/a.json {data}/sessions.json",
         f"cd /tmp && rm -rf {data}",
         f"sed -i '' s/a/b/ {data}/sessions.json",
         "find ~/Library/Application\\ Support -name '*.json' -delete",
-        "defaults write com.prabesh.focuscontinuity fc.goal 3",
+        "defaults write com.prabesh.daybook fc.goal 3",
+        "defaults delete com.prabesh.daybook",
+        "rm ~/Library/Preferences/com.prabesh.daybook*",
+        f"rm -rf {legacy}",
+        f"mv {legacy} {data}",
         "defaults delete com.prabesh.focuscontinuity",
         "rm ~/Library/Preferences/com.prabesh.focuscontinuity*",
+        "rm -rf ~/Library/Mobile\\ Documents/com~apple~CloudDocs/Daybook\\ Backups",
+        'mv "$HOME/Library/Mobile Documents/com~apple~CloudDocs/FocusContinuity Backups" /tmp/x',
         "rm -rf ~",
     ]
     allowed = [
         f"ls {data}",
         f"cat {data}/sessions.json | jq length",
         f"cp {data}/sessions.json /tmp/backup.json",
+        f"ls {legacy}",
+        "defaults read com.prabesh.daybook",
         "defaults read com.prabesh.focuscontinuity",
-        "defaults delete com.prabesh.focuscontinuity.selftest.123",
-        "rm ~/Library/Preferences/com.prabesh.focuscontinuity.selftest.42.plist",
+        "defaults delete com.prabesh.daybook.selftest.123",
+        "rm ~/Library/Preferences/com.prabesh.daybook.selftest.42.plist",
         "mv /tmp/x ~/Library/",
         "rm -rf /tmp/fc-selftest-abc",
         "./build.sh --check 2>&1 | tail -5",
@@ -186,7 +198,7 @@ def main():
         return 0
     print(
         "Blocked: " + "; ".join(reasons) + ".\n"
-        "This is FocusContinuity's live data (the user's real history and settings). "
+        "This is Daybook's live data (the user's real history and settings). "
         "Use a scratch archive (SelfTest.scratchDirectory()) and an isolated "
         "`fc-selftest-…` UserDefaults suite instead. Reading is fine. If the user has "
         "asked for this exact change in the conversation, re-run with "

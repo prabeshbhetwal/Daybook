@@ -54,11 +54,19 @@ final class SessionArchive {
         self.cache = load()
     }
 
+    /// The live history folder: the app's own, unless launch found the folder
+    /// from before the rename could not be moved (see `NameMigration`).
     static var defaultDirectory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory,
-                                            in: .userDomainMask).first
+        NameMigration.keptLegacyDirectory ?? namedDirectory
+    }
+
+    static var namedDirectory: URL {
+        supportDirectory.appendingPathComponent("FocusContinuity", isDirectory: true)
+    }
+
+    static var supportDirectory: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        return base.appendingPathComponent("FocusContinuity", isDirectory: true)
     }
 
     // MARK: - Storage
