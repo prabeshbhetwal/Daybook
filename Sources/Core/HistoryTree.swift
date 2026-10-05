@@ -73,9 +73,17 @@ struct HistoryTop: Equatable {
     let place: HistoryPlace?
     let firstDay: Date
     let today: Date
+    /// The days the root rows divide between them: the top period, or the
+    /// whole record to the end of today in the calendar the top was built in.
+    let span: DateInterval
 
-    /// The days the root rows divide between them.
-    var span: DateInterval { place?.span ?? DateInterval(start: firstDay, end: HistoryTreeBuilder.dayAfter(today)) }
+    init(place: HistoryPlace?, firstDay: Date, today: Date, calendar: Calendar) {
+        self.place = place
+        self.firstDay = firstDay
+        self.today = today
+        span = place?.span ?? DateInterval(start: firstDay, end: HistoryTreeBuilder.dayAfter(today, calendar: calendar))
+    }
+
     var rootLevel: HistoryLevel { place?.level.child ?? .year }
 }
 
@@ -129,10 +137,10 @@ enum HistoryTreeBuilder {
             let candidate = period(level, containing: today, calendar: calendar)
             if candidate.start <= firstDay {
                 return HistoryTop(place: HistoryPlace(level: level, span: candidate.intersection(with: record) ?? record),
-                                  firstDay: firstDay, today: today)
+                                  firstDay: firstDay, today: today, calendar: calendar)
             }
         }
-        return HistoryTop(place: nil, firstDay: firstDay, today: today)
+        return HistoryTop(place: nil, firstDay: firstDay, today: today, calendar: calendar)
     }
 
     /// The rows under `parent`, newest first; nil gives the root rows. Each

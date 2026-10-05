@@ -6,20 +6,20 @@ enum HistoryRowText {
     static func title(_ place: HistoryPlace, today: Date, calendar: Calendar) -> String {
         switch place.level {
         case .year:
-            return DateFormats.australian("yyyy").string(from: place.start)
+            return DateFormats.australian("yyyy", in: calendar.timeZone).string(from: place.start)
         case .month:
-            return DateFormats.australian("MMMM").string(from: place.start)
+            return DateFormats.australian("MMMM", in: calendar.timeZone).string(from: place.start)
         case .week:
             let last = calendar.date(byAdding: .day, value: -1, to: place.span.end) ?? place.start
             if calendar.isDate(place.start, inSameDayAs: last) {
-                return DateFormats.australian("EEE d MMM").string(from: place.start)
+                return DateFormats.australian("EEE d MMM", in: calendar.timeZone).string(from: place.start)
             }
             let sameMonth = calendar.isDate(place.start, equalTo: last, toGranularity: .month)
-            let first = DateFormats.australian(sameMonth ? "d" : "d MMM").string(from: place.start)
-            return "\(first) – \(DateFormats.australian("d MMM").string(from: last))"
+            let first = DateFormats.australian(sameMonth ? "d" : "d MMM", in: calendar.timeZone).string(from: place.start)
+            return "\(first) – \(DateFormats.australian("d MMM", in: calendar.timeZone).string(from: last))"
         case .day:
             return calendar.isDate(place.start, inSameDayAs: today) ? "Today"
-                : DateFormats.australian("EEE d MMM").string(from: place.start)
+                : DateFormats.australian("EEE d MMM", in: calendar.timeZone).string(from: place.start)
         }
     }
 
@@ -41,7 +41,7 @@ enum HistoryRowText {
     /// `September 2026, 1 hour 45 minutes across 3 days, month, level 2, collapsed`.
     static func spoken(_ row: HistoryRow, today: Date, isOpen: Bool, depth: Int, calendar: Calendar) -> String {
         var name = title(row.place, today: today, calendar: calendar)
-        if row.place.level == .month { name += " " + DateFormats.australian("yyyy").string(from: row.place.start) }
+        if row.place.level == .month { name += " " + DateFormats.australian("yyyy", in: calendar.timeZone).string(from: row.place.start) }
         let figure: String
         if row.isAppUseOnly {
             figure = "recorded app use only, \(Tokens.spent(row.tracked))"
@@ -63,17 +63,17 @@ enum HistoryRowText {
         -> (eyebrow: String, sentence: String, facts: [String]) {
         let eyebrow: String
         switch top.place?.level {
-        case .year: eyebrow = DateFormats.australian("yyyy").string(from: top.span.start)
-        case .month: eyebrow = DateFormats.australian("MMMM yyyy").string(from: top.span.start)
+        case .year: eyebrow = DateFormats.australian("yyyy", in: calendar.timeZone).string(from: top.span.start)
+        case .month: eyebrow = DateFormats.australian("MMMM yyyy", in: calendar.timeZone).string(from: top.span.start)
         case .week:
             let last = calendar.date(byAdding: .day, value: -1, to: top.span.end) ?? top.span.start
             // A week of one recorded day is that day.
             eyebrow = calendar.isDate(top.span.start, inSameDayAs: last)
-                ? DateFormats.australian("EEEE d MMMM").string(from: top.span.start)
-                : "\(DateFormats.australian("d").string(from: top.span.start)) – "
-                    + DateFormats.australian("d MMMM").string(from: last)
+                ? DateFormats.australian("EEEE d MMMM", in: calendar.timeZone).string(from: top.span.start)
+                : "\(DateFormats.australian("d", in: calendar.timeZone).string(from: top.span.start)) – "
+                    + DateFormats.australian("d MMMM", in: calendar.timeZone).string(from: last)
         case .day, .none:
-            eyebrow = "On record since \(DateFormats.australian("d MMMM yyyy").string(from: top.firstDay))"
+            eyebrow = "On record since \(DateFormats.australian("d MMMM yyyy", in: calendar.timeZone).string(from: top.firstDay))"
         }
         let days = summary.focusedDays == 1 ? "1 day" : "\(summary.focusedDays) days"
         let sentence = summary.focused > 0
