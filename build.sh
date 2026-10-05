@@ -15,8 +15,8 @@ DEPLOYMENT_TARGET="13.0"
 TARGET_TRIPLE="$(uname -m)-apple-macos${DEPLOYMENT_TARGET}"
 # Raised by scripts/release.sh for each release. The build number must grow:
 # it is what the updater compares.
-APP_VERSION="1.0.0"
-APP_BUILD="1"
+APP_VERSION="1.0.1"
+APP_BUILD="2"
 # The updater checks this feed; the key verifies what it downloads. The
 # matching private key lives in the Keychain (account Daybook).
 UPDATE_FEED_URL="https://github.com/prabeshbhetwal/Daybook/releases/latest/download/appcast.xml"
