@@ -403,7 +403,7 @@ struct GalleryView: View {
         ScrollView([.horizontal, .vertical]) {
             VStack(alignment: .leading, spacing: Tokens.Space.xl) {
                 Text("Daybook — product surface catalogue")
-                    .font(.largeTitle.weight(.semibold))
+                    .font(Tokens.Typography.title)
                 Picker("Scenario", selection: $model.scenario) {
                     ForEach(SnapshotScenario.allCases) { scenario in
                         Text(scenario.title).tag(scenario)
@@ -414,7 +414,7 @@ struct GalleryView: View {
 
                 ForEach(model.scenario.presentations, id: \.rawValue) { presentation in
                     VStack(alignment: .leading, spacing: Tokens.Space.m) {
-                        Text(presentation.title).font(.headline)
+                        Text(presentation.title).font(Tokens.Typography.heading)
                         HStack(alignment: .top, spacing: Tokens.Space.xl) {
                             labelled("Light") {
                                 Snapshotter.view(for: SnapshotRender(
@@ -440,7 +440,7 @@ struct GalleryView: View {
     private func labelled<Content: View>(_ title: String,
                                          @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(Tokens.Typography.caption).foregroundStyle(.secondary)
             content()
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.panel))
                 .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel)

@@ -62,7 +62,7 @@ struct HistoryFindBar: View {
             if !query.isEmpty {
                 if let matchCount {
                     Text(matchCount)
-                        .font(Tokens.Typography.metadata.monospacedDigit())
+                        .font(Tokens.Typography.body.monospacedDigit())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .fixedSize()
@@ -136,7 +136,7 @@ struct HistoryFindBar: View {
 
     private var keycap: some View {
         Text("⌘F")
-            .font(Tokens.Typography.microLabel.weight(.semibold))
+            .font(Tokens.Typography.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

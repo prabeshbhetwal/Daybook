@@ -16,12 +16,12 @@ struct SectionHeader: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
             Text(title)
-                .font(compact ? Tokens.Typography.rowTitle.weight(.semibold)
-                              : Tokens.Typography.sectionTitle)
+                .font(compact ? Tokens.Typography.rowTitle
+                              : Tokens.Typography.heading)
             Spacer(minLength: Tokens.Space.s)
             if let trailing {
                 Text(trailing)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
         }
@@ -44,7 +44,7 @@ struct StartButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: "play.fill")
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 .frame(maxWidth: fills ? .infinity : nil, minHeight: height)
                 .padding(.horizontal, Tokens.Space.m)
                 .background(Tokens.Colour.focus,
@@ -98,14 +98,14 @@ struct WorkTypePicker: View {
         } label: {
             HStack(spacing: Tokens.Space.xs) {
                 Image(systemName: selection.symbolName)
-                    .font(Tokens.Typography.metadata.weight(.medium))
+                    .font(Tokens.Typography.label)
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Tokens.Palette.workType(selection))
                 Text(selection.displayName)
                     .font(Tokens.Typography.control)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(Tokens.Typography.microLabel.weight(.semibold))
+                    .font(Tokens.Typography.caption)
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, Tokens.Space.m)
@@ -252,11 +252,11 @@ struct PanelHeader: View {
             HStack(alignment: .top, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(Tokens.Typography.sectionTitle)
+                        .font(Tokens.Typography.heading)
                         .accessibilityAddTraits(.isHeader)
                     if let subtitle {
                         Text(subtitle)
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -264,7 +264,7 @@ struct PanelHeader: View {
                 Spacer(minLength: Tokens.Space.m)
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(Tokens.Typography.metadata.weight(.semibold))
+                        .font(Tokens.Typography.label)
                         .frame(width: 28, height: 28)
                         .background(Tokens.Colour.elevated, in: Circle())
                 }
@@ -304,7 +304,7 @@ struct WorkTypeMark: View {
 
     var body: some View {
         Image(systemName: symbolOverride ?? workType.symbolName)
-            .font(.system(size: size * 0.45, weight: .medium))
+            .font(Tokens.Typography.fitted(size * 0.45, weight: .medium))
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(tint)
             .frame(width: size, height: size)

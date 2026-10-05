@@ -95,7 +95,7 @@ struct AwayAnswerGrid: View {
     /// letter — it is the typeface, not clipping (verified against plain
     /// AppKit), and Rounded's terminals make the same glyph read whole.
     private var controlFont: Font {
-        Font.system(compact ? .callout : .body, design: .rounded).weight(.semibold)
+        Tokens.Typography.answer(compact: compact)
     }
     private var controlVerticalPadding: CGFloat { compact ? 9 : (showsCaptions ? Tokens.Space.m : 11) }
     private var controlHorizontalPadding: CGFloat { compact ? Tokens.Space.m : Tokens.Space.l }
@@ -128,7 +128,7 @@ struct AwayAnswerGrid: View {
         VStack(alignment: .leading, spacing: compact ? Tokens.Space.s : Tokens.Space.m) {
             header
             Text(note ?? "Not counted. Your session is still running.")
-                .font(compact ? .caption : .callout)
+                .font(compact ? Tokens.Typography.caption : Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: Tokens.Space.s) {
@@ -145,13 +145,13 @@ struct AwayAnswerGrid: View {
             if let error {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Answer not saved", systemImage: "exclamationmark.triangle")
-                        .font(Tokens.Typography.microLabel)
-                    Text(error).font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.caption)
+                    Text(error).font(Tokens.Typography.body)
                         .fixedSize(horizontal: false, vertical: true)
                     if let onRetry {
                         Button("Retry saving", action: onRetry)
                             .buttonStyle(StoryLinkStyle())
-                            .font(Tokens.Typography.microLabel)
+                            .font(Tokens.Typography.caption)
                             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     }
                 }
@@ -172,18 +172,18 @@ struct AwayAnswerGrid: View {
         let hasText = !reason.text.trimmingCharacters(in: .whitespaces).isEmpty
         return HStack(spacing: Tokens.Space.s) {
             Image(systemName: "pencil.line")
-                .font(compact ? Tokens.Typography.metadata.weight(.medium) : Tokens.Typography.control.weight(.medium))
+                .font(compact ? Tokens.Typography.label : Tokens.Typography.control)
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
             TextField("Name it — dinner, a call, a walk", text: $reason.text)
                 .textFieldStyle(.plain)
-                .font(Font.system(compact ? .callout : .body, design: .rounded))
+                .font(Tokens.Typography.answer(compact: compact, field: true))
                 .onSubmit(submitReason)
             // Appears with the first character; Return does the same thing.
             if hasText {
                 Button(action: submitReason) {
                     Image(systemName: "arrow.up")
-                        .font(Tokens.Typography.ringLabel.weight(.bold))
+                        .font(Tokens.Typography.ring)
                         .foregroundStyle(Tokens.Colour.onFocus)
                         .frame(width: AccessibilityMetrics.minimumTargetSize,
                                height: AccessibilityMetrics.minimumTargetSize)
@@ -217,12 +217,12 @@ struct AwayAnswerGrid: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
             Label("Away \(Tokens.duration(away))", systemImage: "moon.zzz.fill")
-                .font(compact ? .headline : .title3.weight(.semibold))
+                .font(compact ? Tokens.Typography.rowTitle : Tokens.Typography.heading)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(StoryStyle.attentionInk)
             if let range {
                 Text(Tokens.timeRange(range.start, range.end))
-                    .font(compact ? .caption : .callout)
+                    .font(compact ? Tokens.Typography.caption : Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -255,7 +255,7 @@ struct AwayAnswerGrid: View {
                     .font(controlFont)
                 if showsCaptions {
                     Text(answer.caption)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .opacity(0.85)
                         .fixedSize(horizontal: false, vertical: true)
                 }

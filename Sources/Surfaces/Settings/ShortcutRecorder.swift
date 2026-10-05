@@ -15,7 +15,7 @@ struct ShortcutRecorder: View {
             isRecording ? stop() : start()
         }
         .buttonStyle(.bordered)
-        .font(Tokens.Typography.metadata.monospacedDigit())
+        .font(Tokens.Typography.body.monospacedDigit())
         .accessibilityLabel(isRecording
             ? "Recording. Type the keys; Escape cancels."
             : "Shortcut, \(shortcut?.spoken ?? "off"). Press to record a new one.")

@@ -43,7 +43,7 @@ struct StoryChromeBar: View {
             }
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
-                    .font(Tokens.Typography.tabLabel)
+                    .font(Tokens.Typography.control)
                     .symbolRenderingMode(.hierarchical)
                     // A gear that turns a little under the pointer is a gear.
                     .rotationEffect(.degrees(gearHovered.value ? 30 : 0))
@@ -126,7 +126,7 @@ struct StoryChromeBar: View {
             // History is one list, newest first: the bar names it and offers
             // the calendar. Scrolling replaces paging, so there are no arrows.
             Text("History")
-                .font(Tokens.Typography.sectionTitle)
+                .font(Tokens.Typography.heading)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: Tokens.Space.s)
             jumpToDate
@@ -150,7 +150,7 @@ struct StoryChromeBar: View {
     private var jumpToDate: some View {
         Button { historyCalendarShown.value.toggle() } label: {
             Label("Jump to date", systemImage: "calendar")
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .contentShape(Rectangle())
@@ -185,8 +185,8 @@ struct StorySessionControl: View {
         if store.isIdle {
             Button(action: onDetails) {
                 HStack(spacing: Tokens.Space.xs) {
-                    Image(systemName: "play.fill").font(Tokens.Typography.microLabel.weight(.bold))
-                    Text("Start focus").font(Tokens.Typography.metadata.weight(.semibold))
+                    Image(systemName: "play.fill").font(Tokens.Typography.caption)
+                    Text("Start focus").font(Tokens.Typography.label)
                 }
                 .lineLimit(1)
                 .fixedSize()
@@ -211,18 +211,18 @@ struct StorySessionControl: View {
                     // Seconds swap plainly; only a new minute rolls, so the
                     // corner of the window is not in motion every second.
                     ClockText(seconds: store.elapsed)
-                        .font(Tokens.Typography.metadata.weight(.semibold))
+                        .font(Tokens.Typography.label)
                         .foregroundStyle(StoryStyle.focus)
                     if store.pendingAway != nil {
                         Divider().frame(height: 12)
                         Text("Review away")
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                     } else if store.isPaused {
                         // A dimmer dot was the only sign the clock had stopped.
                         Divider().frame(height: 12)
                         Text("Paused")
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                     }
                 }

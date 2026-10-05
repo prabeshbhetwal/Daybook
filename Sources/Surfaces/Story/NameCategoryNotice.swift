@@ -18,7 +18,7 @@ struct NameCategoryNotice: View {
         if let moved {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(Self.movedSentence(moved.tidy))
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
@@ -30,7 +30,7 @@ struct NameCategoryNotice: View {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 Label {
                     Text(tidy.sentence)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {
                     Image(systemName: "arrow.triangle.branch")

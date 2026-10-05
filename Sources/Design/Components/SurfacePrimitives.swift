@@ -56,7 +56,7 @@ struct EmptyState: View {
     var body: some View {
         VStack(spacing: Tokens.Space.s) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
+                .font(Tokens.Typography.headline)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
@@ -64,7 +64,7 @@ struct EmptyState: View {
                 .font(Tokens.Typography.rowTitle)
             if let detail {
                 Text(detail)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
         }
@@ -85,10 +85,10 @@ struct IntegrityNotice: View {
     var body: some View {
         HStack(alignment: .top, spacing: Tokens.Space.s) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 12, weight: .semibold))
+                .font(Tokens.Typography.label)
                 .foregroundStyle(StoryStyle.attentionInk)
             Text(message)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

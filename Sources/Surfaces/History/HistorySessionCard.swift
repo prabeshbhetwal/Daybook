@@ -35,24 +35,25 @@ struct HistorySessionRow: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(session.workType.sessionTitle(named: session.name))
-                    .font(Tokens.Typography.rowTitle.weight(.semibold))
+                    .font(Tokens.Typography.rowTitle)
                     .lineLimit(1)
                 // An unnamed session's title is its category already.
                 if !session.name.isEmpty { WorkTypeChip(workType: session.workType) }
                 Spacer(minLength: Tokens.Space.s)
                 Text(durations: session.isRunning ? "in progress" : Tokens.duration(session.worked))
-                    .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
+                    .font(Tokens.Typography.body.monospacedDigit())
+                    .foregroundStyle(.secondary)
                 Image(systemName: "chevron.right")
-                    .font(Tokens.Typography.microLabel)
+                    .font(Tokens.Typography.caption)
                     .foregroundStyle(.secondary)
             }
             Text(subline)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
             if let note, !note.isEmpty {
                 Text("“\(note)”")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .lineLimit(2)
             }
             if let use {
@@ -115,14 +116,14 @@ struct HistorySessionRow: View {
                 Spacer(minLength: Tokens.Space.xs)
                 Text(Tokens.timeOfDayOnly(use.span.end))
             }
-            .font(Tokens.Typography.microLabel.monospacedDigit())
+            .font(Tokens.Typography.caption.monospacedDigit())
             .foregroundStyle(.secondary)
             HStack(spacing: Tokens.Space.s) {
                 if let bundleID { AppIcon(bundleID: bundleID, size: 16, appName: appName ?? "") }
                 Text(durations: Self.figure(use.seconds))
-                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .font(Tokens.Typography.label)
                 Text("of this session · \(share)")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
             .padding(.top, Tokens.Space.xs)
@@ -163,7 +164,7 @@ struct HistorySessionRow: View {
     private func legend(_ colour: Color, _ label: String) -> some View {
         HStack(spacing: Tokens.Space.xs) {
             RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9, height: 9)
-            Text(label).font(Tokens.Typography.microLabel).foregroundStyle(.secondary).lineLimit(1)
+            Text(label).font(Tokens.Typography.caption).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 

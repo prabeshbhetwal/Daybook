@@ -223,7 +223,7 @@ struct SettingsSidebarList: View {
                 Button { selected = page } label: {
                     HStack(spacing: Tokens.Space.s) {
                         Image(systemName: page.symbol)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(Tokens.Typography.label)
                             .foregroundStyle(page.glyphColour)
                             .frame(width: 24, height: 24)
                             .background(Tokens.Palette.hue(page.hue),

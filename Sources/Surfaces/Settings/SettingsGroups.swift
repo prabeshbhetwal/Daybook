@@ -123,18 +123,18 @@ struct SettingsGroups: View {
                 ForEach(Self.windowKeys, id: \.keys) { entry in
                     HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                         Text(entry.keys)
-                            .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
+                            .font(Tokens.Typography.label.monospacedDigit())
                             .frame(width: 52, alignment: .leading)
                             .accessibilityHidden(true)
                         Text(entry.action)
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(entry.action), \(entry.spoken)")
                 }
                 Text(Self.pauseOrAwayNote)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, Tokens.Space.xs)
@@ -167,7 +167,7 @@ struct SettingsGroups: View {
             explanation(Self.globalShortcutDetail(model.globalShortcutStatus, shortcut: model.globalShortcut))
             if let message = model.globalShortcutMessage {
                 Text(message)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(Tokens.Colour.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -365,7 +365,7 @@ struct SettingsGroups: View {
                                      + "\(BreakPrompt.phrase(tier.breakLength)) off")
                                     .font(Tokens.Typography.control)
                                 Text(tier.reason)
-                                    .font(Tokens.Typography.metadata)
+                                    .font(Tokens.Typography.body)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -375,7 +375,7 @@ struct SettingsGroups: View {
                     }
                     // "Timed from use, not sessions" is the switch's own detail.
                     Text("A short break resets the short timer only; the longer ones keep running.")
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -556,7 +556,7 @@ struct SettingsGroups: View {
                     .accessibilityHint("Copies your Daybook data and preferences to iCloud Drive")
                 if let status = model.backupStatus {
                     Text(status)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -639,7 +639,7 @@ struct SettingsGroups: View {
                 Text(title).font(Tokens.Typography.rowTitle)
                 if let detail {
                     Text(detail)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -662,13 +662,13 @@ struct SettingsGroups: View {
                         .foregroundStyle(.secondary)
                     Spacer(minLength: Tokens.Space.m)
                     Text(value)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .multilineTextAlignment(.trailing)
                         .textSelection(.enabled)
                 }
                 if let detail {
                     Text(detail)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -689,7 +689,7 @@ struct SettingsGroups: View {
                     .textSelection(.enabled)
                 if let detail {
                     Text(detail)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -710,7 +710,7 @@ struct SettingsGroups: View {
             }
             .accessibilityHint(detail)
             Text(detail)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 22)
@@ -747,7 +747,7 @@ struct SettingsGroups: View {
 
     private func explanation(_ text: String) -> some View {
         Text(text)
-            .font(Tokens.Typography.metadata)
+            .font(Tokens.Typography.body)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }

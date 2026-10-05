@@ -74,12 +74,12 @@ struct StoryBreakRow: View, Equatable {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             HStack(spacing: Tokens.Space.m) {
                 Text(Self.label(rest.name))
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: Tokens.Space.s)
                 Text(durations: Tokens.preciseDuration(rest.length))
-                    .font(Tokens.Typography.metadata.monospacedDigit())
+                    .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(.secondary)
                 if canName, !editing.value { nameButton }
                 changeMenu
@@ -118,7 +118,7 @@ struct StoryBreakRow: View, Equatable {
             }
         }
         .buttonStyle(StoryLinkStyle())
-        .font(Tokens.Typography.metadata.weight(.semibold))
+        .font(Tokens.Typography.label)
         .frame(minHeight: 28)
         .disabled(isBlocked)
         .help(isBlocked ? StoryDecisionRow.awayQuestionFirst : "")
@@ -130,12 +130,12 @@ struct StoryBreakRow: View, Equatable {
     private var nameField: some View {
         HStack(spacing: Tokens.Space.s) {
             Image(systemName: "pencil.line")
-                .font(Tokens.Typography.metadata.weight(.medium))
+                .font(Tokens.Typography.label)
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
             TextField("Name it: dinner, a call, a walk", text: $nameDraft.text)
                 .textFieldStyle(.plain)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .onSubmit(saveName)
                 .focused($nameFocused)
                 .onAppear {
@@ -148,11 +148,11 @@ struct StoryBreakRow: View, Equatable {
                 .accessibilityLabel("Break name")
             Button("Save", action: saveName)
                 .buttonStyle(StoryLinkStyle())
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 .disabled(nameDraft.text.trimmingCharacters(in: .whitespaces).isEmpty)
             Button("Cancel", action: closeNameField)
                 .buttonStyle(StoryLinkStyle())
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, Tokens.Space.m)
@@ -255,7 +255,7 @@ struct StoryBreakRow: View, Equatable {
             if let receipt { store.undoAwayDecision(expectedID: receipt.id) }
         }
         .buttonStyle(StoryLinkStyle())
-        .font(Tokens.Typography.metadata.weight(.semibold))
+        .font(Tokens.Typography.label)
         .foregroundStyle(StoryStyle.action)
         .frame(minWidth: 36, minHeight: 28)
         .disabled(!canUndo)

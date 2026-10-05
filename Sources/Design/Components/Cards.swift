@@ -49,7 +49,7 @@ struct AppSwatch: View {
                     .frame(width: size, height: size)
                     .overlay(
                         Text(appName.first.map(String.init)?.uppercased() ?? "")
-                            .font(.system(size: size * 0.55, weight: .semibold))
+                            .font(Tokens.Typography.fitted(size * 0.55, weight: .semibold))
                             .foregroundStyle(.white)
                     )
             }
@@ -76,7 +76,7 @@ struct IconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(Tokens.Typography.control.weight(.medium))
+                .font(Tokens.Typography.control)
                 .symbolRenderingMode(.hierarchical)
                 .symbolSwap()
                 .symbolNod(on: isOn ?? false)

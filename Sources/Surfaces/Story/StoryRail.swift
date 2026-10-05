@@ -142,7 +142,7 @@ struct StoryRail: View {
                     .labelStyle(.iconOnly)
                     .symbolSwap()
                     .symbolNod(on: arrangement.isArranging)
-                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .font(Tokens.Typography.label)
                     .frame(width: AccessibilityMetrics.minimumTargetSize,
                            height: AccessibilityMetrics.minimumTargetSize)
                     .background(arrangement.isArranging ? AnyShapeStyle(StoryStyle.action)
@@ -164,7 +164,7 @@ struct StoryRail: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle())
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("Reset card order")
             }
@@ -212,7 +212,7 @@ struct StoryRail: View {
             arrangeControl(shownTiles)
             if let note = footnote(shownTiles) {
                 Text(note)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -334,16 +334,16 @@ struct StoryRail: View {
                         // on the seconds, the roll restarted every tick and drew the
                         // same figure again each time.
                         Text(durations: Tokens.preciseDuration(goal.achieved))
-                            .font(Tokens.Typography.metricValue.monospacedDigit())
+                            .font(Tokens.Typography.figure)
                             .rollingDigits(Tokens.preciseDuration(goal.achieved))
                         Text(durations: "counts towards your \(Tokens.duration(goal.goal)) goal"
                              + (goal.isMet ? " · goal met" : ""))
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
                         Text("No daily goal set")
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -352,7 +352,6 @@ struct StoryRail: View {
                     GoalRing(progress: share, diameter: 56, lineWidth: 7,
                              label: DurationText.percent(share),
                              isMet: share >= 1,
-                             labelFont: .system(size: 12, weight: .bold, design: .rounded),
                              accessibilityTitle: "Share of goal")
                 }
             }
@@ -361,7 +360,7 @@ struct StoryRail: View {
             if goal.goal > 0,
                let equation = StoryRailFigures.goalEquation(logged: evidence.focused, counted: goal.achieved) {
                 Text(durations: equation)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .help("Only focus with app use recorded counts towards the goal.")
@@ -396,16 +395,16 @@ struct StoryRail: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: Tokens.Space.xs) {
                         Image(systemName: item.type.symbolName)
-                            .font(Tokens.Typography.microLabel)
+                            .font(Tokens.Typography.caption)
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(Tokens.Palette.workType(item.type))
                             .frame(width: 14)
                         Text(item.type.displayName)
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                         Spacer(minLength: Tokens.Space.s)
                         Text(durations: "\(Tokens.duration(item.achieved)) of \(Tokens.duration(item.goal))"
                              + (share >= 1 ? " · met" : ""))
-                            .font(Tokens.Typography.metadata.monospacedDigit())
+                            .font(Tokens.Typography.body.monospacedDigit())
                             .foregroundStyle(share >= 1 ? AnyShapeStyle(StoryStyle.successInk)
                                                         : AnyShapeStyle(.secondary))
                     }
@@ -452,9 +451,9 @@ struct StoryRail: View {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(durations: Tokens.preciseDuration(trackedValue))
                     .rollingDigits(Tokens.preciseDuration(trackedValue))
-                    .font(Tokens.Typography.rowTitle.weight(.semibold).monospacedDigit())
+                    .font(Tokens.Typography.heading.monospacedDigit())
                 Text("recorded app use")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
             if trackedValue > 0 {
@@ -507,11 +506,11 @@ struct StoryRail: View {
                 .fill(colour)
                 .frame(width: 10, height: 10)
             Text(label)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
             Spacer(minLength: Tokens.Space.xs)
             Text(value)
-                .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
+                .font(Tokens.Typography.label.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
@@ -549,7 +548,7 @@ struct StoryRail: View {
             RhythmChart(hours: rhythmHours, height: 54, compactLabels: true)
             if let peak = rhythmPeak {
                 Text("Most recorded app use: \(peak).")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -579,7 +578,7 @@ struct StoryRail: View {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
                 Text(durations: "Last 14 days. A day counts once it has "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
@@ -593,7 +592,7 @@ struct StoryRail: View {
                 .padding(.vertical, -7)
                 .coachAnchor(.awards)
                 .buttonStyle(StoryPressStyle())
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 // The link colour every other text action uses; system blue
                 // was under 4.5:1 on the rail.
                 .foregroundStyle(StoryStyle.action)
@@ -647,14 +646,14 @@ struct StoryTile<Content: View>: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             HStack {
                 Text(title)
-                    .font(Tokens.Typography.metadata.weight(.bold))
+                    .font(Tokens.Typography.label)
                     .foregroundStyle(.secondary)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: Tokens.Space.xs)
                 if let trailing {
                     // Any card may put a duration here; it is spoken in words.
                     Text(durations: trailing)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }

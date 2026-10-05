@@ -69,7 +69,7 @@ struct FocusContinuations: View {
                 Text(isSwitching
                      ? "Names you start will be here to switch to next time."
                      : "Start a focus session and useful continuations will stay here on this Mac.")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -158,7 +158,7 @@ private struct FocusContinuationLabel: View {
                     .font(Tokens.Typography.rowTitle)
                     .lineLimit(1)
                 Text(detail)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -179,18 +179,18 @@ private struct FocusContinuationLabel: View {
             // The focus ink on its own tint: system blue on its tint was
             // under 4.5:1 in both appearances.
             Text(action == .start ? "Start" : "Switch")
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 .foregroundStyle(StoryStyle.focus)
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .background(StoryStyle.focus.opacity(0.12), in: Capsule())
         case .duration(let seconds):
             Text(Tokens.preciseDuration(seconds))
-                .font(Tokens.Typography.metadata.weight(.medium).monospacedDigit())
+                .font(Tokens.Typography.body.monospacedDigit())
                 .foregroundStyle(.secondary)
         case .current:
             Text("Current")
-                .font(Tokens.Typography.metadata.weight(.medium))
+                .font(Tokens.Typography.label)
                 .foregroundStyle(.secondary)
         }
     }
@@ -203,7 +203,7 @@ struct FocusBreakLine: View {
     var body: some View {
         Label(store.breakLabel,
               systemImage: store.isBreakDue ? "figure.walk" : "eye")
-            .font(Tokens.Typography.metadata)
+            .font(Tokens.Typography.body)
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(store.isBreakDue
                              ? AnyShapeStyle(StoryStyle.attentionInk)

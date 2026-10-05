@@ -39,7 +39,7 @@ struct StoryDecisionRow: View {
                     .font(Tokens.Typography.rowTitle)
                     .accessibilityAddTraits(.isHeader)
                 Text("\(Tokens.timeRange(range.start, range.end)) · \(Tokens.preciseDuration(range.duration)) is not counted. Later work is unchanged.")
-                    .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     Button("Count as focus") { answer(.mergeTime) }
@@ -54,7 +54,7 @@ struct StoryDecisionRow: View {
                 .accessibilityHint(store.hasUnresolvedAwayDecision ? Self.awayQuestionFirst : "")
                 if let note = StoryDecisionScope.note(visible: range, full: receipt.range) {
                     Text(note)
-                        .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
                 }
             }
             .padding(15)
@@ -85,13 +85,13 @@ struct StorySavedActionRow: View {
           HStack(spacing: 10) {
             // One sentence to VoiceOver, not a tick and two fragments.
             HStack(spacing: 10) {
-                Image(systemName: "checkmark").font(Tokens.Typography.metadata.weight(.semibold))
+                Image(systemName: "checkmark").font(Tokens.Typography.label)
                     .foregroundStyle(StoryStyle.successInk)
-                Text(title).font(Tokens.Typography.metadata.weight(.semibold))
+                Text(title).font(Tokens.Typography.label)
                     .lineLimit(1)
                     .help(title)
                 Text(Tokens.timeRange(range.start, range.end))
-                    .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             .accessibilityElement(children: .ignore)
@@ -99,7 +99,7 @@ struct StorySavedActionRow: View {
             Spacer(minLength: 8)
             Button("Undo", action: undo)
                 .buttonStyle(StoryLinkStyle())
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 .foregroundStyle(StoryStyle.action)
                 .frame(minWidth: 36, minHeight: 28)
                 .disabled(undoBlockReason != nil)
@@ -108,7 +108,7 @@ struct StorySavedActionRow: View {
                 .accessibilityHint(undoBlockReason ?? scopeNote ?? "Reverts only this action; later work is unchanged.")
           }
           if let scopeNote {
-              Text(scopeNote).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+              Text(scopeNote).font(Tokens.Typography.body).foregroundStyle(.secondary)
                   .fixedSize(horizontal: false, vertical: true)
                   .padding(.leading, 22)
           }

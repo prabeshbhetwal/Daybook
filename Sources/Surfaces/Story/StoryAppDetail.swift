@@ -42,7 +42,7 @@ struct StoryAppRow: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .font(Tokens.Typography.metadata)
+            .font(Tokens.Typography.body)
             GeometryReader { geometry in
                 Capsule().fill(StoryStyle.line)
                     .overlay(alignment: .leading) {
@@ -79,14 +79,14 @@ struct StoryAppDetail: View {
             HStack(spacing: 10) {
                 AppIcon(bundleID: bundleID, size: 28, appName: appName)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(appName).font(Tokens.Typography.sectionTitle)
+                    Text(appName).font(Tokens.Typography.heading)
                         .accessibilityAddTraits(.isHeader)
                     Text(Tokens.longDate(day ?? store.selectedDay))
-                        .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text(durations: Tokens.preciseDuration(evidence.total))
-                    .font(Tokens.Typography.rowTitle.monospacedDigit())
+                    .font(Tokens.Typography.heading.monospacedDigit())
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
                 }
@@ -96,7 +96,7 @@ struct StoryAppDetail: View {
                 .help("Close app detail")
             }
             Text("Recorded app visits · newest first")
-                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                .font(Tokens.Typography.body).foregroundStyle(.secondary)
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(entries.prefix(shown)) { entry in
@@ -105,7 +105,7 @@ struct StoryAppDetail: View {
                             Spacer(minLength: 12)
                             Text(durations: Tokens.preciseDuration(entry.seconds)).monospacedDigit()
                         }
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .accessibilityElement(children: .combine)
                     }
                 }
@@ -117,13 +117,13 @@ struct StoryAppDetail: View {
             }
             if entries.isEmpty {
                 Text("No app use was recorded on this day.")
-                    .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
             }
             Text(shown < entries.count
                  ? "The list shows the newest \(shown) visits, set by Recent app visits in Settings. "
                     + "The total counts every visit."
                  : "The total counts every visit.")
-                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                .font(Tokens.Typography.body).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Tokens.Space.xl)
@@ -155,22 +155,22 @@ struct StoryLooseAppUse: View {
             Button { if let onToggle { onToggle() } else { expanded.value.toggle() } } label: {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("App use outside a session").font(Tokens.Typography.metadata.weight(.medium))
+                        Text("App use outside a session").font(Tokens.Typography.label)
                         Text(Tokens.timeRange(span.start, span.end))
-                            .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                            .font(Tokens.Typography.body).foregroundStyle(.secondary)
                         // No session covers this block, so the Mac's power is
                         // the one fact the story can add to it.
                         if let power {
                             Label(power.headline, systemImage: power.symbolName)
-                                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                                .font(Tokens.Typography.body).foregroundStyle(.secondary)
                                 .accessibilityLabel("Power: \(power.headline)")
                         }
                     }
                     Spacer(minLength: 8)
                     Text(durations: Tokens.preciseDuration(seconds))
-                        .font(Tokens.Typography.metadata.monospacedDigit())
+                        .font(Tokens.Typography.body.monospacedDigit())
                     Image(systemName: open ? "chevron.down" : "chevron.right")
-                        .font(Tokens.Typography.microLabel).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.caption).foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
@@ -182,7 +182,7 @@ struct StoryLooseAppUse: View {
                     StoryAppRow(app: app, rank: store.storyAppColourIndices[app.bundleID] ?? index)
                 }
                 if let detail = power?.detail {
-                    Text(detail).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    Text(detail).font(Tokens.Typography.body).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

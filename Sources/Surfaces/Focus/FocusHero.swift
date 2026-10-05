@@ -333,7 +333,7 @@ struct FocusHero: View {
 
     @ViewBuilder private var liveRowLead: some View {
         ClockText(seconds: store.elapsed)
-            .font(Tokens.Typography.rowTimer)
+            .font(Tokens.Typography.clock)
             .foregroundStyle(isQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
             .fixedSize()
             .elapsedClockAccessibility(store.elapsed)
@@ -344,7 +344,7 @@ struct FocusHero: View {
                 .font(Tokens.Typography.rowTitle)
                 .lineLimit(1)
             Text(liveSubtitle)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -432,7 +432,7 @@ struct FocusHero: View {
         // The strip's automatic row says "Started automatically" itself.
         if let stripDetail, !showsAutomaticRow {
             Text(stripDetail)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -446,13 +446,13 @@ struct FocusHero: View {
                spacing: compact ? Tokens.Space.s : Tokens.Space.l) {
             VStack(alignment: compact ? .leading : .center, spacing: Tokens.Space.xs) {
                 Text(mode.primaryPrompt)
-                    .font(compact ? Tokens.Typography.sectionTitle
-                                  : Tokens.Typography.pageTitle)
+                    .font(compact ? Tokens.Typography.heading
+                                  : Tokens.Typography.title)
                 // Only a page carries a subtitle. In the popover this sentence
                 // restated the field's own placeholder directly above it.
                 if !compact {
                     Text("Choose an activity or write your own. Start when you're ready.")
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
@@ -474,7 +474,7 @@ struct FocusHero: View {
                 } else {
                     HStack(spacing: Tokens.Space.s) {
                         Text("Category")
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                         WorkTypePicker(selection: $store.workType)
                         Spacer(minLength: Tokens.Space.s)
@@ -490,7 +490,7 @@ struct FocusHero: View {
                 // under the button in a 340pt panel.
                 if !compact {
                     Text("Names you start will appear in the activity menu next time.")
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -567,31 +567,31 @@ struct FocusHero: View {
         VStack(alignment: compact ? .leading : .center,
                spacing: compact ? Tokens.Space.s : Tokens.Space.m) {
             Text(title)
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 // The focus ink: system blue at this size was under 4.5:1
                 // on the panel in both appearances.
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary)
                                        : AnyShapeStyle(StoryStyle.focus))
             ClockText(seconds: store.elapsed)
-                .font(Tokens.Typography.liveTimer)
+                .font(Tokens.Typography.display)
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 .elapsedClockAccessibility(store.elapsed)
             VStack(alignment: compact ? .leading : .center, spacing: 2) {
                 Text(store.activeIntent)
-                    .font(compact ? Tokens.Typography.rowTitle : Tokens.Typography.sectionTitle)
+                    .font(compact ? Tokens.Typography.rowTitle : Tokens.Typography.heading)
                     .lineLimit(1)
                 Label(store.workType.displayName, systemImage: store.workType.symbolName)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                 if let summary = store.threadSummaryLine {
                     Text(summary)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 if let detail {
                     Text(detail)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(compact ? .leading : .center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -633,7 +633,7 @@ struct FocusHero: View {
             // Undo on a third, five lines under the bar for one question.
             HStack(spacing: Tokens.Space.m) {
                 Text("Started automatically")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize()
                 automaticIntentField
@@ -655,7 +655,7 @@ struct FocusHero: View {
             // While running, "Started automatically" is the line above; paused,
             // nothing else says the session was automatic.
             Text(automaticSentence)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
             if compact {
                 automaticIntentField
@@ -703,7 +703,7 @@ struct FocusHero: View {
         }
         .accessibilityLabel("Undo automatic session")
         .buttonStyle(StoryPressStyle())
-        .font(Tokens.Typography.metadata)
+        .font(Tokens.Typography.body)
         .foregroundStyle(.secondary)
         .frame(minHeight: 28)
     }
@@ -715,8 +715,8 @@ struct FocusHero: View {
             let expectedID = store.engine.pendingDecisionID
             VStack(alignment: .leading, spacing: compact ? Tokens.Space.s : Tokens.Space.m) {
                 Text(mode.primaryPrompt)
-                    .font(compact ? Tokens.Typography.sectionTitle
-                                  : Tokens.Typography.pageTitle)
+                    .font(compact ? Tokens.Typography.heading
+                                  : Tokens.Typography.title)
                 AwayAnswerGrid(away: away,
                                range: store.pendingAwayRange,
                                showsCaptions: !compact,
@@ -760,9 +760,9 @@ struct FocusHero: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Today · \(Tokens.preciseDuration(store.goal.achieved)) of "
                          + Tokens.preciseDuration(store.goal.goal))
-                        .font(Tokens.Typography.metadata.weight(.medium).monospacedDigit())
+                        .font(Tokens.Typography.body.monospacedDigit())
                     Text(goalPaceLine)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(store.goal.isMet
                                          ? AnyShapeStyle(StoryStyle.successInk)
                                          : AnyShapeStyle(.secondary))
@@ -775,7 +775,7 @@ struct FocusHero: View {
 
     private func goalText(_ text: String) -> some View {
         Text(text)
-            .font(Tokens.Typography.metadata)
+            .font(Tokens.Typography.body)
             // The ink, not the swatch: system green text was about 2:1 in
             // the light appearance.
             .foregroundStyle(store.goal.isMet
@@ -853,14 +853,14 @@ private struct FocusOperationFailure: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Label("Change not saved", systemImage: "exclamationmark.triangle")
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
             Text(failure.message)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .fixedSize(horizontal: false, vertical: true)
             if failure.hasOriginBoundRetry {
                 Button("Retry saving") { store.retryLastCorrection() }
                     .buttonStyle(StoryLinkStyle())
-                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .font(Tokens.Typography.label)
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             }
         }
@@ -885,7 +885,7 @@ private struct FocusActionButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: symbol)
-                .font(Tokens.Typography.metadata.weight(prominent ? .semibold : .regular))
+                .font(Tokens.Typography.body.weight(prominent ? .semibold : .regular))
                 .lineLimit(1)
                 .fixedSize()
                 .padding(.horizontal, Tokens.Space.m)

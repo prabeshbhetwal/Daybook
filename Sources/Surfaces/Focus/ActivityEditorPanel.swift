@@ -152,7 +152,7 @@ struct ActivityEditorPanelView: View {
     @ViewBuilder private var pinnedList: some View {
         if store.savedActivities.isEmpty {
             Text("Nothing pinned yet.")
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
         } else {
             VStack(spacing: 0) {
@@ -179,12 +179,12 @@ struct ActivityEditorPanelView: View {
                     Text(item.name)
                         .font(Tokens.Typography.rowTitle)
                     Text(item.workType.displayName + (retired ? " · retired, starts as Deep work" : ""))
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: Tokens.Space.s)
                 Image(systemName: "pencil")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(selected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.secondary))
             }
             .padding(.horizontal, Tokens.Space.m)
@@ -203,7 +203,7 @@ struct ActivityEditorPanelView: View {
     private var recentPins: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Text("Recent · click to pin")
-                .font(Tokens.Typography.microLabel)
+                .font(Tokens.Typography.caption)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
             ChipFlow(spacing: Tokens.Space.xs) {
@@ -212,7 +212,7 @@ struct ActivityEditorPanelView: View {
                         HStack(spacing: Tokens.Space.xs) {
                             WorkTypeMark(workType: quick.workType, size: 20)
                             Text(quick.name)
-                                .font(Tokens.Typography.metadata)
+                                .font(Tokens.Typography.body)
                                 .lineLimit(1)
                         }
                         .padding(.leading, 4)
@@ -240,7 +240,7 @@ struct ActivityEditorPanelView: View {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     HStack(spacing: Tokens.Space.s) {
                         Text(isNew ? "Pin an activity" : "Editing a pinned activity")
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                         if !isNew {
                             Button("New") { editor.beginNew() }
@@ -257,13 +257,13 @@ struct ActivityEditorPanelView: View {
             }
             HStack(spacing: Tokens.Space.s) {
                 Text("Category")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                 WorkTypePicker(selection: $editor.workType)
             }
             if let message = editor.message {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(Tokens.Colour.danger)
             }
             HStack(spacing: Tokens.Space.s) {

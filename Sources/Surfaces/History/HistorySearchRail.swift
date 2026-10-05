@@ -43,9 +43,9 @@ struct HistorySearchRail: View {
         return StoryTile(title: name, trailing: "All time") {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(durations: HistorySearchText.lensTotal(lens))
-                    .font(Tokens.Typography.rowTitle.weight(.semibold).monospacedDigit())
+                    .font(Tokens.Typography.heading.monospacedDigit())
                 Text("recorded app use")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
             if inside + outside > 0 {
@@ -76,7 +76,7 @@ struct HistorySearchRail: View {
             RhythmChart(hours: hours, height: 54, compactLabels: true)
             if let peak {
                 Text("Most use: \(peak).")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -125,9 +125,9 @@ struct HistorySearchRail: View {
         if days.count > 1, let best = days.max(by: { $0.focused < $1.focused }) {
             StoryTile(title: "Best day", trailing: nil) {
                 Text(Tokens.longDate(best.date))
-                    .font(Tokens.Typography.sectionTitle)
+                    .font(Tokens.Typography.heading)
                 Text(durations: "\(Tokens.duration(best.focused)) focused")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
             }
         }
@@ -136,10 +136,10 @@ struct HistorySearchRail: View {
     private func legendRow(_ colour: Color, _ label: String, _ value: String) -> some View {
         HStack(spacing: Tokens.Space.s) {
             RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 10, height: 10)
-            Text(label).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+            Text(label).font(Tokens.Typography.body).foregroundStyle(.secondary)
             Spacer(minLength: Tokens.Space.xs)
             Text(durations: value)
-                .font(Tokens.Typography.metadata.weight(.semibold).monospacedDigit())
+                .font(Tokens.Typography.label.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)

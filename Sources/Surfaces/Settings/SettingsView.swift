@@ -82,7 +82,7 @@ struct SettingsView: View {
     private var search: some View {
         HStack(spacing: Tokens.Space.xs) {
             Image(systemName: "magnifyingglass")
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
             TextField("Search", text: $navigation.settingsQuery)
@@ -106,10 +106,10 @@ struct SettingsView: View {
         let detail = VStack(alignment: .leading, spacing: Tokens.Space.l) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(query.isEmpty ? page.title : "\(page.title) · matching “\(query)”")
-                    .font(Tokens.Typography.pageTitle)
+                    .font(Tokens.Typography.title)
                     .accessibilityAddTraits(.isHeader)
                 Text(page.summary)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

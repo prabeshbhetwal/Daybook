@@ -92,7 +92,7 @@ struct AppIcon: View {
             .fill(Color(hue: hue, saturation: 0.5, brightness: 0.72))
             .overlay(
                 Text(letter)
-                    .font(.system(size: size * 0.55, weight: .semibold))
+                    .font(Tokens.Typography.fitted(size * 0.55, weight: .semibold))
                     .foregroundStyle(.white)
             )
     }

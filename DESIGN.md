@@ -24,9 +24,23 @@ reason to change every legacy surface's spacing.
 
 ## Type and colour
 
-Use the native system typeface. Story headline: 20-point semibold, maximum
-560-point reading width. Row titles: 14 points; secondary metadata: 12 points.
-The type scale is 9, 10, 11, 12, 13, 14, 15, 19, 22, 24 and 36.
+Use the native system typeface. Type is set by role (`Sources/Design/Typography.swift`):
+
+| Role | Size and weight | For |
+|---|---|---|
+| display | 36 semibold, rounded | the live timer |
+| title | 22 semibold | a page naming itself |
+| figure | 24 semibold, rounded | the number a tile exists to show |
+| headline, clock | 20 semibold; the clock rounded | the story sentence (560-point measure); a strip's live clock |
+| heading | 15 semibold | sections, sheets, rail headings, a day heading search results |
+| rowTitle | 14 medium | a session, setting, category or History month, and its figure |
+| control | 13 regular | fields, menus, a paragraph set for reading |
+| body, label | 12 regular; 12 semibold | supporting text and durations; card labels, text actions, day rows |
+| caption, eyebrow | 10 semibold; 10 bold capitals | chips, badges, chart labels; the line above a headline |
+| ring, microFigure, micro | 11 rounded; 10 rounded; 9 bold | a ring's label; calendar figures; tiny marks |
+
+The scale is 9, 10, 11, 12, 13, 14, 15, 20, 22, 24 and 36. A weight changes only
+to show state; the menu bar panel steps each title down one role.
 Values use monospaced digits. Prose wraps; diagnostics never truncate silently.
 
 Focus identity is indigo, separate from blue action. The reference's `#4E4CCC`
@@ -76,11 +90,11 @@ session control never wraps.
 - Icon actions are 28-point circles everywhere: the chrome's back, period
   and Settings buttons, the strip's pin and close.
 - Text actions inside the app — the chrome's links, "Show all visits",
-  "Undo", "Retry" — share one link style: semibold metadata in the action
+  "Undo", "Retry" — share one link style: the label role in the action
   colour with a hover tint. Native bordered buttons remain in native sheets.
-- Type comes only from the scale. Section headers are the section size;
-  labels inside a card are the small-label size in capitals; a page names
-  itself at the page size.
+- Type comes only from the roles; `build.sh` fails a raw size, a system text
+  style or a reweighted role. Section headers are headings; labels inside a
+  card are labels, in sentence case; a page names itself with the title role.
 - Errors and refusals use the danger token, never a raw red.
 - The chrome's period reads the same in Story and Insights: `Today`,
   `Yesterday`, `Mon 31 Aug`; `31 Aug – 6 Sep`, with the year only when it
@@ -144,7 +158,7 @@ participants or keyboard input that the recorder cannot establish.
 
 **Rename**, **Change type** and **Continue this** are real buttons with neutral
 soft fills, 7-point radii, 11-point horizontal / 5-point vertical padding and a
-minimum 28-point height. Semibold metadata keeps them secondary to the title.
+minimum 28-point height. The label role keeps them secondary to the title.
 Pause uses a restrained work-type tint. Hover, pressed, disabled and keyboard
 focus states remain visible. The actions stay in the entry they affect; name
 and type changes explicitly disclose that they apply to the whole thread.

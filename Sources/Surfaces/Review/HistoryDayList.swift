@@ -75,7 +75,7 @@ struct HistoryStripAxis: View {
         GeometryReader { geometry in
             ForEach([0, 6, 12, 18], id: \.self) { hour in
                 Text(HistoryHours.label(hour))
-                    .font(Tokens.Typography.microLabel)
+                    .font(Tokens.Typography.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize()
                     .offset(x: geometry.size.width * CGFloat(hour) / 24)

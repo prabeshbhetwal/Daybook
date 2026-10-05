@@ -18,7 +18,7 @@ struct ReportActivityRow: View {
                         widest: ["12:00 am – 12:00 am", "12:00 pm – 12:00 pm"], alignment: .leading)
             let name = interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App")
             Text(name)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(interval.isGap ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 .lineLimit(1)
                 .help(name)
@@ -40,7 +40,7 @@ struct ReportActivityRow: View {
             ForEach(widest, id: \.self) { Text($0).hidden() }
             if durations { Text(durations: text) } else { Text(text) }
         }
-        .font(Tokens.Typography.metadata.monospacedDigit())
+        .font(Tokens.Typography.body.monospacedDigit())
         .foregroundStyle(.secondary)
         .lineLimit(1)
     }
@@ -59,7 +59,7 @@ struct ReportActivityRow: View {
             }
             Self.column(power?.level ?? "", widest: ["100%"], alignment: .trailing)
         }
-        .font(Tokens.Typography.metadata)
+        .font(Tokens.Typography.body)
         .help(power?.spoken ?? "")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(power?.spoken ?? "")
