@@ -111,6 +111,23 @@ extension SessionMetadataChecks {
         let onBattery = PowerReading.at(start.addingTimeInterval(1_800), in: battery)
         expect(onBattery?.symbolName == "battery.75percent" && onBattery?.spoken == "On battery, 64%",
                "a battery row did not show its level: \(onBattery?.spoken ?? "nil")", &problems)
+
+        // A run of visits at one level says it once; a change, up or down,
+        // says it again. A gap between visits neither shows nor resets it.
+        func visit(_ from: TimeInterval, _ to: TimeInterval, app: String? = "com.example.app") -> RecordedActivity.Interval {
+            RecordedActivity.Interval(start: start.addingTimeInterval(from), end: start.addingTimeInterval(to),
+                                      bundleID: app, appName: app, colourIndex: nil)
+        }
+        let levels = [92, 91, 91, 92].enumerated().map { index, level in
+            PowerObservation(timestamp: start.addingTimeInterval(Double(index) * 600), source: .battery,
+                             percentage: Double(level), charging: .notCharging)
+        }
+        let visits = [visit(0, 300), visit(600, 700), visit(700, 750, app: nil),
+                      visit(1_300, 1_400), visit(1_800, 1_900)]
+        let shown = PowerReading.changes(across: visits.shuffled(), in: levels)
+        let shownLevels = visits.map { shown[$0.id]?.level ?? "-" }
+        expect(shownLevels == ["92%", "91%", "-", "-", "92%"],
+               "power marks did not show only the changes: \(shownLevels)", &problems)
         return problems
     }
 

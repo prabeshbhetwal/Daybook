@@ -21,6 +21,21 @@ struct PowerReading: Equatable {
         return PowerReading(observation)
     }
 
+    /// The reading each visit ended on, kept only where it differs from the
+    /// visit before it in time: a run of visits at 91% says 91% once. Gaps
+    /// neither show a reading nor break the run.
+    static func changes(across intervals: [RecordedActivity.Interval],
+                        in observations: [PowerObservation]) -> [String: PowerReading] {
+        var marks: [String: PowerReading] = [:]
+        var last: PowerReading?
+        for interval in intervals.sorted(by: { $0.start < $1.start }) where !interval.isGap {
+            guard let reading = at(interval.end, in: observations), reading != last else { continue }
+            marks[interval.id] = reading
+            last = reading
+        }
+        return marks
+    }
+
     init(_ observation: PowerObservation) {
         let percent = observation.percentage.map { Int($0.rounded()) }
         level = percent.map { "\($0)%" } ?? ""

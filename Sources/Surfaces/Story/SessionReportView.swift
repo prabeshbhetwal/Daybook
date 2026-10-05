@@ -29,8 +29,8 @@ struct SessionReport {
     let detail: StorySessionDetail
     let stretches: [Stretch]
     let power: PowerContextSummary?
-    /// Every power reading of the session, so each visit can show its own.
-    let powerObservations: [PowerObservation]
+    /// Each visit's power reading, by interval id, only where it changed.
+    let powerChanges: [String: PowerReading]
     let appColourIndices: [String: Int]
 
     var title: String { session.workType.sessionTitle(named: session.name) }
@@ -39,9 +39,10 @@ struct SessionReport {
     var intervals: [RecordedActivity.Interval] { detail.activity.intervals }
     var visitCount: Int { intervals.filter { !$0.isGap }.count }
 
-    /// The power state a visit ended on. Nil for a gap, or before any reading.
+    /// The power state a visit ended on, when it differs from the visit
+    /// before. Nil for a gap, an unchanged reading, or before any reading.
     func power(for interval: RecordedActivity.Interval) -> PowerReading? {
-        interval.isGap ? nil : PowerReading.at(interval.end, in: powerObservations)
+        powerChanges[interval.id]
     }
 
     static func make(for session: DaySession, store: SessionStore) -> SessionReport {
@@ -61,7 +62,9 @@ struct SessionReport {
             : store.powerSummary(for: session.recordIDs, interval: interval)
         return SessionReport(session: session, detail: detail, stretches: stretches,
                              power: power,
-                             powerObservations: store.powerObservations(for: session.recordIDs),
+                             powerChanges: PowerReading.changes(
+                                 across: detail.activity.intervals,
+                                 in: store.powerObservations(for: session.recordIDs)),
                              appColourIndices: colourIndices(apps: detail.apps,
                                                              dayIndices: store.storyAppColourIndices))
     }
@@ -317,57 +320,14 @@ struct SessionReportView: View {
             // The chart above stays left-to-right in time.
             VStack(spacing: 0) {
                 ForEach(Array(report.intervals.reversed().enumerated()), id: \.element.id) { index, interval in
-                    HStack(spacing: Tokens.Space.s) {
-                        Circle()
-                            .fill(interval.isGap ? AnyShapeStyle(StoryStyle.line)
-                                  : AnyShapeStyle(Tokens.Palette.app(
-                                        rank: interval.bundleID.flatMap { report.appColourIndices[$0] }
-                                            ?? Tokens.Palette.distinctAppColourCount)))
-                            .frame(width: 8, height: 8)
-                        Text(Tokens.timeRange(interval.start, interval.end))
-                            .font(Tokens.Typography.metadata.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                            .frame(width: 150, alignment: .leading)
-                        let name = interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App")
-                        Text(name)
-                            .font(Tokens.Typography.metadata)
-                            .foregroundStyle(interval.isGap ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
-                            .lineLimit(1)
-                            .help(name)
-                        Spacer(minLength: Tokens.Space.s)
-                        powerMark(report.power(for: interval))
-                        Text(durations: Tokens.preciseDuration(interval.duration))
-                            .font(Tokens.Typography.metadata.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(minHeight: 26)
-                    .accessibilityElement(children: .combine)
+                    ReportActivityRow(interval: interval,
+                                      colourRank: interval.bundleID.flatMap { report.appColourIndices[$0] }
+                                          ?? Tokens.Palette.distinctAppColourCount,
+                                      power: report.power(for: interval))
                     if index < report.intervals.count - 1 { Divider() }
                 }
             }
         }
-    }
-
-    /// Fixed width so the durations stay in one column whether a row has a
-    /// reading, a shorter one, or none.
-    private func powerMark(_ reading: PowerReading?) -> some View {
-        HStack(spacing: 4) {
-            if let reading {
-                Image(systemName: reading.symbolName)
-                    .foregroundStyle(reading.symbolName == "bolt.fill" ? AnyShapeStyle(StoryStyle.successInk)
-                                                                       : AnyShapeStyle(.secondary))
-                    .frame(width: 18)
-                Text(reading.level)
-                    .font(Tokens.Typography.metadata.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .font(Tokens.Typography.metadata)
-        .frame(width: 70, alignment: .leading)
-        .help(reading?.spoken ?? "")
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(reading?.spoken ?? "")
-        .accessibilityHidden(reading == nil)
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
