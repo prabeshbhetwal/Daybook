@@ -23,18 +23,14 @@ struct HistoryTree: View {
     var body: some View {
         let insets = StoryStyle.columnInsets(for: density)
         let searched = store.historyFilter.isActive ? store.historyJournal() : nil
+        let lens = searched == nil ? nil : store.historyAppLens()
         let summary = searched.map { $0.isEmpty ? nil : Self.matchSummary($0) } ?? nil
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                // The count is in the field; the headline below adds it up.
                 HistoryFindBar(store: store, focusRequest: navigation.historySearchFocusRequest,
-                               matchCount: searched.map(Self.matchCount))
+                               matchCount: searched.map { Self.fieldCount($0, lens: lens) })
                     .coachAnchor(.search)
-                // The count is in the field; the focus it adds up to, here.
-                if let focus = searched.flatMap(Self.matchFocus) {
-                    Text(durations: focus)
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                }
                 // A search replaces the tree, so there is no path to show.
                 if searched == nil, !isEmptyArchive, !crumbs.isEmpty {
                     HistoryPathBar(crumbs: crumbs) { crumb in
@@ -51,7 +47,7 @@ struct HistoryTree: View {
                                 bottom: Tokens.Space.m, trailing: insets.trailing))
             Divider()
             ScrollViewReader { proxy in
-                pane { content(searched: searched, insets: insets) }
+                pane { content(searched: searched, lens: lens, insets: insets) }
                     .onChange(of: navigation.historyScrollRequest) { _ in
                         treeFocused = true
                         guard let target = navigation.historyScrollTarget else { return }
@@ -86,8 +82,10 @@ struct HistoryTree: View {
     }
 
     @ViewBuilder
-    private func content(searched: [JournalEntry]?, insets: EdgeInsets) -> some View {
-        if let searched, searched.isEmpty {
+    private func content(searched: [JournalEntry]?, lens: HistoryAppLens?, insets: EdgeInsets) -> some View {
+        // An app used only outside sessions has no matching session, but
+        // still has a story to tell.
+        if let searched, searched.isEmpty, lens?.days.isEmpty ?? true {
             EmptyState("No matching sessions",
                        detail: "Try fewer words, or a session name, an old name, a word from a note, "
                            + "a named break, an app, a category, a date or a time of day.",
@@ -97,10 +95,12 @@ struct HistoryTree: View {
             emptyArchive.padding(insets)
         } else {
             VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-                headline
                 if let searched {
-                    HistorySearchResults(store: store, navigation: navigation, entries: searched)
+                    // The record's headline describes the record, not the
+                    // matches: a search opens with its own.
+                    HistorySearchColumn(store: store, navigation: navigation, entries: searched, lens: lens)
                 } else {
+                    headline
                     tree
                 }
             }
@@ -190,13 +190,19 @@ struct HistoryTree: View {
         }
     }
 
-    /// `8h 20m of focus` under the field, when the matches hold any.
-    static func matchFocus(_ entries: [JournalEntry]) -> String? {
-        let worked = tally(entries).worked
-        return worked > 0 ? "\(Tokens.duration(worked)) of focus" : nil
+    /// The field's count. A picked app counts the sessions its story lists,
+    /// the running one included, and one used only outside sessions says so
+    /// rather than "No matches" over its own story.
+    static func fieldCount(_ entries: [JournalEntry], lens: HistoryAppLens?) -> String {
+        guard let lens else { return matchCount(entries) }
+        switch lens.sessions.count {
+        case 0: return lens.outsideTotal > 0 ? "Outside sessions only" : "No sessions"
+        case 1: return "1 session"
+        case let count: return "\(count) sessions"
+        }
     }
 
-    private static func tally(_ entries: [JournalEntry]) -> (sessions: Int, breaks: Int, worked: TimeInterval) {
+    static func tally(_ entries: [JournalEntry]) -> (sessions: Int, breaks: Int, worked: TimeInterval) {
         var sessions = 0
         var breaks = 0
         var worked: TimeInterval = 0
@@ -247,36 +253,5 @@ struct HistoryTree: View {
             .accessibilityHint("Returns to the story, with the cursor in the activity field")
         }
         .frame(maxWidth: 520, alignment: .leading)
-    }
-}
-
-/// The days a search matched, newest first, each open to its matching
-/// sessions, with the month named between months.
-struct HistorySearchResults: View {
-    @ObservedObject var store: SessionStore
-    @ObservedObject var navigation: MainWindowModel
-    let entries: [JournalEntry]
-
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
-            ForEach(entries) { entry in
-                switch entry {
-                case .month(let month):
-                    Text(HistoryMonthHeader.title(month.start))
-                        .font(Tokens.Typography.metadata.weight(.bold))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, HistoryRowLayout.inset)
-                        .padding(.top, Tokens.Space.m)
-                        .accessibilityAddTraits(.isHeader)
-                case .day(let day):
-                    Text(HistoryDayHeader.title(day.date, isToday: Calendar.current.isDate(day.date, inSameDayAs: store.now())))
-                        .font(Tokens.Typography.metadata.weight(.semibold))
-                        .padding(.horizontal, HistoryRowLayout.inset)
-                        .padding(.top, Tokens.Space.s)
-                        .accessibilityAddTraits(.isHeader)
-                    HistoryDaySessions(store: store, navigation: navigation, day: day.date, only: day.threads)
-                }
-            }
-        }
     }
 }

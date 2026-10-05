@@ -44,6 +44,25 @@ enum Rhythm {
         return result
     }
 
+    /// Twenty-four clock hours, 12 am to 11 pm, for figures summed over many
+    /// days. They sit on a fixed day with no clock change: on a day whose
+    /// clocks go forward, start of day plus 2 hours is 3 am, and every label
+    /// after it reads an hour late.
+    static func clockHours(colorIndex: Int, calendar: Calendar,
+                           seconds: (Int) -> TimeInterval) -> [RhythmHour] {
+        var reference = DateComponents()
+        reference.calendar = calendar
+        reference.timeZone = calendar.timeZone
+        reference.year = 2001
+        reference.month = 1
+        reference.day = 15
+        let start = calendar.date(from: reference) ?? Date(timeIntervalSince1970: 0)
+        return (0..<24).compactMap { hour -> RhythmHour? in
+            guard let date = calendar.date(byAdding: .hour, value: hour, to: start) else { return nil }
+            return RhythmHour(hour: date, seconds: seconds(hour), colorIndex: colorIndex)
+        }
+    }
+
     /// `4–6am` for the busiest run of consecutive hours, or nil when nothing was
     /// recorded. A single busiest hour reads `4am`.
     static func peakLabel(_ hours: [RhythmHour], formatter: (Date) -> String) -> String? {

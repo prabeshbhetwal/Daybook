@@ -4,7 +4,7 @@ import AppKit
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure
     case todayHistory, todayHistoryExpanded
-    case reviewHistorySelection, historySession, historySearch, historySparse
+    case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
     case storyDay, storyDayEntry
@@ -29,6 +29,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .reviewHistorySelection: return "History — a day open"
         case .historySession: return "History — a day open and a session picked"
         case .historySearch: return "History — searching"
+        case .historyApp: return "History — one app picked"
         case .historySparse: return "History — three recorded days"
         case .insightsEnough: return "Insights — enough evidence"
         case .insightsEmpty: return "Insights — insufficient evidence"
@@ -109,7 +110,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .focus
         case .todayHistory, .todayHistoryExpanded:
             return .today
-        case .reviewHistorySelection, .historySession, .historySearch, .historySparse:
+        case .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse:
             return .review
         case .insightsEnough, .insightsEmpty:
             return .insights
@@ -378,6 +379,11 @@ enum Snapshotter {
             store.refreshReview()
             store.setHistoryQuery("Build")
             return store
+        case .historyApp:
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            store.refreshReview()
+            store.setHistoryApp(store.historyAppBundleIDs.first)
+            return store
         case .historySparse:
             let store = FixtureFactory.store(for: .firstRun, accurateUsage: true)
             store.refreshReview()
@@ -445,7 +451,7 @@ enum Snapshotter {
                let thread = store.journalThreads(on: day, only: nil).first {
                 navigation.selectHistory(session: thread, on: day)
             }
-        case .insightsEnough, .insightsEmpty, .historySearch, .historySparse:
+        case .insightsEnough, .insightsEmpty, .historySearch, .historyApp, .historySparse:
             navigation.open(tab: .review)
         case .activityRuleAmbiguity, .activityRuleAutomatic:
             navigation.focusSessionControls()

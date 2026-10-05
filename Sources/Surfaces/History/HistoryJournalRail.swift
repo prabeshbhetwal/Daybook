@@ -30,6 +30,8 @@ enum HistoryRailScope: Equatable {
     case day(Date)
     case session(DaySession, day: Date)
 
+    var isSession: Bool { if case .session = self { return true } else { return false } }
+
     /// `session` is the picked session if its day still has it; a pick
     /// whose session is gone, or hidden by a search, reads as its day.
     static func resolve(open: [HistoryPlace], session: DaySession?, pick: HistorySessionPick?) -> HistoryRailScope {
@@ -50,6 +52,18 @@ struct HistoryJournalRail: View {
     @Environment(\.focusInterfaceDensity) private var density
 
     var body: some View {
+        let scope = self.scope
+        if store.historyFilter.isActive, !scope.isSession {
+            // The tree's open day or period is hidden behind the results;
+            // the rail describes what is on screen.
+            padded(HistorySearchRail(store: store, entries: store.historyJournal(), lens: store.historyAppLens())
+                .storyRenderEvidence(.historySearchRail))
+        } else {
+            scoped(scope)
+        }
+    }
+
+    @ViewBuilder private func scoped(_ scope: HistoryRailScope) -> some View {
         switch scope {
         case .day(let day):
             // The dashboard's own rail, for this day. It sets its own insets.

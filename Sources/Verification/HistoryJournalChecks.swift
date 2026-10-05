@@ -139,15 +139,21 @@ enum HistoryJournalChecks {
         if onlyBreaks != "1 break matches" {
             failures.append("a search matching one break summed \"\(onlyBreaks)\"")
         }
-        // The field counts; the line under it adds up the focus. Each says it once.
+        // The field counts; the headline adds up the focus. Each says it once.
         let breakOnly = HistoryJournalBuilder.entries(matching: [rest(0, 9, 29, 1_500)], calendar: calendar)
         let counts = [HistoryTree.matchCount(withBreaks), HistoryTree.matchCount(breakOnly), HistoryTree.matchCount([])]
         if counts != ["3 sessions · 3 breaks", "1 break", "No matches"] {
             failures.append("the field's counts read \(counts)")
         }
-        if HistoryTree.matchFocus(withBreaks) != "\(Tokens.duration(2_700)) of focus"
-            || HistoryTree.matchFocus(breakOnly) != nil {
-            failures.append("the focus line under the field was wrong or claimed focus for breaks")
+        let focusedDays = days(withBreaks).filter { $0.focused > 0 }.count
+        let headline = HistorySearchText.searchSentence(filter: HistoryFilter(query: "parser"), appName: nil,
+                                                        entries: withBreaks)
+        let breaksHeadline = HistorySearchText.searchSentence(filter: HistoryFilter(query: "café"), appName: nil,
+                                                              entries: breakOnly)
+        if headline.sentence != "You focused \(Tokens.duration(2_700)) on “parser” across "
+            + (focusedDays == 1 ? "1 day." : "\(focusedDays) days.")
+            || breaksHeadline.sentence != "1 break matches." || breaksHeadline.highlight != nil {
+            failures.append("the search headline read \"\(headline.sentence)\" and \"\(breaksHeadline.sentence)\"")
         }
         return failures
     }

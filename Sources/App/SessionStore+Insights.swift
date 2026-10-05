@@ -375,21 +375,7 @@ extension SessionStore {
                     += hour.seconds
             }
         }
-        var reference = DateComponents()
-        reference.calendar = calendar
-        reference.timeZone = calendar.timeZone
-        reference.year = 2001
-        reference.month = 1
-        reference.day = 15
-        let start = calendar.date(from: reference) ?? Date(timeIntervalSince1970: 0)
-        let hours = (0..<24).compactMap { hour -> RhythmHour? in
-            guard let date = calendar.date(byAdding: .hour, value: hour, to: start) else {
-                return nil
-            }
-            return RhythmHour(hour: date,
-                              seconds: byClockHour[hour] ?? 0,
-                              colorIndex: 6)
-        }
+        let hours = Rhythm.clockHours(colorIndex: 6, calendar: calendar) { byClockHour[$0] ?? 0 }
         let peak = Rhythm.peakLabel(hours) { DateFormats.australian("ha").string(from: $0) }
         return (hours, peak)
     }

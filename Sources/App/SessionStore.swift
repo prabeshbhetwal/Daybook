@@ -291,6 +291,14 @@ final class SessionStore: ObservableObject {
     var historyAppListComputeCount = 0
     /// How many times a search's matches were walked.
     var searchJournalComputeCount = 0
+    /// App use sorted by start, so a search finds a session's apps by
+    /// bisection; held until the evidence changes.
+    var historySortedUsageCache: (revision: EvidenceRevision, usage: SortedUsage)?
+    /// The picked app as History tells it, held until the app or the
+    /// evidence changes.
+    var historyAppLensCache: (key: HistoryLensKey, lens: HistoryAppLens)?
+    /// The apps in a search's matched sessions, held as the journal is.
+    var historySearchAppsCache: (key: SearchJournalKey, apps: [AppRank])?
     var reviewEvidenceRevision: EvidenceRevision?
     /// Explicit-date Story projections are immutable read models. Historical
     /// values survive ticker frames; current or running dates deliberately

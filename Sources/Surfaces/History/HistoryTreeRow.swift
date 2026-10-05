@@ -213,33 +213,3 @@ struct HistoryTreeRow: View {
         }
     }
 }
-
-/// A day's sessions and breaks, newest first, as the journal drew them.
-struct HistoryDaySessions: View {
-    @ObservedObject var store: SessionStore
-    @ObservedObject var navigation: MainWindowModel
-    let day: Date
-    /// Narrowed to matching threads while History is searched.
-    let only: Set<UUID>?
-
-    var body: some View {
-        let projection = store.storyDayProjection(on: day)
-        let rows = HistoryJournalBuilder.rows(projection, only: only)
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(rows) { entry in
-                switch entry {
-                case .session(let session):
-                    HistorySessionRow(session: session,
-                                      apps: (projection.sessionDetails[session.id]?.apps ?? []).map(\.appName),
-                                      note: store.journalNoteLine(for: session),
-                                      isSelected: navigation.historySession == HistorySessionPick(thread: session.threadID, day: day)
-                                          || navigation.historyFocus == .session(thread: session.threadID, day: day),
-                                      onSelect: { navigation.selectHistory(session: session.threadID, on: day) })
-                        .id("session-\(session.threadID.uuidString)")
-                case .rest(let rest):
-                    HistoryBreakRow(rest: rest)
-                }
-            }
-        }
-    }
-}

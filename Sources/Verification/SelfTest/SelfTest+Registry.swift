@@ -26,6 +26,7 @@ extension SelfTest {
             + LongAwayRestoreChecks.tests + PanelRestChecks.tests
             + AutomaticNamingChecks.tests + GlobalShortcutChecks.tests + ClockTextChecks.tests
             + NameMigrationChecks.tests
+            + HistoryAppLensChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

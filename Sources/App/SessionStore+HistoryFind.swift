@@ -13,7 +13,7 @@ struct HistorySearchHit: Identifiable, Equatable {
     let day: Date
     /// The note's text when the note matched, trimmed to a line.
     let noteSnippet: String?
-    /// App names on the day when an app matched.
+    /// Names of apps used in the session that held a query word.
     let matchedApps: [String]
     /// Every record folded into this result. A break lists as its records'
     /// rows, so the journal finds it by these rather than by its thread.
@@ -51,12 +51,14 @@ struct HistoryArchiveFacts: Equatable {
 extension SessionStore {
     /// Sessions and breaks holding every word of the query, newest first.
     /// A session is known by its name and any name it had before a rename,
-    /// its category, its notes in full, the app it began in and the apps used
-    /// that day, its date and time of day, whether the app started it, and
-    /// what the Mac ran on. A break is known by the name it was given, where
-    /// you were, and by its date and time. The app and category menus narrow
-    /// the same list; a break joins it only through words or the Break
-    /// category, since a day's apps say nothing about a break.
+    /// its category, its notes in full, the app it began in and the apps in
+    /// front during it, its date and time of day, whether the app started it,
+    /// and what the Mac ran on. A break is known by the name it was given,
+    /// where you were, and by its date and time. The app and category menus
+    /// narrow the same list; a break joins it only through words or the Break
+    /// category. An app counts for a session only when it was in front for
+    /// `HistoryAppLens.minimumUse` inside the session itself: matched by the
+    /// day, picking an app listed every session of every day it was opened.
     func historySearchHits(limit: Int = 200) -> [HistorySearchHit] {
         let calendar = Calendar.current
         let filter = historyFilter
@@ -66,7 +68,7 @@ extension SessionStore {
         let stable = DateFormatter()
         stable.locale = Locale(identifier: "en_US_POSIX")
         stable.dateFormat = "yyyy-MM-dd"
-        let daysByDate = Dictionary(uniqueKeysWithValues: historyDays.map { (calendar.startOfDay(for: $0.date), $0) })
+        let usage = historySortedUsage()
         let today = calendar.startOfDay(for: now())
         let yesterday = calendar.date(byAdding: .day, value: -1, to: today)
         let formerNames = formerSessionNames()
@@ -92,15 +94,18 @@ extension SessionStore {
         for records in groups {
             let first = records[0]
             let day = calendar.startOfDay(for: first.start)
-            let historyDay = daysByDate[day]
             let isBreak = !first.workType.countsAsFocus
             if isBreak, words.isEmpty, filter.workType != first.workType { continue }
-            if let app = filter.appBundleID, !(historyDay?.appBundleIDs.contains(app) ?? false) { continue }
+            let used = filter.appBundleID != nil || (!words.isEmpty && !isBreak)
+                ? usage.seconds(within: records.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) })
+                    .filter { $0.value >= HistoryAppLens.minimumUse }
+                : [:]
+            if let app = filter.appBundleID, used[app] == nil { continue }
             var noteSnippet: String?
             var matchedApps: [String] = []
             if !words.isEmpty {
                 let notes = records.compactMap { metadataArchive.metadata(for: $0.id)?.note }
-                let apps = isBreak ? [] : (historyDay?.appBundleIDs ?? []).map(historyAppName(for:))
+                let apps = isBreak ? [] : used.keys.sorted().map(historyAppName(for:))
                 var text = [first.workType.sessionTitle(named: first.name), first.workType.displayName]
                 text += records.map(\.name) + (formerNames[first.threadID] ?? []) + notes + apps
                 text += records.compactMap(\.detectedApp).map(historyAppName(for:))

@@ -46,7 +46,7 @@ extension SelfTest {
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
                 .focusSaveFailure,
                 .todayHistory, .todayHistoryExpanded,
-                .reviewHistorySelection, .historySession, .historySearch, .historySparse,
+                .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .storyDay, .storyDayEntry,
