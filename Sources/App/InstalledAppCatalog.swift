@@ -20,7 +20,7 @@ struct InstalledApplication: Equatable, Identifiable {
 /// One mutable value shared between a run-loop callback and the code waiting
 /// on it. Both touch it on the same thread; the reference exists only because
 /// a callback cannot capture a local `var` without escaping it.
-private final class RunLoopFlag {
+final class RunLoopFlag {
     var isSet = false
 }
 

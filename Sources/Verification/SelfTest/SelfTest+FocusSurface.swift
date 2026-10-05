@@ -132,12 +132,14 @@ extension SelfTest {
                "running retains its ordinary controls", &problems)
 
         let now = base
-        let threads = (0..<4).map { index in
-            ThreadSummary(threadID: UUID(), name: "Thread \(index)", workType: .deepWork,
-                          totalWorked: Double(index + 1) * 600, segments: index + 1,
-                          firstStart: now.addingTimeInterval(Double(-index) * 900),
-                          lastEnd: now.addingTimeInterval(Double(-index) * 300),
-                          isRunning: false)
+        // Typed out: Swift 6.3 gave up type-checking this closure untyped.
+        let threads: [ThreadSummary] = (0..<4).map { (index: Int) -> ThreadSummary in
+            let step = TimeInterval(index)
+            return ThreadSummary(threadID: UUID(), name: "Thread \(index)", workType: .deepWork,
+                                 totalWorked: (step + 1) * 600, segments: index + 1,
+                                 firstStart: now.addingTimeInterval(-step * 900),
+                                 lastEnd: now.addingTimeInterval(-step * 300),
+                                 isRunning: false)
         }
         let quickStarts = (0..<4).map {
             QuickStart(id: "quick-\($0)", name: "Quick \($0)", workType: .admin)

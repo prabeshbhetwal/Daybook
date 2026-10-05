@@ -68,6 +68,23 @@ extension SessionStore {
                                            live: liveToday(calendar), calendar: calendar)
     }
 
+    /// A place's focus by category, largest first, live for today. Read from
+    /// the same day index as the rows, so a card's split and its figure agree.
+    func historyCategories(for place: HistoryPlace) -> [WorkTypeShare] {
+        let calendar = Self.historyCalendar
+        let state = tree()
+        let today = calendar.startOfDay(for: now())
+        let live = liveToday(calendar)
+        var seconds: [WorkType: TimeInterval] = [:]
+        var cursor = calendar.startOfDay(for: place.span.start)
+        while cursor < place.span.end {
+            let day = cursor == today ? (live ?? state.byDate[cursor]) : state.byDate[cursor]
+            for (type, value) in day?.focusByWorkType ?? [:] { seconds[type, default: 0] += value }
+            cursor = HistoryTreeBuilder.dayAfter(cursor, calendar: calendar)
+        }
+        return WorkTypeShare.shares(from: seconds)
+    }
+
     private func liveToday(_ calendar: Calendar) -> HistoryDay? {
         let today = calendar.startOfDay(for: now())
         return historyDays.first { calendar.isDate($0.date, inSameDayAs: today) }
