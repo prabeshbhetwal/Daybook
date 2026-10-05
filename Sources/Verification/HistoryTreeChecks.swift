@@ -452,12 +452,20 @@ enum HistoryTreeChecks {
         if monthLine.eyebrow != "September 2026" || monthLine.sentence != "You focused \(Tokens.duration(6_300)) across 3 days." {
             failures.append("the month headline read \(monthLine.eyebrow) / \(monthLine.sentence)")
         }
-        if !monthLine.facts.contains("best day Mon 28 Sep · \(Tokens.duration(3_600))") { failures.append("the month's facts were \(monthLine.facts)") }
+        // Installed 17 September, today the 29th: 13 days, 3 of them focused.
+        // The best day is the rail's, not the headline's.
+        if !monthLine.facts.contains("focus on 3 of the 13 days since you started")
+            || monthLine.facts.contains(where: { $0.hasPrefix("best") }) {
+            failures.append("the month's facts were \(monthLine.facts)")
+        }
         let recordDays = september + [row(7, 3, year: 2025, focused: 60, sessions: 1)]
         let record = HistoryTreeBuilder.top(days: recordDays, today: today, calendar: calendar)
         let recordLine = HistoryRowText.headline(top: record, summary: HistoryTreeBuilder.summary(top: record, days: recordDays, calendar: calendar), calendar: calendar)
         if recordLine.eyebrow != "On record since 3 July 2025" { failures.append("the record's eyebrow read \(recordLine.eyebrow)") }
-        if !recordLine.facts.contains("best month September 2026 · \(Tokens.duration(6_300))") { failures.append("the record's facts were \(recordLine.facts)") }
+        if recordLine.facts.contains(where: { $0.hasPrefix("best") })
+            || !recordLine.facts.contains(where: { $0.hasSuffix("days since you started") }) {
+            failures.append("the record's facts were \(recordLine.facts)")
+        }
         let oneDay = HistoryTreeBuilder.top(days: [row(9, 28, focused: 60, sessions: 1)], today: today, calendar: calendar)
         let weekLine = HistoryRowText.headline(top: oneDay, summary: HistoryTreeBuilder.summary(top: oneDay, days: [row(9, 28, focused: 60, sessions: 1)], calendar: calendar), calendar: calendar)
         if weekLine.sentence != "You focused \(Tokens.duration(60)) across 1 day." { failures.append("one focused day read \(weekLine.sentence)") }

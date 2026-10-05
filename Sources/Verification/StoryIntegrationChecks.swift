@@ -212,6 +212,9 @@ enum StoryIntegrationChecks {
     /// The engine's state reaches the store's mirror on the main queue. Every
     /// Focus surface reads that mirror, so a rule-started session must show as
     /// running there — not only in the story, which reads the engine directly.
+    /// The fixture waits for that hop with `catchUpWithEngine`. A fixed 20 ms
+    /// wait lost the race on a loaded CI runner, so the wait is also held to
+    /// a hop that lands 100 ms late.
     private static func automaticStartReachesControls() -> [String] {
         MainActor.assumeIsolated {
             let store = FixtureFactory.activityRuleStore(ambiguous: false)
@@ -229,6 +232,19 @@ enum StoryIntegrationChecks {
             }
             if store.isIdle {
                 failures.append("the chrome pill would still offer Start focus during an automatic session")
+            }
+
+            let publish = store.engine.onStateChanged
+            store.engine.onStateChanged = { state in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { publish?(state) }
+            }
+            defer { store.engine.onStateChanged = publish }
+            store.engine.transition(on: .manualPause)
+            if !store.catchUpWithEngine() {
+                failures.append("the wait for a late hop gave up before the hop landed")
+            }
+            if store.state != store.engine.state {
+                failures.append("the store showed \(store.state) after a late hop, not the engine's \(store.engine.state)")
             }
             return failures
         }

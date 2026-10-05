@@ -69,7 +69,7 @@ enum StoryInteractionChecks {
             engine.transition(on: .awayBegan(trigger: .screenLock))
             clock.advance(1_200)
             engine.transition(on: .awayEnded)
-            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            store.catchUpWithEngine()
         }
     }
 
