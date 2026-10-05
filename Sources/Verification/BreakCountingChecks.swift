@@ -14,7 +14,7 @@ enum BreakCountingChecks {
     /// A running Parser session, a 20-minute absence answered "took a break"
     /// named Walk, then 10 more minutes of work.
     private final class AnsweredBreak {
-        var time = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
+        var time = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-break-row-\(UUID())")
         let suite = "fc.break-row.\(UUID())"
         lazy var defaults = UserDefaults(suiteName: suite)!
@@ -83,7 +83,7 @@ enum BreakCountingChecks {
 
     private static func renameUnansweredBreak() -> [String] {
         MainActor.assumeIsolated {
-            let now = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 18))!
+            let now = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 18))!
             let walk = SessionRecord(name: "Break", workType: .breakTime, start: now.addingTimeInterval(-7_200),
                                      end: now.addingTimeInterval(-5_400), workSeconds: 1_800)
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-rename-break-\(UUID())")
@@ -122,7 +122,7 @@ enum BreakCountingChecks {
 
     private static func typedRecentsOnly() -> [String] {
         MainActor.assumeIsolated {
-            let now = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 18))!
+            let now = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 18))!
             func record(_ name: String, auto: Bool, hoursAgo: Double) -> SessionRecord {
                 let end = now.addingTimeInterval(-hoursAgo * 3_600)
                 return SessionRecord(name: name, workType: .deepWork, start: end.addingTimeInterval(-1_800),

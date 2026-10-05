@@ -35,7 +35,7 @@ enum StoryInteractionChecks {
     ]
 
     private final class Fixture {
-        let clock = TestClock(Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!)
+        let clock = TestClock(SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!)
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-story-interaction-\(UUID().uuidString)")
         let suite = "fc.story.interaction.\(UUID().uuidString)"
