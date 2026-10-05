@@ -54,6 +54,7 @@ extension ActivityRuleChecks {
     /// region appeared. The catalogue is injected; no application is enumerated.
     static func pickerRows() -> [String] {
         MainActor.assumeIsolated {
+            var failures: [String] = []
             @MainActor func render(_ count: Int, query: String = "") -> Int {
                 let apps = (0..<count).map {
                     InstalledApplication(bundleID: "com.example.app\($0)",
@@ -62,7 +63,12 @@ extension ActivityRuleChecks {
                 let catalog = InstalledAppCatalog(discoverStandard: { apps },
                                                   discoverSpotlight: { [] }, observed: { [] })
                 catalog.refresh()
-                RunLoop.current.run(until: Date().addingTimeInterval(0.3))
+                // Discovery publishes back through the main queue, and
+                // `isLoading` clears in that same block. A fixed wait can end
+                // first on a slow machine; this one ends when the list is in.
+                if !InstalledAppCatalog.turnRunLoop(until: { !catalog.isLoading }, timeout: 2) {
+                    failures.append("The catalogue never published its \(count) applications")
+                }
                 let queryBox = TextBox(); queryBox.text = query
                 let rows = CountBox()
                 let view = InstalledAppPicker(
@@ -83,7 +89,6 @@ extension ActivityRuleChecks {
                 window.orderOut(nil); window.contentView = nil
                 return rows.value
             }
-            var failures: [String] = []
             let empty = render(0)
             if empty != 0 {
                 failures.append("An empty catalogue still rendered \(empty) picker rows")
