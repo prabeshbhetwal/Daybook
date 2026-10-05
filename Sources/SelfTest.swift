@@ -7,7 +7,11 @@ import AppKit
 /// injected clock — no UI, no notifications, no run loop.
 enum SelfTest: CheckSuite {
 
-    static let base = Date(timeIntervalSince1970: 1_700_000_000)
+    /// 9:13 am on Wednesday 15 November 2023 wherever the checks run: the
+    /// moment 1_700_000_000 is in Sydney. As that fixed moment it fell at
+    /// 11 pm in Berlin, and fixtures stepping an hour on crossed midnight.
+    static let base = DateComponents(calendar: Calendar(identifier: .gregorian), timeZone: .current,
+                                     year: 2023, month: 11, day: 15, hour: 9, minute: 13, second: 20).date!
     /// One preferences suite per run. A fixed name let two runs at once, such
     /// as two worktrees building together, overwrite each other's settings
     /// mid-check and fail checks that were fine.

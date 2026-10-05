@@ -58,8 +58,8 @@ Core → App → Design/Surfaces, in one direction only; the README has the map.
 - Write checks that hold in any time zone and region. Build fixture dates
   from the calendar the code under test uses, or hand that code the
   fixture's calendar and make sure it uses it throughout. `SelfTest.base` is
-  9 am in Sydney but 10 pm in UTC and 11 pm in Berlin, so a fixture that
-  steps an hour or two from it can cross midnight. `TZ=America/New_York
+  9:13 am local in every zone; a fixed `Date(timeIntervalSince1970:)` is
+  not, and lands near midnight somewhere. `TZ=Europe/Berlin
   ./build.sh --check` runs the suite in another zone (GitHub's runner is UTC).
 - A fix comes with a check that fails on the old behaviour. Before committing
   a fix to persistence, settings, session state or time arithmetic, run the
