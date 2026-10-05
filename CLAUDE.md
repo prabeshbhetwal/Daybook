@@ -14,6 +14,7 @@ as one module.
 | `./build.sh --test` | The same, then replaces `FocusContinuity.app` |
 | `./build.sh --run` | Build, verify and relaunch the app |
 | `FC_KEEP_SYMBOLS=1 ./build.sh` | Keep symbols for profiling with `sample` |
+| `scripts/release.sh 1.2.0 [--dry-run]` | Publish a release installed copies update to (Sparkle; key in the Keychain) |
 
 - `build.sh` fails inside the Claude Bash sandbox at the `sips` icon step (it
   cannot write to the system temp folder). Run it with the sandbox disabled.
@@ -67,9 +68,11 @@ open-ended bug hunt over an area, use the `probe-hunter` agent.
   `main.swift`: `P="$(mktemp -d "$TMPDIR/fc-probe.XXXXXX")"`, write
   `"$P/main.swift"`, then
   `swiftc -module-cache-path "$TMPDIR/mc" -swift-version 5 -target arm64-apple-macos13.0 -o "$P/run" $(find Sources/Core -name '*.swift') "$P/main.swift" && "$P/run"`
-- Anything above Core. `build.sh` reads only itself, `Sources/` and
-  `Assets/`, so copy those:
-  `T="$(mktemp -d "$TMPDIR/fc-tree.XXXXXX")"; rsync -a build.sh Sources Assets "$T/"`.
+- Anything above Core. `build.sh` reads only itself, `Sources/`, `Assets/`
+  and `scripts/fetch-sparkle.sh`, so copy those:
+  `T="$(mktemp -d "$TMPDIR/fc-tree.XXXXXX")"; rsync -a build.sh Sources Assets scripts "$T/"`.
+  The copy fetches Sparkle once into its own `.build/vendor/` (15 MB, pinned
+  checksum); copy `.build/vendor` across too to work offline.
   Add a temporary check or change in the copy and run `./build.sh --check`
   there with the sandbox disabled. The same copy serves a mutation test: put
   the old behaviour back and confirm the new check fails.
