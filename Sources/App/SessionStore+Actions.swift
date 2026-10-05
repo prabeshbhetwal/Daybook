@@ -32,6 +32,8 @@ extension SessionStore {
     /// either way: app usage is captured all day regardless of sessions.
     func start() {
         guard !hasUnresolvedAwayDecision else { return }
+        // A name spelled like a category is that category (see SessionNaming).
+        (intent, workType) = SessionNaming.resolve(name: intent, workType: workType)
         if engine.wouldAdopt(workType: workType, intent: intent) {
             engine.adopt(intent: intent)
         } else {
@@ -47,13 +49,14 @@ extension SessionStore {
 
     func startQuick(_ quick: QuickStart) {
         guard !hasUnresolvedAwayDecision else { return }
-        workType = quick.workType
-        if engine.wouldAdopt(workType: quick.workType, intent: quick.name) {
-            engine.adopt(intent: quick.name)
+        let (name, type) = SessionNaming.resolve(name: quick.name, workType: quick.workType)
+        workType = type
+        if engine.wouldAdopt(workType: type, intent: name) {
+            engine.adopt(intent: name)
         } else {
-            guard replaceSession(workType: quick.workType, intent: quick.name) else { return }
+            guard replaceSession(workType: type, intent: name) else { return }
         }
-        engine.store.rememberActivity(name: quick.name, workType: quick.workType)
+        engine.store.rememberActivity(name: name, workType: type)
         intent = ""
         refresh()
     }

@@ -297,7 +297,12 @@ struct ActivityRuleForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HStack(spacing: Tokens.Space.m) {
-                TextField("Activity name", text: $editor.name)
+                TextField("Activity name", text: Binding(get: { editor.name }, set: { typed in
+                    editor.name = typed
+                    // Typed only, never on opening a rule: a name that spells
+                    // a category files the rule there unless picked otherwise.
+                    if let named = SessionNaming.category(named: typed) { editor.workType = named }
+                }))
                     .textFieldStyle(.roundedBorder)
                     .focused($nameFocused)
                     .onSubmit(save)
@@ -309,6 +314,14 @@ struct ActivityRuleForm: View {
                 // platform's bezel: the same menu, Add and Edit category included.
                 // It says "Category" and the chosen one itself.
                 WorkTypePicker(selection: $editor.workType, quiet: true)
+            }
+            if let named = SessionNaming.contradicts(name: editor.name, workType: editor.workType) {
+                Label("\(named.displayName) is also a category. Sessions from this rule will count toward "
+                      + "\(editor.workType.displayName), not \(named.displayName).",
+                      systemImage: "exclamationmark.triangle")
+                    .font(Tokens.Typography.metadata)
+                    .foregroundStyle(Tokens.Colour.attention)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 HStack(spacing: Tokens.Space.m) {

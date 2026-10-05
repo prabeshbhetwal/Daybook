@@ -367,6 +367,10 @@ struct StoryRail: View {
             if !categoryGoals.isEmpty {
                 categoryGoalRows
             }
+            // Today's tile only: the tidy-up is about the record as it is now.
+            if day == nil {
+                NameCategoryNotice(store: store, settings: settings)
+            }
         }
     }
 
@@ -413,6 +417,10 @@ struct StoryRail: View {
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(DurationText.spoken(in: "\(item.type.displayName): \(Tokens.duration(item.achieved)) of a \(Tokens.duration(item.goal)) goal"))
+                // A session named "Coding" under Deep work is not here: the
+                // goal counts the category, and says so.
+                .help("Counts sessions filed under \(item.type.displayName)")
+                .accessibilityHint("Counts sessions filed under \(item.type.displayName)")
             }
         }
     }

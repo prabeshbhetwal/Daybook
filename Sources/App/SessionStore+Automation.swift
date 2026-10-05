@@ -127,6 +127,8 @@ extension SessionStore {
     func applyAutomaticSessionCorrection() {
         guard isAutoSession, !hasUnresolvedAwayDecision else { return }
         isNamingAutomaticSession = false
+        // A name spelled like a category is that category (see SessionNaming).
+        (intent, workType) = SessionNaming.resolve(name: intent, workType: workType)
         if isAway {
             // `endAway()` refreshes `workType` from the still-active session.
             // Preserve the user's pending correction across that required

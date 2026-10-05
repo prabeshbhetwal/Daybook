@@ -60,6 +60,7 @@ final class PersistenceStore {
         static let suggestionWindowDays = "fc.suggestionWindowDays"
         static let breakTiersDisabled = "fc.breakTiersDisabled"
         static let quietFold = "fc.quietFold"
+        static let nameCategoryKept = "fc.nameCategoryKept"
         static let onboarded = "fc.onboarded"
         static let welcomeLeftAt = "fc.welcomeLeftAt"
         static let globalShortcut = "fc.globalShortcut"
@@ -550,6 +551,13 @@ final class PersistenceStore {
     }
 
     /// Quiet timeline rows fold once a run reaches this many; 0 never folds.
+    /// The tidy-up the reader chose to keep as it is, by its signature: the
+    /// goal tile stops offering it until a new session or rule joins.
+    var nameCategoryKept: String {
+        get { defaults.string(forKey: Key.nameCategoryKept) ?? "" }
+        set { defaults.set(newValue, forKey: Key.nameCategoryKept) }
+    }
+
     var quietFold: Int {
         get {
             guard let stored = defaults.object(forKey: Key.quietFold) as? Int else { return FocusConstants.defaultQuietFold }
@@ -706,7 +714,7 @@ final class PersistenceStore {
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,
                     Key.idlePauseThreshold, Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
-                    Key.showsMenuBarIcon, Key.dockIconMode,
+                    Key.showsMenuBarIcon, Key.dockIconMode, Key.nameCategoryKept,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
                     Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut]
         for key in keys { defaults.removeObject(forKey: key) }

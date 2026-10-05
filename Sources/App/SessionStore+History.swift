@@ -571,6 +571,20 @@ extension SessionStore {
         applyCorrection(threadID: session.threadID, correction: .workType(workType))
     }
 
+    /// The same, by thread, for corrections made outside a session's card:
+    /// the goal tile's tidy-up of names spelled like a category.
+    @discardableResult
+    func setWorkType(_ workType: WorkType, threadID: UUID) -> Bool {
+        applyCorrection(threadID: threadID, correction: .workType(workType))
+    }
+
+    /// Clears a session's own name, so it is titled by its category. Only
+    /// that tidy-up asks for this; a person renaming must give a name.
+    @discardableResult
+    func clearSessionName(threadID: UUID) -> Bool {
+        applyCorrection(threadID: threadID, correction: .rename(""))
+    }
+
     /// Whether this session can be taken out of the record right now: nothing
     /// running on its thread, and no away question pending.
     func canRemoveSession(_ session: DaySession) -> Bool {
