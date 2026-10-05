@@ -473,6 +473,11 @@ enum HistoryTreeChecks {
         let oneToday = HistoryTreeBuilder.top(days: [row(9, 29, focused: 60, sessions: 1)], today: today, calendar: calendar)
         let todayLine = HistoryRowText.headline(top: oneToday, summary: HistoryTreeBuilder.summary(top: oneToday, days: [row(9, 29, focused: 60, sessions: 1)], calendar: calendar), calendar: calendar)
         if todayLine.eyebrow != "Tuesday 29 September" { failures.append("a one-day record's eyebrow read \(todayLine.eyebrow)") }
+        // A week across two months names both.
+        let newYear = [row(12, 29, year: 2025, focused: 60, sessions: 1)]
+        let newYearTop = HistoryTreeBuilder.top(days: newYear, today: date(1, 2), calendar: calendar)
+        let newYearLine = HistoryRowText.headline(top: newYearTop, summary: HistoryTreeBuilder.summary(top: newYearTop, days: newYear, calendar: calendar), calendar: calendar)
+        if newYearLine.eyebrow != "29 December – 2 January" { failures.append("a week across two months read \(newYearLine.eyebrow)") }
         return failures
     }
 
