@@ -17,5 +17,11 @@
 # iCloud File Provider conflict copies of the built bundle
 /FocusContinuity *.app/
 
-# Claude Code harness state (worktrees, scratch)
-.claude/
+# Claude Code harness state (worktrees, scratch) stays local. The project's
+# shared settings, hooks, skills and agents are committed so every worktree
+# gets them.
+**/.claude/*
+!/.claude/settings.json
+!/.claude/hooks/
+!/.claude/skills/
+!/.claude/agents/
