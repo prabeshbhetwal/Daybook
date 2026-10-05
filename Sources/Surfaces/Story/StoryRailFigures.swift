@@ -6,9 +6,10 @@ import Foundation
 /// rounded separately had a goal of 4h 43m beside "In a focus session 4h 44m"
 /// and a "5h" beside parts summing to 4h 59m.
 enum StoryRailFigures {
-    /// Whole minutes, rounded down as `Tokens.preciseDuration` prints them.
+    /// Whole minutes, rounded down as `Tokens.preciseDuration` prints them. A
+    /// length no session can have reads as none rather than trapping.
     static func minutes(_ seconds: TimeInterval) -> Int {
-        seconds.isFinite && seconds > 0 ? Int(seconds / 60) : 0
+        (DurationText.wholeSeconds(seconds) ?? 0) / 60
     }
 
     /// "5h 16m logged − 33m with no app use recorded": how the goal's figure

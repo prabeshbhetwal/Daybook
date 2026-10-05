@@ -510,12 +510,14 @@ final class AppUsageArchive {
         }
     }
 
-    /// Publishes a change only once it is durable: as one journal line while
-    /// the journal is short, or as a fresh snapshot once it is long. A journal
-    /// line needs nothing but the change, so the history is then changed in
-    /// place; copying all of it first cost a full pass per checkpoint over
-    /// history that is now uncapped. A snapshot needs the whole new history
-    /// before it is written, so that path still builds it aside.
+    /// Publishes a change only once it is durable: as one journal line, which
+    /// needs nothing but the change, so the history is then changed in place;
+    /// copying all of it first cost a full pass per checkpoint over history
+    /// that is now uncapped. Once the journal is long, the whole history is
+    /// also written as a fresh snapshot, which clears it. The line comes
+    /// first even then: a journal that could not be cleared still ends on
+    /// this change, and replaying it over the snapshot repeats the change
+    /// instead of undoing it with the older lines before it.
     @discardableResult
     private func persistMutation(_ change: JournalChange,
                                  applying mutate: (inout [AppUsageSession]) -> Void) -> Bool {
@@ -527,14 +529,10 @@ final class AppUsageArchive {
         case .remove(let id):
             touched = cache.first { $0.id == id }?.start
         }
-        if journalEntries + 1 < AppUsageConstants.journalCompactionThreshold {
-            guard appendToJournal(change) else { return false }
-            mutate(&cache)
-        } else {
-            var candidate = cache
-            mutate(&candidate)
-            guard compact(to: candidate) else { return false }
-            cache = candidate
+        guard appendToJournal(change) else { return false }
+        mutate(&cache)
+        if journalEntries >= AppUsageConstants.journalCompactionThreshold {
+            _ = compact(to: cache)
         }
         revision += 1
         noteChange(from: touched)
@@ -588,21 +586,28 @@ final class AppUsageArchive {
         return true
     }
 
-    /// Applies the changes written since the snapshot. A torn final line is
-    /// the one write a crash can interrupt, so it alone is skipped, and then
-    /// cut off: the next append would otherwise join the torn bytes and be
-    /// unreadable too. An unreadable line anywhere else
-    /// means the journal cannot be trusted, and it is moved aside like any
-    /// other unreadable history; if that fails, nothing more is written.
+    /// Applies the changes written since the snapshot.
+    ///
+    /// Every append ends its line, so a journal that does not end in a newline
+    /// was cut short by its last write. That line alone may be torn: it is
+    /// skipped and cut off, since the next append would otherwise join the
+    /// torn bytes and be unreadable too. If it reads, only its newline is
+    /// missing, and that is written. A complete line that does not read, such
+    /// as one a newer build wrote, is kept: the journal is moved aside like any
+    /// other unreadable history, and the lines that do read still apply. If it
+    /// cannot be moved, nothing more is written.
     private func replayJournal() {
         guard let data = try? Data(contentsOf: journalURL) else { return }
         let lines = data.split(separator: 0x0A, omittingEmptySubsequences: true)
+        let lastWriteCut = data.last.map { $0 != 0x0A } ?? false
         var sessions = cache
         var applied = 0
         var skippedTornLine = false
+        var setAside = false
         for (offset, line) in lines.enumerated() {
             guard let change = try? JSONDecoder().decode(JournalChange.self, from: Data(line)) else {
-                if offset == lines.count - 1 { skippedTornLine = true; break }
+                if offset == lines.count - 1, lastWriteCut { skippedTornLine = true; break }
+                if setAside { continue }
                 guard let aside = UnreadableFile.setAside(journalURL, prefix: "app-usage-journal-corrupt-",
                                                           pathExtension: "jsonl", at: now()) else {
                     isReadOnly = true
@@ -611,7 +616,8 @@ final class AppUsageArchive {
                     return
                 }
                 Diagnostics.log("app usage journal unreadable at line \(offset + 1); moved to \(aside.lastPathComponent)")
-                break
+                setAside = true
+                continue
             }
             switch change {
             case .upsert(let session):
@@ -627,15 +633,37 @@ final class AppUsageArchive {
         }
         cache = sessions
         journalEntries = lines.count
-        // The next append must start on a line of its own. If the torn bytes
-        // cannot be cut off, appending would bury that record in them too.
-        if skippedTornLine, !dropTornLine(from: data) {
-            isReadOnly = true
-            Diagnostics.log("app usage journal ends in a torn line that could not be removed; kept read-only")
-            return
-        }
         // Starting each launch from one clean snapshot keeps the journal short.
         if applied > 0 { _ = compact(to: sessions) }
+        // The next append must start on a line of its own. A journal that was
+        // compacted away or moved aside needs nothing: the next append starts
+        // a new one. If one left behind cannot be repaired, appending would
+        // bury that record too.
+        guard lastWriteCut, FileManager.default.fileExists(atPath: journalURL.path) else { return }
+        if skippedTornLine {
+            guard dropTornLine(from: data) else {
+                isReadOnly = true
+                Diagnostics.log("app usage journal ends in a torn line that could not be removed; kept read-only")
+                return
+            }
+            Diagnostics.log("app usage journal ended in a torn line; cut it off")
+        } else if !endLastLine() {
+            isReadOnly = true
+            Diagnostics.log("app usage journal's last line has no end and could not be given one; kept read-only")
+        }
+    }
+
+    /// Writes the newline a cut-short write left off a line that reads.
+    private func endLastLine() -> Bool {
+        do {
+            let handle = try FileHandle(forWritingTo: journalURL)
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            try handle.write(contentsOf: Data([0x0A]))
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Truncates the journal to just before its last line.

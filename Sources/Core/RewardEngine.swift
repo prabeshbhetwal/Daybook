@@ -97,8 +97,9 @@ struct RewardEngine {
     }
 
     private func milestone(_ context: RewardContext) -> Reward? {
-        guard context.isSessionRunning, context.focusedToday >= 3_600 else { return nil }
-        let hours = Int(context.focusedToday / 3_600)
+        guard context.isSessionRunning, context.focusedToday >= 3_600,
+              let focused = DurationText.wholeSeconds(context.focusedToday) else { return nil }
+        let hours = focused / 3_600
         let todayPhrase = DurationText.compact(context.focusedToday)
         let detail: String
         // The comparison is only ever printed when there is a real number behind

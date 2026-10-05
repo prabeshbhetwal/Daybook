@@ -373,10 +373,12 @@ final class SessionArchive {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else {
                 return nil
             }
-            let seconds = totals[day] ?? 0
+            // A stored length no session can have (a corrupted file can hold
+            // 1e300) draws no bar instead of trapping on every refresh.
+            let seconds = DurationText.wholeSeconds(totals[day] ?? 0) ?? 0
             return DayBar(id: day,
                           label: formatter.string(from: day),
-                          minutes: Int(seconds / 60),
+                          minutes: seconds / 60,
                           isToday: offset == 0)
         }
     }

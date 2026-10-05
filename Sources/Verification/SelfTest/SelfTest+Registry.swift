@@ -27,6 +27,7 @@ extension SelfTest {
             + AutomaticNamingChecks.tests + GlobalShortcutChecks.tests + ClockTextChecks.tests
             + NameMigrationChecks.tests
             + HistoryAppLensChecks.tests
+            + JournalRecoveryChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
