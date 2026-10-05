@@ -264,7 +264,7 @@ struct StoryRail: View {
             // Week and Month headlines already give the total, the focused
             // days and the average; only a day has a goal to show.
             case .focus: return true
-            case .mac: return evidence.tracked > 0 || evidence.uncoveredFocus > 0
+            case .mac: return evidence.tracked > 0
             case .apps: return !apps.isEmpty
             case .rhythm: return !rhythmHours.isEmpty
             case .streak: return day == nil && store.streak > 0
@@ -357,12 +357,15 @@ struct StoryRail: View {
                 }
             }
             // The headline's logged figure and this card's can differ. This
-            // card owns the one sentence that says why.
-            if goal.goal > 0 && evidence.uncoveredFocus > 0 {
-                Text("Only focus with app use recorded counts towards the goal.")
+            // card owns the arithmetic that joins them.
+            if goal.goal > 0,
+               let equation = StoryRailFigures.goalEquation(logged: evidence.focused, counted: goal.achieved) {
+                Text(durations: equation)
                     .font(Tokens.Typography.metadata)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .help("Only focus with app use recorded counts towards the goal.")
+                    .accessibilityHint("Only focus with app use recorded counts towards the goal.")
             }
             if !categoryGoals.isEmpty {
                 categoryGoalRows
@@ -441,10 +444,10 @@ struct StoryRail: View {
     // MARK: - On this Mac
 
     private func macTile(_ evidence: StoryUsageBreakdown) -> some View {
-        let trackedValue = evidence.tracked
-        let insideValue = evidence.insideSessions
-        let looseValue = evidence.outsideSessions
-        let unrecordedValue = evidence.uncoveredFocus
+        let rows = StoryRailFigures.macRows(tracked: evidence.tracked, insideSessions: evidence.insideSessions,
+                                           countedFocus: railGoal.achieved)
+        let minutes = { (value: Int) in TimeInterval(value * 60) }
+        let trackedValue = minutes(rows.total)
         return StoryTile(title: "On this Mac", trailing: nil) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(durations: Tokens.preciseDuration(trackedValue))
@@ -455,36 +458,36 @@ struct StoryRail: View {
                     .foregroundStyle(.secondary)
             }
             if trackedValue > 0 {
+                // Three parts that add up to the figure above: the goal's
+                // own focus, app use during a session's pauses, and the rest.
                 GeometryReader { geometry in
                     HStack(spacing: 0) {
                         Rectangle()
                             .fill(Tokens.Palette.app(rank: 1))
-                            .frame(width: geometry.size.width * width(of: insideValue, total: trackedValue))
+                            .frame(width: geometry.size.width * width(of: minutes(rows.duringFocus), total: trackedValue))
+                        Rectangle()
+                            .fill(Tokens.Palette.app(rank: 1).opacity(0.7))
+                            .frame(width: geometry.size.width * width(of: minutes(rows.duringPauses), total: trackedValue))
                         Rectangle()
                             .fill(Tokens.Palette.app(rank: 1).opacity(0.42))
-                            .frame(width: geometry.size.width * width(of: looseValue, total: trackedValue))
+                            .frame(width: geometry.size.width * width(of: minutes(rows.outside), total: trackedValue))
                     }
                 }
                 .frame(height: 7)
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
                 legendRow(colour: Tokens.Palette.app(rank: 1),
-                          label: "In a focus session",
-                          value: Tokens.duration(insideValue))
+                          label: "During focus",
+                          value: Tokens.duration(minutes(rows.duringFocus)))
+                if rows.duringPauses > 0 {
+                    legendRow(colour: Tokens.Palette.app(rank: 1).opacity(0.7),
+                              label: "During pauses",
+                              value: Tokens.duration(minutes(rows.duringPauses)))
+                }
                 legendRow(colour: Tokens.Palette.app(rank: 1).opacity(0.42),
                           label: "Outside sessions",
-                          value: Tokens.duration(looseValue))
+                          value: Tokens.duration(minutes(rows.outside)))
             }
-            if unrecordedValue > 0 {
-                    Divider()
-                    Text(durations: "\(Tokens.duration(unrecordedValue)) of your focus has no app use recorded.")
-                        .font(Tokens.Typography.metadata)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-            }
-            Text("A session may include pauses.")
-                .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

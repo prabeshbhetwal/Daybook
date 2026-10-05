@@ -16,6 +16,8 @@ struct StoryFocusSummary: Equatable {
 /// observed app use; focus work that cannot be credited by that evidence is a
 /// separate qualification rather than being folded into the headline.
 struct StoryUsageBreakdown: Equatable {
+    /// Session time, pauses out: the headline's "logged".
+    var focused: TimeInterval = 0
     let tracked: TimeInterval
     let insideSessions: TimeInterval
     let outsideSessions: TimeInterval
@@ -176,6 +178,7 @@ extension SessionStore {
         }
         let inside = max(0, rawInside)
         return StoryUsageBreakdown(
+            focused: focused,
             tracked: tracked,
             insideSessions: inside,
             outsideSessions: max(0, tracked - inside),
