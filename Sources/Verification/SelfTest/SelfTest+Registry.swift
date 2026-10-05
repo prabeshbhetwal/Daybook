@@ -30,6 +30,9 @@ extension SelfTest {
             + JournalRecoveryChecks.tests
             + PercentTextChecks.tests
             + HistoryOverviewChecks.tests
+            + HistoryCalendarChecks.tests
+            + HistoryNoticeChecks.tests
+            + FixtureClockChecks.tests
             + InstallDateChecks.tests
     }
 

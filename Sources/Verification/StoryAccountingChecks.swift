@@ -33,7 +33,7 @@ enum StoryAccountingChecks: CheckSuite {
                 guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
                 defer { fixture.cleanUp() }
                 fixture.engine.start(workType: .deepWork, intent: "Overnight")
-                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                fixture.store.catchUpWithEngine()
                 clock.advance(1_200)
                 if includesStoredSpan {
                     fixture.engine.archive.append(SessionRecord(name: "Stored overnight", workType: .deepWork,
@@ -77,7 +77,7 @@ enum StoryAccountingChecks: CheckSuite {
             guard let fixture = makeStore(clock) else { return ["Could not create isolated preferences"] }
             defer { fixture.cleanUp() }
             fixture.engine.start(workType: .deepWork, intent: "Live")
-            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            fixture.store.catchUpWithEngine()
             let past = date(2026, 8, 17, 9, 0)
             let id = UUID()
             fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "past", appName: "Past",
@@ -163,7 +163,7 @@ enum StoryAccountingChecks: CheckSuite {
             fixture.engine.start(workType: .deepWork, intent: "Pause")
             clock.advance(60)
             fixture.engine.transition(on: .manualPause)
-            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            fixture.store.catchUpWithEngine()
             fixture.store.setDashboardVisible(true)
             fixture.store.setReviewVisible(true)
             fixture.store.refreshReview(period: .month)
@@ -217,7 +217,7 @@ enum StoryAccountingChecks: CheckSuite {
             defer { fixture.cleanUp() }
             fixture.engine.start(workType: .deepWork, intent: "Live day")
             fixture.store.tracker?.appActivated(bundleID: "editor", name: "Editor")
-            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            fixture.store.catchUpWithEngine()
             fixture.store.setDashboardVisible(true)
             let fullGeneration = fixture.store.dashboardArchiveReadModelGeneration
             clock.advance(80)
@@ -252,7 +252,7 @@ enum StoryAccountingChecks: CheckSuite {
             fixture.store.setReviewVisible(true)
             fixture.engine.start(workType: .deepWork, intent: "Live period evidence")
             fixture.store.tracker?.appActivated(bundleID: "com.example.editor", name: "Editor")
-            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            fixture.store.catchUpWithEngine()
             fixture.store.refreshReview(period: .week)
             let stableHistoryGeneration = fixture.store.historyIndexGeneration
             clock.advance(125)

@@ -254,7 +254,7 @@ enum Tokens {
     /// cost the bar twenty points at its minimum width.
     static func dateRange(_ start: Date, _ end: Date, now: Date = Date(),
                           calendar: Calendar = .current) -> String {
-        func formatter(_ format: String) -> DateFormatter { DateFormats.australian(format) }
+        func formatter(_ format: String) -> DateFormatter { DateFormats.australian(format, in: calendar.timeZone) }
         let thisYear = calendar.component(.year, from: now)
         let startYear = calendar.component(.year, from: start)
         let endYear = calendar.component(.year, from: end)

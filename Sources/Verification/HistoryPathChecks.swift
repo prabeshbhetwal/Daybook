@@ -17,7 +17,7 @@ enum HistoryPathChecks {
         let start = HistoryTreeChecks.date(1, 1)
         let year = HistoryPlace(level: .year,
                                 span: DateInterval(start: start, end: HistoryTreeChecks.date(1, 1, year: 2027)))
-        let top = HistoryTop(place: year, firstDay: HistoryTreeChecks.date(9, 17), today: today)
+        let top = HistoryTop(place: year, firstDay: HistoryTreeChecks.date(9, 17), today: today, calendar: calendar)
         let open = HistoryTreeBuilder.path(to: sunday, top: top, calendar: calendar)
         let thread = UUID()
         let crumbs = HistoryPath.crumbs(top: top, open: open,
@@ -42,13 +42,15 @@ enum HistoryPathChecks {
         // A record shorter than a year sits under its month, which must say the year.
         let month = HistoryPlace(level: .month,
                                  span: DateInterval(start: HistoryTreeChecks.date(9, 1), end: HistoryTreeChecks.date(10, 1)))
-        let monthTop = HistoryTop(place: month, firstDay: HistoryTreeChecks.date(9, 17), today: today)
+        let monthTop = HistoryTop(place: month, firstDay: HistoryTreeChecks.date(9, 17), today: today,
+                                  calendar: calendar)
         let monthTitle = HistoryPath.crumbs(top: monthTop, open: [], session: nil, today: today, calendar: calendar)
             .first?.title
         if monthTitle != "September 2026" { problems.append("a month on top read \(monthTitle ?? "nothing")") }
 
         // Several years on top and nothing open: there is no place to name.
-        let allYears = HistoryTop(place: nil, firstDay: HistoryTreeChecks.date(9, 17, year: 2024), today: today)
+        let allYears = HistoryTop(place: nil, firstDay: HistoryTreeChecks.date(9, 17, year: 2024), today: today,
+                                  calendar: calendar)
         if !HistoryPath.crumbs(top: allYears, open: [], session: nil, today: today, calendar: calendar).isEmpty {
             problems.append("an all-years record with nothing open still drew a path")
         }

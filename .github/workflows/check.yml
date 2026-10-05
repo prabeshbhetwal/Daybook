@@ -1,0 +1,36 @@
+name: Check
+
+# Builds the app and runs every self-check on each push: the same gate as
+# ./build.sh --check locally. It never promotes a bundle or publishes anything.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The app is built with -warnings-as-errors, and each compiler warns a
+      # little differently, so use the newest Xcode the runner has.
+      - name: Select the newest Xcode
+        run: |
+          xcode="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          swift --version
+
+      # The runner keeps its own time zone and region (UTC, US English). The
+      # self-checks are written to hold in any zone, and running them away
+      # from the Sydney Mac they are written on keeps them to it.
+      - name: Build and run the self-checks
+        run: ./build.sh --check

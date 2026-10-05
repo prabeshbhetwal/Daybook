@@ -162,6 +162,9 @@ extension SelfTest {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: base)
         let thread = UUID()
+        // 3 pm on the day, after every session below and within the window
+        // to continue them; at `base` (9:13 am) they would still be ahead.
+        clock.value = today.addingTimeInterval(15 * 3_600)
 
         // Two segments of one thread, plus an unrelated session between them.
         archive.append(SessionRecord(name: "Refactor", workType: .deepWork,

@@ -19,7 +19,9 @@ as one module.
 - `build.sh` fails inside the Claude Bash sandbox at the `sips` icon step (it
   cannot write to the system temp folder). Run it with the sandbox disabled.
 - Compile-only check that works in the sandbox, about 100 s:
-  `swiftc -typecheck -module-cache-path "$TMPDIR/mc" -swift-version 5 -parse-as-library -warnings-as-errors -target arm64-apple-macos13.0 $(find Sources -name '*.swift')`
+  `swiftc -typecheck -module-cache-path "$TMPDIR/mc" -swift-version 5 -parse-as-library -warnings-as-errors -target arm64-apple-macos13.0 -F .build/vendor/Sparkle-2.10.0 $(find Sources -name '*.swift')`
+  (`-F` finds Sparkle once a build has fetched it; a worktree without
+  `.build/vendor` can point at the main checkout's).
 - A build that replaces the app holds `.build/promotion.lock`; a second build
   waits up to two minutes. Remove the lock only when no build is running.
 - `codesign --verify --strict` fails on the promoted bundle in an
@@ -53,6 +55,12 @@ Core → App → Design/Surfaces, in one direction only; the README has the map.
   is its number, and comments cite those numbers.
 - Checks never touch live data: they use `TestClock`,
   `SelfTest.scratchDirectory()` and an isolated `fc-selftest-…` defaults suite.
+- Write checks that hold in any time zone and region. Build fixture dates
+  from the calendar the code under test uses, or hand that code the
+  fixture's calendar and make sure it uses it throughout. `SelfTest.base` is
+  9:13 am local in every zone; a fixed `Date(timeIntervalSince1970:)` is
+  not, and lands near midnight somewhere. `TZ=Europe/Berlin
+  ./build.sh --check` runs the suite in another zone (GitHub's runner is UTC).
 - A fix comes with a check that fails on the old behaviour. Before committing
   a fix to persistence, settings, session state or time arithmetic, run the
   `fix-reviewer` agent on it.
