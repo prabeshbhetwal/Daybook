@@ -12,6 +12,17 @@ enum TrackingPeriod: String, Codable, CaseIterable {
     }
 }
 
+extension Calendar {
+    /// This calendar with weeks that run Monday to Sunday whatever the region
+    /// says, so History, Review, Insights and the story mean the same seven
+    /// days by "this week". A US region starts them on Sunday.
+    var weeksFromMonday: Calendar {
+        var calendar = self
+        calendar.firstWeekday = 2
+        return calendar
+    }
+}
+
 /// One calendar day's rollup — one bar in the period chart.
 struct PeriodDay: Identifiable, Equatable {
     let date: Date
@@ -139,7 +150,7 @@ struct PeriodStats {
         self.sessions = sessions
         self.usage = usage
         self.usageSnapshot = usageSnapshot
-        self.calendar = calendar
+        self.calendar = calendar.weeksFromMonday
         self.now = now
     }
 

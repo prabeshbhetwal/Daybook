@@ -33,7 +33,7 @@ struct DayPickerCalendar: View {
 
     @StateObject private var shown: MonthBox
     @StateObject private var hover = HoverBox()
-    private let calendar = Calendar.current
+    private let calendar = Calendar.current.weeksFromMonday
 
     init(selected: Date, earliest: Date?, goal: TimeInterval,
          facts: @escaping (Date) -> [Date: DayFacts],

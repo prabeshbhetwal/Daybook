@@ -26,6 +26,8 @@ struct HistoryBuildResult: Equatable {
     let droppedUsageSpans: Int
     let droppedFocusSpans: Int
     let droppedRestSpans: Int
+    /// Focus, rest and app-usage records left out for starting before 2001.
+    var droppedBeforeFirstDay = 0
 }
 
 /// How History reads a query: each word must turn up somewhere in what a
@@ -150,11 +152,17 @@ enum HistoryStats {
         var droppedUsageSpans = 0
         var droppedFocusSpans = 0
         var droppedRestSpans = 0
+        var droppedBeforeFirstDay = 0
+        let earliest = firstDay(calendar: calendar)
 
         // Split each usage stretch only across the calendar days it touches.
         // This is linear in the archive plus cross-midnight spans, rather than
         // rescanning all 20,000 possible usage records once for every day.
         for session in usage where session.end > session.start {
+            if session.start < earliest {
+                droppedBeforeFirstDay += 1
+                continue
+            }
             let span: (first: Date, last: Date)
             switch boundedSpan(start: session.start, end: session.end, calendar: calendar) {
             case .accepted(let first, let last): span = (first, last)
@@ -184,6 +192,10 @@ enum HistoryStats {
         // Session records keep their established proportional day attribution.
         // Break records add a work-type fact but never focused time or a session.
         for record in sessionRecords {
+            if record.start < earliest {
+                droppedBeforeFirstDay += 1
+                continue
+            }
             let span: (first: Date, last: Date)
             switch boundedSpan(start: record.start, end: record.end, calendar: calendar) {
             case .accepted(let first, let last): span = (first, last)
@@ -224,7 +236,16 @@ enum HistoryStats {
         return HistoryBuildResult(days: days,
                                   droppedUsageSpans: droppedUsageSpans,
                                   droppedFocusSpans: droppedFocusSpans,
-                                  droppedRestSpans: droppedRestSpans)
+                                  droppedRestSpans: droppedRestSpans,
+                                  droppedBeforeFirstDay: droppedBeforeFirstDay)
+    }
+
+    /// The first day History shows: 1 January 2001, where stored dates count
+    /// from. Nothing real comes before it, so a record that does is malformed;
+    /// one dated thousands of years back made History build a row for every
+    /// year since.
+    static func firstDay(calendar: Calendar) -> Date {
+        calendar.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
     }
 
     private static func boundedSpan(start: Date, end: Date,

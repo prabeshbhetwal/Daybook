@@ -81,13 +81,11 @@ extension SelfTest {
         var problems: [String] = []
         let calendar = Calendar.current
         var components = DateComponents()
-        components.calendar = calendar
-        components.timeZone = calendar.timeZone
         components.year = 2026
         components.month = 8
         components.day = 26
         components.hour = 12
-        guard let moment = calendar.date(from: components),
+        guard let moment = SelfTest.gregorian.date(from: components),
               let firstDay = calendar.date(byAdding: .day, value: -1,
                                            to: calendar.startOfDay(for: moment)),
               let accuracyDay = calendar.date(byAdding: .day, value: -1,

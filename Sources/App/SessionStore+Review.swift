@@ -203,8 +203,8 @@ extension SessionStore {
             let previousOldest = historyDays.last?.date
             let rebuilt = HistoryStats.build(sessionRecords: engine.archive.records,
                                              usage: snapshot.sessions, calendar: calendar)
-            historyDays = storyHistoryDaysIncludingDecisionReceipts(
-                storyHistoryDaysIncludingRunning(rebuilt.days), calendar: calendar)
+            historyDays = fromFirstDay(storyHistoryDaysIncludingDecisionReceipts(
+                storyHistoryDaysIncludingRunning(rebuilt.days), calendar: calendar), calendar: calendar)
             historyIntegrityNotices = historyNotices(for: snapshot, rebuilt: rebuilt)
             maintainHistoryRange(previousNewest: previousNewest,
                                  previousOldest: previousOldest, calendar: calendar)
@@ -224,8 +224,8 @@ extension SessionStore {
         }
         // The builder deliberately clips each source record across all of its
         // days. Keep only the affected keys, then replace them exactly once.
-        let current = storyHistoryDaysIncludingDecisionReceipts(
-            storyHistoryDaysIncludingRunning(rebuilt.days), calendar: calendar).filter {
+        let current = fromFirstDay(storyHistoryDaysIncludingDecisionReceipts(
+            storyHistoryDaysIncludingRunning(rebuilt.days), calendar: calendar), calendar: calendar).filter {
             $0.date >= interval.start && $0.date < interval.end
         }
         historyDays.removeAll { $0.date >= interval.start && $0.date < interval.end }
@@ -233,6 +233,14 @@ extension SessionStore {
         historyDays.sort { $0.date > $1.date }
         maintainHistoryRange(previousNewest: previousNewest,
                              previousOldest: previousOldest, calendar: calendar)
+    }
+
+    /// History's days from 2001 on. A decision receipt dated earlier is as
+    /// malformed as a record, and adds its days after the builder has left
+    /// such records out.
+    private func fromFirstDay(_ days: [HistoryDay], calendar: Calendar) -> [HistoryDay] {
+        let first = HistoryStats.firstDay(calendar: calendar)
+        return days.filter { $0.date >= first }
     }
 
     /// Every day touched by a changing live projection, not merely today. A
@@ -257,14 +265,25 @@ extension SessionStore {
             notices.append("History includes preserved legacy app usage from before "
                            + "\(Tokens.longDate(snapshot.accurateFrom)); it may include unattended time.")
         }
-        if rebuilt.droppedUsageSpans > 0 || rebuilt.droppedFocusSpans > 0 || rebuilt.droppedRestSpans > 0 {
-            var dropped: [String] = []
-            if rebuilt.droppedUsageSpans > 0 { dropped.append("\(rebuilt.droppedUsageSpans) app-usage records") }
-            if rebuilt.droppedFocusSpans > 0 { dropped.append("\(rebuilt.droppedFocusSpans) focus records") }
-            if rebuilt.droppedRestSpans > 0 { dropped.append("\(rebuilt.droppedRestSpans) rest records") }
-            notices.append("History omitted \(dropped.joined(separator: " and ")) from derived day rows because each spans at least \(HistoryStats.maximumCalendarDaysPerRecord) calendar days. Source records remain preserved in local data.")
+        if let dropped = Self.recordCounts(usage: rebuilt.droppedUsageSpans, focus: rebuilt.droppedFocusSpans,
+                                           rest: rebuilt.droppedRestSpans) {
+            notices.append("History omitted \(dropped) from derived day rows because each spans at least \(HistoryStats.maximumCalendarDaysPerRecord) calendar days. Source records remain preserved in local data.")
+        }
+        if rebuilt.droppedBeforeFirstDay > 0 {
+            let count = rebuilt.droppedBeforeFirstDay
+            notices.append("History omitted \(count) \(count == 1 ? "record" : "records") dated before 2001. Source records remain preserved in local data.")
         }
         return notices
+    }
+
+    /// `1 focus record`, `2 app-usage records and 1 rest record`, or all three
+    /// as `1 app-usage record, 1 focus record and 1 rest record`; nil for none.
+    nonisolated static func recordCounts(usage: Int, focus: Int, rest: Int) -> String? {
+        let parts = [(usage, "app-usage"), (focus, "focus"), (rest, "rest")]
+            .filter { $0.0 > 0 }
+            .map { "\($0.0) \($0.1) \($0.0 == 1 ? "record" : "records")" }
+        guard let last = parts.last else { return nil }
+        return parts.count == 1 ? last : parts.dropLast().joined(separator: ", ") + " and " + last
     }
 
     private func refreshReviewLiveTail(usage: AppUsageArchive) {
@@ -383,7 +402,7 @@ extension SessionStore {
 
     /// The first day of the shown Review period — what the month grid lays out.
     var reviewPeriodStart: Date {
-        let calendar = Calendar.current
+        let calendar = Calendar.current.weeksFromMonday
         let anchor = reviewAnchor ?? Date()
         let unit: Calendar.Component = reviewPeriod == .week ? .weekOfYear : .month
         return calendar.dateInterval(of: unit, for: anchor)?.start

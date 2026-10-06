@@ -36,7 +36,7 @@ enum DecisionHistoryChecks {
     ]
 
     private final class Fixture {
-        var time = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
+        var time = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-decision-history-\(UUID())")
         let suite = "fc.decision-history.\(UUID())"
         lazy var defaults = UserDefaults(suiteName: suite)!
