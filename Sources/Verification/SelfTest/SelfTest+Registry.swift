@@ -39,6 +39,7 @@ extension SelfTest {
             + PeriodCalendarChecks.tests
             + AuditRepairChecks.tests
             + InsightHourChecks.tests
+            + EditorAndReportChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
