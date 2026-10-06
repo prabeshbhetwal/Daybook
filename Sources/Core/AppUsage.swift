@@ -593,9 +593,12 @@ final class AppUsageArchive {
     /// skipped and cut off, since the next append would otherwise join the
     /// torn bytes and be unreadable too. If it reads, only its newline is
     /// missing, and that is written. A complete line that does not read, such
-    /// as one a newer build wrote, is kept: the journal is moved aside like any
-    /// other unreadable history, and the lines that do read still apply. If it
-    /// cannot be moved, nothing more is written.
+    /// as one a newer build wrote, is kept: the lines that do read still apply,
+    /// and once a snapshot holds them the journal is moved aside like any
+    /// other unreadable history. Nothing reads a set-aside journal again, so
+    /// it is never moved before that snapshot is written. If either step
+    /// fails, the journal stays where the next launch replays it, and nothing
+    /// more is written.
     private func replayJournal() {
         guard let data = try? Data(contentsOf: journalURL) else { return }
         let lines = data.split(separator: 0x0A, omittingEmptySubsequences: true)
@@ -603,20 +606,11 @@ final class AppUsageArchive {
         var sessions = cache
         var applied = 0
         var skippedTornLine = false
-        var setAside = false
+        var unreadableLine: Int?
         for (offset, line) in lines.enumerated() {
             guard let change = try? JSONDecoder().decode(JournalChange.self, from: Data(line)) else {
                 if offset == lines.count - 1, lastWriteCut { skippedTornLine = true; break }
-                if setAside { continue }
-                guard let aside = UnreadableFile.setAside(journalURL, prefix: "app-usage-journal-corrupt-",
-                                                          pathExtension: "jsonl", at: now()) else {
-                    isReadOnly = true
-                    Diagnostics.log("app usage journal unreadable at line \(offset + 1) and could not be set aside; kept read-only")
-                    cache = sessions
-                    return
-                }
-                Diagnostics.log("app usage journal unreadable at line \(offset + 1); moved to \(aside.lastPathComponent)")
-                setAside = true
+                unreadableLine = unreadableLine ?? offset + 1
                 continue
             }
             switch change {
@@ -631,8 +625,21 @@ final class AppUsageArchive {
             }
             applied += 1
         }
+        let changed = sessions != cache
         cache = sessions
         journalEntries = lines.count
+        if let unreadableLine {
+            guard !changed || save(sessions: sessions),
+                  let aside = UnreadableFile.setAside(journalURL, prefix: "app-usage-journal-corrupt-",
+                                                      pathExtension: "jsonl", at: now()) else {
+                isReadOnly = true
+                Diagnostics.log("app usage journal unreadable at line \(unreadableLine); kept in place read-only, since its readable lines could not be saved to a snapshot or it could not be set aside")
+                return
+            }
+            journalEntries = 0
+            Diagnostics.log("app usage journal unreadable at line \(unreadableLine); moved to \(aside.lastPathComponent)")
+            return
+        }
         // Starting each launch from one clean snapshot keeps the journal short.
         if applied > 0 { _ = compact(to: sessions) }
         // The next append must start on a line of its own. A journal that was

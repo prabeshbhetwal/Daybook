@@ -445,11 +445,12 @@ enum FirstRunScript {
                      + "Away & Breaks for when it asks. Recording for what is watched "
                      + "and which apps count as work.",
                  anchor: .settings),
-            Card(sentence: "Everything stays on this Mac.",
-                 body: "Your record is a handful of files in your own Library folder. "
-                     + "Nothing is sent anywhere, there is no account, and Privacy in "
-                     + "Settings shows you the folder and lets you turn recording off "
-                     + "entirely.",
+            Card(sentence: "Your record stays on this Mac.",
+                 body: "It is a handful of files in your own Library folder, and there "
+                     + "is no account. Only the update check asks GitHub for anything, and "
+                     + "dictation may send audio to Apple when this Mac cannot recognise "
+                     + "your language itself. Privacy in Settings shows you the folder and "
+                     + "lets you turn recording off entirely.",
                  anchor: .settings)
         ]),
 

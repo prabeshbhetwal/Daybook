@@ -70,14 +70,11 @@ extension SessionStore {
             let worked = record.workSeconds(in: interval)
             if worked > 0 { seconds[record.workType, default: 0] += worked }
         }
-        if engine.state != .idle, engine.activeWorkType.countsAsFocus {
-            let start = max(engine.sessionStartDate, bounds.start)
-            let end = min(now(), bounds.end)
-            if end > start {
-                let live = min(engine.elapsed, end.timeIntervalSince(start))
-                if live > 0 { seconds[engine.activeWorkType, default: 0] += live }
-            }
-        }
+        // Pause-aware, as the day's total is: capping the whole stretch's work
+        // at the day's overlap gave a day the work done before a pause that
+        // filled it.
+        let live = engine.elapsed(in: interval)
+        if live > 0 { seconds[engine.activeWorkType, default: 0] += live }
         return seconds
     }
 

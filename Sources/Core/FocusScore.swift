@@ -97,10 +97,14 @@ struct FocusScorer {
         let dominantPurpose = dominantID.flatMap { purposeByApp[$0] } ?? .utility
         let dominantMinutes = dominantID.flatMap { secondsByApp[$0] }.map { $0 / 60 } ?? 0
 
+        // A switch is a change of app between neighbouring segments. Segments of
+        // one app are checkpoint splits of a single stretch, not churn: thirty
+        // Warp segments are zero switches.
+        let switches = zip(clipped, clipped.dropFirst())
+            .filter { $0.bundleID != $1.bundleID }
+            .count
         let windowMinutes = window.end.timeIntervalSince(window.start) / 60
-        let switchesPerMinute = windowMinutes > 0
-            ? max(0, Double(clipped.count - 1) / windowMinutes)
-            : 0
+        let switchesPerMinute = windowMinutes > 0 ? Double(switches) / windowMinutes : 0
 
         let signals = FocusSignals(focusedShare: focusedShare, mediaShare: mediaShare,
                                    activity: activity, switchesPerMinute: switchesPerMinute,

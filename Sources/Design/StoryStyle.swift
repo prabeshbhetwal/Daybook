@@ -33,7 +33,11 @@ enum StoryStyle {
     static func ink(_ hue: WorkTypeHue) -> Color {
         switch hue {
         case .indigo: return focus
-        case .orange: return Color(lightHex: 0xA35F00, darkHex: 0xFFC575)
+        // Light: 4.6:1 or better on white and the canvas, and on the orange
+        // wash the badge (14%) and the active filter chip (12%) lay over
+        // them. The previous 0xA35F00 measured 4.47 and 4.38 there, under
+        // the 4.5 that text needs.
+        case .orange: return Color(lightHex: 0x9B5A00, darkHex: 0xFFC575)
         case .teal: return Color(lightHex: 0x126C7C, darkHex: 0x73D1E2)
         case .pink: return Color(lightHex: 0xB12650, darkHex: 0xFF91AD)
         case .blue: return Color(lightHex: 0x0059B3, darkHex: 0x7DB8FF)

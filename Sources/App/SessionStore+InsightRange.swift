@@ -142,34 +142,23 @@ extension SessionStore {
         var grid = Array(repeating: Array(repeating: TimeInterval(0), count: 24), count: rows.labels.count)
         var byCategory: [WorkType: TimeInterval] = [:]
 
-        func spread(start: Date, end: Date, workShare: Double, type: WorkType) {
-            var cursor = start
-            while cursor < end {
-                let hour = calendar.component(.hour, from: cursor)
-                let nextHour = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: cursor)
-                    .flatMap { calendar.date(byAdding: .hour, value: 1, to: $0) } ?? end
-                let sliceEnd = min(end, nextHour)
-                let slice = sliceEnd.timeIntervalSince(cursor)
-                guard slice > 0 else { break }
-                if let row = rows.row(for: cursor) { grid[row][hour] += slice * workShare }
-                byCategory[type, default: 0] += slice * workShare
-                cursor = sliceEnd
+        func spread(start: Date, end: Date, type: WorkType,
+                    work: ((start: Date, end: Date)) -> TimeInterval) {
+            HourlyWork.forEachHour(from: start, to: end, calendar: calendar, work: work) { slice, hour, seconds in
+                if let row = rows.row(for: slice) { grid[row][hour] += seconds }
+                byCategory[type, default: 0] += seconds
             }
         }
 
         for record in engine.archive.records where record.workType.countsAsFocus {
             let start = max(record.start, rangeStart), end = min(record.end, rangeEnd)
             guard end > start else { continue }
-            let span = end.timeIntervalSince(start)
-            let share = min(1, record.workSeconds(in: (start: start, end: end)) / max(span, 1))
-            spread(start: start, end: end, workShare: share, type: record.workType)
+            spread(start: start, end: end, type: record.workType, work: record.workSeconds(in:))
         }
         if engine.state != .idle, engine.activeWorkType.countsAsFocus {
             let start = max(engine.sessionStartDate, rangeStart), end = min(now(), rangeEnd)
             if end > start {
-                let span = end.timeIntervalSince(start)
-                spread(start: start, end: end, workShare: min(1, engine.elapsed / max(span, 1)),
-                       type: engine.activeWorkType)
+                spread(start: start, end: end, type: engine.activeWorkType, work: engine.elapsed(in:))
             }
         }
 

@@ -62,6 +62,8 @@ extension SessionEngine {
             awayDecisionError = error
             return archive.records.contains(record)
         }
+        // A rest refused earlier is retried with each stretch archived here.
+        saveRests()
         return true
     }
 

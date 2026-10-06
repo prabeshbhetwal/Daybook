@@ -15,6 +15,11 @@ if [ ! -f "${LOCAL_APP}/Contents/Info.plist" ]; then
   exit 2
 fi
 
+# The fixture's source set includes the updater, so it links Sparkle exactly as
+# build.sh does. Fetched before anything is created, so a failed fetch leaves
+# nothing behind.
+SPARKLE_DIR="$("${PROJECT_DIR}/scripts/fetch-sparkle.sh")"
+
 mkdir -p "${PROJECT_DIR}/.build"
 FIXTURE_ROOT="$(mktemp -d "${PROJECT_DIR}/.build/native-fixture.XXXXXX")"
 FIXTURE_APP="${FIXTURE_ROOT}/Daybook.app"
@@ -36,10 +41,15 @@ done < <(find "${PROJECT_DIR}/Sources" -name '*.swift' -print | LC_ALL=C sort)
 
 swiftc -O -swift-version 5 -warnings-as-errors -parse-as-library \
   -target "$(uname -m)-apple-macos13.0" -framework Cocoa \
+  -F "${SPARKLE_DIR}" -framework Sparkle \
+  -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
   "${SOURCE_FILES[@]}" "${PROJECT_DIR}/scripts/NativeFixtureMain.swift" \
   -o "${FIXTURE_APP}/Contents/MacOS/Daybook"
+# Copied without extended attributes or quarantine, as build.sh does.
+mkdir -p "${FIXTURE_APP}/Contents/Frameworks"
+ditto --noextattr --noqtn "${SPARKLE_DIR}/Sparkle.framework" "${FIXTURE_APP}/Contents/Frameworks/Sparkle.framework"
 # Only this newly created bundle is touched; no live data or root app changes.
 xattr -cr "${FIXTURE_APP}"
-codesign --force --sign - "${FIXTURE_APP}"
+codesign --force --deep --sign - "${FIXTURE_APP}"
 codesign --verify --deep --strict "${FIXTURE_APP}"
 echo "Fixture-only app (${FIXTURE_SCENARIO}): ${FIXTURE_APP}"

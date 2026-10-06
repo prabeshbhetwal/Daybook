@@ -99,6 +99,11 @@ final class SessionEngine {
     /// but a restore re-stamps that one to keep the arithmetic honest, and the
     /// absence did not move just because the app relaunched.
     var awayReturnedAt: Date?
+    /// "Away" and "Watching" rests the archive refused, each with the id it
+    /// will be saved under. Retried whenever a stretch is archived or another
+    /// rest is saved, and kept in the live snapshot, so a refused write delays
+    /// a rest instead of losing it.
+    var pendingRests: [SessionRecord] = []
 
     let now: () -> Date
     let ownBundleID: String?

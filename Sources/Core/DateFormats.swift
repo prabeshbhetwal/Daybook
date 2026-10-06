@@ -38,6 +38,29 @@ enum DateFormats {
         "\(clockTime(start)) – \(clockTime(end))"
     }
 
+    /// "Saturday 22 August", with the year added once it is not `now`'s year.
+    static func fullDay(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        let thisYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
+        return local(thisYear ? "EEEE d MMMM" : "EEEE d MMMM y").string(from: date)
+    }
+
+    /// A moment with its day: "Saturday 22 August, 9:13 am".
+    static func datedClockTime(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        "\(fullDay(date, now: now, calendar: calendar)), \(clockTime(date))"
+    }
+
+    /// A span with its day, "Saturday 22 August, 9:13 am – 10:20 am", and with
+    /// both days when it crosses midnight: "Saturday 22 August, 11:30 pm –
+    /// Sunday 23 August, 12:40 am". Clock times alone leave a reader, or a
+    /// screen reader, guessing which day they belong to. `joiner` is "to" when
+    /// the line is spoken.
+    static func datedClockRange(_ start: Date, _ end: Date, joiner: String = "–",
+                                now: Date = Date(), calendar: Calendar = .current) -> String {
+        let opening = datedClockTime(start, now: now, calendar: calendar)
+        if calendar.isDate(start, inSameDayAs: end) { return "\(opening) \(joiner) \(clockTime(end))" }
+        return "\(opening) \(joiner) \(datedClockTime(end, now: now, calendar: calendar))"
+    }
+
     private static func cached(_ format: String, locale: Locale?, timeZone: TimeZone? = nil) -> DateFormatter {
         lock.lock()
         defer { lock.unlock() }

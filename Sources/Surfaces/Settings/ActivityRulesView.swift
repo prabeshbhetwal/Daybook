@@ -76,11 +76,18 @@ final class ActivityRuleEditorState: ObservableObject {
 /// turns the rule on and off in place; opening it edits it in the well below.
 struct ActivityRulesView: View {
     @ObservedObject var model: SettingsModel
-    @StateObject private var editor = ActivityRuleEditorState()
+    /// Held by `SettingsDrafts`, not by this page: Settings rebuilds the page
+    /// on every page switch or search, and a draft kept here went with it.
+    @ObservedObject private var editor: ActivityRuleEditorState
     @Environment(\.focusInterfaceDensity) private var density
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let editorID = "activity-rule-editor"
+
+    init(model: SettingsModel) {
+        self.model = model
+        _editor = ObservedObject(wrappedValue: SettingsDrafts.of(model).rule)
+    }
 
     var body: some View {
         ScrollViewReader { proxy in

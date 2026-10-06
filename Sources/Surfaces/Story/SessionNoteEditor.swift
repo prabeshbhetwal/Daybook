@@ -3,9 +3,10 @@ import AppKit
 
 private final class SessionNoteEditorState: ObservableObject {
     @Published var confirmsDiscard = false
-    /// The note as it stood when listening began; the transcript is added
-    /// after it, not typed over it.
-    var dictationBase = ""
+    /// The note as it stood when the first words arrived (not when the button
+    /// was pressed: permission can take a while); the transcript is added
+    /// after it, not typed over it, and a note typed into since is left alone.
+    var dictatedNote: DictationNote?
 }
 
 /// A record-scoped plain-text editor. Draft ownership remains in SessionStore,
@@ -76,7 +77,7 @@ struct SessionNoteEditor: View {
             if dictation.isBusy {
                 dictation.stop()
             } else {
-                state.dictationBase = draft.wrappedValue
+                state.dictatedNote = nil
                 dictation.start()
             }
         } label: {
@@ -103,8 +104,15 @@ struct SessionNoteEditor: View {
                    value: dictation.isListening)
         .onChange(of: dictation.transcript) { transcript in
             guard dictation.isListening else { return }
-            store.setNoteDraft(SpeechDictation.merge(base: state.dictationBase, transcript: transcript),
-                               for: recordID)
+            // Typed into while listening: the reader's text stands, and the
+            // words that would have gone over it end the dictation instead.
+            var dictated = state.dictatedNote ?? DictationNote(startingFrom: draft.wrappedValue)
+            guard let note = dictated.applying(transcript, to: draft.wrappedValue) else {
+                dictation.stop()
+                return
+            }
+            state.dictatedNote = dictated
+            store.setNoteDraft(note, for: recordID)
         }
         .onDisappear { dictation.stop() }
     }

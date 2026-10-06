@@ -95,16 +95,31 @@ extension SessionEngine {
         // exactly the work done before they left.
         guard archiveCurrentSession(endingAt: began) else { return }
         if absence >= store.minimumRecordedSession {
-            // Logged, not put in awayDecisionError: that field means an ending
-            // awaits finalisation, and a stale value would start a false retry.
-            if let error = archive.append(SessionRecord(name: "Away", workType: .breakTime,
-                                                        start: began, end: now(), workSeconds: absence,
-                                                        threadID: UUID())) {
-                Diagnostics.log("an Away rest could not be saved: \(error)")
-            }
+            saveRests(adding: SessionRecord(name: "Away", workType: .breakTime,
+                                            start: began, end: now(), workSeconds: absence,
+                                            threadID: UUID()))
         }
         beginFreshSession()
         activeThreadID = thread
+    }
+
+    /// Saves `rest`, after any rest an earlier write could not. One the
+    /// archive refuses waits, under the same id, for the next stretch to be
+    /// archived (Stop among them) or the next rest, so a rest whose write
+    /// landed after all, or a relaunch from an older snapshot, never saves it
+    /// twice. A refusal is logged, not put in awayDecisionError: that field
+    /// means an ending awaits finalisation, and a stale value would start a
+    /// false retry.
+    func saveRests(adding rest: SessionRecord? = nil) {
+        if let rest { pendingRests.append(rest) }
+        var waiting: [SessionRecord] = []
+        for rest in pendingRests where !archive.records.contains(where: { $0.id == rest.id }) {
+            if let error = archive.append(rest) {
+                Diagnostics.log("the \(rest.name) rest could not be saved yet: \(error)")
+                waiting.append(rest)
+            }
+        }
+        pendingRests = waiting
     }
 
     /// Ends a watching pause. Quiet — nobody left, nothing to ask. The stretch
@@ -121,11 +136,9 @@ extension SessionEngine {
             totalPausedDuration += watched
             addPausedSpan(began, end)
             if watched >= store.breakThreshold {
-                if let error = archive.append(SessionRecord(name: "Watching", workType: .breakTime,
-                                                            start: began, end: end, workSeconds: watched,
-                                                            threadID: UUID())) {
-                    Diagnostics.log("a Watching rest could not be saved: \(error)")
-                }
+                saveRests(adding: SessionRecord(name: "Watching", workType: .breakTime,
+                                                start: began, end: end, workSeconds: watched,
+                                                threadID: UUID()))
             }
         }
         pauseStartDate = nil

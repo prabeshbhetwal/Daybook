@@ -21,8 +21,20 @@ mkdir -p "${VENDOR}"
 # One fetch at a time: two first builds at once each saw the other's
 # half-written archive fail its checksum.
 LOCK="${VENDOR}/.sparkle-fetch.lock"
-for _ in $(seq 1 600); do mkdir "${LOCK}" 2>/dev/null && break; sleep 0.2; done
-trap 'rmdir "${LOCK}" 2>/dev/null || true' EXIT
+# Only the process that made the lock may remove it, and nothing past this
+# point runs without it: a fetch that gave up waiting used to carry on, then
+# delete the holder's lock and half-written archive on its way out. The wait
+# is 600 tries, 0.2 s apart; FC_SPARKLE_LOCK_TRIES shortens it for a probe.
+OWNS_LOCK=0
+for _ in $(seq 1 "${FC_SPARKLE_LOCK_TRIES:-600}"); do
+  if mkdir "${LOCK}" 2>/dev/null; then OWNS_LOCK=1; break; fi
+  sleep 0.2
+done
+trap '[ "${OWNS_LOCK}" -eq 1 ] && rmdir "${LOCK}" 2>/dev/null || true' EXIT
+if [ "${OWNS_LOCK}" -ne 1 ]; then
+  echo "error: another Sparkle fetch holds ${LOCK}; if none is running, remove it with: rmdir ${LOCK}" >&2
+  exit 1
+fi
 if [ -f "${DEST}/Sparkle.framework/Versions/B/Sparkle" ]; then
   echo "${DEST}"
   exit 0

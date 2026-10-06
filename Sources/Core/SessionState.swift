@@ -496,6 +496,9 @@ struct PersistedState: Codable, Equatable {
     /// Exact rule action that owns the automatic live stretch. Kept in the
     /// same snapshot/journal transaction as the record identity.
     var automaticActivityAction: ActivityAutomaticAction? = nil
+    /// Rests the archive refused, still to be saved under these ids. Nil in
+    /// snapshots written before they were kept, and whenever none wait.
+    var pendingRests: [SessionRecord]? = nil
 }
 
 extension PersistedState {
