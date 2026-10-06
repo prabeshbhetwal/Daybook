@@ -88,24 +88,10 @@ struct HistorySessionRow: View {
 
     /// Where the app was in front along the session, and its share of it.
     private func lensDetail(_ use: HistoryAppLens.SessionUse) -> some View {
-        let length = max(use.span.duration, 1)
-        let share = DurationText.percent(min(1, use.seconds / max(session.worked, use.seconds, 1)))
+        let share = DurationText.percent(use.share)
         return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(StoryStyle.well)
-                    ForEach(Array(use.moments.enumerated()), id: \.offset) { _, moment in
-                        Rectangle()
-                            .fill(Tokens.Palette.app(rank: 1))
-                            .frame(width: max(2, geometry.size.width * moment.duration / length))
-                            .offset(x: geometry.size.width * moment.start.timeIntervalSince(use.span.start) / length)
-                    }
-                }
-            }
-            .frame(height: 10)
-            .clipShape(Capsule())
-            .padding(.top, Tokens.Space.s)
-            .accessibilityHidden(true)
+            HistoryAppMomentsBar(use: use)
+                .padding(.top, Tokens.Space.s)
             HStack(spacing: Tokens.Space.s) {
                 Text(Tokens.timeOfDayOnly(use.span.start))
                 Spacer(minLength: Tokens.Space.xs)
