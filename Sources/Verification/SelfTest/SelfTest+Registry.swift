@@ -41,6 +41,7 @@ extension SelfTest {
             + InsightHourChecks.tests
             + EditorAndReportChecks.tests
             + SwitchingAndHourChecks.tests
+            + RecoveryRetryChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
