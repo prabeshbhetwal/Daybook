@@ -265,6 +265,7 @@ extension SessionStore {
             usageAccurateFrom: snapshot.accurateFrom,
             running: engine.runningSpan,
             runningWork: engine.elapsedToday(),
+            runningPaused: engine.runningPausedSpans,
             calendar: calendar,
             now: { moment },
             windowDays: engine.store.paceWindowDays).progress()

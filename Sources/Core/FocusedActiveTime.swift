@@ -15,18 +15,21 @@ enum FocusedActiveTime {
     ///   - runningWork: the in-flight session's worked seconds inside this day,
     ///     for the same cap the records get. Nil leaves the running span
     ///     uncapped.
+    ///   - runningPaused: the in-flight session's known pauses. Nil when they
+    ///     are not known exactly, which leaves the whole span to the cap.
     static func seconds(on day: Date,
                         records: [SessionRecord],
                         usage: [AppUsageSession],
                         running: (start: Date, end: Date)?,
                         runningWork: TimeInterval? = nil,
+                        runningPaused: [DateInterval]? = nil,
                         calendar: Calendar = .current) -> TimeInterval {
         guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else {
             return 0
         }
         return seconds(in: DateInterval(start: bounds.start, end: bounds.end),
                        records: records, usage: usage, running: running,
-                       runningWork: runningWork)
+                       runningWork: runningWork, runningPaused: runningPaused)
     }
 
     /// Focused-active seconds inside any bounded interval. This is the same
@@ -35,7 +38,8 @@ enum FocusedActiveTime {
                         records: [SessionRecord],
                         usage: [AppUsageSession],
                         running: (start: Date, end: Date)?,
-                        runningWork: TimeInterval? = nil) -> TimeInterval {
+                        runningWork: TimeInterval? = nil,
+                        runningPaused: [DateInterval]? = nil) -> TimeInterval {
         guard interval.duration > 0 else { return 0 }
         let bounds = (start: interval.start, end: interval.end)
         // Only what can touch the interval: anything else clips to nothing and
@@ -45,8 +49,10 @@ enum FocusedActiveTime {
         let focusRecords = records.filter {
             $0.workType.countsAsFocus && $0.end >= bounds.start && $0.start < bounds.end
         }
-        var focus = focusRecords.map { (start: $0.start, end: $0.end) }
-        if let running { focus.append(running) }
+        // Known pauses are not focus. Credited across the whole span, app use
+        // inside an explicit pause filled the goal while no work was logged.
+        var focus = focusRecords.flatMap { worked(($0.start, $0.end), paused: $0.exactPausedSpans) }
+        if let running { focus += worked(running, paused: runningPaused) }
 
         let handsOn = merged(clip(usage.compactMap { session -> Span? in
                                       session.end > bounds.start && session.start < bounds.end
@@ -66,18 +72,34 @@ enum FocusedActiveTime {
         // neither the hands-on overlap nor the recorded work.
         var capped: TimeInterval = 0
         for record in focusRecords {
-            let credit = overlap(clip([(record.start, record.end)], to: bounds),
+            let credit = overlap(clip(worked((record.start, record.end), paused: record.exactPausedSpans),
+                                      to: bounds),
                                  handsOn)
             capped += min(credit, record.workSeconds(in: bounds))
         }
         if let running {
-            let credit = overlap(clip([running], to: bounds), handsOn)
+            let credit = overlap(clip(worked(running, paused: runningPaused), to: bounds), handsOn)
             capped += min(credit, runningWork ?? credit)
         }
         return min(union, capped)
     }
 
     private typealias Span = (start: Date, end: Date)
+
+    /// The span less its pauses, in order. Nil pauses leave the whole span.
+    private static func worked(_ span: Span, paused: [DateInterval]?) -> [Span] {
+        guard let paused, !paused.isEmpty else { return [span] }
+        var result: [Span] = []
+        var cursor = span.start
+        for pause in paused.sorted(by: { $0.start < $1.start }) {
+            let low = max(pause.start, cursor), high = min(pause.end, span.end)
+            guard high > low else { continue }
+            if low > cursor { result.append((start: cursor, end: low)) }
+            cursor = high
+        }
+        if span.end > cursor { result.append((start: cursor, end: span.end)) }
+        return result
+    }
 
     private static func clip(_ ranges: [Span], to bounds: Span) -> [Span] {
         ranges.compactMap { range in

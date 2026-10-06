@@ -167,6 +167,7 @@ extension SessionStore {
                                                 usageAccurateFrom: usageSnapshot?.accurateFrom,
                                                 running: engine.runningSpan,
                                                 runningWork: inFlight,
+                                                runningPaused: engine.runningPausedSpans,
                                                 now: { moment },
                                                 windowDays: engine.store.paceWindowDays)
                                 .achievedToday(),
@@ -193,6 +194,8 @@ extension SessionStore {
             appliedDefaultWorkType = defaultWorkType
             workType = defaultWorkType
         }
+        // A category retired while the picker held it is offered nowhere new.
+        if engine.state == .idle, !WorkType.startable.contains(workType) { workType = defaultWorkType }
     }
 
     private func publish<Value: Equatable>(_ property: ReferenceWritableKeyPath<SessionStore, Value>,

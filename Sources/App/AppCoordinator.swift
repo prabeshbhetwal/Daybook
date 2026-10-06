@@ -340,6 +340,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                             usageAccurateFrom: usageSnapshot.accurateFrom,
                             running: engine.runningSpan,
                             runningWork: engine.elapsedToday(),
+                            runningPaused: engine.runningPausedSpans,
                             windowDays: engine.store.paceWindowDays).progress(),
             endedMedia: recentlyEndedMedia(before: moment,
                                            usage: usageSnapshot.sessions),
