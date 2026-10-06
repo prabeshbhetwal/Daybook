@@ -21,15 +21,19 @@ struct HistoryAppLens: Equatable {
         /// First start to last end of the session's stretches.
         let span: DateInterval
         let seconds: TimeInterval
+        /// The part of `seconds` outside the session's pauses, where the
+        /// record says exactly when they were; otherwise all of `seconds`.
+        let unpaused: TimeInterval
         /// The session's focused time, so the app's share has one denominator
         /// wherever it is printed.
         let worked: TimeInterval
         /// Where the app was in front, clipped to the session.
         let moments: [DateInterval]
 
+        /// Like by like: the app's time while the session counted, of that time.
         var share: Double {
-            let whole = worked > 0 ? worked : span.duration
-            return whole > 0 ? min(1, seconds / whole) : 0
+            let (part, whole) = worked > 0 ? (unpaused, worked) : (seconds, span.duration)
+            return whole > 0 ? min(1, part / whole) : 0
         }
     }
 
@@ -62,8 +66,12 @@ struct HistoryAppLens: Equatable {
     let passing: [PassingUse]
     /// Newest first.
     let outside: [OutsideUse]
-    /// Days the app was used, oldest first.
+    /// Each day's figure, oldest first, for the chart and the day lines: a
+    /// session's time is under the day it started, as History files it.
     let days: [DayUse]
+    /// The app's time on each calendar day it was in front, cut at midnight:
+    /// when it was first used, on how many days, and recent totals.
+    let usedByDay: [Date: TimeInterval]
     /// The app's time in sessions by the session's category; adds up to
     /// `inSession`.
     let inSessionByType: [WorkType: TimeInterval]
@@ -83,9 +91,9 @@ struct HistoryAppLens: Equatable {
     var outsideTotal: TimeInterval { days.reduce(0) { $0 + $1.outside } }
     var total: TimeInterval { inSession + outsideTotal }
 
-    /// In and out of sessions on the days from `day` on, `day` included.
+    /// In and out of sessions on the calendar days from `day` on, `day` included.
     func total(since day: Date) -> TimeInterval {
-        days.reduce(0) { $1.day >= day ? $0 + $1.inSession + $1.outside : $0 }
+        usedByDay.reduce(0) { $1.key >= day ? $0 + $1.value : $0 }
     }
 
     /// The middle listed session's time with the app, or nil with none listed.
@@ -150,8 +158,12 @@ struct HistoryAppLens: Equatable {
         }
 
         var outsidePieces: [DateInterval] = []
+        var usedByDay: [Date: TimeInterval] = [:]
         let covered = merged(owned.map(\.span))
         for interval in used {
+            for piece in splitAtMidnight(interval, calendar: calendar) {
+                usedByDay[calendar.startOfDay(for: piece.start), default: 0] += piece.duration
+            }
             for piece in split(interval, by: covered).outside {
                 forEachHour(of: piece, calendar: calendar) { hourStart, seconds in
                     let day = calendar.startOfDay(for: hourStart)
@@ -176,6 +188,7 @@ struct HistoryAppLens: Equatable {
             }
             uses.append(SessionUse(threadID: key.thread, day: key.day, workType: records[0].workType,
                                    span: DateInterval(start: first, end: last), seconds: seconds,
+                                   unpaused: unpausedSeconds(found, in: records),
                                    worked: records.reduce(0) { $0 + $1.workSeconds },
                                    moments: found.sorted { $0.start < $1.start }))
         }
@@ -188,7 +201,8 @@ struct HistoryAppLens: Equatable {
         return HistoryAppLens(bundleID: bundleID, sessions: uses,
                               passing: passing.values.sorted { $0.day > $1.day },
                               outside: sittings(outsidePieces, calendar: calendar),
-                              days: days.values.sorted { $0.day < $1.day }, inSessionByType: byType,
+                              days: days.values.sorted { $0.day < $1.day }, usedByDay: usedByDay,
+                              inSessionByType: byType,
                               hoursInSession: hoursIn, hoursOutside: hoursOut,
                               alongside: appsAlongside(bundleID, in: listedSpans, usage: usage),
                               lastUsed: used.last?.end,

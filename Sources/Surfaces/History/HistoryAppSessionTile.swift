@@ -28,7 +28,7 @@ enum HistoryAppLensText {
     /// `All time in Deep work sessions: 3h 10m of 26h 55m`.
     static func categoryLine(_ workType: WorkType, in lens: HistoryAppLens) -> String {
         let inType = lens.inSessionByType[workType] ?? 0
-        return "All time in \(workType.displayName) sessions: \(Tokens.duration(inType)) of "
+        return "All time in \(workType.displayName) sessions: \(HistorySearchText.lensFigure(inType, in: lens)) of "
             + HistorySearchText.lensTotal(lens)
     }
 

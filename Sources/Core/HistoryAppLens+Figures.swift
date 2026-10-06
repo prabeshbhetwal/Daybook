@@ -14,6 +14,20 @@ extension HistoryAppLens {
         return ranks.sorted { $0.total == $1.total ? $0.bundleID < $1.bundleID : $0.total > $1.total }
     }
 
+    /// The moments' seconds outside the records' pauses, where a record says
+    /// exactly when it paused. Each record's pauses are cut to its own span,
+    /// so a pause saved past a record's end never takes time from the next.
+    static func unpausedSeconds(_ moments: [DateInterval], in records: [SessionRecord]) -> TimeInterval {
+        let paused = merged(records.flatMap { record in
+            (record.exactPausedSpans ?? []).compactMap {
+                $0.intersection(with: DateInterval(start: record.start, end: record.end))
+            }
+        })
+        return moments.reduce(0) { total, moment in
+            split(moment, by: paused).outside.reduce(total) { $0 + $1.duration }
+        }
+    }
+
     static func legacySeconds(_ used: [DateInterval], before date: Date) -> TimeInterval {
         used.reduce(0) { total, interval in
             interval.start < date ? total + min(interval.end, date).timeIntervalSince(interval.start) : total

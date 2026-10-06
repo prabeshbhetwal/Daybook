@@ -39,10 +39,11 @@ struct HistorySearchRail: View {
     private func splitTile(_ lens: HistoryAppLens, name: String) -> some View {
         let inside = StoryRailFigures.minutes(lens.inSession)
         let outside = StoryRailFigures.minutes(lens.outsideTotal)
+        let parts = HistorySearchText.lensParts(lens)
         let colour = Tokens.Palette.app(rank: 1)
         return StoryTile(title: name, trailing: "All time") {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                Text(durations: HistorySearchText.lensTotal(lens))
+                Text(durations: parts.total)
                     .font(Tokens.Typography.heading.monospacedDigit())
                 Text("recorded app use")
                     .font(Tokens.Typography.body)
@@ -60,8 +61,8 @@ struct HistorySearchRail: View {
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
             }
-            legendRow(colour, "In a session", Tokens.duration(TimeInterval(inside * 60)))
-            legendRow(colour.opacity(0.42), "Outside sessions", Tokens.duration(TimeInterval(outside * 60)))
+            legendRow(colour, "In a session", parts.inside)
+            legendRow(colour.opacity(0.42), "Outside sessions", parts.outside)
             note(HistoryAppLensText.recent(lens, today: store.now()))
             if let legacy = HistoryAppLensText.legacyNote(lens) { note(legacy) }
         }
@@ -106,7 +107,7 @@ struct HistorySearchRail: View {
                 ForEach(rows, id: \.key) { entry in
                     let count = counts[entry.key] ?? 0
                     legendRow(Tokens.Palette.workType(entry.key), entry.key.displayName,
-                              Tokens.duration(entry.value) + " · "
+                              HistorySearchText.lensFigure(entry.value, in: lens) + " · "
                                 + (count == 0 ? "in passing" : count == 1 ? "1 session" : "\(count) sessions"))
                 }
             }
