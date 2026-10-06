@@ -62,6 +62,8 @@ struct HistorySearchRail: View {
             }
             legendRow(colour, "In a session", Tokens.duration(TimeInterval(inside * 60)))
             legendRow(colour.opacity(0.42), "Outside sessions", Tokens.duration(TimeInterval(outside * 60)))
+            note(HistoryAppLensText.recent(lens, today: store.now()))
+            if let legacy = HistoryAppLensText.legacyNote(lens) { note(legacy) }
         }
     }
 
@@ -83,28 +85,38 @@ struct HistorySearchRail: View {
         }
     }
 
-    /// The categories of the sessions that used the app.
+    /// The app's time in sessions of each category, adding up to its time in
+    /// sessions, and how many listed sessions each holds.
     @ViewBuilder private func categoryTile(_ lens: HistoryAppLens) -> some View {
-        let counts = Self.categoryCounts(lens)
-        if !counts.isEmpty {
-            let total = Double(lens.sessions.count)
-            StoryTile(title: "Shows up in", trailing: nil) {
+        let rows = Self.categoryTimes(lens)
+        if !rows.isEmpty, lens.inSession > 0 {
+            let counts = Dictionary(uniqueKeysWithValues: Self.categoryCounts(lens).map { ($0.key, $0.value) })
+            StoryTile(title: "Time in sessions by category", trailing: nil) {
                 GeometryReader { geometry in
                     HStack(spacing: 2) {
-                        ForEach(counts, id: \.key) { entry in
+                        ForEach(rows, id: \.key) { entry in
                             Rectangle().fill(Tokens.Palette.workType(entry.key))
-                                .frame(width: max(2, geometry.size.width * Double(entry.value) / total - 2))
+                                .frame(width: max(2, geometry.size.width * entry.value / lens.inSession - 2))
                         }
                     }
                 }
                 .frame(height: 7)
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
-                ForEach(counts, id: \.key) { entry in
+                ForEach(rows, id: \.key) { entry in
+                    let count = counts[entry.key] ?? 0
                     legendRow(Tokens.Palette.workType(entry.key), entry.key.displayName,
-                              entry.value == 1 ? "1 session" : "\(entry.value) sessions")
+                              Tokens.duration(entry.value) + " · "
+                                + (count == 0 ? "in passing" : count == 1 ? "1 session" : "\(count) sessions"))
                 }
             }
+        }
+    }
+
+    /// The app's time in sessions per category, most first.
+    static func categoryTimes(_ lens: HistoryAppLens) -> [(key: WorkType, value: TimeInterval)] {
+        lens.inSessionByType.filter { $0.value > 0 }.sorted { left, right in
+            left.value == right.value ? left.key.displayName < right.key.displayName : left.value > right.value
         }
     }
 
@@ -131,6 +143,13 @@ struct HistorySearchRail: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(durations: text)
+            .font(Tokens.Typography.body)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func legendRow(_ colour: Color, _ label: String, _ value: String) -> some View {

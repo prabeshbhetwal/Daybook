@@ -97,8 +97,8 @@ extension SessionStore {
             let isBreak = !first.workType.countsAsFocus
             if isBreak, words.isEmpty, filter.workType != first.workType { continue }
             let used = filter.appBundleID != nil || (!words.isEmpty && !isBreak)
-                ? usage.seconds(within: records.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) })
-                    .filter { $0.value >= HistoryAppLens.minimumUse }
+                ? usage.uniqueUse(within: records.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) })
+                    .mapValues { $0.total }.filter { $0.value >= HistoryAppLens.minimumUse }
                 : [:]
             if let app = filter.appBundleID, used[app] == nil { continue }
             var noteSnippet: String?
