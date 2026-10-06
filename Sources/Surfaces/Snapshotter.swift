@@ -243,9 +243,16 @@ enum Snapshotter {
 
         var wrote = 0
         // FC_SNAPSHOT_ONLY=welcomeStep renders one scenario; the matrix is
-        // six minutes, and a change to one surface needs one look.
+        // six minutes, and a change to one surface needs one look. Success is
+        // judged against what was asked for: measured against the whole
+        // matrix, a one-scenario run that wrote every image still failed.
         let only = ProcessInfo.processInfo.environment["FC_SNAPSHOT_ONLY"]
-        for item in matrix where only == nil || item.scenario.rawValue == only {
+        let selected = matrix.filter { only == nil || $0.scenario.rawValue == only }
+        guard !selected.isEmpty else {
+            FileHandle.standardError.write(Data("no snapshot scenario named \(only ?? "")\n".utf8))
+            return false
+        }
+        for item in selected {
             let output = directory.appendingPathComponent(item.filename)
             if render(view(for: item), appearance: item.appearance, to: output) {
                 wrote += 1
@@ -254,8 +261,8 @@ enum Snapshotter {
                 print("  FAILED \(item.filename)")
             }
         }
-        print("\(wrote)/\(matrix.count) product snapshots written to \(directory.path)")
-        return wrote == matrix.count
+        print("\(wrote)/\(selected.count) product snapshots written to \(directory.path)")
+        return wrote == selected.count
     }
 
     static func view(for item: SnapshotRender) -> SnapshotSurface {

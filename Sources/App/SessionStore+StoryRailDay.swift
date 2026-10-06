@@ -13,12 +13,17 @@ struct StoryRailDay: Equatable {
 
 extension SessionStore {
     /// One day's rail figures, cached until the evidence changes (and, for
-    /// today, until the minute turns over).
+    /// today or any day the running session reaches into, until the minute
+    /// turns over: yesterday's goal counts a session still open past midnight,
+    /// and discarding that session must not leave its credit behind).
     func storyRailDay(on requested: Date) -> StoryRailDay {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: requested)
         let isCurrentDay = calendar.isDate(day, inSameDayAs: now())
-        let minute = isCurrentDay ? Int(now().timeIntervalSinceReferenceDate / 60) : 0
+        let runningTouchesDay = calendar.dateInterval(of: .day, for: day).map { bounds in
+            engine.runningSpan.map { $0.end > bounds.start && $0.start < bounds.end } ?? false
+        } ?? false
+        let minute = isCurrentDay || runningTouchesDay ? Int(now().timeIntervalSinceReferenceDate / 60) : 0
         if let cached = storyRailDayCache, cached.day == day, cached.revision == evidenceRevision,
            cached.minute == minute {
             return cached.reading

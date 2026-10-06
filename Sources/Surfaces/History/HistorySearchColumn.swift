@@ -6,27 +6,45 @@ enum HistorySearchText {
     /// `Qwen · first used 24 August 2026`, `Search · “coding” · Deep work`.
     static func eyebrow(filter: HistoryFilter, appName: String?, lens: HistoryAppLens?) -> String {
         if let lens, let appName {
-            guard let first = lens.days.first?.day else { return appName }
+            guard let first = lens.usedByDay.keys.min() else { return appName }
             return "\(appName) · first used \(DateFormats.australian("d MMMM yyyy").string(from: first))"
         }
         return (["Search"] + subjects(filter: filter, appName: appName)).joined(separator: " · ")
     }
 
-    /// `You used Qwen for 4m on 2 days.` The total is the sum of the two
-    /// printed parts, each in whole minutes, so the figures add up on screen.
+    /// `You used Qwen for 4m on 2 days`, the days being the lines listed below
+    /// it, where a session is filed under the day it began.
     static func lensSentence(appName: String, lens: HistoryAppLens) -> (sentence: String, highlight: String) {
         let total = lensTotal(lens)
         let days = lens.days.count == 1 ? "1 day" : "\(lens.days.count) days"
         return ("You used \(appName) for \(total) on \(days).", total)
     }
 
-    static func lensTotal(_ lens: HistoryAppLens) -> String {
-        let minutes = StoryRailFigures.minutes(lens.inSession) + StoryRailFigures.minutes(lens.outsideTotal)
-        return minutes > 0 ? Tokens.duration(TimeInterval(minutes * 60))
-            : Tokens.preciseDuration(lens.inSession + lens.outsideTotal)
+    static func lensTotal(_ lens: HistoryAppLens) -> String { lensParts(lens).total }
+
+    /// The app's time in a session and outside sessions, and the total as
+    /// the sum of the two printed parts, all to one precision: whole minutes,
+    /// or, when neither part reaches a minute, as History's rows print a
+    /// sub-minute figure (the total floored to the minute past one, as there).
+    static func lensParts(_ lens: HistoryAppLens) -> (inside: String, outside: String, total: String) {
+        let inside = StoryRailFigures.minutes(lens.inSession)
+        let outside = StoryRailFigures.minutes(lens.outsideTotal)
+        let parts = (lensFigure(lens.inSession, in: lens), lensFigure(lens.outsideTotal, in: lens))
+        guard inside + outside == 0 else {
+            return (parts.0, parts.1, Tokens.duration(TimeInterval((inside + outside) * 60)))
+        }
+        let seconds = (DurationText.wholeSeconds(lens.inSession) ?? 0)
+            + (DurationText.wholeSeconds(lens.outsideTotal) ?? 0)
+        return (parts.0, parts.1, HistorySessionRow.figure(seconds > 0 ? TimeInterval(seconds) : lens.total))
     }
 
-    /// `3m during focus, in 1 session`, then when it was last in front.
+    /// A part of the app's record at the record's precision (see `lensParts`).
+    static func lensFigure(_ seconds: TimeInterval, in lens: HistoryAppLens) -> String {
+        StoryRailFigures.minutes(lens.inSession) + StoryRailFigures.minutes(lens.outsideTotal) == 0
+            ? HistorySessionRow.figure(seconds) : Tokens.duration(seconds)
+    }
+
+    /// `3m in 1 session`, then when it was last in front.
     static func lensFacts(_ lens: HistoryAppLens) -> [String] {
         var facts: [String] = []
         let count = lens.sessions.count
@@ -36,8 +54,8 @@ enum HistorySearchText {
                 ? "no session used it for \(Int(HistoryAppLens.minimumUse)) seconds or more"
                 : "none of it in a focus session")
         } else {
-            let inside = TimeInterval(StoryRailFigures.minutes(lens.inSession) * 60)
-            facts.append("\(Tokens.duration(inside)) during focus, in \(count == 1 ? "1 session" : "\(count) sessions")")
+            // Time in a session includes its pauses, so it is not called focus.
+            facts.append("\(lensParts(lens).inside) in \(count == 1 ? "1 session" : "\(count) sessions")")
         }
         if let last = lens.lastUsed {
             facts.append("last used \(DateFormats.australian("EEE d MMM").string(from: last)) at "
