@@ -33,6 +33,7 @@ extension SelfTest {
             + HistoryCalendarChecks.tests
             + HistoryNoticeChecks.tests
             + FixtureClockChecks.tests
+            + HistoryFloorChecks.tests
             + CalendarChecks.tests
     }
 
