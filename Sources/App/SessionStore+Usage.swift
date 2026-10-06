@@ -52,6 +52,7 @@ extension SessionStore {
             on: day, records: engine.archive.records, usage: snapshot.sessions,
             running: includesRunning ? engine.runningSpan : nil,
             runningWork: includesRunning ? engine.elapsedToday() : nil,
+            runningPaused: includesRunning ? engine.runningPausedSpans : nil,
             calendar: calendar)
     }
 

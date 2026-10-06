@@ -14,10 +14,11 @@ struct SavedActivity: Codable, Hashable, Identifiable {
     }
 
     /// The category to start with: the saved one, or Deep work when that
-    /// category has since been retired. The row still shows the saved name
-    /// so nothing changes silently.
+    /// category has since been retired (the first one still offered, when
+    /// Deep work is retired too). The row still shows the saved name so
+    /// nothing changes silently.
     var startableWorkType: WorkType {
-        WorkType.startable.contains(workType) ? workType : .deepWork
+        WorkType.startable.contains(workType) ? workType : .fallbackStartable
     }
 }
 

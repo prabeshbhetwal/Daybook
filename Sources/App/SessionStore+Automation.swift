@@ -34,6 +34,7 @@ extension SessionStore {
               engine.store.automationMode == .activityRules,
               engine.store.activityRuleVersion == action.ruleVersion,
               engine.store.activityRuleCooldownUntil.map({ now() >= $0 }) ?? true,
+              WorkType.startable.contains(action.workType),
               engine.store.activityRules.contains(where: {
                 $0.id == action.ruleID && $0.isEnabled && $0.name == action.ruleName
                     && $0.workType == action.workType

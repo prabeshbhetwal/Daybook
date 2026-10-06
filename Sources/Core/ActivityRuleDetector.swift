@@ -116,8 +116,11 @@ struct ActivityRuleDetector {
               bundleID != ActivityRule.normalisedBundleID(FocusConstants.bundleIdentifier)
         else { reset(); return .none }
 
+        // Startable, not only focus: a rule left pointing at a retired
+        // category would otherwise keep starting sessions in it.
+        let startable = Set(WorkType.startable)
         let enabled = input.rules.filter {
-            $0.isEnabled && !$0.name.isEmpty && $0.workType.countsAsFocus
+            $0.isEnabled && !$0.name.isEmpty && startable.contains($0.workType)
                 && ActivityRule.isValidStartAfter($0.startAfter)
         }
         let matches = enabled.filter { $0.bundleIDs.contains(bundleID) }

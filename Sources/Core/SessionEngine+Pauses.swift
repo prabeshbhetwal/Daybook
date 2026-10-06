@@ -4,6 +4,11 @@ extension SessionEngine {
     // MARK: - Side effects
 
     func beginFreshSession() {
+        // Every start from idle comes through here: Start, a quick start,
+        // History's Continue, the legacy work-app start. A retired category is
+        // offered nowhere new, so none of them may begin one. A stretch that
+        // carries on after a break keeps the category it was running under.
+        if state == .idle { activeWorkType = activeWorkType.startableOrFallback }
         // A session begun by activation is the user's, not the app's guess.
         activeIsAuto = false
         activeAutomaticAction = nil
