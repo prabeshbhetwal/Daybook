@@ -180,19 +180,24 @@ extension SelfTest {
               "active must outscore passive for identical input", &problems)
 
         // Heavy churn reduces the score even with the same focused share and activity.
+        // The segments alternate between two focused apps: churn is switching
+        // between apps, so 46 segments of one app would be no churn at all.
         let churnCount = 46
         let step = 900.0 / Double(churnCount)
         var churnSegments: [AppUsageSession] = []
         for index in 0..<churnCount {
             let segStart = base.addingTimeInterval(Double(index) * step)
             let segEnd = base.addingTimeInterval(Double(index + 1) * step)
-            churnSegments.append(AppUsageSession(bundleID: "dev.warp.Warp-Stable", appName: "Warp",
-                                                 start: segStart, end: segEnd))
+            churnSegments.append(index.isMultiple(of: 2)
+                ? AppUsageSession(bundleID: "dev.warp.Warp-Stable", appName: "Warp",
+                                  start: segStart, end: segEnd)
+                : AppUsageSession(bundleID: "com.apple.dt.Xcode", appName: "Xcode",
+                                  start: segStart, end: segEnd))
         }
         let churnScore = scorer.score(segments: churnSegments, activity: .active, window: window)
-        // (46 - 1) / 15min = 3.0 switches/min; (3.0 - 2.0 calm) * 0.15 penalty = 0.15.
+        // 45 app changes / 15min = 3.0 switches/min; (3.0 - 2.0 calm) * 0.15 penalty = 0.15.
         expectClose(churnScore.signals.switchesPerMinute, 3.0,
-                   "switch rate for 46 segments over 15m", &problems)
+                   "switch rate for 46 alternating segments over 15m", &problems)
         expectClose(churnScore.value, 0.85, "churn penalty lowers the score", &problems)
         expect(churnScore.value < activeScore.value,
               "heavy churn must score lower than the equivalent calm stretch", &problems)

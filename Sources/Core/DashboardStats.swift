@@ -132,6 +132,21 @@ struct DashboardStats {
         calendar.dateInterval(of: .hour, for: date)?.start ?? date
     }
 
+    /// The first calendar-hour boundary after `date`: the next whole wall-clock
+    /// hour, or a sooner daylight-saving change. Stepping a fixed 3,600 s leaves
+    /// the grid after a 30-minute change, and Foundation's `.hour` intervals
+    /// overlap there, so the grid is walked boundary to boundary. Always later
+    /// than `date`, so a loop over it makes progress.
+    private func nextHourBoundary(after date: Date) -> Date {
+        var next = calendar.nextDate(after: date, matching: DateComponents(minute: 0, second: 0),
+                                     matchingPolicy: .nextTime) ?? date.addingTimeInterval(3_600)
+        if let change = calendar.timeZone.nextDaylightSavingTimeTransition(after: date),
+           change < next {
+            next = change
+        }
+        return next > date ? next : date.addingTimeInterval(3_600)
+    }
+
     // MARK: Day bounds
 
     private func bounds(of day: Date) -> (start: Date, end: Date) {
@@ -294,25 +309,22 @@ struct DashboardStats {
     }
 
     /// Minutes per hour for one app, aligned to the timeline window so the strip
-    /// and the band above it line up.
+    /// and the band above it line up. The hours are the day's calendar hours,
+    /// walked boundary to boundary from midnight: a daylight-saving change that
+    /// moves the clock by 30 minutes (Lord Howe) leaves a 30-minute hour, never
+    /// a bar that stepped off the grid and dropped the rest of the day.
     func hourlyBuckets(for day: Date, bundleID: String) -> [HourBucket] {
-        var totals: [Date: TimeInterval] = [:]
-        for stretch in stretches(for: day, bundleID: bundleID) {
-            var cursor = stretch.start
-            while cursor < stretch.end {
-                let hour = startOfHour(cursor)
-                let hourEnd = hour.addingTimeInterval(3_600)
-                let slice = min(stretch.end, hourEnd).timeIntervalSince(cursor)
-                totals[hour, default: 0] += max(0, slice)
-                cursor = hourEnd
-            }
-        }
         guard let window = timelineWindow(for: day) else { return [] }
+        let mine = stretches(for: day, bundleID: bundleID)
         var buckets: [HourBucket] = []
-        var hour = window.start
+        var hour = calendar.startOfDay(for: day)
         while hour < window.end && buckets.count < 48 {
-            buckets.append(HourBucket(hour: hour, seconds: totals[hour] ?? 0))
-            hour = hour.addingTimeInterval(3_600)
+            let next = nextHourBoundary(after: hour)
+            if next > window.start {
+                let seconds = mine.reduce(0) { $0 + Self.overlap($1.start, $1.end, hour, next) }
+                buckets.append(HourBucket(hour: hour, seconds: seconds))
+            }
+            hour = next
         }
         return buckets
     }
@@ -438,20 +450,16 @@ struct DashboardStats {
         }
         let shares = WorkTypeShare.shares(from: byType)
 
-        // Count identity CHANGES inside each canonical focus stretch. The first
-        // app observed is context, not a switch, and a same-app checkpoint split
-        // is persistence detail rather than interruption evidence.
-        var switches = 0
-        for record in records {
-            var previousBundleID: String?
-            for entry in cache.segments
-            where entry.start < record.end && entry.end > record.start {
-                if let previousBundleID, previousBundleID != entry.bundleID {
-                    switches += 1
-                }
-                previousBundleID = entry.bundleID
-            }
+        // The same rule as the range overload, so one body of evidence reads the
+        // same from either: a resumed thread is one thread, whatever the gap.
+        var rangesByThread: [UUID: [DateInterval]] = [:]
+        for record in records where record.end > record.start {
+            rangesByThread[record.threadID, default: []]
+                .append(DateInterval(start: record.start, end: record.end))
         }
+        let switches = Self.appSwitches(
+            in: rangesByThread,
+            usage: cache.segments.map { ($0.bundleID, $0.start, $0.end) })
 
         let threadIDs = Set(records.map(\.threadID))
         let runningCount: Int
@@ -561,19 +569,9 @@ struct DashboardStats {
         }
         let unrecorded = max(0, focusedSpan - inside)
 
-        var switches = 0
-        for ranges in rangesByThread.values {
-            let canonicalRanges = Self.mergeRanges(ranges)
-            var previousBundleID: String?
-            for session in orderedUsage where canonicalRanges.contains(where: {
-                session.start < $0.end && session.end > $0.start
-            }) {
-                if let previousBundleID, previousBundleID != session.bundleID {
-                    switches += 1
-                }
-                previousBundleID = session.bundleID
-            }
-        }
+        let switches = Self.appSwitches(
+            in: rangesByThread,
+            usage: orderedUsage.map { ($0.bundleID, $0.start, $0.end) })
 
         let count = threadIDs.count + anonymousRunningCount
         return FocusQuality(
@@ -582,6 +580,30 @@ struct DashboardStats {
             switchesPerSession: count > 0 ? Double(switches) / Double(count) : 0,
             sessionCount: count,
             unrecordedFocusSeconds: unrecorded)
+    }
+
+    /// Identity CHANGES among the usage inside each thread's canonical focus
+    /// ranges, `usage` in time order. The first app observed is context, not a
+    /// switch, and a same-app checkpoint split is persistence detail rather
+    /// than interruption evidence. A thread resumed after a gap is still one
+    /// thread, so the change from the app it left to the app it came back to
+    /// counts.
+    private static func appSwitches(in rangesByThread: [UUID: [DateInterval]],
+                                    usage: [(bundleID: String, start: Date, end: Date)]) -> Int {
+        var switches = 0
+        for ranges in rangesByThread.values {
+            let canonicalRanges = mergeRanges(ranges)
+            var previousBundleID: String?
+            for entry in usage where canonicalRanges.contains(where: {
+                entry.start < $0.end && entry.end > $0.start
+            }) {
+                if let previousBundleID, previousBundleID != entry.bundleID {
+                    switches += 1
+                }
+                previousBundleID = entry.bundleID
+            }
+        }
+        return switches
     }
 
     /// Seconds two spans share; zero when they do not meet, or when either
