@@ -75,7 +75,7 @@ extension SessionStore {
         // A full walk covers every pending change.
         _ = usage.takePendingChangeStart()
 
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         let snapshot = effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage)
         let anchor = reviewAnchor ?? calendar.startOfDay(for: now())
         reviewAnchor = anchor
@@ -287,7 +287,7 @@ extension SessionStore {
     }
 
     private func refreshReviewLiveTail(usage: AppUsageArchive) {
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         let snapshot = effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage)
         let anchor = reviewAnchor ?? calendar.startOfDay(for: now())
         reviewAnchor = anchor
@@ -367,7 +367,7 @@ extension SessionStore {
 
     func moveReviewPeriod(by delta: Int) {
         guard delta != 0 else { return }
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         let anchor = reviewAnchor ?? calendar.startOfDay(for: now())
         let component: Calendar.Component = reviewPeriod == .month ? .month : .weekOfYear
         guard var candidate = calendar.date(byAdding: component, value: delta, to: anchor) else {
@@ -380,7 +380,7 @@ extension SessionStore {
     }
 
     var reviewCanMoveForward: Bool {
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         guard let usage else { return false }
         let periodStats = PeriodStats(sessions: engine.archive, usage: usage,
                                       usageSnapshot: effectiveUsageSnapshot,
@@ -402,7 +402,7 @@ extension SessionStore {
 
     /// The first day of the shown Review period — what the month grid lays out.
     var reviewPeriodStart: Date {
-        let calendar = Calendar.current.weeksFromMonday
+        let calendar = periodCalendar
         let anchor = reviewAnchor ?? Date()
         let unit: Calendar.Component = reviewPeriod == .week ? .weekOfYear : .month
         return calendar.dateInterval(of: unit, for: anchor)?.start
@@ -418,10 +418,10 @@ extension SessionStore {
     var reviewPeriodLabel: String {
         let anchor = reviewAnchor ?? now()
         if reviewPeriod == .month {
-            return DateFormats.australian("MMMM yyyy").string(from: anchor)
+            return DateFormats.australian("MMMM yyyy", in: periodCalendar.timeZone).string(from: anchor)
         }
         guard let usage else { return Tokens.longDate(anchor) }
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         let bounds = PeriodStats(sessions: engine.archive, usage: usage,
                                  usageSnapshot: effectiveUsageSnapshot,
                                  calendar: calendar, now: now)

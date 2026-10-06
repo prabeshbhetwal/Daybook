@@ -243,7 +243,7 @@ extension SessionStore {
     /// The interval published by Review, including focus-only periods before
     /// a tracked rollup has produced an entry for every day.
     func storyReviewBounds() -> DateInterval {
-        let calendar = Calendar.current.weeksFromMonday
+        let calendar = periodCalendar
         if let first = reviewDays.map(\.date).min(),
            let last = reviewDays.map(\.date).max(),
            let end = calendar.date(byAdding: .day, value: 1, to: last) {

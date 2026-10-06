@@ -57,6 +57,7 @@ enum HistoryJournalBuilder {
     /// session and its length is not focus: it adds no session and no figure.
     static func entries(matching hits: [HistorySearchHit],
                         calendar: Calendar = .current) -> [JournalEntry] {
+        let calendar = calendar.forPeriods
         var result: [JournalEntry] = []
         var openMonth: Date?
         var monthHits: [HistorySearchHit] = []
@@ -109,7 +110,8 @@ enum HistoryJournalBuilder {
     /// One month's figures from the day index, whether or not it is listed.
     static func month(starting start: Date, days: [HistoryDay],
                       calendar: Calendar = .current) -> JournalMonth {
-        month(starting: start, byDate: index(days, calendar: calendar), calendar: calendar)
+        let calendar = calendar.forPeriods
+        return month(starting: start, byDate: index(days, calendar: calendar), calendar: calendar)
     }
 
     /// A journal day's rows from its projection, newest first, narrowed to
@@ -170,7 +172,7 @@ extension SessionStore {
     /// searched: the tree lists the record then.
     func historyJournal() -> [JournalEntry] {
         guard historyFilter.isActive else { return [] }
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         let key = SearchJournalKey(filter: historyFilter, evidence: evidenceRevision,
                                    indexGeneration: historyIndexGeneration)
         if let cached = searchJournalCache, cached.key == key { return cached.entries }

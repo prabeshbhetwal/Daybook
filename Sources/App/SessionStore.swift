@@ -365,6 +365,9 @@ final class SessionStore: ObservableObject {
     /// Shared clock for live figures and calendar navigation. Production uses
     /// wall time; self-tests advance it without a run loop.
     let now: () -> Date
+    /// The calendar `periodCalendar` is made from; nil reads the Mac's own each
+    /// time. Self-tests hand the store a region or calendar here.
+    var periodCalendarBase: Calendar?
     let applicationIsRunning: (String) -> Bool
     let activateApplication: (String, Bool) -> Void
     /// Rebuilt with `continuationCandidates` after archive mutations, so Focus

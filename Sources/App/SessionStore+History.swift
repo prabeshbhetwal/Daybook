@@ -187,7 +187,7 @@ extension SessionStore {
         let stats = DashboardStats(sessions: engine.archive, usage: usage,
                                    usageSnapshot: usageSnapshot, now: now)
         let periods = PeriodStats(sessions: engine.archive, usage: usage,
-                                  usageSnapshot: usageSnapshot, now: now)
+                                  usageSnapshot: usageSnapshot, calendar: periodCalendar, now: now)
         // Keep this in step with `sessionsToday`: without it the same screen
         // reads "1 session today" and "No sessions yet today".
         let countsRunning = state != .idle && dayOffset == 0
