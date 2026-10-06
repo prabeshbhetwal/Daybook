@@ -85,6 +85,12 @@ open-ended bug hunt over an area, use the `probe-hunter` agent.
   there with the sandbox disabled. The same copy serves a mutation test: put
   the old behaviour back and confirm the new check fails.
 - Remove the folders when done.
+- A probe that launches a built bundle registers it with macOS under the real
+  bundle identifier. Never turn on Open at login in one: the login-item
+  record then points at the temporary copy, and the real app's
+  `SMAppService.mainApp.register()` fails with error 22 until
+  `sudo sfltool resetbtm` and a restart. Before removing a launched bundle,
+  run `lsregister -u` on it.
 
 ## Live data
 

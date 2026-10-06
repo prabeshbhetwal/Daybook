@@ -25,11 +25,13 @@ struct HistorySearchList: View {
     private enum Item: Identifiable {
         case session(DaySession, use: HistoryAppLens.SessionUse?)
         case outside(HistoryAppLens.OutsideUse)
+        case passing(HistoryAppLens.PassingUse)
         case rest(RestEntry)
         var id: String {
             switch self {
             case .session(let session, _): return "item-session-\(session.threadID.uuidString)"
             case .outside(let use): return "outside-\(use.span.start.timeIntervalSinceReferenceDate)"
+            case .passing(let use): return "passing-\(use.day.timeIntervalSinceReferenceDate)"
             case .rest(let rest): return "rest-\(rest.id.uuidString)"
             }
         }
@@ -37,6 +39,8 @@ struct HistorySearchList: View {
             switch self {
             case .session(let session, _): return session.start
             case .outside(let use): return use.span.start
+            // Glances have no one time; they close the day's list.
+            case .passing(let use): return use.day
             case .rest(let rest): return rest.start
             }
         }
@@ -97,6 +101,15 @@ struct HistorySearchList: View {
                 .padding(.vertical, Tokens.Space.s)
             }
             .accessibilityElement(children: .combine)
+        case .passing(let use):
+            HistorySpineItem(time: "", dot: .hollow(Tokens.Palette.app(rank: 1).opacity(0.5))) {
+                Text(durations: Self.passingLine(use, appName: appName ?? "the app"))
+                    .font(Tokens.Typography.body)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, Tokens.Space.s)
+            }
+            .accessibilityElement(children: .combine)
         case .rest(let rest):
             HistorySpineItem(time: Tokens.timeOfDayOnly(rest.start), dot: .hollow(Tokens.Palette.warmGrey)) {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
@@ -149,8 +162,12 @@ struct HistorySearchList: View {
             byDay[use.day, default: []].append(.session(session, use: use))
         }
         for use in lens.outside { byDay[use.day, default: []].append(.outside(use)) }
+        for use in lens.passing { byDay[use.day, default: []].append(.passing(use)) }
         let figures = Dictionary(lens.days.map { ($0.day, $0.inSession + $0.outside) }, uniquingKeysWith: +)
-        return byDay.keys.sorted(by: >).map { day in
+        // Every day in the headline's count and the chart gets its line, even
+        // one whose sessions the journal no longer lists.
+        let days = Set(byDay.keys).union(figures.filter { $0.value > 0 }.keys)
+        return days.sorted(by: >).map { day in
             (day, (byDay[day] ?? []).sorted { $0.start > $1.start }, figures[day] ?? 0)
         }
     }
@@ -164,6 +181,13 @@ struct HistorySearchList: View {
         if all == 0 { return head + " · outside sessions" }
         if used == 0 { return head + " · none of \(all == 1 ? "1 session" : "\(all) sessions") used it" }
         return head + " · \(used) of \(all == 1 ? "1 session" : "\(all) sessions") used it"
+    }
+
+    /// `40s in passing, across 3 sessions, under 10 seconds in each`.
+    static func passingLine(_ use: HistoryAppLens.PassingUse, appName: String) -> String {
+        let sessions = use.sessions == 1 ? "1 session" : "\(use.sessions) sessions"
+        return "\(Tokens.preciseDuration(use.seconds)) of \(appName) in passing, across \(sessions), "
+            + "under \(Int(HistoryAppLens.minimumUse)) seconds in each"
     }
 
     /// `28m · 1 session`, then `· 2 breaks` when breaks matched.
