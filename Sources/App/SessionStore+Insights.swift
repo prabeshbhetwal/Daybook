@@ -255,7 +255,7 @@ extension SessionStore {
             return
         }
         insightsComputeCount &+= 1
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         let moment = now()
         let snapshot = effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage)
         let goal = DailyGoal(

@@ -105,15 +105,12 @@ struct HistorySummary: Equatable {
 /// Builds History's rows from the day index. Pure: no store, no clock, so
 /// the checks hand it any archive and any today.
 enum HistoryTreeBuilder {
-    /// Gregorian in the base calendar's zone, with weeks from Monday whatever
-    /// the region says. History names its periods in Gregorian, so it works
-    /// them out in Gregorian too: in a Hebrew or Islamic calendar a "month"
-    /// row titled September ran from 12 September to 11 October.
+    /// The calendar every screen works periods out in (`Calendar.forPeriods`).
+    /// History names its periods in Gregorian, so it works them out in
+    /// Gregorian too: in a Hebrew or Islamic calendar a "month" row titled
+    /// September ran from 12 September to 11 October.
     static func calendar(_ base: Calendar = .current) -> Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = base.timeZone
-        calendar.locale = base.locale
-        return calendar.weeksFromMonday
+        base.forPeriods
     }
 
     /// The start of the next calendar day. Normalised, because in a zone

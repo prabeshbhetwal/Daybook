@@ -36,6 +36,7 @@ extension SelfTest {
             + HistoryFloorChecks.tests
             + CalendarChecks.tests
             + HistoryAppLensFigureChecks.tests
+            + PeriodCalendarChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

@@ -33,17 +33,21 @@ struct DayPickerCalendar: View {
 
     @StateObject private var shown: MonthBox
     @StateObject private var hover = HoverBox()
-    private let calendar = Calendar.current.weeksFromMonday
+    /// The store's `periodCalendar`, so the months it pages through are the
+    /// ones History and Review name.
+    private let calendar: Calendar
 
     init(selected: Date, earliest: Date?, goal: TimeInterval,
+         calendar: Calendar,
          facts: @escaping (Date) -> [Date: DayFacts],
          onPick: @escaping (Date) -> Void) {
         self.selected = selected
         self.earliest = earliest
         self.goal = goal
+        self.calendar = calendar
         self.facts = facts
         self.onPick = onPick
-        _shown = StateObject(wrappedValue: MonthBox(month: Calendar.current.startOfDay(for: selected)))
+        _shown = StateObject(wrappedValue: MonthBox(month: calendar.startOfDay(for: selected)))
     }
 
     private func pick(_ day: Date) { onPick(day) }
@@ -102,7 +106,7 @@ struct DayPickerCalendar: View {
     }
 
     private var monthTitle: String {
-        DateFormats.local("LLLL yyyy").string(from: shown.month)
+        HistoryMonthHeader.title(shown.month, in: calendar.timeZone)
     }
 
     /// `11 active days · 38h 56m focused · goal met 4×`, or a plain empty line.

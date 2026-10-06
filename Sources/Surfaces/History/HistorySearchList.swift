@@ -51,7 +51,7 @@ struct HistorySearchList: View {
             ForEach(rows) { row in
                 switch row {
                 case .month(let start):
-                    Text(HistoryMonthHeader.title(start))
+                    Text(HistoryMonthHeader.title(start, in: store.periodCalendar.timeZone))
                         .font(Tokens.Typography.label)
                         .foregroundStyle(.secondary)
                         .padding(.top, Tokens.Space.l)
@@ -129,7 +129,7 @@ struct HistorySearchList: View {
 
     private var rows: [Row] {
         var result: [Row] = []
-        let calendar = Calendar.current
+        let calendar = store.periodCalendar
         var month: Date?
         func open(_ date: Date) {
             let start = calendar.dateInterval(of: .month, for: date)?.start ?? date

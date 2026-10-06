@@ -28,10 +28,11 @@ struct HistoryWorkspace: View {
     }
 }
 
-/// A month's name, for the search results' month lines.
+/// A month's name, for the search results' month lines, read in the zone of
+/// the calendar that worked the month out.
 enum HistoryMonthHeader {
-    static func title(_ start: Date) -> String {
-        DateFormats.australian("MMMM yyyy").string(from: start)
+    static func title(_ start: Date, in timeZone: TimeZone) -> String {
+        DateFormats.australian("MMMM yyyy", in: timeZone).string(from: start)
     }
 }
 

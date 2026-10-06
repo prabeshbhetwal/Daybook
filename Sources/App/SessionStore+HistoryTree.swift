@@ -18,6 +18,11 @@ extension SessionStore {
     /// time, so a Mac that changes time zone is not held to the old one.
     static var historyCalendar: Calendar { HistoryTreeBuilder.calendar(.current) }
 
+    /// The one calendar Review, Insights, the story, History and its search
+    /// work their periods out in: Gregorian in the Mac's zone, weeks from
+    /// Monday, so every period matches its Gregorian title.
+    var periodCalendar: Calendar { (periodCalendarBase ?? .current).forPeriods }
+
     /// The top of History's tree for the current record and today.
     func historyTop() -> HistoryTop {
         tree().top
@@ -27,7 +32,7 @@ extension SessionStore {
     /// archive changes; rows holding today are brought up to the live
     /// figures on every read, the rest are returned as cached.
     func historyRows(under parent: HistoryPlace?) -> [HistoryRow] {
-        let calendar = Self.historyCalendar
+        let calendar = periodCalendar
         var state = tree()
         let key = parent?.id ?? "root"
         let rows: [HistoryRow]
@@ -51,7 +56,7 @@ extension SessionStore {
     /// A place's figures and its best child, or the top period's for nil.
     /// Cached as the rows are; today's change is laid over the cached total.
     func historySummary(for place: HistoryPlace?) -> HistorySummary {
-        let calendar = Self.historyCalendar
+        let calendar = periodCalendar
         var state = tree()
         let key = place?.id ?? "root"
         let top = place.map { HistoryTop(place: $0, firstDay: $0.span.start, today: state.top.today, calendar: calendar) } ?? state.top
@@ -71,7 +76,7 @@ extension SessionStore {
     /// A place's focus by category, largest first, live for today. Read from
     /// the same day index as the rows, so a card's split and its figure agree.
     func historyCategories(for place: HistoryPlace) -> [WorkTypeShare] {
-        let calendar = Self.historyCalendar
+        let calendar = periodCalendar
         let state = tree()
         let today = calendar.startOfDay(for: now())
         let live = liveToday(calendar)
@@ -91,7 +96,7 @@ extension SessionStore {
     }
 
     private func tree() -> HistoryTreeCache {
-        let calendar = Self.historyCalendar
+        let calendar = periodCalendar
         let key = JournalKey(evidence: evidenceRevision, indexGeneration: historyIndexGeneration,
                              dayCount: historyDays.count, oldest: historyDays.last?.date)
         let today = calendar.startOfDay(for: now())

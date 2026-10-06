@@ -43,15 +43,26 @@ enum CalendarChecks: CheckSuite {
         return problems
     }
 
-    /// Where a screen takes a calendar, it is handed a Sunday-first one; where
-    /// it reads the Mac's own, this bites in a Sunday-first region such as
-    /// GitHub's US runner.
+    /// A zone whose offset differs from the Mac's in October 2026. A calendar
+    /// handed to a screen in it works out different instants from
+    /// `Calendar.current`, so a screen that reads the Mac's own instead fails
+    /// whatever region and calendar the Mac is set to.
+    static var awayZone: TimeZone {
+        let far = TimeZone(identifier: "Pacific/Kiritimati")!
+        let moment = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 10, day: 7))!
+        return far.secondsFromGMT(for: moment) == TimeZone.current.secondsFromGMT(for: moment)
+            ? TimeZone(identifier: "Pacific/Pago_Pago")! : far
+    }
+
+    /// Each screen is handed a Sunday-first calendar in `awayZone`, the store
+    /// through `periodCalendarBase`, so this bites on a Monday-first Mac too.
     private static func weeksStartMonday() -> [String] {
         MainActor.assumeIsolated {
-            var sundayFirst = SelfTest.gregorian
+            var sundayFirst = Calendar(identifier: .gregorian)
+            sundayFirst.timeZone = awayZone
             sundayFirst.firstWeekday = 1
-            let sunday = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 10, day: 11, hour: 12))!
-            let monday = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 10, day: 5))!
+            let sunday = sundayFirst.date(from: DateComponents(year: 2026, month: 10, day: 11, hour: 12))!
+            let monday = sundayFirst.date(from: DateComponents(year: 2026, month: 10, day: 5))!
             let clock = TestClock(sunday)
             var problems: [String] = []
 
@@ -68,11 +79,16 @@ enum CalendarChecks: CheckSuite {
             let labels = InsightGridRows(scope: .week, periods: [], calendar: sundayFirst).labels
             expect(labels.first == "MON" && labels.last == "SUN", "Insights' weekdays read \(labels)", &problems)
 
+            store.periodCalendarBase = sundayFirst
             store.reviewPeriod = .week
             store.reviewAnchor = sunday
             expect(store.reviewPeriodStart == monday, "Review's week began \(store.reviewPeriodStart)", &problems)
             expect(store.storyReviewBounds().start == monday,
                    "the story's week began \(store.storyReviewBounds().start)", &problems)
+            store.moveReviewPeriod(by: -1)
+            let previous = sundayFirst.date(byAdding: .day, value: -7, to: monday)!
+            expect(store.reviewPeriodStart == previous,
+                   "a week back, Review's week began \(store.reviewPeriodStart)", &problems)
             return problems
         }
     }

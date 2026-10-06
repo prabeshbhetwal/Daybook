@@ -165,6 +165,7 @@ struct StoryChromeBar: View {
                 selected: navigation.reviewSelectedDate ?? Calendar.current.startOfDay(for: store.now()),
                 earliest: store.earliestSelectableDay,
                 goal: store.goal.goal,
+                calendar: store.periodCalendar,
                 facts: { store.dayFacts(inMonthOf: $0) }) { day in
                     navigation.openHistory(day: day)
                     historyCalendarShown.value = false
