@@ -74,7 +74,8 @@ struct HistoryJournalRail: View {
                 .storyRenderEvidence(.historyPeriodRail))
         case .session(let session, let day):
             padded(HistorySessionRail(store: store, session: session, day: day,
-                                      apps: store.storyDayProjection(on: day).sessionDetails[session.id]?.apps ?? [])
+                                      apps: store.storyDayProjection(on: day).sessionDetails[session.id]?.apps ?? [],
+                                      lens: store.historyAppLens())
                 .storyRenderEvidence(.historySessionRail))
         }
     }
@@ -90,11 +91,15 @@ struct HistoryJournalRail: View {
         if let pick = navigation.historySession {
             session = store.journalSession(thread: pick.thread, on: pick.day)
             // A search that hides the session hides it from the rail too.
+            // The app's own story also lists the session still running, which
+            // the search's journal does not hold yet.
             if store.historyFilter.isActive, let found = session,
                !store.historyJournal().contains(where: { entry in
                    if case .day(let row) = entry, row.date == pick.day { return row.threads?.contains(found.threadID) ?? true }
                    return false
-               }) { session = nil }
+               }),
+               store.historyAppLens()?.sessions.contains(where: { $0.threadID == found.threadID && $0.day == pick.day })
+                   != true { session = nil }
         }
         return HistoryRailScope.resolve(open: navigation.historyOpen, session: session, pick: navigation.historySession)
     }
@@ -294,11 +299,17 @@ struct HistorySessionRail: View {
     let session: DaySession
     let day: Date
     let apps: [AppRank]
+    /// The picked app's story, when an app is the filter: the rail then
+    /// says what the app was to this session first.
+    var lens: HistoryAppLens?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HistoryRailHeading(title: session.workType.sessionTitle(named: session.name),
                                detail: Tokens.longDate(day))
+            if let lens, let use = lens.sessions.first(where: { $0.threadID == session.threadID && $0.day == day }) {
+                HistoryAppSessionTile(use: use, lens: lens, appName: store.historyAppName(for: lens.bundleID))
+            }
             // An unnamed session's heading is already its category.
             StoryTile(title: session.name.isEmpty ? "Session" : session.workType.displayName,
                       trailing: nil) {

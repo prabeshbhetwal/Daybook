@@ -46,7 +46,8 @@ enum HistorySearchText {
         return facts
     }
 
-    /// `You focused 18h 41m on “coding” across 12 days.`; a search that found
+    /// `You focused 18h 41m on “coding” across 12 days.`, or `… in sessions
+    /// that used Xcode across 3 days.` with an app picked; a search that found
     /// only breaks says how many.
     static func searchSentence(filter: HistoryFilter, appName: String?, entries: [JournalEntry])
         -> (sentence: String, highlight: String?) {
@@ -62,7 +63,9 @@ enum HistorySearchText {
         let query = filter.query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !query.isEmpty { about += " on “\(query)”" }
         if let type = filter.workType { about += query.isEmpty ? " on \(type.displayName)" : " in \(type.displayName)" }
-        if let appName { about += " with \(appName)" }
+        // The figure is the sessions' focus, not the app's: a session joins
+        // with ten seconds of the app, so "with Safari" overstated it.
+        if let appName { about += " in sessions that used \(appName)" }
         return ("You focused \(worked)\(about) across \(days == 1 ? "1 day" : "\(days) days").", worked)
     }
 

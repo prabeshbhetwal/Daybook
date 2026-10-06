@@ -13,6 +13,9 @@ struct HistoryLensKey: Equatable {
     let bundleID: String
     let revision: SessionStore.EvidenceRevision
     let running: HistoryLensRunning?
+    /// Days are midnights in the zone the lens was built in; a lens from
+    /// another zone files its sessions under days the page no longer draws.
+    let timeZone: TimeZone
 }
 
 extension SessionStore {
@@ -43,10 +46,13 @@ extension SessionStore {
                                          end: span.end, workSeconds: span.end.timeIntervalSince(span.start),
                                          threadID: engine.activeThreadID))
         }
-        let key = HistoryLensKey(bundleID: bundleID, revision: evidenceRevision, running: running)
+        let calendar = Calendar.current
+        let key = HistoryLensKey(bundleID: bundleID, revision: evidenceRevision, running: running,
+                                 timeZone: calendar.timeZone)
         if let cached = historyAppLensCache, cached.key == key { return cached.lens }
         let lens = HistoryAppLens.build(bundleID: bundleID, records: records,
-                                        usage: historySortedUsage(), calendar: Calendar.current)
+                                        usage: historySortedUsage(), calendar: calendar,
+                                        accurateFrom: effectiveUsageSnapshot?.accurateFrom)
         historyAppLensCache = (key, lens)
         return lens
     }
