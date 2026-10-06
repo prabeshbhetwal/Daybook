@@ -18,7 +18,7 @@ enum HistoryAppLensChecks: CheckSuite {
     /// outside every session.
     private struct Story {
         let calendar = Calendar.current
-        let day = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 31))!
+        let day = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31))!
         let threadA = UUID()
         let threadB = UUID()
 

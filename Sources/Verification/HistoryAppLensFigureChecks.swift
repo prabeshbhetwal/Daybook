@@ -15,9 +15,9 @@ enum HistoryAppLensFigureChecks: CheckSuite {
          sessionTileText)
     ]
 
-    /// Monday 31 August 2026, 9 am local, in any zone.
+    /// Monday 31 August 2026, in the Gregorian calendar whatever the region.
     private static let calendar = Calendar.current
-    private static let day = calendar.date(from: DateComponents(year: 2026, month: 8, day: 31))!
+    private static let day = calendar.startOfDay(for: SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31))!)
 
     private static func at(_ hour: Int, _ minute: Int, _ second: Int = 0) -> Date {
         calendar.date(bySettingHour: hour, minute: minute, second: second, of: day)!

@@ -184,18 +184,27 @@ extension SelfTest {
         expect(store.insightSurface(for: .week) == pace,
                "each explicit Insights scope keeps its own evidence", &problems)
 
-        var boundaryComponents = DateComponents()
-        boundaryComponents.calendar = Calendar.current
-        boundaryComponents.timeZone = Calendar.current.timeZone
-        boundaryComponents.year = 2024
-        boundaryComponents.month = 3
-        boundaryComponents.day = 31
-        boundaryComponents.hour = 12
-        guard let monthBoundary = Calendar.current.date(from: boundaryComponents),
-              let previousMonthDay = Calendar.current.date(
-                byAdding: .month, value: -1, to: monthBoundary),
-              let accurateFrom = Calendar.current.date(
-                byAdding: .month, value: -3, to: monthBoundary) else {
+        // The last day of a month longer than the one before it, in the
+        // calendar the store reads months in: 31 March 2024 in Gregorian, the
+        // 30th of some month in a Hebrew or Islamic calendar.
+        var monthBoundary: Date?
+        var monthStart = SelfTest.gregorian.date(from: DateComponents(year: 2024, month: 3, day: 15))
+            .flatMap { calendar.dateInterval(of: .month, for: $0)?.start }
+        for _ in 0..<36 {
+            guard let start = monthStart,
+                  let previous = calendar.date(byAdding: .month, value: -1, to: start),
+                  let days = calendar.range(of: .day, in: .month, for: start)?.count,
+                  let previousDays = calendar.range(of: .day, in: .month, for: previous)?.count else { break }
+            if days > previousDays {
+                monthBoundary = calendar.date(byAdding: .day, value: days - 1, to: start)?
+                    .addingTimeInterval(12 * 3_600)
+                break
+            }
+            monthStart = calendar.date(byAdding: .month, value: 1, to: start)
+        }
+        guard let monthBoundary,
+              let previousMonthDay = calendar.date(byAdding: .month, value: -1, to: monthBoundary),
+              let accurateFrom = calendar.date(byAdding: .month, value: -3, to: monthBoundary) else {
             return problems + ["could not build unequal-month Insights boundaries"]
         }
         let boundaryClock = TestClock(monthBoundary)

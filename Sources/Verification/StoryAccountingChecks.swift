@@ -623,8 +623,8 @@ enum StoryAccountingChecks: CheckSuite {
         MainActor.assumeIsolated {
             var problems: [String] = []
             let calendar = Calendar.current
-            let start = date(2026, 8, 18, 23, 30, calendar: calendar)
-            let clock = TestClock(date(2026, 8, 19, 12, 0, calendar: calendar))
+            let start = date(2026, 8, 18, 23, 30, calendar: SelfTest.gregorian)
+            let clock = TestClock(date(2026, 8, 19, 12, 0, calendar: SelfTest.gregorian))
             guard let fixture = makeStore(clock, calendar: calendar) else {
                 return ["could not create isolated preferences suite"]
             }

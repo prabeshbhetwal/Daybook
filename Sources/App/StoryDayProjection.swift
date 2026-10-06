@@ -144,6 +144,7 @@ extension SessionStore {
                                   anchoredAt requestedAnchor: Date,
                                   limit requestedLimit: Int,
                                   calendar: Calendar = .current) -> [StoryPeriodProjection] {
+        let calendar = calendar.weeksFromMonday
         let today = calendar.startOfDay(for: now())
         let anchor = min(today, calendar.startOfDay(for: requestedAnchor))
         let limit: Int
