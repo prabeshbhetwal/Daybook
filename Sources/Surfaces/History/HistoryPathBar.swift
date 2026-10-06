@@ -33,7 +33,8 @@ enum HistoryPath {
                                        target: place.id, focus: .row(place)))
         }
         if let session {
-            crumbs.append(HistoryCrumb(title: session.title, target: "session-\(session.thread.uuidString)",
+            crumbs.append(HistoryCrumb(title: session.title,
+                                       target: HistorySessionPick(thread: session.thread, day: session.day).scrollID,
                                        focus: .session(thread: session.thread, day: session.day)))
         }
         return crumbs

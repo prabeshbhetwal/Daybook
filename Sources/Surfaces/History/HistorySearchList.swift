@@ -78,7 +78,7 @@ struct HistorySearchList: View {
     @ViewBuilder private func item(_ item: Item, on day: Date) -> some View {
         switch item {
         case .session(let session, let use):
-            HistorySessionRow(session: session,
+            HistorySessionRow(session: session, day: day,
                               apps: store.storyDayProjection(on: day).sessionDetails[session.id]?.apps ?? [],
                               note: use == nil ? store.journalNoteLine(for: session) : nil,
                               use: use, appName: appName, bundleID: store.historyFilter.appBundleID,
