@@ -202,9 +202,8 @@ extension SessionStore {
             let previousNewest = historyDays.first?.date
             let previousOldest = historyDays.last?.date
             let rebuilt = HistoryStats.build(sessionRecords: engine.archive.records,
-                                             usage: snapshot.sessions, calendar: calendar,
-                                             installedOn: engine.store.installDate)
-            historyDays = sinceInstall(storyHistoryDaysIncludingDecisionReceipts(
+                                             usage: snapshot.sessions, calendar: calendar)
+            historyDays = fromFirstDay(storyHistoryDaysIncludingDecisionReceipts(
                 storyHistoryDaysIncludingRunning(rebuilt.days), calendar: calendar), calendar: calendar)
             historyIntegrityNotices = historyNotices(for: snapshot, rebuilt: rebuilt)
             maintainHistoryRange(previousNewest: previousNewest,
@@ -218,14 +217,14 @@ extension SessionStore {
         let usage = snapshot.sessions.filter { $0.end > interval.start && $0.start < interval.end }
         let rebuilt = HistoryStats.build(
             sessionRecords: engine.archive.records.filter { $0.end > interval.start && $0.start < interval.end },
-            usage: usage, calendar: calendar, installedOn: engine.store.installDate)
+            usage: usage, calendar: calendar)
         // The names the find bar offers: a checkpoint can bring a new app.
         for session in usage.sorted(by: { $0.end < $1.end }) where historyAppNames[session.bundleID] != session.appName {
             historyAppNames[session.bundleID] = session.appName
         }
         // The builder deliberately clips each source record across all of its
         // days. Keep only the affected keys, then replace them exactly once.
-        let current = sinceInstall(storyHistoryDaysIncludingDecisionReceipts(
+        let current = fromFirstDay(storyHistoryDaysIncludingDecisionReceipts(
             storyHistoryDaysIncludingRunning(rebuilt.days), calendar: calendar), calendar: calendar).filter {
             $0.date >= interval.start && $0.date < interval.end
         }
@@ -236,13 +235,12 @@ extension SessionStore {
                              previousOldest: previousOldest, calendar: calendar)
     }
 
-    /// History's days from the day ahead of the install date on. A decision
-    /// receipt dated before it is as malformed as a record, and adds its days
-    /// after the builder has left such records out.
-    private func sinceInstall(_ days: [HistoryDay], calendar: Calendar) -> [HistoryDay] {
-        guard let earliest = HistoryStats.earliestDay(installedOn: engine.store.installDate,
-                                                      calendar: calendar) else { return days }
-        return days.filter { $0.date >= earliest }
+    /// History's days from 2001 on. A decision receipt dated earlier is as
+    /// malformed as a record, and adds its days after the builder has left
+    /// such records out.
+    private func fromFirstDay(_ days: [HistoryDay], calendar: Calendar) -> [HistoryDay] {
+        let first = HistoryStats.firstDay(calendar: calendar)
+        return days.filter { $0.date >= first }
     }
 
     /// Every day touched by a changing live projection, not merely today. A
@@ -271,9 +269,9 @@ extension SessionStore {
                                            rest: rebuilt.droppedRestSpans) {
             notices.append("History omitted \(dropped) from derived day rows because each spans at least \(HistoryStats.maximumCalendarDaysPerRecord) calendar days. Source records remain preserved in local data.")
         }
-        if rebuilt.droppedBeforeInstall > 0, let installed = engine.store.installDate {
-            let count = rebuilt.droppedBeforeInstall
-            notices.append("History omitted \(count) \(count == 1 ? "record" : "records") dated before Daybook was installed on \(Tokens.longDate(installed)). Source records remain preserved in local data.")
+        if rebuilt.droppedBeforeFirstDay > 0 {
+            let count = rebuilt.droppedBeforeFirstDay
+            notices.append("History omitted \(count) \(count == 1 ? "record" : "records") dated before 2001. Source records remain preserved in local data.")
         }
         return notices
     }

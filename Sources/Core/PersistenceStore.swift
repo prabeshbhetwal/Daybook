@@ -64,7 +64,6 @@ final class PersistenceStore {
         static let onboarded = "fc.onboarded"
         static let welcomeLeftAt = "fc.welcomeLeftAt"
         static let globalShortcut = "fc.globalShortcut"
-        static let installDate = "fc.installDate"
     }
 
     private let defaults: UserDefaults
@@ -94,30 +93,6 @@ final class PersistenceStore {
     var welcomeLeftAt: FirstRunChapter? {
         get { defaults.string(forKey: Key.welcomeLeftAt).flatMap(FirstRunChapter.init(rawValue:)) }
         set { defaults.set(newValue?.rawValue, forKey: Key.welcomeLeftAt) }
-    }
-
-    /// When this Mac started keeping history. History leaves out records from
-    /// before the day ahead of it: they can only be malformed, and one dated
-    /// thousands of years back made History build a row for every year.
-    var installDate: Date? {
-        defaults.object(forKey: Key.installDate) as? Date
-    }
-
-    /// Saves the install date at launch, once: when the history folder was
-    /// created, which the system stamps on the app's first save and no record
-    /// can move. With no folder yet, or one dated ahead of the clock, nothing
-    /// is saved and History shows everything until a later launch. A saved
-    /// value that is not a date, or lies ahead of the clock, is worked out
-    /// again the same way, so a wrong one never hides history for good.
-    static func recordInstallDate(folder: URL, now: Date = Date(), in defaults: UserDefaults = .standard) {
-        if let saved = defaults.object(forKey: Key.installDate) as? Date, saved <= now { return }
-        let path = folder.resolvingSymlinksInPath().path
-        let created = (try? FileManager.default.attributesOfItem(atPath: path))?[.creationDate] as? Date
-        guard let created, created <= now else {
-            defaults.removeObject(forKey: Key.installDate)
-            return
-        }
-        defaults.set(created, forKey: Key.installDate)
     }
 
     // MARK: - Learned category choices
@@ -741,7 +716,7 @@ final class PersistenceStore {
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
                     Key.showsMenuBarIcon, Key.dockIconMode, Key.nameCategoryKept,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
-                    Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut, Key.installDate]
+                    Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut]
         for key in keys { defaults.removeObject(forKey: key) }
         // And the unreadable values kept aside from those keys, but nothing else.
         for stored in defaults.dictionaryRepresentation().keys
