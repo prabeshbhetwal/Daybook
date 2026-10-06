@@ -336,7 +336,7 @@ extension SessionStore {
     }
 
     /// Focused seconds per category per clock hour over the given days, each
-    /// record spread over the hours it spans.
+    /// record's work filed under the hours it happened in.
     private func categoryHours(days: [PeriodDay], calendar: Calendar) -> [WorkType: [Int: TimeInterval]] {
         var result: [WorkType: [Int: TimeInterval]] = [:]
         for day in days {
@@ -344,18 +344,9 @@ extension SessionStore {
             for record in engine.archive.records where record.workType.countsAsFocus {
                 let start = max(record.start, bounds.start), end = min(record.end, bounds.end)
                 guard end > start else { continue }
-                let span = end.timeIntervalSince(start)
-                let workShare = record.workSeconds(in: (start: start, end: end)) / max(span, 1)
-                var cursor = start
-                while cursor < end {
-                    let hour = calendar.component(.hour, from: cursor)
-                    let nextHour = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: cursor)
-                        .flatMap { calendar.date(byAdding: .hour, value: 1, to: $0) } ?? end
-                    let sliceEnd = min(end, nextHour)
-                    let slice = sliceEnd.timeIntervalSince(cursor)
-                    guard slice > 0 else { break }
-                    result[record.workType, default: [:]][hour, default: 0] += slice * workShare
-                    cursor = sliceEnd
+                HourlyWork.forEachHour(from: start, to: end, calendar: calendar,
+                                       work: record.workSeconds(in:)) { _, hour, seconds in
+                    result[record.workType, default: [:]][hour, default: 0] += seconds
                 }
             }
         }

@@ -69,8 +69,12 @@ even when closed, and the hidden menu bar panel alone was costing about 45 ms
 of work each second. Closed windows and panels now rest until shown again, and
 the app's CPU use during normal work went from 0.9% to 0.1%.
 
-**Private by construction.** Everything stays on the Mac. The app stores app
-identity and time ranges, never content. It asks for no Accessibility,
+**Private by construction.** Tracking stores app identity and time ranges,
+never content. The session names, intents and notes you write are content, and
+they are kept on the Mac. Two things can reach another server: the update check
+asks GitHub for the latest version, and dictating a note uses Apple's speech
+recognition, which runs on the Mac where your language supports that and
+otherwise may send the audio to Apple. The app asks for no Accessibility,
 Automation, Screen Recording or Input Monitoring permission; idle detection
 uses system counters, not event content. The prompts you will see are
 notifications (at first launch, for break reminders), and microphone and

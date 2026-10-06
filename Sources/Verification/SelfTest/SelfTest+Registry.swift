@@ -38,6 +38,10 @@ extension SelfTest {
             + HistoryAppLensFigureChecks.tests
             + PeriodCalendarChecks.tests
             + AuditRepairChecks.tests
+            + InsightHourChecks.tests
+            + EditorAndReportChecks.tests
+            + SwitchingAndHourChecks.tests
+            + RecoveryRetryChecks.tests
             + HistorySessionIDChecks.tests
     }
 

@@ -39,6 +39,34 @@ struct SessionReport {
     var intervals: [RecordedActivity.Interval] { detail.activity.intervals }
     var visitCount: Int { intervals.filter { !$0.isGap }.count }
 
+    /// When the session ran, with its day, for the header: a report opened
+    /// from History is for a past day, and clock times alone do not say which.
+    /// A session across midnight names both days.
+    var whenText: String { when(joiner: "–") }
+    /// The same line for VoiceOver, which would read the dash as a symbol.
+    var whenSpoken: String { when(joiner: "to") }
+
+    private func when(joiner: String) -> String {
+        guard session.isRunning else {
+            return DateFormats.datedClockRange(session.start, session.end, joiner: joiner)
+        }
+        // A session is clipped to its day; its stretches are not, and the
+        // earliest says when it really began.
+        let began = min(session.start, stretches.map(\.start).min() ?? session.start)
+        return "Running since \(DateFormats.datedClockTime(began))"
+    }
+
+    /// A stretch's times. They carry their day when the stretch crosses
+    /// midnight or lies on another day than the one the header gives, since
+    /// the session is clipped to its day and its stretches are not.
+    func stretchWhen(_ stretch: Stretch, joiner: String = "–") -> String {
+        let calendar = Calendar.current
+        return calendar.isDate(stretch.start, inSameDayAs: stretch.end)
+            && calendar.isDate(stretch.start, inSameDayAs: session.start)
+            ? "\(DateFormats.clockTime(stretch.start)) \(joiner) \(DateFormats.clockTime(stretch.end))"
+            : DateFormats.datedClockRange(stretch.start, stretch.end, joiner: joiner)
+    }
+
     /// The power state a visit ended on, when it differs from the visit
     /// before. Nil for a gap, an unchanged reading, or before any reading.
     func power(for interval: RecordedActivity.Interval) -> PowerReading? {
@@ -214,11 +242,11 @@ struct SessionReportView: View {
                                 .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
                                 .foregroundStyle(StoryStyle.workTypeInk(session.workType))
                         }
-                        Text(session.isRunning
-                             ? "Running since \(Tokens.timeOfDayOnly(session.start))"
-                             : Tokens.timeRange(session.start, session.end))
+                        Text(report.whenText)
                             .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityLabel(report.whenSpoken)
                     }
                 }
                 Spacer(minLength: Tokens.Space.m)
@@ -280,7 +308,7 @@ struct SessionReportView: View {
                             .frame(width: 20, height: 20)
                             .background(tint.opacity(0.14), in: Circle())
                             .foregroundStyle(StoryStyle.workTypeInk(session.workType))
-                        Text(Tokens.timeRange(stretch.start, stretch.end))
+                        Text(report.stretchWhen(stretch))
                             .font(Tokens.Typography.body)
                         Spacer(minLength: Tokens.Space.s)
                         Text(durations: Tokens.preciseDuration(stretch.worked))
@@ -297,7 +325,7 @@ struct SessionReportView: View {
                 }
                 .frame(minHeight: 28)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Stretch \(index + 1), \(Tokens.timeRange(stretch.start, stretch.end)), "
+                .accessibilityLabel("Stretch \(index + 1), \(report.stretchWhen(stretch, joiner: "to")), "
                                     + Tokens.spent(stretch.worked)
                                     + (stretch.note.map { ". Note: \($0)" } ?? ""))
             }

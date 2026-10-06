@@ -131,6 +131,7 @@ extension SessionEngine {
         result.workBeforePendingAway = workBeforePendingAway
         result.activeRecordID = activeRecordID
         result.automaticActivityAction = activeAutomaticAction
+        result.pendingRests = pendingRests.isEmpty ? nil : pendingRests
         return result
     }
 }

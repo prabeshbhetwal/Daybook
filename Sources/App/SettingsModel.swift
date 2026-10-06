@@ -212,8 +212,10 @@ struct SettingsPrivacyDisclosure {
         appUsageDetail
         + " Session names, intent and notes entered into Daybook are stored locally,"
         + " with the power source, battery level, charging state and charger wattage"
-        + " seen during each session. The only thing sent from this Mac is the update check,"
-        + " which asks GitHub for the latest version and sends the app's own."
+        + " seen during each session. Two things reach a server: the update check,"
+        + " which asks GitHub for the latest version and sends the app's own, and"
+        + " dictation, which uses Apple's speech recognition and may send the audio"
+        + " to Apple when this Mac cannot recognise your language itself."
     }
 }
 

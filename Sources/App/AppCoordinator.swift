@@ -76,7 +76,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private(set) lazy var updater = AppUpdater()
     /// SwiftUI's window actions, handed over by the scene. They live here, not
     /// in the menu bar icon's view, so they still work with the icon hidden.
-    var windowOpener: DaybookApp.WindowOpener?
+    var windowOpener: WindowOpener?
     var windowRequests: Set<AnyCancellable> = []
     /// Whether the main window is open: shown, or minimised to the Dock.
     var mainWindowOpen = false {

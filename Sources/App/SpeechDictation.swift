@@ -180,6 +180,29 @@ import Speech
     }
 }
 
+/// A note while words are dictated into it. It remembers what it last wrote,
+/// so a note the reader has typed into since is noticed and never typed over:
+/// the base text was captured once, and merging onto it again put the
+/// transcript over a correction made while listening.
+struct DictationNote: Equatable {
+    private let base: String
+    private var written: String
+
+    init(startingFrom note: String) {
+        base = note
+        written = note
+    }
+
+    /// The note with `transcript` after the text it began with, or nil when
+    /// `current` is no longer what this last wrote. The reader edited it, so
+    /// their text stands and the caller stops listening.
+    mutating func applying(_ transcript: String, to current: String) -> String? {
+        guard current == written else { return nil }
+        written = SpeechDictation.merge(base: base, transcript: transcript)
+        return written
+    }
+}
+
 /// Everything said in one listening spell, across pauses.
 ///
 /// The recogniser reports the current utterance, not the whole spell: after a

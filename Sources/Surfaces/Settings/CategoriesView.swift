@@ -171,11 +171,18 @@ final class CategoryEditorState: ObservableObject {
 struct CategoriesView: View {
     @ObservedObject var model: SettingsModel
     @ObservedObject private var catalog = WorkTypeCatalog.shared
-    @StateObject private var editor = CategoryEditorState()
+    /// Held by `SettingsDrafts`, not by this page: Settings rebuilds the page
+    /// on every page switch or search, and a draft kept here went with it.
+    @ObservedObject private var editor: CategoryEditorState
     @Environment(\.categoryEditorRequest) private var request
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let editorID = "category-editor"
+
+    init(model: SettingsModel) {
+        self.model = model
+        _editor = ObservedObject(wrappedValue: SettingsDrafts.of(model).category)
+    }
 
     var body: some View {
         ScrollViewReader { proxy in

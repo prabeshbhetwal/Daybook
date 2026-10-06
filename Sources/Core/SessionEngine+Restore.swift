@@ -47,6 +47,9 @@ extension SessionEngine {
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
         correctionGeneration = snapshot.correctionGeneration ?? 0
         liveCorrectionGeneration = liveGeneration(of: snapshot)
+        // From the preference snapshot itself: a correction checkpoint is not
+        // where refused rests are kept, and one already saved is skipped by id.
+        pendingRests = original.pendingRests ?? []
         pendingDecisionID = nil
         workBeforePendingAway = nil
         awayInterval = nil
