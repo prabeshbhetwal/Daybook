@@ -128,12 +128,6 @@ struct DaybookApp: App {
         }
     }
 
-    /// Window actions handed to the coordinator, which outlives every view.
-    struct WindowOpener {
-        let open: (AppTab?) -> Void
-        let reopen: () -> Void
-    }
-
     private func openMainWindow(on tab: AppTab? = nil) {
         if let tab { coordinator.mainWindow.open(tab: tab) }
         else { coordinator.mainWindow.revealApplication() }
