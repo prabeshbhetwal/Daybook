@@ -72,15 +72,9 @@ extension SessionStore {
         let ids = Set(historySearchHits(limit: .max).flatMap(\.recordIDs))
         let spans = engine.archive.records.filter { ids.contains($0.id) && $0.workType.countsAsFocus }
             .map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
-        var totals: [String: (name: String, total: TimeInterval, longest: TimeInterval)] = [:]
-        var overall: TimeInterval = 0
-        historySortedUsage().forEachOverlap(spans) { stretch, piece in
-            overall += piece.duration
-            var entry = totals[stretch.bundleID] ?? (stretch.appName, 0, 0)
-            entry.total += piece.duration
-            entry.longest = max(entry.longest, piece.duration)
-            totals[stretch.bundleID] = entry
-        }
+        // Each second once, as the app's own story counts it.
+        let totals = historySortedUsage().uniqueUse(within: spans)
+        let overall = totals.values.reduce(0) { $0 + $1.total }
         var ranks: [AppRank] = []
         for (bundleID, entry) in totals {
             ranks.append(AppRank(bundleID: bundleID, appName: entry.name, total: entry.total,

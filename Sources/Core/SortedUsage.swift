@@ -26,11 +26,18 @@ struct SortedUsage {
         long = stretches.filter { $0.seconds > Self.shortLimit }
     }
 
-    /// Seconds each app was in front inside the spans, by bundle ID.
-    func seconds(within spans: [DateInterval]) -> [String: TimeInterval] {
-        var totals: [String: TimeInterval] = [:]
-        forEachOverlap(spans) { stretch, piece in totals[stretch.bundleID, default: 0] += piece.duration }
-        return totals
+    /// Each app's time in front inside the spans, every second once: spans
+    /// that overlap are joined first, and an app's stretches recorded twice
+    /// are joined too. Its longest piece is the longest such joined piece.
+    func uniqueUse(within spans: [DateInterval]) -> [String: (name: String, total: TimeInterval, longest: TimeInterval)] {
+        var pieces: [String: (name: String, pieces: [DateInterval])] = [:]
+        forEachOverlap(HistoryAppLens.merged(spans)) { stretch, piece in
+            pieces[stretch.bundleID, default: (stretch.appName, [])].pieces.append(piece)
+        }
+        return pieces.mapValues { entry -> (name: String, total: TimeInterval, longest: TimeInterval) in
+            let joined = HistoryAppLens.merged(entry.pieces)
+            return (entry.name, joined.reduce(0) { $0 + $1.duration }, joined.map(\.duration).max() ?? 0)
+        }
     }
 
     /// Each stretch's part inside each span, with the stretch it came from.

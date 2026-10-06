@@ -55,8 +55,8 @@ enum SearchWords {
             .filter { word in word.contains { $0.isLetter || $0.isNumber } }
     }
 
-    private static let leading = Set("\"'“‘«([{")
-    private static let trailing = Set("\"'”’»)]},.;:!?…")
+    private static let leading = Set("\"'“‘«([{-–—/@…")
+    private static let trailing = Set("\"'”’»)]},.;:!?…-–—/%")
 
     /// True when every word is in `text`. `text` must already be folded.
     static func all(_ words: [String], in text: String) -> Bool {
