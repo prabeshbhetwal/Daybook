@@ -36,6 +36,7 @@ struct DailyGoal {
     private let usageAccurateFrom: Date?
     private let running: (start: Date, end: Date)?
     private let runningWork: TimeInterval?
+    private let runningPaused: [DateInterval]?
     private let calendar: Calendar
     private let now: () -> Date
 
@@ -52,6 +53,7 @@ struct DailyGoal {
          usageAccurateFrom: Date? = nil,
          running: (start: Date, end: Date)? = nil,
          runningWork: TimeInterval? = nil,
+         runningPaused: [DateInterval]? = nil,
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init,
          windowDays: Int = FocusConstants.goalMedianWindowDays) {
@@ -62,6 +64,7 @@ struct DailyGoal {
         self.usageAccurateFrom = usageAccurateFrom
         self.running = running
         self.runningWork = runningWork
+        self.runningPaused = runningPaused
         self.calendar = calendar
         self.now = now
     }
@@ -82,6 +85,7 @@ struct DailyGoal {
         FocusedActiveTime.seconds(on: now(), records: archive.records,
                                   usage: usage, running: running,
                                   runningWork: runningWork,
+                                  runningPaused: runningPaused,
                                   calendar: calendar)
     }
 

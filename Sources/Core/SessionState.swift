@@ -228,6 +228,19 @@ struct WorkType: Hashable, Codable, Identifiable, CaseIterable {
     /// whose only effect was to exist.
     static var startable: [WorkType] { allCases.filter(\.countsAsFocus) }
 
+    /// What to start under when the wanted category cannot be: Deep work, or
+    /// the first category still offered when Deep work is retired too.
+    static var fallbackStartable: WorkType {
+        let offered = startable
+        return offered.contains(.deepWork) ? .deepWork : (offered.first ?? .deepWork)
+    }
+
+    /// This kind, or the fallback when it is a focus category no longer
+    /// offered. Break is never offered and never replaced.
+    var startableOrFallback: WorkType {
+        !countsAsFocus || WorkType.startable.contains(self) ? self : .fallbackStartable
+    }
+
     /// The given kinds in catalogue order — built-ins, then the user's own,
     /// Break last — with anything the catalogue has never heard of after
     /// them. For totals: a retired category is offered nowhere new, but the
@@ -344,6 +357,15 @@ extension SessionRecord {
             return allocated
         }
         return workSeconds * (high.timeIntervalSince(low) / span)
+    }
+
+    /// The pauses inside this record, when they add up to its paused total and
+    /// so can be trusted to say exactly when no work happened. Nil otherwise.
+    var exactPausedSpans: [DateInterval]? {
+        guard let pausedSpans,
+              PauseAllocation.isTrusted(pausedSpans, start: start, end: end,
+                                        pausedTotal: max(0, span - workSeconds)) else { return nil }
+        return pausedSpans
     }
 
     func workSeconds(on day: Date, calendar: Calendar) -> TimeInterval {

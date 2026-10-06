@@ -86,13 +86,16 @@ final class CategoryManager {
     /// thing to correct if wrong. What the user chose for this app recently
     /// comes first; the fixed map is the guess for an app never started from.
     func suggestedWorkType(for bundleID: String?) -> WorkType {
-        guard let bundleID else { return .deepWork }
+        guard let bundleID else { return .fallbackStartable }
         if let raw = store.overrides[bundleID], let override = AppCategory(rawValue: raw) {
             // An explicit Break override should suggest a break session too.
             if override == .breakTime { return .breakTime }
         }
         if let learned = learnedWorkType(for: bundleID) { return learned }
-        return CategoryManager.suggestedWorkTypes[bundleID] ?? .deepWork
+        // A retired category is offered nowhere new, the fixed map included.
+        if let mapped = CategoryManager.suggestedWorkTypes[bundleID],
+           WorkType.startable.contains(mapped) { return mapped }
+        return .fallbackStartable
     }
 
     /// The category chosen most often in the last three starts from this

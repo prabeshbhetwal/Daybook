@@ -53,6 +53,23 @@ extension SessionEngine {
         shadowAway = 0
         let receiptReconciled = decisionHistory.metadata == nil ? reconcileAwayReceipt() : false
 
+        // Stop saves the record first and the idle state second. Killed
+        // between the two, the snapshot still said running, and every later
+        // Stop, Reset or Start failed on the record it had already saved, so
+        // the session could never end. The saved record is the ending: finish it.
+        if snapshot.kind == .running || snapshot.kind == .paused,
+           archive.records.contains(where: { $0.id == activeRecordID }) {
+            activeIsAuto = false
+            activeAutomaticAction = nil
+            pauseStartDate = nil
+            decisionStartDate = nil
+            awayReturnedAt = nil
+            state = .idle
+            persist()
+            onStateChanged?(state)
+            return
+        }
+
         // Closed past the cap, the stretch ended where it was left, whatever
         // the snapshot says it was doing. Only a running one used to be
         // measured, through `resolve`. A pause or a question left up carried
@@ -164,7 +181,10 @@ extension SessionEngine {
             if awayAtLaunch {
                 awayInterval = (start: began, trigger: snapshot.awayTrigger ?? .screenLock)
             } else {
-                resolve(away: interval(from: began))
+                // With its start, so the gap is kept as a pause span. Without
+                // it the spans no longer added up to the paused total, and the
+                // record lost every exact pause it had, not just this one.
+                resolve(away: interval(from: began), startedAt: began)
             }
         }
 

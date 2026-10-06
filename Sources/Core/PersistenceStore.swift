@@ -569,9 +569,9 @@ final class PersistenceStore {
     /// The category a fresh session starts under before you choose one.
     var defaultWorkType: WorkType {
         get {
-            guard let raw = defaults.string(forKey: Key.defaultWorkType) else { return .deepWork }
+            guard let raw = defaults.string(forKey: Key.defaultWorkType) else { return .fallbackStartable }
             let type = WorkType(rawValue: raw)
-            return WorkType.startable.contains(type) ? type : (WorkType.startable.first ?? .deepWork)
+            return WorkType.startable.contains(type) ? type : .fallbackStartable
         }
         set { defaults.set(newValue.rawValue, forKey: Key.defaultWorkType) }
     }

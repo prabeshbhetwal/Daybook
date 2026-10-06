@@ -75,18 +75,16 @@ enum SessionShape {
     /// `gapBelow` of it was recorded, and merges with a neighbour that agrees.
     /// Cells are shared between the session's spans by duration, and runs
     /// never cross a span, so time between stretches is not drawn as either.
+    /// Every span is drawn: rounding each share on its own over-spent the
+    /// cells and the last stretches, often the longest, silently fell off.
     static func runs(activity: RecordedActivity, cellCount: Int,
                      gapBelow: Double = 0.5) -> [Run] {
-        let elapsed = activity.elapsed
-        guard elapsed > 0, elapsed.isFinite, cellCount > 0 else { return [] }
+        guard cellCount > 0 else { return [] }
+        let spans = fitted(activity.bounds.filter { $0.duration > 0 }, into: cellCount)
+        let total = spans.reduce(0) { $0 + $1.duration }
+        guard total > 0, total.isFinite else { return [] }
         var runs: [Run] = []
-        var remaining = cellCount
-        for (index, span) in activity.bounds.enumerated() {
-            let isLast = index == activity.bounds.count - 1
-            let share = isLast ? remaining
-                : Int((Double(cellCount) * span.duration / elapsed).rounded())
-            let cells = max(1, min(remaining, share))
-            remaining -= cells
+        for (span, cells) in zip(spans, shares(of: spans, cells: cellCount, total: total)) {
             for bin in bins(activity: activity, in: span, count: cells) {
                 let owner = bin.fraction < gapBelow ? nil : bin.dominantBundleID
                 if let last = runs.last, last.end == bin.start, last.bundleID == owner {
@@ -98,9 +96,37 @@ enum SessionShape {
                                     cells: 1, recordedSeconds: bin.recordedSeconds))
                 }
             }
-            if remaining <= 0 { break }
         }
         return runs
+    }
+
+    /// More stretches than cells cannot each have one, so the two with the
+    /// shortest time between them are drawn as one until they fit. The time
+    /// between reads as unrecorded instead of the later stretches vanishing.
+    private static func fitted(_ bounds: [DateInterval], into cells: Int) -> [DateInterval] {
+        var spans = bounds.sorted { $0.start < $1.start }
+        while spans.count > cells {
+            let gaps = spans.indices.dropLast().map { spans[$0 + 1].start.timeIntervalSince(spans[$0].end) }
+            guard let index = gaps.indices.min(by: { gaps[$0] < gaps[$1] }) else { break }
+            spans[index] = DateInterval(start: spans[index].start,
+                                        end: max(spans[index].end, spans[index + 1].end))
+            spans.remove(at: index + 1)
+        }
+        return spans
+    }
+
+    /// One cell each, then the rest by duration, largest remainder first, so
+    /// the counts add up to exactly `cells`. Needs no more spans than cells.
+    private static func shares(of spans: [DateInterval], cells: Int, total: TimeInterval) -> [Int] {
+        let spare = Double(cells - spans.count)
+        let exact = spans.map { spare * $0.duration / total }
+        var counts = exact.map { 1 + Int($0) }
+        let remainders = exact.map { $0 - $0.rounded(.down) }
+        let order = remainders.indices.sorted {
+            remainders[$0] == remainders[$1] ? $0 < $1 : remainders[$0] > remainders[$1]
+        }
+        for index in order.prefix(max(0, cells - counts.reduce(0, +))) { counts[index] += 1 }
+        return counts
     }
 
     /// Coverage describes time observed, not keystrokes. Duplicate or

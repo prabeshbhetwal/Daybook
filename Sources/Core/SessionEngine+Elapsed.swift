@@ -61,6 +61,12 @@ extension SessionEngine {
         state == .idle ? nil : (start: sessionStartDate, end: now())
     }
 
+    /// The running session's pauses so far, the open one included, when they
+    /// add up to its paused total. Nil when idle or not known exactly.
+    var runningPausedSpans: [DateInterval]? {
+        state == .idle ? nil : trustedPausedSpans(until: now())
+    }
+
     /// When the pending absence was, for the card and the prompts. Derived from
     /// the return moment already stamped in `decisionStartDate` and the length
     /// in the state, so it cannot disagree with the figure beside it.
