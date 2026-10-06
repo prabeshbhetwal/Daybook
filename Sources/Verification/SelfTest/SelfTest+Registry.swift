@@ -42,6 +42,7 @@ extension SelfTest {
             + EditorAndReportChecks.tests
             + SwitchingAndHourChecks.tests
             + RecoveryRetryChecks.tests
+            + HistorySessionIDChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

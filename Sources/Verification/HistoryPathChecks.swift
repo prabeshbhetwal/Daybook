@@ -34,7 +34,7 @@ enum HistoryPathChecks {
         if zip(crumbs.dropFirst(), open).contains(where: { $0.target != $1.id || $0.focus != .row($1) }) {
             problems.append("an open row's part did not lead to that row")
         }
-        if crumbs.last?.target != "session-\(thread.uuidString)"
+        if crumbs.last?.target != HistorySessionPick(thread: thread, day: sunday).scrollID
             || crumbs.last?.focus != .session(thread: thread, day: sunday) {
             problems.append("the session's part did not lead to the session")
         }

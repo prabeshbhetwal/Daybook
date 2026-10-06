@@ -144,6 +144,11 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
 struct HistorySessionPick: Hashable {
     let thread: UUID
     let day: Date
+
+    /// The scroll id of the session's card on that day. A session continued
+    /// past midnight has a card on each day it touched, and cards sharing an
+    /// id leave all but one of them blank.
+    var scrollID: String { "session-\(thread.uuidString)-" + JournalEntry.dayID(day) }
 }
 
 /// The window's route. `AppTab` is only the vocabulary callers use to ask for
@@ -410,7 +415,7 @@ struct HistorySessionPick: Hashable {
             if case .session(let thread, let day) = next { historySession = HistorySessionPick(thread: thread, day: day) }
             switch next {
             case .row(let place): historyScrollTarget = place.id
-            case .session(let thread, _): historyScrollTarget = "session-\(thread.uuidString)"
+            case .session(let thread, let day): historyScrollTarget = HistorySessionPick(thread: thread, day: day).scrollID
             }
             historyScrollRequest &+= 1
         }

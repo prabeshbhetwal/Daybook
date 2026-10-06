@@ -6,6 +6,8 @@ import SwiftUI
 /// as one bar and the note line that matched.
 struct HistorySessionRow: View {
     let session: DaySession
+    /// The day this card lists the session under.
+    let day: Date
     /// The session's apps, busiest first.
     let apps: [AppRank]
     let note: String?
@@ -28,7 +30,7 @@ struct HistorySessionRow: View {
                 .accessibilityValue(DurationText.spoken(in: spokenDetail))
                 .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         }
-        .id("session-\(session.threadID.uuidString)")
+        .id(HistorySessionPick(thread: session.threadID, day: day).scrollID)
     }
 
     private var card: some View {
