@@ -38,6 +38,7 @@ extension SelfTest {
             + HistoryAppLensFigureChecks.tests
             + PeriodCalendarChecks.tests
             + AuditRepairChecks.tests
+            + InsightHourChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

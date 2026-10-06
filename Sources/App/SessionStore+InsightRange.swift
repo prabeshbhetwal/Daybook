@@ -142,17 +142,24 @@ extension SessionStore {
         var grid = Array(repeating: Array(repeating: TimeInterval(0), count: 24), count: rows.labels.count)
         var byCategory: [WorkType: TimeInterval] = [:]
 
-        func spread(start: Date, end: Date, workShare: Double, type: WorkType) {
+        /// Files each clock hour's own work under that hour. The hours are the
+        /// calendar's real intervals: on the night clocks go back, setting the
+        /// hour by number landed on the repeated hour's first pass, behind the
+        /// cursor, and the walk stopped there with the rest of the day uncounted.
+        /// The work comes from the pause-aware allocation, so a pause stays in
+        /// the hours it happened instead of thinning every hour of the span.
+        func spread(start: Date, end: Date, type: WorkType,
+                    work: ((start: Date, end: Date)) -> TimeInterval) {
             var cursor = start
             while cursor < end {
-                let hour = calendar.component(.hour, from: cursor)
-                let nextHour = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: cursor)
-                    .flatMap { calendar.date(byAdding: .hour, value: 1, to: $0) } ?? end
-                let sliceEnd = min(end, nextHour)
-                let slice = sliceEnd.timeIntervalSince(cursor)
-                guard slice > 0 else { break }
-                if let row = rows.row(for: cursor) { grid[row][hour] += slice * workShare }
-                byCategory[type, default: 0] += slice * workShare
+                let hourEnd = calendar.dateInterval(of: .hour, for: cursor)?.end
+                let sliceEnd = min(end, hourEnd.flatMap { $0 > cursor ? $0 : nil }
+                                   ?? cursor.addingTimeInterval(3_600))
+                let seconds = min(sliceEnd.timeIntervalSince(cursor), work((start: cursor, end: sliceEnd)))
+                if let row = rows.row(for: cursor) {
+                    grid[row][calendar.component(.hour, from: cursor)] += seconds
+                }
+                byCategory[type, default: 0] += seconds
                 cursor = sliceEnd
             }
         }
@@ -160,16 +167,12 @@ extension SessionStore {
         for record in engine.archive.records where record.workType.countsAsFocus {
             let start = max(record.start, rangeStart), end = min(record.end, rangeEnd)
             guard end > start else { continue }
-            let span = end.timeIntervalSince(start)
-            let share = min(1, record.workSeconds(in: (start: start, end: end)) / max(span, 1))
-            spread(start: start, end: end, workShare: share, type: record.workType)
+            spread(start: start, end: end, type: record.workType, work: record.workSeconds(in:))
         }
         if engine.state != .idle, engine.activeWorkType.countsAsFocus {
             let start = max(engine.sessionStartDate, rangeStart), end = min(now(), rangeEnd)
             if end > start {
-                let span = end.timeIntervalSince(start)
-                spread(start: start, end: end, workShare: min(1, engine.elapsed / max(span, 1)),
-                       type: engine.activeWorkType)
+                spread(start: start, end: end, type: engine.activeWorkType, work: engine.elapsed(in:))
             }
         }
 
