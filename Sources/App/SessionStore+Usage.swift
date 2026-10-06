@@ -46,13 +46,21 @@ extension SessionStore {
                               usageSnapshot: AppUsageSnapshot? = nil) -> TimeInterval {
         guard let snapshot = usageSnapshot ?? effectiveUsageSnapshot else { return 0 }
         let calendar = Calendar.current
-        let includesRunning = engine.state != .idle
-            && calendar.isDate(day, inSameDayAs: now())
+        // The running session counts on every day it touches, as its logged
+        // work does: one left open past midnight still fills the day it began.
+        // Each day is capped at the work that falls inside that day.
+        let running = engine.runningSpan
+        var runningWork: TimeInterval?
+        if running != nil {
+            runningWork = calendar.isDate(day, inSameDayAs: now())
+                ? engine.elapsedToday()
+                : SessionRecord.dayBounds(day, calendar: calendar).map { engine.elapsed(in: $0) }
+        }
         return FocusedActiveTime.seconds(
             on: day, records: engine.archive.records, usage: snapshot.sessions,
-            running: includesRunning ? engine.runningSpan : nil,
-            runningWork: includesRunning ? engine.elapsedToday() : nil,
-            runningPaused: includesRunning ? engine.runningPausedSpans : nil,
+            running: running,
+            runningWork: runningWork,
+            runningPaused: engine.runningPausedSpans,
             calendar: calendar)
     }
 

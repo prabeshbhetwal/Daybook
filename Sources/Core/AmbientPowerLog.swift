@@ -23,6 +23,9 @@ final class AmbientPowerLog {
     /// The last write that did not reach disk. The reading is still held in
     /// memory and the next append tries again.
     private(set) var lastError: String?
+    /// Why the file on disk could not be read. It may be the only copy of
+    /// those readings, so while this is set nothing is written over it.
+    private var loadFailure: String?
 
     init(directory: URL = SessionArchive.defaultDirectory,
          writeOverride: ((Data) -> String?)? = nil) {
@@ -30,6 +33,7 @@ final class AmbientPowerLog {
         self.fileURL = directory.appendingPathComponent("ambient-power.json")
         self.writeOverride = writeOverride
         load()
+        lastError = loadFailure
     }
 
     func observations(in interval: DateInterval) -> [PowerObservation] {
@@ -51,16 +55,17 @@ final class AmbientPowerLog {
         do {
             let document = try JSONDecoder().decode(Document.self, from: Data(contentsOf: fileURL))
             guard document.version == 1 else {
-                lastError = "Ambient power was written by a newer version and remains read-only."
+                loadFailure = "Ambient power was written by a newer version and remains read-only."
                 return
             }
             observations = document.observations.sorted { $0.timestamp < $1.timestamp }
         } catch {
-            lastError = "Ambient power could not be read. The original file was preserved."
+            loadFailure = "Ambient power could not be read. The original file was preserved."
         }
     }
 
     private func commit() -> SessionMetadataWriteResult {
+        if let loadFailure { return .failed(loadFailure) }
         do {
             let data = try JSONEncoder().encode(Document(version: 1, observations: observations))
             if let writeOverride {
