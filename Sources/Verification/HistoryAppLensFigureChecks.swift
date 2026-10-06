@@ -27,8 +27,9 @@ enum HistoryAppLensFigureChecks: CheckSuite {
         AppUsageSession(bundleID: "qwen", appName: "Qwen", start: start, end: end)
     }
 
-    /// Records A (9–10) and B (9:30–10:30) overlap; Qwen is in front
-    /// 9:40–9:50, recorded twice, and 11:00–11:05 outside, recorded twice.
+    /// Records A (9–10) and B (9:30–10:30) overlap, and C (9:10–9:20) lies
+    /// inside A; Qwen is in front 9:40–9:50, recorded twice, and 11:00–11:05
+    /// outside, recorded twice. Dia is in front 9:00–9:10, recorded twice.
     private static func overlapsCountOnce() -> [String] {
         var problems: [String] = []
         let threadA = UUID()
@@ -37,10 +38,13 @@ enum HistoryAppLensFigureChecks: CheckSuite {
             SessionRecord(name: "A", workType: .deepWork, start: at(9, 0), end: at(10, 0),
                           workSeconds: 3_600, threadID: threadA),
             SessionRecord(name: "B", workType: .deepWork, start: at(9, 30), end: at(10, 30),
-                          workSeconds: 3_600, threadID: threadB)
+                          workSeconds: 3_600, threadID: threadB),
+            SessionRecord(name: "C", workType: .admin, start: at(9, 10), end: at(9, 20),
+                          workSeconds: 600, threadID: UUID())
         ]
+        let dia = AppUsageSession(bundleID: "dia", appName: "Dia", start: at(9, 0), end: at(9, 10))
         let usage = [qwen(at(9, 40), at(9, 50)), qwen(at(9, 40), at(9, 50)),
-                     qwen(at(11, 0), at(11, 5)), qwen(at(11, 1), at(11, 5))]
+                     qwen(at(11, 0), at(11, 5)), qwen(at(11, 1), at(11, 5)), dia, dia]
         let lens = HistoryAppLens.build(bundleID: "qwen", records: records, usage: SortedUsage(usage),
                                         calendar: calendar)
         SelfTest.expectClose(lens.inSession, 600, "Qwen's ten minutes in sessions, once", &problems)
@@ -53,6 +57,11 @@ enum HistoryAppLensFigureChecks: CheckSuite {
         SelfTest.expectClose(lens.sessions.first?.share ?? -1, 600.0 / 3_600, "Qwen's share of A", &problems)
         expect(HistorySearchText.lensTotal(lens) == Tokens.duration(900),
                "the headline reads \(HistorySearchText.lensTotal(lens))", &problems)
+        expect(lens.inSessionByType[.admin] == nil, "C, inside A, owns none of Qwen's time", &problems)
+        SelfTest.expectClose(lens.alongside.first?.total ?? -1, 600, "Dia beside Qwen, once", &problems)
+        SelfTest.expectClose(lens.alongside.first?.share ?? -1, 0.5, "Dia's share beside Qwen", &problems)
+        let found = SortedUsage(usage).uniqueUse(within: records.map { DateInterval(start: $0.start, end: $0.end) })
+        SelfTest.expectClose(found["qwen"]?.total ?? -1, 600, "a search counts Qwen in the sessions once", &problems)
         return problems
     }
 

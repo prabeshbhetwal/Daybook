@@ -104,7 +104,12 @@ struct HistoryAppLens: Equatable {
     static func build(bundleID: String, records: [SessionRecord], usage: SortedUsage,
                       calendar: Calendar, accurateFrom: Date? = nil) -> HistoryAppLens {
         let focus = records.filter { $0.workType.countsAsFocus && $0.end > $0.start }
-            .sorted { $0.start == $1.start ? $0.end > $1.end : $0.start < $1.start }
+            .sorted { left, right in
+                if left.start != right.start { return left.start < right.start }
+                if left.end != right.end { return left.end > right.end }
+                // The same span twice: one owner, the same on every rebuild.
+                return left.threadID.uuidString < right.threadID.uuidString
+            }
         let mine = usage.stretches.filter { $0.bundleID == bundleID }
         let used = merged(mine.map { DateInterval(start: $0.start, end: $0.end) })
 
