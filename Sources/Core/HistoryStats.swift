@@ -40,14 +40,25 @@ enum SearchWords {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
-    /// The query's words, folded, with stray punctuation at their edges
-    /// dropped so "parser," still finds Parser. Inner punctuation stays, so
-    /// "2026-09-28" and "28/9" are still one word each.
+    /// The query's words, folded, with quotes and sentence punctuation at
+    /// their edges dropped so "parser," and “parser” still find Parser.
+    /// Anything else stays: "2026-09-28" and "28/9" are one word each, and
+    /// "C++", "C#" and ".NET" are not cut down to a letter that is in almost
+    /// every session.
     static func words(in query: String) -> [String] {
         fold(query).split(whereSeparator: \.isWhitespace)
-            .map { $0.trimmingCharacters(in: .punctuationCharacters.union(.symbols)) }
-            .filter { !$0.isEmpty }
+            .map { raw -> String in
+                var word = Substring(raw)
+                while let first = word.first, leading.contains(first) { word = word.dropFirst() }
+                while let last = word.last, trailing.contains(last) { word = word.dropLast() }
+                return String(word)
+            }
+            // A dash or a plus on its own is in nearly every session's text.
+            .filter { word in word.contains { $0.isLetter || $0.isNumber } }
     }
+
+    private static let leading = Set("\"'“‘«([{-–—/@…")
+    private static let trailing = Set("\"'”’»)]},.;:!?…-–—/%")
 
     /// True when every word is in `text`. `text` must already be folded.
     static func all(_ words: [String], in text: String) -> Bool {
