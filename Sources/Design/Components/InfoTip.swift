@@ -124,9 +124,9 @@ private struct TipBubble: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(tip.title)
-                .font(Tokens.Typography.microLabel)
+                .font(Tokens.Typography.caption)
             Text(tip.detail)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

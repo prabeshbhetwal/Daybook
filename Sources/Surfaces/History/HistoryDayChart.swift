@@ -56,12 +56,12 @@ struct HistoryResultChart: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Each day")
-                    .font(Tokens.Typography.metadata.weight(.bold))
+                    .font(Tokens.Typography.label)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: Tokens.Space.s)
                 if let hint {
                     Text(hint)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -75,7 +75,7 @@ struct HistoryResultChart: View {
                 Spacer(minLength: Tokens.Space.s)
                 Text("Today")
             }
-            .font(Tokens.Typography.microLabel)
+            .font(Tokens.Typography.caption)
             .foregroundStyle(.secondary)
             if isLens {
                 HStack(spacing: Tokens.Space.m) {
@@ -124,7 +124,7 @@ struct HistoryResultChart: View {
                     .stroke(Color.secondary.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     .frame(height: 1)
                 Text("average day")
-                    .font(Tokens.Typography.microLabel)
+                    .font(Tokens.Typography.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
                     .background(StoryStyle.card)
@@ -139,7 +139,7 @@ struct HistoryResultChart: View {
     private func swatch(_ colour: Color, _ label: String) -> some View {
         HStack(spacing: Tokens.Space.xs) {
             RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9, height: 9)
-            Text(label).font(Tokens.Typography.microLabel).foregroundStyle(.secondary)
+            Text(label).font(Tokens.Typography.caption).foregroundStyle(.secondary)
         }
     }
 

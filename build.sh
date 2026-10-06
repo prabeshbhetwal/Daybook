@@ -85,6 +85,23 @@ keep_internals store Sources/App/SessionStore \
   'LiveFrame|appliedDefaultWorkType|apply|cachedTypical|cachedTypicalMinute|deferredAutomationPending|earliestDayCache|historyAppLensCache|historySearchAppsCache|historySortedUsageCache|idle|lastLiveFrame|lastSampleWatching|pendingWakeActivation|presenceGate|refreshBreak|schedulesTicker|startTicker|stopTicker|tick|ticker|updateTicker|watchingCache|watchingEndedAt' \
   'activityAutomationError|breakCountdown|canUndoCorrection|correctionError|dashboardArchiveReadModelGeneration|dashboardReadModelGeneration|elapsed|goal|historyIndexGeneration|isBreakDue|longestToday|nextBreakTier|pendingActivityChoice|pendingAway|pendingAwayRange|previousSession|quickStarts|reviewReadModelGeneration|sessionsToday|streak|streakBest|threadElapsed|todayTotal|trackedToday|weekBars'
 
+# Type comes from roles. A view names what its text is and
+# Tokens.Typography fixes the size, weight and face; a raw size, a system text
+# style or a reweighted role is how one role came to be drawn five ways. A
+# weight may still change with state (`.weight(selected ? … : …)`).
+type_outside_roles() {
+  {
+    grep -rnE '\.system\(size:|Font\.system\(|Typography\.Size\.|\.fontWeight\(|\.bold\(\)|Typography\.[A-Za-z]+[[:space:]]*\.weight\(\.' \
+      Sources/App Sources/Design Sources/Surfaces --include='*.swift'
+    grep -rnE 'font\(|Font' Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
+      | grep -E '[(?:][[:space:]]*\.(largeTitle|title|title2|title3|headline|subheadline|body|callout|footnote|caption|caption2)([^A-Za-z0-9_(]|$)'
+  } | grep -v '^Sources/Design/Typography.swift:'
+}
+if type_outside_roles; then
+  echo "error: the lines above set type outside Tokens.Typography; use a role from Sources/Design/Typography.swift" >&2
+  exit 1
+fi
+
 echo "Compiling for ${TARGET_TRIPLE}…"
 SOURCE_FILES=()
 while IFS= read -r source_file; do

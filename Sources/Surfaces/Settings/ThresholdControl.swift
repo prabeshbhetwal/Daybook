@@ -71,7 +71,7 @@ struct ThresholdControl: View {
             }
             if rejected.value {
                 Text(Self.rejection)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(Tokens.Colour.danger)
             }
         }
@@ -88,7 +88,7 @@ struct ThresholdControl: View {
                 .onSubmit(apply)
                 .accessibilityLabel("\(label), minutes")
             Text("min")
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
         }
         .onAppear {

@@ -6,7 +6,7 @@ struct WorkTypeChip: View {
 
     var body: some View {
         Text(workType.displayName)
-            .font(Tokens.Typography.microLabel)
+            .font(Tokens.Typography.caption)
             .padding(.horizontal, 7)
             .padding(.vertical, 2)
             .background(Tokens.Palette.workType(workType).opacity(0.14),

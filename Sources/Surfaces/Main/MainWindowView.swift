@@ -255,7 +255,7 @@ struct StorySheet<Content: View>: View {
         VStack(spacing: 0) {
                 HStack {
                     Text(title)
-                        .font(Tokens.Typography.sectionTitle)
+                        .font(Tokens.Typography.heading)
                         .accessibilityAddTraits(.isHeader)
                     Spacer(minLength: Tokens.Space.m)
                     Button(action: onClose) {

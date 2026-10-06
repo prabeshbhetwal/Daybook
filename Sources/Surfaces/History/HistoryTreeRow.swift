@@ -150,13 +150,13 @@ struct HistoryTreeRow: View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
             dot
             Text(HistoryRowText.title(row.place, today: today, calendar: SessionStore.historyCalendar))
-                .font(row.place.level == .day ? Tokens.Typography.metadata.weight(.bold)
-                                              : Tokens.Typography.rowTitle.weight(.medium))
+                .font(row.place.level == .day ? Tokens.Typography.label
+                                              : Tokens.Typography.rowTitle)
                 .lineLimit(1)
             Spacer(minLength: Tokens.Space.s)
             if showsFacts {
                 Text(durations: HistoryRowText.facts(row, today: today))
-                    .font(Tokens.Typography.metadata.monospacedDigit())
+                    .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(row.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
                     .lineLimit(1)
             }

@@ -48,18 +48,18 @@ struct HistorySearchList: View {
                 switch row {
                 case .month(let start):
                     Text(HistoryMonthHeader.title(start))
-                        .font(Tokens.Typography.metadata.weight(.bold))
+                        .font(Tokens.Typography.label)
                         .foregroundStyle(.secondary)
                         .padding(.top, Tokens.Space.l)
                         .accessibilityAddTraits(.isHeader)
                 case .day(let date, let facts, let items):
                     HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                         Text(HistoryDayHeader.title(date, isToday: Calendar.current.isDate(date, inSameDayAs: store.now())))
-                            .font(Tokens.Typography.rowTitle.weight(.bold))
+                            .font(Tokens.Typography.heading)
                             .accessibilityAddTraits(.isHeader)
                         Spacer(minLength: Tokens.Space.s)
                         Text(durations: facts)
-                            .font(Tokens.Typography.metadata.monospacedDigit())
+                            .font(Tokens.Typography.body.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                     .padding(.top, Tokens.Space.m)
@@ -88,9 +88,9 @@ struct HistorySearchList: View {
                         AppIcon(bundleID: bundleID, size: 16, appName: appName ?? "").alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
                     }
                     Text(durations: HistorySessionRow.figure(use.seconds))
-                        .font(Tokens.Typography.metadata.weight(.semibold))
+                        .font(Tokens.Typography.label)
                     Text("in \(appName ?? "the app") outside a session · \(Tokens.timeRange(use.span.start, use.span.end))")
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -100,10 +100,10 @@ struct HistorySearchList: View {
         case .rest(let rest):
             HistorySpineItem(time: Tokens.timeOfDayOnly(rest.start), dot: .hollow(Tokens.Palette.warmGrey)) {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                    Text(rest.name.isEmpty ? "Break" : rest.name).font(Tokens.Typography.metadata)
+                    Text(rest.name.isEmpty ? "Break" : rest.name).font(Tokens.Typography.body)
                     Spacer(minLength: Tokens.Space.s)
                     Text(durations: Tokens.duration(rest.length))
-                        .font(Tokens.Typography.metadata.monospacedDigit())
+                        .font(Tokens.Typography.body.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
                 .padding(.vertical, Tokens.Space.s)
@@ -193,7 +193,7 @@ struct HistorySpineItem<Content: View>: View {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             Text(time)
-                .font(Tokens.Typography.metadata.monospacedDigit())
+                .font(Tokens.Typography.body.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)

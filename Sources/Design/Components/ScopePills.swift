@@ -25,7 +25,7 @@ struct ScopePills: View {
             ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
                 let isSelected = index == selectedIndex
                 Text(title)
-                    .font(Tokens.Typography.metadata.weight(.semibold))
+                    .font(Tokens.Typography.label)
                     .padding(.horizontal, Tokens.Space.m)
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)

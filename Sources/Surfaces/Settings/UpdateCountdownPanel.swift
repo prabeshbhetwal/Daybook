@@ -93,12 +93,12 @@ private struct UpdateCountdownView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             Label("Daybook \(version) is ready", systemImage: "arrow.down.circle.fill")
-                .font(Tokens.Typography.rowTitle.weight(.semibold))
+                .font(Tokens.Typography.heading)
             // Redrawn once a second only while the panel is up; the deadline,
             // not this view, decides when to install.
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Text(message(at: context.date))
-                    .font(Tokens.Typography.metadata.monospacedDigit())
+                    .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

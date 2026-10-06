@@ -177,11 +177,11 @@ struct DayStory: View {
             Button { toggle(key) } label: {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                     Text(run.summary)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: Tokens.Space.xs)
                     Image(systemName: "chevron.down")
-                        .font(Tokens.Typography.microLabel)
+                        .font(Tokens.Typography.caption)
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
@@ -224,7 +224,7 @@ struct DayStory: View {
                             Spacer(minLength: 8)
                             Text(durations: Tokens.duration(span.duration)).monospacedDigit()
                         }
-                        .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
                         .padding(.vertical, 10)
                         .help(reason.explanation ?? "")
                         .accessibilityElement(children: .combine)
@@ -370,7 +370,7 @@ struct DayStory: View {
               // rather than pushed down by a fixed padding that only matched
               // the small ones.
               Text(Tokens.timeOfDayOnly(time))
-                .font(Tokens.Typography.metadata.monospacedDigit())
+                .font(Tokens.Typography.body.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: timeColumn, height: DayStory.dotCentre * 2, alignment: .trailing)
                 .accessibilityHidden(true)
@@ -424,7 +424,7 @@ struct DayStory: View {
             Text(store.isTrackingEnabled
                  ? "Start a focus session, or let app recording build the day's story."
                  : "Start a focus session to begin the day's story.")
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .padding(.vertical, Tokens.Space.m)
         }
@@ -517,18 +517,18 @@ struct SessionEntryCard: View {
                             // An unnamed session is titled by its category already.
                             if !session.name.isEmpty {
                                 Text(session.workType.displayName)
-                                    .font(Tokens.Typography.microLabel)
+                                    .font(Tokens.Typography.caption)
                                     .padding(.horizontal, 7)
                                     .padding(.vertical, 2)
                                     .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
                                     .foregroundStyle(StoryStyle.workTypeInk(session.workType))
                             }
                             Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
-                                .font(Tokens.Typography.metadata)
+                                .font(Tokens.Typography.body)
                                 .foregroundStyle(.secondary)
                             if session.stretches > 1 {
                                 Text("· \(session.stretches) stretches")
-                                    .font(Tokens.Typography.metadata)
+                                    .font(Tokens.Typography.body)
                                     .foregroundStyle(.secondary)
                                     .help("This session ran as \(session.stretches) separate stretches; "
                                           + "the gaps between them are not counted.")
@@ -558,7 +558,7 @@ struct SessionEntryCard: View {
                             if editing.value { finishRenaming() } else { beginEditing() }
                         } label: {
                             Image(systemName: editing.value ? "checkmark.circle.fill" : "pencil")
-                                .font(.system(size: editing.value ? 15 : 12, weight: .medium))
+                                .font(editing.value ? Tokens.Typography.heading : Tokens.Typography.label)
                                 .foregroundStyle(editing.value ? AnyShapeStyle(StoryStyle.action)
                                                                : AnyShapeStyle(.secondary))
                                 // A full-size target around the same glyph;
@@ -592,17 +592,17 @@ struct SessionEntryCard: View {
                                         .contentTransition(.numericText())
                                 }
                             }
-                            .font(Tokens.Typography.metadata.weight(clock == nil ? .regular : .semibold)
+                            .font(Tokens.Typography.body.weight(clock == nil ? .regular : .semibold)
                                 .monospacedDigit())
                             .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
                                                           : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
                             if let powerSummary {
                                 Label(powerSummary.headline, systemImage: powerSummary.symbolName)
-                                    .font(Tokens.Typography.microLabel.weight(.regular)).foregroundStyle(.secondary)
+                                    .font(Tokens.Typography.caption).foregroundStyle(.secondary)
                             }
                         }
                         Image(systemName: isOpen ? "chevron.down" : "chevron.right")
-                            .font(Tokens.Typography.microLabel)
+                            .font(Tokens.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
                     .padding(StoryStyle.entryInsets(for: density))
@@ -648,7 +648,7 @@ struct SessionEntryCard: View {
                     // than promising recording that will not come.
                     Text(shapeCaption ?? (activity == nil
                                           ? "Recording will appear here as the session continues." : ""))
-                        .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if showsActivityStrip, let activity {
@@ -700,10 +700,10 @@ struct SessionEntryCard: View {
             HStack(spacing: Tokens.Space.xs) {
                 if let prefix {
                     Text(prefix)
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                     Text("·")
-                        .font(Tokens.Typography.metadata)
+                        .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                 }
                 Button(title) { openSessionReport(session) }
@@ -727,13 +727,13 @@ struct SessionEntryCard: View {
     @ViewBuilder private var factualCaption: some View {
         if let shape {
             Text(shape)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         if let shapeCaption {
             Text(shapeCaption)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -741,7 +741,7 @@ struct SessionEntryCard: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(Tokens.Typography.microLabel)
+            .font(Tokens.Typography.caption)
             .foregroundStyle(.secondary)
             .textCase(.uppercase)
             .accessibilityAddTraits(.isHeader)
@@ -797,7 +797,7 @@ struct SessionEntryCard: View {
             // its confirmation, and a note belongs to one stretch.
             if editing.value {
                 Text("Name and category changes apply to all stretches of this session, including other days.")
-                    .font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -817,13 +817,13 @@ struct SessionEntryCard: View {
         if let metadataStore,
            let error = metadataStore.powerMetadataError(for: noteRecordIDs) {
             Label(error, systemImage: "exclamationmark.triangle.fill")
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(Tokens.Colour.danger)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel("Session power metadata error. \(error)")
         }
         if let detail = powerSummary?.detail {
-            Text(detail).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+            Text(detail).font(Tokens.Typography.body).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel("Recorded power context. \(detail)")
         }
@@ -832,7 +832,7 @@ struct SessionEntryCard: View {
                 if let note = metadataStore.sessionMetadata(for: recordID)?.note,
                    !metadataStore.expandedNoteEditorIDs.contains(recordID) {
                     HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                        Text(note).font(Tokens.Typography.metadata)
+                        Text(note).font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 4)
@@ -843,7 +843,7 @@ struct SessionEntryCard: View {
                                        alignment: .trailing)
                                 .contentShape(Rectangle())
                         }
-                            .buttonStyle(StoryPressStyle()).font(Tokens.Typography.metadata).foregroundStyle(.secondary)
+                            .buttonStyle(StoryPressStyle()).font(Tokens.Typography.body).foregroundStyle(.secondary)
                             .accessibilityLabel("Edit note for stretch \(noteRecordIDs.firstIndex(of: recordID).map { $0 + 1 } ?? 1)")
                     }
                 }
@@ -866,7 +866,7 @@ struct SessionEntryCard: View {
                     // The current kind is marked by a tick as well as its
                     // tint, and drawn in the darker ink that reads on it.
                     Label(type.displayName, systemImage: isCurrent ? "checkmark" : type.symbolName)
-                        .font(Tokens.Typography.microLabel)
+                        .font(Tokens.Typography.caption)
                         .padding(.horizontal, Tokens.Space.s)
                         .padding(.vertical, Tokens.Space.xs)
                         .background(isCurrent ? Tokens.Palette.workType(type).opacity(0.18)
@@ -890,7 +890,7 @@ struct SessionEntryCard: View {
         HStack(spacing: Tokens.Space.s) {
             TextField("Name this work", text: $draft.text)
                 .textFieldStyle(.roundedBorder)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .onSubmit(commitRename)
                 .focused($renameFocused)
                 .onAppear {
@@ -903,11 +903,11 @@ struct SessionEntryCard: View {
                 }
                 .accessibilityLabel("Name this work")
             Button("Save name", action: commitRename)
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
                 .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                           || draft.text.trimmingCharacters(in: .whitespacesAndNewlines) == session.name)
             Button("Done", action: finishRenaming)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
         }
         .onExitCommand(perform: finishRenaming)
     }

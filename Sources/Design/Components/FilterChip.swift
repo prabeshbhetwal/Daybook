@@ -39,7 +39,7 @@ struct FilterChip<Icon: View, Items: View>: View {
                         .foregroundStyle(isActive ? AnyShapeStyle(ink) : AnyShapeStyle(.primary))
                     if !isActive {
                         Image(systemName: "chevron.down")
-                            .font(Tokens.Typography.microLabel.weight(.semibold))
+                            .font(Tokens.Typography.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -57,7 +57,7 @@ struct FilterChip<Icon: View, Items: View>: View {
             if isActive {
                 Button(action: onClear) {
                     Image(systemName: "xmark")
-                        .font(Tokens.Typography.microLabel.weight(.bold))
+                        .font(Tokens.Typography.caption)
                         .foregroundStyle(ink)
                         .frame(width: AccessibilityMetrics.minimumTargetSize, height: Self.height)
                         .contentShape(Rectangle())

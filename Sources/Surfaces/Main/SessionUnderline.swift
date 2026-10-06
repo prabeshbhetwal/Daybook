@@ -24,7 +24,7 @@ struct SessionUnderline: View {
             }
             if let error = store.activityAutomationError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(Tokens.Typography.metadata).foregroundStyle(Tokens.Colour.danger)
+                    .font(Tokens.Typography.body).foregroundStyle(Tokens.Colour.danger)
             }
         }
         .padding(.horizontal, Tokens.Space.xl)
@@ -53,7 +53,7 @@ struct ActivityQuietChoiceView: View {
             Text(question)
                 .font(Tokens.Typography.rowTitle)
             Text(Self.explanation)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {

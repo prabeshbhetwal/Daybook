@@ -10,8 +10,6 @@ struct GoalRing: View {
     var lineWidth: CGFloat = 7
     var label: String?
     var isMet: Bool = false
-    /// The hero's 120pt ring wants a 22pt label; the default suits 56–64pt.
-    var labelFont: Font = Tokens.Typography.ringLabel
     /// What VoiceOver names the ring. Its value is the share, so the words
     /// stay true on a past day as well as today.
     var accessibilityTitle = "Daily goal"
@@ -34,13 +32,13 @@ struct GoalRing: View {
                            value: (progress * 200).rounded())
             if isMet {
                 Image(systemName: "checkmark")
-                    .font(.system(size: diameter * 0.3, weight: .bold))
+                    .font(Tokens.Typography.fitted(diameter * 0.3, weight: .bold))
                     .foregroundStyle(.tint)
                     .transition(Tokens.Motion.transition(.scale.combined(with: .opacity),
                                                          reduceMotion: reduceMotion))
             } else if let label {
                 Text(label)
-                    .font(labelFont)
+                    .font(Tokens.Typography.ring)
                     .foregroundStyle(.primary)
                     .rollingDigits(label)
                     .lineLimit(1)

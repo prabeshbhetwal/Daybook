@@ -202,14 +202,14 @@ struct SessionReportView: View {
                 WorkTypeMark(workType: session.workType, size: 44)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(report.title)
-                        .font(Tokens.Typography.pageTitle)
+                        .font(Tokens.Typography.title)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
                     HStack(spacing: Tokens.Space.s) {
                         // An unnamed session is titled by its category already.
                         if !session.name.isEmpty {
                             Text(session.workType.displayName)
-                                .font(Tokens.Typography.microLabel)
+                                .font(Tokens.Typography.caption)
                                 .padding(.horizontal, 7).padding(.vertical, 2)
                                 .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
                                 .foregroundStyle(StoryStyle.workTypeInk(session.workType))
@@ -217,7 +217,7 @@ struct SessionReportView: View {
                         Text(session.isRunning
                              ? "Running since \(Tokens.timeOfDayOnly(session.start))"
                              : Tokens.timeRange(session.start, session.end))
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -232,23 +232,23 @@ struct SessionReportView: View {
             }
             if let text = report.detail.text {
                 Text(text)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let note = report.detail.reportNote {
                 Text(note)
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let power = report.power {
                 VStack(alignment: .leading, spacing: 2) {
                     Label(power.headline, systemImage: power.symbolName)
-                        .font(Tokens.Typography.metadata.weight(.medium))
+                        .font(Tokens.Typography.body)
                     if let detail = power.detail {
                         Text(detail)
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -262,9 +262,9 @@ struct SessionReportView: View {
     private func figure(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(durations: value)
-                .font(Tokens.Typography.sectionTitle.monospacedDigit())
+                .font(Tokens.Typography.heading.monospacedDigit())
             Text(label)
-                .font(Tokens.Typography.microLabel)
+                .font(Tokens.Typography.caption)
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
@@ -276,20 +276,20 @@ struct SessionReportView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: Tokens.Space.s) {
                         Text("\(index + 1)")
-                            .font(Tokens.Typography.microLabel.weight(.semibold))
+                            .font(Tokens.Typography.caption)
                             .frame(width: 20, height: 20)
                             .background(tint.opacity(0.14), in: Circle())
                             .foregroundStyle(StoryStyle.workTypeInk(session.workType))
                         Text(Tokens.timeRange(stretch.start, stretch.end))
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                         Spacer(minLength: Tokens.Space.s)
                         Text(durations: Tokens.preciseDuration(stretch.worked))
-                            .font(Tokens.Typography.metadata.monospacedDigit())
+                            .font(Tokens.Typography.body.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                     if let note = stretch.note {
                         Text(note)
-                            .font(Tokens.Typography.metadata)
+                            .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .padding(.leading, 28)
                             .fixedSize(horizontal: false, vertical: true)
@@ -333,7 +333,7 @@ struct SessionReportView: View {
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Text(title)
-                .font(Tokens.Typography.microLabel)
+                .font(Tokens.Typography.caption)
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .accessibilityAddTraits(.isHeader)

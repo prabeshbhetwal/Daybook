@@ -26,17 +26,17 @@ struct SessionNoteEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             TextEditor(text: draft)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
                 .frame(minHeight: 64, maxHeight: 112)
                 .focused($isFocused)
                 .accessibilityLabel("Session note")
             if let error = store.noteError(for: recordID) {
-                Text(error).font(Tokens.Typography.metadata).foregroundStyle(Tokens.Colour.danger)
+                Text(error).font(Tokens.Typography.body).foregroundStyle(Tokens.Colour.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let message = dictation.status.message {
                 Label(message, systemImage: "mic.slash.fill")
-                    .font(Tokens.Typography.metadata)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(Tokens.Colour.danger)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("Dictation error: \(message)")
@@ -92,7 +92,7 @@ struct SessionNoteEditor: View {
                     .labelStyle(.titleAndIcon)
             }
         }
-        .font(Tokens.Typography.metadata)
+        .font(Tokens.Typography.body)
         .tint(dictation.isListening ? Tokens.Colour.danger : nil)
         .disabled(!dictation.isSupported || dictation.status == .requesting)
         .help(dictation.isSupported
@@ -113,10 +113,10 @@ struct SessionNoteEditor: View {
         if isFocused {
             Button("Save") { _ = store.saveFocusedNote() }
                 .keyboardShortcut(.return, modifiers: .command)
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
         } else {
             Button("Save") { _ = store.saveNote(for: recordID) }
-                .font(Tokens.Typography.metadata.weight(.semibold))
+                .font(Tokens.Typography.label)
         }
     }
 
@@ -126,10 +126,10 @@ struct SessionNoteEditor: View {
         if isFocused {
             Button("Cancel", action: cancel)
                 .keyboardShortcut(.cancelAction)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
         } else {
             Button("Cancel", action: cancel)
-                .font(Tokens.Typography.metadata)
+                .font(Tokens.Typography.body)
         }
     }
 

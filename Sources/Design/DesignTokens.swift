@@ -109,62 +109,6 @@ enum Tokens {
         static let compactHeight: CGFloat = 34
     }
 
-    enum Typography {
-        /// Every text size the product may use. Ad-hoc sizes had grown to
-        /// nineteen steps, with 6/7/8/9 doing one job between them — a list,
-        /// not a scale. Each step here earns its place: 13, 14 and 15 sit
-        /// one point apart on purpose, as native macOS control, row and
-        /// section text do. `Size` is the only source: a font built from a
-        /// number not in this set is a defect.
-        enum Size {
-            static let micro: CGFloat = 9
-            static let smallLabel: CGFloat = 10
-            static let ring: CGFloat = 11
-            static let metadata: CGFloat = 12
-            static let control: CGFloat = 13
-            static let row: CGFloat = 14
-            static let section: CGFloat = 15
-            static let headline: CGFloat = 19
-            static let page: CGFloat = 22
-            static let metric: CGFloat = 24
-            static let timer: CGFloat = 36
-
-            /// Ascending, for the checks that hold the scale to its shape.
-            static let all: [CGFloat] = [micro, smallLabel, ring, metadata, control,
-                                         row, section, headline, page, metric, timer]
-        }
-
-        static let liveTimer = Font.system(size: Size.timer, weight: .semibold, design: .rounded)
-            .monospacedDigit()
-        static let pageTitle = Font.system(size: Size.page, weight: .semibold, design: .default)
-        static let sectionTitle = Font.system(size: Size.section, weight: .semibold, design: .default)
-        static let metricValue = Font.system(size: Size.metric, weight: .semibold, design: .rounded)
-            .monospacedDigit()
-        static let tabLabel = Font.system(size: Size.control, weight: .medium, design: .default)
-        /// The size AppKit gives its own controls, at the weight a field's own
-        /// text is set in. Editable text is not a label and must not be styled
-        /// like one.
-        static let control = Font.system(size: Size.control, weight: .regular, design: .default)
-        /// The live clock in a single-row strip. `liveTimer` is a page element
-        /// at 46pt; in a toolbar row it would set the row's height on its own.
-        static let rowTimer = Font.system(size: Size.headline, weight: .semibold, design: .rounded)
-            .monospacedDigit()
-        static let rowTitle = Font.system(size: Size.row, weight: .medium, design: .default)
-        static let metadata = Font.system(size: Size.metadata, weight: .regular, design: .default)
-
-        static let ringLabel = Font.system(size: Size.ring, weight: .semibold, design: .rounded)
-        /// Decorative micro-text: legend ticks, calendar dots, axis marks.
-        /// One step replaces the four ad-hoc sizes 6, 7, 8 and 9.
-        static let micro = Font.system(size: Size.micro, weight: .semibold, design: .default)
-        /// The smallest text a reader is expected to read: chips and badges.
-        static let microLabel = Font.system(size: Size.smallLabel, weight: .semibold, design: .default)
-        /// The same step for figures, so small numbers align with the rounded
-        /// faces the metric values use.
-        static let microValue = Font.system(size: Size.smallLabel, weight: .medium, design: .rounded)
-            .monospacedDigit()
-        static let menuBar = Font.system(size: NSFont.systemFontSize).monospacedDigit()
-    }
-
     static let popoverWidth: CGFloat = 340
     /// The widest a form row should ever be: an intent field, a settings row, a
     /// primary button. Text and controls have a comfortable measure that does
