@@ -55,6 +55,13 @@ enum GoalCreditAndPowerLogChecks: CheckSuite {
                                  "the day it began credits its worked minutes before midnight", &problems)
             SelfTest.expectClose(store.focusedActiveSeconds(on: clock.value), 10 * 60,
                                  "today credits only its hands-on minutes after midnight", &problems)
+            // The rail caches a past day; one the running session reaches into
+            // must not keep that session's credit once it is gone.
+            SelfTest.expectClose(store.storyRailDay(on: yesterday).goal.achieved, 50 * 60,
+                                 "yesterday's rail goal while the session runs", &problems)
+            engine.discard()
+            SelfTest.expectClose(store.storyRailDay(on: yesterday).goal.achieved, 0,
+                                 "yesterday's rail goal once the running session is discarded", &problems)
             return problems
         }
     }
