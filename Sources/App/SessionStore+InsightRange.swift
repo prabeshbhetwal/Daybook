@@ -142,25 +142,11 @@ extension SessionStore {
         var grid = Array(repeating: Array(repeating: TimeInterval(0), count: 24), count: rows.labels.count)
         var byCategory: [WorkType: TimeInterval] = [:]
 
-        /// Files each clock hour's own work under that hour. The hours are the
-        /// calendar's real intervals: on the night clocks go back, setting the
-        /// hour by number landed on the repeated hour's first pass, behind the
-        /// cursor, and the walk stopped there with the rest of the day uncounted.
-        /// The work comes from the pause-aware allocation, so a pause stays in
-        /// the hours it happened instead of thinning every hour of the span.
         func spread(start: Date, end: Date, type: WorkType,
                     work: ((start: Date, end: Date)) -> TimeInterval) {
-            var cursor = start
-            while cursor < end {
-                let hourEnd = calendar.dateInterval(of: .hour, for: cursor)?.end
-                let sliceEnd = min(end, hourEnd.flatMap { $0 > cursor ? $0 : nil }
-                                   ?? cursor.addingTimeInterval(3_600))
-                let seconds = min(sliceEnd.timeIntervalSince(cursor), work((start: cursor, end: sliceEnd)))
-                if let row = rows.row(for: cursor) {
-                    grid[row][calendar.component(.hour, from: cursor)] += seconds
-                }
+            HourlyWork.forEachHour(from: start, to: end, calendar: calendar, work: work) { slice, hour, seconds in
+                if let row = rows.row(for: slice) { grid[row][hour] += seconds }
                 byCategory[type, default: 0] += seconds
-                cursor = sliceEnd
             }
         }
 

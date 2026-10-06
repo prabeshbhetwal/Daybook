@@ -12,7 +12,33 @@ enum InsightHourChecks: CheckSuite {
          savedPauseStaysPut),
         ("A running session paused past midnight gives the new day none of the old day's work",
          livePauseStaysOnItsDay),
+        ("The shared hour walk gives every hour of a night the clocks go back its own work",
+         hourWalkCountsRepeatedHour),
     ]
+
+    /// The one walk behind the hour grid and the Insights category hours. A
+    /// 01:30–04:00 session across Sydney's 03:00 → 02:00 change is three and a
+    /// half hours of work, and a pause at its start stays in its own slice.
+    private static func hourWalkCountsRepeatedHour() -> [String] {
+        var problems: [String] = []
+        let calendar = calendar(in: "Australia/Sydney")
+        let day = calendar.date(from: DateComponents(year: 2026, month: 4, day: 5))!
+        let start = calendar.date(byAdding: .minute, value: 90, to: day)!
+        let end = start.addingTimeInterval(12_600)
+        let paused = DateInterval(start: start, duration: 1_800)
+        let record = SessionRecord(name: "Writing", workType: .deepWork, start: start, end: end,
+                                   workSeconds: 10_800, pausedSpans: [paused])
+        var total: TimeInterval = 0
+        var first: TimeInterval = -1
+        HourlyWork.forEachHour(from: start, to: end, calendar: calendar,
+                               work: record.workSeconds(in:)) { slice, _, seconds in
+            if slice == start { first = seconds }
+            total += seconds
+        }
+        SelfTest.expectClose(total, 10_800, "work across the repeated hour", &problems)
+        SelfTest.expectClose(first, 0, "work in the paused first half hour", &problems)
+        return problems
+    }
 
     private static func calendar(in zone: String) -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
