@@ -12,10 +12,11 @@ enum HistorySearchText {
         return (["Search"] + subjects(filter: filter, appName: appName)).joined(separator: " · ")
     }
 
-    /// `You used Qwen for 4m on 2 days`, the days being calendar days.
+    /// `You used Qwen for 4m on 2 days`, the days being the lines listed below
+    /// it, where a session is filed under the day it began.
     static func lensSentence(appName: String, lens: HistoryAppLens) -> (sentence: String, highlight: String) {
         let total = lensTotal(lens)
-        let days = lens.usedByDay.count == 1 ? "1 day" : "\(lens.usedByDay.count) days"
+        let days = lens.days.count == 1 ? "1 day" : "\(lens.days.count) days"
         return ("You used \(appName) for \(total) on \(days).", total)
     }
 
@@ -43,7 +44,7 @@ enum HistorySearchText {
             ? HistorySessionRow.figure(seconds) : Tokens.duration(seconds)
     }
 
-    /// `3m in a session, in 1 session`, then when it was last in front.
+    /// `3m in 1 session`, then when it was last in front.
     static func lensFacts(_ lens: HistoryAppLens) -> [String] {
         var facts: [String] = []
         let count = lens.sessions.count
@@ -54,7 +55,7 @@ enum HistorySearchText {
                 : "none of it in a focus session")
         } else {
             // Time in a session includes its pauses, so it is not called focus.
-            facts.append("\(lensParts(lens).inside) in a session, in \(count == 1 ? "1 session" : "\(count) sessions")")
+            facts.append("\(lensParts(lens).inside) in \(count == 1 ? "1 session" : "\(count) sessions")")
         }
         if let last = lens.lastUsed {
             facts.append("last used \(DateFormats.australian("EEE d MMM").string(from: last)) at "

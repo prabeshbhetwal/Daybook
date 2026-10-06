@@ -1,13 +1,16 @@
 import Foundation
 
-/// A picked app's headline facts in History: calendar facts count the day the
-/// app was in front, time in a session is not called focus, and the total,
-/// its parts and the subtitle print to one precision.
+/// A picked app's headline facts in History: when it was first used and its
+/// recent totals follow the calendar day it was in front, while its day count
+/// matches the day lines listed; time in a session is not called focus, its
+/// share is of the session's recorded time; and the total, its parts and the
+/// subtitle print to one precision.
 enum HistoryLensFactChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
-        ("An app's first day, day count and recent totals follow the calendar day it was in front",
+        ("An app's first-used day and recent totals follow the calendar day it was in front",
          calendarFacts),
-        ("An app used during a session's pause is not called focus or counted in its share", pausedUseIsNotFocus),
+        ("An app used during a session's pause is not called focus, and its share is of the recorded session",
+         pausedUseIsNotFocus),
         ("An app's total, its parts and its subtitle print to one precision", onePrecision)
     ]
 
@@ -39,7 +42,8 @@ enum HistoryLensFactChecks: CheckSuite {
         let want = "Last 7 days \(HistorySessionRow.figure(900)) · last 30 days \(HistorySessionRow.figure(1_800))"
         expect(recent == want, "recent read \"\(recent)\", want \"\(want)\"", &problems)
         let both = HistorySearchText.lensSentence(appName: "Qwen", lens: across).sentence
-        expect(both == "You used Qwen for \(Tokens.duration(1_800)) on 2 days.", "the headline read \"\(both)\"", &problems)
+        // The day count is the day lines below it: one, the session's.
+        expect(both == "You used Qwen for \(Tokens.duration(1_800)) on 1 day.", "the headline read \"\(both)\"", &problems)
 
         // Qwen only after midnight in the session, then 10 to 10:05 am
         // outside it: one calendar day, the 16th, though two bars.
@@ -51,7 +55,7 @@ enum HistoryLensFactChecks: CheckSuite {
         let first = DateFormats.australian("d MMMM yyyy").string(from: at(0, 0, dayOffset: 1))
         expect(eyebrow == "Qwen · first used \(first)", "the eyebrow read \"\(eyebrow)\"", &problems)
         let one = HistorySearchText.lensSentence(appName: "Qwen", lens: after).sentence
-        expect(one == "You used Qwen for \(Tokens.duration(900)) on 1 day.", "the headline read \"\(one)\"", &problems)
+        expect(one == "You used Qwen for \(Tokens.duration(900)) on 2 days.", "the headline read \"\(one)\"", &problems)
         return problems
     }
 
@@ -64,9 +68,9 @@ enum HistoryLensFactChecks: CheckSuite {
         let pausedLens = lens([paused], [(at(10, 0), at(11, 0))])
         guard let use = pausedLens.sessions.first else { return ["the paused session was not listed"] }
         SelfTest.expectClose(use.seconds, 3_600, "Qwen's hour inside the session", &problems)
-        SelfTest.expectClose(use.share, 0, "Qwen's share of the session's focus, all of it paused", &problems)
+        SelfTest.expectClose(use.share, 0.5, "Qwen's hour of the two-hour session, all of it paused", &problems)
         let facts = HistorySearchText.lensFacts(pausedLens)
-        expect(facts.first == "\(Tokens.duration(3_600)) in a session, in 1 session",
+        expect(facts.first == "\(Tokens.duration(3_600)) in 1 session",
                "the subtitle read \(facts.first ?? "nothing")", &problems)
         expect(!facts.contains { $0.contains("focus") }, "the subtitle called paused use focus: \(facts)", &problems)
 
@@ -76,16 +80,16 @@ enum HistoryLensFactChecks: CheckSuite {
         let half = SessionRecord(name: "Half", workType: .deepWork, start: at(14, 0), end: at(15, 0),
                                  workSeconds: 1_800, pausedSpans: pausedHalf)
         let mixed = lens([half], [(at(14, 20), at(14, 40))])
-        SelfTest.expectClose(mixed.sessions.first?.share ?? -1, 600.0 / 1_800, "Qwen's share of the worked half hour",
+        SelfTest.expectClose(mixed.sessions.first?.share ?? -1, 1_200.0 / 3_600, "Qwen's share of the recorded hour",
                              &problems)
-        // With no record of when it paused, every second in it still counts.
+        // With no record of when it paused, the share is the same.
         let legacy = SessionRecord(name: "Old", workType: .deepWork, start: at(14, 0), end: at(15, 0),
                                    workSeconds: 1_800)
-        SelfTest.expectClose(lens([legacy], [(at(14, 20), at(14, 40))]).sessions.first?.share ?? -1, 1_200.0 / 1_800,
+        SelfTest.expectClose(lens([legacy], [(at(14, 20), at(14, 40))]).sessions.first?.share ?? -1, 1_200.0 / 3_600,
                              "Qwen's share where the pauses are unknown", &problems)
         // One thread: 4 to 5 pm with a pause saved as running to 6, then 5:30
         // to 6:30 unpaused with Qwen throughout. The first record's pause
-        // ends with it and takes nothing from the second.
+        // ends with it, and the share is of both records' own hours.
         let thread = UUID()
         let before = SessionRecord(name: "Before", workType: .deepWork, start: at(16, 0), end: at(17, 0),
                                    workSeconds: 1_800, threadID: thread,
@@ -93,7 +97,7 @@ enum HistoryLensFactChecks: CheckSuite {
         let next = SessionRecord(name: "Next", workType: .deepWork, start: at(17, 30), end: at(18, 30),
                                  workSeconds: 3_600, threadID: thread)
         SelfTest.expectClose(lens([before, next], [(at(17, 30), at(18, 30))]).sessions.first?.share ?? -1,
-                             3_600.0 / 5_400, "Qwen's share across a thread whose first pause was saved long",
+                             3_600.0 / 7_200, "Qwen's share across a thread whose first pause was saved long",
                              &problems)
         return problems
     }
@@ -110,7 +114,7 @@ enum HistoryLensFactChecks: CheckSuite {
         let parts = HistorySearchText.lensParts(fifty)
         expect(parts == (figure(50), figure(50), figure(100)), "50s and 50s printed \(parts)", &problems)
         let subtitle = HistorySearchText.lensFacts(fifty).first ?? "nothing"
-        expect(subtitle == "\(figure(50)) in a session, in 1 session", "the subtitle read \(subtitle)", &problems)
+        expect(subtitle == "\(figure(50)) in 1 session", "the subtitle read \(subtitle)", &problems)
         let category = HistoryAppLensText.categoryLine(.deepWork, in: fifty)
         expect(category == "All time in \(WorkType.deepWork.displayName) sessions: \(figure(50)) of \(figure(100))",
                "the category line read \(category)", &problems)

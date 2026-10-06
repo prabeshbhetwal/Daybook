@@ -21,19 +21,19 @@ struct HistoryAppLens: Equatable {
         /// First start to last end of the session's stretches.
         let span: DateInterval
         let seconds: TimeInterval
-        /// The part of `seconds` outside the session's pauses, where the
-        /// record says exactly when they were; otherwise all of `seconds`.
-        let unpaused: TimeInterval
-        /// The session's focused time, so the app's share has one denominator
-        /// wherever it is printed.
-        let worked: TimeInterval
+        /// The session's records end to end, pauses included: the time the
+        /// moments bar draws, less any time between its stretches.
+        let recorded: TimeInterval
         /// Where the app was in front, clipped to the session.
         let moments: [DateInterval]
 
-        /// Like by like: the app's time while the session counted, of that time.
+        /// Like by like: `seconds` counts the app in front during pauses too,
+        /// so it is a share of the session's recorded time, pauses included.
+        /// Divided by worked time it passed 100% and was clamped whenever the
+        /// app filled a pause, and a session with no pauses reads the same.
         var share: Double {
-            let (part, whole) = worked > 0 ? (unpaused, worked) : (seconds, span.duration)
-            return whole > 0 ? min(1, part / whole) : 0
+            let whole = recorded > 0 ? recorded : span.duration
+            return whole > 0 ? min(1, seconds / whole) : 0
         }
     }
 
@@ -188,8 +188,7 @@ struct HistoryAppLens: Equatable {
             }
             uses.append(SessionUse(threadID: key.thread, day: key.day, workType: records[0].workType,
                                    span: DateInterval(start: first, end: last), seconds: seconds,
-                                   unpaused: unpausedSeconds(found, in: records),
-                                   worked: records.reduce(0) { $0 + $1.workSeconds },
+                                   recorded: records.reduce(0) { $0 + $1.span },
                                    moments: found.sorted { $0.start < $1.start }))
         }
         uses.sort { $0.span.start > $1.span.start }
