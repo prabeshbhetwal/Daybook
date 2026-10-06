@@ -21,6 +21,18 @@ extension Calendar {
         calendar.firstWeekday = 2
         return calendar
     }
+
+    /// The calendar every screen works its periods out in: Gregorian in this
+    /// calendar's zone and locale, with weeks from Monday. Titles are named in
+    /// Gregorian (`DateFormats.australian`), so a period worked out in the
+    /// Mac's own calendar mismatched them: under Umm al-Qura a month titled
+    /// October ran from 12 September to 11 October.
+    var forPeriods: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        calendar.locale = locale
+        return calendar.weeksFromMonday
+    }
 }
 
 /// One calendar day's rollup — one bar in the period chart.
@@ -150,7 +162,7 @@ struct PeriodStats {
         self.sessions = sessions
         self.usage = usage
         self.usageSnapshot = usageSnapshot
-        self.calendar = calendar.weeksFromMonday
+        self.calendar = calendar.forPeriods
         self.now = now
     }
 

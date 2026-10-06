@@ -178,7 +178,7 @@ extension SessionStore {
     }
 
     private func buildHistoryArchiveFacts() -> HistoryArchiveFacts {
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         var focusByDay: [Date: TimeInterval] = [:]
         var trackedByDay: [Date: TimeInterval] = [:]
         for day in historyDays {

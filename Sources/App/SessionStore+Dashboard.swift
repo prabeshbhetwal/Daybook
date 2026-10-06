@@ -95,7 +95,7 @@ extension SessionStore {
         let calendar = Calendar.current
         let usageSnapshot = effectiveUsageSnapshot
         let days = PeriodStats(sessions: engine.archive, usage: usage,
-                               usageSnapshot: usageSnapshot)
+                               usageSnapshot: usageSnapshot, calendar: periodCalendar)
             .days(for: period, containing: date)
         var facts: [Date: DayFacts] = [:]
         for day in days {

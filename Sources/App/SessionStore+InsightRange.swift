@@ -108,6 +108,7 @@ extension SessionStore {
                         anchoredAt anchor: Date,
                         limit: Int,
                         calendar: Calendar = .current) -> InsightReading {
+        let calendar = calendar.forPeriods
         let day = calendar.startOfDay(for: anchor)
         let today = calendar.startOfDay(for: now())
         let minute = day >= today
@@ -225,7 +226,7 @@ struct InsightGridRows {
     private let weekdays: [Int]
 
     init(scope: InsightRange, periods: [StoryPeriodProjection], calendar: Calendar) {
-        let calendar = calendar.weeksFromMonday
+        let calendar = calendar.forPeriods
         self.scope = scope
         self.calendar = calendar
         func text(_ format: String, _ date: Date) -> String {
