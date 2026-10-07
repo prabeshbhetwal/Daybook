@@ -44,6 +44,7 @@ private struct QuickPromptView: View {
                     .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
         }
         .fixedSize()
+        .controlSize(Tokens.Zoom.rootControlSize)
         // SwiftUI reports its own laid-out size; the panel follows it. AppKit's
         // `fittingSize` and even the hosting view's intrinsic size lagged a
         // pass behind and clipped the last row of buttons.

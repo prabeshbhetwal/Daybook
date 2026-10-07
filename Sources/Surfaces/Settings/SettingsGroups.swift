@@ -90,7 +90,7 @@ struct SettingsGroups: View {
                         if let chapter = model.interruptedWelcomeChapter {
                             Button("Continue the tour") { model.resumeWelcome() }
                                 .buttonStyle(.borderedProminent)
-                                .controlSize(.large)
+                                .controlSize(Tokens.Zoom.controlSize(.large))
                                 .accessibilityHint("Closes Settings and picks the introduction up at chapter "
                                                    + "\(chapter.number), \(chapter.title)")
                         }
@@ -99,7 +99,7 @@ struct SettingsGroups: View {
                             model.replayWelcome()
                         }
                         .buttonStyle(.bordered)
-                        .controlSize(.large)
+                        .controlSize(Tokens.Zoom.controlSize(.large))
                         .accessibilityHint("Closes Settings and runs the introduction over the story")
                     }
                 }
@@ -552,7 +552,7 @@ struct SettingsGroups: View {
                                 + "iCloud Drive › \(DataBackup.folderName). Earlier backups are never replaced.")
                 Button("Back up to iCloud Drive") { model.backUpToICloudDrive() }
                     .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .controlSize(Tokens.Zoom.controlSize(.large))
                     .accessibilityHint("Copies your Daybook data and preferences to iCloud Drive")
                 if let status = model.backupStatus {
                     Text(status)
@@ -565,7 +565,7 @@ struct SettingsGroups: View {
                             valueLayout: .statusBlock)
                 Button("Reveal data folder") { model.revealDataFolder() }
                     .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .controlSize(Tokens.Zoom.controlSize(.large))
                     .accessibilityHint("Opens the local Daybook data folder in Finder")
             }
             // Whether the backup worked appears under its button; say it too.

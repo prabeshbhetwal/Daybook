@@ -55,6 +55,7 @@ private struct FullPromptView: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Away decision")
         }
+        .controlSize(Tokens.Zoom.rootControlSize)
     }
 }
 

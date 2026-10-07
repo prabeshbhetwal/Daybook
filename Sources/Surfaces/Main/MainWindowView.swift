@@ -86,6 +86,7 @@ struct MainWindowView: View {
         .frame(minWidth: 980.zoomed, minHeight: 680.zoomed)
         .background(StoryStyle.canvas)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
+        .controlSize(Tokens.Zoom.rootControlSize)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
         .environment(\.openSessionReport) { session in navigation.openReport(for: session) }
@@ -104,6 +105,7 @@ struct MainWindowView: View {
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
             sheetContent(presented, within: windowSize.value == .zero ? nil : windowSize.value)
                 .environment(\.focusInterfaceDensity, settings.interfaceDensity)
+                .controlSize(Tokens.Zoom.rootControlSize)
                 .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
                 // A native sheet is its own view tree: the panels the window
                 // opens must be reachable from it too, or a category menu in

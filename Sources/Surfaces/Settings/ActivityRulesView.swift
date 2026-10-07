@@ -230,7 +230,7 @@ struct ActivityRuleCard: View {
             Toggle("", isOn: Binding(get: { rule.isEnabled }, set: onToggle))
                 .toggleStyle(.switch)
                 .labelsHidden()
-                .controlSize(.small)
+                .controlSize(Tokens.Zoom.controlSize(.small))
                 .accessibilityLabel("\(rule.name) rule")
             Menu {
                 Button("Edit", action: onEdit)
@@ -361,7 +361,7 @@ struct ActivityRuleForm: View {
                             .fixedSize()
                     }
                     .toggleStyle(.switch)
-                    .controlSize(.small)
+                    .controlSize(Tokens.Zoom.controlSize(.small))
                     .fixedSize()
                 }
                 Text("How long you must be in one of its apps before the session begins.")
@@ -591,7 +591,7 @@ struct InstalledAppPicker: View {
             .accessibilityLabel("All applications")
             HStack {
                 Button("Add application…", action: addApplication)
-                if catalog.isLoading { ProgressView().controlSize(.small) }
+                if catalog.isLoading { ProgressView().controlSize(Tokens.Zoom.controlSize(.small)) }
             }
         }
     }

@@ -131,6 +131,7 @@ struct CategoryEditorPanelView: View {
         .frame(width: CategoryEditorPanel.width)
         .background(Tokens.Colour.ground)
         .tint(Tokens.Colour.focus)
+        .controlSize(Tokens.Zoom.rootControlSize)
         .onAppear(perform: consumeTicket)
         .onChange(of: panelModel.ticket) { consumeTicket() }
     }

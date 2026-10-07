@@ -68,7 +68,7 @@ struct ActivityChooser: View {
                 // height has to live in its image: on macOS 26 AppKit draws
                 // this menu and reads only the image, and a SwiftUI frame
                 // around the bare chevron left a 21pt target there.
-                Label { Text("Choose an activity") } icon: { Image(nsImage: Self.chevron) }
+                Label { Text("Choose an activity") } icon: { Image(nsImage: Self.chevron()) }
                     .labelStyle(.iconOnly)
             }
             // Same reason as WorkTypePicker: a borderless menu's popup is
@@ -76,7 +76,7 @@ struct ActivityChooser: View {
             // large, it becomes the right-hand half of a combo box.
             .menuStyle(.button)
             .buttonStyle(.bordered)
-            .controlSize(.large)
+            .controlSize(Tokens.Zoom.controlSize(.large))
             .foregroundStyle(.secondary)
             .menuIndicator(.hidden)
             .fixedSize()
@@ -102,13 +102,21 @@ struct ActivityChooser: View {
 
     private var fieldHeight: CGFloat { compact ? Tokens.Control.compactHeight : 38.zoomed }
 
-    /// The menu's chevron, centred in an image 16pt tall: bordered and large,
-    /// that makes a 28pt button whichever framework draws it.
-    private static let chevron: NSImage = {
+    /// One chevron per zoom step, drawn the first time that step is on screen.
+    private static var chevrons: [Int: NSImage] = [:]
+
+    /// The menu's chevron, centred in an image 16pt tall at 100%: bordered and
+    /// large, that makes a 28pt button whichever framework draws it. The
+    /// image's height is the button's, so it is the zoomed 16 and the symbol
+    /// in it is the zoomed label size. Call it while the view draws, so the
+    /// menu is drawn again when the zoom changes.
+    private static func chevron() -> NSImage {
+        let percent = ZoomModel.shared.percent
+        if let drawn = chevrons[percent] { return drawn }
         let configuration = Tokens.Typography.labelSymbol
         guard let symbol = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
             .withSymbolConfiguration(configuration) else { return NSImage() }
-        let height: CGFloat = 16
+        let height = 16.zoomed
         let image = NSImage(size: NSSize(width: symbol.size.width, height: height), flipped: false) { _ in
             symbol.draw(in: NSRect(x: 0, y: (height - symbol.size.height) / 2,
                                    width: symbol.size.width, height: symbol.size.height))
@@ -116,8 +124,9 @@ struct ActivityChooser: View {
         }
         // A template, so the menu's secondary style tints it as it did the symbol.
         image.isTemplate = true
+        chevrons[percent] = image
         return image
-    }()
+    }
 
     /// What the menu lists; it redraws only when this changes.
     private struct MenuContents: Equatable {

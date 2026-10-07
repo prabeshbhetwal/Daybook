@@ -13,6 +13,7 @@ enum InterfaceZoomChecks: CheckSuite {
         ("The zoom setting saves, reloads and reaches every window", zoomSettingRoundTrips),
         ("Lengths written as N.zoomed scale with the zoom", zoomedLiterals),
         ("Every type role and spacing token is its base size times the zoom", tokensScale),
+        ("Native controls step one size below 100% and above 110%", controlSizesStep),
     ]
 
     /// Runs `body` with the shared zoom at `percent`, then puts it back, even
@@ -183,6 +184,33 @@ enum InterfaceZoomChecks: CheckSuite {
     private static func labelSymbolHeight() -> CGFloat? {
         NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
             .withSymbolConfiguration(Tokens.Typography.labelSymbol)?.size.height
+    }
+
+    /// Control sizes are enum values, not lengths, so they compare with `==`.
+    /// The window roots take the band's size, an explicit request moves the
+    /// same way, and both stop at the ends of the scale.
+    private static func controlSizesStep() -> [String] {
+        var problems: [String] = []
+        func expectSize(_ got: ControlSize, _ wanted: ControlSize, _ what: String, at percent: Int) {
+            expect(got == wanted, "\(what) at \(percent)% should be \(wanted), got \(got)", &problems)
+        }
+        let roots: [Int: ControlSize] = [80: .small, 90: .small, 100: .regular, 110: .regular,
+                                         120: .large, 130: .large, 140: .large]
+        for (percent, wanted) in roots.sorted(by: { $0.key < $1.key }) {
+            withZoom(percent) { expectSize(Tokens.Zoom.rootControlSize, wanted, "the root control size", at: percent) }
+        }
+        let requests: [(Int, ControlSize, ControlSize)] = [
+            (80, .small, .mini), (80, .mini, .mini), (90, .large, .regular),
+            (100, .small, .small), (100, .large, .large),
+            (110, .regular, .regular), (120, .small, .regular),
+            (140, .large, .extraLarge), (140, .extraLarge, .extraLarge),
+        ]
+        for (percent, requested, wanted) in requests {
+            withZoom(percent) {
+                expectSize(Tokens.Zoom.controlSize(requested), wanted, "controlSize(\(requested))", at: percent)
+            }
+        }
+        return problems
     }
 
     private static func tokensScale() -> [String] {

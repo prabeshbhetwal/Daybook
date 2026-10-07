@@ -135,6 +135,7 @@ struct ActivityEditorPanelView: View {
         .frame(width: ActivityEditorPanel.width)
         .background(Tokens.Colour.ground)
         .tint(Tokens.Colour.focus)
+        .controlSize(Tokens.Zoom.rootControlSize)
         .onAppear(perform: consume)
         .onChange(of: model.ticket) { consume() }
     }

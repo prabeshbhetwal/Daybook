@@ -138,7 +138,7 @@ struct WorkTypePicker: View {
         // pull-down, so the list still opens whole and downward.
         .menuStyle(.button)
         .buttonStyle(.bordered)
-        .controlSize(.large)
+        .controlSize(Tokens.Zoom.controlSize(.large))
         // Neutral on purpose: the platform's own bezel and label. A
         // near-transparent tint used to stand in for "no tint" and went
         // invisible the moment the window was inactive.
