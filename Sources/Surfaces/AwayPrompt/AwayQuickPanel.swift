@@ -102,6 +102,8 @@ final class AwayQuickPanel {
     private var generation = 0
     private var lastSize: CGSize?
     private var isShowing = false
+    /// Hears of a zoom change for as long as the panel lives.
+    private var zoomFollower: ZoomFollower?
 
     init(onAnswer: @escaping (UserDecision) -> Bool, onReason: @escaping (String) -> Bool,
          onRetry: @escaping () -> Void = {}) {
@@ -124,6 +126,17 @@ final class AwayQuickPanel {
                                       onAnswer: onAnswer, onReason: onReason, onRetry: onRetry))
         relay.onSize = { [weak self] size in self?.layout(to: size) }
         panel.onKeyChange = { [weak self] in self?.scheduleFade() }
+        zoomFollower = ZoomFollower { [weak self] in self?.zoomChanged() }
+    }
+
+    /// AppKit resizes the window with its content but keeps its left edge, so
+    /// at a new zoom the card would hang off the screen it is anchored to.
+    /// Laid out afresh, it is measured and placed the way `layout` does. The
+    /// layout pass comes first: measured before it, the size is the old one.
+    private func zoomChanged() {
+        guard let content = panel.contentView else { return }
+        content.layoutSubtreeIfNeeded()
+        layout(to: content.fittingSize)
     }
 
     /// The Gallery/PNG harness hosts the exact production SwiftUI root without

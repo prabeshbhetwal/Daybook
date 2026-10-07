@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// The interface zoom's steps, as percents: 80 to 140 in tens. Pure, so every
@@ -39,5 +40,38 @@ enum InterfaceZoom {
     static func controlSizeShift(forPercent percent: Int) -> Int {
         let step = snapped(percent)
         return step < 100 ? -1 : (step > 110 ? 1 : 0)
+    }
+
+    /// What a window leaves free of its screen's visible area, so a window at
+    /// its minimum never fills the screen edge to edge.
+    static let screenMargin: CGFloat = 40
+
+    /// A window's minimum at a zoom: each side is `base` times `scale`, held
+    /// to the visible area less `screenMargin` so the window still fits the
+    /// screen it opens on. An infinite `visible` leaves a side uncapped.
+    static func windowMinimum(base: CGSize, scale: CGFloat, visible: CGSize) -> CGSize {
+        CGSize(width: min(base.width * scale, max(visible.width - screenMargin, 0)),
+               height: min(base.height * scale, max(visible.height - screenMargin, 0)))
+    }
+
+    /// `frame`, grown on any side below `minimum` with its top-left corner
+    /// kept, then moved the shortest distance onto `visible`. A frame already
+    /// at least `minimum` comes back unchanged: a window never shrinks here.
+    /// AppKit coordinates, so the top edge is `maxY`.
+    static func grownFrame(_ frame: CGRect, toFit minimum: CGSize, within visible: CGRect) -> CGRect {
+        guard frame.width < minimum.width || frame.height < minimum.height else { return frame }
+        return resized(frame, to: CGSize(width: max(frame.width, minimum.width),
+                                         height: max(frame.height, minimum.height)),
+                       within: visible)
+    }
+
+    /// `frame` at `size` with its top-left corner kept, then moved the
+    /// shortest distance onto `visible`. When it is too big for `visible` the
+    /// left and top edges win, so the title bar stays reachable.
+    static func resized(_ frame: CGRect, to size: CGSize, within visible: CGRect) -> CGRect {
+        var origin = CGPoint(x: frame.minX, y: frame.maxY - size.height)
+        origin.x = max(min(origin.x, visible.maxX - size.width), visible.minX)
+        origin.y = min(max(origin.y, visible.minY), visible.maxY - size.height)
+        return CGRect(origin: origin, size: size)
     }
 }

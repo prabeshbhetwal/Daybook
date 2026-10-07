@@ -16,6 +16,9 @@ final class ActivityEditorPanelModel: ObservableObject {
     private var closeObserver: NSObjectProtocol?
     private let model = ActivityEditorPanelModel()
     static var width: CGFloat { 460.zoomed }
+    static var height: CGFloat { 420.zoomed }
+    /// `.preferredContentSize` leaves the frame to us: resized on a zoom change.
+    private var zoomFollower: ZoomFollower?
 
     var isVisible: Bool { panel?.isVisible ?? false }
     var title: String? { panel?.title }
@@ -43,6 +46,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         guard panel === closing else { return }
         if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
         closeObserver = nil
+        zoomFollower = nil
         closing.contentView = nil
         panel = nil
     }
@@ -51,7 +55,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         let content = ActivityEditorPanelView(store: store, model: model, onClose: { [weak self] in self?.close() })
         let hosting = NSHostingView(rootView: content)
         hosting.sizingOptions = [.preferredContentSize]
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: ActivityEditorPanel.width, height: 420.zoomed),
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.height),
                             styleMask: [.titled, .closable, .fullSizeContentView, .utilityWindow],
                             backing: .buffered, defer: false)
         panel.contentView = hosting
@@ -67,6 +71,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         self.panel = panel
+        zoomFollower = ZoomFollower { panel.resizeContent(to: CGSize(width: Self.width, height: Self.height)) }
         // A system close (⌘W) ends the panel the same way `close` does.
         closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: panel, queue: .main) { [weak self, weak panel] _ in

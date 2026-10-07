@@ -101,6 +101,8 @@ final class RewardHUD {
     /// panel is what stops a stale fade-out from hiding a panel that a later
     /// `show` already replaced the content of and re-shown.
     private var generation = 0
+    /// Measures a shown panel again when the zoom changes; held for as long as the HUD lives.
+    private var zoomFollower: ZoomFollower?
 
     init() {
         let panel = NonActivatingHUDPanel(
@@ -135,6 +137,13 @@ final class RewardHUD {
             model: model,
             onUndoTapped: { [weak self] in self?.handleUndo() },
             onBackgroundTapped: { [weak self] in self?.dismiss() })
+        zoomFollower = ZoomFollower { [weak self] in self?.zoomChanged() }
+    }
+
+    /// A panel on screen is measured again at the new zoom; a hidden one is
+    /// measured by the next `show`.
+    private func zoomChanged() {
+        if panel.isVisible { reposition() }
     }
 
     /// The PNG/gallery harness renders the exact hosted content without

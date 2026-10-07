@@ -22,6 +22,9 @@ final class CategoryEditorPanelModel: ObservableObject {
     private var onSaved: ((WorkTypeDefinition, Bool) -> Void)?
 
     static var width: CGFloat { 520.zoomed }
+    static var height: CGFloat { 600.zoomed }
+    /// `.preferredContentSize` leaves the frame to us: resized on a zoom change.
+    private var zoomFollower: ZoomFollower?
 
     var isVisible: Bool { panel?.isVisible ?? false }
     var title: String? { panel?.title }
@@ -51,6 +54,7 @@ final class CategoryEditorPanelModel: ObservableObject {
         guard panel === closing else { return }
         if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
         closeObserver = nil
+        zoomFollower = nil
         closing.contentView = nil
         panel = nil
     }
@@ -69,7 +73,7 @@ final class CategoryEditorPanelModel: ObservableObject {
             onSaved: { [weak self] definition, wasNew in self?.onSaved?(definition, wasNew) })
         let hosting = NSHostingView(rootView: content)
         hosting.sizingOptions = [.preferredContentSize]
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: CategoryEditorPanel.width, height: 600.zoomed),
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.height),
                             styleMask: [.titled, .closable, .fullSizeContentView, .utilityWindow],
                             backing: .buffered, defer: false)
         panel.contentView = hosting
@@ -83,6 +87,7 @@ final class CategoryEditorPanelModel: ObservableObject {
         panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         self.panel = panel
+        zoomFollower = ZoomFollower { panel.resizeContent(to: CGSize(width: Self.width, height: Self.height)) }
         // A system close (⌘W) ends the panel the same way `close` does.
         closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: panel, queue: .main) { [weak self, weak panel] _ in

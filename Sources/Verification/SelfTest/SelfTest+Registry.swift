@@ -46,6 +46,7 @@ extension SelfTest {
             + GoalCreditAndPowerLogChecks.tests
             + HistoryLensFactChecks.tests
             + InterfaceZoomChecks.tests
+            + ZoomWindowChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

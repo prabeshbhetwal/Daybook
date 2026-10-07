@@ -19,6 +19,15 @@ struct MainWindowView: View {
     /// retain the real scrollable content but compose its sheet in this viewport.
     var presentsNativeSheets = true
     @StateObject private var windowSize = SizeBox()
+    /// The visible size of the window's screen once the window is known, which
+    /// caps the minimum below; zero until then, when the main screen stands in.
+    @StateObject private var screenVisible = SizeBox()
+    /// The content minimum at 100%, scaled by the zoom and held to the screen.
+    static let minimumBase = CGSize(width: 980, height: 680) // zoom: fixed, the 100% size
+
+    private var minimum: CGSize {
+        ZoomWindowFit.minimum(base: Self.minimumBase, screenVisible: screenVisible.value)
+    }
 
     var body: some View {
       GeometryReader { geometry in
@@ -83,7 +92,8 @@ struct MainWindowView: View {
         .onAppear { windowSize.value = geometry.size }
         .onChange(of: geometry.size) { _, newSize in windowSize.value = newSize }
       }
-        .frame(minWidth: 980.zoomed, minHeight: 680.zoomed)
+        .frame(minWidth: minimum.width, minHeight: minimum.height)
+        .background(ZoomWindowFit(base: Self.minimumBase) { screenVisible.value = $0 })
         .background(StoryStyle.canvas)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .controlSize(Tokens.Zoom.rootControlSize)
@@ -300,7 +310,8 @@ final class OpenInlineFormBox: ObservableObject {
     @Published var value: OpenInlineForm?
 }
 
-/// The window's size, for a sheet presented outside its geometry reader.
+/// A size shared with something outside the view's geometry reader: the
+/// window's, for a sheet, or its screen's, for the window's minimum.
 final class SizeBox: ObservableObject {
     @Published var value: CGSize = .zero
 }

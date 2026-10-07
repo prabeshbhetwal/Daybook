@@ -637,7 +637,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
         window.title = "Daybook (preview)"
-        window.contentMinSize = NSSize(width: 980.zoomed, height: 680.zoomed)
+        window.contentMinSize = ZoomWindowFit.minimum(base: MainWindowView.minimumBase)
         window.contentView = NSHostingView(rootView: MainWindowView(
             store: store, settings: settings, navigation: mainWindow))
         window.isReleasedWhenClosed = false
