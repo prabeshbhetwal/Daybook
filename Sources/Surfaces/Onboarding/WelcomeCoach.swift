@@ -127,7 +127,7 @@ struct WelcomeCoachCard: View {
         case chapter(FirstRunChapter)
     }
 
-    static let width: CGFloat = 420
+    static var width: CGFloat { 420.zoomed }
 
     private var card: FirstRunScript.Card { progress.current }
     private var showsResult: Bool { progress.phase == .done && card.result != nil }
@@ -147,7 +147,7 @@ struct WelcomeCoachCard: View {
                         // anything happened.
                         .id("\(progress.chapter.rawValue)-\(progress.card)-\(progress.phase.rawValue)")
                         .transition(Tokens.Motion.transition(
-                            .opacity.combined(with: .offset(y: 6)), reduceMotion: reduceMotion))
+                            .opacity.combined(with: .offset(y: 6.zoomed)), reduceMotion: reduceMotion))
                 }
             }
             controls
@@ -160,7 +160,7 @@ struct WelcomeCoachCard: View {
             RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
                 .strokeBorder(StoryStyle.line, lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.20), radius: 24, x: 0, y: 12)
+        .shadow(color: .black.opacity(0.20), radius: 24.zoomed, x: 0, y: 12.zoomed)
         .storyRenderEvidence(.firstRun(progress.chapter))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Welcome, \(FirstRunScript.eyebrow(chapter: progress.chapter, card: progress.card))")
@@ -205,12 +205,12 @@ struct WelcomeCoachCard: View {
     /// this long owes the reader a sense of how far through it they are,
     /// and this says it without a number to read.
     private var chapterBar: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 3.zoomed) {
             ForEach(FirstRunChapter.allCases) { chapter in
                 Capsule()
                     .fill(chapter.number <= progress.chapter.number
                           ? StoryStyle.focus : Color.secondary.opacity(0.18))
-                    .frame(height: 3)
+                    .frame(height: 3.zoomed)
             }
         }
         .accessibilityHidden(true)
@@ -219,7 +219,7 @@ struct WelcomeCoachCard: View {
     // MARK: - Chapter list
 
     private var chapterList: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2.zoomed) {
             ForEach(FirstRunChapter.allCases) { chapter in
                 let isCurrent = chapter == progress.chapter
                 let seen = progress.visited.contains(chapter) && !isCurrent
@@ -231,7 +231,7 @@ struct WelcomeCoachCard: View {
                         Text("\(chapter.number)")
                             .font(Tokens.Typography.microFigure)
                             .foregroundStyle(.secondary)
-                            .frame(width: 18, alignment: .trailing)
+                            .frame(width: 18.zoomed, alignment: .trailing)
                         Text(chapter.title)
                             .font(Tokens.Typography.body.weight(isCurrent ? .semibold : .regular))
                             .foregroundStyle(isCurrent ? AnyShapeStyle(StoryStyle.focus)
@@ -243,7 +243,7 @@ struct WelcomeCoachCard: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.vertical, 5)
+                    .padding(.vertical, 5.zoomed)
                     .padding(.horizontal, Tokens.Space.s)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())

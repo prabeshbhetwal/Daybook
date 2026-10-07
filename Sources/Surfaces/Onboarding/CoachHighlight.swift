@@ -26,10 +26,10 @@ extension View {
 /// Where the ring goes, and how it stays on screen.
 enum CoachRingGeometry {
     /// Enough to clear a capsule button without looking like a second control.
-    static let inset: CGFloat = 7
+    static var inset: CGFloat { 7.zoomed }
     /// The stroke, and the least of it that must stay visible at a window edge.
-    static let lineWidth: CGFloat = 3
-    static let radius: CGFloat = Tokens.Radius.nested + inset
+    static var lineWidth: CGFloat { 3.zoomed }
+    static var radius: CGFloat { Tokens.Radius.nested + inset }
 
     /// The ring grows outward from what it rings, then is held inside the
     /// window. A control flush against an edge — the rail against the right,
@@ -88,12 +88,12 @@ struct CoachRing: View {
                 wash(cutOut: frame)
                 RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
                     .strokeBorder(Tokens.Colour.focus,
-                                  lineWidth: increasedContrast ? 4 : CoachRingGeometry.lineWidth)
+                                  lineWidth: increasedContrast ? 4.zoomed : CoachRingGeometry.lineWidth)
                     .background(
                         RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
                             .fill(Tokens.Colour.focus.opacity(0.06))
                     )
-                    .shadow(color: Tokens.Colour.focus.opacity(0.45), radius: 8)
+                    .shadow(color: Tokens.Colour.focus.opacity(0.45), radius: 8.zoomed)
                     .frame(width: frame.width, height: frame.height)
                     .position(x: frame.midX, y: frame.midY)
                     // Arrives fully formed, then breathes slowly, so it stays

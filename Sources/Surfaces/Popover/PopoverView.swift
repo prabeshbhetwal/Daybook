@@ -29,7 +29,7 @@ struct PopoverView: View {
     private var metrics: PopoverMetrics {
         metricsOverride
             ?? PopoverMetrics.fitting(NSScreen.main?.visibleFrame.size
-                                      ?? CGSize(width: 1_440, height: 900))
+                                      ?? CGSize(width: 1_440, height: 900)) // zoom: fixed, a screen's size
     }
 
     /// `ScrollView` has no intrinsic content under `ImageRenderer`, so the
@@ -40,7 +40,7 @@ struct PopoverView: View {
         let metrics = self.metrics
         return VStack(alignment: .leading,
                       spacing: settings.interfaceDensity == .compact
-                        ? max(Tokens.Space.xs, metrics.stackSpacing - 4)
+                        ? max(Tokens.Space.xs, metrics.stackSpacing - 4.zoomed)
                         : metrics.stackSpacing) {
             operationalContent(cap: bodyCap(metrics))
             PopoverFooter(onOpenApplication: onOpenApplication,
@@ -48,7 +48,7 @@ struct PopoverView: View {
                           onCheckForUpdates: onCheckForUpdates)
         }
         .padding(settings.interfaceDensity == .compact
-                 ? max(Tokens.Space.m, metrics.outerPadding - 4)
+                 ? max(Tokens.Space.m, metrics.outerPadding - 4.zoomed)
                  : metrics.outerPadding)
         .frame(width: metrics.width)
         .background(Tokens.Colour.ground)
@@ -66,8 +66,8 @@ struct PopoverView: View {
 
     private func bodyCap(_ metrics: PopoverMetrics) -> CGFloat {
         let padding = settings.interfaceDensity == .compact
-            ? max(Tokens.Space.m, metrics.outerPadding - 4) : metrics.outerPadding
-        return max(1, metrics.maxHeight - (padding * 2) - 52 - metrics.stackSpacing)
+            ? max(Tokens.Space.m, metrics.outerPadding - 4.zoomed) : metrics.outerPadding
+        return max(1, metrics.maxHeight - (padding * 2) - 52.zoomed - metrics.stackSpacing)
     }
 
     @ViewBuilder private func operationalContent(cap: CGFloat) -> some View {

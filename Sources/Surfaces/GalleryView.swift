@@ -410,7 +410,7 @@ struct GalleryView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .frame(width: 340, alignment: .leading)
+                .frame(width: 340.zoomed, alignment: .leading)
 
                 ForEach(model.scenario.presentations, id: \.rawValue) { presentation in
                     VStack(alignment: .leading, spacing: Tokens.Space.m) {
@@ -454,6 +454,6 @@ struct GalleryApp: App {
         Window("Gallery", id: "gallery") {
             GalleryView()
         }
-        .defaultSize(width: 1_420, height: 920)
+        .defaultSize(width: 1_420, height: 920) // zoom: fixed, a window's first size
     }
 }

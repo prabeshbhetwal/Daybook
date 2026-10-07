@@ -24,7 +24,7 @@ struct StoryChromeBar: View {
     @StateObject private var gearHovered = BoolBox()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// A scope pill is the target floor plus the container's 3pt inset each side.
-    static let controlRowHeight: CGFloat = AccessibilityMetrics.minimumTargetSize + 6
+    static var controlRowHeight: CGFloat { AccessibilityMetrics.minimumTargetSize + 6.zoomed }
     var body: some View {
         HStack(spacing: Tokens.Space.l) {
             // The real window controls live here; the bar must not draw its own.
@@ -207,7 +207,7 @@ struct StorySessionControl: View {
                     // 3.3:1 in the light appearance.
                     Circle()
                         .fill(StoryStyle.focus)
-                        .frame(width: 7, height: 7)
+                        .frame(width: 7.zoomed, height: 7.zoomed)
                         .opacity(store.isPaused ? 0.4 : 1)
                     // Seconds swap plainly; only a new minute rolls, so the
                     // corner of the window is not in motion every second.
@@ -215,13 +215,13 @@ struct StorySessionControl: View {
                         .font(Tokens.Typography.label)
                         .foregroundStyle(StoryStyle.focus)
                     if store.pendingAway != nil {
-                        Divider().frame(height: 12)
+                        Divider().frame(height: 12.zoomed)
                         Text("Review away")
                             .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                     } else if store.isPaused {
                         // A dimmer dot was the only sign the clock had stopped.
-                        Divider().frame(height: 12)
+                        Divider().frame(height: 12.zoomed)
                         Text("Paused")
                             .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)

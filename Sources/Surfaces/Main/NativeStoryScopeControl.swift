@@ -43,6 +43,9 @@ enum ControlFocusOrigin {
 final class ScopeNSSegmentedControl: NSSegmentedControl {
     var onKeyboardSelection: ((StoryScopeKeyCommand) -> Void)?
     private(set) var focusOrigin: ControlFocusOrigin = .keyboard
+    /// The cue's corner. SwiftUI hands it down on every update, so the cue
+    /// follows the interface zoom.
+    var focusCueRadius: CGFloat = Tokens.Radius.control
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -113,8 +116,8 @@ final class ScopeNSSegmentedControl: NSSegmentedControl {
 
     func updateIntegratedFocusCue() {
         wantsLayer = true
-        layer?.cornerRadius = 7
-        layer?.borderWidth = showsFocusCue ? 2 : 0
+        layer?.cornerRadius = focusCueRadius
+        layer?.borderWidth = showsFocusCue ? 2 : 0 // zoom: fixed, a focus ring's weight
         layer?.borderColor = NSColor.keyboardFocusIndicatorColor.withAlphaComponent(0.75).cgColor
     }
 }
@@ -129,6 +132,7 @@ struct NativeScopeControl: NSViewRepresentable {
     let titles: [String]
     @Binding var selectedIndex: Int
     let controlLabel: String
+    var cueRadius: CGFloat = Tokens.Radius.control
 
     final class Coordinator: NSObject {
         var selectedIndex: Binding<Int>
@@ -190,6 +194,7 @@ struct NativeScopeControl: NSViewRepresentable {
                 ?? "Custom span")
         control.setAccessibilityHelp("Use Left, Right, Home or End to choose "
                                      + titles.joined(separator: ", "))
+        control.focusCueRadius = cueRadius
         control.updateIntegratedFocusCue()
     }
 }

@@ -14,7 +14,7 @@ final class AppIconProvider {
     /// representations up to 2048×2048 — roughly 53 MB per icon if fully decoded.
     /// Caching those whole is what took the app from 17 MB to 49 MB. A 40px
     /// bitmap costs about 6 KB.
-    func icon(for bundleID: String, size: CGFloat = 20) -> NSImage? {
+    func icon(for bundleID: String, size: CGFloat = 20.zoomed) -> NSImage? {
         let key = "\(bundleID)@\(Int(size))"
         if let cached = cache[key] { return cached }
 
@@ -58,7 +58,7 @@ final class AppIconProvider {
 
 struct AppIcon: View {
     let bundleID: String
-    var size: CGFloat = 20
+    var size: CGFloat = 20.zoomed
     /// Used only for the fallback. An uninstalled app has no icon to load, and
     /// an empty dashed square says nothing about which app it stands for — the
     /// initial at least identifies it.

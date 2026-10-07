@@ -8,7 +8,8 @@ import ImageIO
 // any channel of any pixel differs by more than 1/255, or when more than 8
 // pixels differ at all (one-step noise in a handful of pixels is tolerated).
 // Prints one line per failing or missing file and a summary; exits 1 when any
-// image fails or is missing from <dirB>.
+// image fails or is missing from <dirB>, and 2 when <dirA> holds no PNGs (a
+// comparison against nothing would pass vacuously).
 
 /// The image as 8-bit sRGB RGBA, so two files compare the same way whatever
 /// colour profile each was written with.
@@ -35,6 +36,10 @@ guard arguments.count == 3 else {
 }
 let manager = FileManager.default
 let names = ((try? manager.contentsOfDirectory(atPath: arguments[1])) ?? []).filter { $0.hasSuffix(".png") }.sorted()
+guard !names.isEmpty else {
+    print("error: no PNGs in \(arguments[1])")
+    exit(2)
+}
 var compared = 0, differ = 0, missing = 0
 for name in names {
     let pathA = (arguments[1] as NSString).appendingPathComponent(name)

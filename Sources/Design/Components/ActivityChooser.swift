@@ -100,7 +100,7 @@ struct ActivityChooser: View {
         .onTapGesture { intentFocused.wrappedValue = true }
     }
 
-    private var fieldHeight: CGFloat { compact ? Tokens.Control.compactHeight : 38 }
+    private var fieldHeight: CGFloat { compact ? Tokens.Control.compactHeight : 38.zoomed }
 
     /// The menu's chevron, centred in an image 16pt tall: bordered and large,
     /// that makes a 28pt button whichever framework draws it.

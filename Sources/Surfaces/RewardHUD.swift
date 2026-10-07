@@ -103,7 +103,7 @@ final class RewardHUD {
 
     init() {
         let panel = NonActivatingHUDPanel(
-            contentRect: NSRect(x: 0, y: 0, width: Int(Tokens.popoverWidth), height: 80),
+            contentRect: NSRect(x: 0, y: 0, width: Int(Tokens.popoverWidth), height: Int(80.zoomed)),
             styleMask: [.nonactivatingPanel, .hudWindow, .borderless],
             backing: .buffered,
             defer: false)
@@ -255,7 +255,7 @@ final class RewardHUD {
         hostingView.layoutSubtreeIfNeeded()
         let fitting = hostingView.fittingSize
         let width = max(fitting.width, Tokens.popoverWidth)
-        let height = fitting.height > 0 ? fitting.height : 80
+        let height = fitting.height > 0 ? fitting.height : 80.zoomed
         let origin = NSPoint(x: visible.maxX - width - Tokens.Space.l,
                               y: visible.maxY - height - Tokens.Space.l)
         panel.setFrame(NSRect(origin: origin, size: NSSize(width: width, height: height)),

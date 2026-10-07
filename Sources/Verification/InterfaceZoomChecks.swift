@@ -142,7 +142,6 @@ enum InterfaceZoomChecks: CheckSuite {
             ("StoryStyle.entryRadius", StoryStyle.entryRadius, 13),
             ("StoryStyle.tileRadius", StoryStyle.tileRadius, 14),
             ("StoryStyle.headlineMeasure", StoryStyle.headlineMeasure, 560),
-            ("AccessibilityMetrics.minimumTargetSize", AccessibilityMetrics.minimumTargetSize, 28),
         ]
         let comfortable = InterfaceDensity.comfortable.layout
         let compact = InterfaceDensity.compact.layout
@@ -199,6 +198,12 @@ enum InterfaceZoomChecks: CheckSuite {
                 for (name, got, base) in tokenLengths() {
                     expect(close(got, base * factor), "\(name) at \(percent)% should be \(base * factor), got \(got)", &problems)
                 }
+                // The one length that stops short of the zoom: a target is never
+                // under 24pt, WCAG 2.5.8's floor, which 28pt at 80% would miss.
+                let target = AccessibilityMetrics.minimumTargetSize
+                let wanted = max(24, 28 * factor)
+                expect(close(target, wanted),
+                       "AccessibilityMetrics.minimumTargetSize at \(percent)% should be \(wanted), got \(target)", &problems)
                 expect(Tokens.Radius.capsule == 999,
                        "Radius.capsule at \(percent)% should stay 999, got \(Tokens.Radius.capsule)", &problems)
             }

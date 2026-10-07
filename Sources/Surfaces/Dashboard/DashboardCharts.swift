@@ -7,7 +7,7 @@ import SwiftUI
 /// most of that hour. Hover names the hour and the minutes.
 struct RhythmChart: View {
     let hours: [RhythmHour]
-    var height: CGFloat = 120
+    var height: CGFloat = 120.zoomed
     /// A bar clicked: the hour, so the timeline's detail row can open on it.
     var onHourTap: ((Date) -> Void)?
     var compactLabels = false
@@ -17,15 +17,15 @@ struct RhythmChart: View {
             Text("Nothing recorded in this window yet.")
                 .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
-                .frame(height: height + 18, alignment: .leading)
+                .frame(height: height + 18.zoomed, alignment: .leading)
         } else {
             VStack(spacing: Tokens.Space.xs) {
-                HStack(alignment: .bottom, spacing: labelStep == 1 ? 8 : 4) {
+                HStack(alignment: .bottom, spacing: labelStep == 1 ? Tokens.Space.s : Tokens.Space.xs) {
                     ForEach(hours) { hour in
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
                             .fill(hour.seconds > 0 ? AnyShapeStyle(Tokens.Palette.app(rank: hour.colorIndex))
                                                    : AnyShapeStyle(Tokens.Colour.elevated))
-                            .frame(height: max(3, height * CGFloat(hour.seconds / scaleMaximum)))
+                            .frame(height: max(3.zoomed, height * CGFloat(hour.seconds / scaleMaximum)))
                             .frame(maxWidth: .infinity)
                             .contentShape(Rectangle())
                             .onTapGesture { onHourTap?(hour.hour) }
@@ -48,7 +48,7 @@ struct RhythmChart: View {
                     .font(Tokens.Typography.caption).foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 } else {
-                  HStack(spacing: labelStep == 1 ? 8 : 4) {
+                  HStack(spacing: labelStep == 1 ? Tokens.Space.s : Tokens.Space.xs) {
                     ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
                         Text(index % labelStep == 0 ? DateFormats.hourLabel(hour.hour) : "")
                             .font(Tokens.Typography.body)

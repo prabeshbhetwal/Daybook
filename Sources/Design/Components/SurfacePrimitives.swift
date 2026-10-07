@@ -68,7 +68,7 @@ struct EmptyState: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 96)
+        .frame(maxWidth: .infinity, minHeight: 96.zoomed)
         .multilineTextAlignment(.center)
         .foregroundStyle(.secondary)
         .accessibilityElement(children: .combine)

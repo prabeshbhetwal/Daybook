@@ -38,7 +38,7 @@ struct InsightSection: View {
         StoryTile(title: presentation.title, trailing: nil) {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 if let rhythm, rhythm.contains(where: { $0.seconds > 0 }) {
-                    RhythmChart(hours: rhythm, height: 44, compactLabels: true)
+                    RhythmChart(hours: rhythm, height: 44.zoomed, compactLabels: true)
                 }
                 if let shares, !shares.isEmpty {
                     CategoryShareBar(shares: shares)
@@ -76,8 +76,8 @@ struct InsightSection: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(StoryPressStyle())
-        .padding(.top, 4)
-        .padding(.trailing, 4)
+        .padding(.top, Tokens.Space.xs)
+        .padding(.trailing, Tokens.Space.xs)
         .help(expanded.value ? "Hide how this is calculated" : presentation.disclosureLabel)
         .accessibilityLabel(expanded.value ? "Hide how \(presentation.title) is calculated"
                                            : "\(presentation.disclosureLabel): \(presentation.title)")
@@ -91,21 +91,21 @@ struct CategoryShareBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             GeometryReader { geometry in
-                HStack(spacing: 2) {
+                HStack(spacing: 2.zoomed) {
                     ForEach(shares) { share in
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        RoundedRectangle(cornerRadius: 2.zoomed, style: .continuous)
                             .fill(Tokens.Palette.workType(share.workType))
-                            .frame(width: max(2, geometry.size.width * share.share))
+                            .frame(width: max(2.zoomed, geometry.size.width * share.share))
                     }
                 }
             }
-            .frame(height: 8)
+            .frame(height: 8.zoomed)
             .accessibilityHidden(true)
             ChipFlow(spacing: Tokens.Space.m) {
                 ForEach(shares) { share in
                     HStack(spacing: Tokens.Space.xs) {
                         Circle().fill(Tokens.Palette.workType(share.workType))
-                            .frame(width: 8, height: 8)
+                            .frame(width: 8.zoomed, height: 8.zoomed)
                         Text("\(share.workType.displayName) \(DurationText.percent(share.share))")
                             .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)

@@ -83,7 +83,7 @@ struct MainWindowView: View {
         .onAppear { windowSize.value = geometry.size }
         .onChange(of: geometry.size) { _, newSize in windowSize.value = newSize }
       }
-        .frame(minWidth: 980, minHeight: 680)
+        .frame(minWidth: 980.zoomed, minHeight: 680.zoomed)
         .background(StoryStyle.canvas)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)

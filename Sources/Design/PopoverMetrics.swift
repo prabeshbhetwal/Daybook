@@ -25,7 +25,7 @@ struct PopoverMetrics: Equatable {
     private static let heightShare: CGFloat = 0.94
     /// Only invalid or nonsensical screen reports use a known safe geometry;
     /// every valid usable size remains a hard bound, however small.
-    private static let fallbackVisible = CGSize(width: 1_440, height: 900)
+    private static let fallbackVisible = CGSize(width: 1_440, height: 900) // zoom: fixed, a screen's size
 
     /// - Parameter visible: the screen's usable area, menu bar and Dock excluded.
     static func fitting(_ visible: CGSize) -> PopoverMetrics {
@@ -35,6 +35,6 @@ struct PopoverMetrics: Equatable {
             width: min(Tokens.popoverWidth, usable.width),
             maxHeight: min(usable.height, usable.height * heightShare),
             twoColumn: false,
-            dense: usable.height < 950)
+            dense: usable.height < 950.zoomed)
     }
 }

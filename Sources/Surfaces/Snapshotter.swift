@@ -215,7 +215,7 @@ enum Snapshotter {
     /// The screen the compact popover harness pretends to be on. The minimum
     /// desktop screen keeps the rendered panel honest without depending on the
     /// display attached to the build host.
-    static let popoverScreen = CGSize(width: 1_000, height: 680)
+    static let popoverScreen = CGSize(width: 1_000, height: 680) // zoom: fixed, a screen's size
 
     /// The production minimum-width Focus shell, used by structural checks for
     /// the compact app mark and tab row together.
@@ -485,20 +485,23 @@ enum Snapshotter {
     }
 
     private static func shellSize(for item: SnapshotRender) -> CGSize {
-        let width: CGFloat = item.presentation == .minimum ? 980 : 1_160
+        // The window is the same window at any zoom, so its size follows it:
+        // the minimum is the shell's own minimum, and a viewport that showed
+        // the whole story at 100% shows the whole story at 140%.
+        let width: CGFloat = item.presentation == .minimum ? 980.zoomed : 1_160.zoomed
         let height: CGFloat
         switch item.scenario.tab {
-        case .focus: height = item.presentation == .minimum ? 680 : 780
-        case .today: height = 1_100
+        case .focus: height = item.presentation == .minimum ? 680.zoomed : 780.zoomed
+        case .today: height = 1_100.zoomed
         // A taller evidence viewport shows the complete Month grid. The real
         // ScrollViews remain in use: sheets keep their production height and
         // cannot grow with the document behind them.
-        case .review: height = 1_100
-        case .insights: height = 780
-        case .awards: height = 900
-        case .story: height = 1_200
-        case .settings: height = 780
-        case nil: height = 780
+        case .review: height = 1_100.zoomed
+        case .insights: height = 780.zoomed
+        case .awards: height = 900.zoomed
+        case .story: height = 1_200.zoomed
+        case .settings: height = 780.zoomed
+        case nil: height = 780.zoomed
         }
         return CGSize(width: width, height: height)
     }

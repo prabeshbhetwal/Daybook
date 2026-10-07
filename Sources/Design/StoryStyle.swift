@@ -117,7 +117,7 @@ struct StoryLinkStyle: ButtonStyle {
 struct StoryPressStyle: ButtonStyle {
     /// Rows and text actions that should also tint under the pointer.
     var hovers = false
-    var cornerRadius: CGFloat = 6
+    var cornerRadius: CGFloat = 6.zoomed
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {

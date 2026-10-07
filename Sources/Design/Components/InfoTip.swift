@@ -122,7 +122,7 @@ private struct TipBubble: View {
     let tip: Tip
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 3.zoomed) {
             Text(tip.title)
                 .font(Tokens.Typography.caption)
             Text(tip.detail)
@@ -135,7 +135,7 @@ private struct TipBubble: View {
         .padding(.vertical, Tokens.Space.s)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Tokens.Radius.control))
         .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control).strokeBorder(.quaternary))
-        .shadow(color: .black.opacity(0.28), radius: 10, y: 3)
+        .shadow(color: .black.opacity(0.28), radius: 10.zoomed, y: 3.zoomed)
     }
 }
 
@@ -163,7 +163,7 @@ private struct TipLayer: ViewModifier {
 
     /// Wide enough for two sentences without becoming a paragraph, and always
     /// narrower than the popover it sits in.
-    private let width: CGFloat = 268
+    private var width: CGFloat { 268.zoomed }
 
     func body(content: Content) -> some View {
         content.overlayPreferenceValue(TipKey.self) { anchors in
@@ -181,8 +181,8 @@ private struct TipLayer: ViewModifier {
                         TipBubble(tip: match.tip)
                             .frame(width: min(width, proxy.size.width))
                             .offset(x: clamp(rect.minX, limit: proxy.size.width),
-                                    y: below ? rect.maxY + 6
-                                             : rect.minY - 6 - proxy.size.height)
+                                    y: below ? rect.maxY + 6.zoomed
+                                             : rect.minY - 6.zoomed - proxy.size.height)
                     }
                 }
             }
