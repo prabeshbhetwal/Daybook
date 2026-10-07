@@ -117,7 +117,7 @@ final class ScopeNSSegmentedControl: NSSegmentedControl {
     func updateIntegratedFocusCue() {
         wantsLayer = true
         layer?.cornerRadius = focusCueRadius
-        layer?.borderWidth = showsFocusCue ? 2 : 0 // zoom: fixed, a focus ring's weight
+        layer?.borderWidth = showsFocusCue ? 2.zoomed : 0
         layer?.borderColor = NSColor.keyboardFocusIndicatorColor.withAlphaComponent(0.75).cgColor
     }
 }

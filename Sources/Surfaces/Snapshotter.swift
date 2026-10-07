@@ -207,6 +207,10 @@ enum Snapshotter {
     /// The one made category the Settings — Categories card shows.
     static let fixtureCategoryID = "custom.snapshot.calls"
 
+    /// The zoom `run` renders at, as a scale; nil leaves the zoom alone, as
+    /// the Gallery and the checks need.
+    private static var renderZoom: Double?
+
     static let matrix: [SnapshotRender] = SnapshotScenario.allCases.flatMap { scenario in
         scenario.presentations.flatMap { presentation in
             SnapshotAppearance.allCases.map { appearance in
@@ -258,13 +262,18 @@ enum Snapshotter {
             return false
         }
         // FC_SNAPSHOT_ZOOM=1.4 renders at 140%, snapped to a step like any
-        // other request. It is applied once, here, to the model every view
-        // reads: each item builds its own settings on isolated defaults,
-        // which never reach it. 100% (or no value) changes nothing.
-        let requested = ProcessInfo.processInfo.environment["FC_SNAPSHOT_ZOOM"].flatMap(Double.init)
+        // other request. Each item's settings take it the way the slider
+        // does, so the zoom every view reads and the zoom Settings shows
+        // agree. 100% (or no value) changes nothing.
+        let raw = ProcessInfo.processInfo.environment["FC_SNAPSHOT_ZOOM"]
+        let requested = raw.flatMap(Double.init)
+        if let raw, requested == nil {
+            FileHandle.standardError.write(Data("FC_SNAPSHOT_ZOOM is not a number: \(raw); rendering at 100%\n".utf8))
+        }
         let percent = requested.map { InterfaceZoom.nearestPercent(toScale: $0) }
             ?? InterfaceZoom.defaultPercent
-        ZoomModel.shared.apply(percent: percent)
+        renderZoom = percent == InterfaceZoom.defaultPercent ? nil : Double(percent) / 100
+        defer { renderZoom = nil }
         for item in selected {
             let name = item.filename(atZoom: percent)
             let output = directory.appendingPathComponent(name)
@@ -292,7 +301,10 @@ enum Snapshotter {
             return SnapshotSurface(settings: settings,
                                    root: focusPopover(for: item, settings: settings))
         case .compact:
-            return SnapshotSurface(settings: nil, root: compactSurface(for: item))
+            // These surfaces read no settings, but a zoomed run reaches them
+            // through a settings model's zoom all the same.
+            let settings = renderZoom == nil ? nil : snapshotSettings(for: item, density: .compact)
+            return SnapshotSurface(settings: settings, root: compactSurface(for: item))
         }
     }
 
@@ -570,6 +582,7 @@ enum Snapshotter {
                                   dataDirectory: dataDirectory,
                                   installedAppCatalog: FixtureFactory.installedAppCatalog())
         model.interfaceDensity = density
+        if let renderZoom { model.interfaceZoom = renderZoom }
         model.appearancePreference = item.appearance.preference
         model.showsTimelineLabels = showsTimelineLabels
         // The Updates page's controls appear only with an updater; this
