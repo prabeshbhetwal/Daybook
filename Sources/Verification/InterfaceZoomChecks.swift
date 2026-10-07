@@ -14,6 +14,7 @@ enum InterfaceZoomChecks: CheckSuite {
         ("Lengths written as N.zoomed scale with the zoom", zoomedLiterals),
         ("Every type role and spacing token is its base size times the zoom", tokensScale),
         ("Native controls step one size below 100% and above 110%", controlSizesStep),
+        ("A redrawn view draws again when the zoom changes", redrawnFollowsZoom),
     ]
 
     /// Runs `body` with the shared zoom at `percent`, then puts it back, even
@@ -210,6 +211,27 @@ enum InterfaceZoomChecks: CheckSuite {
                 expectSize(Tokens.Zoom.controlSize(requested), wanted, "controlSize(\(requested))", at: percent)
             }
         }
+        return problems
+    }
+
+    /// A menu wrapped in `redrawn(on:)` is drawn from content its parent built
+    /// at one zoom, so the wrapper has to count the zoom as part of the
+    /// content: a change of zoom alone makes two otherwise equal wrappers unequal.
+    private static func redrawnFollowsZoom() -> [String] {
+        var problems: [String] = []
+        func wrapper(at percent: Int, value: Int = 1) -> RedrawsOn<Int, EmptyView> {
+            withZoom(percent) { RedrawsOn(value: value, content: EmptyView()) }
+        }
+        expect(wrapper(at: 100) != wrapper(at: 140),
+               "the same value at 100% and at 140% should draw again", &problems)
+        expect(wrapper(at: 80) != wrapper(at: 90),
+               "the same value at 80% and at 90% should draw again", &problems)
+        expect(wrapper(at: 140) == wrapper(at: 140),
+               "the same value at the same zoom should not draw again", &problems)
+        expect(wrapper(at: 100) == wrapper(at: 100),
+               "the same value at 100% twice should not draw again", &problems)
+        expect(wrapper(at: 120, value: 1) != wrapper(at: 120, value: 2),
+               "a different value at the same zoom should draw again", &problems)
         return problems
     }
 

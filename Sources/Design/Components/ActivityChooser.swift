@@ -108,8 +108,9 @@ struct ActivityChooser: View {
     /// The menu's chevron, centred in an image 16pt tall at 100%: bordered and
     /// large, that makes a 28pt button whichever framework draws it. The
     /// image's height is the button's, so it is the zoomed 16 and the symbol
-    /// in it is the zoomed label size. Call it while the view draws, so the
-    /// menu is drawn again when the zoom changes.
+    /// in it is the zoomed label size. Call it while the view draws: the
+    /// menu's `redrawn(on:)` counts the zoom as content, so a new zoom builds
+    /// the menu again with the new image and control size.
     private static func chevron() -> NSImage {
         let percent = ZoomModel.shared.percent
         if let drawn = chevrons[percent] { return drawn }
