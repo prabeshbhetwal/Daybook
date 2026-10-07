@@ -54,7 +54,7 @@ struct PopoverView: View {
         .background(Tokens.Colour.ground)
         .background(.regularMaterial)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
-        .controlSize(Tokens.Zoom.rootControlSize)
+        .zoomRoot()
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.openCategoryEditor, onOpenCategoryEditor)
         .environment(\.openActivityEditor, onOpenActivityEditor)

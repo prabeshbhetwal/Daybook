@@ -63,7 +63,7 @@ private struct RewardHUDView: View {
         .onTapGesture(perform: onBackgroundTapped)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(model.title). \(model.detail)")
-        .controlSize(Tokens.Zoom.rootControlSize)
+        .zoomRoot()
     }
 }
 
