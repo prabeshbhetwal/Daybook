@@ -102,6 +102,33 @@ if type_outside_roles; then
   exit 1
 fi
 
+# Lengths come from the zoom. A view takes a token or `N.zoomed` where a number
+# becomes a length; a bare number there is how one surface came to ignore the
+# setting. NUM is any number but 0 and 1 (hairlines are fixed by design), with
+# `_` digit separators allowed. A line that is meant to stay fixed says
+# `// zoom: fixed`.
+lengths_outside_zoom() {
+  local num='-?([2-9]|[1-9][0-9_]*[0-9]|1\.[0-9]*[1-9][0-9]*)(\.[0-9]+)?([^0-9._]|$)'
+  local patterns=(
+    "\.padding\(([^()]*, *)?${num}"
+    "spacing: *${num}"
+    "(^|[^A-Za-z])(width|height|minWidth|maxWidth|idealWidth|minHeight|maxHeight|idealHeight): *${num}"
+    "cornerRadius: *${num}"
+    "lineWidth: *${num}"
+    "\.offset\(.*(x|y): *${num}"
+    "(^|[^A-Za-z.])(size|diameter): *${num}"
+    "(top|leading|bottom|trailing): *${num}"
+  )
+  local args=() pattern
+  for pattern in "${patterns[@]}"; do args+=(-e "${pattern}"); done
+  grep -rnE "${args[@]}" Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
+    | grep -v 'zoom: fixed'
+}
+if lengths_outside_zoom; then
+  echo "error: the lines above set a length outside the zoom; use a token or N.zoomed (Sources/Design/Zoomed.swift)" >&2
+  exit 1
+fi
+
 echo "Compiling for ${TARGET_TRIPLE}…"
 SOURCE_FILES=()
 while IFS= read -r source_file; do

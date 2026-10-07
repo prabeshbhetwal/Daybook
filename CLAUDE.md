@@ -116,6 +116,10 @@ to its new name, so launch one only when the user wants that to happen.
 - Commit subject: one plain present-tense sentence stating what is now true
   for the user, e.g. "A relaunch no longer deletes the running session's power
   readings". No type prefixes. The body is wrapped prose: what changed and why.
+- A length in `Sources/App`, `Sources/Design` or `Sources/Surfaces` is a design
+  token or `N.zoomed` (`Sources/Design/Zoomed.swift`), so it follows the
+  interface zoom; `build.sh` fails on a bare one. A deliberately fixed length (a
+  hairline, the menu-bar item) carries `// zoom: fixed`.
 - Edit Swift by exact text, never by line number. `.claude/hooks/swift-parse.sh`
   parses each Swift file Claude writes and reports a stray or missing brace.
 - The repository is public: no secrets, personal data or machine-specific

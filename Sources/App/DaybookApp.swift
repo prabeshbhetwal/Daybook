@@ -104,7 +104,7 @@ struct DaybookApp: App {
             // re-rendering the story every second; it rests until reopened.
             .background(WindowDormancy(onOpenChange: { coordinator.mainWindowOpen = $0 }))
         }
-        .defaultSize(width: 1_160, height: 780)
+        .defaultSize(width: 1_160.zoomed, height: 780.zoomed)
         .windowResizability(.contentMinSize)
         .windowStyle(.hiddenTitleBar)
         .commands {
