@@ -27,6 +27,8 @@ a historical day never substitutes today's data.
 | `Command-7` | The story, with the cursor in the activity field |
 | `Command-,` | Settings |
 | `Command-F` | Find in History, from anywhere in the window |
+| `Command-+`, `Command-−` | Zoom In and Zoom Out, in the View menu: the whole interface a step larger or smaller, from 80% to 140% |
+| `Command-0` | Actual Size: the interface back to 100% |
 | Up, Down | In History, move through the rows |
 | Return | In History, open or fold the row; select a session |
 | Left, Right | In History, fold or open the row |
@@ -143,7 +145,7 @@ Settings groups the backed controls into five compact pages:
 
 | Page | Controls and information |
 |---|---|
-| General | Login item, menu bar time, appearance, density, Story time gutter, entry expansion and the tour |
+| General | Login item, menu bar time, appearance, density, zoom (80% to 140%, the same steps as the View menu), Story time gutter, entry expansion and the tour |
 | Sessions | Daily goal, activity rules and their application picker, guessing sessions from the app in front, ending a paused automatic session, and milestones |
 | Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
 | Recording | App recording and the number of recent app visits initially shown |
@@ -165,6 +167,7 @@ The binary also supports review modes:
 ./Daybook.app/Contents/MacOS/Daybook --gallery
 ./Daybook.app/Contents/MacOS/Daybook --snapshot ./snapshots
 FC_SNAPSHOT_ONLY=welcomeStep ./Daybook.app/Contents/MacOS/Daybook --snapshot ./snapshots
+FC_SNAPSHOT_ZOOM=1.4 ./Daybook.app/Contents/MacOS/Daybook --snapshot ./snapshots
 ./Daybook.app/Contents/MacOS/Daybook --onboarding
 ./Daybook.app/Contents/MacOS/Daybook --fixture-window reviewHistorySelection
 ./Daybook.app/Contents/MacOS/Daybook --fixture-window storyDecision
@@ -180,7 +183,10 @@ History opened to a day, with a session picked, searched and with three days rec
 tour's opener and first step, and compact prompts through offscreen AppKit
 hosting, including native controls and real scroll views.
 `FC_SNAPSHOT_ONLY=<scenario>` renders one scenario; the whole matrix takes
-several minutes. `--onboarding` forces the tour on a Mac that has already
+several minutes. `FC_SNAPSHOT_ZOOM=<scale>` renders at a zoom, 1.4 for 140%,
+snapped to the nearest step, and Settings shows that zoom on its slider; a
+zoomed image's name ends in `-zoom140`, and a value that is not a number is
+reported and rendered at 100%. The two can be combined. `--onboarding` forces the tour on a Mac that has already
 answered it.
 
 The snapshot composition is static, so it cannot establish native interaction

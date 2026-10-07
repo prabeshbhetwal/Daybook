@@ -43,15 +43,16 @@ struct HistoryMonthBars: View {
 
     var body: some View {
         let peak = max(daily.max() ?? 0, 1)
-        HStack(alignment: .bottom, spacing: 2) {
+        let tallest = 18.zoomed
+        HStack(alignment: .bottom, spacing: 2.zoomed) {
             ForEach(Array(daily.enumerated()), id: \.offset) { _, seconds in
                 RoundedRectangle(cornerRadius: 1, style: .continuous)
                     .fill(seconds > 0 ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(StoryStyle.line))
                     .frame(maxWidth: .infinity)
-                    .frame(height: seconds > 0 ? max(3, 18 * seconds / peak) : 2)
+                    .frame(height: seconds > 0 ? max(3.zoomed, tallest * seconds / peak) : 2.zoomed)
             }
         }
-        .frame(height: 18, alignment: .bottom)
+        .frame(height: tallest, alignment: .bottom)
         .accessibilityHidden(true)
     }
 }

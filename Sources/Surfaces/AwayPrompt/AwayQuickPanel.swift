@@ -31,12 +31,12 @@ private struct QuickPromptView: View {
         VStack(spacing: 0) {
             Triangle()
                 .fill(Tokens.Colour.surface)
-                .frame(width: 18, height: 9)
+                .frame(width: 18.zoomed, height: 9.zoomed)
             AwayAnswerGrid(away: model.away, range: model.range, compact: true,
                            note: model.note, error: model.error, onRetry: onRetry,
                            onAnswer: onAnswer, onReason: onReason)
                 .padding(Tokens.Space.m)
-                .frame(width: 300, alignment: .leading)
+                .frame(width: 300.zoomed, alignment: .leading)
                 .background(Tokens.Colour.surface,
                             in: RoundedRectangle(cornerRadius: Tokens.Radius.panel,
                                                  style: .continuous))
@@ -44,6 +44,7 @@ private struct QuickPromptView: View {
                     .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
         }
         .fixedSize()
+        .zoomRoot()
         // SwiftUI reports its own laid-out size; the panel follows it. AppKit's
         // `fittingSize` and even the hosting view's intrinsic size lagged a
         // pass behind and clipped the last row of buttons.
@@ -101,11 +102,13 @@ final class AwayQuickPanel {
     private var generation = 0
     private var lastSize: CGSize?
     private var isShowing = false
+    /// Hears of a zoom change for as long as the panel lives.
+    private var zoomFollower: ZoomFollower?
 
     init(onAnswer: @escaping (UserDecision) -> Bool, onReason: @escaping (String) -> Bool,
          onRetry: @escaping () -> Void = {}) {
         let panel = QuickAskPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 220),
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 220), // zoom: fixed, a first size
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered, defer: false)
         panel.level = .floating
@@ -123,6 +126,17 @@ final class AwayQuickPanel {
                                       onAnswer: onAnswer, onReason: onReason, onRetry: onRetry))
         relay.onSize = { [weak self] size in self?.layout(to: size) }
         panel.onKeyChange = { [weak self] in self?.scheduleFade() }
+        zoomFollower = ZoomFollower { [weak self] in self?.zoomChanged() }
+    }
+
+    /// AppKit resizes the window with its content but keeps its left edge, so
+    /// at a new zoom the card would hang off the screen it is anchored to.
+    /// Laid out afresh, it is measured and placed the way `layout` does. The
+    /// layout pass comes first: measured before it, the size is the old one.
+    private func zoomChanged() {
+        guard let content = panel.contentView else { return }
+        content.layoutSubtreeIfNeeded()
+        layout(to: content.fittingSize)
     }
 
     /// The Gallery/PNG harness hosts the exact production SwiftUI root without
@@ -158,7 +172,7 @@ final class AwayQuickPanel {
         model.error = nil
         // Place it at the last known size now so it appears where it belongs;
         // the preference corrects the size the moment SwiftUI has laid out.
-        layout(to: lastSize ?? CGSize(width: 300, height: 220))
+        layout(to: lastSize ?? CGSize(width: 300.zoomed, height: 220.zoomed))
         if takesFocus {
             panel.makeKeyAndOrderFront(nil)
         } else {
@@ -235,10 +249,12 @@ final class AwayQuickPanel {
 
     /// Centred under the status item when its window can be found; otherwise
     /// tucked into the top-right of the main screen. `MenuBarExtra` exposes no
-    /// frame, so the status-bar window is the best evidence there is.
+    /// frame, so the status-bar window is the best evidence there is. The
+    /// margins to the screen's edge and the status item are the system's, not
+    /// the interface's, so they stay fixed.
     private static func anchor(for size: CGSize) -> NSPoint {
         let screen = NSScreen.main ?? NSScreen.screens.first
-        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1_440, height: 900)
+        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1_440, height: 900) // zoom: fixed, a screen's size
         let menuBarTop = screen?.frame.maxY ?? visible.maxY
         if let item = NSApp.windows.first(where: {
             $0.className == "NSStatusBarWindow" && $0.frame.maxY >= menuBarTop - 1

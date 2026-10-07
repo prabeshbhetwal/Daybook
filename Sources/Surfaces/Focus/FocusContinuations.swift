@@ -153,7 +153,7 @@ private struct FocusContinuationLabel: View {
         HStack(spacing: Tokens.Space.m) {
             // The work type as a tinted mark, the way the story colours it.
             WorkTypeMark(workType: workType)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2.zoomed) {
                 Text(title)
                     .font(Tokens.Typography.rowTitle)
                     .lineLimit(1)
@@ -166,7 +166,7 @@ private struct FocusContinuationLabel: View {
             trailing
         }
         .padding(.horizontal, Tokens.Space.s)
-        .frame(minHeight: compact ? 40 : 46)
+        .frame(minHeight: compact ? 40.zoomed : 46.zoomed)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }

@@ -42,7 +42,7 @@ extension View {
     /// A hover tint behind a row or text action. The tint fades in rather than
     /// appearing, and never appears under Reduce Motion's instant rule either
     /// way — a tint is state, not motion.
-    func hoverHighlight(cornerRadius: CGFloat = 6) -> some View {
+    func hoverHighlight(cornerRadius: CGFloat = 6.zoomed) -> some View {
         modifier(HoverHighlight(cornerRadius: cornerRadius))
     }
 

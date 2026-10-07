@@ -13,7 +13,7 @@ struct ReportActivityRow: View {
             Circle()
                 .fill(interval.isGap ? AnyShapeStyle(StoryStyle.line)
                                      : AnyShapeStyle(Tokens.Palette.app(rank: colourRank)))
-                .frame(width: 8, height: 8)
+                .frame(width: 8.zoomed, height: 8.zoomed)
             Self.column(Tokens.timeRange(interval.start, interval.end),
                         widest: ["12:00 am – 12:00 am", "12:00 pm – 12:00 pm"], alignment: .leading)
             let name = interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App")
@@ -27,7 +27,7 @@ struct ReportActivityRow: View {
             Self.column(Tokens.preciseDuration(interval.duration), widest: ["00h 00m"],
                         alignment: .trailing, durations: true)
         }
-        .frame(minHeight: 26)
+        .frame(minHeight: 26.zoomed)
         .accessibilityElement(children: .combine)
     }
 
@@ -48,7 +48,7 @@ struct ReportActivityRow: View {
     /// The glyph centred in the widest glyph's space and the level
     /// right-aligned in "100%"'s, so icons and percent signs each line up.
     private var powerMark: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Tokens.Space.xs) {
             ZStack {
                 Image(systemName: "battery.100percent").hidden()
                 if let power {

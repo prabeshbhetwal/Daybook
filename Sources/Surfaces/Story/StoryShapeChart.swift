@@ -12,7 +12,8 @@ import SwiftUI
 struct StoryShapeChart: View {
     let activity: RecordedActivity
     let appColourIndices: [String: Int]
-    var height: CGFloat = 28
+    /// nil draws the strip 28 points high, read as the strip draws.
+    var height: CGFloat?
     var compact = false
     /// Set where a list beneath names every interval, so VoiceOver hears the
     /// strip once as a summary rather than each run again.
@@ -24,17 +25,19 @@ struct StoryShapeChart: View {
 
     /// Points per cell. Six keeps a run of one cell visible as a mark, not a
     /// hairline, at the strip's 28pt height.
-    private static let cellPitch: CGFloat = 6
+    private static var cellPitch: CGFloat { 6.zoomed }
     /// A cell never spans less than this, so a short session shows a few
     /// honest cells rather than one per second.
     private static let minimumCellSeconds: TimeInterval = 10
 
     var body: some View {
         let summary = Self.summary(of: activity)
-        VStack(alignment: .leading, spacing: 5) {
+        // Read here, not in the reader's closure, so a zoom change draws the strip again.
+        let pitch = Self.cellPitch
+        VStack(alignment: .leading, spacing: 5.zoomed) {
             GeometryReader { geometry in
                 let runs = SessionShape.runs(activity: activity,
-                                             cellCount: cellCount(for: geometry.size.width))
+                                             cellCount: cellCount(for: geometry.size.width, pitch: pitch))
                 let cells = max(1, runs.reduce(0) { $0 + $1.cells })
                 let unit = geometry.size.width / CGFloat(cells)
                 // One band, clipped once. Runs abut and are told apart by
@@ -56,7 +59,7 @@ struct StoryShapeChart: View {
                 .animation(Tokens.Motion.animation(Tokens.Motion.settle, reduceMotion: reduceMotion),
                            value: activity.intervals.count)
             }
-            .frame(height: height)
+            .frame(height: height ?? 28.zoomed)
             if !compact, let first = activity.intervals.first, let last = activity.intervals.last {
                 HStack {
                     if let run = hovered.run {
@@ -65,7 +68,7 @@ struct StoryShapeChart: View {
                             .transition(.opacity)
                     } else {
                         Text(Tokens.timeOfDayOnly(first.start))
-                        Spacer(minLength: 8)
+                        Spacer(minLength: Tokens.Space.s)
                         Text(Tokens.timeOfDayOnly(last.end))
                     }
                 }
@@ -105,8 +108,8 @@ struct StoryShapeChart: View {
         return text
     }
 
-    private func cellCount(for width: CGFloat) -> Int {
-        let byWidth = Int(width / Self.cellPitch)
+    private func cellCount(for width: CGFloat, pitch: CGFloat) -> Int {
+        let byWidth = Int(width / pitch)
         let byTime = Int(activity.elapsed / Self.minimumCellSeconds)
         return max(1, min(byWidth, byTime))
     }
@@ -118,7 +121,7 @@ struct StoryShapeChart: View {
                 if run.isGap {
                     Rectangle()
                         .strokeBorder(Color.secondary.opacity(0.65),
-                                      style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                                      style: StrokeStyle(lineWidth: 1, dash: [2.zoomed, 2.zoomed]))
                 }
             }
             .contentShape(Rectangle())

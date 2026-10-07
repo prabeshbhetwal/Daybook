@@ -4,7 +4,7 @@ import SwiftUI
 /// modifier, so the surfaces cannot drift apart by editing one copy.
 extension View {
     func scopePillContainer() -> some View {
-        padding(3)
+        padding(3.zoomed)
             .background(Tokens.Colour.elevated, in: Capsule())
             .overlay(Capsule().strokeBorder(Tokens.Colour.line))
     }
@@ -21,7 +21,7 @@ struct ScopePills: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 2.zoomed) {
             ForEach(Array(titles.enumerated()), id: \.offset) { index, title in
                 let isSelected = index == selectedIndex
                 Text(title)

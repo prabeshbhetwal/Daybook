@@ -42,7 +42,7 @@ legible and reliable, not more decoration or more metrics.
 
 ## Accessibility and inclusion
 
-Support macOS 13, VoiceOver, keyboard-only operation, System appearance, light and
+Support macOS 14, VoiceOver, keyboard-only operation, System appearance, light and
 dark themes, reduced motion and readable normal-text contrast. Colour supplements
 literal dates, values, selection state and labels. Copy uses Australian English.
 

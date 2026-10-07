@@ -8,18 +8,20 @@ struct HistoryAppMomentsBar: View {
 
     var body: some View {
         let length = max(use.span.duration, 1)
+        // Read here, not in the reader's closure, so a zoom change draws the bar again.
+        let thinnest = 2.zoomed
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule().fill(StoryStyle.well)
                 ForEach(Array(use.moments.enumerated()), id: \.offset) { _, moment in
                     Rectangle()
                         .fill(Tokens.Palette.app(rank: 1))
-                        .frame(width: max(2, geometry.size.width * moment.duration / length))
+                        .frame(width: max(thinnest, geometry.size.width * moment.duration / length))
                         .offset(x: geometry.size.width * moment.start.timeIntervalSince(use.span.start) / length)
                 }
             }
         }
-        .frame(height: 10)
+        .frame(height: 10.zoomed)
         .clipShape(Capsule())
         .accessibilityHidden(true)
     }

@@ -11,7 +11,7 @@ struct HistoryPeriodCard: View {
     let isFocused: Bool
     @Environment(\.focusInterfaceDensity) private var density
 
-    static let barHeight: CGFloat = 40
+    static var barHeight: CGFloat { 40.zoomed }
 
     var body: some View {
         let calendar = SessionStore.historyCalendar
@@ -23,10 +23,10 @@ struct HistoryPeriodCard: View {
             // it opens runs from it.
             Circle()
                 .fill(row.focused > 0 ? colour : StoryStyle.line)
-                .frame(width: 12, height: 12)
-                .background(Circle().fill(StoryStyle.canvas).frame(width: 18, height: 18))
+                .frame(width: 12.zoomed, height: 12.zoomed)
+                .background(Circle().fill(StoryStyle.canvas).frame(width: 18.zoomed, height: 18.zoomed))
                 .frame(width: HistoryTreeRow.dotSize)
-                .padding(.top, 22)
+                .padding(.top, 22.zoomed)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
@@ -36,9 +36,9 @@ struct HistoryPeriodCard: View {
                     if row.place.span.contains(top.today) {
                         Text("So far")
                             .font(Tokens.Typography.caption)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(StoryStyle.focus.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                            .padding(.horizontal, 7.zoomed)
+                            .padding(.vertical, 2.zoomed)
+                            .background(StoryStyle.focus.opacity(0.14), in: RoundedRectangle(cornerRadius: Tokens.Radius.swatch))
                             .foregroundStyle(StoryStyle.focus)
                     }
                     Spacer(minLength: Tokens.Space.s)
@@ -66,8 +66,8 @@ struct HistoryPeriodCard: View {
                         in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
                 .strokeBorder(isOpen ? Tokens.Colour.focus.opacity(0.55) : Tokens.Colour.line,
-                              lineWidth: isOpen ? 1.5 : 1))
-            .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
+                              lineWidth: isOpen ? 1.5.zoomed : 1))
+            .shadow(color: .black.opacity(0.025), radius: 2.zoomed, y: 1)
         }
         .padding(.horizontal, HistoryRowLayout.inset)
         .padding(.bottom, Tokens.Space.s)
@@ -76,12 +76,12 @@ struct HistoryPeriodCard: View {
 
     private func bars(_ slots: [TimeInterval?], colour: Color) -> some View {
         let peak = max(slots.compactMap { $0 }.max() ?? 0, 1)
-        return HStack(alignment: .bottom, spacing: slots.count > 40 ? 2 : 3) {
+        return HStack(alignment: .bottom, spacing: slots.count > 40 ? 2.zoomed : 3.zoomed) {
             ForEach(Array(slots.enumerated()), id: \.offset) { _, seconds in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                RoundedRectangle(cornerRadius: 2.zoomed, style: .continuous)
                     .fill(Self.barFill(seconds, colour: colour))
                     .frame(maxWidth: .infinity)
-                    .frame(height: (seconds ?? 0) > 0 ? max(3, Self.barHeight * (seconds ?? 0) / peak) : 2)
+                    .frame(height: (seconds ?? 0) > 0 ? max(3.zoomed, Self.barHeight * (seconds ?? 0) / peak) : 2.zoomed)
             }
         }
         .frame(height: Self.barHeight, alignment: .bottom)

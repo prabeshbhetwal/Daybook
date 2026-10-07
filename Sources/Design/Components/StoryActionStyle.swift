@@ -22,9 +22,9 @@ private struct StoryActionLabel<Label: View>: View {
         label
             .font(Tokens.Typography.label)
             .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
-            .padding(.horizontal, 11)
-            .padding(.vertical, 5)
-            .frame(minHeight: 28)
+            .padding(.horizontal, 11.zoomed)
+            .padding(.vertical, 5.zoomed)
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .background(fill, in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
             .contentShape(Rectangle())
             .opacity(enabled ? 1 : 0.45)

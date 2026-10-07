@@ -40,7 +40,7 @@ while IFS= read -r source_file; do
 done < <(find "${PROJECT_DIR}/Sources" -name '*.swift' -print | LC_ALL=C sort)
 
 swiftc -O -swift-version 5 -warnings-as-errors -parse-as-library \
-  -target "$(uname -m)-apple-macos13.0" -framework Cocoa \
+  -target "$(uname -m)-apple-macos14.0" -framework Cocoa \
   -F "${SPARKLE_DIR}" -framework Sparkle \
   -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
   "${SOURCE_FILES[@]}" "${PROJECT_DIR}/scripts/NativeFixtureMain.swift" \

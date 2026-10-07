@@ -319,7 +319,7 @@ struct FocusHero: View {
         // gave it 236pt and "Choose or type an activity" lost its last
         // letters behind the menu. The floor fits the prompt; priority makes
         // the row's slack go here before it goes to the spacer.
-        .frame(minWidth: 280, idealWidth: 280, maxWidth: Tokens.formMeasure)
+        .frame(minWidth: 280.zoomed, idealWidth: 280.zoomed, maxWidth: Tokens.formMeasure)
         .layoutPriority(1)
         // No visible "Work type" caption: between the activity and Start, a
         // named work type with its own symbol reads as what it is, and the
@@ -576,7 +576,7 @@ struct FocusHero: View {
                 .font(Tokens.Typography.display)
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
                 .elapsedClockAccessibility(store.elapsed)
-            VStack(alignment: compact ? .leading : .center, spacing: 2) {
+            VStack(alignment: compact ? .leading : .center, spacing: 2.zoomed) {
                 Text(store.activeIntent)
                     .font(compact ? Tokens.Typography.rowTitle : Tokens.Typography.heading)
                     .lineLimit(1)
@@ -674,7 +674,7 @@ struct FocusHero: View {
                 }
             }
         }
-        .frame(maxWidth: compact ? .infinity : 620, alignment: .leading)
+        .frame(maxWidth: compact ? .infinity : 620.zoomed, alignment: .leading)
     }
 
     private var automaticIntentField: some View {
@@ -683,7 +683,7 @@ struct FocusHero: View {
             // Unfolded by Name, the row is there to be typed into.
             .onAppear { if isStrip { intentFocused.wrappedValue = true } }
             .padding(.horizontal, Tokens.Space.s)
-            .frame(maxWidth: Tokens.formMeasure, minHeight: 30)
+            .frame(maxWidth: Tokens.formMeasure, minHeight: 30.zoomed)
             .background(Tokens.Colour.elevated,
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
                                              style: .continuous))
@@ -705,7 +705,7 @@ struct FocusHero: View {
         .buttonStyle(StoryPressStyle())
         .font(Tokens.Typography.body)
         .foregroundStyle(.secondary)
-        .frame(minHeight: 28)
+        .frame(minHeight: 28.zoomed)
     }
 
     // MARK: - Awaiting decision
@@ -727,7 +727,7 @@ struct FocusHero: View {
                                onAnswer: { store.resolve($0, expectedID: expectedID) },
                                onReason: { store.resolve(.tookBreak, label: $0, expectedID: expectedID) })
             }
-            .frame(maxWidth: compact ? .infinity : 720, alignment: .leading)
+            .frame(maxWidth: compact ? .infinity : 720.zoomed, alignment: .leading)
         }
     }
 
@@ -753,11 +753,11 @@ struct FocusHero: View {
         } else {
             HStack(spacing: Tokens.Space.s) {
                 GoalRing(progress: store.goal.share,
-                         diameter: 52,
-                         lineWidth: 6,
+                         diameter: 52.zoomed,
+                         lineWidth: 6.zoomed,
                          label: DurationText.percent(min(store.goal.share, 9.99)),
                          isMet: store.goal.isMet)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2.zoomed) {
                     Text("Today · \(Tokens.preciseDuration(store.goal.achieved)) of "
                          + Tokens.preciseDuration(store.goal.goal))
                         .font(Tokens.Typography.body.monospacedDigit())
@@ -768,7 +768,7 @@ struct FocusHero: View {
                                          : AnyShapeStyle(.secondary))
                 }
             }
-            .frame(maxWidth: 360, alignment: .center)
+            .frame(maxWidth: 360.zoomed, alignment: .center)
             .accessibilityElement(children: .combine)
         }
     }

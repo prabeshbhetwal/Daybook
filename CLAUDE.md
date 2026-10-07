@@ -2,7 +2,7 @@
 
 A macOS menu-bar app that keeps focus sessions honest from foreground-app
 evidence. Swift in the Swift 5 language mode (`-swift-version 5`), AppKit and
-SwiftUI, deployment target macOS 13.0. There is no Xcode project and no
+SwiftUI, deployment target macOS 14.0. There is no Xcode project and no
 `Package.swift`: `build.sh` compiles every file under `Sources/` with `swiftc`
 as one module.
 
@@ -19,7 +19,7 @@ as one module.
 - `build.sh` fails inside the Claude Bash sandbox at the `sips` icon step (it
   cannot write to the system temp folder). Run it with the sandbox disabled.
 - Compile-only check that works in the sandbox, about 100 s:
-  `swiftc -typecheck -module-cache-path "$TMPDIR/mc" -swift-version 5 -parse-as-library -warnings-as-errors -target arm64-apple-macos13.0 -F .build/vendor/Sparkle-2.10.0 $(find Sources -name '*.swift')`
+  `swiftc -typecheck -module-cache-path "$TMPDIR/mc" -swift-version 5 -parse-as-library -warnings-as-errors -target arm64-apple-macos14.0 -F .build/vendor/Sparkle-2.10.0 $(find Sources -name '*.swift')`
   (`-F` finds Sparkle once a build has fetched it; a worktree without
   `.build/vendor` can point at the main checkout's).
 - A build that replaces the app holds `.build/promotion.lock`; a second build
@@ -75,7 +75,7 @@ open-ended bug hunt over an area, use the `probe-hunter` agent.
 - Core logic, about 20 s. Core compiles on its own, so drive it from a
   `main.swift`: `P="$(mktemp -d "$TMPDIR/fc-probe.XXXXXX")"`, write
   `"$P/main.swift"`, then
-  `swiftc -module-cache-path "$TMPDIR/mc" -swift-version 5 -target arm64-apple-macos13.0 -o "$P/run" $(find Sources/Core -name '*.swift') "$P/main.swift" && "$P/run"`
+  `swiftc -module-cache-path "$TMPDIR/mc" -swift-version 5 -target arm64-apple-macos14.0 -o "$P/run" $(find Sources/Core -name '*.swift') "$P/main.swift" && "$P/run"`
 - Anything above Core. `build.sh` reads only itself, `Sources/`, `Assets/`
   and `scripts/fetch-sparkle.sh`, so copy those:
   `T="$(mktemp -d "$TMPDIR/fc-tree.XXXXXX")"; rsync -a build.sh Sources Assets scripts "$T/"`.
@@ -116,6 +116,10 @@ to its new name, so launch one only when the user wants that to happen.
 - Commit subject: one plain present-tense sentence stating what is now true
   for the user, e.g. "A relaunch no longer deletes the running session's power
   readings". No type prefixes. The body is wrapped prose: what changed and why.
+- A length in `Sources/App`, `Sources/Design` or `Sources/Surfaces` is a design
+  token or `N.zoomed` (`Sources/Design/Zoomed.swift`), so it follows the
+  interface zoom; `build.sh` fails on a bare one. A deliberately fixed length (a
+  hairline, the menu-bar item) carries `// zoom: fixed`.
 - Edit Swift by exact text, never by line number. `.claude/hooks/swift-parse.sh`
   parses each Swift file Claude writes and reports a stray or missing brace.
 - The repository is public: no secrets, personal data or machine-specific

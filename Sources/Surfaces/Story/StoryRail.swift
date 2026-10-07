@@ -105,7 +105,7 @@ struct StoryRail: View {
         // serves the visibility test, On this Mac and the goal card.
         let evidence = breakdown
         let shownTiles = visibleTiles(evidence)
-        VStack(alignment: .leading, spacing: density == .compact ? 10 : 14) {
+        VStack(alignment: .leading, spacing: density == .compact ? 10.zoomed : 14.zoomed) {
             ForEach(shownTiles, id: \.self) { kind in
                 arrangedTile(kind, shownTiles: shownTiles, evidence: evidence)
             }
@@ -114,9 +114,9 @@ struct StoryRail: View {
         }
         .padding(StoryStyle.railInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onChange(of: store.dayOffset) { _ in selectedApp.text = "" }
-        .onChange(of: day) { _ in selectedApp.text = "" }
-        .onChange(of: settings.storyTileOrder) { arrangement.synchronise($0) }
+        .onChange(of: store.dayOffset) { selectedApp.text = "" }
+        .onChange(of: day) { selectedApp.text = "" }
+        .onChange(of: settings.storyTileOrder) { _, order in arrangement.synchronise(order) }
         .onAppear { arrangement.synchronise(settings.storyTileOrder) }
         .onExitCommand { arrangement.escape() }
     }
@@ -208,7 +208,7 @@ struct StoryRail: View {
 
     /// Takes the body's tile list: each pass over it re-reads the archive.
     private func footer(_ shownTiles: [StoryTileKind]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10.zoomed) {
             arrangeControl(shownTiles)
             if let note = footnote(shownTiles) {
                 Text(note)
@@ -236,7 +236,7 @@ struct StoryRail: View {
             droppable(content.opacity(dropTarget.kind == kind ? 0.55 : 1)
                 .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius)
                     .stroke(StoryStyle.action.opacity(0.45), style: StrokeStyle(lineWidth: 1,
-                                                                                dash: [4, 3])))
+                                                                                dash: [4.zoomed, 3.zoomed])))
                 .onDrag {
                     dropTarget.dragging = kind
                     return NSItemProvider(object: kind.rawValue as NSString)
@@ -349,7 +349,7 @@ struct StoryRail: View {
                 }
                 Spacer(minLength: 0)
                 if let share = goalShare {
-                    GoalRing(progress: share, diameter: 56, lineWidth: 7,
+                    GoalRing(progress: share, diameter: 56.zoomed, lineWidth: 7.zoomed,
                              label: DurationText.percent(share),
                              isMet: share >= 1,
                              accessibilityTitle: "Share of goal")
@@ -392,13 +392,13 @@ struct StoryRail: View {
             Divider()
             ForEach(categoryGoals, id: \.type) { item in
                 let share = min(1, item.achieved / item.goal)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     HStack(spacing: Tokens.Space.xs) {
                         Image(systemName: item.type.symbolName)
                             .font(Tokens.Typography.caption)
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(Tokens.Palette.workType(item.type))
-                            .frame(width: 14)
+                            .frame(width: 14.zoomed)
                         Text(item.type.displayName)
                             .font(Tokens.Typography.body)
                         Spacer(minLength: Tokens.Space.s)
@@ -415,7 +415,7 @@ struct StoryRail: View {
                                     .frame(width: geometry.size.width * share)
                             }
                     }
-                    .frame(height: 3)
+                    .frame(height: 3.zoomed)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(DurationText.spoken(in: "\(item.type.displayName): \(Tokens.duration(item.achieved)) of a \(Tokens.duration(item.goal)) goal"))
@@ -472,7 +472,7 @@ struct StoryRail: View {
                             .frame(width: geometry.size.width * width(of: minutes(rows.outside), total: trackedValue))
                     }
                 }
-                .frame(height: 7)
+                .frame(height: 7.zoomed)
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
                 legendRow(colour: Tokens.Palette.app(rank: 1),
@@ -504,7 +504,7 @@ struct StoryRail: View {
         HStack(spacing: Tokens.Space.s) {
             RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous)
                 .fill(colour)
-                .frame(width: 10, height: 10)
+                .frame(width: 10.zoomed, height: 10.zoomed)
             Text(label)
                 .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
@@ -545,7 +545,7 @@ struct StoryRail: View {
 
     private var rhythmTile: some View {
         StoryTile(title: "Rhythm", trailing: "by hour") {
-            RhythmChart(hours: rhythmHours, height: 54, compactLabels: true)
+            RhythmChart(hours: rhythmHours, height: 54.zoomed, compactLabels: true)
             if let peak = rhythmPeak {
                 Text("Most recorded app use: \(peak).")
                     .font(Tokens.Typography.body)
@@ -561,11 +561,11 @@ struct StoryRail: View {
         let days = store.streakDays()
         return StoryTile(title: "Current streak",
                   trailing: store.streak == 1 ? "1 day" : "\(store.streak) days") {
-            HStack(spacing: 3) {
+            HStack(spacing: 3.zoomed) {
                 ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
                     RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
                         .fill(entry.met ? Tokens.Palette.app(rank: 4) : Tokens.Colour.elevated)
-                        .frame(height: 8)
+                        .frame(height: 8.zoomed)
                 }
             }
             // The strip's news is which days met the minimum; the streak
@@ -586,10 +586,10 @@ struct StoryRail: View {
                 // past 28pt; the negative padding keeps the row where it was.
                 Button { navigation.openSheet(.awards) } label: {
                     Text("Awards")
-                        .padding(.vertical, 7)
+                        .padding(.vertical, 7.zoomed)
                         .contentShape(Rectangle())
                 }
-                .padding(.vertical, -7)
+                .padding(.vertical, -7.zoomed)
                 .coachAnchor(.awards)
                 .buttonStyle(StoryPressStyle())
                 .font(Tokens.Typography.label)
@@ -676,7 +676,7 @@ struct StoryTile<Content: View>: View {
                     in: RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous)
             .strokeBorder(StoryStyle.line))
-        .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
+        .shadow(color: .black.opacity(0.025), radius: 2.zoomed, y: 1)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
     }

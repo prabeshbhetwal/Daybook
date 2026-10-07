@@ -7,7 +7,7 @@ labelled measures.
 
 ![The Day story: an expanded session with its apps, app activity and the evidence rail](docs/screenshots/day-story.png)
 
-**SwiftUI · AppKit · Swift Charts · macOS 13+** ·
+**SwiftUI · AppKit · Swift Charts · macOS 14+** ·
 no Xcode project, one dependency (Sparkle, for updates), no telemetry ·
 hundreds of headless checks
 
@@ -140,7 +140,7 @@ The full guide to every surface and control is in [docs/usage.md](docs/usage.md)
 
 ## Build and run
 
-Requirements: macOS 13 or later and the Apple Command Line Tools (`swiftc`).
+Requirements: macOS 14 or later and the Apple Command Line Tools (`swiftc`).
 Xcode is not needed.
 
 ```bash

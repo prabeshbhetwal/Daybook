@@ -28,7 +28,7 @@ struct PopoverFooter: View {
         Button(title, action: action)
             .buttonStyle(StoryPressStyle())
             .foregroundStyle(.secondary)
-            .frame(minHeight: 28)
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .contentShape(Rectangle())
             .accessibilityLabel(title)
     }

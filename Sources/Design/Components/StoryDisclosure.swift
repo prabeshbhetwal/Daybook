@@ -9,7 +9,7 @@ struct StoryDisclosure<Content: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Button {
                 withAnimation(Tokens.Motion.animation(
                     isExpanded ? Tokens.Motion.dismiss : Tokens.Motion.reveal,
@@ -17,7 +17,7 @@ struct StoryDisclosure<Content: View>: View {
                     isExpanded.toggle()
                 }
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: 6.zoomed) {
                     // One glyph that turns, not two that swap.
                     Image(systemName: "chevron.right")
                         .font(Tokens.Typography.caption)

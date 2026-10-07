@@ -52,9 +52,9 @@ struct DayPickerCalendar: View {
 
     private func pick(_ day: Date) { onPick(day) }
 
-    private let cellWidth: CGFloat = 44
-    private let cellHeight: CGFloat = 46
-    private let gap: CGFloat = 4
+    private var cellWidth: CGFloat { 44.zoomed }
+    private var cellHeight: CGFloat { 46.zoomed }
+    private var gap: CGFloat { Tokens.Space.xs }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
@@ -66,14 +66,14 @@ struct DayPickerCalendar: View {
         .padding(Tokens.Space.l)
         .frame(width: cellWidth * 7 + gap * 6 + Tokens.Space.l * 2)
         .onAppear { load() }
-        .onChange(of: shown.month) { _ in load() }
+        .onChange(of: shown.month) { load() }
     }
 
     // MARK: - Header: the month, summed
 
     private var header: some View {
         HStack(alignment: .top, spacing: Tokens.Space.s) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2.zoomed) {
                 Text(monthTitle)
                     .font(Tokens.Typography.heading)
                     .contentTransition(.numericText())
@@ -92,7 +92,7 @@ struct DayPickerCalendar: View {
                     .font(Tokens.Typography.caption)
                     .foregroundStyle(Tokens.Colour.focus)
                     .padding(.horizontal, Tokens.Space.s)
-                    .padding(.vertical, 3)
+                    .padding(.vertical, 3.zoomed)
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
             }
@@ -209,7 +209,7 @@ struct DayPickerCalendar: View {
         let met = pickable && metGoal(facts)
 
         return Button { if pickable { pick(day) } } label: {
-            VStack(spacing: 2) {
+            VStack(spacing: 2.zoomed) {
                 Text("\(calendar.component(.day, from: day))")
                     .font(Tokens.Typography.control
                         .weight(isToday || isSelected ? .semibold : .regular)
@@ -247,7 +247,7 @@ struct DayPickerCalendar: View {
                     Image(systemName: "checkmark")
                         .font(Tokens.Typography.micro)
                         .foregroundStyle(StoryStyle.focus)
-                        .padding(4)
+                        .padding(Tokens.Space.xs)
                         .accessibilityHidden(true)
                 }
             }

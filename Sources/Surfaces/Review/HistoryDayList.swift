@@ -2,10 +2,10 @@ import SwiftUI
 
 /// Shared measures, so the hour axis sits exactly over every row's strip.
 enum HistoryRowLayout {
-    static let dateWidth: CGFloat = 46
-    static let figureWidth: CGFloat = 70
-    static let spacing: CGFloat = Tokens.Space.m
-    static let inset: CGFloat = Tokens.Space.s
+    static var dateWidth: CGFloat { 46.zoomed }
+    static var figureWidth: CGFloat { 70.zoomed }
+    static var spacing: CGFloat { Tokens.Space.m }
+    static var inset: CGFloat { Tokens.Space.s }
 }
 
 /// The day's recorded entries across its twenty-four hours: sessions in their
@@ -14,7 +14,7 @@ enum HistoryRowLayout {
 struct HistoryDayStrip: View {
     let date: Date
     let entries: [DayEntry]
-    var height: CGFloat = 8
+    var height: CGFloat = 8.zoomed
 
     private struct Mark: Identifiable {
         let id: String
@@ -54,9 +54,9 @@ struct HistoryDayStrip: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(StoryStyle.line)
                 ForEach(marks) { mark in
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    RoundedRectangle(cornerRadius: 2.zoomed, style: .continuous)
                         .fill(mark.colour)
-                        .frame(width: max(3, geometry.size.width * mark.length))
+                        .frame(width: max(3.zoomed, geometry.size.width * mark.length))
                         .offset(x: geometry.size.width * mark.start)
                 }
             }
@@ -81,7 +81,7 @@ struct HistoryStripAxis: View {
                     .offset(x: geometry.size.width * CGFloat(hour) / 24)
             }
         }
-        .frame(height: 12)
+        .frame(height: 12.zoomed)
         .padding(.leading, leading)
         .padding(.trailing, trailing)
         .accessibilityHidden(true)

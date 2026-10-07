@@ -23,6 +23,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case usageRecording
     case appearance
     case density
+    case zoom
     case timelineLabels
     case entryDetails
     case idlePause
@@ -60,6 +61,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .usageRecording: return \SettingsModel.isTrackingEnabled
         case .appearance: return \SettingsModel.appearancePreference
         case .density: return \SettingsModel.interfaceDensity
+        case .zoom: return \SettingsModel.interfaceZoom
         case .timelineLabels: return \SettingsModel.showsTimelineLabels
         case .entryDetails: return \SettingsModel.expandsEntryDetails
         case .idlePause: return \SettingsModel.idlePauseThreshold
@@ -655,6 +657,17 @@ final class SettingsModel: ObservableObject {
     var interfaceDensity: InterfaceDensity {
         get { InterfaceDensity(rawValue: store.interfaceDensityRawValue) ?? .comfortable }
         set { write { store.interfaceDensityRawValue = newValue.rawValue } }
+    }
+
+    /// The interface zoom as a scale, 1.2 for 120%. A new value snaps to a
+    /// step, is stored, and is handed to the one model every window reads.
+    var interfaceZoom: Double {
+        get { Double(store.interfaceZoomPercent) / 100 }
+        set {
+            let percent = InterfaceZoom.nearestPercent(toScale: newValue)
+            write { store.interfaceZoomPercent = percent }
+            ZoomModel.shared.apply(percent: percent)
+        }
     }
 
     var appearancePreference: AppearancePreference {

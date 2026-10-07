@@ -138,7 +138,7 @@ struct WorkTypePicker: View {
         // pull-down, so the list still opens whole and downward.
         .menuStyle(.button)
         .buttonStyle(.bordered)
-        .controlSize(.large)
+        .controlSize(Tokens.Zoom.controlSize(.large))
         // Neutral on purpose: the platform's own bezel and label. A
         // near-transparent tint used to stand in for "no tint" and went
         // invisible the moment the window was inactive.
@@ -250,7 +250,7 @@ struct PanelHeader: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: Tokens.Space.m) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2.zoomed) {
                     Text(title)
                         .font(Tokens.Typography.heading)
                         .accessibilityAddTraits(.isHeader)
@@ -265,10 +265,11 @@ struct PanelHeader: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(Tokens.Typography.label)
-                        .frame(width: 28, height: 28)
+                        .frame(width: AccessibilityMetrics.minimumTargetSize,
+                               height: AccessibilityMetrics.minimumTargetSize)
                         .background(Tokens.Colour.elevated, in: Circle())
                 }
-                .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14))
+                .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14.zoomed))
                 .keyboardShortcut(.cancelAction)
                 .help("Close")
                 .accessibilityLabel("Close \(title)")
@@ -296,7 +297,7 @@ extension NSPanel {
 /// category's symbol is the inline form.
 struct WorkTypeMark: View {
     let workType: WorkType
-    var size: CGFloat = 30
+    var size: CGFloat = 30.zoomed
     var symbolOverride: String?
     var hueOverride: WorkTypeHue?
 
@@ -333,7 +334,7 @@ struct MenuBarLabel: View {
     let display: MenuBarDisplay
 
     var body: some View {
-        HStack(spacing: Tokens.Space.xs) {
+        HStack(spacing: 4) { // zoom: fixed, the menu bar is the system's
             if let glyph = MenuBarGlyph.image(progress: display.progress,
                                               paused: display.isPaused,
                                               attention: display.needsAttention,

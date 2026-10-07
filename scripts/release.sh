@@ -141,7 +141,7 @@ cat > "${STAGE}/appcast.xml" <<XML
       <pubDate>$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')</pubDate>
       <sparkle:version>${NEW_BUILD}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[<ul>${NOTES_HTML}</ul>]]></description>
       <enclosure url="https://github.com/${REPO}/releases/download/v${VERSION}/${ZIP_NAME}"
                  ${SIGNATURE}

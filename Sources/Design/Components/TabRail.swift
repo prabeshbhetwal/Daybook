@@ -5,7 +5,8 @@ import SwiftUI
 /// the hit area that production actually consumes rather than a test-only
 /// constant.
 enum AccessibilityMetrics {
-    static let minimumTargetSize: CGFloat = 28
+    // Never below 24pt, WCAG 2.5.8's target floor, which 28pt at 80% would miss.
+    static var minimumTargetSize: CGFloat { max(24, 28.zoomed) }
 }
 
 extension AppTab {

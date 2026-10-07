@@ -32,6 +32,7 @@ import AppKit
                                  dataDirectory: store.engine.archive.dataDirectoryURL,
                                  installedAppCatalog: FixtureFactory.installedAppCatalog())
         settings.appearancePreference = .system
+        ZoomModel.shared.apply(percent: InterfaceZoom.nearestPercent(toScale: settings.interfaceZoom))
     }
 }
 
@@ -54,6 +55,9 @@ struct StoryFixtureApp: App {
         .defaultSize(width: 1_160, height: 780)
         .windowResizability(.contentMinSize)
         .windowStyle(.hiddenTitleBar)
-        .commands { MainWindowCommands(navigation: context.navigation) }
+        .commands {
+            MainWindowCommands(navigation: context.navigation)
+            ZoomCommands(settings: context.settings)
+        }
     }
 }
