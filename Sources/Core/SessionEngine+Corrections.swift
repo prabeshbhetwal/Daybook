@@ -9,6 +9,12 @@ extension SessionEngine {
 
     /// Reconcile before accepting another correction. A newer committed
     /// generation owns correction identity even when preferences are stale.
+    ///
+    /// Adopting it replaces the live state the user was looking at, so it is
+    /// published and this correction is refused, never applied to a state
+    /// nobody saw. Adopted silently, it took a pending question away mid-answer:
+    /// the answer failed with no reason given, and the card stayed up with a
+    /// Retry that could only fail.
     @discardableResult
     func prepareCorrection() -> Bool {
         if let error = decisionHistory.reconcile(archive: archive) {
@@ -17,6 +23,11 @@ extension SessionEngine {
         if let saved = decisionHistory.document.checkpoint,
            liveGeneration(of: saved) > liveCorrectionGeneration {
             applyExactCorrectionState(saved)
+            synchroniseCommittedCorrectionMetadata()
+            persist()
+            onStateChanged?(state)
+            awayDecisionError = "Newer saved history was found and loaded. Nothing was changed; check the day and try again."
+            return false
         }
         synchroniseCommittedCorrectionMetadata()
         return true
