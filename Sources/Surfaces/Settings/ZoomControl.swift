@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// The Zoom row's control: a slider over the zoom steps, the percent it is at,
-/// and a way back to 100%. Actual Size sits to the left and the percent keeps
-/// room for three digits, so neither shifts the slider while it is dragged:
-/// a slider that moved under the pointer would carry the drag with it.
+/// and a reset icon back to 100%. The percent keeps room for three digits and
+/// the icon's slot is always there, so nothing shifts the slider while it is
+/// dragged: a slider that moved under the pointer would carry the drag with it.
 struct ZoomControl: View {
     @ObservedObject var model: SettingsModel
     /// What the slider and the percent show: the pointer's position during a
@@ -26,12 +26,6 @@ struct ZoomControl: View {
 
     var body: some View {
         HStack(spacing: Tokens.Space.s) {
-            if percent != InterfaceZoom.defaultPercent {
-                Button("Actual Size") { model.interfaceZoom = 1 }
-                    .buttonStyle(.bordered)
-                    .fixedSize()
-                    .accessibilityHint("Sets the zoom back to 100 percent")
-            }
             // A drag commits on release: every window re-zooms at once, so the
             // slider would move under the pointer and the pointer would pick another step.
             Slider(value: $draft, in: 0.8...1.4, step: 0.1) {
@@ -60,7 +54,7 @@ struct ZoomControl: View {
             .onChange(of: draft) {
                 if !isDragging { commit() }
             }
-            // Actual Size, or any other change to the model, moves the slider.
+            // The reset icon, ⌘0, or any other change to the model, moves the slider.
             .onChange(of: model.interfaceZoom) {
                 if !isDragging { draft = model.interfaceZoom }
             }
@@ -68,6 +62,28 @@ struct ZoomControl: View {
                 .font(Tokens.Typography.body.monospacedDigit())
                 .frame(minWidth: 40.zoomed, alignment: .trailing)
                 .accessibilityHidden(true)
+            resetButton
         }
+    }
+
+    /// Back to 100%. At 100% it is invisible and out of reach but keeps its
+    /// slot, so it never pushes the row about as it comes and goes.
+    private var resetButton: some View {
+        let atDefault = percent == InterfaceZoom.defaultPercent
+        return Button { model.interfaceZoom = 1 } label: {
+            Image(systemName: "arrow.counterclockwise")
+                .font(Tokens.Typography.label)
+                .foregroundStyle(Color.secondary)
+                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                       height: AccessibilityMetrics.minimumTargetSize)
+        }
+        .buttonStyle(StoryPressStyle(hovers: true,
+                                     cornerRadius: AccessibilityMetrics.minimumTargetSize / 2))
+        .help("Actual Size (⌘0)")
+        .accessibilityLabel("Actual size")
+        .accessibilityHint("Sets the zoom back to 100 percent")
+        .opacity(atDefault ? 0 : 1)
+        .disabled(atDefault)
+        .accessibilityHidden(atDefault)
     }
 }
