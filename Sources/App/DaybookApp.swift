@@ -111,6 +111,7 @@ struct DaybookApp: App {
             MainWindowCommands(navigation: coordinator.mainWindow)
             SessionCommands(store: coordinator.store,
                             state: coordinator.sessionCommandState)
+            ZoomCommands(settings: coordinator.settings)
             UpdateCommands(updater: coordinator.updater)
         }
     }

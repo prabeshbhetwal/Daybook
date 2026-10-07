@@ -9,6 +9,7 @@ enum ZoomWindowChecks: CheckSuite {
         ("The window's minimum grows with the zoom but never past the screen", minimumCapped),
         ("A window grows to the new minimum and stays on screen", windowGrowsOnScreen),
         ("A zoom change reaches each follower once, and a released follower hears nothing", followerFires),
+        ("Zoom In, Zoom Out and Actual Size disable at their limits", zoomMenuLimits),
     ]
 
     private static func close(_ actual: CGSize, _ expected: CGSize) -> Bool {
@@ -82,6 +83,24 @@ enum ZoomWindowChecks: CheckSuite {
             drain()
             expect(calls == 2, "a released follower should hear nothing, got \(calls) calls", &problems)
             _ = follower
+        }
+        return problems
+    }
+
+    private static func zoomMenuLimits() -> [String] {
+        var problems: [String] = []
+        // (percent, zoomIn, zoomOut, actualSize): whether each item is enabled.
+        let cases: [(Int, Bool, Bool, Bool)] = [
+            (140, false, true, true),
+            (80, true, false, true),
+            (100, true, true, false),
+            (120, true, true, true),
+        ]
+        for (percent, zoomIn, zoomOut, actualSize) in cases {
+            let got = ZoomCommands.availability(percent: percent)
+            expect(got.zoomIn == zoomIn && got.zoomOut == zoomOut && got.actualSize == actualSize,
+                   "at \(percent)% the items should be enabled as (\(zoomIn), \(zoomOut), \(actualSize)), got \(got)",
+                   &problems)
         }
         return problems
     }
