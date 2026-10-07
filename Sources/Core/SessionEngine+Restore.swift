@@ -5,9 +5,12 @@ extension SessionEngine {
     /// preferences hold none, set aside as unreadable or out of reach of a
     /// process launched from a sandboxed shell — the correction journal's own
     /// checkpoint. Reconciled first, so a journal whose only transaction is
-    /// still pending yields that transaction's state. Starting blank beside the
-    /// journal left the engine generations behind it, and the next answer
-    /// swapped the journal's checkpoint in under the live stretch.
+    /// still pending yields that transaction's state. A reconcile that fails
+    /// leaves the last committed checkpoint, which `restore` treats like any
+    /// preference snapshot older than the archive, and `restore`'s own
+    /// reconcile reports the failure. Starting blank instead left the engine
+    /// generations behind the journal, and the next answer swapped the
+    /// journal's checkpoint in under the live stretch.
     func launchSnapshot() -> PersistedState? {
         if let saved = store.loadState() { return saved }
         _ = decisionHistory.reconcile(archive: archive)
