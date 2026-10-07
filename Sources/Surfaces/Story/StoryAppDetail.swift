@@ -29,11 +29,11 @@ struct StoryAppRow: View {
     }
 
     private var row: some View {
-        VStack(spacing: 4) {
-            HStack(spacing: 6) {
-                AppIcon(bundleID: app.bundleID, size: 14, appName: app.appName)
+        VStack(spacing: Tokens.Space.xs) {
+            HStack(spacing: 6.zoomed) {
+                AppIcon(bundleID: app.bundleID, size: 14.zoomed, appName: app.appName)
                 Text(app.appName).lineLimit(1)
-                Spacer(minLength: 4)
+                Spacer(minLength: Tokens.Space.xs)
                 Text(durations: Tokens.preciseDuration(app.total))
                     .monospacedDigit().foregroundStyle(.secondary)
                 if onOpen != nil {
@@ -50,9 +50,9 @@ struct StoryAppRow: View {
                             .frame(width: geometry.size.width * min(1, max(0, app.share)))
                     }
             }
-            .frame(height: 3)
+            .frame(height: 3.zoomed)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 3.zoomed)
         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .background(hovered.value && onOpen != nil ? Tokens.Colour.hover : .clear,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.mark))
@@ -75,10 +75,10 @@ struct StoryAppDetail: View {
         let entries = evidence.visits
         let appName = entries.first?.appName ?? bundleID
         let shown = showAll.value ? entries.count : min(store.menuSessionCount, entries.count)
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                AppIcon(bundleID: bundleID, size: 28, appName: appName)
-                VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Tokens.Space.m) {
+            HStack(spacing: 10.zoomed) {
+                AppIcon(bundleID: bundleID, size: 28.zoomed, appName: appName)
+                VStack(alignment: .leading, spacing: 2.zoomed) {
                     Text(appName).font(Tokens.Typography.heading)
                         .accessibilityAddTraits(.isHeader)
                     Text(Tokens.longDate(day ?? store.selectedDay))
@@ -98,11 +98,11 @@ struct StoryAppDetail: View {
             Text("Recorded app visits · newest first")
                 .font(Tokens.Typography.body).foregroundStyle(.secondary)
             ScrollView {
-                LazyVStack(spacing: 8) {
+                LazyVStack(spacing: Tokens.Space.s) {
                     ForEach(entries.prefix(shown)) { entry in
                         HStack(alignment: .firstTextBaseline) {
                             Text(Tokens.timeRange(entry.start, entry.end))
-                            Spacer(minLength: 12)
+                            Spacer(minLength: Tokens.Space.m)
                             Text(durations: Tokens.preciseDuration(entry.seconds)).monospacedDigit()
                         }
                         .font(Tokens.Typography.body)
@@ -110,7 +110,7 @@ struct StoryAppDetail: View {
                     }
                 }
             }
-            .frame(height: min(260, CGFloat(max(1, shown)) * 26))
+            .frame(height: min(260.zoomed, CGFloat(max(1, shown)) * 26.zoomed))
             if shown < entries.count {
                 Button("Show all \(entries.count) visits") { showAll.value = true }
                     .buttonStyle(StoryLinkStyle())
@@ -127,7 +127,7 @@ struct StoryAppDetail: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Tokens.Space.xl)
-        .frame(width: 380)
+        .frame(width: 380.zoomed)
         .background(StoryStyle.card)
         .onExitCommand(perform: onDismiss)
     }
@@ -151,10 +151,10 @@ struct StoryLooseAppUse: View {
     private var power: PowerContextSummary? { store.ambientPowerSummary(within: span) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Button { if let onToggle { onToggle() } else { expanded.value.toggle() } } label: {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 2.zoomed) {
                         Text("App use outside a session").font(Tokens.Typography.label)
                         Text(Tokens.timeRange(span.start, span.end))
                             .font(Tokens.Typography.body).foregroundStyle(.secondary)
@@ -166,7 +166,7 @@ struct StoryLooseAppUse: View {
                                 .accessibilityLabel("Power: \(power.headline)")
                         }
                     }
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Tokens.Space.s)
                     Text(durations: Tokens.preciseDuration(seconds))
                         .font(Tokens.Typography.body.monospacedDigit())
                     Image(systemName: open ? "chevron.down" : "chevron.right")

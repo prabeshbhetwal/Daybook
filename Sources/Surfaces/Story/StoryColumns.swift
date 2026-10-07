@@ -101,7 +101,7 @@ struct StoryHeadline: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Text(eyebrow.uppercased())
                 .font(Tokens.Typography.eyebrow)
-                .kerning(0.8)
+                .kerning(0.8.zoomed)
                 .foregroundStyle(.secondary)
             emphasised
                 .font(Tokens.Typography.headline)
@@ -193,9 +193,9 @@ struct ProjectedDayStoryColumn: View {
                     set: { open in
                         if open { disclosure.ids.insert(Self.summaryKey) } else { disclosure.ids.remove(Self.summaryKey) }
                     })) {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 6.zoomed) {
                         ForEach(Array(projection.summaryFacts.enumerated()), id: \.offset) { _, fact in
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                                 Text("•").accessibilityHidden(true)
                                 Text(fact)
                                 .font(Tokens.Typography.body)
@@ -269,7 +269,7 @@ struct StoryCorrectionNotice: View {
 
     var body: some View {
         if let error = Self.visibleError(in: store) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 Text(error).fixedSize(horizontal: false, vertical: true)
                 Button("Retry saving") { store.retryLastCorrection() }
                     .buttonStyle(StoryLinkStyle())

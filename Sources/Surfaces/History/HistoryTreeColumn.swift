@@ -163,8 +163,8 @@ struct HistoryTree: View {
         .background(alignment: .leading) {
             Rectangle()
                 .fill(StoryStyle.line)
-                .frame(width: 2)
-                .padding(.leading, HistoryRowLayout.inset + HistoryTreeRow.dotSize / 2 - 1)
+                .frame(width: 2.zoomed)
+                .padding(.leading, HistoryRowLayout.inset + HistoryTreeRow.dotSize / 2 - 1.zoomed)
                 .padding(.vertical, Tokens.Space.l)
                 .accessibilityHidden(true)
         }
@@ -176,7 +176,7 @@ struct HistoryTree: View {
         .overlay(alignment: .topLeading) {
             Color.clear
                 .frame(width: 0, height: 0)
-                .offset(x: -4_000)
+                .offset(x: -4_000) // zoom: fixed, far enough off the left edge at any zoom
                 .focusable()
                 .focused($treeFocused)
                 .accessibilityHidden(true)
@@ -286,6 +286,6 @@ struct HistoryTree: View {
             .fixedSize()
             .accessibilityHint("Returns to the story, with the cursor in the activity field")
         }
-        .frame(maxWidth: 520, alignment: .leading)
+        .frame(maxWidth: 520.zoomed, alignment: .leading)
     }
 }

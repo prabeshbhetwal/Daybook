@@ -89,7 +89,8 @@ struct HistorySearchList: View {
             HistorySpineItem(time: Tokens.timeOfDayOnly(use.span.start), dot: .hollow(Tokens.Palette.app(rank: 1))) {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                     if let bundleID = store.historyFilter.appBundleID {
-                        AppIcon(bundleID: bundleID, size: 16, appName: appName ?? "").alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
+                        AppIcon(bundleID: bundleID, size: 16.zoomed, appName: appName ?? "")
+                            .alignmentGuide(.firstTextBaseline) { [lift = 3.zoomed] in $0[.bottom] - lift }
                     }
                     Text(durations: HistorySessionRow.figure(use.seconds))
                         .font(Tokens.Typography.label)
@@ -209,10 +210,10 @@ struct HistorySpineItem<Content: View>: View {
     let dot: Dot
     @ViewBuilder let content: Content
 
-    static var gutter: CGFloat { 64 }
-    static var spine: CGFloat { 24 }
+    static var gutter: CGFloat { 64.zoomed }
+    static var spine: CGFloat { 24.zoomed }
     /// Where the dot's centre sits below the item's top.
-    static var dotCentre: CGFloat { 21 }
+    static var dotCentre: CGFloat { 21.zoomed }
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -222,11 +223,11 @@ struct HistorySpineItem<Content: View>: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(width: Self.gutter, alignment: .trailing)
-                .padding(.top, Self.dotCentre - 9)
+                .padding(.top, Self.dotCentre - 9.zoomed)
                 .accessibilityHidden(true)
             ZStack(alignment: .top) {
-                Rectangle().fill(Tokens.Colour.line).frame(width: 2)
-                marker.padding(.top, Self.dotCentre - 6)
+                Rectangle().fill(Tokens.Colour.line).frame(width: 2.zoomed)
+                marker.padding(.top, Self.dotCentre - 6.zoomed)
             }
             .frame(width: Self.spine)
             .accessibilityHidden(true)
@@ -239,11 +240,11 @@ struct HistorySpineItem<Content: View>: View {
     @ViewBuilder private var marker: some View {
         switch dot {
         case .filled(let colour):
-            Circle().fill(colour).frame(width: 12, height: 12)
-                .background(Circle().fill(StoryStyle.canvas).frame(width: 18, height: 18))
+            Circle().fill(colour).frame(width: 12.zoomed, height: 12.zoomed)
+                .background(Circle().fill(StoryStyle.canvas).frame(width: 18.zoomed, height: 18.zoomed))
         case .hollow(let colour):
-            Circle().strokeBorder(colour, lineWidth: 2).frame(width: 10, height: 10)
-                .background(Circle().fill(StoryStyle.canvas).frame(width: 16, height: 16))
+            Circle().strokeBorder(colour, lineWidth: 2.zoomed).frame(width: 10.zoomed, height: 10.zoomed)
+                .background(Circle().fill(StoryStyle.canvas).frame(width: 16.zoomed, height: 16.zoomed))
                 .padding(.top, 1)
         }
     }

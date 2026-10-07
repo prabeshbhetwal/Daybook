@@ -28,7 +28,7 @@ struct SessionNoteEditor: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             TextEditor(text: draft)
                 .font(Tokens.Typography.body)
-                .frame(minHeight: 64, maxHeight: 112)
+                .frame(minHeight: 64.zoomed, maxHeight: 112.zoomed)
                 .focused($isFocused)
                 .accessibilityLabel("Session note")
             if let error = store.noteError(for: recordID) {
@@ -85,7 +85,7 @@ struct SessionNoteEditor: View {
                 if dictation.isListening {
                     Circle()
                         .fill(Tokens.Colour.danger)
-                        .frame(width: 7, height: 7)
+                        .frame(width: 7.zoomed, height: 7.zoomed)
                         .modifier(ListeningPulse(reduceMotion: reduceMotion))
                 }
                 Label(dictation.isListening ? "Stop" : dictation.status == .requesting ? "Starting…" : "Dictate",

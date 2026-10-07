@@ -119,7 +119,7 @@ struct StoryBreakRow: View, Equatable {
         }
         .buttonStyle(StoryLinkStyle())
         .font(Tokens.Typography.label)
-        .frame(minHeight: 28)
+        .frame(minHeight: 28.zoomed)
         .disabled(isBlocked)
         .help(isBlocked ? StoryDecisionRow.awayQuestionFirst : "")
         .accessibilityLabel(name == nil ? "Name this break" : "Rename \(name ?? "this break")")
@@ -156,7 +156,7 @@ struct StoryBreakRow: View, Equatable {
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, Tokens.Space.m)
-        .frame(minHeight: 30)
+        .frame(minHeight: 30.zoomed)
         .background(StoryStyle.canvas,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
@@ -257,7 +257,7 @@ struct StoryBreakRow: View, Equatable {
         .buttonStyle(StoryLinkStyle())
         .font(Tokens.Typography.label)
         .foregroundStyle(StoryStyle.action)
-        .frame(minWidth: 36, minHeight: 28)
+        .frame(minWidth: 36.zoomed, minHeight: 28.zoomed)
         .disabled(!canUndo)
         .help(canUndo ? "" : StoryDecisionRow.awayQuestionFirst)
         .accessibilityLabel("Undo recorded as a break")

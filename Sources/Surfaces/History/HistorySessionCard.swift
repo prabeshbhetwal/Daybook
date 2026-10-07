@@ -69,8 +69,8 @@ struct HistorySessionRow: View {
         .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
             .strokeBorder(isSelected ? Tokens.Colour.focus.opacity(0.55) : Tokens.Colour.line,
-                          lineWidth: isSelected ? 1.5 : 1))
-        .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
+                          lineWidth: isSelected ? 1.5.zoomed : 1))
+        .shadow(color: .black.opacity(0.025), radius: 2.zoomed, y: 1)
         .contentShape(Rectangle())
     }
 
@@ -107,7 +107,7 @@ struct HistorySessionRow: View {
             .font(Tokens.Typography.caption.monospacedDigit())
             .foregroundStyle(.secondary)
             HStack(spacing: Tokens.Space.s) {
-                if let bundleID { AppIcon(bundleID: bundleID, size: 16, appName: appName ?? "") }
+                if let bundleID { AppIcon(bundleID: bundleID, size: 16.zoomed, appName: appName ?? "") }
                 Text(durations: Self.figure(use.seconds))
                     .font(Tokens.Typography.label)
                 Text("of this session · \(share)")
@@ -122,19 +122,21 @@ struct HistorySessionRow: View {
     private var appMix: some View {
         let top = Array(apps.prefix(3))
         let restShare = max(0, 1 - top.reduce(0) { $0 + $1.share })
+        // Read here, not in the reader's closure, so a zoom change draws the bar again.
+        let gap = 2.zoomed
         return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             GeometryReader { geometry in
-                HStack(spacing: 2) {
+                HStack(spacing: gap) {
                     ForEach(Array(top.enumerated()), id: \.element.id) { index, app in
                         Rectangle().fill(Tokens.Palette.app(rank: index))
-                            .frame(width: max(2, geometry.size.width * app.share))
+                            .frame(width: max(gap, geometry.size.width * app.share))
                     }
                     if restShare > 0.005 {
                         Rectangle().fill(Tokens.Palette.untracked.opacity(0.5))
                     }
                 }
             }
-            .frame(height: 7)
+            .frame(height: 7.zoomed)
             .clipShape(Capsule())
             .padding(.top, Tokens.Space.s)
             .accessibilityHidden(true)
@@ -151,7 +153,7 @@ struct HistorySessionRow: View {
 
     private func legend(_ colour: Color, _ label: String) -> some View {
         HStack(spacing: Tokens.Space.xs) {
-            RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9, height: 9)
+            RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9.zoomed, height: 9.zoomed)
             Text(label).font(Tokens.Typography.caption).foregroundStyle(.secondary).lineLimit(1)
         }
     }
