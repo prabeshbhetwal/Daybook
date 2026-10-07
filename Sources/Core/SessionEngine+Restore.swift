@@ -1,6 +1,22 @@
 import Foundation
 
 extension SessionEngine {
+    /// What a cold launch restores: the preference snapshot, or — when
+    /// preferences hold none, set aside as unreadable or out of reach of a
+    /// process launched from a sandboxed shell — the correction journal's own
+    /// checkpoint. Reconciled first, so a journal whose only transaction is
+    /// still pending yields that transaction's state. A reconcile that fails
+    /// leaves the last committed checkpoint, which `restore` treats like any
+    /// preference snapshot older than the archive, and `restore`'s own
+    /// reconcile reports the failure. Starting blank instead left the engine
+    /// generations behind the journal, and the next answer swapped the
+    /// journal's checkpoint in under the live stretch.
+    func launchSnapshot() -> PersistedState? {
+        if let saved = store.loadState() { return saved }
+        _ = decisionHistory.reconcile(archive: archive)
+        return decisionHistory.document.checkpoint
+    }
+
     /// Restores a snapshot and resolves the gap since it was written through the
     /// same away path a live lock/wake would take (D14).
     /// - Parameter awayAtLaunch: whether nobody is here *now*, at launch — the

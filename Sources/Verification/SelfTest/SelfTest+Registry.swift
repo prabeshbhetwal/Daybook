@@ -47,6 +47,7 @@ extension SelfTest {
             + HistoryLensFactChecks.tests
             + InterfaceZoomChecks.tests
             + ZoomWindowChecks.tests
+            + BlankPreferencesLaunchChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

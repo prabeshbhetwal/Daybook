@@ -18,6 +18,10 @@ as one module.
 
 - `build.sh` fails inside the Claude Bash sandbox at the `sips` icon step (it
   cannot write to the system temp folder). Run it with the sandbox disabled.
+- Never launch the live app from a sandboxed shell. It cannot reach its
+  preferences (unified log: `Couldn't write values … com.prabesh.daybook …
+  Path not accessible`), so it runs with default settings and saves no
+  session state there. Relaunch it from Finder if that happens.
 - Compile-only check that works in the sandbox, about 100 s:
   `swiftc -typecheck -module-cache-path "$TMPDIR/mc" -swift-version 5 -parse-as-library -warnings-as-errors -target arm64-apple-macos14.0 -F .build/vendor/Sparkle-2.10.0 $(find Sources -name '*.swift')`
   (`-F` finds Sparkle once a build has fetched it; a worktree without

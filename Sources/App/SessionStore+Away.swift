@@ -93,7 +93,14 @@ extension SessionStore {
         guard saved else {
             if let error = engine.awayDecisionError {
                 publishCorrectionError(error)
-                correctionRetry = .awayDecision(decision, label: label, reviewing: reviewing, expectedID: id)
+                // Offered again only while it can still land: its interval
+                // stands, or its answer waits in the journal to be finalised.
+                // One that newer saved history replaced could only fail a Retry.
+                let retry = SessionCorrectionRetry.awayDecision(decision, label: label,
+                                                                reviewing: reviewing, expectedID: id)
+                let stands = reviewing ? engine.awayDecision(id: id) != nil : engine.pendingDecisionID == id
+                correctionRetry = stands || engine.decisionHistory.document.pending.map(retry.matches) == true
+                    ? retry : nil
             }
             return false
         }

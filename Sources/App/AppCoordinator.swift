@@ -746,7 +746,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     @discardableResult
     static func restorePersistedEngine(_ engine: SessionEngine,
                                        awayAtLaunch: Bool) -> Bool {
-        guard let snapshot = engine.store.loadState() else { return false }
+        guard let snapshot = engine.launchSnapshot() else { return false }
         engine.restore(from: snapshot, awayAtLaunch: awayAtLaunch)
         return true
     }
