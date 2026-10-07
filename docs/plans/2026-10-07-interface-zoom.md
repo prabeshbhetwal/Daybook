@@ -58,7 +58,7 @@ This extends the spec's §3 list with `lineWidth`, `size:`/`diameter:` and inset
 **Files:**
 - Modify: `build.sh` (`DEPLOYMENT_TARGET="13.0"`), `scripts/release.sh:144`, `README.md:10`, `README.md:143`, `CLAUDE.md` (lines 5, 22, 78)
 
-- [ ] **Step 1: Claim the work.** `tail -30 ~/Documents/FocusContinuity/daybook-sessions-board.md`, then append one line: `10-07 HH:MM | Text zoom settings and keyboard controls (peaceful-ritchie-262cc5) | claim | branch claude/text-zoom-settings-keyboard-332791: interface zoom (spec 2026-10-07); touches Design tokens, Typography, build.sh and length literals across Sources/Design and Sources/Surfaces`.
+- [ ] **Step 1: Claim the work.** Read the latest entries on the sessions board, then add one line to it: `10-07 HH:MM | Text zoom settings and keyboard controls | claim | branch claude/text-zoom-settings-keyboard-332791: interface zoom (spec 2026-10-07); touches Design tokens, Typography, build.sh and length literals across Sources/Design and Sources/Surfaces`.
 - [ ] **Step 2: Change 13.0 → 14.0** in all six places (`macos13.0` → `macos14.0` in the CLAUDE.md commands, `macOS 13+` / `macOS 13 or later` → 14 in the README, `<sparkle:minimumSystemVersion>14.0` in release.sh).
 - [ ] **Step 3: Verify.** Run `./build.sh --check`. Expected: `passed/total` all pass, no warnings. If a redundant `#available(macOS 14, *)` warns, remove that check and rerun.
 - [ ] **Step 4: Commit.** Subject: `Daybook now needs macOS 14 or later`.

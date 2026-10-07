@@ -70,6 +70,9 @@ enum SettingsAccessibilityChecks {
             where !listed.contains(shortcut.glyphs) {
             failures.append("\(shortcut.glyphs) answers a Session command but is not listed")
         }
+        for zoomKey in ["⌘+", "⌘−", "⌘0"] where !listed.contains(zoomKey) {
+            failures.append("\(zoomKey) answers a View menu zoom command but is not listed")
+        }
         if SettingsSection.matching("Keyboard") != [.general] {
             failures.append("searching Keyboard does not find the General page's panel")
         }

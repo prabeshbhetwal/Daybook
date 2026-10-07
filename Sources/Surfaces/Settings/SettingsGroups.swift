@@ -212,7 +212,10 @@ struct SettingsGroups: View {
         KeyEntry(keys: "⌘F", spoken: "Command-F", action: "Find in History"),
         KeyEntry(keys: "⌘6", spoken: "Command-6", action: "Awards"),
         KeyEntry(keys: "⌘7", spoken: "Command-7", action: "Session controls"),
-        KeyEntry(keys: "⌘,", spoken: "Command-comma", action: "Settings")
+        KeyEntry(keys: "⌘,", spoken: "Command-comma", action: "Settings"),
+        KeyEntry(keys: "⌘+", spoken: "Command-plus", action: "Zoom in"),
+        KeyEntry(keys: "⌘−", spoken: "Command-minus", action: "Zoom out"),
+        KeyEntry(keys: "⌘0", spoken: "Command-0", action: "Actual size")
     ]
 
     struct KeyEntry: Hashable {
