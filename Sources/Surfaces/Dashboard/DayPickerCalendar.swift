@@ -66,7 +66,7 @@ struct DayPickerCalendar: View {
         .padding(Tokens.Space.l)
         .frame(width: cellWidth * 7 + gap * 6 + Tokens.Space.l * 2)
         .onAppear { load() }
-        .onChange(of: shown.month) { _ in load() }
+        .onChange(of: shown.month) { load() }
     }
 
     // MARK: - Header: the month, summed

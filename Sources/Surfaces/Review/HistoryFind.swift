@@ -35,7 +35,7 @@ struct HistoryFindBar: View {
                 }
             }
         }
-        .onChange(of: focusRequest) { _ in fieldFocused = true }
+        .onChange(of: focusRequest) { fieldFocused = true }
     }
 
     // MARK: Field

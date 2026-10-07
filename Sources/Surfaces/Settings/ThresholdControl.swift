@@ -95,10 +95,10 @@ struct ThresholdControl: View {
             if draft.text.isEmpty, !isNever { draft.text = String(Int((selection / 60).rounded())) }
             focusIfWanted()
         }
-        .onChange(of: wantsFocus.value) { _ in focusIfWanted() }
+        .onChange(of: wantsFocus.value) { focusIfWanted() }
         // A refusal belongs to the text that earned it.
-        .onChange(of: draft.text) { _ in rejected.value = false }
-        .onChange(of: fieldFocused) { focused in
+        .onChange(of: draft.text) { rejected.value = false }
+        .onChange(of: fieldFocused) { _, focused in
             // Leaving an empty field, or one already refused, is not a new answer.
             if !focused, !rejected.value, !draft.text.trimmingCharacters(in: .whitespaces).isEmpty {
                 apply()

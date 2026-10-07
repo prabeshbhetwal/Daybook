@@ -162,7 +162,7 @@ struct AwayAnswerGrid: View {
                 .accessibilityLabel("Answer not saved")
             }
         }
-        .onChange(of: range?.start) { _ in reason.text = "" }
+        .onChange(of: range?.start) { reason.text = "" }
         .announcesChanges(to: error.map { "Answer not saved. \($0)" })
     }
 

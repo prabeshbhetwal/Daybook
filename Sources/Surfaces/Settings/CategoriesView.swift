@@ -207,7 +207,7 @@ struct CategoriesView: View {
                 }
                 if editor.selectedID != nil { editorForm.id(Self.editorID) }
             }
-            .onChange(of: editor.focusRequest) { _ in
+            .onChange(of: editor.focusRequest) {
                 // The form opens under the whole list, out of sight.
                 DispatchQueue.main.async {
                     withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) {
@@ -217,7 +217,7 @@ struct CategoriesView: View {
             }
         }
         .onAppear(perform: consumeRequest)
-        .onChange(of: request) { _ in consumeRequest() }
+        .onChange(of: request) { consumeRequest() }
     }
 
     private func consumeRequest() {
@@ -322,7 +322,7 @@ struct CategoryEditorForm: View {
                     TextField("Category name", text: $editor.name)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 280)
-                        .onChange(of: editor.name) { value in
+                        .onChange(of: editor.name) { _, value in
                             if value.count > WorkTypeDefinition.nameLimit {
                                 editor.name = String(value.prefix(WorkTypeDefinition.nameLimit))
                             }
@@ -407,7 +407,7 @@ struct CategoryEditorForm: View {
                     value: OpenInlineForm(name: "category", cancel: onFinished))
         .announcesChanges(to: editor.validationMessage)
         .onAppear(perform: takeFocusIfAsked)
-        .onChange(of: editor.focusRequest) { _ in takeFocusIfAsked() }
+        .onChange(of: editor.focusRequest) { takeFocusIfAsked() }
     }
 
     private func takeFocusIfAsked() {
@@ -598,7 +598,7 @@ struct CategoryEditorForm: View {
                 .labelsHidden()
                 .fixedSize()
                 .accessibilityLabel("Shape")
-                .onChange(of: editor.glyphStyle) { _ in
+                .onChange(of: editor.glyphStyle) {
                     // The shape changed under a chosen letter: re-cut it.
                     if !editor.glyphText.isEmpty { editor.acceptGlyph() }
                 }

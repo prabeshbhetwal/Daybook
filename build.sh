@@ -11,7 +11,7 @@ PROMOTION_ROOT="${PROJECT_DIR}/.build"
 PROMOTION_LOCK="${PROMOTION_ROOT}/promotion.lock"
 CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.$$"
 BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup.$$"
-DEPLOYMENT_TARGET="13.0"
+DEPLOYMENT_TARGET="14.0"
 TARGET_TRIPLE="$(uname -m)-apple-macos${DEPLOYMENT_TARGET}"
 # Raised by scripts/release.sh for each release. The build number must grow:
 # it is what the updater compares.

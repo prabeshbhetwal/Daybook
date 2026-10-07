@@ -200,7 +200,7 @@ struct HistoryPeriodRail: View {
             if isCurrentMonth { soFar(surface) }
         }
         .onAppear { store.setInsightsVisible(isCurrentMonth) }
-        .onChange(of: isCurrentMonth) { store.setInsightsVisible($0) }
+        .onChange(of: isCurrentMonth) { _, isCurrent in store.setInsightsVisible(isCurrent) }
         .onDisappear { store.setInsightsVisible(false) }
     }
 

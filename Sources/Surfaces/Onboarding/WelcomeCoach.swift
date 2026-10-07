@@ -173,12 +173,12 @@ struct WelcomeCoachCard: View {
             readerOnCard = true
             takeFocus()
         }
-        .onChange(of: progress) { _ in
+        .onChange(of: progress) {
             listShown.value = false
             announce()
             takeFocus()
         }
-        .onChange(of: listShown.value) { shown in
+        .onChange(of: listShown.value) { _, shown in
             focus = shown ? .chapter(progress.chapter) : .forward
         }
     }

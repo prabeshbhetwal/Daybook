@@ -391,8 +391,11 @@ final class SessionStore: ObservableObject {
              !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty
          },
          activateApplication: @escaping (String, Bool) -> Void = { bundleID, ignoringOtherApps in
+             // `.activateIgnoringOtherApps` is deprecated in macOS 14 (documented as having
+             // no effect). Its raw value keeps this call exactly as it was, without the warning.
+             let ignoreOtherApps = NSApplication.ActivationOptions(rawValue: 1 << 1)
              NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?
-                 .activate(options: ignoringOtherApps ? .activateIgnoringOtherApps : [])
+                 .activate(options: ignoringOtherApps ? ignoreOtherApps : [])
          },
          now: @escaping () -> Date = Date.init,
          idle: IdleMonitor = IdleMonitor()) {

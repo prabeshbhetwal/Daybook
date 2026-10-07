@@ -132,7 +132,7 @@ struct CategoryEditorPanelView: View {
         .background(Tokens.Colour.ground)
         .tint(Tokens.Colour.focus)
         .onAppear(perform: consumeTicket)
-        .onChange(of: panelModel.ticket) { _ in consumeTicket() }
+        .onChange(of: panelModel.ticket) { consumeTicket() }
     }
 
     private func consumeTicket() {

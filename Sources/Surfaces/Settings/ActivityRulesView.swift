@@ -92,7 +92,7 @@ struct ActivityRulesView: View {
     var body: some View {
         ScrollViewReader { proxy in
             content
-                .onChange(of: editor.focusRequest) { _ in
+                .onChange(of: editor.focusRequest) {
                     // The form opens below the list, often out of sight.
                     DispatchQueue.main.async {
                         withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) {
@@ -399,7 +399,7 @@ struct ActivityRuleForm: View {
                     value: OpenInlineForm(name: "rule", cancel: { editor.close() }))
         .announcesChanges(to: editor.validationMessage)
         .onAppear(perform: takeFocusIfAsked)
-        .onChange(of: editor.focusRequest) { _ in takeFocusIfAsked() }
+        .onChange(of: editor.focusRequest) { takeFocusIfAsked() }
     }
 
     private func save() {

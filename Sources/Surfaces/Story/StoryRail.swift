@@ -114,9 +114,9 @@ struct StoryRail: View {
         }
         .padding(StoryStyle.railInsets(for: density))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .onChange(of: store.dayOffset) { _ in selectedApp.text = "" }
-        .onChange(of: day) { _ in selectedApp.text = "" }
-        .onChange(of: settings.storyTileOrder) { arrangement.synchronise($0) }
+        .onChange(of: store.dayOffset) { selectedApp.text = "" }
+        .onChange(of: day) { selectedApp.text = "" }
+        .onChange(of: settings.storyTileOrder) { _, order in arrangement.synchronise(order) }
         .onAppear { arrangement.synchronise(settings.storyTileOrder) }
         .onExitCommand { arrangement.escape() }
     }

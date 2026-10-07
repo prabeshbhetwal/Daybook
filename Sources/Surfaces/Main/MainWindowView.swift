@@ -81,7 +81,7 @@ struct MainWindowView: View {
         // The native sheet is presented outside this reader; it sizes itself
         // to the window it will cover from the size noted here.
         .onAppear { windowSize.value = geometry.size }
-        .onChange(of: geometry.size) { windowSize.value = $0 }
+        .onChange(of: geometry.size) { _, newSize in windowSize.value = newSize }
       }
         .frame(minWidth: 980, minHeight: 680)
         .background(StoryStyle.canvas)
@@ -99,7 +99,7 @@ struct MainWindowView: View {
             navigation.connect(to: store)
             firstRun.observe(coachSignals)
         }
-        .onChange(of: coachSignals) { firstRun.observe($0) }
+        .onChange(of: coachSignals) { _, signals in firstRun.observe(signals) }
         .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
             sheetContent(presented, within: windowSize.value == .zero ? nil : windowSize.value)

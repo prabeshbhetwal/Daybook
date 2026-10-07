@@ -72,7 +72,7 @@ struct StoryChromeBar: View {
                    value: navigation.workspace)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Toolbar")
-        .onChange(of: navigation.focusRestorationRequest) { target in
+        .onChange(of: navigation.focusRestorationRequest) { _, target in
             guard let target else { return }
             switch target {
             case .sessionControls:
@@ -82,7 +82,7 @@ struct StoryChromeBar: View {
             }
             navigation.consumeFocusRestorationRequest()
         }
-        .onChange(of: intentFocused) { if $0 { navigation.noteActivityFieldEngaged() } }
+        .onChange(of: intentFocused) { _, focused in if focused { navigation.noteActivityFieldEngaged() } }
     }
 
     /// The way back, in a slot that exists in every workspace. "‹ Story" used

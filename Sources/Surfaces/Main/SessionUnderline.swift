@@ -71,7 +71,7 @@ struct ActivityQuietChoiceView: View {
         // It arrives on its own, between whatever else is on screen; said
         // aloud, a listener knows there is a question to answer.
         .onAppear { announce() }
-        .onChange(of: choice.id) { _ in announce() }
+        .onChange(of: choice.id) { announce() }
     }
 
     private func announce() {

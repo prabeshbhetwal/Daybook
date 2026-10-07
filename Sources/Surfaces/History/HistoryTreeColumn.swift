@@ -49,7 +49,7 @@ struct HistoryTree: View {
             Divider()
             ScrollViewReader { proxy in
                 pane { content(searched: searched, lens: lens, insets: insets) }
-                    .onChange(of: navigation.historyScrollRequest) { _ in
+                    .onChange(of: navigation.historyScrollRequest) {
                         treeFocused = true
                         guard let target = navigation.historyScrollTarget else { return }
                         // A frame later, once the rows that opened or folded are
@@ -70,7 +70,7 @@ struct HistoryTree: View {
         .onAppear { navigation.prepareHistory() }
         // Midnight re-clips the rows holding today, and a longer record can
         // step the top up: the open path is re-read as the rows now drawn.
-        .onChange(of: store.historyTop()) { _ in navigation.reconcileHistory() }
+        .onChange(of: store.historyTop()) { navigation.reconcileHistory() }
         .storyRenderEvidence(isEmptyArchive ? .historyEmpty : .historyTree)
     }
 

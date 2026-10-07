@@ -136,7 +136,7 @@ struct ActivityEditorPanelView: View {
         .background(Tokens.Colour.ground)
         .tint(Tokens.Colour.focus)
         .onAppear(perform: consume)
-        .onChange(of: model.ticket) { _ in consume() }
+        .onChange(of: model.ticket) { consume() }
     }
 
     private func consume() {

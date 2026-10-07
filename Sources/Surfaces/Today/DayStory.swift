@@ -151,19 +151,19 @@ struct DayStory: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: openInitialEntries)
-        .onChange(of: store.dayOffset) { _ in
+        .onChange(of: store.dayOffset) {
             opened.ids.removeAll()
             openInitialEntries()
         }
-        .onChange(of: projection?.id) { _ in
+        .onChange(of: projection?.id) {
             opened.ids.removeAll()
             openInitialEntries()
         }
-        .onChange(of: expandsDetails) { _ in
+        .onChange(of: expandsDetails) {
             opened.ids.removeAll()
             openInitialEntries()
         }
-        .onChange(of: store.engine.activeThreadID) { _ in openRunningEntry() }
+        .onChange(of: store.engine.activeThreadID) { openRunningEntry() }
     }
 
     /// A run of quiet intervals as one row. Open, it shows every original row
