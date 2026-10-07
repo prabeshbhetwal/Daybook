@@ -6,23 +6,23 @@ import SwiftUI
 /// sidebar beside a reading measure, and as tall as the smallest window
 /// allows with a margin around it.
 enum SettingsLayout {
-    static let sheetWidth: CGFloat = 1_000
-    static let sidebarWidth: CGFloat = 196
-    static let detailMeasure: CGFloat = 720
-    static let sheetHeight: CGFloat = 720
-    static let sheetMaximumHeight: CGFloat = 740
+    static var sheetWidth: CGFloat { 1_000.zoomed }
+    static var sidebarWidth: CGFloat { 196.zoomed }
+    static var detailMeasure: CGFloat { 720.zoomed }
+    static var sheetHeight: CGFloat { 720.zoomed }
+    static var sheetMaximumHeight: CGFloat { 740.zoomed }
     /// Room kept to the window's edge when the window is smaller than the
     /// sheet would like to be.
-    static let windowMargin: CGFloat = 40
+    static var windowMargin: CGFloat { 40.zoomed }
 
     /// The sheet wants its full size; a smaller window gets a sheet that
     /// fits it, never one that runs off the edge.
     static func sheetSize(for kind: StorySheetKind, within window: CGSize?) -> CGSize {
         let wanted = kind == .settings ? CGSize(width: sheetWidth, height: sheetHeight)
-                                       : CGSize(width: 880, height: 570)
+                                       : CGSize(width: 880.zoomed, height: 570.zoomed)
         guard let window else { return wanted }
-        return CGSize(width: min(wanted.width, max(600, window.width - windowMargin * 2)),
-                      height: min(wanted.height, max(420, window.height - windowMargin * 2)))
+        return CGSize(width: min(wanted.width, max(600.zoomed, window.width - windowMargin * 2)),
+                      height: min(wanted.height, max(420.zoomed, window.height - windowMargin * 2)))
     }
 
     static func sheetHeight(section: SettingsSection, query: String) -> CGFloat {
@@ -90,7 +90,7 @@ struct SettingsView: View {
                 .font(Tokens.Typography.control)
         }
         .padding(.horizontal, Tokens.Space.s)
-        .frame(height: 30)
+        .frame(height: 30.zoomed)
         .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: Tokens.Radius.well,
                                                            style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
@@ -104,7 +104,7 @@ struct SettingsView: View {
         let query = navigation.settingsQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let sections = page.sections(matching: navigation.settingsQuery)
         let detail = VStack(alignment: .leading, spacing: Tokens.Space.l) {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 3.zoomed) {
                 Text(query.isEmpty ? page.title : "\(page.title) · matching “\(query)”")
                     .font(Tokens.Typography.title)
                     .accessibilityAddTraits(.isHeader)

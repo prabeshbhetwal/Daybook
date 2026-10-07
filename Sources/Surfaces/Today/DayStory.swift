@@ -100,8 +100,8 @@ struct DayStory: View {
     @Environment(\.focusShowsTimelineLabels) private var showsTimes
 
     /// The gutter that carries the clock times, and the rule beside it.
-    private let timeColumn: CGFloat = 62
-    private let railColumn: CGFloat = 22
+    private var timeColumn: CGFloat { 62.zoomed }
+    private var railColumn: CGFloat { 22.zoomed }
 
     private var moments: [StoryMoment] {
         (projection?.chronology ?? store.storyTimelineItems).compactMap { item in
@@ -173,7 +173,7 @@ struct DayStory: View {
         let key = "quiet-" + run.id
         let isOpen = opened.ids.contains(key)
         storyRow(time: run.moments.first?.start ?? store.selectedDay,
-                 tint: .secondary, dotSize: 5, isFirst: isFirst, isLast: isLast) {
+                 tint: .secondary, dotSize: 5.zoomed, isFirst: isFirst, isLast: isLast) {
             Button { toggle(key) } label: {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                     Text(run.summary)
@@ -185,7 +185,7 @@ struct DayStory: View {
                         .foregroundStyle(.secondary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
-                .padding(.vertical, 10)
+                .padding(.vertical, 10.zoomed)
                 .contentShape(Rectangle())
             }
             .buttonStyle(StoryPressStyle(hovers: true))
@@ -215,17 +215,17 @@ struct DayStory: View {
                     // The stretch before the hole says why it ended, when it
                     // ended for input or the lock screen.
                     let title = reason.title
-                    storyRow(time: span.start, tint: .secondary, dotSize: 5,
+                    storyRow(time: span.start, tint: .secondary, dotSize: 5.zoomed,
                              isFirst: isFirst, isLast: isLast) {
                         HStack(alignment: .firstTextBaseline) {
                             // Nothing was recorded but the Mac's power, which
                             // is the one thing the row can honestly add.
                             Text(title + (power.map { " · \($0.headline)" } ?? ""))
-                            Spacer(minLength: 8)
+                            Spacer(minLength: Tokens.Space.s)
                             Text(durations: Tokens.duration(span.duration)).monospacedDigit()
                         }
                         .font(Tokens.Typography.body).foregroundStyle(.secondary)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 10.zoomed)
                         .help(reason.explanation ?? "")
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel("\(title), \(Tokens.timeRange(span.start, span.end)). "
@@ -234,7 +234,7 @@ struct DayStory: View {
                                             + "This interval is not assumed to be work or rest.")
                     }
                 case .appUse(let span, let seconds):
-                    storyRow(time: span.start, tint: Tokens.Palette.app(rank: 1), dotSize: 7,
+                    storyRow(time: span.start, tint: Tokens.Palette.app(rank: 1), dotSize: 7.zoomed,
                              isFirst: isFirst, isLast: isLast) {
                         StoryLooseAppUse(store: store, span: span, seconds: seconds,
                                          isOpen: opened.ids.contains(item.id),
@@ -244,7 +244,7 @@ struct DayStory: View {
         case .pending(let range):
             if let away = store.pendingAway {
                 let expectedID = store.engine.pendingDecisionID
-                storyRow(time: range.start, tint: Tokens.Colour.attention, dotSize: 9,
+                storyRow(time: range.start, tint: Tokens.Colour.attention, dotSize: 9.zoomed,
                          isFirst: isFirst, isLast: isLast) {
                     AwayEntryCard(away: away, range: store.pendingAwayRange, note: store.continuationNote,
                                   error: store.pendingAwaySaveError,
@@ -259,11 +259,11 @@ struct DayStory: View {
             storyRow(time: range.start,
                      tint: isBreak ? Tokens.Palette.workType(.breakTime)
                          : receipt.isResolved ? StoryStyle.successInk : Tokens.Colour.attention,
-                     dotSize: isBreak ? 7 : 8, isFirst: isFirst, isLast: isLast) {
+                     dotSize: isBreak ? 7.zoomed : 8.zoomed, isFirst: isFirst, isLast: isLast) {
                 StoryDecisionRow(store: store, receipt: receipt, range: range)
             }
         case .correction(let id, let title, let range):
-            storyRow(time: range.start, tint: StoryStyle.successInk, dotSize: 8,
+            storyRow(time: range.start, tint: StoryStyle.successInk, dotSize: 8.zoomed,
                      isFirst: isFirst, isLast: isLast) {
                 StorySavedActionRow(title: title, range: range,
                                     scopeNote: store.correctionScopeNote(expectedID: id)) {
@@ -315,7 +315,7 @@ struct DayStory: View {
                 interval: DateInterval(start: session.start, end: max(session.start, session.end)))
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
-                     dotSize: session.isRunning ? 13 : 11,
+                     dotSize: session.isRunning ? 13.zoomed : 11.zoomed,
                      isFirst: isFirst, isLast: isLast) {
                 SessionEntryCard(session: session,
                                  apps: detail?.apps ?? [],
@@ -351,7 +351,7 @@ struct DayStory: View {
         case .rest(let rest):
             storyRow(time: rest.start,
                      tint: Tokens.Palette.workType(.breakTime),
-                     dotSize: 7,
+                     dotSize: 7.zoomed,
                      isFirst: isFirst, isLast: isLast) {
                 StoryBreakRow(store: store, rest: rest).equatable()
             }
@@ -388,7 +388,7 @@ struct DayStory: View {
     /// rather than running into the page.
     /// Where every dot's centre sits below the row's top, and the line the
     /// time label is centred on.
-    static let dotCentre: CGFloat = 19
+    static var dotCentre: CGFloat { 19.zoomed }
 
     private func rail(tint: Color, dotSize: CGFloat, isFirst: Bool, isLast: Bool) -> some View {
         GeometryReader { geometry in
@@ -396,18 +396,18 @@ struct DayStory: View {
             ZStack(alignment: .top) {
                 Rectangle()
                     .fill(Tokens.Colour.line)
-                    .frame(width: 2)
+                    .frame(width: 2.zoomed)
                     .padding(.top, isFirst ? dotCentre : 0)
                     .padding(.bottom, isLast ? max(0, geometry.size.height - dotCentre) : 0)
                 Circle()
                     .fill(tint)
                     .frame(width: dotSize, height: dotSize)
                     .background(Circle().fill(StoryStyle.canvas)
-                        .frame(width: dotSize + 6, height: dotSize + 6))
+                        .frame(width: dotSize + 6.zoomed, height: dotSize + 6.zoomed))
                     .background {
-                        if dotSize >= 13 {
+                        if dotSize >= 13.zoomed {
                             Circle().fill(tint.opacity(0.16))
-                                .frame(width: dotSize + 12, height: dotSize + 12)
+                                .frame(width: dotSize + 12.zoomed, height: dotSize + 12.zoomed)
                         }
                     }
                     .offset(y: dotCentre - dotSize / 2)
@@ -512,15 +512,15 @@ struct SessionEntryCard: View {
                                 Color.clear.preference(key: TitleWidthKey.self, value: proxy.size.width)
                             })
                             // Room for the pencil beside a long name.
-                            .padding(.trailing, isOpen && (onRename != nil || onWorkType != nil) ? 30 : 0)
+                            .padding(.trailing, isOpen && (onRename != nil || onWorkType != nil) ? 30.zoomed : 0)
                         HStack(spacing: Tokens.Space.s) {
                             // An unnamed session is titled by its category already.
                             if !session.name.isEmpty {
                                 Text(session.workType.displayName)
                                     .font(Tokens.Typography.caption)
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 2)
-                                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                                    .padding(.horizontal, 7.zoomed)
+                                    .padding(.vertical, 2.zoomed)
+                                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5.zoomed))
                                     .foregroundStyle(StoryStyle.workTypeInk(session.workType))
                             }
                             Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
@@ -570,7 +570,7 @@ struct SessionEntryCard: View {
                         }
                         .buttonStyle(StoryPressStyle(hovers: true,
                                                      cornerRadius: AccessibilityMetrics.minimumTargetSize / 2))
-                        .offset(x: insets.leading + titleWidth.value + Tokens.Space.xs - 3, y: insets.top - 4)
+                        .offset(x: insets.leading + titleWidth.value + Tokens.Space.xs - 3.zoomed, y: insets.top - 4.zoomed)
                         .help(editing.value ? "Done editing" : "Rename or change the category")
                         .accessibilityLabel(editing.value ? "Done editing" : "Edit name and category")
                         .focused($renameActionFocused)
@@ -579,7 +579,7 @@ struct SessionEntryCard: View {
                 Button(action: onToggle) {
                     HStack(alignment: .top, spacing: Tokens.Space.m) {
                         Spacer(minLength: Tokens.Space.s)
-                        VStack(alignment: .trailing, spacing: 2) {
+                        VStack(alignment: .trailing, spacing: 2.zoomed) {
                             // Live, the clock is ClockText: its seconds change every
                             // second and, under the numeric transition, each change
                             // kept its glyphs (see ClockText). A finished total changes
@@ -619,8 +619,8 @@ struct SessionEntryCard: View {
                     in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
             .strokeBorder(clock != nil ? tint.opacity(0.30) : Tokens.Colour.line,
-                          lineWidth: clock != nil ? 1.5 : 1))
-        .shadow(color: .black.opacity(0.025), radius: 2, y: 1)
+                          lineWidth: clock != nil ? 1.5.zoomed : 1))
+        .shadow(color: .black.opacity(0.025), radius: 2.zoomed, y: 1)
         .accessibilityElement(children: .contain)
     }
 
@@ -642,7 +642,7 @@ struct SessionEntryCard: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Divider()
             if clock != nil {
-                HStack(alignment: .center, spacing: 20) {
+                HStack(alignment: .center, spacing: 20.zoomed) {
                     // With detail loaded and nothing to add (recording off:
                     // the day's banner says so), the line stays empty rather
                     // than promising recording that will not come.
@@ -653,13 +653,13 @@ struct SessionEntryCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if showsActivityStrip, let activity {
                         StoryShapeChart(activity: activity, appColourIndices: appColourIndices,
-                                        height: 28, compact: true)
-                            .frame(width: 130)
+                                        height: 28.zoomed, compact: true)
+                            .frame(width: 130.zoomed)
                     }
                 }
                 reportLink()
             } else {
-                HStack(alignment: .top, spacing: 20) {
+                HStack(alignment: .top, spacing: 20.zoomed) {
                     appsDetail.frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
                     if showsActivityStrip {
                         activityDetail.frame(minWidth: 0, maxWidth: .infinity, alignment: .topLeading)
@@ -671,12 +671,12 @@ struct SessionEntryCard: View {
             actions
             metadataDetail
         }
-        .padding(.horizontal, 15)
-        .padding(.bottom, 13)
+        .padding(.horizontal, 15.zoomed)
+        .padding(.bottom, 13.zoomed)
     }
 
     private var appsDetail: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 6.zoomed) {
             if !apps.isEmpty {
                 sectionLabel("Apps in this stretch")
                 ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
@@ -714,7 +714,7 @@ struct SessionEntryCard: View {
     }
 
     private var activityDetail: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
             sectionLabel("App activity")
             if let activity {
                 StoryShapeChart(activity: activity, appColourIndices: appColourIndices)
@@ -751,7 +751,7 @@ struct SessionEntryCard: View {
     /// record, so only the actions the record can actually carry are offered.
     @ViewBuilder private var actions: some View {
         if onRename != nil || onWorkType != nil || onContinue != nil || noteTargetID != nil {
-            Color.clear.frame(height: 2)
+            Color.clear.frame(height: 2.zoomed)
             if editing.value {
                 // Name and category together: what the pencil opened.
                 VStack(alignment: .leading, spacing: Tokens.Space.s) {
@@ -835,7 +835,7 @@ struct SessionEntryCard: View {
                         Text(note).font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 4)
+                        Spacer(minLength: Tokens.Space.xs)
                         Button { metadataStore.beginNoteEditing(for: recordID) } label: {
                             Text("Edit")
                                 .frame(minWidth: AccessibilityMetrics.minimumTargetSize,

@@ -7,10 +7,10 @@ struct WorkTypeChip: View {
     var body: some View {
         Text(workType.displayName)
             .font(Tokens.Typography.caption)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
+            .padding(.horizontal, 7.zoomed)
+            .padding(.vertical, 2.zoomed)
             .background(Tokens.Palette.workType(workType).opacity(0.14),
-                        in: RoundedRectangle(cornerRadius: 5))
+                        in: RoundedRectangle(cornerRadius: 5.zoomed))
             .foregroundStyle(StoryStyle.workTypeInk(workType))
             .accessibilityHidden(true)
     }

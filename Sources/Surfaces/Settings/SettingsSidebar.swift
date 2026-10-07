@@ -218,16 +218,16 @@ struct SettingsSidebarList: View {
     @FocusState private var focused: SettingsPage?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2.zoomed) {
             ForEach(pages) { page in
                 Button { selected = page } label: {
                     HStack(spacing: Tokens.Space.s) {
                         Image(systemName: page.symbol)
                             .font(Tokens.Typography.label)
                             .foregroundStyle(page.glyphColour)
-                            .frame(width: 24, height: 24)
+                            .frame(width: 24.zoomed, height: 24.zoomed)
                             .background(Tokens.Palette.hue(page.hue),
-                                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                        in: RoundedRectangle(cornerRadius: 6.zoomed, style: .continuous))
                             .accessibilityHidden(true)
                         Text(page.title)
                             .font(Tokens.Typography.control.weight(selected == page ? .semibold : .regular))
@@ -235,7 +235,7 @@ struct SettingsSidebarList: View {
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, Tokens.Space.s)
-                    .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+                    .frame(maxWidth: .infinity, minHeight: 34.zoomed, alignment: .leading)
                     .background(selected == page ? StoryStyle.well : Color.clear,
                                 in: RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous))
                     .contentShape(Rectangle())

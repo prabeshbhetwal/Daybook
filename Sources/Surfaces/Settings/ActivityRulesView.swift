@@ -196,7 +196,7 @@ struct ActivityRuleCard: View {
             Button(action: onEdit) {
                 HStack(spacing: Tokens.Space.m) {
                     iconStrip
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 3.zoomed) {
                         HStack(spacing: Tokens.Space.s) {
                             Text(rule.name)
                                 .font(Tokens.Typography.rowTitle)
@@ -255,28 +255,28 @@ struct ActivityRuleCard: View {
 
     /// Up to four icons, overlapping like a stack of cards.
     private var iconStrip: some View {
-        HStack(spacing: -6) {
+        HStack(spacing: -6.zoomed) {
             ForEach(Array(ruleApps.prefix(4).enumerated()), id: \.element.id) { index, app in
                 Group {
                     if let url = app.url {
-                        Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 26))
+                        Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 26.zoomed))
                             .resizable()
                     } else {
                         Image(systemName: "app.dashed")
                             .resizable()
                             .foregroundStyle(.tertiary)
-                            .padding(4)
+                            .padding(Tokens.Space.xs)
                     }
                 }
-                .frame(width: 26, height: 26)
-                .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .frame(width: 26.zoomed, height: 26.zoomed)
+                .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: 6.zoomed, style: .continuous))
                 .zIndex(Double(4 - index))
             }
             if ruleApps.count > 4 {
                 Text("+\(ruleApps.count - 4)")
                     .font(Tokens.Typography.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.leading, 10)
+                    .padding(.leading, 10.zoomed)
             }
         }
         // Only the pictures fade for an off rule: the words beside them stay
@@ -341,12 +341,12 @@ struct ActivityRuleForm: View {
                         Text("Custom…").tag(-1.0)
                     }
                     .labelsHidden()
-                    .frame(width: 130)
+                    .frame(width: 130.zoomed)
                     if editor.dwell == -1 {
-                        HStack(spacing: 4) {
+                        HStack(spacing: Tokens.Space.xs) {
                             TextField("30 to 1800", text: $editor.customDwell)
                                 .textFieldStyle(.roundedBorder)
-                                .frame(width: 96)
+                                .frame(width: 96.zoomed)
                                 .onSubmit(save)
                                 .accessibilityLabel("Start after, whole seconds")
                             Text("seconds")
@@ -431,10 +431,10 @@ struct ActivityRuleForm: View {
                         Button {
                             editor.bundleIDs.remove(id)
                         } label: {
-                            HStack(spacing: 4) {
+                            HStack(spacing: Tokens.Space.xs) {
                                 if let url = app?.url {
-                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 14))
-                                        .resizable().frame(width: 14, height: 14)
+                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 14.zoomed))
+                                        .resizable().frame(width: 14.zoomed, height: 14.zoomed)
                                 }
                                 Text(app?.name ?? id).lineLimit(1)
                                 Image(systemName: "xmark")
@@ -443,10 +443,10 @@ struct ActivityRuleForm: View {
                             }
                             .font(Tokens.Typography.body)
                             .padding(.horizontal, Tokens.Space.s)
-                            .frame(minHeight: 26)
+                            .frame(minHeight: 26.zoomed)
                             .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
                         }
-                        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 13))
+                        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 13.zoomed))
                         .accessibilityLabel("Remove \(app?.name ?? id) from this activity")
                     }
                 }
@@ -469,10 +469,10 @@ struct ActivityRuleForm: View {
                         Button {
                             editor.bundleIDs.insert(app.bundleID)
                         } label: {
-                            HStack(spacing: 4) {
+                            HStack(spacing: Tokens.Space.xs) {
                                 if let url = app.url {
-                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 14))
-                                        .resizable().frame(width: 14, height: 14)
+                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 14.zoomed))
+                                        .resizable().frame(width: 14.zoomed, height: 14.zoomed)
                                 }
                                 Text(app.name).lineLimit(1)
                                 Image(systemName: "plus")
@@ -481,11 +481,11 @@ struct ActivityRuleForm: View {
                             }
                             .font(Tokens.Typography.body)
                             .padding(.horizontal, Tokens.Space.s)
-                            .frame(minHeight: 26)
+                            .frame(minHeight: 26.zoomed)
                             .background(Tokens.Colour.elevated, in: Capsule())
                             .overlay(Capsule().strokeBorder(Tokens.Colour.line))
                         }
-                        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 13))
+                        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 13.zoomed))
                         .accessibilityLabel("Add \(app.name) to this activity")
                     }
                 }
@@ -542,7 +542,7 @@ struct InstalledAppPicker: View {
                     .accessibilityLabel("Refresh installed applications")
             }
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
+                LazyVStack(alignment: .leading, spacing: 2.zoomed) {
                     ForEach(filtered) { application in
                         let isOn = selection.contains(application.bundleID)
                         Button {
@@ -554,15 +554,15 @@ struct InstalledAppPicker: View {
                                     .font(Tokens.Typography.control)
                                     .foregroundStyle(isOn ? AnyShapeStyle(Tokens.Colour.focus)
                                                           : AnyShapeStyle(.secondary))
-                                    .frame(width: 18)
+                                    .frame(width: 18.zoomed)
                                 if let url = application.url {
-                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 22))
-                                        .resizable().frame(width: 22, height: 22)
+                                    Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 22.zoomed))
+                                        .resizable().frame(width: 22.zoomed, height: 22.zoomed)
                                         .accessibilityHidden(true)
                                 } else {
                                     Image(systemName: "app.dashed")
                                         .foregroundStyle(.tertiary)
-                                        .frame(width: 22, height: 22)
+                                        .frame(width: 22.zoomed, height: 22.zoomed)
                                 }
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(application.displayName)
@@ -573,7 +573,7 @@ struct InstalledAppPicker: View {
                                 Spacer(minLength: 0)
                             }
                             .padding(.horizontal, Tokens.Space.s)
-                            .frame(minHeight: 34)
+                            .frame(minHeight: 34.zoomed)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.control))
@@ -584,7 +584,7 @@ struct InstalledAppPicker: View {
                     }
                 }
             }
-            .frame(minHeight: 120, maxHeight: 220)
+            .frame(minHeight: 120.zoomed, maxHeight: 220.zoomed)
             .padding(.vertical, Tokens.Space.xs)
             .background(StoryStyle.well.opacity(0.5),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))

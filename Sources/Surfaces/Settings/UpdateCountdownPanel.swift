@@ -112,7 +112,7 @@ private struct UpdateCountdownView: View {
             }
         }
         .padding(Tokens.Space.xl)
-        .frame(width: 380)
+        .frame(width: 380.zoomed)
     }
 
     private func message(at date: Date) -> String {

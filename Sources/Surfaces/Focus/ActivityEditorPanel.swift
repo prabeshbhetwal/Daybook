@@ -15,7 +15,7 @@ final class ActivityEditorPanelModel: ObservableObject {
     private var panel: NSPanel?
     private var closeObserver: NSObjectProtocol?
     private let model = ActivityEditorPanelModel()
-    static let width: CGFloat = 460
+    static var width: CGFloat { 460.zoomed }
 
     var isVisible: Bool { panel?.isVisible ?? false }
     var title: String? { panel?.title }
@@ -51,7 +51,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         let content = ActivityEditorPanelView(store: store, model: model, onClose: { [weak self] in self?.close() })
         let hosting = NSHostingView(rootView: content)
         hosting.sizingOptions = [.preferredContentSize]
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: ActivityEditorPanel.width, height: 420),
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: ActivityEditorPanel.width, height: 420.zoomed),
                             styleMask: [.titled, .closable, .fullSizeContentView, .utilityWindow],
                             backing: .buffered, defer: false)
         panel.contentView = hosting
@@ -159,7 +159,7 @@ struct ActivityEditorPanelView: View {
                 ForEach(Array(store.savedActivities.enumerated()), id: \.element.id) { index, item in
                     row(item)
                     if index < store.savedActivities.count - 1 {
-                        Divider().padding(.leading, 52)
+                        Divider().padding(.leading, 52.zoomed)
                     }
                 }
             }
@@ -174,7 +174,7 @@ struct ActivityEditorPanelView: View {
         let retired = !WorkType.startable.contains(item.workType)
         return Button { editor.edit(item) } label: {
             HStack(spacing: Tokens.Space.m) {
-                WorkTypeMark(workType: item.workType, size: 28)
+                WorkTypeMark(workType: item.workType, size: 28.zoomed)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(item.name)
                         .font(Tokens.Typography.rowTitle)
@@ -188,7 +188,7 @@ struct ActivityEditorPanelView: View {
                     .foregroundStyle(selected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.secondary))
             }
             .padding(.horizontal, Tokens.Space.m)
-            .frame(minHeight: 44)
+            .frame(minHeight: 44.zoomed)
             .background(selected ? StoryStyle.well : Color.clear)
             .contentShape(Rectangle())
         }
@@ -210,18 +210,18 @@ struct ActivityEditorPanelView: View {
                 ForEach(store.recentActivities.prefix(6)) { quick in
                     Button { _ = store.pinActivity(quick) } label: {
                         HStack(spacing: Tokens.Space.xs) {
-                            WorkTypeMark(workType: quick.workType, size: 20)
+                            WorkTypeMark(workType: quick.workType, size: 20.zoomed)
                             Text(quick.name)
                                 .font(Tokens.Typography.body)
                                 .lineLimit(1)
                         }
-                        .padding(.leading, 4)
+                        .padding(.leading, Tokens.Space.xs)
                         .padding(.trailing, Tokens.Space.m)
-                        .frame(minHeight: 28)
+                        .frame(minHeight: 28.zoomed)
                         .background(Tokens.Colour.elevated, in: Capsule())
                         .contentShape(Capsule())
                     }
-                    .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14))
+                    .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14.zoomed))
                     .help("Pin \(quick.name)")
                     .accessibilityLabel("Pin \(quick.name)")
                 }
@@ -236,7 +236,7 @@ struct ActivityEditorPanelView: View {
         let isNew = existing == nil
         return VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HStack(spacing: Tokens.Space.m) {
-                WorkTypeMark(workType: editor.workType, size: 44)
+                WorkTypeMark(workType: editor.workType, size: 44.zoomed)
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     HStack(spacing: Tokens.Space.s) {
                         Text(isNew ? "Pin an activity" : "Editing a pinned activity")
@@ -250,7 +250,7 @@ struct ActivityEditorPanelView: View {
                     }
                     TextField("Activity name", text: $editor.name)
                         .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 260)
+                        .frame(maxWidth: 260.zoomed)
                         .onSubmit(save)
                         .accessibilityLabel("Activity name")
                 }

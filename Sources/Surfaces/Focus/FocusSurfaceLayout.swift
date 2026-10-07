@@ -4,7 +4,7 @@ import SwiftUI
 /// quiet space around it supports concentration and is never filled with
 /// secondary metrics or charts, in any session state.
 enum FocusSurfaceLayout {
-    static let operationalMeasure: CGFloat = 760
+    static var operationalMeasure: CGFloat { 760.zoomed }
 
     static func permitsSupportingReport(state: SessionState) -> Bool { false }
 }

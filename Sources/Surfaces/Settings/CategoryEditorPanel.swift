@@ -21,7 +21,7 @@ final class CategoryEditorPanelModel: ObservableObject {
     /// is the caller's.
     private var onSaved: ((WorkTypeDefinition, Bool) -> Void)?
 
-    static let width: CGFloat = 520
+    static var width: CGFloat { 520.zoomed }
 
     var isVisible: Bool { panel?.isVisible ?? false }
     var title: String? { panel?.title }
@@ -69,7 +69,7 @@ final class CategoryEditorPanelModel: ObservableObject {
             onSaved: { [weak self] definition, wasNew in self?.onSaved?(definition, wasNew) })
         let hosting = NSHostingView(rootView: content)
         hosting.sizingOptions = [.preferredContentSize]
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: CategoryEditorPanel.width, height: 600),
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: CategoryEditorPanel.width, height: 600.zoomed),
                             styleMask: [.titled, .closable, .fullSizeContentView, .utilityWindow],
                             backing: .buffered, defer: false)
         panel.contentView = hosting
@@ -159,7 +159,7 @@ struct CategoryEditorPanelView: View {
             chip(title: "New", selected: editingNew) {
                 Image(systemName: "plus")
                     .font(Tokens.Typography.label)
-                    .frame(width: 20, height: 20)
+                    .frame(width: 20.zoomed, height: 20.zoomed)
                     .background(Tokens.Colour.elevated, in: Circle())
                     .accessibilityHidden(true)
             } action: {
@@ -167,7 +167,7 @@ struct CategoryEditorPanelView: View {
             }
             ForEach(catalog.activeTypes) { type in
                 chip(title: type.displayName, selected: editor.selectedID == type.rawValue) {
-                    WorkTypeMark(workType: type, size: 20)
+                    WorkTypeMark(workType: type, size: 20.zoomed)
                 } action: {
                     editor.edit(catalog.definition(for: type))
                 }
@@ -189,14 +189,14 @@ struct CategoryEditorPanelView: View {
                     .font(Tokens.Typography.body.weight(selected ? .semibold : .regular))
                     .lineLimit(1)
             }
-            .padding(.leading, 4)
+            .padding(.leading, Tokens.Space.xs)
             .padding(.trailing, Tokens.Space.s)
-            .frame(minHeight: 28)
+            .frame(minHeight: 28.zoomed)
             .background(selected ? StoryStyle.well : Color.clear, in: Capsule())
             .overlay(Capsule().strokeBorder(selected ? StoryStyle.line : Color.clear))
             .contentShape(Capsule())
         }
-        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14))
+        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14.zoomed))
         .accessibilityLabel(title)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
@@ -206,7 +206,7 @@ struct CategoryEditorPanelView: View {
 /// runs out. The one flowing arrangement the app needs; it makes no attempt
 /// at alignment beyond that.
 struct ChipFlow: Layout {
-    var spacing: CGFloat = 6
+    var spacing: CGFloat = 6.zoomed
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? .infinity

@@ -49,7 +49,7 @@ struct ThresholdControl: View {
     }
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 3) {
+        VStack(alignment: .trailing, spacing: 3.zoomed) {
             HStack(spacing: Tokens.Space.s) {
                 Picker(label, selection: pickerSelection) {
                     ForEach(options, id: \.self) { seconds in
@@ -62,7 +62,7 @@ struct ThresholdControl: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 130)
+                .frame(width: 130.zoomed)
                 .accessibilityLabel(label)
                 // After the menu, where the eye and the Tab key go next.
                 if custom.value || (!options.contains(selection) && !isNever) {
@@ -79,10 +79,10 @@ struct ThresholdControl: View {
 
     /// Minutes, applied on Return or when the field loses focus.
     private var customField: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Tokens.Space.xs) {
             TextField("minutes", text: $draft.text)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 64)
+                .frame(width: 64.zoomed)
                 .multilineTextAlignment(.trailing)
                 .focused($fieldFocused)
                 .onSubmit(apply)
