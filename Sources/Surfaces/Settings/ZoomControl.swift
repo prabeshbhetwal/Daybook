@@ -37,12 +37,16 @@ struct ZoomControl: View {
             Slider(value: $draft, in: 0.8...1.4, step: 0.1) {
                 Text("Zoom")
             } minimumValueLabel: {
+                // Decoration, so plain secondary ink: the slider would tint
+                // its labels with the accent, which reads as a control.
                 Text("A")
                     .font(Tokens.Typography.caption)
+                    .foregroundStyle(Color.secondary)
                     .accessibilityHidden(true)
             } maximumValueLabel: {
                 Text("A")
                     .font(Tokens.Typography.heading)
+                    .foregroundStyle(Color.secondary)
                     .accessibilityHidden(true)
             } onEditingChanged: { editing in
                 isDragging = editing

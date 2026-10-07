@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
+import Observation
 
 /// A window's minimum follows the zoom but never outgrows its screen, a
 /// window left below the new minimum grows without leaving the screen, and
@@ -12,6 +13,7 @@ enum ZoomWindowChecks: CheckSuite {
         ("A zoom change reaches each follower once, and a released follower hears nothing", followerFires),
         ("Zoom In, Zoom Out and Actual Size disable at their limits", zoomMenuLimits),
         ("A window AppKit already grew is still moved back onto its screen", grownWindowReturnsOnScreen),
+        ("A length token read in a view body is tracked by Observation", lengthsAreTracked),
     ]
 
     private static func close(_ actual: CGSize, _ expected: CGSize) -> Bool {
@@ -73,13 +75,16 @@ enum ZoomWindowChecks: CheckSuite {
         var problems: [String] = []
         InterfaceZoomChecks.withZoom(100) {
             var calls = 0
-            var follower: ZoomFollower? = ZoomFollower { calls += 1 }
+            // What the handler reads: the new zoom, not the one being replaced.
+            var seen: [Int] = []
+            var follower: ZoomFollower? = ZoomFollower { calls += 1; seen.append(ZoomModel.shared.percent) }
             ZoomModel.shared.apply(percent: 120)
             drain()
             expect(calls == 1, "one change should reach the follower once, got \(calls) calls", &problems)
             ZoomModel.shared.apply(percent: 140)
             drain()
             expect(calls == 2, "a second change should make two calls in all, got \(calls)", &problems)
+            expect(seen == [120, 140], "the handler should read 120% then 140%, read \(seen)", &problems)
             follower = nil
             ZoomModel.shared.apply(percent: 90)
             drain()
@@ -130,6 +135,31 @@ enum ZoomWindowChecks: CheckSuite {
                 expect(close(window.frame, expected),
                        "a window \(what) should end at \(expected), got \(window.frame)", &problems)
             }
+        }
+        return problems
+    }
+
+    /// A view draws again on a zoom change only when it read the zoom while
+    /// drawing, so reading a length must count as reading the zoom.
+    private static func lengthsAreTracked() -> [String] {
+        var problems: [String] = []
+        /// Raised from Observation's change handler, which must be `Sendable`.
+        final class Flag: @unchecked Sendable { var raised = false }
+        func watchLengths() -> Flag {
+            let flag = Flag()
+            withObservationTracking {
+                _ = 10.zoomed
+                _ = Tokens.Space.m
+            } onChange: { flag.raised = true }
+            return flag
+        }
+        InterfaceZoomChecks.withZoom(100) {
+            let changed = watchLengths()
+            ZoomModel.shared.apply(percent: 120)
+            expect(changed.raised, "reading 10.zoomed and Tokens.Space.m should be told of a zoom change", &problems)
+            let unchanged = watchLengths()
+            ZoomModel.shared.apply(percent: 120)
+            expect(!unchanged.raised, "with no zoom change nothing should be told, but it was", &problems)
         }
         return problems
     }

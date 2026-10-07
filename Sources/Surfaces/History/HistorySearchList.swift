@@ -245,7 +245,7 @@ struct HistorySpineItem<Content: View>: View {
         case .hollow(let colour):
             Circle().strokeBorder(colour, lineWidth: 2.zoomed).frame(width: 10.zoomed, height: 10.zoomed)
                 .background(Circle().fill(StoryStyle.canvas).frame(width: 16.zoomed, height: 16.zoomed))
-                .padding(.top, 1)
+                .padding(.top, 1.zoomed)
         }
     }
 }
