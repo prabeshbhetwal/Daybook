@@ -177,7 +177,12 @@ struct SnapshotRender: Hashable, Identifiable {
         "\(scenario.rawValue)-\(presentation.rawValue)-\(appearance.rawValue)"
     }
 
-    var filename: String { "\(id).png" }
+    /// Only a zoomed render has its zoom in its name, so 100% keeps the name
+    /// every comparison against an earlier run expects.
+    func filename(atZoom percent: Int) -> String {
+        let zoom = percent == InterfaceZoom.defaultPercent ? "" : "-zoom\(percent)"
+        return "\(id)\(zoom).png"
+    }
 }
 
 /// A configured product root. Keeping the exact SettingsModel beside the view
@@ -252,13 +257,22 @@ enum Snapshotter {
             FileHandle.standardError.write(Data("no snapshot scenario named \(only ?? "")\n".utf8))
             return false
         }
+        // FC_SNAPSHOT_ZOOM=1.4 renders at 140%, snapped to a step like any
+        // other request. It is applied once, here, to the model every view
+        // reads: each item builds its own settings on isolated defaults,
+        // which never reach it. 100% (or no value) changes nothing.
+        let requested = ProcessInfo.processInfo.environment["FC_SNAPSHOT_ZOOM"].flatMap(Double.init)
+        let percent = requested.map { InterfaceZoom.nearestPercent(toScale: $0) }
+            ?? InterfaceZoom.defaultPercent
+        ZoomModel.shared.apply(percent: percent)
         for item in selected {
-            let output = directory.appendingPathComponent(item.filename)
+            let name = item.filename(atZoom: percent)
+            let output = directory.appendingPathComponent(name)
             if render(view(for: item), appearance: item.appearance, to: output) {
                 wrote += 1
-                print("  wrote \(item.filename)")
+                print("  wrote \(name)")
             } else {
-                print("  FAILED \(item.filename)")
+                print("  FAILED \(name)")
             }
         }
         print("\(wrote)/\(selected.count) product snapshots written to \(directory.path)")

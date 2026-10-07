@@ -144,7 +144,7 @@ final class AwayFullPrompt {
                               onReason: { _ in true },
                               onRetry: {},
                               onLater: {})
-            .frame(width: 760, height: 620) // zoom: fixed, stands in for the screen
+            .frame(width: 760.zoomed, height: 620.zoomed) // stands in for a screen
     }
 
     private var screenObserver: NSObjectProtocol?
