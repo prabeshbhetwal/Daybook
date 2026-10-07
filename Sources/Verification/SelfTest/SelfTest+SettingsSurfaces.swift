@@ -106,7 +106,7 @@ extension SelfTest {
             .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,
             .reminders, .activityRuleAutomation, .activityRules,
             .automaticSessions, .automaticGap, .rewards, .sessionsPerApp,
-            .usageRecording, .appearance, .density, .timelineLabels, .entryDetails,
+            .usageRecording, .appearance, .density, .zoom, .timelineLabels, .entryDetails,
             .idlePause, .streakMinimum, .minimumSession, .continueWindow, .defaultCategory,
             .openAtLogin, .menuBarTime, .menuBarIcon, .dockIcon, .updateChecks, .updateFrequency,
             .updateInstall, .railApps, .paceWindow, .suggestionWindow, .breakTiers, .quietFold

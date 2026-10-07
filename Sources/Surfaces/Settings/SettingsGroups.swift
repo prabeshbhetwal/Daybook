@@ -502,6 +502,11 @@ struct SettingsGroups: View {
                 .accessibilityLabel("Interface density")
             }
             rowDivider
+            preferenceRow("Zoom",
+                          detail: "Makes text, spacing and controls larger or smaller in every Daybook window.") {
+                ZoomControl(model: model)
+            }
+            rowDivider
             toggleRow("Show Story timestamps",
                       detail: "Times down the left edge of the day's timeline.",
                       isOn: $model.showsTimelineLabels)

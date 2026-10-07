@@ -170,7 +170,7 @@ extension SettingsSection {
                     "Start after", "Add application", "Running now"]
         case .tracking: return ["Apps shown in a card", "Recent app visits", "Record app usage"]
         case .appearance:
-            return ["Appearance", "Interface density", "Show Story timestamps",
+            return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
                     "Expand entry details by default", "Fold quiet stretches after"]
         case .data:
             // "Backup" is the always-shown row; the upgrade copy's row may be absent.
@@ -192,7 +192,7 @@ extension SettingsSection {
         case .automatic: return [.automaticSessions, .automaticGap, .rewards]
         case .activities: return [.activityRuleAutomation, .activityRules]
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
-        case .appearance: return [.appearance, .density, .timelineLabels, .entryDetails, .quietFold]
+        case .appearance: return [.appearance, .density, .zoom, .timelineLabels, .entryDetails, .quietFold]
         case .updates: return [.updateChecks, .updateFrequency, .updateInstall]
         case .data, .advanced: return []
         }
@@ -202,9 +202,20 @@ extension SettingsSection {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { return allCases }
         return allCases.filter { section in
-            ([section.title] + section.controlLabels).contains {
+            ([section.title] + section.controlLabels + section.mutableControlKeys.flatMap(\.searchTerms)).contains {
                 $0.localizedCaseInsensitiveContains(needle)
             }
+        }
+    }
+}
+
+extension SettingsControlKey {
+    /// Other words for a row, besides the label its control shows (that one is
+    /// in `controlLabels`). Search matches them; no control displays them.
+    var searchTerms: [String] {
+        switch self {
+        case .zoom: return ["Text size", "Bigger", "Smaller", "Scale"]
+        default: return []
         }
     }
 }

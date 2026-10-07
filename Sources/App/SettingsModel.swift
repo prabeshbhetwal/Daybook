@@ -23,6 +23,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case usageRecording
     case appearance
     case density
+    case zoom
     case timelineLabels
     case entryDetails
     case idlePause
@@ -60,6 +61,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .usageRecording: return \SettingsModel.isTrackingEnabled
         case .appearance: return \SettingsModel.appearancePreference
         case .density: return \SettingsModel.interfaceDensity
+        case .zoom: return \SettingsModel.interfaceZoom
         case .timelineLabels: return \SettingsModel.showsTimelineLabels
         case .entryDetails: return \SettingsModel.expandsEntryDetails
         case .idlePause: return \SettingsModel.idlePauseThreshold

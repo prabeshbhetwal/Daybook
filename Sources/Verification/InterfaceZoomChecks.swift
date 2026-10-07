@@ -15,6 +15,7 @@ enum InterfaceZoomChecks: CheckSuite {
         ("Every type role and spacing token is its base size times the zoom", tokensScale),
         ("Native controls step one size below 100% and above 110%", controlSizesStep),
         ("A redrawn view draws again when the zoom changes", redrawnFollowsZoom),
+        ("Settings search finds Zoom by zoom, text size, bigger, smaller and scale", zoomIsSearchable),
     ]
 
     /// Runs `body` with the shared zoom at `percent`, then puts it back, even
@@ -232,6 +233,22 @@ enum InterfaceZoomChecks: CheckSuite {
                "the same value at 100% twice should not draw again", &problems)
         expect(wrapper(at: 120, value: 1) != wrapper(at: 120, value: 2),
                "a different value at the same zoom should draw again", &problems)
+        return problems
+    }
+
+    /// The Zoom row is in Appearance, and each word someone might type for it
+    /// opens the page that holds Appearance.
+    private static func zoomIsSearchable() -> [String] {
+        var problems: [String] = []
+        expect(SettingsSection.appearance.mutableControlKeys.contains(.zoom),
+               "Appearance should list the zoom control", &problems)
+        for term in ["zoom", "text size", "bigger", "smaller", "scale"] {
+            let sections = SettingsSection.matching(term)
+            expect(sections.contains(.appearance),
+                   "searching \"\(term)\" should find Appearance, got \(sections.map(\.title))", &problems)
+            expect(SettingsPage.matching(term).contains(SettingsPage(section: .appearance)),
+                   "searching \"\(term)\" should open the page with Appearance", &problems)
+        }
         return problems
     }
 
