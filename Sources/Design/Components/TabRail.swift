@@ -5,7 +5,7 @@ import SwiftUI
 /// the hit area that production actually consumes rather than a test-only
 /// constant.
 enum AccessibilityMetrics {
-    static let minimumTargetSize: CGFloat = 28
+    static var minimumTargetSize: CGFloat { 28.zoomed }
 }
 
 extension AppTab {

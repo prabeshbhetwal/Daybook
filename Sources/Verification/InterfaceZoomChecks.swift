@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SwiftUI
 
 /// The interface zoom is held as a step: what is stored or typed snaps to one,
 /// the steps stop at both ends, the setting survives a relaunch, and a length
@@ -11,6 +12,7 @@ enum InterfaceZoomChecks: CheckSuite {
         ("The control-size band shifts below 100% and above 110%", controlBand),
         ("The zoom setting saves, reloads and reaches every window", zoomSettingRoundTrips),
         ("Lengths written as N.zoomed scale with the zoom", zoomedLiterals),
+        ("Every type role and spacing token is its base size times the zoom", tokensScale),
     ]
 
     /// Runs `body` with the shared zoom at `percent`, then puts it back, even
@@ -118,6 +120,94 @@ enum InterfaceZoomChecks: CheckSuite {
             expect(12.zoomed == 12, "12.zoomed at 100% should be exactly 12, got \(12.zoomed)", &problems)
             expect(12.5.zoomed == 12.5, "12.5.zoomed at 100% should be exactly 12.5, got \(12.5.zoomed)", &problems)
         }
+        return problems
+    }
+
+    /// Every length token with its value at 100%. `Radius.capsule` is no
+    /// length (it only has to be larger than any shape), so it is not here.
+    private static func tokenLengths() -> [(String, CGFloat, CGFloat)] {
+        typealias S = Tokens.Space
+        typealias R = Tokens.Radius
+        var tokens: [(String, CGFloat, CGFloat)] = [
+            ("Space.xs", S.xs, 4), ("Space.s", S.s, 8), ("Space.m", S.m, 12),
+            ("Space.l", S.l, 16), ("Space.xl", S.xl, 24), ("Space.xxl", S.xxl, 32),
+            ("Radius.panel", R.panel, 16), ("Radius.nested", R.nested, 12), ("Radius.well", R.well, 9),
+            ("Radius.control", R.control, 7), ("Radius.swatch", R.swatch, 5), ("Radius.mark", R.mark, 4),
+            ("Radius.bar", R.bar, 3),
+            ("Control.compactHeight", Tokens.Control.compactHeight, 34),
+            ("popoverWidth", Tokens.popoverWidth, 340), ("formMeasure", Tokens.formMeasure, 340),
+            ("Density.compactRowHeight", Tokens.Density.compactRowHeight, 44),
+            ("Density.comfortableRowHeight", Tokens.Density.comfortableRowHeight, 52),
+            ("StoryLayout.railWidth", StoryLayout.railWidth, 300),
+            ("StoryStyle.entryRadius", StoryStyle.entryRadius, 13),
+            ("StoryStyle.tileRadius", StoryStyle.tileRadius, 14),
+            ("StoryStyle.headlineMeasure", StoryStyle.headlineMeasure, 560),
+            ("AccessibilityMetrics.minimumTargetSize", AccessibilityMetrics.minimumTargetSize, 28),
+        ]
+        let comfortable = InterfaceDensity.comfortable.layout
+        let compact = InterfaceDensity.compact.layout
+        tokens += [
+            ("comfortable.rowHeight", comfortable.rowHeight, 52), ("comfortable.panelSpacing", comfortable.panelSpacing, 24),
+            ("comfortable.insetPadding", comfortable.insetPadding, 16), ("comfortable.sectionSpacing", comfortable.sectionSpacing, 16),
+            ("compact.rowHeight", compact.rowHeight, 44), ("compact.panelSpacing", compact.panelSpacing, 16),
+            ("compact.insetPadding", compact.insetPadding, 12), ("compact.sectionSpacing", compact.sectionSpacing, 12),
+        ]
+        func insets(_ name: String, _ e: EdgeInsets, _ base: [CGFloat]) -> [(String, CGFloat, CGFloat)] {
+            [("\(name).top", e.top, base[0]), ("\(name).leading", e.leading, base[1]),
+             ("\(name).bottom", e.bottom, base[2]), ("\(name).trailing", e.trailing, base[3])]
+        }
+        // Per density: the column, rail, entry and tile insets as top, leading, bottom, trailing.
+        let storyBases: [(InterfaceDensity, [[CGFloat]])] = [
+            (.comfortable, [[26, 30, 34, 30], [22, 20, 30, 20], [13, 15, 13, 15], [15, 16, 15, 16]]),
+            (.compact, [[20, 24, 26, 24], [16, 16, 24, 16], [10, 12, 10, 12], [12, 14, 12, 14]]),
+        ]
+        for (density, base) in storyBases {
+            let found = [StoryStyle.columnInsets(for: density), StoryStyle.railInsets(for: density),
+                         StoryStyle.entryInsets(for: density), StoryStyle.tileInsets(for: density)]
+            for (index, name) in ["column", "rail", "entry", "tile"].enumerated() {
+                tokens += insets("\(density) \(name)Insets", found[index], base[index])
+            }
+        }
+        // A tall screen is not dense; a short one is. Both measures follow the zoom.
+        let roomy = PopoverMetrics.fitting(CGSize(width: 2_560, height: 1_440))
+        let short = PopoverMetrics.fitting(CGSize(width: 2_560, height: 700))
+        tokens += [
+            ("roomy popover width", roomy.width, 340), ("roomy popover row", roomy.rowHeight, 26),
+            ("roomy popover padding", roomy.outerPadding, 16), ("roomy popover spacing", roomy.stackSpacing, 12),
+            ("short popover row", short.rowHeight, 22), ("short popover padding", short.outerPadding, 12),
+            ("short popover spacing", short.stackSpacing, 8),
+        ]
+        return tokens
+    }
+
+    /// The label symbol AppKit draws is as tall as the zoom makes it.
+    private static func labelSymbolHeight() -> CGFloat? {
+        NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
+            .withSymbolConfiguration(Tokens.Typography.labelSymbol)?.size.height
+    }
+
+    private static func tokensScale() -> [String] {
+        var problems: [String] = []
+        for percent in [80, 100, 140] {
+            let factor = CGFloat(percent) / 100
+            withZoom(percent) {
+                for role in Tokens.Typography.Role.allCases {
+                    let got = Tokens.Typography.pointSize(of: role)
+                    expect(close(got, role.baseSize * factor),
+                           "\(role) at \(percent)% should be \(role.baseSize * factor)pt, got \(got)pt", &problems)
+                }
+                for (name, got, base) in tokenLengths() {
+                    expect(close(got, base * factor), "\(name) at \(percent)% should be \(base * factor), got \(got)", &problems)
+                }
+                expect(Tokens.Radius.capsule == 999,
+                       "Radius.capsule at \(percent)% should stay 999, got \(Tokens.Radius.capsule)", &problems)
+            }
+        }
+        let small = withZoom(80) { labelSymbolHeight() }
+        let large = withZoom(140) { labelSymbolHeight() }
+        expect(small != nil && large != nil && small! < large!,
+               "the label symbol should be taller at 140% than at 80%, got \(String(describing: small)) and \(String(describing: large))",
+               &problems)
         return problems
     }
 }

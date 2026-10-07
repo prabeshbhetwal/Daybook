@@ -14,11 +14,11 @@ struct PopoverMetrics: Equatable {
     let dense: Bool
 
     /// Row height for a settings row.
-    var rowHeight: CGFloat { dense ? 22 : 26 }
+    var rowHeight: CGFloat { dense ? 22.zoomed : 26.zoomed }
     /// Padding around the whole panel.
-    var outerPadding: CGFloat { dense ? 12 : Tokens.Space.l }
+    var outerPadding: CGFloat { dense ? 12.zoomed : Tokens.Space.l }
     /// Space between the panel's stacked blocks.
-    var stackSpacing: CGFloat { dense ? 8 : Tokens.Space.m }
+    var stackSpacing: CGFloat { dense ? 8.zoomed : Tokens.Space.m }
 
     /// Leaves a margin below the panel rather than filling the screen edge to
     /// edge, which reads as a window that failed to size itself.
