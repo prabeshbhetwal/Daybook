@@ -23,7 +23,7 @@ extension View {
     /// Says a message when it appears or changes — a save that failed, a
     /// value that was refused — so it is heard as well as seen.
     func announcesChanges(to message: String?) -> some View {
-        onChange(of: message) { next in
+        onChange(of: message) { _, next in
             if let next { Announcement.post(next) }
         }
     }

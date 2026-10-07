@@ -104,8 +104,8 @@ struct HistoryTreeRow: View {
     let depth: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    static let indent: CGFloat = Tokens.Space.l
-    static let dotSize: CGFloat = 8
+    static var indent: CGFloat { Tokens.Space.l }
+    static var dotSize: CGFloat { 8.zoomed }
 
     private var isOpen: Bool { navigation.historyOpen.indices.contains(depth) && navigation.historyOpen[depth] == row.place }
     private var isFocused: Bool { navigation.historyFocus == .row(row.place) }
@@ -180,7 +180,7 @@ struct HistoryTreeRow: View {
 
     private var dot: some View {
         Circle()
-            .strokeBorder(dotColour, lineWidth: row.focused > 0 ? 0 : 1.5)
+            .strokeBorder(dotColour, lineWidth: row.focused > 0 ? 0 : 1.5.zoomed)
             .background(Circle().fill(row.focused > 0 ? dotColour : Color.clear))
             .frame(width: Self.dotSize, height: Self.dotSize)
             .accessibilityHidden(true)
@@ -193,11 +193,11 @@ struct HistoryTreeRow: View {
 
     @ViewBuilder private var bars: some View {
         if row.place.level == .day {
-            HistoryDayStrip(date: row.place.start, entries: store.storyDayProjection(on: row.place.start).sessions, height: 6)
-                .frame(width: 120)
+            HistoryDayStrip(date: row.place.start, entries: store.storyDayProjection(on: row.place.start).sessions, height: 6.zoomed)
+                .frame(width: 120.zoomed)
         } else if !row.bars.isEmpty {
             HistoryMonthBars(daily: row.bars.map(\.focused))
-                .frame(width: 120)
+                .frame(width: 120.zoomed)
         }
     }
 

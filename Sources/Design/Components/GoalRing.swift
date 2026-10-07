@@ -6,8 +6,8 @@ import SwiftUI
 struct GoalRing: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let progress: Double
-    var diameter: CGFloat = 64
-    var lineWidth: CGFloat = 7
+    var diameter: CGFloat = 64.zoomed
+    var lineWidth: CGFloat = 7.zoomed
     var label: String?
     var isMet: Bool = false
     /// What VoiceOver names the ring. Its value is the share, so the words
@@ -43,7 +43,7 @@ struct GoalRing: View {
                     .rollingDigits(label)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .padding(.horizontal, lineWidth + 2)
+                    .padding(.horizontal, lineWidth + 2.zoomed)
             }
         }
         .frame(width: diameter, height: diameter)

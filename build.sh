@@ -11,7 +11,7 @@ PROMOTION_ROOT="${PROJECT_DIR}/.build"
 PROMOTION_LOCK="${PROMOTION_ROOT}/promotion.lock"
 CANDIDATE_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.candidate.$$"
 BACKUP_APP_DIR="${PROMOTION_ROOT}/${APP_NAME}.app.backup.$$"
-DEPLOYMENT_TARGET="13.0"
+DEPLOYMENT_TARGET="14.0"
 TARGET_TRIPLE="$(uname -m)-apple-macos${DEPLOYMENT_TARGET}"
 # Raised by scripts/release.sh for each release. The build number must grow:
 # it is what the updater compares.
@@ -85,20 +85,68 @@ keep_internals store Sources/App/SessionStore \
   'LiveFrame|appliedDefaultWorkType|apply|cachedTypical|cachedTypicalMinute|deferredAutomationPending|earliestDayCache|historyAppLensCache|historySearchAppsCache|historySortedUsageCache|idle|lastLiveFrame|lastSampleWatching|pendingWakeActivation|presenceGate|refreshBreak|schedulesTicker|startTicker|stopTicker|tick|ticker|updateTicker|watchingCache|watchingEndedAt' \
   'activityAutomationError|breakCountdown|canUndoCorrection|correctionError|dashboardArchiveReadModelGeneration|dashboardReadModelGeneration|elapsed|goal|historyIndexGeneration|isBreakDue|longestToday|nextBreakTier|pendingActivityChoice|pendingAway|pendingAwayRange|previousSession|quickStarts|reviewReadModelGeneration|sessionsToday|streak|streakBest|threadElapsed|todayTotal|trackedToday|weekBars'
 
+# What a guard's grep pipeline found: true when its last stage printed a line.
+# grep exits 1 when it finds nothing and 2 when it could not search at all (a
+# broken pattern, a missing folder); read as "nothing found", that second case
+# would pass every build in silence. So any stage above 1 stops the build.
+# Call it straight after the pipeline: `guard_found "${PIPESTATUS[@]}"`.
+guard_found() {
+  local status
+  for status in "$@"; do
+    if [ "${status}" -gt 1 ]; then
+      echo "error: a build guard could not search (grep exited ${status}), so it checked nothing; fix its pattern" >&2
+      exit 1
+    fi
+  done
+  [ "${!#}" -eq 0 ]
+}
+
 # Type comes from roles. A view names what its text is and
 # Tokens.Typography fixes the size, weight and face; a raw size, a system text
 # style or a reweighted role is how one role came to be drawn five ways. A
 # weight may still change with state (`.weight(selected ? … : …)`).
 type_outside_roles() {
-  {
-    grep -rnE '\.system\(size:|Font\.system\(|Typography\.Size\.|\.fontWeight\(|\.bold\(\)|Typography\.[A-Za-z]+[[:space:]]*\.weight\(\.' \
-      Sources/App Sources/Design Sources/Surfaces --include='*.swift'
-    grep -rnE 'font\(|Font' Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
-      | grep -E '[(?:][[:space:]]*\.(largeTitle|title|title2|title3|headline|subheadline|body|callout|footnote|caption|caption2)([^A-Za-z0-9_(]|$)'
-  } | grep -v '^Sources/Design/Typography.swift:'
+  local found=1
+  grep -rnE '\.system\(size:|Font\.system\(|Typography\.Size\.|\.fontWeight\(|\.bold\(\)|Typography\.[A-Za-z]+[[:space:]]*\.weight\(\.' \
+      Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
+    | grep -v '^Sources/Design/Typography.swift:'
+  if guard_found "${PIPESTATUS[@]}"; then found=0; fi
+  grep -rnE 'font\(|Font' Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
+    | grep -E '[(?:][[:space:]]*\.(largeTitle|title|title2|title3|headline|subheadline|body|callout|footnote|caption|caption2)([^A-Za-z0-9_(]|$)' \
+    | grep -v '^Sources/Design/Typography.swift:'
+  if guard_found "${PIPESTATUS[@]}"; then found=0; fi
+  return "${found}"
 }
 if type_outside_roles; then
   echo "error: the lines above set type outside Tokens.Typography; use a role from Sources/Design/Typography.swift" >&2
+  exit 1
+fi
+
+# Lengths come from the zoom. A view takes a token or `N.zoomed` where a number
+# becomes a length; a bare number there is how one surface came to ignore the
+# setting. NUM is any number but 0 and 1 (hairlines are fixed by design), with
+# `_` digit separators allowed. A line that is meant to stay fixed says
+# `// zoom: fixed`.
+lengths_outside_zoom() {
+  local num='-?([2-9]|[1-9][0-9_]*[0-9]|1\.[0-9]*[1-9][0-9]*)(\.[0-9]+)?([^0-9._]|$)'
+  local patterns=(
+    "\.padding\(([^()]*, *)?${num}"
+    "spacing: *${num}"
+    "(^|[^A-Za-z])(width|height|minWidth|maxWidth|idealWidth|minHeight|maxHeight|idealHeight): *${num}"
+    "cornerRadius: *${num}"
+    "lineWidth: *${num}"
+    "\.offset\(.*(x|y): *${num}"
+    "(^|[^A-Za-z.])(size|diameter): *${num}"
+    "(top|leading|bottom|trailing): *${num}"
+  )
+  local args=() pattern
+  for pattern in "${patterns[@]}"; do args+=(-e "${pattern}"); done
+  grep -rnE "${args[@]}" Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
+    | grep -v 'zoom: fixed'
+  guard_found "${PIPESTATUS[@]}"
+}
+if lengths_outside_zoom; then
+  echo "error: the lines above set a length outside the zoom; use a token or N.zoomed (Sources/Design/Zoomed.swift)" >&2
   exit 1
 fi
 

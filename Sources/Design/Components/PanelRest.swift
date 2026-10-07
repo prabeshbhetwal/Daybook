@@ -24,7 +24,7 @@ struct PanelRest<Content: View>: View {
                 content().background(GeometryReader { proxy in
                     Color.clear
                         .onAppear { size.value = proxy.size }
-                        .onChange(of: proxy.size) { size.value = $0 }
+                        .onChange(of: proxy.size) { _, newSize in size.value = newSize }
                 })
             } else {
                 Color.clear.frame(width: size.value.width, height: size.value.height)

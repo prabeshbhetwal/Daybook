@@ -14,7 +14,7 @@ struct AwardCard: View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HStack(spacing: Tokens.Space.m) {
                 badge
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2.zoomed) {
                     Text(award.title)
                         .font(Tokens.Typography.rowTitle)
                         .foregroundStyle(award.isEarned ? AnyShapeStyle(.primary)
@@ -78,7 +78,7 @@ struct AwardCard: View {
                 .foregroundStyle(award.isEarned ? AnyShapeStyle(.white)
                                                 : AnyShapeStyle(.secondary))
         }
-        .frame(width: 44, height: 44)
+        .frame(width: 44.zoomed, height: 44.zoomed)
         .accessibilityHidden(true)
     }
 }
@@ -106,7 +106,7 @@ struct AwardsView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
             header
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 236),
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 236.zoomed),
                                          spacing: Tokens.Space.l,
                                          alignment: .top)],
                       alignment: .leading,
@@ -122,7 +122,7 @@ struct AwardsView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2.zoomed) {
             Text("Awards")
                 .font(Tokens.Typography.title)
             Text("Earned quietly, never announced. Nothing here interrupts a session.")
@@ -145,11 +145,11 @@ struct AwardsView: View {
                     .foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                HStack(spacing: 4) {
+                HStack(spacing: Tokens.Space.xs) {
                     ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
                         RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous)
                             .fill(entry.met ? Tokens.Colour.focus : Tokens.Colour.elevated)
-                            .frame(height: 8)
+                            .frame(height: 8.zoomed)
                     }
                 }
                 // The count the bars show by colour alone.

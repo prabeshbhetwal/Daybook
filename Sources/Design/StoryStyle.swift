@@ -18,13 +18,21 @@ enum StoryStyle {
     static let successWash = Color(lightHex: 0xEFF8EF, darkHex: 0x25352B)
     static let line = Color(light: NSColor.black.withAlphaComponent(0.07),
                             dark: NSColor.white.withAlphaComponent(0.09))
-    static let columnInsets = EdgeInsets(top: 26, leading: 30, bottom: 34, trailing: 30)
-    static let railInsets = EdgeInsets(top: 22, leading: 20, bottom: 30, trailing: 20)
-    static let entryInsets = EdgeInsets(top: 13, leading: 15, bottom: 13, trailing: 15)
-    static let tileInsets = EdgeInsets(top: 15, leading: 16, bottom: 15, trailing: 16)
-    static let entryRadius: CGFloat = 13
-    static let tileRadius: CGFloat = 14
-    static let headlineMeasure: CGFloat = 560
+    static var columnInsets: EdgeInsets {
+        EdgeInsets(top: 26.zoomed, leading: 30.zoomed, bottom: 34.zoomed, trailing: 30.zoomed)
+    }
+    static var railInsets: EdgeInsets {
+        EdgeInsets(top: 22.zoomed, leading: 20.zoomed, bottom: 30.zoomed, trailing: 20.zoomed)
+    }
+    static var entryInsets: EdgeInsets {
+        EdgeInsets(top: 13.zoomed, leading: 15.zoomed, bottom: 13.zoomed, trailing: 15.zoomed)
+    }
+    static var tileInsets: EdgeInsets {
+        EdgeInsets(top: 15.zoomed, leading: 16.zoomed, bottom: 15.zoomed, trailing: 16.zoomed)
+    }
+    static var entryRadius: CGFloat { 13.zoomed }
+    static var tileRadius: CGFloat { 14.zoomed }
+    static var headlineMeasure: CGFloat { 560.zoomed }
 
     /// Text-weight colour for a category: darker than its swatch in light
     /// mode, lighter in dark, so a name set in it still reads on the canvas.
@@ -51,19 +59,27 @@ enum StoryStyle {
     }
 
     static func columnInsets(for density: InterfaceDensity) -> EdgeInsets {
-        density == .compact ? EdgeInsets(top: 20, leading: 24, bottom: 26, trailing: 24) : columnInsets
+        density == .compact
+            ? EdgeInsets(top: 20.zoomed, leading: 24.zoomed, bottom: 26.zoomed, trailing: 24.zoomed)
+            : columnInsets
     }
 
     static func railInsets(for density: InterfaceDensity) -> EdgeInsets {
-        density == .compact ? EdgeInsets(top: 16, leading: 16, bottom: 24, trailing: 16) : railInsets
+        density == .compact
+            ? EdgeInsets(top: 16.zoomed, leading: 16.zoomed, bottom: 24.zoomed, trailing: 16.zoomed)
+            : railInsets
     }
 
     static func entryInsets(for density: InterfaceDensity) -> EdgeInsets {
-        density == .compact ? EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12) : entryInsets
+        density == .compact
+            ? EdgeInsets(top: 10.zoomed, leading: 12.zoomed, bottom: 10.zoomed, trailing: 12.zoomed)
+            : entryInsets
     }
 
     static func tileInsets(for density: InterfaceDensity) -> EdgeInsets {
-        density == .compact ? EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 14) : tileInsets
+        density == .compact
+            ? EdgeInsets(top: 12.zoomed, leading: 14.zoomed, bottom: 12.zoomed, trailing: 14.zoomed)
+            : tileInsets
     }
 }
 
@@ -101,7 +117,7 @@ struct StoryLinkStyle: ButtonStyle {
 struct StoryPressStyle: ButtonStyle {
     /// Rows and text actions that should also tint under the pointer.
     var hovers = false
-    var cornerRadius: CGFloat = 6
+    var cornerRadius: CGFloat = 6.zoomed
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {

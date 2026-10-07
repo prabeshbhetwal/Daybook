@@ -35,7 +35,7 @@ struct HistoryFindBar: View {
                 }
             }
         }
-        .onChange(of: focusRequest) { _ in fieldFocused = true }
+        .onChange(of: focusRequest) { fieldFocused = true }
     }
 
     // MARK: Field
@@ -83,9 +83,9 @@ struct HistoryFindBar: View {
         .frame(height: FilterChip<EmptyView, EmptyView>.height)
         // The halo sits on the fill alone, so the text never blurs with it.
         .background(fieldShape.fill(Tokens.Colour.elevated)
-            .shadow(color: StoryStyle.focus.opacity(fieldFocused ? 0.28 : 0), radius: 6))
+            .shadow(color: StoryStyle.focus.opacity(fieldFocused ? 0.28 : 0), radius: 6.zoomed))
         .overlay(fieldShape.strokeBorder(fieldFocused ? StoryStyle.focus : Tokens.Colour.line,
-                                         lineWidth: fieldFocused ? 1.5 : 1))
+                                         lineWidth: fieldFocused ? 1.5.zoomed : 1))
         .animation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion),
                    value: fieldFocused)
         .animation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion),
@@ -138,9 +138,9 @@ struct HistoryFindBar: View {
         Text("⌘F")
             .font(Tokens.Typography.caption)
             .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Tokens.Colour.line))
+            .padding(.horizontal, 6.zoomed)
+            .padding(.vertical, 2.zoomed)
+            .overlay(RoundedRectangle(cornerRadius: 5.zoomed, style: .continuous).strokeBorder(Tokens.Colour.line))
             .accessibilityHidden(true)
     }
 
@@ -167,7 +167,7 @@ struct HistoryFindBar: View {
                           clearLabel: "Show all apps",
                           onClear: { store.setHistoryApp(nil) }) {
             if let picked {
-                AppIcon(bundleID: picked, size: 16, appName: store.historyAppName(for: picked))
+                AppIcon(bundleID: picked, size: 16.zoomed, appName: store.historyAppName(for: picked))
             } else {
                 Image(systemName: "app")
             }
@@ -195,7 +195,7 @@ struct HistoryFindBar: View {
     /// its text, so an uninstalled app's letter tile stood in for its name
     /// and "T" picked Tolaria. Without an icon to load, a plain symbol.
     @ViewBuilder static func menuIcon(for bundleID: String) -> some View {
-        if let icon = AppIconProvider.shared.icon(for: bundleID, size: 16) {
+        if let icon = AppIconProvider.shared.icon(for: bundleID, size: 16) { // zoom: fixed (a native menu row keeps the system menu size)
             Image(nsImage: icon)
         } else {
             Image(systemName: "app.dashed")

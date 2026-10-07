@@ -49,7 +49,7 @@ struct ThresholdControl: View {
     }
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 3) {
+        VStack(alignment: .trailing, spacing: 3.zoomed) {
             HStack(spacing: Tokens.Space.s) {
                 Picker(label, selection: pickerSelection) {
                     ForEach(options, id: \.self) { seconds in
@@ -62,7 +62,7 @@ struct ThresholdControl: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 130)
+                .frame(width: 130.zoomed)
                 .accessibilityLabel(label)
                 // After the menu, where the eye and the Tab key go next.
                 if custom.value || (!options.contains(selection) && !isNever) {
@@ -79,10 +79,10 @@ struct ThresholdControl: View {
 
     /// Minutes, applied on Return or when the field loses focus.
     private var customField: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Tokens.Space.xs) {
             TextField("minutes", text: $draft.text)
                 .textFieldStyle(.roundedBorder)
-                .frame(width: 64)
+                .frame(width: 64.zoomed)
                 .multilineTextAlignment(.trailing)
                 .focused($fieldFocused)
                 .onSubmit(apply)
@@ -95,10 +95,10 @@ struct ThresholdControl: View {
             if draft.text.isEmpty, !isNever { draft.text = String(Int((selection / 60).rounded())) }
             focusIfWanted()
         }
-        .onChange(of: wantsFocus.value) { _ in focusIfWanted() }
+        .onChange(of: wantsFocus.value) { focusIfWanted() }
         // A refusal belongs to the text that earned it.
-        .onChange(of: draft.text) { _ in rejected.value = false }
-        .onChange(of: fieldFocused) { focused in
+        .onChange(of: draft.text) { rejected.value = false }
+        .onChange(of: fieldFocused) { _, focused in
             // Leaving an empty field, or one already refused, is not a new answer.
             if !focused, !rejected.value, !draft.text.trimmingCharacters(in: .whitespaces).isEmpty {
                 apply()

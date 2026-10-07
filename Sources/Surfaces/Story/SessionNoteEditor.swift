@@ -28,7 +28,7 @@ struct SessionNoteEditor: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             TextEditor(text: draft)
                 .font(Tokens.Typography.body)
-                .frame(minHeight: 64, maxHeight: 112)
+                .frame(minHeight: 64.zoomed, maxHeight: 112.zoomed)
                 .focused($isFocused)
                 .accessibilityLabel("Session note")
             if let error = store.noteError(for: recordID) {
@@ -56,7 +56,7 @@ struct SessionNoteEditor: View {
         .announcesChanges(to: store.noteError(for: recordID))
         .announcesChanges(to: dictation.status.message.map { "Dictation error: \($0)" })
         .onAppear { isFocused = true }
-        .onChange(of: isFocused) { focused in
+        .onChange(of: isFocused) { _, focused in
             if focused { store.focusedNoteEditorID = recordID }
             else if store.focusedNoteEditorID == recordID { store.focusedNoteEditorID = nil }
         }
@@ -85,7 +85,7 @@ struct SessionNoteEditor: View {
                 if dictation.isListening {
                     Circle()
                         .fill(Tokens.Colour.danger)
-                        .frame(width: 7, height: 7)
+                        .frame(width: 7.zoomed, height: 7.zoomed)
                         .modifier(ListeningPulse(reduceMotion: reduceMotion))
                 }
                 Label(dictation.isListening ? "Stop" : dictation.status == .requesting ? "Starting…" : "Dictate",
@@ -102,7 +102,7 @@ struct SessionNoteEditor: View {
         .accessibilityLabel(dictation.isListening ? "Stop dictating" : "Dictate note")
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: dictation.isListening)
-        .onChange(of: dictation.transcript) { transcript in
+        .onChange(of: dictation.transcript) { _, transcript in
             guard dictation.isListening else { return }
             // Typed into while listening: the reader's text stands, and the
             // words that would have gone over it end the dictation instead.

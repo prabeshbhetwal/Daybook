@@ -143,8 +143,8 @@ struct SessionReportOverlay: View {
                 .transition(.opacity)
                 .accessibilityHidden(true)
             SessionReportCard(store: store, session: session, onClose: onClose)
-                .frame(width: min(760, windowSize.width - 64),
-                       height: min(760, windowSize.height - 64))
+                .frame(width: min(760.zoomed, windowSize.width - 64.zoomed),
+                       height: min(760.zoomed, windowSize.height - 64.zoomed))
                 .transition(Tokens.Motion.transition(
                     .opacity.combined(with: .scale(scale: 0.96, anchor: .center)),
                     reduceMotion: reduceMotion))
@@ -197,7 +197,7 @@ struct SessionReportCard: View {
         .clipShape(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous)
             .strokeBorder(StoryStyle.line))
-        .shadow(color: .black.opacity(0.18), radius: 24, y: 8)
+        .shadow(color: .black.opacity(0.18), radius: 24.zoomed, y: 8.zoomed)
         .accessibilityAddTraits(.isModal)
     }
 }
@@ -227,8 +227,8 @@ struct SessionReportView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             HStack(alignment: .top, spacing: Tokens.Space.m) {
-                WorkTypeMark(workType: session.workType, size: 44)
-                VStack(alignment: .leading, spacing: 4) {
+                WorkTypeMark(workType: session.workType, size: 44.zoomed)
+                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     Text(report.title)
                         .font(Tokens.Typography.title)
                         .fixedSize(horizontal: false, vertical: true)
@@ -238,8 +238,8 @@ struct SessionReportView: View {
                         if !session.name.isEmpty {
                             Text(session.workType.displayName)
                                 .font(Tokens.Typography.caption)
-                                .padding(.horizontal, 7).padding(.vertical, 2)
-                                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5))
+                                .padding(.horizontal, 7.zoomed).padding(.vertical, 2.zoomed)
+                                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: Tokens.Radius.swatch))
                                 .foregroundStyle(StoryStyle.workTypeInk(session.workType))
                         }
                         Text(report.whenText)
@@ -271,7 +271,7 @@ struct SessionReportView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let power = report.power {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 2.zoomed) {
                     Label(power.headline, systemImage: power.symbolName)
                         .font(Tokens.Typography.body)
                     if let detail = power.detail {
@@ -301,11 +301,11 @@ struct SessionReportView: View {
     private var stretches: some View {
         section("Stretches") {
             ForEach(Array(report.stretches.enumerated()), id: \.element.id) { index, stretch in
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 3.zoomed) {
                     HStack(spacing: Tokens.Space.s) {
                         Text("\(index + 1)")
                             .font(Tokens.Typography.caption)
-                            .frame(width: 20, height: 20)
+                            .frame(width: 20.zoomed, height: 20.zoomed)
                             .background(tint.opacity(0.14), in: Circle())
                             .foregroundStyle(StoryStyle.workTypeInk(session.workType))
                         Text(report.stretchWhen(stretch))
@@ -319,11 +319,11 @@ struct SessionReportView: View {
                         Text(note)
                             .font(Tokens.Typography.body)
                             .foregroundStyle(.secondary)
-                            .padding(.leading, 28)
+                            .padding(.leading, 28.zoomed)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .frame(minHeight: 28)
+                .frame(minHeight: 28.zoomed)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Stretch \(index + 1), \(report.stretchWhen(stretch, joiner: "to")), "
                                     + Tokens.spent(stretch.worked)

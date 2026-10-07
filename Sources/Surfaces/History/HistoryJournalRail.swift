@@ -111,7 +111,7 @@ struct HistoryRailHeading: View {
     var detail: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2.zoomed) {
             Text(title)
                 .font(Tokens.Typography.heading)
                 .accessibilityAddTraits(.isHeader)
@@ -200,7 +200,7 @@ struct HistoryPeriodRail: View {
             if isCurrentMonth { soFar(surface) }
         }
         .onAppear { store.setInsightsVisible(isCurrentMonth) }
-        .onChange(of: isCurrentMonth) { store.setInsightsVisible($0) }
+        .onChange(of: isCurrentMonth) { _, isCurrent in store.setInsightsVisible(isCurrent) }
         .onDisappear { store.setInsightsVisible(false) }
     }
 
@@ -227,13 +227,13 @@ struct HistoryPeriodRail: View {
     private func goalsTile(_ rates: [InsightGoalRate]) -> some View {
         StoryTile(title: "Category goals", trailing: "days met") {
             ForEach(rates) { rate in
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     HStack(spacing: Tokens.Space.xs) {
                         Image(systemName: rate.workType.symbolName)
                             .font(Tokens.Typography.caption)
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(Tokens.Palette.workType(rate.workType))
-                            .frame(width: 14)
+                            .frame(width: 14.zoomed)
                             .accessibilityHidden(true)
                         Text(rate.workType.displayName)
                             .font(Tokens.Typography.body)
@@ -249,7 +249,7 @@ struct HistoryPeriodRail: View {
                                     .frame(width: geometry.size.width * rate.share)
                             }
                     }
-                    .frame(height: 3)
+                    .frame(height: 3.zoomed)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(rate.workType.displayName): \(Tokens.spent(rate.goal)) goal met on "
@@ -319,7 +319,7 @@ struct HistorySessionRail: View {
                     .font(Tokens.Typography.body)
                     .foregroundStyle(.secondary)
                 if session.spans.count > 1 {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 2.zoomed) {
                         Text("\(session.spans.count) stretches")
                             .font(Tokens.Typography.label)
                         ForEach(Array(session.spans.enumerated()), id: \.offset) { _, span in

@@ -66,7 +66,7 @@ struct SettingsGroups: View {
                         Text("Never").tag(DockIconMode.never)
                     }
                     .labelsHidden()
-                    .frame(width: 220)
+                    .frame(width: 220.zoomed)
                     .disabled(!model.showsMenuBarIcon)
                     .accessibilityLabel("Dock icon")
                 }
@@ -90,7 +90,7 @@ struct SettingsGroups: View {
                         if let chapter = model.interruptedWelcomeChapter {
                             Button("Continue the tour") { model.resumeWelcome() }
                                 .buttonStyle(.borderedProminent)
-                                .controlSize(.large)
+                                .controlSize(Tokens.Zoom.controlSize(.large))
                                 .accessibilityHint("Closes Settings and picks the introduction up at chapter "
                                                    + "\(chapter.number), \(chapter.title)")
                         }
@@ -99,7 +99,7 @@ struct SettingsGroups: View {
                             model.replayWelcome()
                         }
                         .buttonStyle(.bordered)
-                        .controlSize(.large)
+                        .controlSize(Tokens.Zoom.controlSize(.large))
                         .accessibilityHint("Closes Settings and runs the introduction over the story")
                     }
                 }
@@ -124,7 +124,7 @@ struct SettingsGroups: View {
                     HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                         Text(entry.keys)
                             .font(Tokens.Typography.label.monospacedDigit())
-                            .frame(width: 52, alignment: .leading)
+                            .frame(width: 52.zoomed, alignment: .leading)
                             .accessibilityHidden(true)
                         Text(entry.action)
                             .font(Tokens.Typography.body)
@@ -212,7 +212,10 @@ struct SettingsGroups: View {
         KeyEntry(keys: "⌘F", spoken: "Command-F", action: "Find in History"),
         KeyEntry(keys: "⌘6", spoken: "Command-6", action: "Awards"),
         KeyEntry(keys: "⌘7", spoken: "Command-7", action: "Session controls"),
-        KeyEntry(keys: "⌘,", spoken: "Command-comma", action: "Settings")
+        KeyEntry(keys: "⌘,", spoken: "Command-comma", action: "Settings"),
+        KeyEntry(keys: "⌘+", spoken: "Command-plus", action: "Zoom in"),
+        KeyEntry(keys: "⌘−", spoken: "Command-minus", action: "Zoom out"),
+        KeyEntry(keys: "⌘0", spoken: "Command-0", action: "Actual size")
     ]
 
     struct KeyEntry: Hashable {
@@ -236,7 +239,7 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 180)
+                .frame(width: 180.zoomed)
                 .accessibilityLabel("Daily goal")
             }
             rowDivider
@@ -248,7 +251,7 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 150)
+                .frame(width: 150.zoomed)
                 .accessibilityLabel("Usual pace compares with")
             }
             rowDivider
@@ -260,7 +263,7 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 150)
+                .frame(width: 150.zoomed)
                 .accessibilityLabel("Suggest activities from")
             }
             rowDivider
@@ -279,7 +282,7 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 180)
+                .frame(width: 180.zoomed)
                 .accessibilityLabel("New sessions start as")
             }
             rowDivider
@@ -291,7 +294,7 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 130)
+                .frame(width: 130.zoomed)
                 .accessibilityLabel("Keep sessions longer than")
             }
             rowDivider
@@ -360,7 +363,7 @@ struct SettingsGroups: View {
                                 if on { tiers.insert(tier) } else { tiers.remove(tier) }
                                 model.enabledBreakTiers = tiers
                             })) {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: 2.zoomed) {
                                 Text("After \(Int(tier.workThreshold / 60)) minutes, "
                                      + "\(BreakPrompt.phrase(tier.breakLength)) off")
                                     .font(Tokens.Typography.control)
@@ -379,7 +382,7 @@ struct SettingsGroups: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.leading, 26)
+                .padding(.leading, 26.zoomed)
             }
         }
         .onAppear(perform: model.refreshSystemStatus)
@@ -452,7 +455,7 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 120)
+                .frame(width: 120.zoomed)
                 .accessibilityLabel("Apps shown in a card")
             }
             rowDivider
@@ -465,7 +468,7 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 120)
+                .frame(width: 120.zoomed)
                 .accessibilityLabel("Recent app visits")
             }
             rowDivider
@@ -487,7 +490,7 @@ struct SettingsGroups: View {
                     Text("Dark").tag(AppearancePreference.dark)
                 }
                 .labelsHidden()
-                .frame(width: 180)
+                .frame(width: 180.zoomed)
                 .accessibilityLabel("Appearance")
             }
             rowDivider
@@ -498,8 +501,13 @@ struct SettingsGroups: View {
                     Text("Compact").tag(InterfaceDensity.compact)
                 }
                 .labelsHidden()
-                .frame(width: 180)
+                .frame(width: 180.zoomed)
                 .accessibilityLabel("Interface density")
+            }
+            rowDivider
+            preferenceRow("Zoom",
+                          detail: "Makes text, spacing and controls larger or smaller in every Daybook window.") {
+                ZoomControl(model: model)
             }
             rowDivider
             toggleRow("Show Story timestamps",
@@ -519,7 +527,7 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 130)
+                .frame(width: 130.zoomed)
                 .accessibilityLabel("Fold quiet stretches after")
             }
         }
@@ -552,7 +560,7 @@ struct SettingsGroups: View {
                                 + "iCloud Drive › \(DataBackup.folderName). Earlier backups are never replaced.")
                 Button("Back up to iCloud Drive") { model.backUpToICloudDrive() }
                     .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .controlSize(Tokens.Zoom.controlSize(.large))
                     .accessibilityHint("Copies your Daybook data and preferences to iCloud Drive")
                 if let status = model.backupStatus {
                     Text(status)
@@ -565,7 +573,7 @@ struct SettingsGroups: View {
                             valueLayout: .statusBlock)
                 Button("Reveal data folder") { model.revealDataFolder() }
                     .buttonStyle(.bordered)
-                    .controlSize(.large)
+                    .controlSize(Tokens.Zoom.controlSize(.large))
                     .accessibilityHint("Opens the local Daybook data folder in Finder")
             }
             // Whether the backup worked appears under its button; say it too.
@@ -635,7 +643,7 @@ struct SettingsGroups: View {
         @ViewBuilder accessory: () -> Accessory
     ) -> some View {
         HStack(alignment: .center, spacing: Tokens.Space.m) {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 3.zoomed) {
                 Text(title).font(Tokens.Typography.rowTitle)
                 if let detail {
                     Text(detail)
@@ -704,7 +712,7 @@ struct SettingsGroups: View {
     /// The description sits under the switch and is not part of its target:
     /// reading it must not flip it, and the whole row used to.
     private func toggleRow(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 3.zoomed) {
             Toggle(isOn: isOn) {
                 Text(title).font(Tokens.Typography.rowTitle)
             }
@@ -713,7 +721,7 @@ struct SettingsGroups: View {
                 .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.leading, 22)
+                .padding(.leading, 22.zoomed)
                 .accessibilityHidden(true)
         }
         .frame(minHeight: layout.rowHeight, alignment: .leading)

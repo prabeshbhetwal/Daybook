@@ -42,19 +42,20 @@ private struct FullPromptView: View {
                 }
             }
             .padding(Tokens.Space.xl)
-            .frame(width: 520)
+            .frame(width: 520.zoomed)
             // The card is its content's size, never the window's. A prompt on
             // a display a window manager has made tall must still be a card.
             .fixedSize(horizontal: false, vertical: true)
             .background(Tokens.Colour.surface,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4,
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4.zoomed,
                                              style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4, style: .continuous)
+            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel + 4.zoomed, style: .continuous)
                 .strokeBorder(Tokens.Colour.attention.opacity(0.42), lineWidth: 1))
-            .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
+            .shadow(color: .black.opacity(0.25), radius: 30.zoomed, y: 12.zoomed)
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Away decision")
         }
+        .zoomRoot()
     }
 }
 
@@ -143,7 +144,7 @@ final class AwayFullPrompt {
                               onReason: { _ in true },
                               onRetry: {},
                               onLater: {})
-            .frame(width: 760, height: 620)
+            .frame(width: 760.zoomed, height: 620.zoomed) // stands in for a screen
     }
 
     private var screenObserver: NSObjectProtocol?

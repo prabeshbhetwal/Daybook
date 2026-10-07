@@ -36,7 +36,7 @@ struct AppSwatch: View {
     let rank: Int
     var bundleID: String?
     var appName: String = ""
-    var size: CGFloat = 18
+    var size: CGFloat = 18.zoomed
 
     var body: some View {
         HStack(spacing: Tokens.Space.xs) {
@@ -55,7 +55,7 @@ struct AppSwatch: View {
             }
             Circle()
                 .fill(Tokens.Palette.app(rank: rank))
-                .frame(width: 6, height: 6)
+                .frame(width: 6.zoomed, height: 6.zoomed)
         }
         .accessibilityHidden(true)
     }

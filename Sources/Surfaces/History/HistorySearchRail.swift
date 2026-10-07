@@ -57,7 +57,7 @@ struct HistorySearchRail: View {
                         Rectangle().fill(colour.opacity(0.42))
                     }
                 }
-                .frame(height: 7)
+                .frame(height: 7.zoomed)
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
             }
@@ -76,7 +76,7 @@ struct HistorySearchRail: View {
         }
         let peak = Rhythm.peakLabel(hours) { HistoryHours.label(calendar.component(.hour, from: $0)) }
         return StoryTile(title: "Rhythm", trailing: "by hour") {
-            RhythmChart(hours: hours, height: 54, compactLabels: true)
+            RhythmChart(hours: hours, height: 54.zoomed, compactLabels: true)
             if let peak {
                 Text("Most use: \(peak).")
                     .font(Tokens.Typography.body)
@@ -93,15 +93,17 @@ struct HistorySearchRail: View {
         if !rows.isEmpty, lens.inSession > 0 {
             let counts = Dictionary(uniqueKeysWithValues: Self.categoryCounts(lens).map { ($0.key, $0.value) })
             StoryTile(title: "Time in sessions by category", trailing: nil) {
+                // Read here, not in the reader's closure, so a zoom change draws the bar again.
+                let gap = 2.zoomed
                 GeometryReader { geometry in
-                    HStack(spacing: 2) {
+                    HStack(spacing: gap) {
                         ForEach(rows, id: \.key) { entry in
                             Rectangle().fill(Tokens.Palette.workType(entry.key))
-                                .frame(width: max(2, geometry.size.width * entry.value / lens.inSession - 2))
+                                .frame(width: max(gap, geometry.size.width * entry.value / lens.inSession - gap))
                         }
                     }
                 }
-                .frame(height: 7)
+                .frame(height: 7.zoomed)
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
                 ForEach(rows, id: \.key) { entry in
@@ -155,7 +157,7 @@ struct HistorySearchRail: View {
 
     private func legendRow(_ colour: Color, _ label: String, _ value: String) -> some View {
         HStack(spacing: Tokens.Space.s) {
-            RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 10, height: 10)
+            RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 10.zoomed, height: 10.zoomed)
             Text(label).font(Tokens.Typography.body).foregroundStyle(.secondary)
             Spacer(minLength: Tokens.Space.xs)
             Text(durations: value)

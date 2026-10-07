@@ -34,14 +34,14 @@ struct StoryDecisionRow: View {
                 store.undoAwayDecision(expectedID: receipt.id)
             }
         } else {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 10.zoomed) {
                 Text("How should this interval be recorded?")
                     .font(Tokens.Typography.rowTitle)
                     .accessibilityAddTraits(.isHeader)
                 Text("\(Tokens.timeRange(range.start, range.end)) · \(Tokens.preciseDuration(range.duration)) is not counted. Later work is unchanged.")
                     .font(Tokens.Typography.body).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 8) {
+                HStack(spacing: Tokens.Space.s) {
                     Button("Count as focus") { answer(.mergeTime) }
                         .buttonStyle(StoryActionStyle(tint: StoryStyle.focus))
                     Button("Call it a break") { answer(.tookBreak) }
@@ -57,7 +57,7 @@ struct StoryDecisionRow: View {
                         .font(Tokens.Typography.body).foregroundStyle(.secondary)
                 }
             }
-            .padding(15)
+            .padding(15.zoomed)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Tokens.Colour.attention.opacity(0.08), in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
             .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius).strokeBorder(Tokens.Colour.attention.opacity(0.25)))
@@ -81,10 +81,10 @@ struct StorySavedActionRow: View {
     let undo: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-          HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+          HStack(spacing: 10.zoomed) {
             // One sentence to VoiceOver, not a tick and two fragments.
-            HStack(spacing: 10) {
+            HStack(spacing: 10.zoomed) {
                 Image(systemName: "checkmark").font(Tokens.Typography.label)
                     .foregroundStyle(StoryStyle.successInk)
                 Text(title).font(Tokens.Typography.label)
@@ -96,12 +96,12 @@ struct StorySavedActionRow: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(title), \(Tokens.timeRange(range.start, range.end))")
-            Spacer(minLength: 8)
+            Spacer(minLength: Tokens.Space.s)
             Button("Undo", action: undo)
                 .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.label)
                 .foregroundStyle(StoryStyle.action)
-                .frame(minWidth: 36, minHeight: 28)
+                .frame(minWidth: 36.zoomed, minHeight: 28.zoomed)
                 .disabled(undoBlockReason != nil)
                 .help(undoBlockReason ?? "")
                 .accessibilityLabel("Undo \(title.lowercased())")
@@ -110,10 +110,10 @@ struct StorySavedActionRow: View {
           if let scopeNote {
               Text(scopeNote).font(Tokens.Typography.body).foregroundStyle(.secondary)
                   .fixedSize(horizontal: false, vertical: true)
-                  .padding(.leading, 22)
+                  .padding(.leading, 22.zoomed)
           }
         }
-        .padding(.horizontal, 15)
+        .padding(.horizontal, 15.zoomed)
         .padding(.vertical, Tokens.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(LinearGradient(colors: [StoryStyle.successWash, StoryStyle.successWash.opacity(0.45)],

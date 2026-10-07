@@ -23,7 +23,7 @@ struct FilterChip<Icon: View, Items: View>: View {
     @ViewBuilder let items: () -> Items
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    static var height: CGFloat { 32 }
+    static var height: CGFloat { 32.zoomed }
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous) }
 
     var body: some View {
@@ -31,7 +31,7 @@ struct FilterChip<Icon: View, Items: View>: View {
             Menu { items() } label: {
                 HStack(spacing: Tokens.Space.xs) {
                     icon()
-                        .frame(width: 16, height: 16)
+                        .frame(width: 16.zoomed, height: 16.zoomed)
                         .foregroundStyle(isActive ? AnyShapeStyle(ink) : AnyShapeStyle(.secondary))
                     Text(title)
                         .font(Tokens.Typography.control)

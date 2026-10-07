@@ -97,7 +97,9 @@ struct AwayAnswerGrid: View {
     private var controlFont: Font {
         Tokens.Typography.answer(compact: compact)
     }
-    private var controlVerticalPadding: CGFloat { compact ? 9 : (showsCaptions ? Tokens.Space.m : 11) }
+    private var controlVerticalPadding: CGFloat {
+        compact ? 9.zoomed : (showsCaptions ? Tokens.Space.m : 11.zoomed)
+    }
     private var controlHorizontalPadding: CGFloat { compact ? Tokens.Space.m : Tokens.Space.l }
 
     private struct Answer: Identifiable {
@@ -143,7 +145,7 @@ struct AwayAnswerGrid: View {
             }
             if onReason != nil { reasonField }
             if let error {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 6.zoomed) {
                     Label("Answer not saved", systemImage: "exclamationmark.triangle")
                         .font(Tokens.Typography.caption)
                     Text(error).font(Tokens.Typography.body)
@@ -162,7 +164,7 @@ struct AwayAnswerGrid: View {
                 .accessibilityLabel("Answer not saved")
             }
         }
-        .onChange(of: range?.start) { _ in reason.text = "" }
+        .onChange(of: range?.start) { reason.text = "" }
         .announcesChanges(to: error.map { "Answer not saved. \($0)" })
     }
 
@@ -200,8 +202,10 @@ struct AwayAnswerGrid: View {
         .padding(.horizontal, controlHorizontalPadding)
         // Same vertical room as the buttons (and the same optical shift), less
         // the submit circle's overhang, so the field matches the row above.
-        .padding(.top, hasText ? max(1, controlVerticalPadding - 3) : controlVerticalPadding - 1)
-        .padding(.bottom, hasText ? max(3, controlVerticalPadding - 1) : controlVerticalPadding + 1)
+        .padding(.top, hasText ? max(1.zoomed, controlVerticalPadding - 3.zoomed)
+                               : controlVerticalPadding - 1.zoomed)
+        .padding(.bottom, hasText ? max(3.zoomed, controlVerticalPadding - 1.zoomed)
+                                  : controlVerticalPadding + 1.zoomed)
         .background(Tokens.Colour.elevated,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
@@ -250,7 +254,7 @@ struct AwayAnswerGrid: View {
     }
 
     private func card(_ answer: Answer) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 2.zoomed) {
                 Text(answer.title)
                     .font(controlFont)
                 if showsCaptions {
@@ -267,8 +271,8 @@ struct AwayAnswerGrid: View {
             // descent, so equal padding leaves the glyphs sitting low and the
             // tails reading as tight against the edge. Measured at 2×: 23 px
             // above the ink, 20 px below — hence a point shifted downward.
-            .padding(.top, controlVerticalPadding - 1)
-            .padding(.bottom, controlVerticalPadding + 1)
+            .padding(.top, controlVerticalPadding - 1.zoomed)
+            .padding(.bottom, controlVerticalPadding + 1.zoomed)
             .background(answer.prominent ? AnyShapeStyle(Tokens.Colour.focus)
                                          : AnyShapeStyle(Tokens.Colour.elevated),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,

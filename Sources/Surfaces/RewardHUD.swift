@@ -63,6 +63,7 @@ private struct RewardHUDView: View {
         .onTapGesture(perform: onBackgroundTapped)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(model.title). \(model.detail)")
+        .zoomRoot()
     }
 }
 
@@ -100,10 +101,12 @@ final class RewardHUD {
     /// panel is what stops a stale fade-out from hiding a panel that a later
     /// `show` already replaced the content of and re-shown.
     private var generation = 0
+    /// Measures a shown panel again when the zoom changes; held for as long as the HUD lives.
+    private var zoomFollower: ZoomFollower?
 
     init() {
         let panel = NonActivatingHUDPanel(
-            contentRect: NSRect(x: 0, y: 0, width: Int(Tokens.popoverWidth), height: 80),
+            contentRect: NSRect(x: 0, y: 0, width: Int(Tokens.popoverWidth), height: Int(80.zoomed)),
             styleMask: [.nonactivatingPanel, .hudWindow, .borderless],
             backing: .buffered,
             defer: false)
@@ -134,6 +137,13 @@ final class RewardHUD {
             model: model,
             onUndoTapped: { [weak self] in self?.handleUndo() },
             onBackgroundTapped: { [weak self] in self?.dismiss() })
+        zoomFollower = ZoomFollower { [weak self] in self?.zoomChanged() }
+    }
+
+    /// A panel on screen is measured again at the new zoom; a hidden one is
+    /// measured by the next `show`.
+    private func zoomChanged() {
+        if panel.isVisible { reposition() }
     }
 
     /// The PNG/gallery harness renders the exact hosted content without
@@ -255,7 +265,7 @@ final class RewardHUD {
         hostingView.layoutSubtreeIfNeeded()
         let fitting = hostingView.fittingSize
         let width = max(fitting.width, Tokens.popoverWidth)
-        let height = fitting.height > 0 ? fitting.height : 80
+        let height = fitting.height > 0 ? fitting.height : 80.zoomed
         let origin = NSPoint(x: visible.maxX - width - Tokens.Space.l,
                               y: visible.maxY - height - Tokens.Space.l)
         panel.setFrame(NSRect(origin: origin, size: NSSize(width: width, height: height)),

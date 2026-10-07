@@ -200,14 +200,14 @@ struct CategoriesView: View {
                     }
                     .buttonStyle(.bordered)
                 }
-                VStack(spacing: 2) {
+                VStack(spacing: 2.zoomed) {
                     ForEach(catalog.allDefinitions) { definition in
                         row(definition)
                     }
                 }
                 if editor.selectedID != nil { editorForm.id(Self.editorID) }
             }
-            .onChange(of: editor.focusRequest) { _ in
+            .onChange(of: editor.focusRequest) {
                 // The form opens under the whole list, out of sight.
                 DispatchQueue.main.async {
                     withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) {
@@ -217,7 +217,7 @@ struct CategoriesView: View {
             }
         }
         .onAppear(perform: consumeRequest)
-        .onChange(of: request) { _ in consumeRequest() }
+        .onChange(of: request) { consumeRequest() }
     }
 
     private func consumeRequest() {
@@ -241,7 +241,7 @@ struct CategoriesView: View {
             editor.requestFocus()
         } label: {
             HStack(spacing: Tokens.Space.m) {
-                WorkTypeMark(workType: type, size: 28)
+                WorkTypeMark(workType: type, size: 28.zoomed)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(definition.name)
                         .font(Tokens.Typography.rowTitle)
@@ -257,7 +257,7 @@ struct CategoriesView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, Tokens.Space.s)
-            .frame(minHeight: 40)
+            .frame(minHeight: 40.zoomed)
             .background(isSelected ? StoryStyle.well : Color.clear,
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous))
             .contentShape(Rectangle())
@@ -312,7 +312,7 @@ struct CategoryEditorForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HStack(spacing: Tokens.Space.m) {
-                WorkTypeMark(workType: WorkType(rawValue: editor.selectedID ?? ""), size: 44,
+                WorkTypeMark(workType: WorkType(rawValue: editor.selectedID ?? ""), size: 44.zoomed,
                              symbolOverride: editor.symbolName,
                              hueOverride: editor.selectedID == WorkType.breakTime.rawValue ? .grey : editor.hue)
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
@@ -321,8 +321,8 @@ struct CategoryEditorForm: View {
                         .foregroundStyle(.secondary)
                     TextField("Category name", text: $editor.name)
                         .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 280)
-                        .onChange(of: editor.name) { value in
+                        .frame(maxWidth: 280.zoomed)
+                        .onChange(of: editor.name) { _, value in
                             if value.count > WorkTypeDefinition.nameLimit {
                                 editor.name = String(value.prefix(WorkTypeDefinition.nameLimit))
                             }
@@ -407,7 +407,7 @@ struct CategoryEditorForm: View {
                     value: OpenInlineForm(name: "category", cancel: onFinished))
         .announcesChanges(to: editor.validationMessage)
         .onAppear(perform: takeFocusIfAsked)
-        .onChange(of: editor.focusRequest) { _ in takeFocusIfAsked() }
+        .onChange(of: editor.focusRequest) { takeFocusIfAsked() }
     }
 
     private func takeFocusIfAsked() {
@@ -432,7 +432,7 @@ struct CategoryEditorForm: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 120)
+                .frame(width: 120.zoomed)
                 .accessibilityLabel("Daily goal for this category")
                 Text("Its own line under Focus time, beside the day's goal.")
                     .font(Tokens.Typography.body)
@@ -470,12 +470,12 @@ struct CategoryEditorForm: View {
                     Button { editor.hue = hue } label: {
                         Circle()
                             .fill(Tokens.Palette.hue(hue))
-                            .frame(width: 22, height: 22)
+                            .frame(width: 22.zoomed, height: 22.zoomed)
                             .overlay(
                                 Circle().strokeBorder(Color.primary.opacity(isSelected ? 0.9 : 0),
-                                                      lineWidth: 2)
-                                    .padding(-3))
-                            .frame(width: 28, height: 28)
+                                                      lineWidth: 2.zoomed)
+                                    .padding(-3.zoomed))
+                            .frame(width: 28.zoomed, height: 28.zoomed)
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -513,7 +513,7 @@ struct CategoryEditorForm: View {
                 HStack(spacing: Tokens.Space.s) {
                     TextField("Or any SF Symbol name, such as “cpu.fill”", text: $editor.typedSymbol)
                         .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 320)
+                        .frame(maxWidth: 320.zoomed)
                         .onSubmit { editor.acceptTypedSymbol() }
                         .accessibilityLabel("SF Symbol name")
                     Button("Use") { editor.acceptTypedSymbol() }
@@ -554,7 +554,7 @@ struct CategoryEditorForm: View {
     }
 
     private var symbolGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 34, maximum: 40), spacing: Tokens.Space.xs)],
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 34.zoomed, maximum: 40.zoomed), spacing: Tokens.Space.xs)],
                   spacing: Tokens.Space.xs) {
             ForEach(WorkTypeSymbols.curated, id: \.self) { symbol in
                 iconCell(symbol, selected: editor.symbolName == symbol,
@@ -569,7 +569,7 @@ struct CategoryEditorForm: View {
     /// the first thing of the day, however the user thinks of it.
     private var glyphPane: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 34, maximum: 40), spacing: Tokens.Space.xs)],
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 34.zoomed, maximum: 40.zoomed), spacing: Tokens.Space.xs)],
                       spacing: Tokens.Space.xs) {
                 ForEach(WorkTypeSymbols.glyphChoices, id: \.self) { text in
                     let symbol = WorkTypeSymbols.glyph(for: text, style: editor.glyphStyle) ?? WorkTypeSymbols.fallback
@@ -582,7 +582,7 @@ struct CategoryEditorForm: View {
             HStack(spacing: Tokens.Space.s) {
                 TextField("Letter, or a number up to \(WorkTypeSymbols.glyphNumberLimit)", text: $editor.glyphText)
                     .textFieldStyle(.roundedBorder)
-                    .frame(maxWidth: 220)
+                    .frame(maxWidth: 220.zoomed)
                     .onSubmit { editor.acceptGlyph() }
                     .accessibilityLabel("Letter or number")
                 Button("Use") { editor.acceptGlyph() }
@@ -598,7 +598,7 @@ struct CategoryEditorForm: View {
                 .labelsHidden()
                 .fixedSize()
                 .accessibilityLabel("Shape")
-                .onChange(of: editor.glyphStyle) { _ in
+                .onChange(of: editor.glyphStyle) {
                     // The shape changed under a chosen letter: re-cut it.
                     if !editor.glyphText.isEmpty { editor.acceptGlyph() }
                 }
@@ -616,13 +616,13 @@ struct CategoryEditorForm: View {
                 .font(symbolFont)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(selected ? Tokens.Palette.hue(editor.hue) : Color.primary.opacity(0.75))
-                .frame(width: 34, height: 34)
+                .frame(width: 34.zoomed, height: 34.zoomed)
                 .background(selected ? Tokens.Palette.hue(editor.hue).opacity(0.16) : Color.clear,
                             in: RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous))
                 // The colour swatches' ring, so the chosen icon is not told by
                 // tint alone.
                 .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(selected ? 0.9 : 0), lineWidth: 2))
+                    .strokeBorder(Color.primary.opacity(selected ? 0.9 : 0), lineWidth: 2.zoomed))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

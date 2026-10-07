@@ -25,7 +25,7 @@ struct HistoryResultChart: View {
     var average: TimeInterval?
     var hint: String?
 
-    static let height: CGFloat = 64
+    static var height: CGFloat { 64.zoomed }
 
     static let maximumDays = 1_000
 
@@ -65,7 +65,7 @@ struct HistoryResultChart: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            HStack(alignment: .bottom, spacing: days.count > 120 ? 1 : 2) {
+            HStack(alignment: .bottom, spacing: days.count > 120 ? 1 : 2.zoomed) {
                 ForEach(days, id: \.self) { day in bar(day, peak: peak) }
             }
             .frame(height: Self.height, alignment: .bottom)
@@ -95,7 +95,7 @@ struct HistoryResultChart: View {
 
     @ViewBuilder private func bar(_ day: Date, peak: TimeInterval) -> some View {
         if let value = values[day], value.total > 0 {
-            let height = max(4, Self.height * value.total / peak)
+            let height = max(4.zoomed, Self.height * value.total / peak)
             let colour = value.colour ?? primaryColour
             VStack(spacing: 0) {
                 Rectangle().fill(colour.opacity(0.42))
@@ -104,7 +104,7 @@ struct HistoryResultChart: View {
                     .frame(height: height * value.primary / value.total)
             }
             .frame(maxWidth: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 2.zoomed, style: .continuous))
             .contentShape(Rectangle())
             .onTapGesture { onPick(day) }
             .help("\(DateFormats.australian("EEE d MMM").string(from: day)) · \(Tokens.preciseDuration(value.total))")
@@ -112,7 +112,7 @@ struct HistoryResultChart: View {
             RoundedRectangle(cornerRadius: 1, style: .continuous)
                 .fill(StoryStyle.line)
                 .frame(maxWidth: .infinity)
-                .frame(height: 2)
+                .frame(height: 2.zoomed)
         }
     }
 
@@ -121,14 +121,14 @@ struct HistoryResultChart: View {
             let lift = Self.height * average / peak
             ZStack(alignment: .trailing) {
                 DashedRule()
-                    .stroke(Color.secondary.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .stroke(Color.secondary.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [3.zoomed, 3.zoomed]))
                     .frame(height: 1)
                 Text("average day")
                     .font(Tokens.Typography.caption)
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, Tokens.Space.xs)
                     .background(StoryStyle.card)
-                    .offset(y: -8)
+                    .offset(y: -8.zoomed)
             }
             .offset(y: -lift)
             .allowsHitTesting(false)
@@ -138,7 +138,7 @@ struct HistoryResultChart: View {
 
     private func swatch(_ colour: Color, _ label: String) -> some View {
         HStack(spacing: Tokens.Space.xs) {
-            RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9, height: 9)
+            RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9.zoomed, height: 9.zoomed)
             Text(label).font(Tokens.Typography.caption).foregroundStyle(.secondary)
         }
     }

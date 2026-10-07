@@ -15,7 +15,11 @@ final class ActivityEditorPanelModel: ObservableObject {
     private var panel: NSPanel?
     private var closeObserver: NSObjectProtocol?
     private let model = ActivityEditorPanelModel()
-    static let width: CGFloat = 460
+    /// The content at 100%. It opens at the zoom, held to its screen, and
+    /// `.preferredContentSize` leaves the frame to us: resized on a zoom change.
+    static let base = CGSize(width: 460, height: 420) // zoom: fixed, the 100% size
+    static var width: CGFloat { base.width.zoomed }
+    private var zoomFollower: ZoomFollower?
 
     var isVisible: Bool { panel?.isVisible ?? false }
     var title: String? { panel?.title }
@@ -25,7 +29,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         model.ticket &+= 1
         let panel = self.panel ?? makePanel(store: store)
         panel.title = request == .new ? "Pin activity" : "Pinned activities"
-        if !panel.isVisible { position(panel) }
+        if !panel.isVisible { panel.openZoomed(base: Self.base) }
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
     }
@@ -43,6 +47,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         guard panel === closing else { return }
         if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
         closeObserver = nil
+        zoomFollower = nil
         closing.contentView = nil
         panel = nil
     }
@@ -51,7 +56,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         let content = ActivityEditorPanelView(store: store, model: model, onClose: { [weak self] in self?.close() })
         let hosting = NSHostingView(rootView: content)
         hosting.sizingOptions = [.preferredContentSize]
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: ActivityEditorPanel.width, height: 420),
+        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: Self.base),
                             styleMask: [.titled, .closable, .fullSizeContentView, .utilityWindow],
                             backing: .buffered, defer: false)
         panel.contentView = hosting
@@ -67,6 +72,10 @@ final class ActivityEditorPanelModel: ObservableObject {
         panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         self.panel = panel
+        zoomFollower = ZoomFollower {
+            guard let visible = panel.screen?.visibleFrame else { return }
+            panel.resizeContent(zoomedFrom: Self.base, within: visible)
+        }
         // A system close (⌘W) ends the panel the same way `close` does.
         closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: panel, queue: .main) { [weak self, weak panel] _ in
@@ -76,16 +85,6 @@ final class ActivityEditorPanelModel: ObservableObject {
                 }
             }
         return panel
-    }
-
-    private func position(_ panel: NSPanel) {
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
-            ?? NSScreen.main ?? NSScreen.screens.first
-        guard let frame = screen?.visibleFrame else { panel.center(); return }
-        let size = panel.frame.size
-        panel.setFrameOrigin(NSPoint(x: frame.midX - size.width / 2,
-                                     y: frame.midY - size.height / 2 + frame.height * 0.08))
     }
 }
 
@@ -135,8 +134,9 @@ struct ActivityEditorPanelView: View {
         .frame(width: ActivityEditorPanel.width)
         .background(Tokens.Colour.ground)
         .tint(Tokens.Colour.focus)
+        .zoomRoot()
         .onAppear(perform: consume)
-        .onChange(of: model.ticket) { _ in consume() }
+        .onChange(of: model.ticket) { consume() }
     }
 
     private func consume() {
@@ -159,7 +159,7 @@ struct ActivityEditorPanelView: View {
                 ForEach(Array(store.savedActivities.enumerated()), id: \.element.id) { index, item in
                     row(item)
                     if index < store.savedActivities.count - 1 {
-                        Divider().padding(.leading, 52)
+                        Divider().padding(.leading, 52.zoomed)
                     }
                 }
             }
@@ -174,7 +174,7 @@ struct ActivityEditorPanelView: View {
         let retired = !WorkType.startable.contains(item.workType)
         return Button { editor.edit(item) } label: {
             HStack(spacing: Tokens.Space.m) {
-                WorkTypeMark(workType: item.workType, size: 28)
+                WorkTypeMark(workType: item.workType, size: 28.zoomed)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(item.name)
                         .font(Tokens.Typography.rowTitle)
@@ -188,7 +188,7 @@ struct ActivityEditorPanelView: View {
                     .foregroundStyle(selected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.secondary))
             }
             .padding(.horizontal, Tokens.Space.m)
-            .frame(minHeight: 44)
+            .frame(minHeight: 44.zoomed)
             .background(selected ? StoryStyle.well : Color.clear)
             .contentShape(Rectangle())
         }
@@ -210,18 +210,18 @@ struct ActivityEditorPanelView: View {
                 ForEach(store.recentActivities.prefix(6)) { quick in
                     Button { _ = store.pinActivity(quick) } label: {
                         HStack(spacing: Tokens.Space.xs) {
-                            WorkTypeMark(workType: quick.workType, size: 20)
+                            WorkTypeMark(workType: quick.workType, size: 20.zoomed)
                             Text(quick.name)
                                 .font(Tokens.Typography.body)
                                 .lineLimit(1)
                         }
-                        .padding(.leading, 4)
+                        .padding(.leading, Tokens.Space.xs)
                         .padding(.trailing, Tokens.Space.m)
-                        .frame(minHeight: 28)
+                        .frame(minHeight: 28.zoomed)
                         .background(Tokens.Colour.elevated, in: Capsule())
                         .contentShape(Capsule())
                     }
-                    .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14))
+                    .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14.zoomed))
                     .help("Pin \(quick.name)")
                     .accessibilityLabel("Pin \(quick.name)")
                 }
@@ -236,7 +236,7 @@ struct ActivityEditorPanelView: View {
         let isNew = existing == nil
         return VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HStack(spacing: Tokens.Space.m) {
-                WorkTypeMark(workType: editor.workType, size: 44)
+                WorkTypeMark(workType: editor.workType, size: 44.zoomed)
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     HStack(spacing: Tokens.Space.s) {
                         Text(isNew ? "Pin an activity" : "Editing a pinned activity")
@@ -250,7 +250,7 @@ struct ActivityEditorPanelView: View {
                     }
                     TextField("Activity name", text: $editor.name)
                         .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 260)
+                        .frame(maxWidth: 260.zoomed)
                         .onSubmit(save)
                         .accessibilityLabel("Activity name")
                 }

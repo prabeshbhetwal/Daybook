@@ -76,12 +76,12 @@ enum Tokens {
     }
 
     enum Space {
-        static let xs: CGFloat = 4
-        static let s: CGFloat = 8
-        static let m: CGFloat = 12
-        static let l: CGFloat = 16
-        static let xl: CGFloat = 24
-        static let xxl: CGFloat = 32
+        static var xs: CGFloat { 4.zoomed }
+        static var s: CGFloat { 8.zoomed }
+        static var m: CGFloat { 12.zoomed }
+        static var l: CGFloat { 16.zoomed }
+        static var xl: CGFloat { 24.zoomed }
+        static var xxl: CGFloat { 32.zoomed }
     }
 
     /// Every corner the product draws. Ten literals were in use — 1, 2, 3, 4,
@@ -89,31 +89,32 @@ enum Tokens {
     /// mark, a control, a well inside a card, a nested panel. The entry card
     /// and rail tile keep their reference radii in `StoryStyle`.
     enum Radius {
-        static let panel: CGFloat = 16
-        static let nested: CGFloat = 12
+        static var panel: CGFloat { 16.zoomed }
+        static var nested: CGFloat { 12.zoomed }
+        /// Larger than any shape, not a length: it does not follow the zoom.
         static let capsule: CGFloat = 999
         /// A well inside a card: the scope control, a notice, a month cell.
-        static let well: CGFloat = 9
+        static var well: CGFloat { 9.zoomed }
         /// A button. The reference's 7-point control corner.
-        static let control: CGFloat = 7
-        static let swatch: CGFloat = 5
+        static var control: CGFloat { 7.zoomed }
+        static var swatch: CGFloat { 5.zoomed }
         /// A small mark: a hover tint behind a row, a chart's clip.
-        static let mark: CGFloat = 4
-        static let bar: CGFloat = 3
+        static var mark: CGFloat { 4.zoomed }
+        static var bar: CGFloat { 3.zoomed }
     }
 
     /// The height of the menu bar panel's controls: the activity field, the
     /// category menu and Start. Each set its own, and Start stood 6pt shorter
     /// than the two beside it.
     enum Control {
-        static let compactHeight: CGFloat = 34
+        static var compactHeight: CGFloat { 34.zoomed }
     }
 
-    static let popoverWidth: CGFloat = 340
+    static var popoverWidth: CGFloat { 340.zoomed }
     /// The widest a form row should ever be: an intent field, a settings row, a
     /// primary button. Text and controls have a comfortable measure that does
     /// not grow with the window.
-    static let formMeasure: CGFloat = 340
+    static var formMeasure: CGFloat { 340.zoomed }
     /// `2h 15m`, `15m`, `0m`.
     static func duration(_ seconds: TimeInterval) -> String {
         DurationText.compact(seconds)
@@ -328,7 +329,7 @@ enum Tokens {
         /// A nudge, not a page turn: 28 points, so the movement reads as
         /// direction without the content leaving the window.
         static func slide(from edge: Edge) -> AnyTransition {
-            let distance: CGFloat = edge == .trailing ? 28 : -28
+            let distance = edge == .trailing ? 28.zoomed : -28.zoomed
             return .asymmetric(
                 insertion: .modifier(active: Nudge(x: distance, opacity: 0),
                                      identity: Nudge(x: 0, opacity: 1)),
@@ -339,8 +340,8 @@ enum Tokens {
 
     /// Layout metrics for compact and comfortable density.
     enum Density {
-        static let compactRowHeight: CGFloat = 44
-        static let comfortableRowHeight: CGFloat = 52
+        static var compactRowHeight: CGFloat { 44.zoomed }
+        static var comfortableRowHeight: CGFloat { 52.zoomed }
     }
 }
 
@@ -352,14 +353,18 @@ extension InterfaceDensity {
         let insetPadding: CGFloat
         let sectionSpacing: CGFloat
 
-        static let comfortable = Layout(rowHeight: Tokens.Density.comfortableRowHeight,
-                                        panelSpacing: Tokens.Space.xl,
-                                        insetPadding: Tokens.Space.l,
-                                        sectionSpacing: Tokens.Space.l)
-        static let compact = Layout(rowHeight: Tokens.Density.compactRowHeight,
-                                   panelSpacing: Tokens.Space.l,
-                                   insetPadding: Tokens.Space.m,
-                                   sectionSpacing: Tokens.Space.m)
+        static var comfortable: Layout {
+            Layout(rowHeight: Tokens.Density.comfortableRowHeight,
+                   panelSpacing: Tokens.Space.xl,
+                   insetPadding: Tokens.Space.l,
+                   sectionSpacing: Tokens.Space.l)
+        }
+        static var compact: Layout {
+            Layout(rowHeight: Tokens.Density.compactRowHeight,
+                   panelSpacing: Tokens.Space.l,
+                   insetPadding: Tokens.Space.m,
+                   sectionSpacing: Tokens.Space.m)
+        }
     }
 
     var layout: Layout {

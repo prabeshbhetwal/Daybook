@@ -517,6 +517,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
         store.screenLocked = screenLocked
         applyApplicationAppearance(settings.appearancePreference)
+        ZoomModel.shared.apply(percent: InterfaceZoom.nearestPercent(toScale: settings.interfaceZoom))
         wireMonitor()
         monitor.start()
 
@@ -632,11 +633,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // or historical day can be inspected without first clicking through
         // the menu-bar extra.
         mainWindow.open(tab: .today)
-        let window = NSWindow(contentRect: NSRect(x: 200, y: 120, width: 1_160, height: 780),
+        let window = NSWindow(contentRect: NSRect(x: 200, y: 120, width: 1_160.zoomed, height: 780.zoomed),
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
         window.title = "Daybook (preview)"
-        window.contentMinSize = NSSize(width: 980, height: 680)
+        window.contentMinSize = ZoomWindowFit.minimum(base: MainWindowView.minimumBase)
         window.contentView = NSHostingView(rootView: MainWindowView(
             store: store, settings: settings, navigation: mainWindow))
         window.isReleasedWhenClosed = false

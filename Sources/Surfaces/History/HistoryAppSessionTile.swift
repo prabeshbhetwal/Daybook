@@ -76,8 +76,8 @@ struct HistoryAppSessionTile: View {
     var body: some View {
         StoryTile(title: "\(appName) in this session", trailing: nil) {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                AppIcon(bundleID: lens.bundleID, size: 16, appName: appName)
-                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 3 }
+                AppIcon(bundleID: lens.bundleID, size: 16.zoomed, appName: appName)
+                    .alignmentGuide(.firstTextBaseline) { [lift = 3.zoomed] in $0[.bottom] - lift }
                 Text(durations: HistorySessionRow.figure(use.seconds))
                     .font(Tokens.Typography.heading.monospacedDigit())
                 Text("· \(DurationText.percent(use.share)) of the session")

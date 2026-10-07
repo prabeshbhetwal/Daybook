@@ -35,6 +35,7 @@ final class PersistenceStore {
         static let storyTileOrderRawValue = "fc.storyTileOrder"
         static let expandsEntryDetails = "fc.expandsEntryDetails"
         static let interfaceDensityRawValue = "fc.interfaceDensity"
+        static let interfaceZoom = "fc.interfaceZoom"
         static let appearanceRawValue = "fc.appearancePreference"
         static let showsTimelineLabels = "fc.showsTimelineLabels"
         static let pendingPowerObservations = "fc.pendingPowerObservations"
@@ -634,6 +635,19 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.interfaceDensityRawValue) }
     }
 
+    /// The interface zoom as a step, 80 to 140. Stored as the scale (1.2 for
+    /// 120%); a value that is not a number reads as 100%, and a number off a
+    /// step as the nearest step.
+    var interfaceZoomPercent: Int {
+        get {
+            guard let stored = defaults.object(forKey: Key.interfaceZoom) as? NSNumber else {
+                return InterfaceZoom.defaultPercent
+            }
+            return InterfaceZoom.nearestPercent(toScale: stored.doubleValue)
+        }
+        set { defaults.set(Double(InterfaceZoom.snapped(newValue)) / 100, forKey: Key.interfaceZoom) }
+    }
+
     /// Stored as raw values so Core does not depend on appearance enums.
     var appearanceRawValue: String {
         get { defaults.string(forKey: Key.appearanceRawValue) ?? "system" }
@@ -705,7 +719,7 @@ final class PersistenceStore {
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
                     Key.storyTileOrderRawValue,
                     Key.expandsEntryDetails,
-                    Key.interfaceDensityRawValue, Key.appearanceRawValue,
+                    Key.interfaceDensityRawValue, Key.interfaceZoom, Key.appearanceRawValue,
                     Key.showsTimelineLabels, Key.pendingPowerObservations,
                     Key.pendingPowerTransfers,
                     Key.pendingPowerMetadataError, Key.activityRules,

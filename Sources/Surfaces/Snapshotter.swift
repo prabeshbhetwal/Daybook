@@ -177,7 +177,12 @@ struct SnapshotRender: Hashable, Identifiable {
         "\(scenario.rawValue)-\(presentation.rawValue)-\(appearance.rawValue)"
     }
 
-    var filename: String { "\(id).png" }
+    /// Only a zoomed render has its zoom in its name, so 100% keeps the name
+    /// every comparison against an earlier run expects.
+    func filename(atZoom percent: Int) -> String {
+        let zoom = percent == InterfaceZoom.defaultPercent ? "" : "-zoom\(percent)"
+        return "\(id)\(zoom).png"
+    }
 }
 
 /// A configured product root. Keeping the exact SettingsModel beside the view
@@ -202,6 +207,10 @@ enum Snapshotter {
     /// The one made category the Settings — Categories card shows.
     static let fixtureCategoryID = "custom.snapshot.calls"
 
+    /// The zoom `run` renders at, as a scale; nil leaves the zoom alone, as
+    /// the Gallery and the checks need.
+    private static var renderZoom: Double?
+
     static let matrix: [SnapshotRender] = SnapshotScenario.allCases.flatMap { scenario in
         scenario.presentations.flatMap { presentation in
             SnapshotAppearance.allCases.map { appearance in
@@ -215,7 +224,7 @@ enum Snapshotter {
     /// The screen the compact popover harness pretends to be on. The minimum
     /// desktop screen keeps the rendered panel honest without depending on the
     /// display attached to the build host.
-    static let popoverScreen = CGSize(width: 1_000, height: 680)
+    static let popoverScreen = CGSize(width: 1_000, height: 680) // zoom: fixed, a screen's size
 
     /// The production minimum-width Focus shell, used by structural checks for
     /// the compact app mark and tab row together.
@@ -252,13 +261,27 @@ enum Snapshotter {
             FileHandle.standardError.write(Data("no snapshot scenario named \(only ?? "")\n".utf8))
             return false
         }
+        // FC_SNAPSHOT_ZOOM=1.4 renders at 140%, snapped to a step like any
+        // other request. Each item's settings take it the way the slider
+        // does, so the zoom every view reads and the zoom Settings shows
+        // agree. 100% (or no value) changes nothing.
+        let raw = ProcessInfo.processInfo.environment["FC_SNAPSHOT_ZOOM"]
+        let requested = raw.flatMap(Double.init)
+        if let raw, requested == nil {
+            FileHandle.standardError.write(Data("FC_SNAPSHOT_ZOOM is not a number: \(raw); rendering at 100%\n".utf8))
+        }
+        let percent = requested.map { InterfaceZoom.nearestPercent(toScale: $0) }
+            ?? InterfaceZoom.defaultPercent
+        renderZoom = percent == InterfaceZoom.defaultPercent ? nil : Double(percent) / 100
+        defer { renderZoom = nil }
         for item in selected {
-            let output = directory.appendingPathComponent(item.filename)
+            let name = item.filename(atZoom: percent)
+            let output = directory.appendingPathComponent(name)
             if render(view(for: item), appearance: item.appearance, to: output) {
                 wrote += 1
-                print("  wrote \(item.filename)")
+                print("  wrote \(name)")
             } else {
-                print("  FAILED \(item.filename)")
+                print("  FAILED \(name)")
             }
         }
         print("\(wrote)/\(selected.count) product snapshots written to \(directory.path)")
@@ -278,7 +301,10 @@ enum Snapshotter {
             return SnapshotSurface(settings: settings,
                                    root: focusPopover(for: item, settings: settings))
         case .compact:
-            return SnapshotSurface(settings: nil, root: compactSurface(for: item))
+            // These surfaces read no settings, but a zoomed run reaches them
+            // through a settings model's zoom all the same.
+            let settings = renderZoom == nil ? nil : snapshotSettings(for: item, density: .compact)
+            return SnapshotSurface(settings: settings, root: compactSurface(for: item))
         }
     }
 
@@ -485,20 +511,23 @@ enum Snapshotter {
     }
 
     private static func shellSize(for item: SnapshotRender) -> CGSize {
-        let width: CGFloat = item.presentation == .minimum ? 980 : 1_160
+        // The window is the same window at any zoom, so its size follows it:
+        // the minimum is the shell's own minimum, and a viewport that showed
+        // the whole story at 100% shows the whole story at 140%.
+        let width: CGFloat = item.presentation == .minimum ? 980.zoomed : 1_160.zoomed
         let height: CGFloat
         switch item.scenario.tab {
-        case .focus: height = item.presentation == .minimum ? 680 : 780
-        case .today: height = 1_100
+        case .focus: height = item.presentation == .minimum ? 680.zoomed : 780.zoomed
+        case .today: height = 1_100.zoomed
         // A taller evidence viewport shows the complete Month grid. The real
         // ScrollViews remain in use: sheets keep their production height and
         // cannot grow with the document behind them.
-        case .review: height = 1_100
-        case .insights: height = 780
-        case .awards: height = 900
-        case .story: height = 1_200
-        case .settings: height = 780
-        case nil: height = 780
+        case .review: height = 1_100.zoomed
+        case .insights: height = 780.zoomed
+        case .awards: height = 900.zoomed
+        case .story: height = 1_200.zoomed
+        case .settings: height = 780.zoomed
+        case nil: height = 780.zoomed
         }
         return CGSize(width: width, height: height)
     }
@@ -553,6 +582,7 @@ enum Snapshotter {
                                   dataDirectory: dataDirectory,
                                   installedAppCatalog: FixtureFactory.installedAppCatalog())
         model.interfaceDensity = density
+        if let renderZoom { model.interfaceZoom = renderZoom }
         model.appearancePreference = item.appearance.preference
         model.showsTimelineLabels = showsTimelineLabels
         // The Updates page's controls appear only with an updater; this

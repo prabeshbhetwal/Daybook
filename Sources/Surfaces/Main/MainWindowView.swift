@@ -19,6 +19,15 @@ struct MainWindowView: View {
     /// retain the real scrollable content but compose its sheet in this viewport.
     var presentsNativeSheets = true
     @StateObject private var windowSize = SizeBox()
+    /// The visible size of the window's screen once the window is known, which
+    /// caps the minimum below; zero until then, when the main screen stands in.
+    @StateObject private var screenVisible = SizeBox()
+    /// The content minimum at 100%, scaled by the zoom and held to the screen.
+    static let minimumBase = CGSize(width: 980, height: 680) // zoom: fixed, the 100% size
+
+    private var minimum: CGSize {
+        ZoomWindowFit.minimum(base: Self.minimumBase, screenVisible: screenVisible.value)
+    }
 
     var body: some View {
       GeometryReader { geometry in
@@ -81,11 +90,13 @@ struct MainWindowView: View {
         // The native sheet is presented outside this reader; it sizes itself
         // to the window it will cover from the size noted here.
         .onAppear { windowSize.value = geometry.size }
-        .onChange(of: geometry.size) { windowSize.value = $0 }
+        .onChange(of: geometry.size) { _, newSize in windowSize.value = newSize }
       }
-        .frame(minWidth: 980, minHeight: 680)
+        .frame(minWidth: minimum.width, minHeight: minimum.height)
+        .background(ZoomWindowFit(base: Self.minimumBase) { screenVisible.value = $0 })
         .background(StoryStyle.canvas)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
+        .zoomRoot()
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
         .environment(\.openSessionReport) { session in navigation.openReport(for: session) }
@@ -99,11 +110,12 @@ struct MainWindowView: View {
             navigation.connect(to: store)
             firstRun.observe(coachSignals)
         }
-        .onChange(of: coachSignals) { firstRun.observe($0) }
+        .onChange(of: coachSignals) { _, signals in firstRun.observe(signals) }
         .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
             sheetContent(presented, within: windowSize.value == .zero ? nil : windowSize.value)
                 .environment(\.focusInterfaceDensity, settings.interfaceDensity)
+                .zoomRoot()
                 .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
                 // A native sheet is its own view tree: the panels the window
                 // opens must be reachable from it too, or a category menu in
@@ -298,7 +310,8 @@ final class OpenInlineFormBox: ObservableObject {
     @Published var value: OpenInlineForm?
 }
 
-/// The window's size, for a sheet presented outside its geometry reader.
+/// A size shared with something outside the view's geometry reader: the
+/// window's, for a sheet, or its screen's, for the window's minimum.
 final class SizeBox: ObservableObject {
     @Published var value: CGSize = .zero
 }

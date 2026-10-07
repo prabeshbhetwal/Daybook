@@ -4,7 +4,8 @@ import AppKit
 /// Pure context for the one-row window chrome. It keeps the visible title and
 /// live status in the same visual band as the application tabs.
 enum MainWindowChrome {
-    static let trafficLightClearance: CGFloat = 76
+    /// The system's window buttons do not follow the interface zoom.
+    static let trafficLightClearance: CGFloat = 76 // zoom: fixed
 
     struct Context: Equatable {
         let title: String
