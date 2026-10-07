@@ -517,6 +517,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         let displayAsleep = CGDisplayIsAsleep(CGMainDisplayID()) != 0
         store.screenLocked = screenLocked
         applyApplicationAppearance(settings.appearancePreference)
+        ZoomModel.shared.apply(percent: InterfaceZoom.nearestPercent(toScale: settings.interfaceZoom))
         wireMonitor()
         monitor.start()
 

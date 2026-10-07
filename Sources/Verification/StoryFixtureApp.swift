@@ -32,6 +32,7 @@ import AppKit
                                  dataDirectory: store.engine.archive.dataDirectoryURL,
                                  installedAppCatalog: FixtureFactory.installedAppCatalog())
         settings.appearancePreference = .system
+        ZoomModel.shared.apply(percent: InterfaceZoom.nearestPercent(toScale: settings.interfaceZoom))
     }
 }
 

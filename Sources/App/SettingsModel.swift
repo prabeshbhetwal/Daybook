@@ -657,6 +657,17 @@ final class SettingsModel: ObservableObject {
         set { write { store.interfaceDensityRawValue = newValue.rawValue } }
     }
 
+    /// The interface zoom as a scale, 1.2 for 120%. A new value snaps to a
+    /// step, is stored, and is handed to the one model every window reads.
+    var interfaceZoom: Double {
+        get { Double(store.interfaceZoomPercent) / 100 }
+        set {
+            let percent = InterfaceZoom.nearestPercent(toScale: newValue)
+            write { store.interfaceZoomPercent = percent }
+            ZoomModel.shared.apply(percent: percent)
+        }
+    }
+
     var appearancePreference: AppearancePreference {
         get { AppearancePreference(rawValue: store.appearanceRawValue) ?? .system }
         set {

@@ -45,6 +45,7 @@ extension SelfTest {
             + HistorySessionIDChecks.tests
             + GoalCreditAndPowerLogChecks.tests
             + HistoryLensFactChecks.tests
+            + InterfaceZoomChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
