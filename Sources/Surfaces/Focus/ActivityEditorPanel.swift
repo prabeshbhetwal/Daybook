@@ -15,9 +15,10 @@ final class ActivityEditorPanelModel: ObservableObject {
     private var panel: NSPanel?
     private var closeObserver: NSObjectProtocol?
     private let model = ActivityEditorPanelModel()
-    static var width: CGFloat { 460.zoomed }
-    static var height: CGFloat { 420.zoomed }
+    /// The content at 100%. It opens at the zoom, held to its screen, and
     /// `.preferredContentSize` leaves the frame to us: resized on a zoom change.
+    static let base = CGSize(width: 460, height: 420) // zoom: fixed, the 100% size
+    static var width: CGFloat { base.width.zoomed }
     private var zoomFollower: ZoomFollower?
 
     var isVisible: Bool { panel?.isVisible ?? false }
@@ -28,7 +29,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         model.ticket &+= 1
         let panel = self.panel ?? makePanel(store: store)
         panel.title = request == .new ? "Pin activity" : "Pinned activities"
-        if !panel.isVisible { position(panel) }
+        if !panel.isVisible { panel.openZoomed(base: Self.base) }
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
     }
@@ -55,7 +56,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         let content = ActivityEditorPanelView(store: store, model: model, onClose: { [weak self] in self?.close() })
         let hosting = NSHostingView(rootView: content)
         hosting.sizingOptions = [.preferredContentSize]
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.height),
+        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: Self.base),
                             styleMask: [.titled, .closable, .fullSizeContentView, .utilityWindow],
                             backing: .buffered, defer: false)
         panel.contentView = hosting
@@ -71,7 +72,10 @@ final class ActivityEditorPanelModel: ObservableObject {
         panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         self.panel = panel
-        zoomFollower = ZoomFollower { panel.resizeContent(to: CGSize(width: Self.width, height: Self.height)) }
+        zoomFollower = ZoomFollower {
+            guard let visible = panel.screen?.visibleFrame else { return }
+            panel.resizeContent(zoomedFrom: Self.base, within: visible)
+        }
         // A system close (⌘W) ends the panel the same way `close` does.
         closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: panel, queue: .main) { [weak self, weak panel] _ in
@@ -81,16 +85,6 @@ final class ActivityEditorPanelModel: ObservableObject {
                 }
             }
         return panel
-    }
-
-    private func position(_ panel: NSPanel) {
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
-            ?? NSScreen.main ?? NSScreen.screens.first
-        guard let frame = screen?.visibleFrame else { panel.center(); return }
-        let size = panel.frame.size
-        panel.setFrameOrigin(NSPoint(x: frame.midX - size.width / 2,
-                                     y: frame.midY - size.height / 2 + frame.height * 0.08))
     }
 }
 

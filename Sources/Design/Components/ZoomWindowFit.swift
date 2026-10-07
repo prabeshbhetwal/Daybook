@@ -78,12 +78,14 @@ final class ZoomWindowFitAnchor: NSView {
         }
     }
 
-    /// The window grown to the zoom's minimum.
+    /// The window grown to the zoom's minimum. Only a window on show, and
+    /// only on its own screen: a hidden or dormant one may report none, and
+    /// another screen's area would move it there.
     private func fit() {
-        guard let window = host, !window.styleMask.contains(.fullScreen),
-              let visible = window.visibleScreenFrame else { return }
+        guard let window = host, window.isVisible, !window.styleMask.contains(.fullScreen),
+              let visible = window.screen?.visibleFrame else { return }
         window.growContent(toFit: InterfaceZoom.windowMinimum(
-            base: base, scale: ZoomModel.shared.scale, visible: visible.size))
+            base: base, scale: ZoomModel.shared.scale, visible: visible.size), within: visible)
     }
 }
 
@@ -93,17 +95,37 @@ extension NSWindow {
     var visibleScreenFrame: CGRect? { (screen ?? NSScreen.main)?.visibleFrame }
 
     /// Grown to hold content of at least `minimum`, never shrunk: the
-    /// top-left corner stays, and the window moves back onto its screen.
-    func growContent(toFit minimum: CGSize) {
-        guard let visible = visibleScreenFrame else { return }
-        move(to: InterfaceZoom.grownFrame(frame, toFit: frameSize(forContent: minimum), within: visible))
+    /// top-left corner stays, and the window ends on `visible` whether it
+    /// grew here or not, since AppKit may already have grown it to a new
+    /// content minimum and left it hanging off the screen.
+    func growContent(toFit minimum: CGSize, within visible: CGRect) {
+        let grown = InterfaceZoom.grownFrame(frame, toFit: frameSize(forContent: minimum), within: visible)
+        move(to: InterfaceZoom.resized(grown, to: grown.size, within: visible))
     }
 
-    /// Resized to hold content of exactly `size`, larger or smaller: the
-    /// top-left corner stays, and the window moves back onto its screen.
-    func resizeContent(to size: CGSize) {
-        guard let visible = visibleScreenFrame else { return }
+    /// Resized to hold `base` content at the current zoom, held to `visible`
+    /// less the screen margin by the rule a window's minimum follows, so a
+    /// tall panel at a high zoom still fits its screen. The top-left corner
+    /// stays, and the window moves onto `visible`.
+    func resizeContent(zoomedFrom base: CGSize, within visible: CGRect) {
+        let size = InterfaceZoom.windowMinimum(base: base, scale: ZoomModel.shared.scale, visible: visible.size)
         move(to: InterfaceZoom.resized(frame, to: frameSize(forContent: size), within: visible))
+    }
+
+    /// Sized for `base` content at the current zoom and centred, a little
+    /// high, on the screen the pointer is on: that is where the picker that
+    /// opened it was.
+    func openZoomed(base: CGSize) {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+            ?? NSScreen.main ?? NSScreen.screens.first
+        guard let visible = screen?.visibleFrame else { center(); return }
+        resizeContent(zoomedFrom: base, within: visible)
+        let size = frame.size
+        let centred = CGRect(x: visible.midX - size.width / 2,
+                             y: visible.midY - size.height / 2 + visible.height * 0.08,
+                             width: size.width, height: size.height)
+        move(to: InterfaceZoom.resized(centred, to: size, within: visible))
     }
 
     /// The window's frame for content of `size`, which carries the title bar

@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -10,6 +11,7 @@ enum ZoomWindowChecks: CheckSuite {
         ("A window grows to the new minimum and stays on screen", windowGrowsOnScreen),
         ("A zoom change reaches each follower once, and a released follower hears nothing", followerFires),
         ("Zoom In, Zoom Out and Actual Size disable at their limits", zoomMenuLimits),
+        ("A window AppKit already grew is still moved back onto its screen", grownWindowReturnsOnScreen),
     ]
 
     private static func close(_ actual: CGSize, _ expected: CGSize) -> Bool {
@@ -101,6 +103,33 @@ enum ZoomWindowChecks: CheckSuite {
             expect(got.zoomIn == zoomIn && got.zoomOut == zoomOut && got.actualSize == actualSize,
                    "at \(percent)% the items should be enabled as (\(zoomIn), \(zoomOut), \(actualSize)), got \(got)",
                    &problems)
+        }
+        return problems
+    }
+
+    /// AppKit can grow a window to a new content minimum before the zoom's
+    /// own fit runs, so the fit finds nothing left to grow. It must still
+    /// bring the window back onto its screen, and never shrink it.
+    private static func grownWindowReturnsOnScreen() -> [String] {
+        var problems: [String] = []
+        MainActor.assumeIsolated {
+            let visible = CGRect(x: 0, y: 0, width: 1_470, height: 900)
+            let minimum = CGSize(width: 1_372, height: 860)
+            let cases: [(String, CGRect, CGRect)] = [
+                ("at the minimum, off the right edge",
+                 CGRect(x: 400, y: 0, width: 1_372, height: 860), CGRect(x: 98, y: 0, width: 1_372, height: 860)),
+                ("past the minimum, off the top and right",
+                 CGRect(x: 100, y: 200, width: 1_400, height: 870), CGRect(x: 70, y: 30, width: 1_400, height: 870)),
+                ("already on the screen",
+                 CGRect(x: 50, y: 20, width: 1_372, height: 860), CGRect(x: 50, y: 20, width: 1_372, height: 860)),
+            ]
+            for (what, start, expected) in cases {
+                let window = NSWindow(contentRect: start, styleMask: .borderless, backing: .buffered, defer: true)
+                window.setFrame(start, display: false)
+                window.growContent(toFit: minimum, within: visible)
+                expect(close(window.frame, expected),
+                       "a window \(what) should end at \(expected), got \(window.frame)", &problems)
+            }
         }
         return problems
     }

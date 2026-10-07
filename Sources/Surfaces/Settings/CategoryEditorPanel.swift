@@ -21,9 +21,10 @@ final class CategoryEditorPanelModel: ObservableObject {
     /// is the caller's.
     private var onSaved: ((WorkTypeDefinition, Bool) -> Void)?
 
-    static var width: CGFloat { 520.zoomed }
-    static var height: CGFloat { 600.zoomed }
+    /// The content at 100%. It opens at the zoom, held to its screen, and
     /// `.preferredContentSize` leaves the frame to us: resized on a zoom change.
+    static let base = CGSize(width: 520, height: 600) // zoom: fixed, the 100% size
+    static var width: CGFloat { base.width.zoomed }
     private var zoomFollower: ZoomFollower?
 
     var isVisible: Bool { panel?.isVisible ?? false }
@@ -36,7 +37,7 @@ final class CategoryEditorPanelModel: ObservableObject {
         panelModel.ticket = CategoryEditorTicket(id: ticketCount, request: request)
         let panel = self.panel ?? makePanel(model: model)
         panel.title = CategoryEditorPanel.title(for: request)
-        if !panel.isVisible { position(panel) }
+        if !panel.isVisible { panel.openZoomed(base: Self.base) }
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
     }
@@ -73,7 +74,7 @@ final class CategoryEditorPanelModel: ObservableObject {
             onSaved: { [weak self] definition, wasNew in self?.onSaved?(definition, wasNew) })
         let hosting = NSHostingView(rootView: content)
         hosting.sizingOptions = [.preferredContentSize]
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.height),
+        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: Self.base),
                             styleMask: [.titled, .closable, .fullSizeContentView, .utilityWindow],
                             backing: .buffered, defer: false)
         panel.contentView = hosting
@@ -87,7 +88,10 @@ final class CategoryEditorPanelModel: ObservableObject {
         panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         self.panel = panel
-        zoomFollower = ZoomFollower { panel.resizeContent(to: CGSize(width: Self.width, height: Self.height)) }
+        zoomFollower = ZoomFollower {
+            guard let visible = panel.screen?.visibleFrame else { return }
+            panel.resizeContent(zoomedFrom: Self.base, within: visible)
+        }
         // A system close (⌘W) ends the panel the same way `close` does.
         closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: panel, queue: .main) { [weak self, weak panel] _ in
@@ -97,17 +101,6 @@ final class CategoryEditorPanelModel: ObservableObject {
                 }
             }
         return panel
-    }
-
-    /// Centred on the screen the pointer is on: that is where the picker was.
-    private func position(_ panel: NSPanel) {
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
-            ?? NSScreen.main ?? NSScreen.screens.first
-        guard let frame = screen?.visibleFrame else { panel.center(); return }
-        let size = panel.frame.size
-        panel.setFrameOrigin(NSPoint(x: frame.midX - size.width / 2,
-                                     y: frame.midY - size.height / 2 + frame.height * 0.08))
     }
 }
 
