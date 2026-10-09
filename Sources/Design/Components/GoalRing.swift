@@ -16,9 +16,13 @@ struct GoalRing: View {
 
     var body: some View {
         ZStack {
+            // Inset by half the line, so the ring is `diameter` across and its
+            // edge meets the edge of the text beside it instead of passing it.
             Circle()
+                .inset(by: lineWidth / 2)
                 .stroke(Tokens.Colour.elevated, lineWidth: lineWidth)
             Circle()
+                .inset(by: lineWidth / 2)
                 // Drawn clamped; `progress` itself may exceed 1 so the figures
                 // beside it can say "160%" honestly.
                 .trim(from: 0, to: min(1, max(0, progress)))

@@ -148,10 +148,12 @@ struct StoryBreakRow: View, Equatable {
                 .accessibilityLabel("Break name")
             Button("Save", action: saveName)
                 .buttonStyle(StoryLinkStyle())
+                .padding(.leading, Tokens.Space.s)
                 .font(Tokens.Typography.label)
                 .disabled(nameDraft.text.trimmingCharacters(in: .whitespaces).isEmpty)
             Button("Cancel", action: closeNameField)
                 .buttonStyle(StoryLinkStyle())
+                .padding(.leading, Tokens.Space.s)
                 .font(Tokens.Typography.body)
                 .foregroundStyle(.secondary)
         }

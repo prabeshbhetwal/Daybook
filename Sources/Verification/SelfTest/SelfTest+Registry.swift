@@ -48,6 +48,8 @@ extension SelfTest {
             + InterfaceZoomChecks.tests
             + ZoomWindowChecks.tests
             + BlankPreferencesLaunchChecks.tests
+            + SettingsAlignmentChecks.tests
+            + ComponentEdgeChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

@@ -91,11 +91,15 @@ struct CategoryShareBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             GeometryReader { geometry in
-                HStack(spacing: 2.zoomed) {
+                // The gaps come out of the width first, or the bar overran
+                // its card by one gap per category after the first.
+                let gap = 2.zoomed
+                let width = max(0, geometry.size.width - gap * CGFloat(max(0, shares.count - 1)))
+                HStack(spacing: gap) {
                     ForEach(shares) { share in
                         RoundedRectangle(cornerRadius: 2.zoomed, style: .continuous)
                             .fill(Tokens.Palette.workType(share.workType))
-                            .frame(width: max(2.zoomed, geometry.size.width * share.share))
+                            .frame(width: max(2.zoomed, width * share.share))
                     }
                 }
             }

@@ -91,6 +91,7 @@ struct StoryAppDetail: View {
                     Image(systemName: "xmark")
                 }
                 .buttonStyle(StoryLinkStyle())
+                .padding(.leading, Tokens.Space.s)
                 .keyboardShortcut(.cancelAction)
                 .accessibilityLabel("Close app detail")
                 .help("Close app detail")
@@ -169,8 +170,9 @@ struct StoryLooseAppUse: View {
                     Spacer(minLength: Tokens.Space.s)
                     Text(durations: Tokens.preciseDuration(seconds))
                         .font(Tokens.Typography.body.monospacedDigit())
-                    Image(systemName: open ? "chevron.down" : "chevron.right")
+                    Image(systemName: "chevron.right")
                         .font(Tokens.Typography.caption).foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(open ? 90 : 0))
                         .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())

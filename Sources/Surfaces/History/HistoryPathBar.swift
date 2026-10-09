@@ -48,7 +48,7 @@ struct HistoryPathBar: View {
     let onSelect: (HistoryCrumb) -> Void
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: Tokens.Space.s) {
             ForEach(Array(crumbs.enumerated()), id: \.element.id) { index, crumb in
                 let isCurrent = index == crumbs.count - 1
                 if index > 0 {
@@ -63,8 +63,6 @@ struct HistoryPathBar: View {
                     .accessibilityLabel(isCurrent ? "\(crumb.title), current place" : "Go to \(crumb.title)")
             }
         }
-        // The first link's padding would push the path off the search field's edge.
-        .padding(.leading, -Tokens.Space.s)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Where you are in History")
     }
