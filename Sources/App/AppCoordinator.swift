@@ -554,8 +554,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         applyPresence()
         updater.isBusy = { [weak self] in self?.store.holdsUnsavedWork ?? false }
         settings.updater = updater
-        engine.store.settleBackupSchedule(isExistingInstall: engine.store.hasOnboarded
-                                          || !engine.archive.records.isEmpty)
+        // New or not by the welcome's own rule: recorded app use alone makes
+        // an install an existing one, so its history is not uploaded unasked.
+        engine.store.settleBackupSchedule(isExistingInstall: !FirstRunGate.shouldWelcome(
+            onboarded: engine.store.hasOnboarded,
+            hasSessionHistory: !engine.archive.records.isEmpty,
+            hasUsageHistory: !usage.sessions.isEmpty,
+            forced: false))
         backups.start { [weak self] in self?.settings.backUpIfDue() }
         secondLaunchObserver = DistributedNotificationCenter.default().addObserver(
             forName: InstanceLock.reopenNotification, object: nil, queue: .main) { [weak self] _ in

@@ -61,21 +61,24 @@ enum DataBackup {
                                                                     isDirectory: true),
                                   to: parent, fileManager: fileManager)
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
-        // A stage left by a copy the app did not live to finish (a quit, a
-        // crash, a shutdown). One backup runs at a time in one Daybook, so
-        // any stage here now is abandoned; it is a part copy, not a backup.
+        // A stage left by a copy that did not live to finish (a quit, a
+        // crash, a shutdown). The folder may be shared with another Mac, in
+        // iCloud Drive or on a network disk, whose copy is still being
+        // written, so only a stage begun over a day ago counts as abandoned.
+        // It is a part copy, not a backup. Its start is in its name: a copy
+        // keeps its source's dates.
+        let now = Int(Date().timeIntervalSince1970)
         for name in (try? fileManager.contentsOfDirectory(atPath: parent.path)) ?? []
-        where name.hasPrefix(".") && name.hasSuffix(".partial") {
-            try? fileManager.removeItem(at: parent.appendingPathComponent(name, isDirectory: true))
+        where name.hasPrefix(".") && name.hasSuffix(stageSuffix) {
+            if now - stageStart(name, otherwise: 0) > 86_400 {
+                try? fileManager.removeItem(at: parent.appendingPathComponent(name, isDirectory: true))
+            }
         }
 
         let stamp = stampFormatter.string(from: date) + (automatic ? " " + automaticMark : "")
         var destination = parent.appendingPathComponent(stamp, isDirectory: true)
         var copy = 1
-        func staging(_ folder: URL) -> URL {
-            parent.appendingPathComponent(".\(folder.lastPathComponent).partial", isDirectory: true)
-        }
-        while fileManager.fileExists(atPath: destination.path) || fileManager.fileExists(atPath: staging(destination).path) {
+        while fileManager.fileExists(atPath: destination.path) {
             copy += 1
             destination = parent.appendingPathComponent("\(stamp) \(copy)", isDirectory: true)
         }
@@ -84,7 +87,8 @@ enum DataBackup {
         // fails part-way never stands as a backup or counts as the newest
         // when old ones are pruned. The part is this copy's own, not the
         // reader's data, so it is removed.
-        let stage = staging(destination)
+        let stage = parent.appendingPathComponent(
+            ".\(destination.lastPathComponent).\(now)-\(UUID().uuidString.prefix(8))\(stageSuffix)", isDirectory: true)
         do {
             if fileManager.fileExists(atPath: dataDirectory.path) {
                 try fileManager.copyItem(at: dataDirectory, to: stage)
@@ -132,6 +136,14 @@ enum DataBackup {
     }
 
     private static let clonePrefix = "daybook-backup-"
+    private static let stageSuffix = ".partial"
+
+    /// When a stage named `.<backup>.<seconds>-<id>.partial` was begun, or
+    /// `otherwise` for a name without one.
+    static func stageStart(_ name: String, otherwise: Int) -> Int {
+        let tag = name.dropLast(stageSuffix.count).split(separator: ".").last ?? ""
+        return Int(tag.prefix { $0 != "-" }) ?? otherwise
+    }
 
     /// Moves automatic backups in `<root>/Daybook Backups` made before
     /// `cutoff` to the Trash, and returns them. The newest automatic backup

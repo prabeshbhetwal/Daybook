@@ -190,11 +190,24 @@ enum BackupScheduleChecks: CheckSuite {
         // A stage a quit left behind goes with the next backup.
         try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: unreadable.path)
         let backups = root.appendingPathComponent(DataBackup.folderName)
-        let abandoned = backups.appendingPathComponent(".2023-11-01 0900 (automatic).partial", isDirectory: true)
-        try? FileManager.default.createDirectory(at: abandoned, withIntermediateDirectories: true)
+        // A stage's start is in its name; one begun over a day ago is
+        // abandoned, and one still being written, perhaps by another Mac
+        // sharing the folder, is left alone.
+        let now = Int(Date().timeIntervalSince1970)
+        let abandoned = backups.appendingPathComponent(
+            ".2023-11-01 0900 (automatic).\(now - 90_000)-AAAA1111.partial", isDirectory: true)
+        let writing = backups.appendingPathComponent(
+            ".2023-11-01 0901 (automatic).\(now - 60)-BBBB2222.partial", isDirectory: true)
+        for stage in [abandoned, writing] {
+            try? FileManager.default.createDirectory(at: stage, withIntermediateDirectories: true)
+        }
         _ = try? DataBackup.make(from: data, preferences: nil, into: root, at: SelfTest.base)
         expect(!FileManager.default.fileExists(atPath: abandoned.path),
-               "a part copy a quit left behind is cleared by the next backup", &problems)
+               "a part copy begun over a day ago is cleared by the next backup", &problems)
+        expect(FileManager.default.fileExists(atPath: writing.path),
+               "a part copy still being written, perhaps by another Mac, is left alone", &problems)
+        expect(DataBackup.stageStart(writing.lastPathComponent, otherwise: -1) == now - 60,
+               "a stage's start is read from its name", &problems)
 
         // The running app's lock is not history, so it is not backed up.
         try? Data().write(to: data.appendingPathComponent(InstanceLock.fileName))
