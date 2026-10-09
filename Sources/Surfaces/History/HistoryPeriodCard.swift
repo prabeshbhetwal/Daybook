@@ -33,13 +33,14 @@ struct HistoryPeriodCard: View {
                     Text(HistoryRowText.title(row.place, today: top.today, calendar: calendar))
                         .font(Tokens.Typography.rowTitle)
                         .lineLimit(1)
-                    if row.place.span.contains(top.today) {
+                    if row.place.span.holds(top.today) {
                         Text("So far")
                             .font(Tokens.Typography.caption)
                             .padding(.horizontal, 7.zoomed)
                             .padding(.vertical, 2.zoomed)
                             .background(StoryStyle.focus.opacity(0.14), in: RoundedRectangle(cornerRadius: Tokens.Radius.swatch))
                             .foregroundStyle(StoryStyle.focus)
+                            .storyRenderEvidence(.historySoFar)
                     }
                     Spacer(minLength: Tokens.Space.s)
                     Text(durations: Self.figure(row))

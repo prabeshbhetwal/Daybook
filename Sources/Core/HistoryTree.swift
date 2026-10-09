@@ -41,6 +41,13 @@ struct HistoryPlace: Hashable {
     }
 }
 
+extension DateInterval {
+    /// Whether `date` lies in the interval, taking its start but not its end.
+    /// `contains` takes both, so a period that ends at today's midnight
+    /// (yesterday, last week on a Monday, last month on the 1st) holds today.
+    func holds(_ date: Date) -> Bool { start <= date && date < end }
+}
+
 /// One thin bar inside a folded row: a month of a year, or a day of a month
 /// or week.
 struct HistoryBar: Equatable {
@@ -255,9 +262,7 @@ enum HistoryTreeBuilder {
                          cachedToday: HistoryDay?, live: HistoryDay?, calendar: Calendar) -> HistorySummary {
         guard let live, live != cachedToday else { return summary }
         let today = calendar.startOfDay(for: live.date)
-        // Half-open: `DateInterval.contains` takes the end, and yesterday's
-        // span ends at the midnight that starts today.
-        guard top.span.start <= today, today < top.span.end else { return summary }
+        guard top.span.holds(today) else { return summary }
         let was = cachedToday
         let focused = summary.focused - (was?.focused ?? 0) + live.focused
         let tracked = summary.tracked - (was?.tracked ?? 0) + live.tracked
@@ -329,9 +334,8 @@ enum HistoryTreeBuilder {
                          live: HistoryDay?, calendar: Calendar = calendar()) -> [HistoryRow] {
         guard let live, live != cachedToday else { return rows }
         let today = calendar.startOfDay(for: live.date)
-        func holdsToday(_ place: HistoryPlace) -> Bool { place.span.start <= today && today < place.span.end }
-        guard rows.contains(where: { holdsToday($0.place) }) else { return rows }
-        return rows.map { holdsToday($0.place) ? row($0.place, byDate: byDate, live: live, calendar: calendar) : $0 }
+        guard rows.contains(where: { $0.place.span.holds(today) }) else { return rows }
+        return rows.map { $0.place.span.holds(today) ? row($0.place, byDate: byDate, live: live, calendar: calendar) : $0 }
     }
 
     static func index(_ days: [HistoryDay], calendar: Calendar) -> [Date: HistoryDay] {
