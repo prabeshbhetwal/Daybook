@@ -82,16 +82,23 @@ enum AskRequest: Equatable, Sendable {
 enum AskFacts {
     static let maximumBytes = 1_024
 
+    /// Said last by an answer that came from a search, while a session runs
+    /// in the range: a search reads saved sessions, and the running one is
+    /// saved only when it ends.
+    static let runningNote = " A session running now is not counted until it ends."
+
     /// Text over the cap is cut at the last line break or `; ` that leaves it
-    /// within the cap with the ellipsis, or mid-text when there is none.
-    static func capped(_ text: String) -> String {
-        guard text.utf8.count > maximumBytes else { return text }
+    /// within the cap with the ellipsis, or mid-text when there is none. The
+    /// `tail` is kept whole after it, and the cap includes it.
+    static func capped(_ text: String, keeping tail: String = "") -> String {
+        let limit = maximumBytes - tail.utf8.count
+        guard text.utf8.count > limit else { return text + tail }
         let ellipsis = "…"
         var kept = ""
         var bytes = 0
         for character in text {
             let size = character.utf8.count
-            if bytes + size > maximumBytes - ellipsis.utf8.count { break }
+            if bytes + size > limit - ellipsis.utf8.count { break }
             kept.append(character)
             bytes += size
         }
@@ -102,16 +109,19 @@ enum AskFacts {
             let cuts = ["\n", "; "].compactMap { kept.range(of: $0, options: .backwards)?.lowerBound }
             if let cut = cuts.max() { kept = String(kept[..<cut]) }
         }
-        return kept + ellipsis
+        return kept + ellipsis + tail
     }
 
     static func focusTotals(_ range: AskRange, words: String?, focused: TimeInterval, sessions: Int,
                             focusedDays: Int,
                             best: (unit: String, label: String, focused: TimeInterval)?,
-                            parts: (name: String, items: [(label: String, focused: TimeInterval)])?) -> String {
+                            parts: (name: String, items: [(label: String, focused: TimeInterval)])?,
+                            sessionRunning: Bool = false) -> String {
+        // Only a search leaves the running session out; the plain total counts it.
+        let tail = words != nil && sessionRunning ? runningNote : ""
         guard sessions > 0 else {
             return capped(words.map { "No sessions match “\($0)” \(range.inPhrase)." }
-                          ?? "No focus recorded \(range.inPhrase).")
+                          ?? "No focus recorded \(range.inPhrase).", keeping: tail)
         }
         let lead = words.map { "Sessions matching “\($0)” \(range.inPhrase)" } ?? sentenceStart(range.inPhrase)
         let verb = words == nil ? "focused over" : "over"
@@ -124,7 +134,7 @@ enum AskFacts {
             let items = parts.items.map { "\($0.label) \(DurationText.compact($0.focused))" }
             text += " By \(parts.name): \(items.joined(separator: ", "))."
         }
-        return capped(text)
+        return capped(text, keeping: tail)
     }
 
     static func bestHours(_ range: AskRange, span: String,
@@ -138,23 +148,28 @@ enum AskFacts {
     }
 
     static func sessions(_ range: AskRange, words: String,
-                         hits: [(day: String, name: String, worked: TimeInterval, note: String?)]) -> String {
-        guard !hits.isEmpty else { return capped("No sessions match “\(words)” \(range.inPhrase).") }
+                         hits: [(day: String, name: String, worked: TimeInterval, note: String?)],
+                         sessionRunning: Bool = false) -> String {
+        let tail = sessionRunning ? runningNote : ""
+        guard !hits.isEmpty else { return capped("No sessions match “\(words)” \(range.inPhrase).", keeping: tail) }
         let lines = hits.map { hit in
             var line = "\(hit.day) · \(hit.name) · \(DurationText.compact(hit.worked))"
             if let note = hit.note, !note.isEmpty { line += " · note: \(note.prefix(80))" }
             return line
         }
-        return capped(lines.joined(separator: "\n"))
+        return capped(lines.joined(separator: "\n"), keeping: tail)
     }
 
     static func appTime(_ range: AskRange,
                         app: (query: String, name: String?, total: TimeInterval, sessions: Int)?,
-                        top: [(name: String, total: TimeInterval)]) -> String {
+                        top: [(name: String, total: TimeInterval)], sessionRunning: Bool = false) -> String {
         if let app {
-            guard let name = app.name else { return capped("No app called “\(app.query)” was used \(range.inPhrase).") }
+            let tail = sessionRunning ? runningNote : ""
+            guard let name = app.name else {
+                return capped("No app called “\(app.query)” was used \(range.inPhrase).", keeping: tail)
+            }
             return capped("\(name) \(range.inPhrase): \(DurationText.compact(app.total)) in front; "
-                          + "used in \(count(app.sessions, "session")).")
+                          + "used in \(count(app.sessions, "session")).", keeping: tail)
         }
         guard !top.isEmpty else { return capped("No app use recorded \(range.inPhrase).") }
         let apps = top.prefix(5).map { "\($0.name) \(DurationText.compact($0.total))" }

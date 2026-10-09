@@ -59,7 +59,8 @@ extension SessionStore {
         let hits = askHits(matching: HistoryFilter(query: words), in: range).filter { $0.workType.countsAsFocus }
         return AskFacts.focusTotals(range, words: words, focused: hits.reduce(0) { $0 + $1.worked },
                                     sessions: Set(hits.map(\.threadID)).count,
-                                    focusedDays: Set(hits.map(\.day)).count, best: nil, parts: nil)
+                                    focusedDays: Set(hits.map(\.day)).count, best: nil, parts: nil,
+                                    sessionRunning: askSessionIsMissed(range))
     }
 
     // MARK: - Sessions
@@ -68,7 +69,7 @@ extension SessionStore {
         let hits = askHits(matching: HistoryFilter(query: words), in: range).prefix(10).map {
             (day: askText("EEE d MMM", $0.day), name: $0.name, worked: $0.worked, note: $0.noteSnippet)
         }
-        return AskFacts.sessions(range, words: words, hits: hits)
+        return AskFacts.sessions(range, words: words, hits: hits, sessionRunning: askSessionIsMissed(range))
     }
 
     // MARK: - Best hours
@@ -117,15 +118,27 @@ extension SessionStore {
             let better = match.map { total > $0.total || (total == $0.total && id < $0.id) } ?? true
             if better { match = (id: id, name: name, total: total) }
         }
+        let running = askSessionIsMissed(range)
         guard let match else {
-            return AskFacts.appTime(range, app: (query: query, name: nil, total: 0, sessions: 0), top: [])
+            return AskFacts.appTime(range, app: (query: query, name: nil, total: 0, sessions: 0), top: [],
+                                    sessionRunning: running)
         }
         let sessions = Set(askHits(matching: HistoryFilter(appBundleID: match.id), in: range).map(\.threadID)).count
         return AskFacts.appTime(range, app: (query: query, name: match.name, total: match.total, sessions: sessions),
-                                top: [])
+                                top: [], sessionRunning: running)
     }
 
     // MARK: - Shared
+
+    /// Whether a search over the range misses a session still going: one is
+    /// in progress, and the range holds today. A search reads saved sessions,
+    /// and the running one is saved when it ends.
+    private func askSessionIsMissed(_ range: AskRange) -> Bool {
+        guard engine.state != .idle else { return false }
+        let today = periodCalendar.startOfDay(for: now())
+        let interval = askInterval(range)
+        return interval.start <= today && today < interval.end
+    }
 
     private func askInterval(_ range: AskRange) -> DateInterval {
         range.interval(now: now(), firstDay: historyTop().firstDay, calendar: periodCalendar)
