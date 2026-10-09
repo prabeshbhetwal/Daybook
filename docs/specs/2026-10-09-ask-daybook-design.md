@@ -78,9 +78,9 @@ week here is the same week History shows.
 
 | Tool | Arguments | Returns (example) | Built on |
 |---|---|---|---|
-| `focusTotals` | range, words (optional) | `This week: 6h 40m focused over 5 sessions on 4 days; best day Tue 7 Oct, 2h 5m. By day: Mon 1h 30m, Tue 2h 5m, …` With words, the same over the matching sessions only. | No words: `historySummary(for:)` and `historyRows(under:)` for a `HistoryPlace` spanning the range, History's own headline and rows. Words: `historySearchHits(matching:)` inside the range. |
+| `focusTotals` | range, words (optional) | `This week: 6h 40m focused over 5 sessions on 4 days; best day Tue 7 Oct, 2h 5m. By day: Mon 1h 30m, Tue 2h 5m, …` With words, the same over the matching sessions only. | No words: `historySummary(for:)` and `historyRows(under:)` for a `HistoryPlace` spanning the range, History's own headline and rows. Words: `historySearchHits(matching:)` for the sessions that touch the range, clipped to it. |
 | `bestHours` | range | `Over the 4 weeks to 9 Oct: most focus 9–11am; strongest on Tuesdays.` | `insightReading`: `.day` scope for a one-day range, otherwise `.week` scope over the weeks covering the range (at most 14), whose rows are weekdays. |
-| `findSessions` | words, range | Up to 10 lines: date, name, duration, the note line that matched (≤ 80 characters). | `historySearchHits(matching:)` inside the range |
+| `findSessions` | words, range | Up to 10 lines: date, name, duration, the note line that matched (≤ 80 characters). | `historySearchHits(matching:)` for the sessions that touch the range, clipped to it |
 | `appTime` | range, app (optional) | `Safari, this week: 3h 12m in front; used in 4 sessions.` Without an app: the top five apps by time. | `historySortedUsage().uniqueUse(within:)` for time (each second counted once); `historySearchHits(matching:)` with the app filter for sessions, as History's app filter counts them |
 
 Every tool's output:

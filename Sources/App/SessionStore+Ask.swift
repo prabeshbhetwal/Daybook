@@ -58,10 +58,10 @@ extension SessionStore {
     }
 
     private func askMatchingTotals(_ range: AskRange, words: String) -> String {
-        let hits = askHits(matching: HistoryFilter(query: words), in: range).filter { $0.workType.countsAsFocus }
-        return AskFacts.focusTotals(range, words: words, focused: hits.reduce(0) { $0 + $1.worked },
-                                    sessions: Set(hits.map(\.threadID)).count,
-                                    focusedDays: Set(hits.map(\.day)).count, best: nil, parts: nil,
+        let clips = askHits(matching: HistoryFilter(query: words), in: range).filter { $0.hit.workType.countsAsFocus }
+        return AskFacts.focusTotals(range, words: words, focused: clips.reduce(0) { $0 + $1.worked },
+                                    sessions: Set(clips.map(\.hit.threadID)).count,
+                                    focusedDays: Set(clips.flatMap(\.days)).count, best: nil, parts: nil,
                                     sessionRunning: askSessionIsMissed(range))
     }
 
@@ -70,8 +70,11 @@ extension SessionStore {
     private func askSessions(_ range: AskRange, words: String) -> String {
         guard !words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return AskFacts.needsWords }
         let found = askHits(matching: HistoryFilter(query: words), in: range)
+        // Dated by the first day of the range the session has work on, so a
+        // session begun last night is not listed under yesterday's date for today.
         let hits = found.prefix(10).map {
-            (day: askText("EEE d MMM", $0.day), name: $0.name, worked: $0.worked, note: $0.noteSnippet)
+            (day: askText("EEE d MMM", $0.days.min() ?? $0.hit.day), name: $0.hit.name, worked: $0.worked,
+             note: $0.hit.noteSnippet)
         }
         return AskFacts.sessions(range, words: words, hits: hits, matched: found.count,
                                  sessionRunning: askSessionIsMissed(range))
@@ -133,7 +136,7 @@ extension SessionStore {
             return AskFacts.appTime(range, app: (query: query, name: nil, total: 0, sessions: 0), top: [],
                                     sessionRunning: running)
         }
-        let sessions = Set(askHits(matching: HistoryFilter(appBundleID: match.id), in: range).map(\.threadID)).count
+        let sessions = Set(askHits(matching: HistoryFilter(appBundleID: match.id), in: range).map(\.hit.threadID)).count
         return AskFacts.appTime(range, app: (query: query, name: match.name, total: match.total, sessions: sessions),
                                 top: [], sessionRunning: running)
     }
@@ -154,15 +157,53 @@ extension SessionStore {
         range.interval(now: now(), firstDay: historyTop().firstDay, calendar: periodCalendar)
     }
 
-    /// The sessions a search finds on days inside the range. The range is
-    /// half-open: `DateInterval.contains` takes its end, which would count
-    /// Monday's session in last week. The search is not capped: it lists
-    /// newest first and stops at its limit before the range is applied, so
-    /// any cap would drop the oldest sessions from a long range's count.
-    private func askHits(matching filter: HistoryFilter, in range: AskRange) -> [HistorySearchHit] {
+    /// A search hit's part of a range: the work of its records that falls
+    /// inside it, and the days that work lands on.
+    private struct AskClip {
+        let hit: HistorySearchHit
+        let worked: TimeInterval
+        let days: Set<Date>
+    }
+
+    /// The sessions a search finds that touch the range, each clipped to it:
+    /// one that crosses midnight is found by the part inside, not by the day
+    /// it began, and brings only that part's work. The range is half-open:
+    /// `DateInterval.contains` takes its end, which would count Monday's
+    /// session in last week. The search is not capped: it lists newest first
+    /// and stops at its limit before the range is applied, so any cap would
+    /// drop the oldest sessions from a long range's count.
+    private func askHits(matching filter: HistoryFilter, in range: AskRange) -> [AskClip] {
         let interval = askInterval(range)
-        return historySearchHits(matching: filter, limit: .max)
-            .filter { $0.day >= interval.start && $0.day < interval.end }
+        let records = Dictionary(engine.archive.records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return historySearchHits(matching: filter, limit: .max).compactMap { hit -> AskClip? in
+            let inside = hit.recordIDs.compactMap { records[$0] }.filter { askTouches($0, interval) }
+            guard !inside.isEmpty else { return nil }
+            return AskClip(hit: hit,
+                           worked: inside.reduce(0) { $0 + $1.workSeconds(in: (interval.start, interval.end)) },
+                           days: inside.reduce(into: Set<Date>()) { $0.formUnion(askDays(of: $1, in: interval)) })
+        }
+    }
+
+    /// Whether a record overlaps the range; one with no length, by the
+    /// instant it happened, as `workSeconds(in:)` places it.
+    private func askTouches(_ record: SessionRecord, _ interval: DateInterval) -> Bool {
+        record.span > 0 ? record.start < interval.end && record.end > interval.start
+                        : record.end >= interval.start && record.end < interval.end
+    }
+
+    /// The days of the range that hold some of a record's work, as History
+    /// attributes it to days.
+    private func askDays(of record: SessionRecord, in interval: DateInterval) -> Set<Date> {
+        let calendar = periodCalendar
+        var days: Set<Date> = []
+        var day = calendar.startOfDay(for: max(record.start, interval.start))
+        let last = min(record.end, interval.end)
+        for _ in 0..<HistoryStats.maximumCalendarDaysPerRecord {
+            if record.workSeconds(on: day, calendar: calendar) > 0 { days.insert(calendar.startOfDay(for: day)) }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day), next < last else { break }
+            day = next
+        }
+        return days
     }
 
     /// A date named in the calendar the period was worked out in.
