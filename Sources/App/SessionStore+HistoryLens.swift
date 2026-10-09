@@ -7,24 +7,42 @@ struct HistoryLensRunning: Equatable {
     let minute: Int
 }
 
-/// An app's story holds while the app, the evidence and the running
-/// session stay the same.
+/// An app's story holds while the app, the evidence, the running session and
+/// the minute open app use has reached stay the same.
 struct HistoryLensKey: Equatable {
     let bundleID: String
     let revision: SessionStore.EvidenceRevision
     let running: HistoryLensRunning?
+    /// App use grows with the clock while one app stays in front, and no
+    /// revision moves when it does.
+    let usageMinute: Int?
     /// Days are midnights in the zone the lens was built in; a lens from
     /// another zone files its sessions under days the page no longer draws.
     let timeZone: TimeZone
 }
 
 extension SessionStore {
-    /// App use sorted by start, built once per evidence revision.
+    /// The minute the tracker's newest open or pending stretch reaches, nil
+    /// with none. An app that stays in front grows its stretch with the
+    /// clock and moves no revision, so what is built from app use carries
+    /// this beside the revision. Minutes, as every figure here is shown. A
+    /// stretch the tracker has closed or trimmed for idleness has a fixed
+    /// end, so it holds its minute.
+    var usageLiveMinute: Int? {
+        tracker?.usageOverlaySessions().map(\.end).max().map { Int($0.timeIntervalSinceReferenceDate / 60) }
+    }
+
+    /// App use sorted by start, built once per evidence revision and, while
+    /// an app is in front, once a minute.
     func historySortedUsage() -> SortedUsage {
         let revision = evidenceRevision
-        if let cached = historySortedUsageCache, cached.revision == revision { return cached.usage }
+        let live = usageLiveMinute
+        if let cached = historySortedUsageCache, cached.revision == revision, cached.liveMinute == live {
+            return cached.usage
+        }
         let usage = SortedUsage(effectiveUsageSnapshot?.sessions ?? [])
-        historySortedUsageCache = (revision, usage)
+        historySortedUsageCache = (revision, live, usage)
+        historySortedUsageComputeCount &+= 1
         return usage
     }
 
@@ -48,7 +66,7 @@ extension SessionStore {
         }
         let calendar = Calendar.current
         let key = HistoryLensKey(bundleID: bundleID, revision: evidenceRevision, running: running,
-                                 timeZone: calendar.timeZone)
+                                 usageMinute: usageLiveMinute, timeZone: calendar.timeZone)
         if let cached = historyAppLensCache, cached.key == key { return cached.lens }
         let lens = HistoryAppLens.build(bundleID: bundleID, records: records,
                                         usage: historySortedUsage(), calendar: calendar,

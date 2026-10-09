@@ -292,8 +292,10 @@ final class SessionStore: ObservableObject {
     /// How many times a search's matches were walked.
     var searchJournalComputeCount = 0
     /// App use sorted by start, so a search finds a session's apps by
-    /// bisection; held until the evidence changes.
-    var historySortedUsageCache: (revision: EvidenceRevision, usage: SortedUsage)?
+    /// bisection; held until the evidence changes or the minute that open app
+    /// use has reached moves on.
+    var historySortedUsageCache: (revision: EvidenceRevision, liveMinute: Int?, usage: SortedUsage)?
+    var historySortedUsageComputeCount = 0
     /// The picked app as History tells it, held until the app or the
     /// evidence changes.
     var historyAppLensCache: (key: HistoryLensKey, lens: HistoryAppLens)?
