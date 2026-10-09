@@ -255,7 +255,9 @@ enum HistoryTreeBuilder {
                          cachedToday: HistoryDay?, live: HistoryDay?, calendar: Calendar) -> HistorySummary {
         guard let live, live != cachedToday else { return summary }
         let today = calendar.startOfDay(for: live.date)
-        guard top.span.contains(today) else { return summary }
+        // Half-open: `DateInterval.contains` takes the end, and yesterday's
+        // span ends at the midnight that starts today.
+        guard top.span.start <= today, today < top.span.end else { return summary }
         let was = cachedToday
         let focused = summary.focused - (was?.focused ?? 0) + live.focused
         let tracked = summary.tracked - (was?.tracked ?? 0) + live.tracked
@@ -327,8 +329,9 @@ enum HistoryTreeBuilder {
                          live: HistoryDay?, calendar: Calendar = calendar()) -> [HistoryRow] {
         guard let live, live != cachedToday else { return rows }
         let today = calendar.startOfDay(for: live.date)
-        guard rows.contains(where: { $0.place.span.contains(today) }) else { return rows }
-        return rows.map { $0.place.span.contains(today) ? row($0.place, byDate: byDate, live: live, calendar: calendar) : $0 }
+        func holdsToday(_ place: HistoryPlace) -> Bool { place.span.start <= today && today < place.span.end }
+        guard rows.contains(where: { holdsToday($0.place) }) else { return rows }
+        return rows.map { holdsToday($0.place) ? row($0.place, byDate: byDate, live: live, calendar: calendar) : $0 }
     }
 
     static func index(_ days: [HistoryDay], calendar: Calendar) -> [Date: HistoryDay] {
