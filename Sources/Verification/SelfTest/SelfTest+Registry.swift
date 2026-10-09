@@ -50,6 +50,7 @@ extension SelfTest {
             + BlankPreferencesLaunchChecks.tests
             + SettingsAlignmentChecks.tests
             + ComponentEdgeChecks.tests
+            + AskChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
