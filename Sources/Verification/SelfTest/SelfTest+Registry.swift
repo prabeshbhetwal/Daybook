@@ -52,6 +52,7 @@ extension SelfTest {
             + ComponentEdgeChecks.tests
             + AskChecks.tests
             + AskLookupChecks.tests
+            + AskLookupVolumeChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

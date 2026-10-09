@@ -133,10 +133,12 @@ extension SessionStore {
 
     /// The sessions a search finds on days inside the range. The range is
     /// half-open: `DateInterval.contains` takes its end, which would count
-    /// Monday's session in last week.
+    /// Monday's session in last week. The search is not capped: it lists
+    /// newest first and stops at its limit before the range is applied, so
+    /// any cap would drop the oldest sessions from a long range's count.
     private func askHits(matching filter: HistoryFilter, in range: AskRange) -> [HistorySearchHit] {
         let interval = askInterval(range)
-        return historySearchHits(matching: filter, limit: 1_000)
+        return historySearchHits(matching: filter, limit: .max)
             .filter { $0.day >= interval.start && $0.day < interval.end }
     }
 
