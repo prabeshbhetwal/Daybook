@@ -127,13 +127,44 @@ enum AskChecks: CheckSuite {
 
     private static func outputStaysUnderCap() -> [String] {
         var problems: [String] = []
+        let cap = AskFacts.maximumBytes
+        let ellipsis = "…".utf8.count
+
+        // Line break: the answer is exactly the first k whole lines, k the
+        // most that leave room for the ellipsis, never a partial line.
         let note = String(repeating: "n", count: 80)
         let hits = (0..<200).map { (day: "Tue 14 Nov", name: "Session \($0)", worked: 3_600.0, note: Optional(note)) }
+        let lines = (0..<200).map { "Tue 14 Nov · Session \($0) · 1h · note: \(note)" }
+        var kept = 0
+        while kept < lines.count, lines[...kept].joined(separator: "\n").utf8.count + ellipsis <= cap { kept += 1 }
         let text = AskFacts.sessions(.thisWeek, words: "session", hits: hits)
-        expect(text.utf8.count <= AskFacts.maximumBytes, "the answer is \(text.utf8.count) bytes", &problems)
-        expect(text.hasSuffix("…"), "a cut answer does not end with an ellipsis", &problems)
-        expect(!text.dropLast().hasSuffix("\n") && text.dropLast().split(separator: "\n").allSatisfy { $0.contains("note:") },
-               "a cut answer ends mid-line", &problems)
+        expect(text.utf8.count <= cap, "the answer is \(text.utf8.count) bytes", &problems)
+        expect(kept > 0 && kept < lines.count, "the fixture no longer needs a cut at a line break", &problems)
+        expect(text == lines[..<kept].joined(separator: "\n") + "…",
+               "an over-long list is not cut after its \(kept) whole lines: ends “\(text.suffix(40))”", &problems)
+
+        // Clause break: with no line break, the cut lands on the last "; ".
+        let days = (0..<100).map { (label: "Day \($0)", focused: 3_600.0) }
+        let clause = AskFacts.focusTotals(.thisWeek, words: nil, focused: 24_000, sessions: 5, focusedDays: 4,
+                                          best: (unit: "day", label: "Tue 14 Nov", focused: 7_500),
+                                          parts: (name: "day", items: days))
+        expect(clause == "This week: 6h 40m focused over 5 sessions on 4 days…",
+               "an over-long total is not cut at its “; ”: “\(clause)”", &problems)
+
+        // A separator that starts just past the kept text still counts: the
+        // first two lines are exactly as long as the cap allows with the ellipsis.
+        let fits = String(repeating: "a", count: 10) + "\n" + String(repeating: "b", count: cap - ellipsis - 11)
+        let edge = AskFacts.capped(fits + "\n" + String(repeating: "c", count: 100))
+        expect(edge == fits + "…" && edge.utf8.count == cap,
+               "a cut that lands on a line break loses the line before it: ends “\(edge.suffix(20))”", &problems)
+
+        // No separator at all: cut mid-text, still within the cap.
+        let name = String(repeating: "x", count: 1_500)
+        let bare = AskFacts.sessions(.thisWeek, words: "x",
+                                     hits: [(day: "Tue 14 Nov", name: name, worked: 60, note: nil)])
+        let bareLine = "Tue 14 Nov · \(name) · 1m"
+        expect(bare == String(decoding: bareLine.utf8.prefix(cap - ellipsis), as: UTF8.self) + "…",
+               "a single over-long line is not cut at the cap: \(bare.utf8.count) bytes", &problems)
 
         expect(AskFacts.capped("short") == "short", "a short answer was changed", &problems)
         let multibyte = AskFacts.capped(String(repeating: "é", count: 2_000))

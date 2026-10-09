@@ -95,8 +95,13 @@ enum AskFacts {
             kept.append(character)
             bytes += size
         }
-        let cuts = ["\n", "; "].compactMap { kept.range(of: $0, options: .backwards)?.lowerBound }
-        if let cut = cuts.max() { kept = String(kept[..<cut]) }
+        // A separator that begins right where the kept text ends already
+        // marks a boundary; only otherwise fall back to the last one inside.
+        let rest = text.dropFirst(kept.count)
+        if !(rest.hasPrefix("\n") || rest.hasPrefix("; ")) {
+            let cuts = ["\n", "; "].compactMap { kept.range(of: $0, options: .backwards)?.lowerBound }
+            if let cut = cuts.max() { kept = String(kept[..<cut]) }
+        }
         return kept + ellipsis
     }
 
