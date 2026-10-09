@@ -31,7 +31,7 @@ enum GlobalShortcutChecks: CheckSuite {
                    "only Control-Option chords are let go for VoiceOver", &problems)
 
             let suite = "fc-selftest-shortcut-\(UUID().uuidString)"
-            let persistence = PersistenceStore(defaults: UserDefaults(suiteName: suite) ?? .standard)
+            let persistence = PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard)
             persistence.removeAll()
             expect(persistence.globalShortcut == standard, "no preference means the standard chord", &problems)
             persistence.globalShortcut = optionCommandA
@@ -59,7 +59,7 @@ enum GlobalShortcutChecks: CheckSuite {
             expect(monitor.apply(optionCommandA) && monitor.shortcut == optionCommandA,
                    "an unregistered monitor still records the chord it will hold", &problems)
 
-            UserDefaults.standard.removePersistentDomain(forName: suite)
+            MemoryDefaults.remove(named: suite)
             return problems
         }
     }

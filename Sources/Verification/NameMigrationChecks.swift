@@ -144,7 +144,7 @@ enum NameMigrationChecks: CheckSuite {
         var problems: [String] = []
         let legacyDomain = "fc-selftest-name-legacy-\(UUID().uuidString)"
         let domain = "fc-selftest-name-current-\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: domain) else { return ["no isolated defaults suite"] }
+        guard let defaults = MemoryDefaults.suite(named: domain) else { return ["no isolated defaults suite"] }
         defer {
             defaults.removePersistentDomain(forName: legacyDomain)
             defaults.removePersistentDomain(forName: domain)

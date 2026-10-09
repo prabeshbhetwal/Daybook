@@ -16,7 +16,7 @@ extension SelfTest {
             let clock = TestClock(base)
             let archive = SessionArchive(directory: scratchDirectory(), now: { clock.value })
             let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+                defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
             persistence.removeAll()
             persistence.breakThreshold = FocusConstants.defaultThreshold
             persistence.longAwayCap = FocusConstants.defaultLongAwayCap

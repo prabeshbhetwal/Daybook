@@ -390,7 +390,7 @@ enum StoryWorkspaceChecks {
         let suite: String
         func cleanUp() {
             try? FileManager.default.removeItem(at: directory)
-            UserDefaults.standard.removePersistentDomain(forName: suite)
+            MemoryDefaults.remove(named: suite)
         }
     }
 
@@ -402,7 +402,7 @@ enum StoryWorkspaceChecks {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-story-projection-\(UUID().uuidString)", isDirectory: true)
         let suite = "fc.story.projection.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = MemoryDefaults.suite(named: suite)!
         let archive = SessionArchive(directory: directory, now: { now })
         let thread = UUID()
         archive.append(SessionRecord(name: "Seeded parser", workType: .deepWork,

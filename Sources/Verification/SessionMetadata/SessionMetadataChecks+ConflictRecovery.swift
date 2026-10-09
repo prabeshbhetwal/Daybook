@@ -32,9 +32,9 @@ extension SessionMetadataChecks {
                 let suite = "com.prabesh.daybook.metadata.append.conflict.\(conflict.label).\(UUID())"
                 defer {
                     try? FileManager.default.removeItem(at: folder)
-                    UserDefaults.standard.removePersistentDomain(forName: suite)
+                    MemoryDefaults.remove(named: suite)
                 }
-                guard let defaults = UserDefaults(suiteName: suite) else {
+                guard let defaults = MemoryDefaults.suite(named: suite) else {
                     allProblems.append("could not create \(conflict.label) conflict preferences")
                     continue
                 }
@@ -108,9 +108,9 @@ extension SessionMetadataChecks {
             let exactSuite = "com.prabesh.daybook.metadata.append.exact.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: exactFolder)
-                UserDefaults.standard.removePersistentDomain(forName: exactSuite)
+                MemoryDefaults.remove(named: exactSuite)
             }
-            guard let exactDefaults = UserDefaults(suiteName: exactSuite) else {
+            guard let exactDefaults = MemoryDefaults.suite(named: exactSuite) else {
                 allProblems.append("could not create exact replay preferences")
                 return allProblems
             }

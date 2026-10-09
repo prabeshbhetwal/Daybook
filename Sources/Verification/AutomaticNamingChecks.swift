@@ -30,7 +30,7 @@ enum AutomaticNamingChecks: CheckSuite {
                 let clock = TestClock(Date(timeIntervalSince1970: 1_700_000_000))
                 let archive = SessionArchive(directory: SelfTest.scratchDirectory(),
                                              now: { clock.value })
-                let persistence = PersistenceStore(defaults: UserDefaults(suiteName: suite) ?? .standard)
+                let persistence = PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard)
                 persistence.removeAll()
                 let engine = SessionEngine(store: persistence, archive: archive,
                                            ownBundleID: "com.test", schedulesDwell: false,
@@ -63,7 +63,7 @@ enum AutomaticNamingChecks: CheckSuite {
             expect(!ended.store.isNamingAutomaticSession, "Stop folds the row", &problems)
 
             for suite in [adopted.suite, ended.suite] {
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             return problems
         }

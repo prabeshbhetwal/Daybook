@@ -100,7 +100,7 @@ enum HistoryKeepingChecks {
         var failures: [String] = []
         let data = scratch(), cloud = scratch()
         let suite = "fc.backup.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated preferences"] }
         defer {
             defaults.removePersistentDomain(forName: suite)
             try? FileManager.default.removeItem(at: data)
@@ -108,9 +108,13 @@ enum HistoryKeepingChecks {
         }
         let store = PersistenceStore(defaults: defaults)
         store.dailyGoal = 7_200
+        // A key that is not the app's, as the real domain holds the global
+        // ones: the backup must leave it out.
+        defaults.set("en-AU", forKey: "AppleLocaleProbe")
         let model = SettingsModel(store: store, isTrackingEnabled: false, onChange: {},
-                                  onTrackingChanged: { _ in }, dataDirectory: data, backupRoot: cloud)
-        model.backUpToICloudDrive(at: base)
+                                  onTrackingChanged: { _ in }, dataDirectory: data, backupRoot: cloud,
+                                  backupWork: { $0() })
+        model.backUp(at: base)
         let status = model.backupStatus ?? ""
         let folder = cloud.appendingPathComponent(DataBackup.folderName)
         let made = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []

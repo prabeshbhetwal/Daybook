@@ -16,9 +16,9 @@ extension SessionMetadataChecks {
             let suite = "com.prabesh.daybook.metadata.append.retry.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
-            guard let defaults = UserDefaults(suiteName: suite) else {
+            guard let defaults = MemoryDefaults.suite(named: suite) else {
                 return ["could not create ordinary power recovery preferences"]
             }
             let pendingKey = "fc.pendingPowerObservations"
@@ -175,9 +175,9 @@ extension SessionMetadataChecks {
             let retentionSuite = suite + ".retention"
             defer {
                 try? FileManager.default.removeItem(at: retentionFolder)
-                UserDefaults.standard.removePersistentDomain(forName: retentionSuite)
+                MemoryDefaults.remove(named: retentionSuite)
             }
-            if let retentionDefaults = UserDefaults(suiteName: retentionSuite) {
+            if let retentionDefaults = MemoryDefaults.suite(named: retentionSuite) {
                 let pendingOnlyRecord = UUID()
                 let pendingOnlyObservation = PowerObservation(
                     id: UUID(), timestamp: clock.value, source: .ups,

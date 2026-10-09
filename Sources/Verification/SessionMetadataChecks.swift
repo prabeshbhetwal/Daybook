@@ -44,7 +44,7 @@ enum SessionMetadataChecks: CheckSuite {
     }
 
     static func engine(at date: Date, directory: URL, suite: String) -> SessionEngine? {
-        guard let defaults = UserDefaults(suiteName: suite) else { return nil }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return nil }
         defaults.removePersistentDomain(forName: suite)
         return SessionEngine(store: PersistenceStore(defaults: defaults),
             archive: SessionArchive(directory: directory, now: { date }),
@@ -72,7 +72,7 @@ enum SessionMetadataChecks: CheckSuite {
                                          sample: PowerObservation) -> (SessionStore, SessionEngine,
                                             SessionMetadataArchive, FakePowerMonitor) {
         let archive = SessionArchive(directory: folder, now: { clock.value })
-        let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+        let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
             archive: archive, ownBundleID: "com.example.metadata.boundary", schedulesDwell: false,
             now: { clock.value })
         let metadata = SessionMetadataArchive(directory: folder)

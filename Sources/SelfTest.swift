@@ -26,7 +26,7 @@ enum SelfTest: CheckSuite {
         FixtureFactory.cleanUp()
         // Empty this run's suite. Its plist goes in a sweep once cfprefsd has
         // written it: here, or when the next run starts.
-        UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+        MemoryDefaults.suite(named: suiteName)?.removePersistentDomain(forName: suiteName)
         removeEmptiedPreferenceFiles()
     }
 

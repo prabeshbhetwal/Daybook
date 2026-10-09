@@ -343,7 +343,7 @@ enum StoryAccountingChecks: CheckSuite {
             let sessionDirectory = scratchDirectory()
             let usageDirectory = scratchDirectory()
             let suiteName = "com.prabesh.daybook.story-capacity.\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suiteName) else {
+            guard let defaults = MemoryDefaults.suite(named: suiteName) else {
                 return ["could not create isolated capacity preferences"]
             }
             defer {
@@ -438,7 +438,7 @@ enum StoryAccountingChecks: CheckSuite {
         let sessionDirectory = scratchDirectory()
         let usageDirectory = scratchDirectory()
         let suiteName = "com.prabesh.daybook.story-accounting.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else { return nil }
+        guard let defaults = MemoryDefaults.suite(named: suiteName) else { return nil }
         defaults.removePersistentDomain(forName: suiteName)
         let archive = SessionArchive(directory: sessionDirectory, calendar: calendar,
                                      now: { clock.value })

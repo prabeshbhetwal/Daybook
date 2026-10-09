@@ -111,7 +111,7 @@ enum ActivityRuleChecks {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-rule-consumer-\(UUID().uuidString)", isDirectory: true)
         let suite = "com.prabesh.daybook.rule-consumer.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = MemoryDefaults.suite(named: suite)!
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         persistence.activityRules = rules

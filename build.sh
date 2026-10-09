@@ -150,6 +150,22 @@ if lengths_outside_zoom; then
   exit 1
 fi
 
+# Checks and review modes keep preferences in memory. A real suite is a
+# domain cfprefsd tracks and writes a plist for; hundreds a run exhausted its
+# file descriptors on 9 October 2026, after which no app on the Mac could
+# save its settings. The app itself uses the standard domain. A line that
+# must open a real suite says `// prefs: real`.
+real_preference_suites() {
+  grep -rnE 'UserDefaults\(suiteName:|\.standard\.removePersistentDomain' Sources --include='*.swift' \
+    | grep -v '^Sources/Core/MemoryDefaults.swift:' \
+    | grep -v 'prefs: real'
+  guard_found "${PIPESTATUS[@]}"
+}
+if real_preference_suites; then
+  echo "error: the lines above open a real preferences suite; use MemoryDefaults.suite(named:) (Sources/Core/MemoryDefaults.swift)" >&2
+  exit 1
+fi
+
 echo "Compiling for ${TARGET_TRIPLE}…"
 SOURCE_FILES=()
 while IFS= read -r source_file; do

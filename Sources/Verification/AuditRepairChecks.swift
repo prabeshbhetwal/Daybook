@@ -30,7 +30,7 @@ enum AuditRepairChecks: CheckSuite {
         let clock = TestClock(SelfTest.base)
         let suite = "fc-selftest-audit-\(UUID().uuidString)"
         let directory = SelfTest.scratchDirectory()
-        lazy var defaults = UserDefaults(suiteName: suite)!
+        lazy var defaults = MemoryDefaults.suite(named: suite)!
         var engine: SessionEngine!
 
         init() {
@@ -172,7 +172,7 @@ enum AuditRepairChecks: CheckSuite {
     private static func retiredCategoryStartsNothing() -> [String] {
         var problems: [String] = []
         let suite = "fc-selftest-audit-categories-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suite) ?? .standard
         defer {
             defaults.removePersistentDomain(forName: suite)
             WorkTypeCatalog.shared.apply(customisations: [])
@@ -220,7 +220,7 @@ enum AuditRepairChecks: CheckSuite {
             let clock = TestClock(dayStart.addingTimeInterval(10 * 3_600))
             let directory = SelfTest.scratchDirectory()
             let suite = "fc-selftest-audit-goal-\(UUID().uuidString)"
-            let defaults = UserDefaults(suiteName: suite) ?? .standard
+            let defaults = MemoryDefaults.suite(named: suite) ?? .standard
             defer { defaults.removePersistentDomain(forName: suite) }
             let persistence = PersistenceStore(defaults: defaults)
             persistence.removeAll()

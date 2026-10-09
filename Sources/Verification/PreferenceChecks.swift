@@ -28,7 +28,7 @@ enum PreferenceChecks {
                                           dataDirectory: directory)
 
         init() {
-            persistence = PersistenceStore(defaults: UserDefaults(suiteName: suite) ?? .standard)
+            persistence = PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard)
             persistence.removeAll()
             archive = SessionArchive(directory: directory, now: { PreferenceChecks.noon })
             engine = SessionEngine(store: persistence, archive: archive, ownBundleID: "fc.preferences.test",
@@ -36,7 +36,7 @@ enum PreferenceChecks {
         }
 
         func close() {
-            UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
+            MemoryDefaults.suite(named: suite)?.removePersistentDomain(forName: suite)
             try? FileManager.default.removeItem(at: directory)
         }
     }

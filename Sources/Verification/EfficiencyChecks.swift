@@ -28,7 +28,7 @@ enum EfficiencyChecks {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-efficiency-\(UUID().uuidString)", isDirectory: true)
         let suiteName = "com.prabesh.daybook.efficiency.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else { return nil }
+        guard let defaults = MemoryDefaults.suite(named: suiteName) else { return nil }
         defaults.removePersistentDomain(forName: suiteName)
         let archive = SessionArchive(directory: directory, now: { clock.value })
         let usage = AppUsageArchive(directory: directory, now: { clock.value })

@@ -92,7 +92,7 @@ extension SelfTest {
         }
         let usage = makeUsageArchive(clock, sessions: usageSessions, accurateFrom: day)
         let persistence = PersistenceStore(
-            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
         persistence.removeAll()
         persistence.menuSessionCount = 3
         let engine = SessionEngine(

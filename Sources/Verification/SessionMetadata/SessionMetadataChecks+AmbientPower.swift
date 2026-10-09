@@ -32,7 +32,7 @@ extension SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.ambient.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_680_000))
             let idleStart = clock.value

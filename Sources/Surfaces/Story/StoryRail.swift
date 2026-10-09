@@ -106,6 +106,7 @@ struct StoryRail: View {
         let evidence = breakdown
         let shownTiles = visibleTiles(evidence)
         VStack(alignment: .leading, spacing: density == .compact ? 10.zoomed : 14.zoomed) {
+            if day == nil { BackupOfferNotice(settings: settings) }
             ForEach(shownTiles, id: \.self) { kind in
                 arrangedTile(kind, shownTiles: shownTiles, evidence: evidence)
             }

@@ -75,7 +75,7 @@ enum FixtureFactory {
 
     private static func fixtureDefaults(_ label: String) -> UserDefaults {
         let suite = "com.prabesh.daybook.gallery.\(label).\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else {
+        guard let defaults = MemoryDefaults.suite(named: suite) else {
             preconditionFailure("Could not create isolated fixture preferences")
         }
         preferenceSuites.append(suite)
@@ -84,7 +84,7 @@ enum FixtureFactory {
 
     static func cleanUp() {
         for directory in directories { try? FileManager.default.removeItem(at: directory) }
-        for suite in preferenceSuites { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        for suite in preferenceSuites { MemoryDefaults.remove(named: suite) }
         directories.removeAll()
         preferenceSuites.removeAll()
     }

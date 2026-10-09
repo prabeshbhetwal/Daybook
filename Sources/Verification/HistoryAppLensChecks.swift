@@ -112,7 +112,7 @@ enum HistoryAppLensChecks: CheckSuite {
             let story = Story()
             let clock = TestClock(story.at(9, 0, dayOffset: 1))
             let suite = "fc-selftest-history-lens-running-\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else { return ["Could not create isolated preferences"] }
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return ["Could not create isolated preferences"] }
             defer { defaults.removePersistentDomain(forName: suite) }
             let engine = SessionEngine(store: PersistenceStore(defaults: defaults),
                                        archive: SelfTest.makeArchive(clock),
@@ -144,7 +144,7 @@ enum HistoryAppLensChecks: CheckSuite {
             let story = Story()
             let clock = TestClock(story.at(9, 0, dayOffset: 1))
             let suite = "fc-selftest-history-lens-\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else { return ["Could not create isolated preferences"] }
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return ["Could not create isolated preferences"] }
             defer { defaults.removePersistentDomain(forName: suite) }
             let engine = SessionEngine(store: PersistenceStore(defaults: defaults),
                                        archive: SelfTest.makeArchive(clock, records: story.records),

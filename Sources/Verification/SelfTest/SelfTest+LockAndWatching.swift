@@ -13,7 +13,7 @@ extension SelfTest {
         var problems: [String] = []
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let prefs = PersistenceStore(defaults: defaults)
         prefs.removeAll()
         prefs.longAwayCap = 4 * 3_600
@@ -63,7 +63,7 @@ extension SelfTest {
         var problems: [String] = []
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let prefs = PersistenceStore(defaults: defaults)
         prefs.removeAll()
         let calendar = Calendar.current
@@ -122,7 +122,7 @@ extension SelfTest {
         var problems: [String] = []
         func make(_ type: WorkType) -> (engine: SessionEngine, archive: SessionArchive, clock: TestClock) {
             let directory = scratchDirectory()
-            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
             let prefs = PersistenceStore(defaults: defaults)
             prefs.removeAll()
             prefs.longAwayCap = 4 * 3_600

@@ -15,7 +15,7 @@ extension SelfTest {
         let metrics = PopoverMetrics.fitting(CGSize(width: 1_440, height: 845))
         let height: CGFloat = MainActor.assumeIsolated {
             let store = FixtureFactory.store(for: .needsResolution)
-            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
             let persistence = PersistenceStore(defaults: defaults)
             persistence.removeAll()
             let settings = SettingsModel(store: persistence, isTrackingEnabled: true,
@@ -48,7 +48,7 @@ extension SelfTest {
         expect(AwayPromptTier.tier(forAbsence: 3 * 3_600, fullPromptAfter: nil) == .quick,
                "Never means always quick", &problems)
 
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
         expectClose(store.fullPromptAfter ?? -1, FocusConstants.defaultFullPromptAfter,
@@ -112,7 +112,7 @@ extension SelfTest {
         var problems: [String] = []
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let prefs = PersistenceStore(defaults: defaults)
         prefs.removeAll()
         let archive = SessionArchive(directory: directory)

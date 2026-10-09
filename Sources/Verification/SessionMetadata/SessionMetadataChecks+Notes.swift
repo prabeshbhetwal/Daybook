@@ -77,7 +77,7 @@ extension SessionMetadataChecks {
         let folder = directory(), suite = "com.prabesh.daybook.metadata.identity.\(UUID())"
         defer {
             try? FileManager.default.removeItem(at: folder)
-            UserDefaults.standard.removePersistentDomain(forName: suite)
+            MemoryDefaults.remove(named: suite)
         }
         let date = Date(timeIntervalSince1970: 1_788_550_000)
         let recordID = UUID()
@@ -122,8 +122,8 @@ extension SessionMetadataChecks {
         let folder = directory(), suite = "com.prabesh.daybook.metadata.pending.\(UUID())"
         defer {
             try? FileManager.default.removeItem(at: folder)
-            UserDefaults.standard.removePersistentDomain(forName: suite)
-            UserDefaults.standard.removePersistentDomain(forName: suite + ".reload")
+            MemoryDefaults.remove(named: suite)
+            MemoryDefaults.remove(named: suite + ".reload")
         }
         let date = Date(timeIntervalSince1970: 1_788_580_000)
         guard let source = engine(at: date, directory: folder, suite: suite) else {
@@ -150,7 +150,7 @@ extension SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.draft.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             let date = Date(timeIntervalSince1970: 1_788_590_000)
             guard let subject = engine(at: date, directory: folder, suite: suite) else {
@@ -186,12 +186,12 @@ extension SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.retention.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_595_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
             let subject = SessionEngine(store: PersistenceStore(
-                defaults: UserDefaults(suiteName: suite)!), archive: archive,
+                defaults: MemoryDefaults.suite(named: suite)!), archive: archive,
                 ownBundleID: "com.example.metadata", schedulesDwell: false,
                 now: { clock.value })
             let metadata = SessionMetadataArchive(directory: folder)
