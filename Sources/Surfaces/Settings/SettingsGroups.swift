@@ -209,6 +209,7 @@ struct SettingsGroups: View {
         KeyEntry(keys: "⌘1", spoken: "Command-1", action: "The day's story"),
         KeyEntry(keys: "⌘2", spoken: "Command-2", action: "History"),
         KeyEntry(keys: "⌘F", spoken: "Command-F", action: "Find in History"),
+        KeyEntry(keys: "⌘K", spoken: "Command-K", action: "Ask Daybook"),
         KeyEntry(keys: "⌘6", spoken: "Command-6", action: "Awards"),
         KeyEntry(keys: "⌘7", spoken: "Command-7", action: "Session controls"),
         KeyEntry(keys: "⌘,", spoken: "Command-comma", action: "Settings"),

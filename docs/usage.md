@@ -27,6 +27,7 @@ a historical day never substitutes today's data.
 | `Command-7` | The story, with the cursor in the activity field |
 | `Command-,` | Settings |
 | `Command-F` | Find in History, from anywhere in the window |
+| `Command-K` | Ask Daybook, a question about your focus history, from anywhere in the window |
 | `Command-+`, `Command-−` | Zoom In and Zoom Out, in the View menu: the whole interface a step larger or smaller, from 80% to 140% |
 | `Command-0` | Actual Size: the interface back to 100% |
 | Up, Down | In History, move through the rows |

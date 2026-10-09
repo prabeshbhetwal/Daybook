@@ -76,9 +76,8 @@ asks GitHub for the latest version, and dictating a note uses Apple's speech
 recognition, which runs on the Mac where your language supports that and
 otherwise may send the audio to Apple. Ask Daybook answers with Apple's
 on-device model, and your question, history and answers are not sent anywhere.
-A backup, made only when you ask for
-one, is copied into iCloud Drive, which syncs it like any other document. The
-app asks for no Accessibility,
+A backup, made only when you ask for one, is copied into iCloud Drive, which
+syncs it like any other document. The app asks for no Accessibility,
 Automation, Screen Recording or Input Monitoring permission; idle detection
 uses system counters, not event content. The prompts you will see are
 notifications (at first launch, for break reminders), and microphone and
