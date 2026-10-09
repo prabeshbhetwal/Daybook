@@ -141,15 +141,17 @@ intensity.
 
 ## Settings
 
-Settings groups the backed controls into five compact pages:
+Settings groups the backed controls into seven pages:
 
 | Page | Controls and information |
 |---|---|
-| General | Login item, menu bar time, appearance, density, zoom (80% to 140%, the same steps as the View menu), Story time gutter, entry expansion and the tour |
-| Sessions | Daily goal, activity rules and their application picker, guessing sessions from the app in front, ending a paused automatic session, and milestones |
+| General | Login item, menu bar icon and time, Dock icon, the global shortcut and the window's keys, the tour, appearance, density, zoom (80% to 140%, the same steps as the View menu), Story time gutter, entry expansion and folding quiet stretches |
+| Sessions | Daily goal, what usual pace compares with, how far back activity suggestions look, the streak's daily minimum, the category new sessions start as, the shortest session kept, how long an ended session is offered to continue, categories, guessing sessions from the app in front, ending a paused automatic session, and milestones |
+| Activities | Activity rules, their application picker, and whether they run |
 | Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
-| Recording | App recording and the number of recent app visits initially shown |
-| Privacy | Local storage, when app use was first measured precisely, the backup of older app use, Reveal data folder and diagnostics |
+| Recording | App recording, how many apps a card lists and how many recent app visits are shown |
+| Privacy | Local storage, when app use was first measured precisely, the backup of older app use, a backup of everything to iCloud Drive, and Reveal data folder |
+| About & Updates | Automatic update checks, how often and what happens when one is found, Check Now, and diagnostics |
 
 Each page or changed search result opens at its first control; search retains
 the result's group context. Long paths and recovery text wrap and are

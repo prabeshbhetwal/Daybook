@@ -74,7 +74,9 @@ never content. The session names, intents and notes you write are content, and
 they are kept on the Mac. Two things can reach another server: the update check
 asks GitHub for the latest version, and dictating a note uses Apple's speech
 recognition, which runs on the Mac where your language supports that and
-otherwise may send the audio to Apple. The app asks for no Accessibility,
+otherwise may send the audio to Apple. A backup, made only when you ask for
+one, is copied into iCloud Drive, which syncs it like any other document. The
+app asks for no Accessibility,
 Automation, Screen Recording or Input Monitoring permission; idle detection
 uses system counters, not event content. The prompts you will see are
 notifications (at first launch, for break reminders), and microphone and
@@ -87,7 +89,11 @@ it on, adds a login item.
   use an injected clock, isolated preferences and temporary archives, so they
   cover session state transitions, cross-midnight clipping, wake and presence
   handling, persistence failures, accuracy epochs, corrections and Undo,
-  accessibility targets and settings effects without touching real data.
+  accessibility targets, settings effects and where rendered controls and
+  edges actually land, without touching real data.
+- **Every push** runs the same checks on GitHub Actions, on macOS 26 and in
+  UTC ([`check.yml`](.github/workflows/check.yml)), so they hold on the older
+  system and away from the Sydney Mac they are written on.
 - **A snapshot matrix** renders every surface in light, dark and system
   appearance through offscreen AppKit hosting, with real native controls, for
   visual review (`--snapshot`). The screenshots above come from it.
@@ -124,8 +130,10 @@ machinery that nothing used any more, with no change in behaviour.
   saying why and offering Undo
 - History as one timeline that unfolds: years into months, months into weeks,
   weeks into days, days into sessions, each a step in from its parent, back to
-  the first recorded day and no further. The rail describes whichever row is
-  open. Jump to date opens a calendar that shows each day's focus
+  the first recorded day and no further. A chart of each day heads it, the
+  top periods are cards with their days and category split, and the rail
+  describes whichever row is open. Jump to date opens a calendar that shows
+  each day's focus
 - Search at the top of History: sessions by name, note, app, category or date (⌘F)
 - History states only what the record supports: category shares, best two
   hours, goal rates, the best month or day, and the current month's pace,
@@ -133,8 +141,13 @@ machinery that nothing used any more, with no change in behaviour.
 - Custom categories with icons, colours, daily goals and break reminders
 - Session notes with in-app dictation, full session reports and named breaks
 - Awards derived from recorded evidence, with their criteria shown
+- A global shortcut (Control-Option-Space) that starts or ends a session from
+  any app; record your own in Settings
+- Backups to iCloud Drive on request, and updates from GitHub Releases,
+  checked automatically or on demand
 - A twelve-chapter first-run tour that can be skipped or replayed
-- Full keyboard operation, VoiceOver labels, light and dark appearance
+- Full keyboard operation, VoiceOver labels, light and dark appearance, and a
+  whole-interface zoom from 80% to 140% (⌘+, ⌘−, ⌘0 or a slider in Settings)
 
 The full guide to every surface and control is in [docs/usage.md](docs/usage.md).
 
@@ -156,7 +169,15 @@ it never keeps running from files the swap deleted.
 The binary is built with `-Osize` and stripped of local symbols. To profile
 with `sample`, build once with `FC_KEEP_SYMBOLS=1 ./build.sh`.
 
-The app is ad-hoc signed for local use; it is not notarised or distributed.
+The first build downloads Sparkle 2.10.0 into `.build/vendor` and checks it
+against a pinned SHA-256.
+
+The app is ad-hoc signed and not notarised. `scripts/release.sh <version>`
+runs the checks, builds, signs the update and publishes it to
+[GitHub Releases](https://github.com/prabeshbhetwal/Daybook/releases) with its
+feed; installed copies update through Sparkle and accept only updates signed
+with the project's EdDSA key, which stays in the Keychain.
+
 Builds that replace the local app take a lock at `.build/promotion.lock`, so a
 second build waits its turn. If a build is killed outright, remove that
 directory once no build is running.
@@ -187,9 +208,18 @@ One one-second ticker, in `SessionStore`, drives presence checks, usage
 checkpoints, live figures and break evaluation. The UI adds no timers of its
 own.
 
-Data lives in `~/Library/Application Support/Daybook/`:
-`sessions.json` for sessions and `app-usage.json` (a versioned v2 envelope)
-for app use, both written atomically.
+Data lives in `~/Library/Application Support/Daybook/`: `sessions.json` for
+sessions, and for app use a snapshot, `app-usage.json` (a versioned v2
+envelope), plus `app-usage-journal.jsonl`, the changes since that snapshot.
+`sessions.json` and the snapshot are replaced atomically. Each change to app
+use is one line appended to the journal, and the snapshot is rewritten only
+when the journal grows long, so the history is never trimmed. If a crash cuts
+the last line short, the next launch drops that one change and keeps
+everything before it.
+
+Until October 2026 the app was called FocusContinuity. Its first launch under
+the new name carries the data folder and preferences across and deletes
+nothing.
 
 ## Repository layout
 
@@ -202,8 +232,9 @@ Sources/
   Verification/         Focused regression groups and isolated native-window mode
   SelfTest.swift        Headless check suite
 build.sh                Build, signing, checks and local install
-scripts/                Fixture-only native verification
+scripts/                Releases, the Sparkle fetch, the fixture app and probes
 docs/                   Specs, plans, reviews, design references and screenshots
+.github/workflows/      Every self-check on each push
 ```
 
 ## Contributing
