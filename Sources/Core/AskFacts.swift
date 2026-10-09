@@ -17,7 +17,9 @@ enum AskRange: String, CaseIterable, Sendable {
     /// on Monday and a month is the Gregorian month wherever the Mac is set.
     func interval(now: Date, firstDay: Date, calendar: Calendar) -> DateInterval {
         let today = calendar.startOfDay(for: now)
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        // Some zones skip midnight, so a day there begins at 01:00 and adding
+        // days to it keeps the hour: each edge is brought back to a day's start.
+        let tomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: today) ?? today)
         func period(_ component: Calendar.Component, offset: Int) -> DateInterval {
             let anchor = calendar.date(byAdding: component, value: offset, to: today) ?? today
             return calendar.dateInterval(of: component, for: anchor) ?? DateInterval(start: today, end: tomorrow)
@@ -30,7 +32,7 @@ enum AskRange: String, CaseIterable, Sendable {
         case .thisMonth: return period(.month, offset: 0)
         case .lastMonth: return period(.month, offset: -1)
         case .last30Days:
-            let start = calendar.date(byAdding: .day, value: -29, to: today) ?? today
+            let start = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -29, to: today) ?? today)
             return DateInterval(start: start, end: tomorrow)
         case .allTime:
             return DateInterval(start: min(calendar.startOfDay(for: firstDay), today), end: tomorrow)
@@ -147,10 +149,13 @@ enum AskFacts {
         return capped(text + ".")
     }
 
+    /// `matched` is how many sessions matched, when `hits` holds only the newest of them.
     static func sessions(_ range: AskRange, words: String,
                          hits: [(day: String, name: String, worked: TimeInterval, note: String?)],
-                         sessionRunning: Bool = false) -> String {
-        let tail = sessionRunning ? runningNote : ""
+                         matched: Int? = nil, sessionRunning: Bool = false) -> String {
+        var tail = ""
+        if let matched, matched > hits.count { tail += " Newest \(hits.count) of \(matched)." }
+        if sessionRunning { tail += runningNote }
         guard !hits.isEmpty else { return capped("No sessions match “\(words)” \(range.inPhrase).", keeping: tail) }
         let lines = hits.map { hit in
             var line = "\(hit.day) · \(hit.name) · \(DurationText.compact(hit.worked))"
@@ -175,6 +180,9 @@ enum AskFacts {
         let apps = top.prefix(5).map { "\($0.name) \(DurationText.compact($0.total))" }
         return capped("Most-used apps \(range.inPhrase): \(apps.joined(separator: ", ")).")
     }
+
+    /// What a session search says when it is given nothing to search for.
+    static let needsWords = "Give one or more words to search for."
 
     private static func count(_ n: Int, _ noun: String) -> String { n == 1 ? "1 \(noun)" : "\(n) \(noun)s" }
 

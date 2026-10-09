@@ -88,6 +88,8 @@ Every tool's output:
 - is at most 1 KB, so several calls fit the on-device model's context;
 - formats every duration and percentage in code, so the model copies text and never does arithmetic;
 - says `No sessions match` (or the tool's equivalent) when there is nothing, never an empty string or a bare 0.
+- ends with ` A session running now is not counted until it ends.` when a word search (`focusTotals` with words, `findSessions`) or `appTime` with an app covers a range that holds today while a session is in progress, because those read saved sessions, as History's search does; plain `focusTotals` counts the running session and is left alone.
+- ends with ` Newest 10 of N.` when more than ten sessions match a `findSessions` search, N being the total.
 
 ## 3. Flow
 

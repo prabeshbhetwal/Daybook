@@ -57,6 +57,8 @@ extension SelfTest {
             + HistoryLivePatchChecks.tests
             + AskThreadChecks.tests
             + AskRunningSessionChecks.tests
+            + AskRangeZoneChecks.tests
+            + AskLookupDetailChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

@@ -43,10 +43,12 @@ extension SessionStore {
             (unit: $0.place.level.spokenName, label: askLabel($0.place), focused: $0.focused)
         }
         // Rows are newest first in History; here they read oldest first, and
-        // never run past today.
+        // run from the first recorded day to today, not from the start of the
+        // period, which may be days before anything was recorded.
         var parts: (name: String, items: [(label: String, focused: TimeInterval)])?
         if !singleDay {
-            let rows = historyRows(under: place).filter { $0.place.start <= today }
+            let first = historyTop().firstDay
+            let rows = historyRows(under: place).filter { $0.place.start <= today && $0.place.span.end > first }
             if let level = rows.first?.place.level {
                 parts = (level.spokenName, rows.reversed().map { (label: askLabel($0.place), focused: $0.focused) })
             }
@@ -66,10 +68,13 @@ extension SessionStore {
     // MARK: - Sessions
 
     private func askSessions(_ range: AskRange, words: String) -> String {
-        let hits = askHits(matching: HistoryFilter(query: words), in: range).prefix(10).map {
+        guard !words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return AskFacts.needsWords }
+        let found = askHits(matching: HistoryFilter(query: words), in: range)
+        let hits = found.prefix(10).map {
             (day: askText("EEE d MMM", $0.day), name: $0.name, worked: $0.worked, note: $0.noteSnippet)
         }
-        return AskFacts.sessions(range, words: words, hits: hits, sessionRunning: askSessionIsMissed(range))
+        return AskFacts.sessions(range, words: words, hits: hits, matched: found.count,
+                                 sessionRunning: askSessionIsMissed(range))
     }
 
     // MARK: - Best hours
@@ -91,7 +96,12 @@ extension SessionStore {
             let days = max(0, calendar.dateComponents([.day], from: firstWeek, to: last).day ?? 0)
             let weeks = min(14, days / 7 + 1)
             reading = insightReading(scope: .week, anchoredAt: last, limit: weeks, calendar: calendar)
-            span = "Over the \(weeks == 1 ? "week" : "\(weeks) weeks") to \(askText("d MMM", last))"
+            // Insights reads whole weeks: to the Sunday that ends the week
+            // holding `last`, or to today when that week is not over.
+            let weekEnd = calendar.dateInterval(of: .weekOfYear, for: last)?.end ?? last
+            let readTo = min(calendar.startOfDay(for: now()),
+                             calendar.date(byAdding: .day, value: -1, to: weekEnd) ?? last)
+            span = "Over the \(weeks == 1 ? "week" : "\(weeks) weeks") to \(askText("d MMM", readTo))"
         }
         return AskFacts.bestHours(range, span: span, window: reading.facts.bestWindow,
                                   strongest: reading.facts.bestWindowPhrase)
