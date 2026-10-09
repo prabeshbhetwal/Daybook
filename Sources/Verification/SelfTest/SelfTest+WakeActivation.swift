@@ -64,7 +64,7 @@ extension SelfTest {
         func makeContext() -> (TestClock, SessionEngine, SessionStore, AppUsageTracker) {
             let clock = TestClock(base)
             let directory = scratchDirectory()
-            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
             let persistence = PersistenceStore(defaults: defaults)
             persistence.removeAll()
             let engine = SessionEngine(

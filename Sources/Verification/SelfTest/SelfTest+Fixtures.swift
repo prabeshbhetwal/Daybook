@@ -36,7 +36,7 @@ extension SelfTest {
     }
 
     static func makeEngine(_ clock: TestClock) -> SessionEngine {
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
         return SessionEngine(store: store,

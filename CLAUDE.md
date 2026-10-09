@@ -22,6 +22,11 @@ as one module.
   preferences (unified log: `Couldn't write values … com.prabesh.daybook …
   Path not accessible`), so it runs with default settings and saves no
   session state there. Relaunch it from Finder if that happens.
+- The same log line from every app at once means the user's `cfprefsd` has
+  run out of file descriptors (`cfprefsd … Too many open files`), and no app
+  on the Mac can save preferences until it restarts (`killall cfprefsd`).
+  Self-test runs that opened hundreds of real preference domains each caused
+  this on 9 October 2026; checks now keep preferences in `MemoryDefaults`.
 - Compile-only check that works in the sandbox, about 100 s:
   `swiftc -typecheck -module-cache-path "$TMPDIR/mc" -swift-version 5 -parse-as-library -warnings-as-errors -target arm64-apple-macos14.0 -F .build/vendor/Sparkle-2.10.0 $(find Sources -name '*.swift')`
   (`-F` finds Sparkle once a build has fetched it; a worktree without
@@ -58,7 +63,9 @@ Core → App → Design/Surfaces, in one direction only; the README has the map.
   `Sources/Verification/SelfTest/SelfTest+Registry.swift`. A check's position
   is its number, and comments cite those numbers.
 - Checks never touch live data: they use `TestClock`,
-  `SelfTest.scratchDirectory()` and an isolated `fc-selftest-…` defaults suite.
+  `SelfTest.scratchDirectory()` and an in-memory preferences suite,
+  `MemoryDefaults.suite(named: "fc-selftest-…")`. A real suite is a cfprefsd
+  domain; `build.sh` fails on `UserDefaults(suiteName:)`.
 - Write checks that hold in any time zone and region. Build fixture dates
   from the calendar the code under test uses, or hand that code the
   fixture's calendar and make sure it uses it throughout. `SelfTest.base` is

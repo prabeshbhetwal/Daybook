@@ -118,6 +118,12 @@ their full scope before Undo. A failed answer keeps the question and typed
 reason visible, including in the popover and away prompts; its Retry cannot
 save a different correction made elsewhere.
 
+Removing a session and changing how a break counts ask first, with a
+**Don't ask again** tick. Ticked and confirmed, the next one happens without
+the question; Undo still reverses it. Settings › General › Confirmations turns
+either question back on. Deleting a rule, resetting a category and discarding
+an unsaved note always ask, because Undo cannot reverse them.
+
 ## How the figures are counted
 
 Historical sessions and app use are clipped by local calendar day, so a
@@ -145,12 +151,12 @@ Settings groups the backed controls into seven pages:
 
 | Page | Controls and information |
 |---|---|
-| General | Login item, menu bar icon and time, Dock icon, the global shortcut and the window's keys, the tour, appearance, density, zoom (80% to 140%, the same steps as the View menu), Story time gutter, entry expansion and folding quiet stretches |
+| General | Login item, menu bar icon and time, Dock icon, the global shortcut and the window's keys, whether removing a session or changing how a break counts asks first, the tour, appearance, density, zoom (80% to 140%, the same steps as the View menu), Story time gutter, entry expansion and folding quiet stretches |
 | Sessions | Daily goal, what usual pace compares with, how far back activity suggestions look, the streak's daily minimum, the category new sessions start as, the shortest session kept, how long an ended session is offered to continue, categories, guessing sessions from the app in front, ending a paused automatic session, and milestones |
 | Activities | Activity rules, their application picker, and whether they run |
 | Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
 | Recording | App recording, how many apps a card lists and how many recent app visits are shown |
-| Privacy | Local storage, when app use was first measured precisely, the backup of older app use, a backup of everything to iCloud Drive, and Reveal data folder |
+| Privacy | Local storage, when app use was first measured precisely, the backup of older app use, backups (schedule, destination, how long automatic ones are kept, the last and next backup, Back Up Now and Show Backups), and Reveal data folder |
 | About & Updates | Automatic update checks, how often and what happens when one is found, Check Now, and diagnostics |
 
 Each page or changed search result opens at its first control; search retains
@@ -160,6 +166,30 @@ Motion always follows the system. The window always opens on the day's story.
 Recent-visit limits never reduce totals, and the app detail can reveal its
 full list for the day. Unsupported sync, export, retention and
 destructive data controls are not presented as working features.
+
+### Backups
+
+A backup copies the data folder and the app's preferences into a new dated
+folder under **Daybook Backups**, in iCloud Drive or a folder you choose with
+**Choose Folder…** (another disk, another service's synced folder, a network
+share). **Back up automatically** offers Off, Every 6 hours, Every day (the
+default for a new install) and Every week. An install from before automatic
+backups starts with them off, so an update never uploads history on its own;
+today's story offers them once, with **Back up every day** or **Not now**.
+Changing where backups go starts that destination afresh: the next check backs
+up there. The running app checks every half hour, a minute
+after launch and on wake, so a Mac that was asleep or shut down at the due
+time backs up soon after. Automatic backups are named with "(automatic)" and
+are kept **Forever** by default, or for a year, 3 months, a month, 2 weeks or
+a week; expired ones go to the Trash at the next backup, the newest always
+stays, and a backup made with **Back Up Now** is never removed. Settings shows
+whether iCloud Drive is on, the last backup and whether it has finished
+uploading to iCloud, the next one, and why the latest attempt failed if it did:
+iCloud Drive off, or the chosen folder's disk not connected. A failed attempt
+is retried at the next check, and a copy that fails part-way leaves nothing
+behind. The data folder is cloned where the app writes it, so a backup never
+catches a file mid-write, and the slow copy to iCloud Drive or another disk
+runs in the background.
 
 ## Review modes
 

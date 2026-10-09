@@ -8,7 +8,7 @@ extension SelfTest {
     /// remove that override so a live system appearance change reaches the app.
     static func testSystemAppearanceClearsApplicationOverride() -> [String] {
         var problems: [String] = []
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
         let originalAppearance = NSApp.appearance

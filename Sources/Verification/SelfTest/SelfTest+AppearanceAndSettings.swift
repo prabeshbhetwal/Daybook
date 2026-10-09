@@ -30,7 +30,7 @@ extension SelfTest {
                                      start: yesterday.addingTimeInterval(9 * 3_600),
                                      end: yesterday.addingTimeInterval(10 * 3_600)))
 
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         persistence.dailyGoal = 4 * 3_600
@@ -132,7 +132,7 @@ extension SelfTest {
     /// reaches the owner of the tracker rather than only the preference.
     static func testSettingsModel() -> [String] {
         var problems: [String] = []
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
         var changes = 0
@@ -182,7 +182,7 @@ extension SelfTest {
     /// persisted settings; corrupted values should never crash the app.
     static func testMainNavigationAndInterfacePreferences() -> [String] {
         var problems: [String] = []
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
 

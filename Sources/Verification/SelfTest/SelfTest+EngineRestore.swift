@@ -132,7 +132,7 @@ extension SelfTest {
             expect(Tokens.spent(bad) == "—", "\(bad)s spent formats as a dash", &problems)
         }
 
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
 

@@ -75,8 +75,8 @@ enum SettingsAlignmentChecks: CheckSuite {
         MainActor.assumeIsolated {
             var problems: [String] = []
             let suite = "fc-selftest-settings-alignment-\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
-            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated preferences"] }
+            defer { MemoryDefaults.remove(named: suite) }
             let model = SettingsModel(store: PersistenceStore(defaults: defaults), isTrackingEnabled: true,
                                       onChange: {}, onTrackingChanged: { _ in })
             let edges = controlTrailingEdges(SettingsGroups(model: model, section: .focus))

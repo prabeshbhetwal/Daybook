@@ -43,6 +43,10 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case suggestionWindow
     case breakTiers
     case quietFold
+    case confirmations
+    case backupSchedule
+    case backupRetention
+    case backupDestination
 
     var modelKeyPath: PartialKeyPath<SettingsModel> {
         switch self {
@@ -81,6 +85,10 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .suggestionWindow: return \SettingsModel.suggestionWindowDays
         case .breakTiers: return \SettingsModel.enabledBreakTiers
         case .quietFold: return \SettingsModel.quietFold
+        case .confirmations: return \SettingsModel.skippedConfirmations
+        case .backupSchedule: return \SettingsModel.backupSchedule
+        case .backupRetention: return \SettingsModel.backupRetention
+        case .backupDestination: return \SettingsModel.backupDestination
         }
     }
 }
@@ -214,10 +222,12 @@ struct SettingsPrivacyDisclosure {
         appUsageDetail
         + " Session names, intent and notes entered into Daybook are stored locally,"
         + " with the power source, battery level, charging state and charger wattage"
-        + " seen during each session. Two things reach a server: the update check,"
-        + " which asks GitHub for the latest version and sends the app's own, and"
-        + " dictation, which uses Apple's speech recognition and may send the audio"
-        + " to Apple when this Mac cannot recognise your language itself."
+        + " seen during each session. Three things can reach a server: backups kept"
+        + " in iCloud Drive, which iCloud uploads to your own account on the schedule"
+        + " set under Backups; the update check, which asks GitHub for the latest"
+        + " version and sends the app's own; and dictation, which uses Apple's speech"
+        + " recognition and may send the audio to Apple when this Mac cannot"
+        + " recognise your language itself."
     }
 }
 
@@ -268,10 +278,23 @@ final class SettingsModel: ObservableObject {
     /// The archive directory displayed and revealed by Privacy. Fixtures pass
     /// their own temporary directory so this surface cannot reach live data.
     let dataDirectoryURL: URL
-    /// Where "Back up to iCloud Drive" writes. Checks pass a scratch folder.
+    /// iCloud Drive's folder, where backups go unless the reader chose
+    /// another. Checks pass a scratch folder.
     let backupRoot: URL
-    /// What the last backup did, shown under its button.
+    /// What Back Up Now did, shown under its button and announced.
     @Published private(set) var backupStatus: String?
+    /// Read when the Privacy page shows and after each backup, not watched.
+    @Published private(set) var iCloudDriveIsOn = false
+    /// Whether the last backup has reached iCloud; nil when there is none.
+    @Published private(set) var backupUploadState: DataBackup.UploadState?
+    /// Moves an expired automatic backup to the Trash. Checks pass a scratch
+    /// folder, so nothing they make reaches the reader's Trash.
+    private let trashBackup: (URL) throws -> Void
+    /// Runs a backup's copy: off the main thread in the app, in place in checks.
+    private let backupWork: (@escaping () -> Void) -> Void
+    private var backupRunning = false
+    /// Back Up Now was pressed while a backup ran.
+    private var backUpAgain = false
     /// Mirrored here because the tracker — not the preference — is the truth
     /// about whether recording is on, and the tracker lives with the store.
     private var trackingEnabled: Bool
@@ -296,6 +319,8 @@ final class SettingsModel: ObservableObject {
          dataDirectory: URL = SessionArchive.defaultDirectory,
          openDataFolder: ((URL) -> Bool)? = nil,
          backupRoot: URL = DataBackup.iCloudDriveRoot,
+         trashBackup: @escaping (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) },
+         backupWork: @escaping (@escaping () -> Void) -> Void = { DispatchQueue.global(qos: .utility).async(execute: $0) },
          installedAppCatalog: InstalledAppCatalog = InstalledAppCatalog()) {
         self.store = store
         self.trackingEnabled = isTrackingEnabled
@@ -311,6 +336,8 @@ final class SettingsModel: ObservableObject {
         self.diagnostics = diagnostics
         self.dataDirectoryURL = dataDirectory
         self.backupRoot = backupRoot
+        self.trashBackup = trashBackup
+        self.backupWork = backupWork
         self.installedAppCatalog = installedAppCatalog
         catalogChanges = installedAppCatalog.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
@@ -633,6 +660,20 @@ final class SettingsModel: ObservableObject {
         set { write { store.quietFold = newValue } }
     }
 
+    /// The confirmations "Don't ask again" turned off; Settings turns each
+    /// one back on.
+    var skippedConfirmations: Set<Confirmation> {
+        get { store.skippedConfirmations }
+        set { write { store.skippedConfirmations = newValue } }
+    }
+
+    /// What the windows hand their dialogs. Made once: a value rebuilt on
+    /// every redraw would read as changed and redraw each row that holds it,
+    /// and a menu redrawn while open loses the item under the pointer.
+    private(set) lazy var confirmationPolicy = ConfirmationPolicy(
+        asks: { [weak self] confirmation in !(self?.skippedConfirmations.contains(confirmation) ?? false) },
+        stopAsking: { [weak self] confirmation in self?.skippedConfirmations.insert(confirmation) })
+
     var defaultAppTab: AppTab {
         get { AppTab(rawValue: store.defaultAppTabRawValue) ?? .focus }
         set { write { store.defaultAppTabRawValue = newValue.rawValue } }
@@ -711,17 +752,204 @@ final class SettingsModel: ObservableObject {
         }
     }
 
-    /// Copies the data folder and preferences to a new dated folder in iCloud
-    /// Drive. Only ever on request: the app otherwise keeps everything local.
-    func backUpToICloudDrive(at date: Date = Date()) {
-        do {
-            let folder = try DataBackup.make(from: dataDirectoryURL, preferences: store.backupSnapshot,
-                                             into: backupRoot, at: date)
-            backupStatus = "Backed up to iCloud Drive › \(DataBackup.folderName) › \(folder.lastPathComponent)."
-        } catch {
-            backupStatus = error.localizedDescription
-            Diagnostics.log("backup to iCloud Drive failed: \(error)")
+    // MARK: - Backups
+
+    /// Choosing a schedule answers the one-time offer too.
+    var backupSchedule: BackupSchedule {
+        get { store.backupSchedule }
+        set {
+            write {
+                store.backupSchedule = newValue
+                store.backupOfferPending = false
+            }
         }
+    }
+
+    var backupRetention: BackupRetention {
+        get { store.backupRetention }
+        set { write { store.backupRetention = newValue } }
+    }
+
+    /// A new destination has no backup in it yet, so the last result is
+    /// cleared and the next check backs up there.
+    var backupDestination: BackupDestination {
+        get { store.backupDestination }
+        set {
+            guard newValue != store.backupDestination else { return }
+            write {
+                store.backupDestination = newValue
+                store.backupLog = BackupLog()
+            }
+            refreshBackupState()
+        }
+    }
+
+    /// The one-time offer an install from before automatic backups sees.
+    var backupOfferPending: Bool { store.backupOfferPending }
+
+    func answerBackupOffer(backUpDaily: Bool) {
+        write {
+            if backUpDaily { store.backupSchedule = .daily }
+            store.backupOfferPending = false
+        }
+    }
+
+    /// When the last backup was made, and why the latest attempt failed.
+    var backupLog: BackupLog { store.backupLog }
+
+    enum NextBackup: Equatable {
+        case off
+        /// The next half-hourly check makes it.
+        case due
+        case at(Date)
+    }
+
+    func nextBackup(now: Date = Date()) -> NextBackup {
+        guard let next = backupSchedule.nextDue(after: store.backupLog.lastSuccess, now: now) else { return .off }
+        return next <= now ? .due : .at(next)
+    }
+
+    private var backupFolderRoot: URL {
+        switch backupDestination {
+        case .iCloudDrive: return backupRoot
+        case .folder(let url): return url
+        }
+    }
+
+    /// Copies the data folder and preferences to a new dated folder, then
+    /// moves automatic backups past their keeping period to the Trash.
+    ///
+    /// Every write to the data folder happens on the main thread, so the
+    /// clone taken here is whole, and on APFS near-instant. The slow part,
+    /// copying into iCloud Drive or onto another disk, runs on `backupWork`,
+    /// so a stalled disk or network share never freezes the app. One backup
+    /// runs at a time.
+    func backUp(at date: Date = Date(), automatic: Bool = false) {
+        // Back Up Now pressed while one runs follows it, to wherever backups
+        // go by then; a scheduled check that finds one running has nothing to add.
+        guard !backupRunning else {
+            if !automatic {
+                backUpAgain = true
+                backupStatus = "A backup is running; this one starts when it finishes."
+            }
+            return
+        }
+        backupRunning = true
+        let destination = backupDestination, root = backupFolderRoot, retention = backupRetention
+        let preferences = store.backupSnapshot, trash = trashBackup
+        let source: URL?
+        do {
+            source = try DataBackup.clone(of: dataDirectoryURL)
+        } catch {
+            finishBackup(.failure(error), destination: destination, at: date, automatic: automatic)
+            return
+        }
+        backupWork { [weak self] in
+            let result = Result {
+                // No data folder yet: a path that does not exist makes an empty backup.
+                try DataBackup.make(from: source ?? root.appendingPathComponent("no-data-yet"),
+                                    preferences: preferences, into: root, at: date, automatic: automatic,
+                                    isICloudDrive: destination == .iCloudDrive)
+            }
+            if case .success = result, let cutoff = retention.cutoff(at: date, calendar: .current) {
+                DataBackup.pruneAutomatic(in: root, before: cutoff, trash: trash)
+            }
+            // The clone is this backup's own scratch copy, not the reader's data.
+            if let source { try? FileManager.default.removeItem(at: source) }
+            let finish: () -> Void = {
+                self?.finishBackup(result, destination: destination, at: date, automatic: automatic)
+            }
+            if Thread.isMainThread { finish() } else { DispatchQueue.main.async(execute: finish) }
+        }
+    }
+
+    private func finishBackup(_ result: Result<URL, Error>, destination: BackupDestination,
+                              at date: Date, automatic: Bool) {
+        var log = store.backupLog
+        switch result {
+        case .success(let folder):
+            log = BackupLog(lastSuccess: date, folderPath: folder.path)
+            if !automatic {
+                backupStatus = "Backed up to \(destination.name) › \(DataBackup.folderName) › \(folder.lastPathComponent)."
+            }
+        case .failure(let error):
+            // The schedule retries every half hour; the same failure is logged once.
+            if log.failure != error.localizedDescription {
+                Diagnostics.log("backup to \(destination.name) failed: \(error)")
+            }
+            log.failure = error.localizedDescription
+            log.failedAt = date
+            if !automatic { backupStatus = error.localizedDescription }
+        }
+        objectWillChange.send()
+        // A destination changed while this one ran keeps its own cleared log.
+        if destination == store.backupDestination { store.backupLog = log }
+        backupRunning = false
+        refreshBackupState()
+        if backUpAgain {
+            backUpAgain = false
+            backUp()
+        }
+    }
+
+    /// The schedule's check, run by the app every half hour, at launch and
+    /// on wake: a Mac asleep at the due time backs up soon after it wakes.
+    func backUpIfDue(now: Date = Date()) {
+        guard backupSchedule.isDue(lastBackup: store.backupLog.lastSuccess, now: now) else { return }
+        backUp(at: now, automatic: true)
+    }
+
+    /// Rereads whether iCloud Drive is on and whether the last backup has
+    /// reached iCloud. Uploads finish in their own time, so it reads again
+    /// shortly after a backup.
+    func refreshBackupState(rereading: Bool = true) {
+        iCloudDriveIsOn = DataBackup.iCloudDriveIsOn(root: backupRoot)
+        // Read off the main thread: the backup may sit on a share that has
+        // stopped answering.
+        let folder = store.backupLog.folderPath.map { URL(fileURLWithPath: $0) }
+        backupWork { [weak self] in
+            let state = folder.map { DataBackup.uploadState(of: $0) }
+            let publish: () -> Void = {
+                guard let self else { return }
+                self.backupUploadState = state
+                guard rereading, state == .waiting || state == .uploading else { return }
+                for delay in [10.0, 60.0] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                        self?.refreshBackupState(rereading: false)
+                    }
+                }
+            }
+            if Thread.isMainThread { publish() } else { DispatchQueue.main.async(execute: publish) }
+        }
+    }
+
+    /// Asks for a folder to back up to. Cancel keeps the current choice.
+    func chooseBackupFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Back Up Here"
+        panel.message = "Backups go into a “\(DataBackup.folderName)” folder inside the folder you choose."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        chooseBackupFolder(url)
+    }
+
+    /// A folder inside the data folder would copy into itself; it is refused.
+    func chooseBackupFolder(_ url: URL) {
+        let chosen = url.standardizedFileURL.path, data = dataDirectoryURL.standardizedFileURL.path
+        if chosen == data || chosen.hasPrefix(data + "/") {
+            backupStatus = "Choose a folder outside Daybook's own data folder."
+            return
+        }
+        backupDestination = chosen == backupRoot.standardizedFileURL.path ? .iCloudDrive : .folder(url)
+    }
+
+    /// Opens the backups folder in Finder, or its parent while it is empty.
+    func revealBackups() {
+        let folder = backupFolderRoot.appendingPathComponent(DataBackup.folderName, isDirectory: true)
+        NSWorkspace.shared.open(FileManager.default.fileExists(atPath: folder.path) ? folder : backupFolderRoot)
     }
 
     /// Ensures a pristine install has something Finder can reveal. Returning a

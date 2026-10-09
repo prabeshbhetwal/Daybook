@@ -9,10 +9,10 @@ extension SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.harden-power.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             let start = Date(timeIntervalSince1970: 1_788_602_000)
-            let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                 archive: SessionArchive(directory: folder, now: { start }), schedulesDwell: false,
                 now: { start })
             let metadata = SessionMetadataArchive(directory: folder)

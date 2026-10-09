@@ -169,7 +169,7 @@ extension ActivityRuleChecks {
 
     static func preferenceModes() -> [String] {
         let suite = "com.prabesh.daybook.activity-rules.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return ["Could not create defaults"] }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["Could not create defaults"] }
         defer { defaults.removePersistentDomain(forName: suite) }
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()

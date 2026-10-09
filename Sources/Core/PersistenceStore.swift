@@ -65,6 +65,12 @@ final class PersistenceStore {
         static let onboarded = "fc.onboarded"
         static let welcomeLeftAt = "fc.welcomeLeftAt"
         static let globalShortcut = "fc.globalShortcut"
+        static let skippedConfirmations = "fc.skippedConfirmations"
+        static let backupSchedule = "fc.backupSchedule"
+        static let backupRetention = "fc.backupRetention"
+        static let backupFolder = "fc.backupFolder"
+        static let backupLog = "fc.backupLog"
+        static let backupOfferPending = "fc.backupOfferPending"
     }
 
     private let defaults: UserDefaults
@@ -551,6 +557,61 @@ final class PersistenceStore {
         }
     }
 
+    /// The confirmations "Don't ask again" turned off. Stored as the ones off,
+    /// so a confirmation a later build adds starts on; a name this build does
+    /// not know is ignored.
+    var skippedConfirmations: Set<Confirmation> {
+        get {
+            Set((defaults.array(forKey: Key.skippedConfirmations) as? [String] ?? [])
+                .compactMap(Confirmation.init(rawValue:)))
+        }
+        set { defaults.set(newValue.map(\.rawValue).sorted(), forKey: Key.skippedConfirmations) }
+    }
+
+    // MARK: - Backups
+
+    /// Unrecognised or missing values read as the default, every day.
+    var backupSchedule: BackupSchedule {
+        get { defaults.string(forKey: Key.backupSchedule).flatMap(BackupSchedule.init(rawValue:)) ?? .default }
+        set { defaults.set(newValue.rawValue, forKey: Key.backupSchedule) }
+    }
+
+    /// Unrecognised or missing values read as the default, forever.
+    var backupRetention: BackupRetention {
+        get { defaults.string(forKey: Key.backupRetention).flatMap(BackupRetention.init(rawValue:)) ?? .default }
+        set { defaults.set(newValue.rawValue, forKey: Key.backupRetention) }
+    }
+
+    var backupDestination: BackupDestination {
+        get { BackupDestination(storedPath: defaults.string(forKey: Key.backupFolder) ?? "") }
+        set { defaults.set(newValue.storedPath, forKey: Key.backupFolder) }
+    }
+
+    /// Whether the one-time offer to back up every day is still to be answered.
+    var backupOfferPending: Bool {
+        get { defaults.bool(forKey: Key.backupOfferPending) }
+        set { defaults.set(newValue, forKey: Key.backupOfferPending) }
+    }
+
+    /// Decided once, at the first launch of a version with automatic backups.
+    /// A new install backs up every day. One from before starts with them off
+    /// and is offered them once: an update never starts uploading the
+    /// reader's history to iCloud on its own.
+    func settleBackupSchedule(isExistingInstall: Bool) {
+        guard defaults.object(forKey: Key.backupSchedule) == nil else { return }
+        backupSchedule = isExistingInstall ? .off : .default
+        backupOfferPending = isExistingInstall
+    }
+
+    var backupLog: BackupLog {
+        get { decode(BackupLog.self, forKey: Key.backupLog) ?? BackupLog() }
+        set {
+            if let data = try? encoder.encode(newValue) {
+                defaults.set(data, forKey: Key.backupLog)
+            }
+        }
+    }
+
     /// Quiet timeline rows fold once a run reaches this many; 0 never folds.
     /// The tidy-up the reader chose to keep as it is, by its signature: the
     /// goal tile stops offering it until a new session or rule joins.
@@ -730,7 +791,9 @@ final class PersistenceStore {
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
                     Key.showsMenuBarIcon, Key.dockIconMode, Key.nameCategoryKept,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
-                    Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut]
+                    Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut, Key.skippedConfirmations,
+                    Key.backupSchedule, Key.backupRetention, Key.backupFolder, Key.backupLog,
+                    Key.backupOfferPending]
         for key in keys { defaults.removeObject(forKey: key) }
         // And the unreadable values kept aside from those keys, but nothing else.
         for stored in defaults.dictionaryRepresentation().keys

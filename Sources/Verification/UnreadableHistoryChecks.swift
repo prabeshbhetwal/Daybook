@@ -156,7 +156,7 @@ enum UnreadableHistoryChecks {
     private static func unreadablePreferenceList() -> [String] {
         var failures: [String] = []
         let suite = "fc.unreadable.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated preferences"] }
         defer { defaults.removePersistentDomain(forName: suite) }
         let unreadable = Data("rules written by a build this one cannot read".utf8)
         defaults.set(unreadable, forKey: "fc.activityRules")
@@ -187,7 +187,7 @@ enum UnreadableHistoryChecks {
 
     private static func unreadableLiveState() -> [String] {
         let suite = "fc.unreadable.state.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated preferences"] }
         defer { defaults.removePersistentDomain(forName: suite) }
         let unreadable = Data("a running session this build cannot read".utf8)
         defaults.set(unreadable, forKey: "fc.state")
@@ -200,7 +200,7 @@ enum UnreadableHistoryChecks {
         final class Box { var now: Date; var failing = false; init(_ now: Date) { self.now = now } }
         let box = Box(base)
         let suite = "fc.unsaved.rest.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated preferences"] }
         let directory = scratch()
         defer {
             defaults.removePersistentDomain(forName: suite)

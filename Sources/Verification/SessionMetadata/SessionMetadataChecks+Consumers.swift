@@ -9,11 +9,11 @@ extension SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.power.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_598_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
-            let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                 archive: archive, ownBundleID: "com.example.metadata", schedulesDwell: false,
                 now: { clock.value })
             let metadata = SessionMetadataArchive(directory: folder)
@@ -65,10 +65,10 @@ extension SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.grouped.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             let start = Date(timeIntervalSince1970: 1_788_599_000)
-            let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                 archive: SessionArchive(directory: folder, now: { start }), schedulesDwell: false,
                 now: { start })
             let metadata = SessionMetadataArchive(directory: folder)
@@ -119,10 +119,10 @@ extension SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.focus.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             let moment = Date(timeIntervalSince1970: 1_788_599_900)
-            let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                 archive: SessionArchive(directory: folder, now: { moment }), schedulesDwell: false,
                 now: { moment })
             let metadata = SessionMetadataArchive(directory: folder)
@@ -160,7 +160,7 @@ extension SessionMetadataChecks {
             defer {
                 try? FileManager.default.removeItem(at: folder)
                 for name in [suite, suite + ".first", suite + ".second"] {
-                    UserDefaults.standard.removePersistentDomain(forName: name)
+                    MemoryDefaults.remove(named: name)
                 }
             }
             let moment = Date(timeIntervalSince1970: 1_788_601_000)

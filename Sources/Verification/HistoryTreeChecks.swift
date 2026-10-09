@@ -433,6 +433,20 @@ enum HistoryTreeChecks {
         if HistoryRowText.title(days[1].place, today: today, calendar: calendar) != "Mon 28 Sep" { failures.append("Monday was titled \(HistoryRowText.title(days[1].place, today: today, calendar: calendar))") }
         if HistoryRowText.facts(days[1], today: today) != "\(Tokens.duration(3_600)) · 2 sessions" { failures.append("Monday's facts read \(HistoryRowText.facts(days[1], today: today))") }
         if HistoryRowText.facts(days[0], today: today) != "nothing recorded yet today" { failures.append("an empty today read \(HistoryRowText.facts(days[0], today: today))") }
+        // Today is still being recorded: its figure says it is the total so far.
+        let live = september + [row(9, 29, focused: 1_500, tracked: 1_600, sessions: 1, types: [.deepWork: 1_500])]
+        let liveTop = HistoryTreeBuilder.top(days: live, today: today, calendar: calendar)
+        if let liveWeek = HistoryTreeBuilder.rows(under: nil, top: liveTop, days: live, calendar: calendar).first,
+           let liveToday = HistoryTreeBuilder.rows(under: liveWeek.place, top: liveTop, days: live, calendar: calendar).first {
+            let facts = HistoryRowText.facts(liveToday, today: today)
+            if facts != "\(Tokens.duration(1_500)) so far · 1 session" { failures.append("a recorded today read \(facts)") }
+            let spokenToday = HistoryRowText.spoken(liveToday, today: today, isOpen: false, depth: 2, calendar: calendar)
+            if !spokenToday.contains("\(Tokens.spent(1_500)) so far, 1 session") {
+                failures.append("a recorded today was spoken as \"\(spokenToday)\"")
+            }
+        } else {
+            failures.append("no today row under the live week")
+        }
         let older = HistoryTreeBuilder.rows(under: weeks[2].place, top: top, days: september, calendar: calendar)
         let empty = older.first { $0.place.start == date(9, 18) }!
         let appOnly = older.first { $0.place.start == date(9, 19) }!

@@ -94,7 +94,7 @@ enum RecoveryRetryChecks: CheckSuite {
 
         init?() {
             let suite = "fc-selftest-rest-retry-\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else { return nil }
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return nil }
             self.suite = suite
             self.defaults = defaults
         }
@@ -110,7 +110,7 @@ enum RecoveryRetryChecks: CheckSuite {
         }
 
         func close() {
-            UserDefaults.standard.removePersistentDomain(forName: suite)
+            MemoryDefaults.remove(named: suite)
         }
     }
 

@@ -51,7 +51,7 @@ earlier: a check's position is its number, and comments cite those numbers.
 | Time | `TestClock`, moved with `advance(_:)`. Never `Date()` in the logic under test. |
 | Today's real calendar | `SelfTest.anchoredNow()` (avoids both edges of midnight, DST-aware); `SelfTest.periodAnchor()` for week or month roll-ups |
 | Files | `SelfTest.scratchDirectory()`, or `makeArchive`, `makeUsageArchive` and `makeEngine` in `SelfTest+Fixtures.swift` |
-| Preferences | `UserDefaults(suiteName: "fc-selftest-<area>-\(UUID().uuidString)")`, then `UserDefaults.standard.removePersistentDomain(forName: suite)` at the end. Never `.standard` itself. |
+| Preferences | `MemoryDefaults.suite(named: "fc-selftest-<area>-\(UUID().uuidString)")`, then `MemoryDefaults.remove(named: suite)` at the end. It lives in memory: a real `UserDefaults(suiteName:)` is a cfprefsd domain, and `build.sh` fails on one. Never `.standard` itself. |
 | `SessionStore` or other `@MainActor` types | Wrap the body in `MainActor.assumeIsolated { … }` |
 | An automatic session | After `engine.start(…, isAuto: true)`, take `engine.snapshot()`, set `isAuto = true` and call `engine.restore(from:)`: the persisted ownership is what marks it automatic. See `AutomaticNamingChecks.swift`. |
 

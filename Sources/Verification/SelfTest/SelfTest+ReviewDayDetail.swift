@@ -60,7 +60,7 @@ extension SelfTest {
                 end: yesterday.addingTimeInterval(3_600 + 30 * 60)))
 
             let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+                defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
             persistence.removeAll()
             let engine = SessionEngine(store: persistence, archive: archive,
                                        ownBundleID: "com.example.self", schedulesDwell: false,

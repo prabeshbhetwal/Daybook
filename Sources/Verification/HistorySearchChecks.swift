@@ -16,7 +16,7 @@ enum HistorySearchChecks {
         var time = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-history-search-\(UUID())")
         let suite = "fc.history-search.\(UUID())"
-        lazy var defaults = UserDefaults(suiteName: suite)!
+        lazy var defaults = MemoryDefaults.suite(named: suite)!
         lazy var archive = SessionArchive(directory: directory, now: { self.time })
         lazy var engine = SessionEngine(store: PersistenceStore(defaults: defaults), archive: archive,
                                         ownBundleID: "fc.history-search.test", schedulesDwell: false,

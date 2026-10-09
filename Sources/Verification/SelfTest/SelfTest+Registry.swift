@@ -50,6 +50,11 @@ extension SelfTest {
             + BlankPreferencesLaunchChecks.tests
             + SettingsAlignmentChecks.tests
             + ComponentEdgeChecks.tests
+            + ConfirmationChecks.tests
+            + BackupScheduleChecks.tests
+            + InstanceLockChecks.tests
+            + MemoryDefaultsChecks.tests
+            + BackupScheduleChecks.later
     }
 
     /// SelfTest's own checks 1 to 107.

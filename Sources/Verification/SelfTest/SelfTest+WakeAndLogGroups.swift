@@ -13,7 +13,7 @@ extension SelfTest {
         var problems: [String] = []
         func scenario(_ decision: UserDecision) -> SessionEngine {
             let directory = scratchDirectory()
-            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
             let prefs = PersistenceStore(defaults: defaults)
             prefs.removeAll()
             prefs.longAwayCap = 4 * 3_600
@@ -111,7 +111,7 @@ extension SelfTest {
         var problems: [String] = []
         func make(capHours: Double) -> (engine: SessionEngine, archive: SessionArchive, clock: TestClock) {
             let directory = scratchDirectory()
-            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
             let prefs = PersistenceStore(defaults: defaults)
             prefs.removeAll()
             prefs.longAwayCap = capHours * 3_600

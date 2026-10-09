@@ -30,7 +30,7 @@ extension SelfTest {
             let usage = makeUsageArchive(clock, sessions: [],
                                          accurateFrom: bounds.start)
             let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+                defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
             persistence.removeAll()
             let engine = SessionEngine(store: persistence, archive: archive,
                                        ownBundleID: "com.example.self", schedulesDwell: false,
@@ -82,7 +82,7 @@ extension SelfTest {
                                 end: day.addingTimeInterval(1_200))
             ], accurateFrom: day)
             let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+                defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
             persistence.removeAll()
             let engine = SessionEngine(
                 store: persistence, archive: makeArchive(clock),
@@ -196,7 +196,7 @@ extension SelfTest {
                                      accurateFrom: accurateFrom)
         let archive = makeArchive(clock, records: sessionRecords, calendar: calendar)
         let persistence = PersistenceStore(
-            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence, archive: archive,
                                    ownBundleID: "com.example.self", schedulesDwell: false,

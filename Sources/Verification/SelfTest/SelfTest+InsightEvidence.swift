@@ -160,7 +160,7 @@ extension SelfTest {
             sessions: usage,
             accurateFrom: migrationDay.addingTimeInterval(12 * 3_600))
         let persistence = PersistenceStore(
-            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence, archive: archive,
                                    ownBundleID: "com.example.self", schedulesDwell: false,
@@ -224,7 +224,7 @@ extension SelfTest {
             ],
             accurateFrom: accurateFrom)
         let boundaryPersistence = PersistenceStore(
-            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
         boundaryPersistence.removeAll()
         let boundaryEngine = SessionEngine(
             store: boundaryPersistence,

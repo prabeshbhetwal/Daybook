@@ -27,7 +27,7 @@ enum ContinuationChecks {
         let store: SessionStore
 
         init() {
-            guard let defaults = UserDefaults(suiteName: suite) else {
+            guard let defaults = MemoryDefaults.suite(named: suite) else {
                 preconditionFailure("Could not create isolated continuation defaults")
             }
             self.defaults = defaults

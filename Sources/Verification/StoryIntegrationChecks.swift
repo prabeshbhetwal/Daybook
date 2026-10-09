@@ -38,7 +38,7 @@ enum StoryIntegrationChecks {
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             suite = "com.prabesh.daybook.integration.\(UUID().uuidString)"
             clock = TestClock(Date(timeIntervalSince1970: 1_788_598_000))
-            persistence = PersistenceStore(defaults: UserDefaults(suiteName: suite)!)
+            persistence = PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!)
             archive = SessionArchive(directory: directory, now: { [clock] in clock.value })
             engine = SessionEngine(store: persistence, archive: archive,
                                    ownBundleID: "com.example.integration", schedulesDwell: false,
@@ -59,7 +59,7 @@ enum StoryIntegrationChecks {
 
         func cleanUp() {
             try? FileManager.default.removeItem(at: directory)
-            UserDefaults.standard.removePersistentDomain(forName: suite)
+            MemoryDefaults.remove(named: suite)
         }
 
         /// One absence past the question threshold, ended, so a decision is

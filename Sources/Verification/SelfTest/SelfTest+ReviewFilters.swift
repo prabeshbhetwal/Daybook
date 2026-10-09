@@ -71,7 +71,7 @@ extension SelfTest {
                         "Month average from the three tracked bars", &problems)
 
             let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+                defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
             persistence.removeAll()
             let engine = SessionEngine(store: persistence, archive: archive,
                                        ownBundleID: "com.example.self", schedulesDwell: false,

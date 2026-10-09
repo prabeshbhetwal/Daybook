@@ -38,7 +38,7 @@ extension SelfTest {
 
             let usage = makeUsageArchive(clock, sessions: [], accurateFrom: bounds.start)
             let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+                defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
             persistence.removeAll()
             let engine = SessionEngine(store: persistence, archive: archive,
                                        ownBundleID: "com.example.self", schedulesDwell: false,

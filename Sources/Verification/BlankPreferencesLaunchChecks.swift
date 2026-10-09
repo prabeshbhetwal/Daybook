@@ -31,7 +31,7 @@ enum BlankPreferencesLaunchChecks: CheckSuite {
         func blankLaunch() -> SessionEngine {
             let suite = "fc-selftest-blank-prefs-\(UUID().uuidString)"
             suites.append(suite)
-            return SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            return SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                 archive: SessionArchive(directory: directory, now: { self.time }),
                 ownBundleID: "fc.blank-prefs.fixture", schedulesDwell: false,
                 correctionWriteOverride: {
@@ -66,7 +66,7 @@ enum BlankPreferencesLaunchChecks: CheckSuite {
         }
 
         func close() {
-            for suite in suites { UserDefaults.standard.removePersistentDomain(forName: suite) }
+            for suite in suites { MemoryDefaults.remove(named: suite) }
             try? FileManager.default.removeItem(at: directory)
         }
     }

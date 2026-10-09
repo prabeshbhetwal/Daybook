@@ -23,7 +23,7 @@ enum CategoryChecks {
 
     private static func fresh() -> (PersistenceStore, UserDefaults, String) {
         let suite = "com.prabesh.daybook.categories.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suite) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
         return (store, defaults, suite)

@@ -84,7 +84,7 @@ extension ActivityRuleChecks {
                 failures.append("Editor accepted a fractional custom dwell without a visible error")
             }
             let suite = "com.prabesh.daybook.rule-editor.\(UUID().uuidString)"
-            let defaults = UserDefaults(suiteName: suite)!
+            let defaults = MemoryDefaults.suite(named: suite)!
             defer { defaults.removePersistentDomain(forName: suite) }
             let persistence = PersistenceStore(defaults: defaults)
             persistence.removeAll()
