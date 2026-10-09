@@ -26,7 +26,7 @@ enum LongAwayRestoreChecks {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-long-away-restore-\(UUID())")
         var journalFailure: (() -> String?)?
-        lazy var defaults = UserDefaults(suiteName: suite)!
+        lazy var defaults = MemoryDefaults.suite(named: suite)!
         var engine: SessionEngine!
 
         init() {

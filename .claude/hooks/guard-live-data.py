@@ -3,7 +3,7 @@
 
 The live data is the user's real history: sessions.json and app-usage.json in
 Application Support, and the app's own preferences domain. Checks and probes
-use a scratch archive and an isolated `fc-selftest-…` defaults suite instead.
+use a scratch archive and an in-memory `MemoryDefaults` suite instead.
 The self-test suites (`com.prabesh.daybook.selftest.*`) are not live data and
 are not guarded. Until the October 2026 rename the app was FocusContinuity;
 its folder and preferences under that name stay guarded too, because the
@@ -199,8 +199,8 @@ def main():
     print(
         "Blocked: " + "; ".join(reasons) + ".\n"
         "This is Daybook's live data (the user's real history and settings). "
-        "Use a scratch archive (SelfTest.scratchDirectory()) and an isolated "
-        "`fc-selftest-…` UserDefaults suite instead. Reading is fine. If the user has "
+        "Use a scratch archive (SelfTest.scratchDirectory()) and an in-memory "
+        "`MemoryDefaults.suite(named: \"fc-selftest-…\")` instead. Reading is fine. If the user has "
         "asked for this exact change in the conversation, re-run with "
         f"{BYPASS} in the command.",
         file=sys.stderr,

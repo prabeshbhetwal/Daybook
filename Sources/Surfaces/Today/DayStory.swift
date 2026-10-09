@@ -481,6 +481,8 @@ struct SessionEntryCard: View {
     @StateObject private var draft = TextBox()
     @StateObject private var picking = BoolBox()
     @StateObject private var confirmingRemoval = BoolBox()
+    @StateObject private var dontAskRemoval = DontAskAgain(.removeSession)
+    @Environment(\.confirmationPolicy) private var confirmations
     @StateObject private var titleWidth = WidthBox()
     @FocusState private var renameFocused: Bool
     @FocusState private var renameActionFocused: Bool
@@ -776,20 +778,32 @@ struct SessionEntryCard: View {
                         }
                     }
                     if onRemove != nil || removeBlockReason != nil {
-                        Button("Remove") { confirmingRemoval.value = true }
+                        Button("Remove") {
+                            if confirmations.asks(.removeSession) {
+                                dontAskRemoval.reset()
+                                confirmingRemoval.value = true
+                            } else {
+                                onRemove?()
+                            }
+                        }
                             .buttonStyle(StoryActionStyle(tint: Tokens.Colour.danger))
                             .disabled(onRemove == nil)
                             .help(removeBlockReason
                                   ?? "Takes this session out of the record. Its time reads as outside sessions; Undo puts it back.")
                             .accessibilityHint(removeBlockReason ?? "Removes this session; Undo is offered in the story.")
                             .confirmationDialog("Remove this session?", isPresented: $confirmingRemoval.value) {
-                                Button("Remove session", role: .destructive) { onRemove?() }
+                                Button("Remove session", role: .destructive) {
+                                    onRemove?()
+                                    dontAskRemoval.confirm(confirmations)
+                                }
                                 Button("Keep", role: .cancel) {}
                             } message: {
                                 Text("Every stretch of “\(session.workType.sessionTitle(named: session.name))” "
                                      + "leaves the record and its time reads as outside sessions. "
                                      + "App use stays. Undo is offered in the story.")
                             }
+                            .dialogSuppressionToggle("Don't ask again",
+                                                     isSuppressed: dontAskRemoval.tick(confirmations))
                     }
                     // Pause and Stop are in the bar, a few hundred points up;
                     // the card does not repeat them.

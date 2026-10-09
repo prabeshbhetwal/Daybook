@@ -134,7 +134,7 @@ enum StoryNavigationChecks {
             let directory = FileManager.default.temporaryDirectory
                 .appendingPathComponent("fc-story-route-\(UUID().uuidString)", isDirectory: true)
             let suite = "fc.story.route.\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else {
+            guard let defaults = MemoryDefaults.suite(named: suite) else {
                 return ["Could not create isolated route preferences"]
             }
             defer {

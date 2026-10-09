@@ -39,7 +39,7 @@ enum DecisionHistoryChecks {
         var time = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-decision-history-\(UUID())")
         let suite = "fc.decision-history.\(UUID())"
-        lazy var defaults = UserDefaults(suiteName: suite)!
+        lazy var defaults = MemoryDefaults.suite(named: suite)!
         var journalFailure: (() -> String?)?
         var capacity: Int?
         var archiveFailure: (([SessionRecord]) -> String?)?

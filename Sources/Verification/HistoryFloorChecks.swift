@@ -51,8 +51,8 @@ enum HistoryFloorChecks: CheckSuite {
                    &problems)
 
             let suite = "fc-selftest-history-floor-\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated defaults suite"] }
-            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated defaults suite"] }
+            defer { MemoryDefaults.remove(named: suite) }
             let usage = SelfTest.makeUsageArchive(clock, sessions: usageSessions)
             let archive = SelfTest.makeArchive(clock, records: records, calendar: calendar)
             let engine = SessionEngine(store: PersistenceStore(defaults: defaults), archive: archive,

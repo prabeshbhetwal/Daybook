@@ -30,7 +30,7 @@ extension SelfTest {
             ],
             accurateFrom: accurateDay.addingTimeInterval(12 * 3_600))
         let persistence = PersistenceStore(
-            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
         persistence.removeAll()
         let archive = makeArchive(clock)
         archive.append(SessionRecord(name: "Legacy deep work", workType: .deepWork,
@@ -120,7 +120,7 @@ extension SelfTest {
             accurateFrom: accuracyDay.addingTimeInterval(12 * 3_600))
         let archive = makeArchive(clock, records: records, calendar: calendar)
         let persistence = PersistenceStore(
-            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence, archive: archive,
                                    ownBundleID: "com.example.self", schedulesDwell: false,
@@ -158,7 +158,7 @@ extension SelfTest {
         }
         let usage = makeUsageArchive(clock, sessions: [], accurateFrom: accurateFrom)
         let persistence = PersistenceStore(
-            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
         persistence.removeAll()
         let engine = SessionEngine(
             store: persistence,

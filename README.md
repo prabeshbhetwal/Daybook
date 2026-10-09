@@ -76,8 +76,9 @@ asks GitHub for the latest version, and dictating a note uses Apple's speech
 recognition, which runs on the Mac where your language supports that and
 otherwise may send the audio to Apple. Ask Daybook answers with Apple's
 on-device model, and your question, history and answers are not sent anywhere.
-A backup, made only when you ask for one, is copied into iCloud Drive, which
-syncs it like any other document. The app asks for no Accessibility,
+Backups are copied, every day unless you choose otherwise, into iCloud Drive,
+which uploads them to your own iCloud account like any other document, or into
+a folder you choose. The app asks for no Accessibility,
 Automation, Screen Recording or Input Monitoring permission; idle detection
 uses system counters, not event content. The prompts you will see are
 notifications (at first launch, for break reminders), and microphone and
@@ -144,8 +145,9 @@ machinery that nothing used any more, with no change in behaviour.
 - Awards derived from recorded evidence, with their criteria shown
 - A global shortcut (Control-Option-Space) that starts or ends a session from
   any app; record your own in Settings
-- Backups to iCloud Drive on request, and updates from GitHub Releases,
-  checked automatically or on demand
+- Automatic backups every 6 hours, day or week, to iCloud Drive or a folder you
+  choose, kept forever or for a period you set, with their upload state shown;
+  and updates from GitHub Releases, checked automatically or on demand
 - A twelve-chapter first-run tour that can be skipped or replayed
 - Full keyboard operation, VoiceOver labels, light and dark appearance, and a
   whole-interface zoom from 80% to 140% (⌘+, ⌘−, ⌘0 or a slider in Settings)

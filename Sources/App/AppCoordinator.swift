@@ -74,6 +74,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// The updater starts with the first thing that asks for it (the menu's
     /// command, or launch) and only ever in the running app.
     private(set) lazy var updater = AppUpdater()
+    private let backups = BackupScheduler()
+    /// A second copy launched while this one runs asks it to come forward.
+    private var secondLaunchObserver: NSObjectProtocol?
     /// SwiftUI's window actions, handed over by the scene. They live here, not
     /// in the menu bar icon's view, so they still work with the icon hidden.
     var windowOpener: WindowOpener?
@@ -551,6 +554,19 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         applyPresence()
         updater.isBusy = { [weak self] in self?.store.holdsUnsavedWork ?? false }
         settings.updater = updater
+        // New or not by the welcome's own rule: recorded app use alone makes
+        // an install an existing one, so its history is not uploaded unasked.
+        engine.store.settleBackupSchedule(isExistingInstall: !FirstRunGate.shouldWelcome(
+            onboarded: engine.store.hasOnboarded,
+            hasSessionHistory: !engine.archive.records.isEmpty,
+            hasUsageHistory: !usage.sessions.isEmpty,
+            forced: false))
+        backups.start { [weak self] in self?.settings.backUpIfDue() }
+        secondLaunchObserver = DistributedNotificationCenter.default().addObserver(
+            forName: InstanceLock.reopenNotification, object: nil, queue: .main) { [weak self] _ in
+            NSApp.activate()
+            self?.reopenRequests.send()
+        }
         observeWelcomeEffects()
         rememberWelcomePlace()
         Task { @MainActor in

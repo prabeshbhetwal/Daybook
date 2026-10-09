@@ -11,7 +11,7 @@ extension SessionMetadataChecks {
             // Ordinary start/end are observed at the contemporaneous injected clock.
             do {
                 let folder = directory(), suite = "com.prabesh.daybook.metadata.boundary.normal.\(UUID())"
-                defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
+                defer { try? FileManager.default.removeItem(at: folder); MemoryDefaults.remove(named: suite) }
                 let clock = TestClock(Date(timeIntervalSince1970: 1_788_610_000))
                 let fixture = makePowerFixture(clock, folder: folder, suite: suite,
                     sample: PowerObservation(timestamp: clock.value, source: .battery,
@@ -35,12 +35,12 @@ extension SessionMetadataChecks {
                 let reloadSuite = sourceSuite + ".reload"
                 defer {
                     try? FileManager.default.removeItem(at: folder)
-                    UserDefaults.standard.removePersistentDomain(forName: sourceSuite)
-                    UserDefaults.standard.removePersistentDomain(forName: reloadSuite)
+                    MemoryDefaults.remove(named: sourceSuite)
+                    MemoryDefaults.remove(named: reloadSuite)
                 }
                 let old = Date(timeIntervalSince1970: 1_788_620_000)
                 let sourceClock = TestClock(old)
-                let source = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: sourceSuite)!),
+                let source = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: sourceSuite)!),
                     archive: SessionArchive(directory: folder, now: { sourceClock.value }),
                     schedulesDwell: false, now: { sourceClock.value })
                 source.start(workType: .deepWork, intent: "Restored")
@@ -61,7 +61,7 @@ extension SessionMetadataChecks {
             // Automatic backdating samples now as partial coverage, never at backdatedTo.
             do {
                 let folder = directory(), suite = "com.prabesh.daybook.metadata.boundary.auto.\(UUID())"
-                defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
+                defer { try? FileManager.default.removeItem(at: folder); MemoryDefaults.remove(named: suite) }
                 let clock = TestClock(Date(timeIntervalSince1970: 1_788_630_000))
                 let fixture = makePowerFixture(clock, folder: folder, suite: suite,
                     sample: PowerObservation(timestamp: clock.value, source: .external,
@@ -101,7 +101,7 @@ extension SessionMetadataChecks {
                 let suite = "com.prabesh.daybook.metadata.boundary.away.\(label).\(UUID())"
                 defer {
                     try? FileManager.default.removeItem(at: folder)
-                    UserDefaults.standard.removePersistentDomain(forName: suite)
+                    MemoryDefaults.remove(named: suite)
                 }
                 let clock = TestClock(Date(timeIntervalSince1970: 1_788_640_000))
                 let fixture = makePowerFixture(clock, folder: folder, suite: suite,
@@ -163,7 +163,7 @@ extension SessionMetadataChecks {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.boundary.pause.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_660_000))
             let fixture = makePowerFixture(clock, folder: folder, suite: suite,

@@ -15,7 +15,7 @@ extension SelfTest {
         do {
             let clock = TestClock(dayStart.addingTimeInterval(10 * 3_600))
             let directory = scratchDirectory()
-            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
             let persistence = PersistenceStore(defaults: defaults)
             persistence.removeAll()
             let engine = SessionEngine(store: persistence,
@@ -47,7 +47,7 @@ extension SelfTest {
             let start = dayStart.addingTimeInterval(23 * 3_600 + 59 * 60)
             let clock = TestClock(start)
             let directory = scratchDirectory()
-            let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+            let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
             let persistence = PersistenceStore(defaults: defaults)
             persistence.removeAll()
             let engine = SessionEngine(store: persistence,
@@ -104,7 +104,7 @@ extension SelfTest {
                                          start: start, end: end))
         }
 
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence, archive: archive,

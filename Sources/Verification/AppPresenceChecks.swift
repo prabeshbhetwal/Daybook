@@ -31,7 +31,7 @@ enum AppPresenceChecks {
 
     static func settingsKeepAWayIn() -> [String] {
         let suite = "fc-presence-\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return ["could not make a defaults suite"] }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["could not make a defaults suite"] }
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = PersistenceStore(defaults: defaults)
         var changes = 0

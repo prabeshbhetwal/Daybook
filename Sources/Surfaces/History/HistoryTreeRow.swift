@@ -23,16 +23,22 @@ enum HistoryRowText {
         }
     }
 
-    /// `20h 40m · 14 days`, `2h 10m · 3 sessions`, or why there is no figure.
+    /// Today is still being recorded, so its figure is the total so far.
+    private static func isToday(_ row: HistoryRow, today: Date) -> Bool {
+        row.place.level == .day && Calendar.current.isDate(row.place.start, inSameDayAs: today)
+    }
+
+    /// `20h 40m · 14 days`, `2h 10m · 3 sessions`, `25m so far · 1 session`,
+    /// or why there is no figure.
     static func facts(_ row: HistoryRow, today: Date) -> String {
         if row.isAppUseOnly { return "Recorded app use only · \(Tokens.duration(row.tracked))" }
         if row.isEmpty {
-            return row.place.level == .day && Calendar.current.isDate(row.place.start, inSameDayAs: today)
-                ? "nothing recorded yet today" : "nothing recorded"
+            return isToday(row, today: today) ? "nothing recorded yet today" : "nothing recorded"
         }
         if row.place.level == .day {
             let noun = row.sessions == 1 ? "1 session" : "\(row.sessions) sessions"
-            return row.focused > 0 ? "\(Tokens.duration(row.focused)) · \(noun)" : noun
+            let soFar = isToday(row, today: today) ? " so far" : ""
+            return row.focused > 0 ? "\(Tokens.duration(row.focused))\(soFar) · \(noun)" : noun + soFar
         }
         let days = row.focusedDays == 1 ? "1 day" : "\(row.focusedDays) days"
         return row.focused > 0 ? "\(Tokens.duration(row.focused)) · \(days)" : "no focus recorded"
@@ -49,7 +55,8 @@ enum HistoryRowText {
             figure = facts(row, today: today)
         } else if row.place.level == .day {
             let noun = row.sessions == 1 ? "1 session" : "\(row.sessions) sessions"
-            figure = row.focused > 0 ? "\(Tokens.spent(row.focused)), \(noun)" : noun
+            let soFar = isToday(row, today: today) ? " so far" : ""
+            figure = row.focused > 0 ? "\(Tokens.spent(row.focused))\(soFar), \(noun)" : noun + soFar
         } else {
             let days = row.focusedDays == 1 ? "1 day" : "\(row.focusedDays) days"
             figure = row.focused > 0 ? "\(Tokens.spent(row.focused)) across \(days)" : "no focus recorded"

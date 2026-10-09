@@ -29,7 +29,7 @@ enum StoryCorrectionChecks: CheckSuite {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-story-correction-\(UUID().uuidString)", isDirectory: true)
         let suite = "com.prabesh.daybook.story-correction.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return nil }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return nil }
         defaults.removePersistentDomain(forName: suite)
         let archive = SessionArchive(directory: directory, now: { clock.value },
                                      writeOverride: writeOverride)

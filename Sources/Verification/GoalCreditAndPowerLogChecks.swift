@@ -18,10 +18,10 @@ enum GoalCreditAndPowerLogChecks: CheckSuite {
             let start = midnight.addingTimeInterval(-3_600)
             let clock = TestClock(start)
             let suite = "fc-selftest-goal-credit-\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else {
+            guard let defaults = MemoryDefaults.suite(named: suite) else {
                 return ["could not create isolated preferences suite"]
             }
-            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+            defer { MemoryDefaults.remove(named: suite) }
             let persistence = PersistenceStore(defaults: defaults)
             persistence.removeAll()
             let directory = SelfTest.scratchDirectory()

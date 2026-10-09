@@ -17,7 +17,7 @@ enum BreakCountingChecks {
         var time = SelfTest.gregorian.date(from: DateComponents(year: 2026, month: 8, day: 31, hour: 9))!
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-break-row-\(UUID())")
         let suite = "fc.break-row.\(UUID())"
-        lazy var defaults = UserDefaults(suiteName: suite)!
+        lazy var defaults = MemoryDefaults.suite(named: suite)!
         lazy var archive = SessionArchive(directory: directory, now: { self.time })
         lazy var engine = SessionEngine(store: PersistenceStore(defaults: defaults), archive: archive,
                                         ownBundleID: "fc.break-row.test", schedulesDwell: false, now: { self.time })
@@ -89,13 +89,13 @@ enum BreakCountingChecks {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-rename-break-\(UUID())")
             let suite = "fc.rename-break.\(UUID())"
             defer {
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
                 try? FileManager.default.removeItem(at: directory)
             }
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             guard let data = try? JSONEncoder().encode([walk]),
                   (try? data.write(to: directory.appendingPathComponent("sessions.json"))) != nil,
-                  let defaults = UserDefaults(suiteName: suite) else { return ["could not write the fixture archive"] }
+                  let defaults = MemoryDefaults.suite(named: suite) else { return ["could not write the fixture archive"] }
             let engine = SessionEngine(store: PersistenceStore(defaults: defaults),
                                        archive: SessionArchive(directory: directory, now: { now }),
                                        ownBundleID: "fc.rename-break.test", schedulesDwell: false, now: { now })
@@ -134,13 +134,13 @@ enum BreakCountingChecks {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-recents-\(UUID())")
             let suite = "fc.recents.\(UUID())"
             defer {
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
                 try? FileManager.default.removeItem(at: directory)
             }
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             guard let data = try? JSONEncoder().encode(records),
                   (try? data.write(to: directory.appendingPathComponent("sessions.json"))) != nil,
-                  let defaults = UserDefaults(suiteName: suite) else { return ["could not write the fixture archive"] }
+                  let defaults = MemoryDefaults.suite(named: suite) else { return ["could not write the fixture archive"] }
             let persistence = PersistenceStore(defaults: defaults)
             // A category's name submitted from the field before this rule.
             persistence.rememberActivity(name: WorkType.deepWork.displayName, workType: .deepWork)
@@ -178,13 +178,13 @@ enum BreakCountingChecks {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-break-counting-\(UUID())")
             let suite = "fc.break-counting.\(UUID())"
             defer {
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
                 try? FileManager.default.removeItem(at: directory)
             }
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             guard let data = try? JSONEncoder().encode([yesterday, morning, afternoon, before, driving]),
                   (try? data.write(to: directory.appendingPathComponent("sessions.json"))) != nil,
-                  let defaults = UserDefaults(suiteName: suite) else { return ["could not write the fixture archive"] }
+                  let defaults = MemoryDefaults.suite(named: suite) else { return ["could not write the fixture archive"] }
             let archive = SessionArchive(directory: directory, now: { at(18, 0) })
             let engine = SessionEngine(store: PersistenceStore(defaults: defaults), archive: archive,
                                        ownBundleID: "fc.break-counting.test", schedulesDwell: false, now: { at(18, 0) })

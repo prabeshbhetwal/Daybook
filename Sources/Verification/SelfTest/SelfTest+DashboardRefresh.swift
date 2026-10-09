@@ -11,7 +11,7 @@ extension SelfTest {
         let clock = TestClock(anchoredNow())
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         let sessions = SessionArchive(directory: directory, now: { clock.value })
@@ -68,7 +68,7 @@ extension SelfTest {
         let clock = TestClock(anchoredNow())
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence,
@@ -109,7 +109,7 @@ extension SelfTest {
         let directory = scratchDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let calendar = Calendar.current
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence,
@@ -188,7 +188,7 @@ extension SelfTest {
                                      end: legacyMonthStart.addingTimeInterval(600)))
         clock.value = anchor
 
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence,

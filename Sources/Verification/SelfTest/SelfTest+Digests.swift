@@ -206,7 +206,7 @@ extension SelfTest {
         archive.append(SessionRecord(name: "Morning admin", workType: .admin,
                                      start: day, end: day.addingTimeInterval(30 * 60),
                                      workSeconds: 30 * 60))
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let persistence = PersistenceStore(defaults: defaults)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence, archive: archive,

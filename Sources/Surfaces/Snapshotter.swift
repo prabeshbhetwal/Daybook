@@ -548,7 +548,7 @@ enum Snapshotter {
         // domain. Reconstructing the same render is harmless because it writes
         // the same complete configuration; a different card cannot see it.
         let suiteName = "com.prabesh.daybook.snapshot.\(item.id).\(density.rawValue)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
+        guard let defaults = MemoryDefaults.suite(named: suiteName) else {
             preconditionFailure("Could not create snapshot defaults domain \(suiteName)")
         }
         let persistence = PersistenceStore(defaults: defaults)

@@ -109,7 +109,8 @@ extension SelfTest {
             .usageRecording, .appearance, .density, .zoom, .timelineLabels, .entryDetails,
             .idlePause, .streakMinimum, .minimumSession, .continueWindow, .defaultCategory,
             .openAtLogin, .menuBarTime, .menuBarIcon, .dockIcon, .updateChecks, .updateFrequency,
-            .updateInstall, .railApps, .paceWindow, .suggestionWindow, .breakTiers, .quietFold
+            .updateInstall, .railApps, .paceWindow, .suggestionWindow, .breakTiers, .quietFold,
+            .confirmations, .backupSchedule, .backupRetention, .backupDestination
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,
@@ -119,7 +120,7 @@ extension SelfTest {
         expect(Set(listedControls.map(\.modelKeyPath)).count == expectedControls.count,
                "every mutable control maps to a distinct SettingsModel property", &problems)
 
-        let defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        let defaults = MemoryDefaults.suite(named: suiteName) ?? .standard
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
         let settings = SettingsModel(store: store, isTrackingEnabled: true,

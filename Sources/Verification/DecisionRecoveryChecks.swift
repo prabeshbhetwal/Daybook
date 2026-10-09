@@ -24,7 +24,7 @@ enum DecisionRecoveryChecks {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("fc-decision-recovery-\(UUID())")
         let capacity: Int
         var journalFailure: (() -> String?)?
-        lazy var defaults = UserDefaults(suiteName: suite)!
+        lazy var defaults = MemoryDefaults.suite(named: suite)!
         lazy var archive = SessionArchive(directory: directory, now: { self.time }, capacity: capacity)
         lazy var engine = SessionEngine(store: PersistenceStore(defaults: defaults), archive: archive,
             ownBundleID: "fc.recovery.fixture", schedulesDwell: false,

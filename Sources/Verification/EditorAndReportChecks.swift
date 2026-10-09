@@ -93,7 +93,7 @@ enum EditorAndReportChecks: CheckSuite {
     /// the Mac.
     @MainActor private static func settingsModels() -> (SettingsModel, SettingsModel, () -> Void) {
         let suite = "fc-selftest-drafts-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
+        let defaults = MemoryDefaults.suite(named: suite)!
         let store = PersistenceStore(defaults: defaults)
         store.removeAll()
         func model() -> SettingsModel {

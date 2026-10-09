@@ -70,7 +70,7 @@ extension SelfTest {
                     "exact app groups remain separate from bounded rows", &problems)
 
         let persistence = PersistenceStore(
-            defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+            defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence, archive: archive,
                                    ownBundleID: "com.example.self", schedulesDwell: false,
@@ -125,7 +125,7 @@ extension SelfTest {
             }
             let usage = makeUsageArchive(clock, sessions: sessions, accurateFrom: day)
             let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+                defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
             persistence.removeAll()
             let engine = SessionEngine(store: persistence, archive: makeArchive(clock),
                                        ownBundleID: "com.example.self", schedulesDwell: false,
@@ -182,7 +182,7 @@ extension SelfTest {
                 workSeconds: 60 * 60))
             let usage = makeUsageArchive(clock, sessions: [], accurateFrom: bounds.start)
             let persistence = PersistenceStore(
-                defaults: UserDefaults(suiteName: suiteName) ?? .standard)
+                defaults: MemoryDefaults.suite(named: suiteName) ?? .standard)
             persistence.removeAll()
             let engine = SessionEngine(store: persistence, archive: archive,
                                        ownBundleID: "com.example.self", schedulesDwell: false,

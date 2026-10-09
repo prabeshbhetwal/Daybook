@@ -23,8 +23,8 @@ enum SettingsAccessibilityChecks {
         MainActor.assumeIsolated {
             var failures: [String] = []
             let suite = "com.prabesh.daybook.interrupted-tour.\(UUID().uuidString)"
-            guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated preferences"] }
-            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated preferences"] }
+            defer { MemoryDefaults.remove(named: suite) }
             let store = PersistenceStore(defaults: defaults)
             var resumed: FirstRunChapter?
             let settings = SettingsModel(store: store, isTrackingEnabled: true, onChange: {},

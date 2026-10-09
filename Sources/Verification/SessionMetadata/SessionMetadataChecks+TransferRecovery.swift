@@ -7,10 +7,10 @@ extension SessionMetadataChecks {
     static func failedPowerTransferRecovery() -> [String] {
         MainActor.assumeIsolated {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.transfer.retry.\(UUID())"
-            defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
+            defer { try? FileManager.default.removeItem(at: folder); MemoryDefaults.remove(named: suite) }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_660_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
-            let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                 archive: archive, schedulesDwell: false, now: { clock.value })
             var failNext = false
             let metadata = SessionMetadataArchive(directory: folder, writeOverride: { _ in
@@ -113,10 +113,10 @@ extension SessionMetadataChecks {
     static func orderedPowerTransferRecovery() -> [String] {
         MainActor.assumeIsolated {
             let folder = directory(), suite = "com.prabesh.daybook.metadata.transfer.order.\(UUID())"
-            defer { try? FileManager.default.removeItem(at: folder); UserDefaults.standard.removePersistentDomain(forName: suite) }
+            defer { try? FileManager.default.removeItem(at: folder); MemoryDefaults.remove(named: suite) }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_670_000))
             let archive = SessionArchive(directory: folder, now: { clock.value })
-            let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                 archive: archive, schedulesDwell: false, now: { clock.value })
             var failNext = false
             let metadata = SessionMetadataArchive(directory: folder, writeOverride: { _ in
@@ -166,9 +166,9 @@ extension SessionMetadataChecks {
             let suite = "com.prabesh.daybook.metadata.transfer.cold.\(UUID())"
             defer {
                 try? FileManager.default.removeItem(at: folder)
-                UserDefaults.standard.removePersistentDomain(forName: suite)
+                MemoryDefaults.remove(named: suite)
             }
-            guard let defaults = UserDefaults(suiteName: suite) else {
+            guard let defaults = MemoryDefaults.suite(named: suite) else {
                 return ["could not create cold-launch preferences"]
             }
             let clock = TestClock(Date(timeIntervalSince1970: 1_788_680_000))

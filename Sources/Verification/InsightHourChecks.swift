@@ -53,8 +53,8 @@ enum InsightHourChecks: CheckSuite {
         MainActor.assumeIsolated {
             let clock = TestClock(calendar.date(byAdding: .day, value: 1, to: day)!)
             let suite = "fc-selftest-insight-hours-\(UUID().uuidString)"
-            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
-            let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            defer { MemoryDefaults.remove(named: suite) }
+            let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                                        archive: SelfTest.makeArchive(clock, records: records,
                                                                      calendar: calendar),
                                        ownBundleID: "fc.insight.fixture", schedulesDwell: false,
@@ -138,8 +138,8 @@ enum InsightHourChecks: CheckSuite {
             let yesterday = calendar.date(byAdding: .day, value: -1, to: midnight)!
             let clock = TestClock(midnight.addingTimeInterval(-3_600))
             let suite = "fc-selftest-insight-live-\(UUID().uuidString)"
-            defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
-            let engine = SessionEngine(store: PersistenceStore(defaults: UserDefaults(suiteName: suite)!),
+            defer { MemoryDefaults.remove(named: suite) }
+            let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite)!),
                                        archive: SelfTest.makeArchive(clock),
                                        ownBundleID: "fc.insight.fixture", schedulesDwell: false,
                                        now: { clock.value })

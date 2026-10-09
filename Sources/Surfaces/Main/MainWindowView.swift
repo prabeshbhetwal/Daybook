@@ -99,6 +99,7 @@ struct MainWindowView: View {
         .zoomRoot()
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
         .environment(\.focusExpandsEntryDetails, settings.expandsEntryDetails)
+        .environment(\.confirmationPolicy, settings.confirmationPolicy)
         .environment(\.openSessionReport) { session in navigation.openReport(for: session) }
         .environment(\.openActivityEditor, openActivityEditor)
         .environment(\.openCategoryEditor, openCategoryEditor)
@@ -122,6 +123,7 @@ struct MainWindowView: View {
                 // Settings loses its Add and Edit items.
                 .environment(\.openCategoryEditor, openCategoryEditor)
                 .environment(\.openActivityEditor, openActivityEditor)
+                .environment(\.confirmationPolicy, settings.confirmationPolicy)
         }
         .accessibilityElement(children: .contain)
     }

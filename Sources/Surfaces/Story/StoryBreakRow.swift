@@ -31,6 +31,8 @@ struct StoryBreakRow: View, Equatable {
     let isBlocked: Bool
     let canUndo: Bool
     @StateObject private var draft = BreakChangeDraft()
+    @StateObject private var dontAsk = DontAskAgain(.changeBreak)
+    @Environment(\.confirmationPolicy) private var confirmations
     @StateObject private var editing = BoolBox()
     @StateObject private var nameDraft = TextBox()
     @FocusState private var nameFocused: Bool
@@ -101,11 +103,15 @@ struct StoryBreakRow: View, Equatable {
                             + Tokens.timeRange(rest.start, rest.end))
         .confirmationDialog("Change this recorded interval?", isPresented: $draft.confirming,
                             titleVisibility: .visible) {
-            Button(draft.decision == .mergeTime ? "Count as focus" : "Leave uncounted", action: perform)
+            Button(draft.decision == .mergeTime ? "Count as focus" : "Leave uncounted") {
+                perform()
+                dontAsk.confirm(confirmations)
+            }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text(scopeMessage)
         }
+        .dialogSuppressionToggle("Don't ask again", isSuppressed: dontAsk.tick(confirmations))
     }
 
     // MARK: - Name
@@ -219,7 +225,14 @@ struct StoryBreakRow: View, Equatable {
         draft.decision = decision
         draft.target = target
         draft.original = store.legacyBreakRecord(id: rest.id)
-        draft.confirming = true
+        // Undo reverses either answer, so the reader may have turned the
+        // question off.
+        if confirmations.asks(.changeBreak) {
+            dontAsk.reset()
+            draft.confirming = true
+        } else {
+            perform()
+        }
     }
 
     private func perform() {

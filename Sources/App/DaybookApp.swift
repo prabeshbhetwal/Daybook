@@ -26,7 +26,30 @@ enum Entry {
         }
         quitLegacyApp()
         NameMigration.run()
+        guard holdInstanceLock() else { return }
         DaybookApp.main()
+    }
+
+    /// Held, never closed, for the life of the process.
+    private static var instanceLock: Int32 = -1
+
+    /// A second copy, from any folder, brings the running one's window
+    /// forward and quits before it reads or writes anything.
+    private static func holdInstanceLock() -> Bool {
+        switch InstanceLock.acquire(in: SessionArchive.defaultDirectory) {
+        case .acquired(let descriptor):
+            instanceLock = descriptor
+            return true
+        case .unavailable:
+            Diagnostics.log("could not open the instance lock; starting anyway")
+            return true
+        case .heldElsewhere:
+            DistributedNotificationCenter.default().postNotificationName(
+                InstanceLock.reopenNotification, object: nil, userInfo: nil, deliverImmediately: true)
+            NSRunningApplication.runningApplications(withBundleIdentifier: FocusConstants.bundleIdentifier)
+                .first { $0 != .current }?.activate()
+            return false
+        }
     }
 
     /// A copy still running under the old name writes the same history, so it

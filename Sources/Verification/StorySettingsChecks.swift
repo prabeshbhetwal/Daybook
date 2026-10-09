@@ -53,7 +53,7 @@ enum StorySettingsChecks {
         let suite = "com.prabesh.daybook.story-settings.\(UUID().uuidString)"
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("fc-story-settings-\(UUID().uuidString)", isDirectory: true)
-        guard let defaults = UserDefaults(suiteName: suite) else {
+        guard let defaults = MemoryDefaults.suite(named: suite) else {
             return ["Could not create isolated Settings defaults"]
         }
         defer {

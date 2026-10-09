@@ -154,7 +154,8 @@ extension SettingsSection {
         switch self {
         case .general: return ["Open at login", "Show the icon in the menu bar",
                                "Show the session time in the menu bar", "Dock icon", "Keyboard",
-                               "Start or end a session from any app"]
+                               "Start or end a session from any app", "Confirmations",
+                               "Ask before changing how a break counts", "Ask before removing a session"]
         case .focus: return ["Daily goal", "Usual pace compares with", "Suggest activities from",
                              "Streak counts a day after", "New sessions start as",
                              "Keep sessions longer than", "Offer to continue for"]
@@ -173,8 +174,9 @@ extension SettingsSection {
             return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
                     "Expand entry details by default", "Fold quiet stretches after"]
         case .data:
-            // "Backup" is the always-shown row; the upgrade copy's row may be absent.
-            return ["Privacy", "App use measured precisely since", "Backup",
+            // The upgrade copy's row may be absent, so it is not listed.
+            return ["Privacy", "App use measured precisely since", "Backups", "Back up automatically",
+                    "Back up to", "Keep automatic backups", "Last backup", "Next backup", "Back Up Now",
                     "Reveal data folder"]
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
@@ -184,7 +186,7 @@ extension SettingsSection {
 
     var mutableControlKeys: [SettingsControlKey] {
         switch self {
-        case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon]
+        case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon, .confirmations]
         case .focus: return [.dailyGoal, .paceWindow, .suggestionWindow, .streakMinimum, .defaultCategory,
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
@@ -194,7 +196,8 @@ extension SettingsSection {
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
         case .appearance: return [.appearance, .density, .zoom, .timelineLabels, .entryDetails, .quietFold]
         case .updates: return [.updateChecks, .updateFrequency, .updateInstall]
-        case .data, .advanced: return []
+        case .data: return [.backupSchedule, .backupDestination, .backupRetention]
+        case .advanced: return []
         }
     }
 
@@ -215,6 +218,9 @@ extension SettingsControlKey {
     var searchTerms: [String] {
         switch self {
         case .zoom: return ["Text size", "Bigger", "Smaller", "Scale"]
+        case .confirmations: return ["Don't ask again", "Warnings", "Dialogs"]
+        case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
+        case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]
         default: return []
         }
     }

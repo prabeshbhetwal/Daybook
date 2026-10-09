@@ -165,41 +165,21 @@ struct HistoryFindBar: View {
                           isActive: picked != nil,
                           filterName: "App filter",
                           clearLabel: "Show all apps",
-                          onClear: { store.setHistoryApp(nil) }) {
+                          onClear: { store.setHistoryApp(nil) },
+                          inPopover: true) {
             if let picked {
                 AppIcon(bundleID: picked, size: 16.zoomed, appName: store.historyAppName(for: picked))
             } else {
                 Image(systemName: "app")
             }
         } items: {
-            Picker("App", selection: Binding(get: { store.historyFilter.appBundleID },
-                                             set: store.setHistoryApp)) {
-                Text("All apps").tag(String?.none)
-                Divider()
-                ForEach(store.historyAppBundleIDs, id: \.self) { bundleID in
-                    Label {
-                        Text(store.historyAppName(for: bundleID))
-                    } icon: {
-                        Self.menuIcon(for: bundleID)
-                    }
-                    .tag(String?.some(bundleID))
-                }
-            }
-            .pickerStyle(.inline)
-            .labelsHidden()
+            HistoryAppPicker(apps: store.historyAppBundleIDs.map {
+                                 .init(id: $0, name: store.historyAppName(for: $0))
+                             },
+                             picked: picked,
+                             onPick: store.setHistoryApp)
         }
         .redrawn(on: [picked ?? ""] + store.historyAppBundleIDs)
-    }
-
-    /// A menu row's icon must be an image: a macOS menu draws a view icon as
-    /// its text, so an uninstalled app's letter tile stood in for its name
-    /// and "T" picked Tolaria. Without an icon to load, a plain symbol.
-    @ViewBuilder static func menuIcon(for bundleID: String) -> some View {
-        if let icon = AppIconProvider.shared.icon(for: bundleID, size: 16) { // zoom: fixed (a native menu row keeps the system menu size)
-            Image(nsImage: icon)
-        } else {
-            Image(systemName: "app.dashed")
-        }
     }
 
     private var workTypeFilter: some View {

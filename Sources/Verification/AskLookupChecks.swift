@@ -47,7 +47,7 @@ enum AskLookupChecks: CheckSuite {
         let directories = (0..<3).map { _ in SelfTest.scratchDirectory() }
         directories.forEach { try? FileManager.default.createDirectory(at: $0, withIntermediateDirectories: true) }
         let suite = "fc-selftest-ask-\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return nil }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return nil }
         defaults.removePersistentDomain(forName: suite)
         // A moment on the day `back` days before today, in the store's calendar.
         func moment(_ back: Int, _ hour: Int, _ minute: Int = 0) -> Date {

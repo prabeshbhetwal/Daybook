@@ -45,7 +45,7 @@ enum StoryInteractionChecks {
 
         init(capacity: Int? = nil,
              writeOverride: (([SessionRecord]) -> String?)? = nil) {
-            guard let defaults = UserDefaults(suiteName: suite) else {
+            guard let defaults = MemoryDefaults.suite(named: suite) else {
                 preconditionFailure("Could not create isolated interaction defaults")
             }
             self.defaults = defaults

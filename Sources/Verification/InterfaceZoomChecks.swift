@@ -45,8 +45,8 @@ enum InterfaceZoomChecks: CheckSuite {
         }
 
         let suite = "fc-selftest-zoom-\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated defaults suite"] }
-        defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated defaults suite"] }
+        defer { MemoryDefaults.remove(named: suite) }
         let store = PersistenceStore(defaults: defaults)
         expect(store.interfaceZoomPercent == 100,
                "no stored zoom should read as 100%, got \(store.interfaceZoomPercent)%", &problems)
@@ -90,8 +90,8 @@ enum InterfaceZoomChecks: CheckSuite {
     private static func zoomSettingRoundTrips() -> [String] {
         var problems: [String] = []
         let suite = "fc-selftest-zoom-\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else { return ["no isolated defaults suite"] }
-        defer { UserDefaults.standard.removePersistentDomain(forName: suite) }
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated defaults suite"] }
+        defer { MemoryDefaults.remove(named: suite) }
         withZoom(100) {
             let store = PersistenceStore(defaults: defaults)
             let settings = SettingsModel(store: store, isTrackingEnabled: true,
