@@ -51,6 +51,7 @@ extension SelfTest {
             + SettingsAlignmentChecks.tests
             + ComponentEdgeChecks.tests
             + AskChecks.tests
+            + AskLookupChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

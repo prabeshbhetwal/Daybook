@@ -3,9 +3,11 @@ import Foundation
 /// Ask Daybook's lookups. Every figure is read through the store methods
 /// History and Insights draw from, so an answer cannot differ from the
 /// screen; `AskFacts` only words it. Nothing here writes: no file, no
-/// preference, and not the search filter History is showing.
+/// preference, and not the search filter History is showing. The one change a
+/// lookup makes is to History's in-memory day index, when it is behind.
 extension SessionStore {
     func askLookup(_ request: AskRequest) -> String {
+        askBringHistoryUpToDate()
         switch request {
         case let .focusTotals(range, words):
             return words.map { askMatchingTotals(range, words: $0) } ?? askTotals(range)
@@ -15,19 +17,35 @@ extension SessionStore {
         }
     }
 
+    /// History's day index is built while History is open. The Ask sheet is
+    /// not History, so a lookup brings the index up to date itself when the
+    /// store says it is behind: a refresh pending, evidence that moved since
+    /// the last build, or a session running, whose day grows by the second.
+    /// It is the refresh History runs on opening, chosen by the same rule,
+    /// and History stays hidden. Otherwise it does nothing.
+    private func askBringHistoryUpToDate() {
+        let revision = evidenceRevision
+        let pending = reviewRefreshPending || reviewLiveTailRefreshPending
+        guard pending || reviewEvidenceRevision != revision || engine.state != .idle else { return }
+        refreshReview(rebuildingHistory: reviewRefreshPending
+                      || reviewEvidenceRevision?.sameArchive(as: revision) != true)
+    }
+
     // MARK: - Focus totals
 
     private func askTotals(_ range: AskRange) -> String {
         let today = periodCalendar.startOfDay(for: now())
         let place = range.level.map { HistoryPlace(level: $0, span: askInterval(range)) }
         let summary = historySummary(for: place)
-        let best = summary.best.map {
+        // One day is its own best and has no breakdown: neither is given.
+        let singleDay = range == .today || range == .yesterday
+        let best: (unit: String, label: String, focused: TimeInterval)? = singleDay ? nil : summary.best.map {
             (unit: $0.place.level.spokenName, label: askLabel($0.place), focused: $0.focused)
         }
-        // A single day has no breakdown. Rows are newest first in History;
-        // here they read oldest first, and never run past today.
+        // Rows are newest first in History; here they read oldest first, and
+        // never run past today.
         var parts: (name: String, items: [(label: String, focused: TimeInterval)])?
-        if range != .today, range != .yesterday {
+        if !singleDay {
             let rows = historyRows(under: place).filter { $0.place.start <= today }
             if let level = rows.first?.place.level {
                 parts = (level.spokenName, rows.reversed().map { (label: askLabel($0.place), focused: $0.focused) })
