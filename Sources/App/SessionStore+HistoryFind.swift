@@ -60,8 +60,13 @@ extension SessionStore {
     /// `HistoryAppLens.minimumUse` inside the session itself: matched by the
     /// day, picking an app listed every session of every day it was opened.
     func historySearchHits(limit: Int = 200) -> [HistorySearchHit] {
+        historySearchHits(matching: historyFilter, limit: limit)
+    }
+
+    /// The same list for any filter, so a lookup can search without touching
+    /// the one History is showing.
+    func historySearchHits(matching filter: HistoryFilter, limit: Int = 200) -> [HistorySearchHit] {
         let calendar = Calendar.current
-        let filter = historyFilter
         let words = SearchWords.words(in: filter.query)
         guard !words.isEmpty || filter.appBundleID != nil || filter.workType != nil else { return [] }
         let formats = ["EEEE d MMMM yyyy", "d/M/yyyy", "h:mm a", "HH:mm"].map { DateFormats.australian($0) }
