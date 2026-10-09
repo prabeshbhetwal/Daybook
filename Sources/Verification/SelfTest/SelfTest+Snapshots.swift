@@ -49,6 +49,7 @@ extension SelfTest {
                 .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
+                .askAnswered,
                 .storyDay, .storyDayEntry,
                 .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
                 .welcomeOpening, .welcomeStep,

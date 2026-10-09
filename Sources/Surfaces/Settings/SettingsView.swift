@@ -18,6 +18,14 @@ enum SettingsLayout {
     /// The sheet wants its full size; a smaller window gets a sheet that
     /// fits it, never one that runs off the edge.
     static func sheetSize(for kind: StorySheetKind, within window: CGSize?) -> CGSize {
+        // Ask is a small panel: it shrinks with the window and has no floor,
+        // since its content scrolls.
+        if kind == .ask {
+            let wanted = CGSize(width: 640.zoomed, height: 520.zoomed)
+            guard let window else { return wanted }
+            return CGSize(width: min(wanted.width, window.width - windowMargin * 2),
+                          height: min(wanted.height, window.height - windowMargin * 2))
+        }
         let wanted = kind == .settings ? CGSize(width: sheetWidth, height: sheetHeight)
                                        : CGSize(width: 880.zoomed, height: 570.zoomed)
         guard let window else { return wanted }

@@ -10,6 +10,8 @@ enum AskChecks: CheckSuite {
         ("Ask answers print durations as the rest of the app does", figuresAreDurationText),
         ("An Ask answer is cut to the byte cap at a line or clause boundary", outputStaysUnderCap),
         ("The best-hours window reads as a 12-hour range", windowLabels),
+        ("Ask opens as a sheet over the story and closes back to nothing", askOpensAsASheet),
+        ("The Ask sheet fits inside a small window", askSheetFitsWindow),
     ]
 
     private static func rangesFollowPeriodCalendar() -> [String] {
@@ -179,6 +181,32 @@ enum AskChecks: CheckSuite {
                                           window: (startHour: start, seconds: 3_600), strongest: nil)
             expect(text.contains(label), "a window starting at \(start) reads “\(text)”, not \(label)", &problems)
         }
+        return problems
+    }
+
+    private static func askOpensAsASheet() -> [String] {
+        AskLookupChecks.withFixture { f, problems in
+            MainActor.assumeIsolated {
+                let navigation = MainWindowModel(store: f.store)
+                navigation.openAsk()
+                expect(navigation.sheet == .ask, "openAsk left the sheet at \(String(describing: navigation.sheet))", &problems)
+                expect(StorySheetKind.ask.title == "Ask Daybook", "the sheet is titled \(StorySheetKind.ask.title)", &problems)
+                navigation.closeSheet()
+                expect(navigation.sheet == nil, "closeSheet left a sheet showing", &problems)
+                expect(navigation.askModel != nil, "closing the sheet dropped the thread", &problems)
+            }
+        }
+    }
+
+    private static func askSheetFitsWindow() -> [String] {
+        var problems: [String] = []
+        let window = CGSize(width: 600, height: 400)
+        let size = SettingsLayout.sheetSize(for: .ask, within: window)
+        expect(size.width <= window.width && size.height <= window.height,
+               "the Ask sheet is \(size) in a \(window) window", &problems)
+        let roomy = SettingsLayout.sheetSize(for: .ask, within: CGSize(width: 1_400, height: 1_000))
+        expect(roomy == CGSize(width: 640.zoomed, height: 520.zoomed),
+               "the Ask sheet is \(roomy) in a roomy window, not 640 × 520", &problems)
         return problems
     }
 }

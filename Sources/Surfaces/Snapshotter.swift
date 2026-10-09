@@ -7,6 +7,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
+    case askAnswered
     case storyDay, storyDayEntry
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
     case welcomeOpening, welcomeStep
@@ -35,6 +36,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .insightsEmpty: return "Insights — insufficient evidence"
         case .awardsEarned: return "Awards — earned and in progress"
         case .awardsEmpty: return "Awards — nothing earned yet"
+        case .askAnswered: return "Ask — an answer over the story"
         case .storyDay: return "Story — the day"
         case .storyDayEntry: return "Story — an entry opened"
         case .storyShape: return "Story — recorded shape and session actions"
@@ -116,7 +118,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .insights
         case .awardsEarned, .awardsEmpty:
             return .awards
-        case .storyDay, .storyDayEntry,
+        case .storyDay, .storyDayEntry, .askAnswered,
              .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
              .welcomeOpening, .welcomeStep:
             return .story
@@ -431,7 +433,7 @@ enum Snapshotter {
             return store
         case .awardsEmpty:
             return FixtureFactory.store(for: .firstRun)
-        case .storyDay, .storyDayEntry:
+        case .storyDay, .storyDayEntry, .askAnswered:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
@@ -488,6 +490,11 @@ enum Snapshotter {
             navigation.open(tab: .review)
         case .activityRuleAmbiguity, .activityRuleAutomatic:
             navigation.focusSessionControls()
+        case .askAnswered:
+            navigation.openAsk()
+            navigation.askModel?.present(
+                answer: "Mornings. Over the 4 weeks to 15 Nov: most focus 9–11am (2h); strongest on Tuesdays.",
+                used: "Used: best hours (last 30 days)")
         case .settingsActivityRules:
             navigation.settingsSection = .activities
         case .storyReport:

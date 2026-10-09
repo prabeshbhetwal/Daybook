@@ -74,7 +74,9 @@ never content. The session names, intents and notes you write are content, and
 they are kept on the Mac. Two things can reach another server: the update check
 asks GitHub for the latest version, and dictating a note uses Apple's speech
 recognition, which runs on the Mac where your language supports that and
-otherwise may send the audio to Apple. A backup, made only when you ask for
+otherwise may send the audio to Apple. Ask Daybook answers with Apple's
+on-device model, and your question, history and answers are not sent anywhere.
+A backup, made only when you ask for
 one, is copied into iCloud Drive, which syncs it like any other document. The
 app asks for no Accessibility,
 Automation, Screen Recording or Input Monitoring permission; idle detection
