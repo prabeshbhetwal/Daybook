@@ -193,6 +193,9 @@ struct HistorySessionPick: Hashable {
     @Published private(set) var reportSession: DaySession?
     @Published var settingsQuery: String = ""
     private weak var store: SessionStore?
+    /// Ask Daybook's model, built the first time Ask is opened, so with Ask
+    /// never used nothing of it exists.
+    private(set) var askModel: AskModel?
 
     init(opening route: AppTab = .story,
          requestedDate: Date? = nil,
@@ -503,6 +506,12 @@ struct HistorySessionPick: Hashable {
 
     func openSettings() {
         openSheet(.settings)
+    }
+
+    /// ⌘K: builds Ask's model on first use. The sheet opens from here once
+    /// `StorySheetKind` has an `ask` case.
+    func openAsk() {
+        if askModel == nil, let store { askModel = AskModel(store: store) }
     }
 
     /// Settings, on the Categories section, with the editor already open. The
