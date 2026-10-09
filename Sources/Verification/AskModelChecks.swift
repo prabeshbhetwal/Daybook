@@ -12,6 +12,7 @@ enum AskModelChecks: CheckSuite {
         ("Ask's Used line lists each lookup in order, and a new question clears it", provenanceRecordsLookups),
         ("A blank Ask question is ignored", blankQuestionIsIgnored),
         ("Opening Ask twice builds its model once", askModelIsBuiltOnce),
+        ("A failed Ask answer leaves the previous answer and its sources on screen", failedAnswerKeepsPrevious),
     ]
 
     /// One value a main-actor task fills in while the check turns the run loop.
@@ -181,6 +182,43 @@ enum AskModelChecks: CheckSuite {
             let first = navigation.askModel
             navigation.openAsk()
             expect(first != nil && first === navigation.askModel, "opening Ask twice built a second model", &problems)
+        }
+    }
+
+    private static func failedAnswerKeepsPrevious() -> [String] {
+        guard #available(macOS 26, *) else { return [] }
+        return failureChecks()
+    }
+
+    /// A tool runs, then the response fails, as when the context overflows
+    /// after a lookup. The sheet must show the answer and sources from before
+    /// the question, not sources the shown answer never rested on.
+    @available(macOS 26, *)
+    private static func failureChecks() -> [String] {
+        withFixture { f, problems in
+            let context = LanguageModelSession.GenerationError.Context(debugDescription: "probe")
+            let failures: [(label: String, error: Error, notice: String)] = [
+                ("a failed request", CocoaError(.fileReadNoSuchFile), "Couldn't answer:"),
+                ("a full context", LanguageModelSession.GenerationError.exceededContextWindowSize(context),
+                 "Started a new thread"),
+            ]
+            for (label, error, noticePrefix) in failures {
+                let model = AskModel(store: f.store)
+                model.responder = { [unowned model] _, show in
+                    _ = model.lookup(.focusTotals(.thisWeek, words: nil))
+                    show("This week you focused for")
+                    throw error
+                }
+                model.present(answer: "Earlier answer.", used: "Used: best hours (today)")
+                model.ask("How long this week?")
+                expect(model.isAnswering, "\(label): the question did not start an answer", &problems)
+                InstalledAppCatalog.turnRunLoop(until: { !model.isAnswering }, timeout: 5)
+                expect(!model.isAnswering, "\(label) left the sheet answering", &problems)
+                expect(model.answer == "Earlier answer." && model.used == "Used: best hours (today)",
+                       "after \(label) the sheet shows “\(model.answer)” resting on “\(model.used)”", &problems)
+                expect(model.notice?.text.hasPrefix(noticePrefix) == true,
+                       "after \(label) the notice is \(String(describing: model.notice))", &problems)
+            }
         }
     }
 }

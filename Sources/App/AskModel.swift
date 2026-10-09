@@ -24,6 +24,10 @@ struct AskNotice: Equatable {
     /// A `LanguageModelSession`, held untyped so this class compiles below macOS 26.
     private var session: AnyObject?
     private var answering: Task<Void, Never>?
+    /// Checks only: stands in for the model's session. It gets the question and
+    /// a callback for the answer so far, may call `lookup` as a tool would, and
+    /// may throw. Nothing in the app sets it.
+    var responder: (@MainActor (String, (String) -> Void) async throws -> Void)?
 
     init(store: SessionStore) {
         self.store = store
@@ -45,12 +49,18 @@ struct AskNotice: Equatable {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isAnswering else { return }
         guard #available(macOS 26, *) else { notice = Self.needsNewerMacOS; return }
-        if let missing = Self.notice(for: SystemLanguageModel.default.availability) { notice = missing; return }
+        if responder == nil, let missing = Self.notice(for: SystemLanguageModel.default.availability) {
+            notice = missing
+            return
+        }
+        // A failed answer puts these back: the answer on screen and the
+        // lookups it rested on go together.
+        let before = (answer: answer, used: used)
         question = trimmed
         used = ""
         notice = nil
         isAnswering = true
-        answering = Task { await respond(to: trimmed) }
+        answering = Task { await respond(to: trimmed, restoring: before) }
     }
 
     func newQuestion() {
@@ -86,13 +96,16 @@ struct AskNotice: Equatable {
     // MARK: - The model
 
     @available(macOS 26, *)
-    private func respond(to text: String) async {
-        let previous = answer
+    private func respond(to text: String, restoring before: (answer: String, used: String)) async {
         var failure: Error?
+        let show: (String) -> Void = { [weak self] partial in
+            if !Task.isCancelled { self?.answer = partial }
+        }
         do {
-            for try await snapshot in liveSession().streamResponse(to: text) {
-                guard !Task.isCancelled else { return }
-                answer = snapshot.content
+            if let responder {
+                try await responder(text, show)
+            } else {
+                for try await snapshot in liveSession().streamResponse(to: text) { show(snapshot.content) }
             }
         } catch {
             failure = error
@@ -100,7 +113,8 @@ struct AskNotice: Equatable {
         // A new question has already reset everything this answer would touch.
         guard !Task.isCancelled else { return }
         if let failure {
-            answer = previous
+            answer = before.answer
+            used = before.used
             notice = Self.notice(for: failure)
             if notice == Self.threadFull { session = nil }
         }
