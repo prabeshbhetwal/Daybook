@@ -211,8 +211,11 @@ own.
 Data lives in `~/Library/Application Support/Daybook/`: `sessions.json` for
 sessions, and for app use a snapshot, `app-usage.json` (a versioned v2
 envelope), plus `app-usage-journal.jsonl`, the changes since that snapshot.
-Files are written atomically; a change is one appended journal line, and the
-snapshot is rewritten only when the journal grows long, so nothing is dropped.
+`sessions.json` and the snapshot are replaced atomically. Each change to app
+use is one line appended to the journal, and the snapshot is rewritten only
+when the journal grows long, so the history is never trimmed. If a crash cuts
+the last line short, the next launch drops that one change and keeps
+everything before it.
 
 Until October 2026 the app was called FocusContinuity. Its first launch under
 the new name carries the data folder and preferences across and deletes
