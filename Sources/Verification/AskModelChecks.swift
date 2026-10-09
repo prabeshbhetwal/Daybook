@@ -110,8 +110,11 @@ enum AskModelChecks: CheckSuite {
     private static func toolChecks() -> [String] {
         withFixture { f, problems in
             let model = AskModel(store: f.store)
-            let totals = FocusTotalsTool(model: model), hours = BestHoursTool(model: model)
-            let find = FindSessionsTool(model: model), apps = AppTimeTool(model: model)
+            let generation = model.generation
+            let totals = FocusTotalsTool(model: model, generation: generation)
+            let hours = BestHoursTool(model: model, generation: generation)
+            let find = FindSessionsTool(model: model, generation: generation)
+            let apps = AppTimeTool(model: model, generation: generation)
             let cases: [(String, AskRequest, @MainActor () async -> String)] = [
                 ("focusTotals", .focusTotals(.thisWeek, words: nil),
                  { await totals.call(arguments: .init(range: "this week", words: nil)) }),
@@ -149,9 +152,10 @@ enum AskModelChecks: CheckSuite {
         withFixture { f, problems in
             let model = AskModel(store: f.store)
             let totals = AskRequest.focusTotals(.thisWeek, words: nil)
-            expect(model.lookup(totals) == f.store.askLookup(totals), "lookup differs from the store's", &problems)
+            expect(model.lookup(totals, generation: model.generation) == f.store.askLookup(totals),
+                   "lookup differs from the store's", &problems)
             expect(model.used == "Used: focus totals (this week)", "Used reads “\(model.used)”", &problems)
-            _ = model.lookup(.bestHours(.last30Days))
+            _ = model.lookup(.bestHours(.last30Days), generation: model.generation)
             let both = "Used: focus totals (this week) · best hours (last 30 days)"
             expect(model.used == both, "Used reads “\(model.used)”, not “\(both)”", &problems)
 
@@ -205,7 +209,7 @@ enum AskModelChecks: CheckSuite {
             for (label, error, noticePrefix) in failures {
                 let model = AskModel(store: f.store)
                 model.responder = { [unowned model] _, show in
-                    _ = model.lookup(.focusTotals(.thisWeek, words: nil))
+                    _ = model.lookup(.focusTotals(.thisWeek, words: nil), generation: model.generation)
                     show("This week you focused for")
                     throw error
                 }

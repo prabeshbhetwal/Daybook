@@ -19,6 +19,8 @@ enum AskToolArguments {
 @available(macOS 26, *)
 struct FocusTotalsTool: Tool {
     let model: AskModel
+    /// The session these tools were built for; see `AskModel.generation`.
+    let generation: Int
     let name = "focusTotals"
     let description = "Returns the total focused time, session count and best day or week for a time range, "
         + "optionally only for sessions matching some words."
@@ -33,13 +35,14 @@ struct FocusTotalsTool: Tool {
 
     func call(arguments: Arguments) async -> String {
         await model.lookup(.focusTotals(AskToolArguments.range(arguments.range),
-                                        words: AskToolArguments.text(arguments.words)))
+                                        words: AskToolArguments.text(arguments.words)), generation: generation)
     }
 }
 
 @available(macOS 26, *)
 struct BestHoursTool: Tool {
     let model: AskModel
+    let generation: Int
     let name = "bestHours"
     let description = "Returns the two-hour window of the day with the most focus, and the strongest weekday, "
         + "for a time range."
@@ -51,13 +54,14 @@ struct BestHoursTool: Tool {
     }
 
     func call(arguments: Arguments) async -> String {
-        await model.lookup(.bestHours(AskToolArguments.range(arguments.range)))
+        await model.lookup(.bestHours(AskToolArguments.range(arguments.range)), generation: generation)
     }
 }
 
 @available(macOS 26, *)
 struct FindSessionsTool: Tool {
     let model: AskModel
+    let generation: Int
     let name = "findSessions"
     let description = "Returns up to ten sessions in a time range whose name, note or apps match some words, "
         + "each with its date and duration."
@@ -72,13 +76,14 @@ struct FindSessionsTool: Tool {
 
     func call(arguments: Arguments) async -> String {
         await model.lookup(.findSessions(words: AskToolArguments.text(arguments.words) ?? "",
-                                         AskToolArguments.range(arguments.range)))
+                                         AskToolArguments.range(arguments.range)), generation: generation)
     }
 }
 
 @available(macOS 26, *)
 struct AppTimeTool: Tool {
     let model: AskModel
+    let generation: Int
     let name = "appTime"
     let description = "Returns how long an app was in front during a time range, or the most-used apps "
         + "when no app is named."
@@ -93,6 +98,6 @@ struct AppTimeTool: Tool {
 
     func call(arguments: Arguments) async -> String {
         await model.lookup(.appTime(AskToolArguments.range(arguments.range),
-                                    app: AskToolArguments.text(arguments.app)))
+                                    app: AskToolArguments.text(arguments.app)), generation: generation)
     }
 }

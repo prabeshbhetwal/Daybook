@@ -55,6 +55,7 @@ extension SelfTest {
             + AskLookupVolumeChecks.tests
             + AskModelChecks.tests
             + HistoryLivePatchChecks.tests
+            + AskThreadChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

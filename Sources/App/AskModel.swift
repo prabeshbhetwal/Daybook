@@ -24,6 +24,13 @@ struct AskNotice: Equatable {
     /// A `LanguageModelSession`, held untyped so this class compiles below macOS 26.
     private var session: AnyObject?
     private var answering: Task<Void, Never>?
+    /// Counts the sessions dropped so far. A session's tools carry the number
+    /// it was built under, and their lookups reach `used` only while it is
+    /// still current, so a late answer cannot write into the next one.
+    private(set) var generation = 0
+    /// The day the session was built under, as its "Today is …" says. A
+    /// menu-bar app keeps the thread for days.
+    private(set) var sessionDay: Date?
     /// Checks only: stands in for the model's session. It gets the question and
     /// a callback for the answer so far, may call `lookup` as a tool would, and
     /// may throw. Nothing in the app sets it.
@@ -40,6 +47,7 @@ struct AskNotice: Equatable {
 
     /// When the sheet appears: say what is missing, or start the model loading.
     func prepare() {
+        retireStaleSession()
         guard #available(macOS 26, *) else { notice = Self.needsNewerMacOS; return }
         notice = Self.notice(for: SystemLanguageModel.default.availability)
         if notice == nil { liveSession().prewarm() }
@@ -57,16 +65,18 @@ struct AskNotice: Equatable {
         // lookups it rested on go together.
         let before = (answer: answer, used: used)
         question = trimmed
+        answer = ""
         used = ""
         notice = nil
         isAnswering = true
+        sessionDay = sessionDay ?? dayStart()
         answering = Task { await respond(to: trimmed, restoring: before) }
     }
 
     func newQuestion() {
         answering?.cancel()
         answering = nil
-        session = nil
+        dropSession()
         isAnswering = false
         question = ""
         answer = ""
@@ -75,11 +85,28 @@ struct AskNotice: Equatable {
     }
 
     /// What a tool asks for. The synchronous lookup rebuilds History's day
-    /// index when it is behind, so this is called only when a tool runs.
-    func lookup(_ request: AskRequest) -> String {
+    /// index when it is behind, so this is called only when a tool runs. A
+    /// tool from a dropped session still gets its figure, but it is not
+    /// listed under an answer it took no part in.
+    func lookup(_ request: AskRequest, generation: Int) -> String {
         let text = store?.askLookup(request) ?? ""
-        used += (used.isEmpty ? "Used: " : " · ") + request.provenance
+        if generation == self.generation { used += (used.isEmpty ? "Used: " : " · ") + request.provenance }
         return text
+    }
+
+    /// The thread's session carries the date it was built under, so one kept
+    /// across midnight is dropped when the sheet opens, unless an answer is
+    /// being worked out. What the sheet shows stays; the next ask builds a
+    /// session under today's date.
+    func retireStaleSession() {
+        guard !isAnswering, let built = sessionDay, built != dayStart() else { return }
+        dropSession()
+    }
+
+    private func dropSession() {
+        session = nil
+        sessionDay = nil
+        generation += 1
     }
 
     func openIntelligenceSettings() {
@@ -105,7 +132,10 @@ struct AskNotice: Equatable {
             if let responder {
                 try await responder(text, show)
             } else {
-                for try await snapshot in liveSession().streamResponse(to: text) { show(snapshot.content) }
+                for try await snapshot in liveSession().streamResponse(to: text) {
+                    if Task.isCancelled { break }
+                    show(snapshot.content)
+                }
             }
         } catch {
             failure = error
@@ -116,7 +146,7 @@ struct AskNotice: Equatable {
             answer = before.answer
             used = before.used
             notice = Self.notice(for: failure)
-            if notice == Self.threadFull { session = nil }
+            if notice == Self.threadFull { dropSession() }
         }
         isAnswering = false
         answering = nil
@@ -125,10 +155,13 @@ struct AskNotice: Equatable {
     @available(macOS 26, *)
     private func liveSession() -> LanguageModelSession {
         if let existing = session as? LanguageModelSession { return existing }
-        let fresh = LanguageModelSession(tools: [FocusTotalsTool(model: self), BestHoursTool(model: self),
-                                                 FindSessionsTool(model: self), AppTimeTool(model: self)],
+        let fresh = LanguageModelSession(tools: [FocusTotalsTool(model: self, generation: generation),
+                                                 BestHoursTool(model: self, generation: generation),
+                                                 FindSessionsTool(model: self, generation: generation),
+                                                 AppTimeTool(model: self, generation: generation)],
                                          instructions: Self.instructions(today: today()))
         session = fresh
+        sessionDay = dayStart()
         return fresh
     }
 
@@ -138,6 +171,10 @@ struct AskNotice: Equatable {
         let calendar = store?.periodCalendar ?? Calendar.current.forPeriods
         let format = DateFormats.australian("EEEE d MMMM yyyy", in: calendar.timeZone)
         return format.string(from: store?.now() ?? Date())
+    }
+
+    private func dayStart() -> Date {
+        (store?.periodCalendar ?? Calendar.current.forPeriods).startOfDay(for: store?.now() ?? Date())
     }
 
     static func instructions(today: String) -> String {
