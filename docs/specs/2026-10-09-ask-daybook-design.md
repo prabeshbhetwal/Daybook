@@ -1,7 +1,7 @@
 # Ask Daybook
 
 Date: 2026-10-09
-Status: approved in conversation 2026-10-09; spec awaiting review
+Status: approved 2026-10-09 (design and written spec)
 
 ## Why
 
@@ -26,7 +26,7 @@ reuse what this one builds.
 | Rejected: cloud model (e.g. Claude Haiku over `URLSession`) | Costs per call, needs a Keychain-held key, and sends session names and notes off the Mac, which breaks the README's privacy statement. No official Swift SDK. |
 | Rejected: both behind a provider interface | One implementation is enough until a need appears. |
 | First job | Answering questions about history. Read-only. |
-| Surface | A fourth main-window sheet beside Insights, Awards and Settings, opened with ⌘K (free; no existing ⌘K binding). |
+| Surface | A third main-window sheet beside Awards and Settings (`StorySheetKind`), opened with ⌘K (free; no existing ⌘K binding). |
 | Rejected: History search field | Gives one field two meanings. |
 | Rejected: menu-bar popover | Too small for answers. |
 | Approach | Tools return finished facts. Code computes and formats every number; the model chooses tools and phrases the answer. |
@@ -53,12 +53,14 @@ output. 4.9 s is the first, cold call.
 
 | Layer | File | Responsibility |
 |---|---|---|
-| Core | `Sources/Core/AskFacts.swift` | Pure functions from the session archive, a range and optional words to a short finished text. No `FoundationModels` import, so it passes the standalone Core typecheck. |
-| App | `Sources/App/AskTools.swift` | Four read-only tools, each `@available(macOS 26, *)`, each calling `AskFacts` through `SessionStore`. |
-| App | `Sources/App/AskModel.swift` | Owns the `LanguageModelSession`, the availability state, the busy flag, and the answer and provenance the sheet shows. |
+| Core | `Sources/Core/AskFacts.swift` | `AskRange` (the closed set of ranges and their date intervals) and pure formatting of figures handed to it, with the 1 KB cap and the nothing-found wording. No `FoundationModels` import, so it passes the standalone Core typecheck. |
+| App | `Sources/App/SessionStore+Ask.swift` | Gathers figures by calling what History and Insights already call, so the numbers are theirs: `historySummary(for:)`, `historyRows(under:)`, `insightReading(scope:anchoredAt:limit:)`, `historySearchHits(matching:limit:)`, `historySortedUsage().uniqueUse(within:)`. Hands them to `AskFacts`. Synchronous, so checks call it directly. |
+| App | `Sources/App/SessionStore+HistoryFind.swift` | `historySearchHits(limit:)` gains a sibling `historySearchHits(matching:limit:)` that takes the filter as an argument; the existing method calls it with `historyFilter`. Move-only, so search is unchanged and the tools never touch History's published filter. |
+| App | `Sources/App/AskTools.swift` | Four read-only tools, each `@available(macOS 26, *)`, each asking `AskModel` for one figure. |
+| App | `Sources/App/AskModel.swift` | `@MainActor`. Owns the `LanguageModelSession`, the availability state, the busy flag, and the answer and provenance the sheet shows; forwards tool lookups to `SessionStore+Ask` on the main actor. |
 | Surfaces | `Sources/Surfaces/Ask/AskSheet.swift` | The sheet: field, answer, "Used:" line, "New question". |
-| App | `MainWindowModel.swift` | One new sheet case, `ask`, beside `insights`, `awards`, `settings`. |
-| build | `build.sh` | Weak-link `FoundationModels` so the app launches on macOS 14–25. |
+| App | `MainWindowModel.swift` | `StorySheetKind` gains `ask` beside `awards` and `settings`. |
+| build | `build.sh` | No change. With every use behind `@available(macOS 26, *)`, `swiftc` at a macOS 14 target already loads `FoundationModels` weakly (probe 2026-10-09: `LC_LOAD_WEAK_DYLIB` without any flag), so the app still launches on macOS 14–25. Verified on the built binary before merge. |
 
 Rules kept:
 
@@ -76,10 +78,10 @@ week here is the same week History shows.
 
 | Tool | Arguments | Returns (example) | Built on |
 |---|---|---|---|
-| `focusTotals` | range, words (optional) | `Thesis, this week: 6 h 40 m over 5 sessions; longest Tue 7 Oct, 2 h 05 m. By day: Mon 1 h 30 m, Tue 2 h 05 m, …` | `PeriodStats`, `SearchWords`, `DurationText` |
-| `bestHours` | range | `Most focus 8–11 am (68%). Strongest days: Tue, Thu.` | `Rhythm`, `HourlyWork` |
-| `findSessions` | words, range | Up to 10 lines: date, name, duration, first 80 characters of the note. | The History search behind `HistorySearchHit` |
-| `appTime` | range, app (optional) | `Safari, this week: 3 h 12 m in front; used in 4 focus sessions.` Without an app: the top five apps by time. | `AppUsage`, `HistoryAppLens` (same per-session matching as History's app view) |
+| `focusTotals` | range, words (optional) | `This week: 6h 40m focused over 5 sessions on 4 days; best day Tue 7 Oct, 2h 5m. By day: Mon 1h 30m, Tue 2h 5m, …` With words, the same over the matching sessions only. | No words: `historySummary(for:)` and `historyRows(under:)` for a `HistoryPlace` spanning the range, History's own headline and rows. Words: `historySearchHits(matching:)` inside the range. |
+| `bestHours` | range | `Over the 4 weeks to 9 Oct: most focus 9–11am; strongest on Tuesdays.` | `insightReading`: `.day` scope for a one-day range, otherwise `.week` scope over the weeks covering the range (at most 14), whose rows are weekdays. |
+| `findSessions` | words, range | Up to 10 lines: date, name, duration, the note line that matched (≤ 80 characters). | `historySearchHits(matching:)` inside the range |
+| `appTime` | range, app (optional) | `Safari, this week: 3h 12m in front; used in 4 sessions.` Without an app: the top five apps by time. | `historySortedUsage().uniqueUse(within:)` for time (each second counted once); `historySearchHits(matching:)` with the app filter for sessions, as History's app filter counts them |
 
 Every tool's output:
 
@@ -92,7 +94,7 @@ Every tool's output:
 1. Opening the sheet calls `prewarm()` on the session.
 2. On ↩, the question goes to the model with fixed instructions: answer only from tool output; copy durations and percentages exactly; if tools find nothing, say so; one to three sentences.
 3. The model calls one or more tools, possibly chaining them (for example `findSessions` then `focusTotals` with the names it found). Tools read through `SessionStore` on the main actor.
-4. The answer streams into the sheet. The "Used:" line lists the tools called and their ranges, read from the session transcript's tool-call entries.
+4. The answer streams into the sheet. The "Used:" line lists the lookups made for this answer and their ranges, recorded as each tool calls through `AskModel`.
 5. Follow-ups continue the same session. "New question" replaces it.
 
 While an answer is in progress the field is disabled and ↩ does nothing.
@@ -102,6 +104,7 @@ While an answer is in progress the field is disabled and ↩ does nothing.
 | Case | Shown |
 |---|---|
 | macOS 14–25 | "Ask needs macOS 26 or later." No field. |
+| Mac not eligible (e.g. Intel) | "This Mac can't run Apple's on-device model." No field. |
 | Apple Intelligence off | "Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri." and a button that opens that pane. |
 | Model not ready (downloading) | "The on-device model is still downloading. Try again shortly." |
 | Context window exceeded | Starts a new session and shows "Started a new thread — the last one was full." |
@@ -127,7 +130,7 @@ New suite `AskChecks`, appended at the end of `registeredTests`.
 | Range edges | Sessions either side of week and month starts; suite also run with `TZ=Europe/Berlin` | A session lands in the wrong range |
 | Nothing found | Empty range; words with no match | Output is empty or a bare zero |
 | Size cap | 2,000 sessions | Any tool output exceeds 1 KB |
-| Tool wiring | Each tool's `call(arguments:)` invoked directly, no model | Tool output differs from `AskFacts` output |
+| Tool wiring | Each tool's `call(arguments:)` invoked directly, no model | Tool output differs from `SessionStore.askLookup(_:)` for the same request |
 | Read-only | Every tool run against a scratch store | Archive bytes or the isolated defaults suite change |
 | Messages | Every availability case and error case | A case shows the wrong line or none |
 | Sheet | `--gallery` / `--snapshot` entry with a fixed answer | Layout breaks at 80% and 140% zoom; VoiceOver labels missing |
