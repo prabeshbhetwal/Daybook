@@ -279,6 +279,9 @@ struct ActivityRuleCard: View {
                     .padding(.leading, 10.zoomed)
             }
         }
+        // As wide as a full stack of four, so every rule's name starts at one
+        // edge however many apps it has.
+        .frame(minWidth: 26.zoomed * 4 - 6.zoomed * 3, alignment: .leading)
         // Only the pictures fade for an off rule: the words beside them stay
         // readable, and "Off" says it.
         .opacity(rule.isEnabled ? 1 : 0.5)
@@ -341,7 +344,7 @@ struct ActivityRuleForm: View {
                         Text("Custom…").tag(-1.0)
                     }
                     .labelsHidden()
-                    .frame(width: 130.zoomed)
+                    .fixedSize()
                     if editor.dwell == -1 {
                         HStack(spacing: Tokens.Space.xs) {
                             TextField("30 to 1800", text: $editor.customDwell)

@@ -279,15 +279,19 @@ struct StorySheet<Content: View>: View {
                         .keyboardShortcut(openForm.value == nil ? .cancelAction : nil)
                         .help("Close \(title)")
                         .accessibilityLabel("Close \(title)")
-                    if let form = openForm.value {
-                        // Escape's owner while a form is open; clicking Close
-                        // still closes the sheet.
-                        Button("Cancel \(form.name)", action: form.cancel)
-                            .keyboardShortcut(.cancelAction)
-                            .frame(width: 0, height: 0)
-                            .opacity(0)
-                            .accessibilityHidden(true)
-                    }
+                        // Behind Close rather than beside it: a stack spaces
+                        // even an empty view, and Close moved while a form was open.
+                        .background {
+                            if let form = openForm.value {
+                                // Escape's owner while a form is open; clicking
+                                // Close still closes the sheet.
+                                Button("Cancel \(form.name)", action: form.cancel)
+                                    .keyboardShortcut(.cancelAction)
+                                    .frame(width: 0, height: 0)
+                                    .opacity(0)
+                                    .accessibilityHidden(true)
+                            }
+                        }
                 }
                 .padding(.horizontal, Tokens.Space.xl)
                 .padding(.vertical, Tokens.Space.m)

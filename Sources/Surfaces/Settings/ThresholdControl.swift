@@ -62,7 +62,7 @@ struct ThresholdControl: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 130.zoomed)
+                .fixedSize()
                 .accessibilityLabel(label)
                 // After the menu, where the eye and the Tab key go next.
                 if custom.value || (!options.contains(selection) && !isNever) {

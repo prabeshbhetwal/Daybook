@@ -42,6 +42,7 @@ struct NameCategoryNotice: View {
                         .accessibilityHint("Files them under \(tidy.target.displayName). Undo puts them back.")
                     Button("Keep as is") { store.engine.store.nameCategoryKept = tidy.signature; store.refresh() }
                         .buttonStyle(StoryLinkStyle(tint: .secondary))
+                        .padding(.leading, Tokens.Space.s)
                 }
             }
             .accessibilityElement(children: .contain)

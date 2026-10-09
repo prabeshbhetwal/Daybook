@@ -432,7 +432,7 @@ struct CategoryEditorForm: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 120.zoomed)
+                .fixedSize()
                 .accessibilityLabel("Daily goal for this category")
                 Text("Its own line under Focus time, beside the day's goal.")
                     .font(Tokens.Typography.body)

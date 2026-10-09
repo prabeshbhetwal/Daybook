@@ -219,6 +219,9 @@ struct HistoryTreeRow: View {
                                     context: .main, isHistory: true)
                 .padding(.vertical, Tokens.Space.m)
                 .padding(.leading, Tokens.Space.s)
+                // Every row and card keeps this inset from the column's edge;
+                // without it the day's cards ran past the week card above.
+                .padding(.trailing, HistoryRowLayout.inset)
         } else {
             let rows = store.historyRows(under: row.place)
             // AnyView breaks the recursion in the opaque type; the tree is at

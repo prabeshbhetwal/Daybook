@@ -66,7 +66,6 @@ struct SettingsGroups: View {
                         Text("Never").tag(DockIconMode.never)
                     }
                     .labelsHidden()
-                    .frame(width: 220.zoomed)
                     .disabled(!model.showsMenuBarIcon)
                     .accessibilityLabel("Dock icon")
                 }
@@ -239,7 +238,6 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 180.zoomed)
                 .accessibilityLabel("Daily goal")
             }
             rowDivider
@@ -251,7 +249,6 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 150.zoomed)
                 .accessibilityLabel("Usual pace compares with")
             }
             rowDivider
@@ -263,7 +260,6 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 150.zoomed)
                 .accessibilityLabel("Suggest activities from")
             }
             rowDivider
@@ -282,7 +278,6 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 180.zoomed)
                 .accessibilityLabel("New sessions start as")
             }
             rowDivider
@@ -294,7 +289,6 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 130.zoomed)
                 .accessibilityLabel("Keep sessions longer than")
             }
             rowDivider
@@ -455,7 +449,6 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 120.zoomed)
                 .accessibilityLabel("Apps shown in a card")
             }
             rowDivider
@@ -468,7 +461,6 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 120.zoomed)
                 .accessibilityLabel("Recent app visits")
             }
             rowDivider
@@ -490,7 +482,6 @@ struct SettingsGroups: View {
                     Text("Dark").tag(AppearancePreference.dark)
                 }
                 .labelsHidden()
-                .frame(width: 180.zoomed)
                 .accessibilityLabel("Appearance")
             }
             rowDivider
@@ -501,7 +492,6 @@ struct SettingsGroups: View {
                     Text("Compact").tag(InterfaceDensity.compact)
                 }
                 .labelsHidden()
-                .frame(width: 180.zoomed)
                 .accessibilityLabel("Interface density")
             }
             rowDivider
@@ -527,7 +517,6 @@ struct SettingsGroups: View {
                     }
                 }
                 .labelsHidden()
-                .frame(width: 130.zoomed)
                 .accessibilityLabel("Fold quiet stretches after")
             }
         }
@@ -596,7 +585,6 @@ struct SettingsGroups: View {
                         ForEach(UpdateFrequency.allCases) { Text($0.title).tag($0) }
                     }
                     .labelsHidden()
-                    .fixedSize()
                     .disabled(!model.checksForUpdatesAutomatically)
                     .accessibilityLabel("How often to check for updates")
                 }
@@ -606,7 +594,6 @@ struct SettingsGroups: View {
                         ForEach(UpdateInstallMode.allCases) { Text($0.title).tag($0) }
                     }
                     .labelsHidden()
-                    .fixedSize()
                     .accessibilityLabel("When an update is found")
                 }
                 rowDivider
@@ -653,7 +640,12 @@ struct SettingsGroups: View {
                 }
             }
             Spacer(minLength: Tokens.Space.m)
+            // Every control at its own width against the trailing edge, the
+            // way System Settings lines them up. A pop-up draws at its widest
+            // item whatever frame it is given, so a wider frame centred it and
+            // each row's control stood at a different place.
             accessory()
+                .fixedSize()
         }
         .frame(minHeight: layout.rowHeight)
     }

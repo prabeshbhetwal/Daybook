@@ -753,7 +753,7 @@ struct FocusHero: View {
         } else {
             HStack(spacing: Tokens.Space.s) {
                 GoalRing(progress: store.goal.share,
-                         diameter: 52.zoomed,
+                         diameter: 58.zoomed,
                          lineWidth: 6.zoomed,
                          label: DurationText.percent(min(store.goal.share, 9.99)),
                          isMet: store.goal.isMet)

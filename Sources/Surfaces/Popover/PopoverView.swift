@@ -88,7 +88,6 @@ struct PopoverView: View {
                     .card(padding: metrics.dense ? Tokens.Space.m : Tokens.Space.l)
             }
             FocusBreakLine(store: store)
-                .padding(.horizontal, Tokens.Space.xs)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),

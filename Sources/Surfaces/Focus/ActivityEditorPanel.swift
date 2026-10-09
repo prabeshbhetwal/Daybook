@@ -245,6 +245,7 @@ struct ActivityEditorPanelView: View {
                         if !isNew {
                             Button("New") { editor.beginNew() }
                                 .buttonStyle(StoryLinkStyle())
+                                .padding(.leading, Tokens.Space.s)
                                 .accessibilityLabel("Clear the form to pin a new activity")
                         }
                     }

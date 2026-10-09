@@ -70,6 +70,9 @@ struct HistoryResultChart: View {
             }
             .frame(height: Self.height, alignment: .bottom)
             .overlay(alignment: .bottom) { averageLine(peak: peak) }
+            // Room for the average's label, which sits above its line: on a
+            // line near the top it rose into the hint and cut its letters.
+            .padding(.top, average == nil ? 0 : Tokens.Space.s)
             HStack {
                 Text(DateFormats.australian("d MMM").string(from: days.first ?? firstDay))
                 Spacer(minLength: Tokens.Space.s)

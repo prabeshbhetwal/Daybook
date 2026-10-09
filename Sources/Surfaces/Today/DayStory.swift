@@ -577,7 +577,7 @@ struct SessionEntryCard: View {
                     }
                 }
                 Button(action: onToggle) {
-                    HStack(alignment: .top, spacing: Tokens.Space.m) {
+                    HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                         Spacer(minLength: Tokens.Space.s)
                         VStack(alignment: .trailing, spacing: 2.zoomed) {
                             // Live, the clock is ClockText: its seconds change every
@@ -601,9 +601,12 @@ struct SessionEntryCard: View {
                                     .font(Tokens.Typography.caption).foregroundStyle(.secondary)
                             }
                         }
-                        Image(systemName: isOpen ? "chevron.down" : "chevron.right")
+                        // One glyph turned, as History's rows do: the two
+                        // glyphs differ in width and moved the time beside them.
+                        Image(systemName: "chevron.right")
                             .font(Tokens.Typography.caption)
                             .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(isOpen ? 90 : 0))
                     }
                     .padding(StoryStyle.entryInsets(for: density))
                     .contentShape(Rectangle())

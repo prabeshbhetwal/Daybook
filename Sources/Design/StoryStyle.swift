@@ -103,6 +103,11 @@ struct StoryLinkStyle: ButtonStyle {
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .contentShape(Rectangle())
             .hoverHighlight(cornerRadius: Tokens.Radius.control)
+            // The padding widens the target and the hover tint, not the
+            // layout: the text sits on the edge it is placed at, so a link
+            // lines up with the text and cards around it. A link beside
+            // another control keeps its gap with the caller's own spacing.
+            .padding(.horizontal, -Tokens.Space.s)
             .opacity(configuration.isPressed ? 0.6 : 1)
             .animation(Tokens.Motion.animation(configuration.isPressed ? Tokens.Motion.press
                                                                        : Tokens.Motion.release,

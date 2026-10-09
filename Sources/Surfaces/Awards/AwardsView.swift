@@ -35,6 +35,8 @@ struct AwardCard: View {
                 }
                 Spacer(minLength: 0)
             }
+            // Cards in a row share its height, and their disclosures its foot.
+            .frame(maxHeight: .infinity, alignment: .top)
             DisclosureGroup(isExpanded: Binding(get: { expanded.value },
                                                 set: { expanded.value = $0 })) {
                 Text(award.method)
@@ -52,7 +54,7 @@ struct AwardCard: View {
                        value: expanded.value)
         }
         .padding(Tokens.Space.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Tokens.Colour.surface,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
