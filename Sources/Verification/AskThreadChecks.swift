@@ -20,7 +20,7 @@ enum AskThreadChecks: CheckSuite {
     }
 
     /// The Ask fixture with an Ask model, on the main actor where it lives.
-    private static func withModel(_ body: @MainActor (AskLookupChecks.Fixture, AskModel, inout [String]) -> Void)
+    static func withModel(_ body: @MainActor (AskLookupChecks.Fixture, AskModel, inout [String]) -> Void)
         -> [String] {
         AskLookupChecks.withFixture { f, problems in
             MainActor.assumeIsolated { body(f, AskModel(store: f.store), &problems) }
@@ -96,9 +96,10 @@ enum AskThreadChecks: CheckSuite {
             open()
             expect(model.sessionDay == built, "opening Ask later the same day dropped the session", &problems)
 
-            f.clock.value = f.calendar.date(byAdding: .day, value: 1, to: f.clock.value)!
+            // Asked on the first day, still being worked out when midnight passes.
             model.ask("held")
             InstalledAppCatalog.turnRunLoop(until: { gate.release != nil }, timeout: 5)
+            f.clock.value = f.calendar.date(byAdding: .day, value: 1, to: f.clock.value)!
             open()
             expect(model.sessionDay == built, "opening Ask while an answer was in progress dropped the session",
                    &problems)

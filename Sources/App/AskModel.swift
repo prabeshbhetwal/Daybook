@@ -56,6 +56,7 @@ struct AskNotice: Equatable {
     func ask(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isAnswering else { return }
+        retireStaleSession()
         guard #available(macOS 26, *) else { notice = Self.needsNewerMacOS; return }
         if responder == nil, let missing = Self.notice(for: SystemLanguageModel.default.availability) {
             notice = missing
@@ -95,9 +96,10 @@ struct AskNotice: Equatable {
     }
 
     /// The thread's session carries the date it was built under, so one kept
-    /// across midnight is dropped when the sheet opens, unless an answer is
-    /// being worked out. What the sheet shows stays; the next ask builds a
-    /// session under today's date.
+    /// across midnight is dropped when the sheet opens and when a question is
+    /// asked, unless an answer is being worked out. A sheet left open past
+    /// midnight is not opened again. What the sheet shows stays; the next ask
+    /// builds a session under today's date.
     func retireStaleSession() {
         guard !isAnswering, let built = sessionDay, built != dayStart() else { return }
         dropSession()
