@@ -9,6 +9,7 @@ import Combine
 final class AwayPrompter {
     private let store: SessionStore
     private let fullPromptAfter: () -> TimeInterval?
+    private let playHaptic: (HapticMoment) -> Void
     private lazy var quick = AwayQuickPanel(onAnswer: { [weak self] in self?.answer($0) ?? false },
                                             onReason: { [weak self] in self?.answer(.tookBreak, label: $0) ?? false },
                                             onRetry: { [weak self] in self?.retry() })
@@ -22,9 +23,11 @@ final class AwayPrompter {
     private var presentedTier: AwayPromptTier?
     private var isPreview = false
 
-    init(store: SessionStore, fullPromptAfter: @escaping () -> TimeInterval?) {
+    init(store: SessionStore, fullPromptAfter: @escaping () -> TimeInterval?,
+         playHaptic: @escaping (HapticMoment) -> Void = { _ in }) {
         self.store = store
         self.fullPromptAfter = fullPromptAfter
+        self.playHaptic = playHaptic
     }
 
     /// Follows the store from now on. A question already pending — including
@@ -38,7 +41,12 @@ final class AwayPrompter {
             .sink { [weak self] pending in
                 guard let self else { return }
                 if let away = pending {
-                    if !self.wasPending { self.present(away: away) }
+                    // A question you did not ask for pulses; one you
+                    // reopened with the hotkey (`presentPendingDecision`) does not.
+                    if !self.wasPending {
+                        self.present(away: away)
+                        self.playHaptic(.awayQuestion)
+                    }
                     self.wasPending = true
                 } else {
                     self.wasPending = false

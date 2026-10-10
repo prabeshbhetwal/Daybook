@@ -123,7 +123,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// Puts the away question where the user is. Lazy for the same reason as
     /// the HUD: main-actor isolated, first touched on the main thread.
     @MainActor private lazy var awayPrompter = AwayPrompter(
-        store: store, fullPromptAfter: { [weak self] in self?.engine.store.fullPromptAfter })
+        store: store, fullPromptAfter: { [weak self] in self?.engine.store.fullPromptAfter },
+        playHaptic: { [weak self] in self?.haptics.play($0) })
     /// When the focused-app-plus-music combination began, or nil when it is not
     /// currently holding. Reset the moment either half stops being true.
     private var musicPairingSince: Date?
@@ -279,6 +280,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                         _ = self?.store.undoAutomaticActivity(
                             expectedRecordID: record.resultingRecordID)
                      })
+            haptics.play(.notice)
         case .none, .deadline:
             break
         }
@@ -304,6 +306,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                      detail: because,
                      symbolName: "play.circle.fill",
                      undo: { [weak self] in self?.store.undoAutoSession() })
+            haptics.play(.notice)
         case .pause(let because):
             engine.transition(on: .manualPause)
             Diagnostics.log("auto-paused: \(because)")
@@ -360,6 +363,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         engine.store.rewardLog = rewards.recording(reward)
         hud.show(title: reward.title, detail: reward.detail,
                  symbolName: reward.symbolName, undo: nil)
+        haptics.play(HapticMoment(reward: reward.kind))
     }
 
     /// Music counts only while a focused app is actually frontmost — a playlist
@@ -419,6 +423,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// owner. The shortcut never archives or clears unclassified evidence.
     private func toggleSessionFromHotKey() {
         let result = store.performSessionHotKeyAction()
+        switch result {
+        case .started, .stopped, .stoppedPendingFinalisation: haptics.play(.sessionToggled)
+        case .saveFailed, .showAwayDecision: break
+        }
         if result == .showAwayDecision {
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -636,6 +644,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                               symbolName: prompt.tier.symbolName,
                               duration: FocusConstants.breakHUDSeconds,
                               undo: nil)
+                // With the HUD only: a locked, asleep or away Mac got the
+                // notification above and no pulse.
+                self.haptics.play(.breakDue)
             }
         }
     }

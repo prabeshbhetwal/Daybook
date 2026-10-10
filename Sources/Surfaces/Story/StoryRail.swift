@@ -99,6 +99,7 @@ struct StoryRail: View {
     @StateObject private var arrangement = StoryRailArrangement()
     @Environment(\.storyTilesAreDraggable) private var tilesAreDraggable
     @Environment(\.focusInterfaceDensity) private var density
+    @Environment(\.haptics) private var haptics
 
     var body: some View {
         // The interval projection is the rail's most expensive read; one pass
@@ -252,7 +253,10 @@ struct StoryRail: View {
         if tilesAreDraggable && arrangement.allowsDrag {
             content.onDrop(of: [.text], delegate: TileDropDelegate(
                 target: target, box: dropTarget,
-                move: { moved, before in move(moved, before: before) }))
+                move: { moved, before in
+                    move(moved, before: before)
+                    haptics(.tileDropped)
+                }))
         } else {
             content
         }

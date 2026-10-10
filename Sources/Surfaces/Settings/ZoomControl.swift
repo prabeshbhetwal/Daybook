@@ -52,7 +52,8 @@ struct ZoomControl: View {
             .accessibilityValue("\(percent) percent")
             // A change outside a drag (a click, an arrow key, VoiceOver) applies at once.
             .onChange(of: draft) {
-                if !isDragging { commit() }
+                // The slider moves in steps, so each change under a drag is one step.
+                if isDragging { model.playHaptic(.zoomStep) } else { commit() }
             }
             // The reset icon, ⌘0, or any other change to the model, moves the slider.
             .onChange(of: model.interfaceZoom) {

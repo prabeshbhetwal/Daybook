@@ -103,6 +103,7 @@ struct MainWindowView: View {
         .environment(\.openSessionReport) { session in navigation.openReport(for: session) }
         .environment(\.openActivityEditor, openActivityEditor)
         .environment(\.openCategoryEditor, openCategoryEditor)
+        .environment(\.haptics) { moment in settings.playHaptic(moment) }
         .tint(StoryStyle.action)
         .animation(Tokens.Motion.animation(Tokens.Motion.reveal,
                                            reduceMotion: reduceMotion),
