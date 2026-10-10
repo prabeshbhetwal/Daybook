@@ -327,7 +327,7 @@ final class SettingsModel: ObservableObject {
     let installedAppCatalog: InstalledAppCatalog
     private var catalogChanges: AnyCancellable?
     /// The rule and category forms Settings and the category panel draw.
-    /// Held weakly: a form goes with the panel that drew it.
+    /// Held weakly; each counts only while it is open.
     private let forms = NSHashTable<AnyObject>.weakObjects()
 
     init(store: PersistenceStore,

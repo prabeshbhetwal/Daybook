@@ -17,8 +17,8 @@ final class CategoryEditorPanelModel: ObservableObject {
     private var closeObserver: NSObjectProtocol?
     private let panelModel = CategoryEditorPanelModel()
     /// The form, kept here rather than in the view so closing the panel shuts
-    /// it at once: SwiftUI held a released view's state open, and with it
-    /// every update's relaunch.
+    /// it at once, not whenever the released view's state happens to go: an
+    /// open form holds every update's relaunch.
     private let editor = CategoryEditorState()
     private var ticketCount: UInt64 = 0
     /// Set on each `show`, since the store that should adopt a new category
