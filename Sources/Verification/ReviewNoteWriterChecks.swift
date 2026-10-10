@@ -161,19 +161,24 @@ enum ReviewNoteWriterChecks: CheckSuite {
             writer.request(tuesday, requested: true)
             expect(InstalledAppCatalog.turnRunLoop(until: { model.entered == 1 }, timeout: 5), "Tuesday's note was never asked for", &problems)
             writer.request(monday, requested: true)
-            expect(writer.state(for: tuesday) == nil,
-                   "Tuesday still shows \(String(describing: writer.state(for: tuesday))) after Monday was opened", &problems)
+            // Tuesday's call is stopped but Tuesday waits its turn, so it still reads as being written.
+            expect(writer.state(for: tuesday) == .writing,
+                   "Tuesday shows \(String(describing: writer.state(for: tuesday))) after Monday was opened, not waiting", &problems)
             expect(InstalledAppCatalog.turnRunLoop(until: { model.entered == 2 }, timeout: 5), "Monday's note was never asked for", &problems)
             // Tuesday's call comes back first, while Monday's is still being written.
             model.release()
             expect(InstalledAppCatalog.turnRunLoop(until: { model.returned == 1 }, timeout: 5), "Tuesday's call never returned", &problems)
             InstalledAppCatalog.turnRunLoop(until: { false }, timeout: 0.1)
-            expect(writer.state(for: tuesday) == nil && writer.state(for: monday) == .writing,
+            expect(writer.state(for: tuesday) == .writing && writer.state(for: monday) == .writing,
                    "Tuesday's late answer left Tuesday \(String(describing: writer.state(for: tuesday))) and Monday \(String(describing: writer.state(for: monday)))", &problems)
             model.release()
             expect(settle(writer, monday) && writer.state(for: monday) == .written(plain),
                    "Monday's note is \(String(describing: writer.state(for: monday)))", &problems)
-            expect(writer.state(for: tuesday) == nil, "Tuesday shows \(String(describing: writer.state(for: tuesday)))", &problems)
+            // Tuesday is asked for again once Monday is done; its first call's answer was not the one used.
+            expect(InstalledAppCatalog.turnRunLoop(until: { model.entered == 3 }, timeout: 5), "Tuesday was never asked for again", &problems)
+            model.release()
+            expect(settle(writer, tuesday) && writer.state(for: tuesday) == .written(plain),
+                   "Tuesday's note is \(String(describing: writer.state(for: tuesday)))", &problems)
         }
     }
 

@@ -111,7 +111,7 @@ struct StoryRail: View {
         let shownTiles = visibleTiles(evidence)
         VStack(alignment: .leading, spacing: density == .compact ? 10.zoomed : 14.zoomed) {
             if day == nil {
-                if store.isToday { TodayNotes(store: store, writer: navigation.notes, offers: noteOffers) }
+                if store.isToday { TodayNotes(store: store, writer: navigation.notes, offers: $noteOffers) }
                 BackupOfferNotice(settings: settings)
             }
             ForEach(shownTiles, id: \.self) { kind in

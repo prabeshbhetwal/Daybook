@@ -14,7 +14,8 @@ enum NoteState: Equatable {
 /// Asks Apple's on-device model for one note per place, checks it against the
 /// facts it was written from and keeps it in memory. Only the notes' views
 /// start it, and only one note is written at a time: asking for another
-/// place cancels the one being written. Nothing here is stored.
+/// place sets the one being written aside, to be written once the newer one
+/// is done unless its view goes away first. Nothing here is stored.
 @MainActor final class NoteWriter: ObservableObject {
     /// Keyed by `HistoryPlace.id`.
     @Published private(set) var states: [String: NoteState] = [:]
@@ -29,14 +30,23 @@ enum NoteState: Equatable {
     // ponytail: never trimmed either, for the same reason as the cache.
     private var failedKeys: Set<String> = []
     private var running: Running?
+    /// Places whose write was set aside for a newer request, oldest first.
+    /// Each shows `.writing` until it is started again or its view cancels.
+    private var pending: [Pending] = []
     /// Checks only: stands in for the model. It gets the facts and may throw.
     /// Nothing in the app sets it. It stands in for the model's availability,
     /// never for the Apple Intelligence switch.
     var responder: (@MainActor (NoteFacts) async throws -> WrittenNote)?
 
+    private struct Pending {
+        let place: HistoryPlace
+        let requested: Bool
+    }
+
     /// The note being written. Every task that is replaced or dropped is
     /// cancelled first, so a task that is not cancelled is this one.
     private struct Running {
+        let place: HistoryPlace
         let placeID: String
         let key: String
         var requested: Bool
@@ -60,12 +70,16 @@ enum NoteState: Equatable {
 
     /// Writes unless a note for this place and these exact facts is cached or
     /// has already failed; a failure is shown again without asking the model.
-    /// Asking for a place with no facts (no sessions, or a year) fails.
+    /// Asking for a place with no facts (no sessions, or a year) fails. A
+    /// write goes first: the note being written for another place waits, and
+    /// is started again when the writer is idle.
     func request(_ place: HistoryPlace, requested: Bool) {
         guard isUsable, let store else { return }
+        pending.removeAll { $0.place.id == place.id }
         guard let facts = store.noteFacts(for: place) else {
-            stop()
+            if running?.placeID == place.id { stop() }
             fail(place.id, requested: requested)
+            startPending()
             return
         }
         let key = place.id + "\n" + facts.text
@@ -73,27 +87,39 @@ enum NoteState: Equatable {
             if requested { running?.requested = true }
             return
         }
-        stop()
+        if running?.placeID == place.id { stop() }
         if let note = cache[key] {
             states[place.id] = .written(note)
+            startPending()
             return
         }
         if failedKeys.contains(key) {
             fail(place.id, requested: requested)
+            startPending()
             return
+        }
+        if let current = running {
+            current.task.cancel()
+            pending.append(Pending(place: current.place, requested: current.requested))
+            running = nil
         }
         states[place.id] = .writing
         let task = Task { [weak self] in
             let note = try? await self?.write(facts)
             self?.finish(facts: facts, note: note)
         }
-        running = Running(placeID: place.id, key: key, requested: requested, task: task)
+        running = Running(place: place, placeID: place.id, key: key, requested: requested, task: task)
     }
 
-    /// For when a note's view goes away. Only the note being written for
-    /// this place is stopped.
+    /// For when a note's view goes away: its note is no longer written, being
+    /// written or waiting to be, and the next place waiting is started.
     func cancel(_ place: HistoryPlace) {
         if running?.placeID == place.id { stop() }
+        if pending.contains(where: { $0.place.id == place.id }) {
+            pending.removeAll { $0.place.id == place.id }
+            if states[place.id] == .writing { states[place.id] = nil }
+        }
+        startPending()
     }
 
     /// For snapshots only: shows a note without asking the model. It is
@@ -112,6 +138,22 @@ enum NoteState: Equatable {
         states[placeID] = .failed(requested: requested || states[placeID] == .failed(requested: true))
     }
 
+    /// Starts the place set aside most recently, when nothing is being written.
+    /// A place whose note is already cached or has failed is settled at once
+    /// and the next one is tried. A switch turned off drops them all.
+    private func startPending() {
+        guard running == nil else { return }
+        guard isUsable else { return dropPending() }
+        while running == nil, let next = pending.popLast() {
+            request(next.place, requested: next.requested)
+        }
+    }
+
+    private func dropPending() {
+        for entry in pending where states[entry.place.id] == .writing { states[entry.place.id] = nil }
+        pending.removeAll()
+    }
+
     /// Stops the note being written and clears its writing state.
     private func stop() {
         guard let current = running else { return }
@@ -121,23 +163,25 @@ enum NoteState: Equatable {
     }
 
     /// What the model returned, or nil when it threw. A note that fails is
-    /// remembered by its key. A cancelled task has
-    /// been replaced and its state cleared already; one that finds the
-    /// switch off or the model gone leaves no state at all.
+    /// remembered by its key. A cancelled task has been replaced or dropped
+    /// already; one that finds the switch off or the model gone leaves no
+    /// state at all, and the places waiting are dropped. Otherwise the next
+    /// place waiting is started.
     private func finish(facts: NoteFacts, note: WrittenNote?) {
         guard !Task.isCancelled, let current = running else { return }
         running = nil
         guard isUsable else {
             states[current.placeID] = nil
-            return
+            return dropPending()
         }
-        guard let note = Self.tidy(note, for: facts), NoteAudit.passes(note, facts: facts) else {
+        if let note = Self.tidy(note, for: facts), NoteAudit.passes(note, facts: facts) {
+            cache[current.key] = note
+            states[current.placeID] = .written(note)
+        } else {
             failedKeys.insert(current.key)
             states[current.placeID] = .failed(requested: current.requested)
-            return
         }
-        cache[current.key] = note
-        states[current.placeID] = .written(note)
+        startPending()
     }
 
     /// The note as shown: whitespace trimmed, and a tip only on a day and

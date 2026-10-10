@@ -4,6 +4,11 @@ import SwiftUI
 /// label is given, and a caption saying where it was written. It draws
 /// nothing while the model is unusable, whatever is still in memory, so
 /// switching Apple Intelligence off hides every note at once.
+///
+/// A note is shown whenever the writer holds one for the place, however the
+/// view came to be: an on-request note that was written, or one that failed
+/// when asked for, is there again when its view is rebuilt. Its link shows
+/// only while there is nothing to show.
 struct PeriodNote: View {
     enum Trigger {
         /// Written when the note appears.
@@ -19,11 +24,26 @@ struct PeriodNote: View {
     let tipLabel: String?
     /// Room around the note, kept only while there is something to draw, so a
     /// note that shows nothing leaves no gap.
-    var insets = EdgeInsets()
-    /// An on-request note stays behind its link until the link is pressed;
-    /// it is asked for again, with its figures as they now are, each time
-    /// the view comes back.
+    let insets: EdgeInsets
+    /// Whether the model was usable when the parent built this view. The
+    /// writer does not publish when the switch changes, so a view that read
+    /// it in its own body could be skipped as unchanged; read here, in the
+    /// parent's redraw (which a change in Settings causes), it is an input
+    /// that differs.
+    private let usable: Bool
+    /// Whether the person pressed the link in this view, so only a note they
+    /// asked for in front of them is announced to VoiceOver.
     @State private var asked = false
+
+    init(writer: NoteWriter, place: HistoryPlace, trigger: Trigger, tipLabel: String?,
+         insets: EdgeInsets = EdgeInsets()) {
+        self.writer = writer
+        self.place = place
+        self.trigger = trigger
+        self.tipLabel = tipLabel
+        self.insets = insets
+        usable = writer.isUsable
+    }
 
     static let failure = "Couldn't write a note for this period."
     private static let caption = "Apple Intelligence · on this Mac"
@@ -32,15 +52,16 @@ struct PeriodNote: View {
         case link(String), writing, written(WrittenNote), failure
     }
 
+    /// Nothing is shown for an automatic note with no state or an automatic
+    /// failure; an on-request note shows its link then.
     private var shown: Shown? {
-        guard writer.isUsable else { return nil }
-        let state = writer.state(for: place)
-        if case .onRequest(let label) = trigger, !asked || state == nil { return .link(label) }
-        switch state {
-        case .writing?: return .writing
-        case .written(let note)?: return .written(note)
-        case .failed(requested: true)?: return .failure
-        case .failed(requested: false)?, nil: return nil
+        guard usable else { return nil }
+        switch (writer.state(for: place), trigger) {
+        case (.writing?, _): return .writing
+        case (.written(let note)?, _): return .written(note)
+        case (.failed(requested: true)?, _): return .failure
+        case (_, .onRequest(let label)): return .link(label)
+        case (_, .automatic): return nil
         }
     }
 
@@ -68,7 +89,7 @@ struct PeriodNote: View {
         .padding(shown == nil ? EdgeInsets() : insets)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: write)
-        .onChange(of: writer.isUsable) { _, usable in if usable { write() } }
+        .onChange(of: usable) { _, usable in if usable { write() } }
         .onDisappear { writer.cancel(place) }
         .announcesChanges(to: asked ? announcement : nil)
     }

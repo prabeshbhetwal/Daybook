@@ -39,17 +39,31 @@ struct TodayNoteOffers: Equatable {
 }
 
 /// Places the offered notes at the top of the rail. Draws nothing, and takes
-/// no space, when there is nothing to offer.
+/// no space, when there is nothing to offer. Dismissing Yesterday's notice
+/// clears it from the offers as well as recording the day, so it is not
+/// offered again when the rail redraws or is shown again.
 struct TodayNotes: View {
     let store: SessionStore
     let writer: NoteWriter?
-    let offers: TodayNoteOffers
+    @Binding var offers: TodayNoteOffers
+    /// Read when the rail builds this view; see `PeriodNote.usable`.
+    private let usable: Bool
+
+    init(store: SessionStore, writer: NoteWriter?, offers: Binding<TodayNoteOffers>) {
+        self.store = store
+        self.writer = writer
+        _offers = offers
+        usable = writer?.isUsable == true
+    }
 
     var body: some View {
-        if let writer {
+        if let writer, usable {
             if let place = offers.yesterday {
-                YesterdayNotice(store: store, writer: writer, place: place, figures: offers.yesterdayFigures)
-                    .id(place.id)
+                YesterdayNotice(writer: writer, place: place, figures: offers.yesterdayFigures) {
+                    store.dismissYesterdayNote()
+                    offers.yesterday = nil
+                }
+                .id(place.id)
             }
             if let place = offers.wrapUp {
                 PeriodNote(writer: writer, place: place, trigger: .onRequest(label: "Wrap up today"),

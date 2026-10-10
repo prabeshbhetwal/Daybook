@@ -4,18 +4,28 @@ import SwiftUI
 /// closes the notice for that date. Gone while the model is unusable.
 ///
 /// The rail works out `place` and `figures` when it offers the notice, since
-/// both read projections, and holds them. `store` is not observed: the store
-/// publishes every second, and nothing here changes with it.
+/// both read projections, and holds them. `onDone` is the rail's to answer:
+/// it records the dismissal and stops offering the notice, so a notice that is
+/// closed stays closed when the rail is rebuilt.
 struct YesterdayNotice: View {
-    let store: SessionStore
     @ObservedObject var writer: NoteWriter
     let place: HistoryPlace
     /// "1h 30m focus · goal missed · 1 session".
     let figures: String
-    @State private var closed = false
+    let onDone: () -> Void
+    /// Read when the rail builds the notice; see `PeriodNote.usable`.
+    private let usable: Bool
+
+    init(writer: NoteWriter, place: HistoryPlace, figures: String, onDone: @escaping () -> Void) {
+        self.writer = writer
+        self.place = place
+        self.figures = figures
+        self.onDone = onDone
+        usable = writer.isUsable
+    }
 
     var body: some View {
-        if writer.isUsable, !closed {
+        if usable {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Yesterday")
                     .font(Tokens.Typography.rowTitle)
@@ -26,12 +36,9 @@ struct YesterdayNotice: View {
                     .padding(.top, Tokens.Space.xs)
                 PeriodNote(writer: writer, place: place, trigger: .automatic, tipLabel: "For today:",
                            insets: EdgeInsets(top: Tokens.Space.s, leading: 0, bottom: 0, trailing: 0))
-                Button("Done") {
-                    store.dismissYesterdayNote()
-                    closed = true
-                }
-                .buttonStyle(StoryLinkStyle(tint: .secondary))
-                .padding(.top, Tokens.Space.xs)
+                Button("Done", action: onDone)
+                    .buttonStyle(StoryLinkStyle(tint: .secondary))
+                    .padding(.top, Tokens.Space.xs)
             }
             .noteCard()
             .accessibilityElement(children: .contain)
