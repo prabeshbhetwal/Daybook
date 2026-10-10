@@ -7,19 +7,29 @@ import Foundation
 /// lookup makes is to History's in-memory day index, when it is behind.
 extension SessionStore {
     func askLookup(_ request: AskRequest) -> String {
+        askLookupResult(request).text
+    }
+
+    /// The text of a lookup and the places its figures come from, in the
+    /// order the text reaches them. A refusal has no places.
+    func askLookupResult(_ request: AskRequest) -> AskLookupResult {
         askBringHistoryUpToDate()
         switch request {
         case let .focusTotals(range, words):
             if let future = askStillToCome(range) { return future }
             return words.map { askMatchingTotals(range, words: $0) } ?? askTotals(range)
         case let .bestHours(range):
-            return askStillToCome(range) ?? askBestHours(range)
+            return askStillToCome(range) ?? AskLookupResult(
+                text: askBestHours(range), links: [askPeriodLink(range, role: .bestHours)])
         case let .findSessions(words, range):
             return askStillToCome(range) ?? askSessions(range, words: words)
         case let .appTime(range, app):
-            return askStillToCome(range) ?? askAppTime(range, app: app)
+            return askStillToCome(range) ?? AskLookupResult(
+                text: askAppTime(range, app: app), links: [askPeriodLink(range, role: .appTime)])
         case let .compare(first, second, words):
-            return askStillToCome(first) ?? askStillToCome(second) ?? askCompare(first, second, words: words)
+            return askStillToCome(first) ?? askStillToCome(second) ?? AskLookupResult(
+                text: askCompare(first, second, words: words),
+                links: [askPeriodLink(first, role: .compared), askPeriodLink(second, role: .compared)])
         }
     }
 
@@ -39,8 +49,9 @@ extension SessionStore {
 
     /// What a lookup says about a period that begins after today, which has
     /// nothing to count yet; nil for any other.
-    private func askStillToCome(_ range: AskRange) -> String? {
-        askInterval(range).start > periodCalendar.startOfDay(for: now()) ? AskFacts.stillToCome(range) : nil
+    private func askStillToCome(_ range: AskRange) -> AskLookupResult? {
+        askInterval(range).start > periodCalendar.startOfDay(for: now())
+            ? AskLookupResult(text: AskFacts.stillToCome(range), links: []) : nil
     }
 
     // MARK: - Focus totals
@@ -50,12 +61,13 @@ extension SessionStore {
         historySummary(for: range.level.map { HistoryPlace(level: $0, span: askInterval(range)) })
     }
 
-    private func askTotals(_ range: AskRange) -> String {
+    private func askTotals(_ range: AskRange) -> AskLookupResult {
         let today = periodCalendar.startOfDay(for: now())
         let interval = askInterval(range)
         let summary = askSummary(range)
         var totals = AskTotals(dates: askDates(range), focused: summary.focused, sessions: summary.sessions,
                                focusedDays: summary.focusedDays)
+        var bests: [AskLink] = []
         if range.isOneDay {
             totals.firstStart = askFirstStart(range)
         } else {
@@ -65,14 +77,14 @@ extension SessionStore {
             // for the best day of the year, the model was handed a month.
             let units: [HistoryLevel] = range.level == .week ? [.day]
                 : range.level == .month ? [.day, .week] : [.day, .week, .month]
-            totals.best = units.compactMap { unit in
-                historyBest(unit, in: interval).map { best in
-                    let current = best.place.span.holds(today)
-                    let label = askLabel(best.place)
-                    let now = unit == .day ? "today" : "this \(unit.spokenName)"
-                    return AskBest(unit: unit.spokenName, label: current ? "\(now) (\(label))" : label,
-                                   focused: best.focused, isCurrent: current)
-                }
+            for unit in units {
+                guard let best = historyBest(unit, in: interval) else { continue }
+                let current = best.place.span.holds(today)
+                let label = askLabel(best.place)
+                let now = unit == .day ? "today" : "this \(unit.spokenName)"
+                totals.best.append(AskBest(unit: unit.spokenName, label: current ? "\(now) (\(label))" : label,
+                                           focused: best.focused, isCurrent: current))
+                bests.append(askPlaceLink(best.place, role: askBestRole(unit)))
             }
             // Rows are newest first in History; here they read oldest first, and
             // run from the first recorded day to today, not from the start of the
@@ -84,22 +96,27 @@ extension SessionStore {
                 totals.parts = (level.spokenName, rows.reversed().map { (label: askLabel($0.place), focused: $0.focused) })
             }
         }
-        totals.longest = askLongest(askHits(matching: nil, in: range))
-        return AskFacts.focusTotals(range, words: nil, totals)
+        let longest = askLongest(askHits(matching: nil, in: range), into: &totals)
+        // With no session in the range the text says only that no focus was recorded.
+        return AskLookupResult(text: AskFacts.focusTotals(range, words: nil, totals),
+                               links: [askPeriodLink(range, role: .totals)] + (totals.sessions > 0 ? bests : [])
+                                   + longest)
     }
 
-    private func askMatchingTotals(_ range: AskRange, words: String) -> String {
+    private func askMatchingTotals(_ range: AskRange, words: String) -> AskLookupResult {
         let clips = askHits(matching: HistoryFilter(query: words), in: range).filter { $0.hit.workType.countsAsFocus }
         var totals = AskTotals(dates: askDates(range), focused: clips.reduce(0) { $0 + $1.worked },
                                sessions: Set(clips.map(\.hit.threadID)).count,
                                focusedDays: Set(clips.flatMap(\.days)).count)
-        totals.longest = askLongest(clips)
+        let longest = askLongest(clips, into: &totals)
         // Asked how long Safari was used, the model searched for the word
         // and gave the time of the sessions Safari was used in (probe,
         // 2026-10-10), so words that name an app bring the app's own time.
         totals.app = askApp(words, among: historySortedUsage().uniqueUse(within: [askInterval(range)]))
             .map { (name: $0.name, total: $0.total) }
-        return AskFacts.focusTotals(range, words: words, totals, sessionRunning: askSessionIsMissed(range))
+        return AskLookupResult(
+            text: AskFacts.focusTotals(range, words: words, totals, sessionRunning: askSessionIsMissed(range)),
+            links: [askPeriodLink(range, role: .totals)] + longest)
     }
 
     /// When the first session of a day began: a saved one, or the one
@@ -117,15 +134,19 @@ extension SessionStore {
     /// The finished session with the most work inside the range. A session
     /// continued on another day is one session, as the session count has it,
     /// though the search lists each of its days apart; it is named by its
-    /// first day in the range. On a tie, the newest.
-    private func askLongest(_ clips: [AskClip]) -> (name: String, day: String, worked: TimeInterval)? {
+    /// first day in the range. On a tie, the newest. It is set in `totals`,
+    /// and returned as a place when the text names it.
+    private func askLongest(_ clips: [AskClip], into totals: inout AskTotals) -> [AskLink] {
         let sessions = Dictionary(grouping: clips.filter { $0.hit.workType.countsAsFocus }, by: \.hit.threadID)
-        let longest = sessions.values.compactMap { parts -> (name: String, day: Date, worked: TimeInterval)? in
+        let longest = sessions.values.compactMap { parts -> (thread: UUID, name: String, day: Date, worked: TimeInterval)? in
             guard let first = parts.first else { return nil }
-            return (name: first.hit.name, day: parts.flatMap(\.days).min() ?? first.hit.day,
+            return (thread: first.hit.threadID, name: first.hit.name, day: parts.flatMap(\.days).min() ?? first.hit.day,
                     worked: parts.reduce(0) { $0 + $1.worked })
-        }.max { ($0.worked, $0.day, $0.name) < ($1.worked, $1.day, $1.name) }
-        return longest.map { (name: $0.name, day: askDay($0.day), worked: $0.worked) }
+        }.max { ($0.worked, $0.day, $0.name, $0.thread.uuidString) < ($1.worked, $1.day, $1.name, $1.thread.uuidString) }
+        guard let longest else { return [] }
+        totals.longest = (name: longest.name, day: askDay(longest.day), worked: longest.worked)
+        return totals.namesLongest
+            ? [askSessionLink(thread: longest.thread, name: longest.name, day: longest.day, role: .longestSession)] : []
     }
 
     // MARK: - Comparison

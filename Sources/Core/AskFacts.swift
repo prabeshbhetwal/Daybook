@@ -62,6 +62,9 @@ struct AskTotals {
     /// time of the sessions it was used in.
     var app: (name: String, total: TimeInterval)?
     var parts: (name: String, items: [(label: String, focused: TimeInterval)])?
+
+    /// The text names the longest session only when there is more than one to choose from.
+    var namesLongest: Bool { sessions > 1 }
 }
 
 /// One session in a list: the day and time it began in the range, its name,
@@ -136,7 +139,7 @@ enum AskFacts {
                 + "with \(DurationText.compact(best.focused))"
         }
         if let first = totals.firstStart { text += "; the first session began at \(first)" }
-        if let longest = totals.longest, totals.sessions > 1 {
+        if let longest = totals.longest, totals.namesLongest {
             text += "; the longest finished session was \(longest.name) on \(longest.day), "
                 + DurationText.compact(longest.worked)
         }

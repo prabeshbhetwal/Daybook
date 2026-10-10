@@ -25,6 +25,13 @@ struct AskLink: Hashable {
     var sessionName: String? = nil
 }
 
+/// What a lookup hands back: its text, which is all the model reads, and the
+/// places in the app its figures came from, the lookup's own period first.
+struct AskLookupResult: Equatable {
+    let text: String
+    let links: [AskLink]
+}
+
 /// One line of an answer's sources. `mention` is where the answer first names
 /// the place, as character offsets into the answer; nil for a place the answer
 /// did not name but a lookup rests on.

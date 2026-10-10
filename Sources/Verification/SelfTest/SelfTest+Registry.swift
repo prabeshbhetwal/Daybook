@@ -86,6 +86,7 @@ extension SelfTest {
             + GapUnexplainedStopChecks.tests
             + AskSourceOrderChecks.tests
             + AskCatalogueChecks.tests
+            + AskLookupLinkChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
