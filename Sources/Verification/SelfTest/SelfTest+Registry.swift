@@ -70,6 +70,7 @@ extension SelfTest {
             + AskMidnightAskChecks.tests
             + AskEdgeChecks.tests
             + HistoryCurrentPeriodChecks.tests
+            + HapticsChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
