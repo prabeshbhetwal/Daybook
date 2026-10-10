@@ -30,10 +30,17 @@ extension SessionEngine {
     /// - Parameter moment: when the pause really began. Idle pauses are
     ///   backdated to the last keypress, so the interval that proves the user is
     ///   gone is excluded along with the rest of the absence. Clamped forward to
-    ///   `now()` so a bad sample can never place a pause in the future.
+    ///   `now()` so a bad sample can never place a pause in the future, and
+    ///   back no further than the session's start or the end of its last
+    ///   pause: the last keypress can be older than both. A film that stopped
+    ///   for a moment and went on re-paused back to the keypress before it,
+    ///   and the minutes already banked came off a second time — 20 minutes
+    ///   of work read as 5. A session started after a quiet half hour asked
+    ///   about 32 minutes away two minutes in.
     func enterPause(reason: PauseReason, at moment: Date? = nil) {
         cancelDwell()
-        pauseStartDate = min(moment ?? now(), now())
+        let floor = max(sessionStartDate, pausedSpans.map(\.end).max() ?? sessionStartDate)
+        pauseStartDate = min(max(moment ?? now(), floor), now())
         state = .paused(reason: reason)
     }
 

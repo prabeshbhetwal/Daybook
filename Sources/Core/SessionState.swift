@@ -105,7 +105,9 @@ enum SessionEvent: Equatable {
     case idleObserved(seconds: TimeInterval)
     /// The same seconds, but something on screen is being watched meanwhile
     /// (the store tells the two apart). Quiet in front of a film is presence.
-    case watchingObserved(seconds: TimeInterval)
+    /// `byAgent`: what is watched is an AI agent at work (`AgentPresence`),
+    /// and the user's `agentQuietPolicy` decides whether that counts.
+    case watchingObserved(seconds: TimeInterval, byAgent: Bool = false)
     case decision(UserDecision)
     case resetSession
     case overrideApplied(bundleID: String)
