@@ -140,7 +140,7 @@ extension SessionStore {
         // A session counts when the app was in front for `minimumUse` inside
         // the part of the session that falls in the range, as History's app
         // filter decides it, not when the app merely overlaps the session.
-        let used = askHits(matching: HistoryFilter(appBundleID: match.id), in: range).filter {
+        let used = askHits(matching: HistoryFilter(appBundleID: match.id), in: range, needingWork: false).filter {
             (sorted.uniqueUse(within: $0.spans)[match.id]?.total ?? 0) >= HistoryAppLens.minimumUse
         }
         let sessions = Set(used.map(\.hit.threadID)).count
@@ -181,14 +181,17 @@ extension SessionStore {
     /// session in last week. The search is not capped: it lists newest first
     /// and stops at its limit before the range is applied, so any cap would
     /// drop the oldest sessions from a long range's count. A session with no
-    /// work inside the range, paused all through it, is not a hit for it.
-    private func askHits(matching filter: HistoryFilter, in range: AskRange) -> [AskClip] {
+    /// work inside the range, paused all through it, is not a hit for word
+    /// totals and lists (`needingWork`); an app's session count keeps it, as
+    /// History's app filter does, since the app was in front inside it.
+    private func askHits(matching filter: HistoryFilter, in range: AskRange,
+                         needingWork: Bool = true) -> [AskClip] {
         let interval = askInterval(range)
         let records = Dictionary(engine.archive.records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         return historySearchHits(matching: filter, limit: .max).compactMap { hit -> AskClip? in
             let inside = hit.recordIDs.compactMap { records[$0] }.filter { askTouches($0, interval) }
             let worked = inside.reduce(0) { $0 + $1.workSeconds(in: (interval.start, interval.end)) }
-            guard worked > 0 else { return nil }
+            guard !inside.isEmpty, !needingWork || worked > 0 else { return nil }
             return AskClip(hit: hit, worked: worked,
                            days: inside.reduce(into: Set<Date>()) { $0.formUnion(askDays(of: $1, in: interval)) },
                            spans: inside.map {
