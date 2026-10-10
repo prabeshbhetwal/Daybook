@@ -24,6 +24,10 @@ enum NoteState: Equatable {
     /// only for the figures it was written from.
     // ponytail: never trimmed; a note is about 0.5 KB and only a request adds one, cap it if that ever matters.
     private var cache: [String: WrittenNote] = [:]
+    /// The keys of notes that failed. The model is greedy, so the same facts
+    /// would fail the same way; changed facts make a new key and are tried.
+    // ponytail: never trimmed either, for the same reason as the cache.
+    private var failedKeys: Set<String> = []
     private var running: Running?
     /// Checks only: stands in for the model. It gets the facts and may throw.
     /// Nothing in the app sets it. It stands in for the model's availability,
@@ -54,13 +58,14 @@ enum NoteState: Equatable {
         states[place.id]
     }
 
-    /// Writes unless a note for this place and these exact facts is cached.
+    /// Writes unless a note for this place and these exact facts is cached or
+    /// has already failed; a failure is shown again without asking the model.
     /// Asking for a place with no facts (no sessions, or a year) fails.
     func request(_ place: HistoryPlace, requested: Bool) {
         guard isUsable, let store else { return }
         guard let facts = store.noteFacts(for: place) else {
             stop()
-            states[place.id] = .failed(requested: requested)
+            fail(place.id, requested: requested)
             return
         }
         let key = place.id + "\n" + facts.text
@@ -71,6 +76,10 @@ enum NoteState: Equatable {
         stop()
         if let note = cache[key] {
             states[place.id] = .written(note)
+            return
+        }
+        if failedKeys.contains(key) {
+            fail(place.id, requested: requested)
             return
         }
         states[place.id] = .writing
@@ -94,6 +103,12 @@ enum NoteState: Equatable {
 
     // MARK: - Writing
 
+    /// Shows a failure. One the person asked to see stays when an automatic
+    /// request fails the same place again.
+    private func fail(_ placeID: String, requested: Bool) {
+        states[placeID] = .failed(requested: requested || states[placeID] == .failed(requested: true))
+    }
+
     /// Stops the note being written and clears its writing state.
     private func stop() {
         guard let current = running else { return }
@@ -102,7 +117,8 @@ enum NoteState: Equatable {
         running = nil
     }
 
-    /// What the model returned, or nil when it threw. A cancelled task has
+    /// What the model returned, or nil when it threw. A note that fails is
+    /// remembered by its key. A cancelled task has
     /// been replaced and its state cleared already; one that finds the
     /// switch off or the model gone leaves no state at all.
     private func finish(facts: NoteFacts, note: WrittenNote?) {
@@ -113,6 +129,7 @@ enum NoteState: Equatable {
             return
         }
         guard let note = Self.tidy(note, for: facts), NoteAudit.passes(note, facts: facts) else {
+            failedKeys.insert(current.key)
             states[current.placeID] = .failed(requested: current.requested)
             return
         }
@@ -121,13 +138,14 @@ enum NoteState: Equatable {
     }
 
     /// The note as shown: whitespace trimmed, and a tip only on a day and
-    /// only when it says something.
+    /// only when it says something. A blank story or pattern is no note; the
+    /// audit passes it, having no figures to refuse.
     private static func tidy(_ note: WrittenNote?, for facts: NoteFacts) -> WrittenNote? {
         guard let note else { return nil }
         func trimmed(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let tip = trimmed(note.tip ?? "")
-        return WrittenNote(story: trimmed(note.story), pattern: trimmed(note.pattern),
-                           tip: facts.kind == .day && !tip.isEmpty ? tip : nil)
+        let story = trimmed(note.story), pattern = trimmed(note.pattern), tip = trimmed(note.tip ?? "")
+        guard !story.isEmpty, !pattern.isEmpty else { return nil }
+        return WrittenNote(story: story, pattern: pattern, tip: facts.kind == .day && !tip.isEmpty ? tip : nil)
     }
 
     private func write(_ facts: NoteFacts) async throws -> WrittenNote {

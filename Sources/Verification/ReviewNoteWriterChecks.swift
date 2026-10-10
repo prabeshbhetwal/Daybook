@@ -19,13 +19,13 @@ enum ReviewNoteWriterChecks: CheckSuite {
         ("Renaming a session writes the day's note again", renameRewrites),
     ]
 
-    private typealias Fixture = AskLookupChecks.Fixture
+    typealias Fixture = AskLookupChecks.Fixture
 
     /// Free of digits, so it passes the audit against any facts.
-    private static let plain = WrittenNote(story: "You worked on Parser.", pattern: "Focus began after lunch.", tip: nil)
+    static let plain = WrittenNote(story: "You worked on Parser.", pattern: "Focus began after lunch.", tip: nil)
 
     /// What a stand-in model records, and the calls it can be holding.
-    private final class Model {
+    final class Model {
         var calls = 0
         var facts: [NoteFacts] = []
         /// Calls held so far, and calls that have come back from being held.
@@ -63,19 +63,27 @@ enum ReviewNoteWriterChecks: CheckSuite {
     }
 
     /// The Ask fixture with a writer whose responder is `model`'s, on the main actor.
-    private static func withWriter(_ body: @MainActor (Fixture, NoteWriter, Model, inout [String]) -> Void) -> [String] {
+    static func withWriter(_ body: @MainActor (Fixture, NoteWriter, Model, inout [String]) -> Void) -> [String] {
         AskLookupChecks.withFixture { f, problems in
             MainActor.assumeIsolated { body(f, NoteWriter(store: f.store), Model(), &problems) }
         }
     }
 
     /// A day in the fixture's calendar, `back` days before the clock's day (after it when negative).
-    private static func day(_ f: Fixture, back: Int) -> HistoryPlace {
+    static func day(_ f: Fixture, back: Int) -> HistoryPlace {
         let start = f.calendar.date(byAdding: .day, value: -back, to: f.calendar.startOfDay(for: f.clock.value))!
         return f.store.notePlace(forDayContaining: f.calendar.date(bySettingHour: 12, minute: 0, second: 0, of: start)!)
     }
 
-    @MainActor private static func settle(_ writer: NoteWriter, _ place: HistoryPlace) -> Bool {
+    /// The one session on the day, as the Story lists it.
+    static func session(on place: HistoryPlace, _ f: Fixture) -> DaySession? {
+        f.store.storyDayProjection(on: place.start, calendar: f.calendar).sessions.compactMap { entry -> DaySession? in
+            if case .session(let session) = entry { return session }
+            return nil
+        }.first
+    }
+
+    @MainActor static func settle(_ writer: NoteWriter, _ place: HistoryPlace) -> Bool {
         InstalledAppCatalog.turnRunLoop(until: { writer.state(for: place) != .writing }, timeout: 5)
     }
 
@@ -108,10 +116,10 @@ enum ReviewNoteWriterChecks: CheckSuite {
             expect(settle(writer, tuesday), "the note never settled", &problems)
             expect(writer.state(for: tuesday) == .failed(requested: false),
                    "an invented figure left \(String(describing: writer.state(for: tuesday)))", &problems)
-            // A failure is not cached: asking for it again asks the model again.
+            // No retry: the same facts would fail the same way, so a request for them
+            // shows the failure again without asking the model, as the person's.
             writer.request(tuesday, requested: true)
-            expect(settle(writer, tuesday), "the requested note never settled", &problems)
-            expect(writer.state(for: tuesday) == .failed(requested: true) && model.calls == 2,
+            expect(writer.state(for: tuesday) == .failed(requested: true) && model.calls == 1,
                    "the second request left \(String(describing: writer.state(for: tuesday))) after \(model.calls) calls", &problems)
         }
     }
@@ -258,12 +266,7 @@ enum ReviewNoteWriterChecks: CheckSuite {
             let tuesday = day(f, back: 1)
             writer.request(tuesday, requested: true)
             expect(settle(writer, tuesday) && model.calls == 1, "the first note was not written once", &problems)
-            let sessions = f.store.storyDayProjection(on: tuesday.start, calendar: f.calendar).sessions
-            let parser = sessions.compactMap { entry -> DaySession? in
-                if case .session(let session) = entry { return session }
-                return nil
-            }.first
-            guard let parser else { problems.append("Tuesday has no session to rename"); return }
+            guard let parser = session(on: tuesday, f) else { problems.append("Tuesday has no session to rename"); return }
             expect(f.store.renameSession(parser, to: "Lexer"), "the rename was refused", &problems)
             writer.request(tuesday, requested: true)
             expect(settle(writer, tuesday), "the second note never settled", &problems)
