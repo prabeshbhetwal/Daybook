@@ -78,6 +78,7 @@ extension SelfTest {
             + HapticsChecks.tests
             + SessionShapeStopChecks.tests
             + MachineEventExitChecks.tests
+            + GapAnatomyChecks.tests
             + AskAccuracyChecks.tests
     }
 

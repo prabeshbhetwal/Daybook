@@ -60,7 +60,8 @@ enum StoryQuietGrouping {
     /// and is not noise.
     static func isQuiet(_ moment: StoryMoment) -> Bool {
         switch moment {
-        case .entry: return false
+        // A restart or crash is part of the day's account, not filler.
+        case .entry, .machine: return false
         case .appUse, .unrecorded: return true
         }
     }
@@ -79,7 +80,7 @@ enum StoryQuietGrouping {
             case .unrecorded(let span, let reason):
                 if reason == .idle { idle += span.duration } else { unrecorded += span.duration }
                 gaps += 1
-            case .entry:
+            case .entry, .machine:
                 continue
             }
         }
