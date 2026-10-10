@@ -97,6 +97,9 @@ struct StoryRail: View {
     @StateObject private var dropTarget = TileBox()
     @StateObject private var selectedApp = TextBox()
     @StateObject private var arrangement = StoryRailArrangement()
+    /// The notes Today offers, held here and built again only when their
+    /// cause changes: the rail redraws every second with the store.
+    @State private var noteOffers = TodayNoteOffers()
     @Environment(\.storyTilesAreDraggable) private var tilesAreDraggable
     @Environment(\.focusInterfaceDensity) private var density
     @Environment(\.haptics) private var haptics
@@ -106,8 +109,15 @@ struct StoryRail: View {
         // serves the visibility test, On this Mac and the goal card.
         let evidence = breakdown
         let shownTiles = visibleTiles(evidence)
+        // The model's availability costs about 215 µs a read: once per redraw.
+        let notesUsable = navigation.notes?.isUsable == true
         VStack(alignment: .leading, spacing: density == .compact ? 10.zoomed : 14.zoomed) {
-            if day == nil { BackupOfferNotice(settings: settings) }
+            if day == nil {
+                if store.isToday {
+                    TodayNotes(store: store, writer: navigation.notes, usable: notesUsable, offers: $noteOffers)
+                }
+                BackupOfferNotice(settings: settings)
+            }
             ForEach(shownTiles, id: \.self) { kind in
                 arrangedTile(kind, shownTiles: shownTiles, evidence: evidence)
             }
@@ -119,6 +129,9 @@ struct StoryRail: View {
         .onChange(of: store.dayOffset) { selectedApp.text = "" }
         .onChange(of: day) { selectedApp.text = "" }
         .onChange(of: settings.storyTileOrder) { _, order in arrangement.synchronise(order) }
+        .onChange(of: TodayNoteOffers.cause(store: store, usable: notesUsable), initial: true) {
+            if day == nil { noteOffers = TodayNoteOffers(store: store, usable: notesUsable) }
+        }
         .onAppear { arrangement.synchronise(settings.storyTileOrder) }
         .onExitCommand { arrangement.escape() }
     }

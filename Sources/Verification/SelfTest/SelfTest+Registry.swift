@@ -87,6 +87,15 @@ extension SelfTest {
             + SheetQuitChecks.tests
             + UpdateFormHoldChecks.tests
             + SessionMetadataJournalChecks.tests
+            + ReviewNoteFactsChecks.tests
+            + ReviewNoteGateChecks.tests
+            + ReviewNoteStoreChecks.tests
+            + ReviewNoteWriterChecks.tests
+            + ReviewNoteWriterFailureChecks.tests
+            + ReviewNoteWriterQueueChecks.tests
+            + ReviewNoteStoreEdgeChecks.tests
+            + ReviewNoteWriterStateChecks.tests
+            + ReviewNoteFreshnessChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

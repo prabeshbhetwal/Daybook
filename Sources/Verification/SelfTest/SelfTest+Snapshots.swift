@@ -50,6 +50,7 @@ extension SelfTest {
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .askEmpty, .askAnswered,
+                .reviewNotes, .reviewNotesHistory,
                 .storyDay, .storyDayEntry,
                 .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
                 .welcomeOpening, .welcomeStep,

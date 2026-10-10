@@ -40,10 +40,7 @@ struct AskNotice: Equatable {
         self.store = store
     }
 
-    var canAsk: Bool {
-        if #available(macOS 26, *) { return SystemLanguageModel.default.availability == .available }
-        return false
-    }
+    var canAsk: Bool { ModelGate.modelAvailable }
 
     /// When the sheet appears: say what is missing, or start the model loading.
     func prepare() {

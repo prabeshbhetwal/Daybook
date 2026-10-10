@@ -79,6 +79,7 @@ asks GitHub for the latest version, and dictating a note uses Apple's speech
 recognition, which runs on the Mac where your language supports that and
 otherwise may send the audio to Apple. Ask Daybook answers with Apple's
 on-device model, and your question, history and answers are not sent anywhere.
+Review notes are written by the same on-device model, and nothing is sent anywhere.
 Backups are copied, every day unless you choose otherwise, into iCloud Drive,
 which uploads them to your own iCloud account like any other document, or into
 a folder you choose. The app asks for no Accessibility,
