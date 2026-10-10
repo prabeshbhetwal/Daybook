@@ -52,6 +52,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // properties never become each other's dependency.
         replayWelcome: { [weak self] in self?.replayWelcome() },
         resumeWelcome: { [weak self] chapter in self?.replayWelcome(from: chapter) },
+        openAsk: { [weak self] in self?.openAskFromSettings() },
         diagnostics: .live(usage: usage, sessions: engine.archive),
         installedAppCatalog: InstalledAppCatalog(observed: { [weak self] in
             guard let self else { return [] }
@@ -499,6 +500,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         case .showHistory:
             mainWindow.returnToStory()
         }
+    }
+
+    /// Settings is a sheet, and so is Ask: the one replaces the other.
+    private func openAskFromSettings() {
+        Task { @MainActor in self.mainWindow.openAsk() }
     }
 
     /// Settings is a panel over the story and the welcome points at the story,

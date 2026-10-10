@@ -22,6 +22,7 @@ struct AskSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Tokens.Space.s) {
                     answer
+                    if showsExamples { examples }
                     if !model.used.isEmpty {
                         Text(model.used)
                             .font(Tokens.Typography.caption)
@@ -31,7 +32,7 @@ struct AskSheet: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if !model.answer.isEmpty { newQuestion }
+            footer
         }
         .padding(Tokens.Space.xl)
         .onAppear {
@@ -94,15 +95,51 @@ struct AskSheet: View {
         }
     }
 
-    private var newQuestion: some View {
-        HStack {
-            Spacer()
-            Button("New question") {
-                model.newQuestion()
-                text = ""
-                fieldFocused = true
+    // MARK: Examples and footer
+
+    /// Before the first question: an empty sheet does not say what it can
+    /// answer, and someone who found Ask by its button has not seen one asked.
+    private var showsExamples: Bool {
+        model.canAsk && model.answer.isEmpty && !model.isAnswering && model.notice == nil
+    }
+
+    private var examples: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            Text("Try asking")
+                .font(Tokens.Typography.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityAddTraits(.isHeader)
+            ForEach(AskModel.examples, id: \.self) { example in
+                Button(example) {
+                    text = example
+                    model.ask(example)
+                }
+                .buttonStyle(StoryLinkStyle())
+                .accessibilityHint("Asks this question")
             }
-            .buttonStyle(StoryActionStyle())
+        }
+    }
+
+    /// Who answers, under Apple's own mark for it: the one place the
+    /// Apple Intelligence glyph may stand, since it names Apple Intelligence.
+    private var footer: some View {
+        HStack(spacing: Tokens.Space.s) {
+            HStack(spacing: Tokens.Space.xs) {
+                Image(systemName: "apple.intelligence")
+                    .accessibilityHidden(true)
+                Text("Answered by Apple Intelligence on this Mac. Nothing leaves it.")
+            }
+            .font(Tokens.Typography.caption)
+            .foregroundStyle(.secondary)
+            Spacer()
+            if !model.answer.isEmpty {
+                Button("New question") {
+                    model.newQuestion()
+                    text = ""
+                    fieldFocused = true
+                }
+                .buttonStyle(StoryActionStyle())
+            }
         }
     }
 }

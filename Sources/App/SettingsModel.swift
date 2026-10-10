@@ -26,6 +26,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case density
     case zoom
     case timelineLabels
+    case askButton
     case entryDetails
     case idlePause
     case agentQuiet
@@ -73,6 +74,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .density: return \SettingsModel.interfaceDensity
         case .zoom: return \SettingsModel.interfaceZoom
         case .timelineLabels: return \SettingsModel.showsTimelineLabels
+        case .askButton: return \SettingsModel.showsAskButton
         case .entryDetails: return \SettingsModel.expandsEntryDetails
         case .idlePause: return \SettingsModel.idlePauseThreshold
         case .agentQuiet: return \SettingsModel.agentQuietPolicy
@@ -285,6 +287,7 @@ final class SettingsModel: ObservableObject {
     private let onActivityRulesChanged: () -> Void
     private let onRevealDataFolder: (() -> Void)?
     private let onReplayWelcome: (() -> Void)?
+    private let onOpenAsk: (() -> Void)?
     private let onResumeWelcome: ((FirstRunChapter) -> Void)?
     private let openDataFolder: ((URL) -> Bool)?
     let diagnostics: SettingsDiagnostics
@@ -328,6 +331,7 @@ final class SettingsModel: ObservableObject {
          revealDataFolder: (() -> Void)? = nil,
          replayWelcome: (() -> Void)? = nil,
          resumeWelcome: ((FirstRunChapter) -> Void)? = nil,
+         openAsk: (() -> Void)? = nil,
          diagnostics: SettingsDiagnostics = .unavailable,
          dataDirectory: URL = SessionArchive.defaultDirectory,
          openDataFolder: ((URL) -> Bool)? = nil,
@@ -347,6 +351,7 @@ final class SettingsModel: ObservableObject {
         self.onRevealDataFolder = revealDataFolder
         self.onReplayWelcome = replayWelcome
         self.onResumeWelcome = resumeWelcome
+        self.onOpenAsk = openAsk
         self.openDataFolder = openDataFolder
         self.diagnostics = diagnostics
         self.dataDirectoryURL = dataDirectory
@@ -361,6 +366,12 @@ final class SettingsModel: ObservableObject {
     /// Whether the welcome can be shown again. Absent outside the running
     /// application, so the row is never offered where it could do nothing.
     var canReplayWelcome: Bool { onReplayWelcome != nil }
+
+    /// Whether Settings can hand over to Ask. Absent outside the running
+    /// application, like the tour's row.
+    var canOpenAsk: Bool { onOpenAsk != nil }
+
+    func openAsk() { onOpenAsk?() }
 
     /// Run the welcome again. It is the app's only explanation of itself, and
     /// a one-off that cannot be recovered is a manual nobody can reopen.
@@ -783,6 +794,11 @@ final class SettingsModel: ObservableObject {
     var showsTimelineLabels: Bool {
         get { store.showsTimelineLabels }
         set { write { store.showsTimelineLabels = newValue } }
+    }
+
+    var showsAskButton: Bool {
+        get { store.showsAskButton }
+        set { write { store.showsAskButton = newValue } }
     }
 
     var interfaceLayout: InterfaceDensity.Layout { interfaceDensity.layout }
