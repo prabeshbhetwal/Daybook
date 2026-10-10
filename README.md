@@ -170,10 +170,14 @@ Xcode is not needed.
 ./build.sh --run    # Build, verify and open Daybook.app
 ./build.sh --test   # Build, run the checks, then replace the local app
 ./build.sh --check  # Build and run the checks without replacing the app
+./build.sh --install  # Like --test, but replaces ~/Applications/Daybook.app
 ```
 
 Replacing the local app relaunches it if it was running from that folder, so
-it never keeps running from files the swap deleted.
+it never keeps running from files the swap deleted. For an app you keep
+using, prefer `--install`: iCloud's Desktop and Documents quarantine a bundle
+built inside them, and macOS then runs it from a read-only copy that cannot
+update itself.
 
 The binary is built with `-Osize` and stripped of local symbols. To profile
 with `sample`, build once with `FC_KEEP_SYMBOLS=1 ./build.sh`.

@@ -13,6 +13,7 @@ as one module.
 | `./build.sh --check` | Build and run every self-check; never replaces the local app. Run before each commit. |
 | `./build.sh --test` | The same, then replaces `Daybook.app`, relaunching it if it was running from this folder |
 | `./build.sh --run` | Build, verify and relaunch the app |
+| `./build.sh --install` | Like `--test`, but replaces the live app, `~/Applications/Daybook.app`. Sir runs it from the main checkout. |
 | `FC_KEEP_SYMBOLS=1 ./build.sh` | Keep symbols for profiling with `sample` |
 | `scripts/release.sh 1.2.0 [--dry-run]` | Publish a release installed copies update to (Sparkle; key in the Keychain) |
 

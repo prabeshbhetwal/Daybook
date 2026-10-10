@@ -95,7 +95,8 @@ enum MachineEventStoryChecks: CheckSuite {
                 }
             }
             let before = drawn()
-            expect(before == ["Mac locked"], "with only wakes the hole reads as before, got \(before)", &problems)
+            // The log began yesterday, so a hole no event names is no lock.
+            expect(before == ["Not recorded"], "wakes do not name the hole, got \(before)", &problems)
             // A launch names a past day's hole after that day was drawn.
             log.append([event(.systemSleep, 19.99)])
             expect(drawn() == ["Mac asleep"], "History redraws a day its log has grown for, got \(drawn())",

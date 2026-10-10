@@ -52,6 +52,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // properties never become each other's dependency.
         replayWelcome: { [weak self] in self?.replayWelcome() },
         resumeWelcome: { [weak self] chapter in self?.replayWelcome(from: chapter) },
+        openAsk: { [weak self] in self?.openAskFromSettings() },
         diagnostics: .live(usage: usage, sessions: engine.archive),
         installedAppCatalog: InstalledAppCatalog(observed: { [weak self] in
             guard let self else { return [] }
@@ -85,6 +86,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private let backups = BackupScheduler()
     /// A second copy launched while this one runs asks it to come forward.
     private var secondLaunchObserver: NSObjectProtocol?
+    private var sheetQuitObserver: NSObjectProtocol?
     /// SwiftUI's window actions, handed over by the scene. They live here, not
     /// in the menu bar icon's view, so they still work with the icon hidden.
     var windowOpener: WindowOpener?
@@ -501,6 +503,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Settings is a sheet, and so is Ask: the one replaces the other.
+    private func openAskFromSettings() {
+        Task { @MainActor in self.mainWindow.openAsk() }
+    }
+
     /// Settings is a panel over the story and the welcome points at the story,
     /// so the panel comes down with it.
     private func replayWelcome(from chapter: FirstRunChapter? = nil) {
@@ -539,6 +546,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         ZoomModel.shared.apply(percent: InterfaceZoom.nearestPercent(toScale: settings.interfaceZoom))
         machineEvents.start(evidence: LaunchEvidence.gather(now: Date()))
         store.machineEventLog = machineEvents.log
+        sheetQuitObserver = SheetQuitPolicy.observe()
         wireMonitor()
         monitor.start()
 

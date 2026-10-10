@@ -76,6 +76,7 @@ struct SettingsGroups: View {
             // A switch that flips back by itself is otherwise silent.
             .announcesChanges(to: loginItemMessage)
             .announcesChanges(to: model.loginItemNeedsApproval ? Self.loginApproval : nil)
+            askPanel
             keyboard
             SurfacePanel(title: "Confirmations", layout: layout) {
                 toggleRow("Ask before changing how a break counts",

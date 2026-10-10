@@ -81,6 +81,10 @@ extension SelfTest {
             + GapAnatomyChecks.tests
             + MachineEventSenderChecks.tests
             + AskAccuracyChecks.tests
+            + AskEntryChecks.tests
+            + SessionShapeUnexplainedStopChecks.tests
+            + GapUnexplainedStopChecks.tests
+            + SheetQuitChecks.tests
             + ReviewNoteFactsChecks.tests
             + ReviewNoteGateChecks.tests
             + ReviewNoteStoreChecks.tests
