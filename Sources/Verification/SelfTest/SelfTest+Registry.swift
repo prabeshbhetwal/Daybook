@@ -55,6 +55,7 @@ extension SelfTest {
             + InstanceLockChecks.tests
             + MemoryDefaultsChecks.tests
             + BackupScheduleChecks.later
+            + HistoryOpenPathChecks.tests
             + AskChecks.tests
             + AskLookupChecks.tests
             + AskLookupVolumeChecks.tests
