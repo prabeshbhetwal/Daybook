@@ -52,7 +52,12 @@ enum MachineEventExitChecks: CheckSuite {
             // A restart held up past the grace: loginwindow's quit still waits.
             (Quit(sender: "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"),
              false, .powerOffUnknown, nil),
-            (Quit(reason: OSType(kAERestart), sender: "com.apple.systempreferences"), false, .restart, nil),
+            // System Settings' Quit & Reopen on 10 October, as it arrived: the
+            // sender wins over macOS's own log-out reason.
+            (Quit(reason: OSType(kAEReallyLogOut), sender: "com.apple.settings.PrivacySecurity.extension"),
+             true, .quitByApp, "System Settings"),
+            (Quit(reason: OSType(kAERestart), sender: "com.apple.loginwindow"), true, .restart, nil),
+            (Quit(reason: OSType(kAEShutDown)), false, .shutDown, nil),
         ]
         for (quit, announced, kind, detail) in cases {
             let exit = MachineEventRecorder.exit(for: quit, powerOffAnnounced: announced)

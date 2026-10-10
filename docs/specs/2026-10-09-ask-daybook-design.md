@@ -216,14 +216,14 @@ runs. The reported question now answers "The most focused day in the entire
 year was Tuesday, 15 September." The probe's history is a fixture, so the
 hand checks in §7 still stand for real history.
 
-Checks: `AskAccuracyChecks` (751–760, at the registry's tail after `GapAnatomyChecks`) cover the best
+Checks: `AskAccuracyChecks` (752–761, at the registry's tail after `MachineEventSenderChecks`) cover the best
 day of any range, named periods and periods still to come, first starts,
 averages and the longest session, comparisons, an app's own time and the
 widened search. `AskChecks` covers reading dates, weekdays and months and
 refusing 31 February; `AskModelChecks` covers the new tool and refusals.
-Mutation: with long ranges naming only the best month again, check 751 fails.
+Mutation: with long ranges naming only the best month again, check 752 fails.
 
-Fix review (fix-reviewer, FIX FIRST, all four fixed with checks 757–758 and
+Fix review (fix-reviewer, FIX FIRST, all four fixed with checks 758–759 and
 date cases in `AskChecks`):
 
 - A search missed a session running since before midnight without saying
@@ -236,7 +236,7 @@ date cases in `AskChecks`):
 - No check pinned today's date named by day and month ("15 november" on
   15 November); one does now.
 
-Codex review on PR #30, both fixed with checks 759–760:
+Codex review on PR #30, both fixed with checks 760–761:
 
 - The longest session was chosen from the search's per-day results, so a
   session continued on another day lost to a shorter one. Its parts are now
