@@ -24,28 +24,30 @@ enum AskRunningSessionChecks: CheckSuite {
             }
 
             // The timer shows Thesis today, and the search cannot see it.
-            says(.focusTotals(.today, words: "thesis"), "No sessions match “thesis” today.", true)
+            says(.focusTotals(.today, words: "thesis"), "No sessions match “thesis” today (Wed 15 Nov).", true)
             says(.focusTotals(.thisWeek, words: "thesis"),
-                 "Sessions matching “thesis” this week: 1h over 1 session on 1 day.", true)
-            says(.findSessions(words: "thesis", .today), "No sessions match “thesis” today.", true)
-            says(.findSessions(words: "thesis", .thisWeek), "Mon 13 Nov · Thesis · 1h", true)
+                 "Sessions matching “thesis” this week (13 Nov – 19 Nov): 1h over 1 session on 1 day.", true)
+            // A search that finds nothing goes on to the whole record, and says once
+            // that it cannot see the session running now.
+            says(.findSessions(words: "thesis", .today), "No sessions match “thesis” today. In all your history:\nMon 13 Nov · 9:00am · Thesis · 1h\nTue 17 Oct · 9:00am · Thesis · 2h", true)
+            says(.findSessions(words: "thesis", .thisWeek), "Mon 13 Nov · 9:00am · Thesis · 1h", true)
             says(.appTime(.thisWeek, app: "safari"), "Safari this week: 1h in front; used in 1 session.", true)
             says(.appTime(.today, app: "safari"), "No app called “safari” was used today.", true)
 
             // Ranges that end before today do not hold the session.
-            says(.focusTotals(.lastWeek, words: "thesis"), "No sessions match “thesis” last week.", false)
-            says(.findSessions(words: "thesis", .yesterday), "No sessions match “thesis” yesterday.", false)
+            says(.focusTotals(.lastWeek, words: "thesis"), "No sessions match “thesis” last week (6 Nov – 12 Nov).", false)
+            says(.findSessions(words: "thesis", .yesterday), "No sessions match “thesis” yesterday. In all your history:\nMon 13 Nov · 9:00am · Thesis · 1h\nTue 17 Oct · 9:00am · Thesis · 2h", true)
             says(.appTime(.lastWeek, app: "safari"), "No app called “safari” was used last week.", false)
 
             // Answers that already count the running session, or take no words, are left alone.
-            says(.focusTotals(.today, words: nil), "Today: 20m focused over 1 session on 1 day.", false)
+            says(.focusTotals(.today, words: nil), "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am.", false)
             says(.appTime(.today, app: nil), "No app use recorded today.", false)
             says(.bestHours(.today), "Not enough focus today to tell; it needs at least 30m.", false)
 
             // Once the session ends it is in the record, and the sentence goes.
             expect(f.engine.stop(), "the session did not stop", &problems)
             says(.focusTotals(.today, words: "thesis"),
-                 "Sessions matching “thesis” today: 20m over 1 session on 1 day.", false)
+                 "Sessions matching “thesis” today (Wed 15 Nov): 20m over 1 session on 1 day.", false)
         }
     }
 
@@ -59,17 +61,21 @@ enum AskRunningSessionChecks: CheckSuite {
                &problems)
 
         let note = String(repeating: "n", count: 80)
-        let hits = (0..<200).map { (day: "Tue 14 Nov", name: "Session \($0)", worked: 3_600.0, note: Optional(note)) }
-        let list = AskFacts.sessions(.thisWeek, words: "session", hits: hits, sessionRunning: true)
+        let hits = (0..<200).map {
+            AskSessionLine(day: "Tue 14 Nov", time: "9:00am", name: "Session \($0)", worked: 3_600, note: note)
+        }
+        let list = AskFacts.sessions(.thisWeek, words: "session", lines: hits, sessionRunning: true)
         expect(list.utf8.count <= AskFacts.maximumBytes && list.hasSuffix("…" + sentence),
                "a cut list is \(list.utf8.count) bytes and ends “\(list.suffix(70))”", &problems)
         let lines = String(list.dropLast(sentence.count + 1)).components(separatedBy: "\n")
         expect(lines.allSatisfy { $0.hasSuffix("note: " + note) }, "the cut left a partial line", &problems)
 
         let days = (0..<100).map { (label: "Day \($0)", focused: 60.0) }
-        let totals = AskFacts.focusTotals(.thisWeek, words: "session", focused: 24_000, sessions: 5, focusedDays: 4,
-                                          best: (unit: "day", label: "Tue 14 Nov", focused: 7_500),
-                                          parts: (name: "day", items: days), sessionRunning: true)
+        let totals = AskFacts.focusTotals(.thisWeek, words: "session",
+                                          AskTotals(focused: 24_000, sessions: 5, focusedDays: 4,
+                                                    best: [AskBest(unit: "day", label: "Tue 14 Nov", focused: 7_500)],
+                                                    parts: (name: "day", items: days)),
+                                          sessionRunning: true)
         expect(totals.utf8.count <= AskFacts.maximumBytes && totals.hasSuffix("…" + sentence),
                "a cut total is \(totals.utf8.count) bytes and ends “\(totals.suffix(70))”", &problems)
         return problems

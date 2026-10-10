@@ -95,6 +95,12 @@ struct AskNotice: Equatable {
         return text
     }
 
+    /// The period a tool's text names, read in the store's calendar and clock,
+    /// so "monday" is the Monday the lookups mean; nil when it names none.
+    func range(_ raw: String) -> AskRange? {
+        AskRange.resolving(raw, now: store?.now() ?? Date(), calendar: store?.periodCalendar ?? Calendar.current.forPeriods)
+    }
+
     /// The thread's session carries the date it was built under, so one kept
     /// across midnight is dropped when the sheet opens and when a question is
     /// asked, unless an answer is being worked out. A sheet left open past
@@ -134,7 +140,7 @@ struct AskNotice: Equatable {
             if let responder {
                 try await responder(text, show)
             } else {
-                for try await snapshot in liveSession().streamResponse(to: text) {
+                for try await snapshot in liveSession().streamResponse(to: text, options: Self.options) {
                     if Task.isCancelled { break }
                     show(snapshot.content)
                 }
@@ -154,10 +160,24 @@ struct AskNotice: Equatable {
         answering = nil
     }
 
+    /// Greedy: the same question over the same history gets the same tools
+    /// and the same answer. Sampled, one question picked a different tool
+    /// from run to run, sometimes the wrong one (probe, 2026-10-10). The
+    /// macOS 27 SDK renames the argument and deprecates the old name.
+    @available(macOS 26, *)
+    private static var options: GenerationOptions {
+        #if compiler(>=6.4)
+        GenerationOptions(samplingMode: .greedy)
+        #else
+        GenerationOptions(sampling: .greedy)
+        #endif
+    }
+
     @available(macOS 26, *)
     private func liveSession() -> LanguageModelSession {
         if let existing = session as? LanguageModelSession { return existing }
         let fresh = LanguageModelSession(tools: [FocusTotalsTool(model: self, generation: generation),
+                                                 CompareFocusTool(model: self, generation: generation),
                                                  BestHoursTool(model: self, generation: generation),
                                                  FindSessionsTool(model: self, generation: generation),
                                                  AppTimeTool(model: self, generation: generation)],
@@ -179,11 +199,26 @@ struct AskNotice: Equatable {
         (store?.periodCalendar ?? Calendar.current.forPeriods).startOfDay(for: store?.now() ?? Date())
     }
 
+    /// Each rule answers a way the on-device model went wrong in a probe of
+    /// twenty questions (2026-10-10): a month given as the best day, a past
+    /// period in the present tense, September's figures given for August,
+    /// sums and averages of its own that were wrong, and today's figures
+    /// taken for a habit.
     static func instructions(today: String) -> String {
-        "You answer questions about the user's own focus history in Daybook. "
+        "You answer questions about the user's own focus history in Daybook. Today is \(today). "
             + "Look figures up with the tools and answer only from what they return. "
-            + "Copy durations, dates and names exactly as the tools give them; never add, average or convert numbers yourself. "
-            + "If the tools find nothing, say so plainly. Answer in one to three sentences. Today is \(today)."
+            + "Give the tools the period as the question says it, such as this week, monday, august, "
+            + "3 october or 2025, and let the tools work out the dates. "
+            + "When the question names no period, use all time; questions about habits, such as "
+            + "when do I focus best, cover all time. "
+            + "To compare two periods, use compareFocus with each period as the question says it. "
+            + "If a tool says a date does not exist, tell the user so. "
+            + "Answer what was asked: a question about a day is answered with a day, not a week or a month. "
+            + "Copy durations, dates, times and names exactly as the tools give them. "
+            + "Never add, subtract, average or compare numbers yourself; the tools give totals, averages, "
+            + "the longest session and the difference between two periods. "
+            + "Speak of days and periods that are over in the past tense. "
+            + "If the tools find nothing, say so plainly. Answer in one to three sentences."
     }
 
     // MARK: - Notices

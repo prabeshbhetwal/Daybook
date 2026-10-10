@@ -71,6 +71,9 @@ Rules kept:
 
 ## 2. Facts and tools
 
+As first built. §8 widens the periods, adds `compareFocus` and changes
+what `focusTotals` and `findSessions` return.
+
 Range is a closed set the model picks from:
 today, yesterday, this week, last week, this month, last month, last 30 days,
 all time. Boundaries come from the calendar the rest of the app uses, so a
@@ -155,6 +158,83 @@ Run on a Mac with Apple Intelligence on, before merge. Record each answer here.
 | 3 | What did I note about *(a word from a real session)* last month? | Quotes a real note with its date |
 | 4 | How much Safari time this week? | Equals History's app view for the week |
 | 5 | What did I do on 31 Feb? | Says it found nothing; invents nothing |
+
+## 8. Answer accuracy (2026-10-10)
+
+Reported: asked "when is my most focused day in the entire year?", Ask
+answered "your most focused day is September 2026, with 73 hours and 58
+minutes". A month given as a day, in the present tense.
+
+### Probe
+
+Twenty-five questions put to the live on-device model (M1 Pro, macOS 27.2)
+through the real store, tools and instructions, over a fixture history from
+1 August to Saturday 10 October 2026, in a temporary copy of the tree with a
+`--askprobe` entry. Each tool call, its output and the answer were printed.
+
+Before (20 questions): 9 wrong or useless.
+
+| Question | Answer | Cause |
+|---|---|---|
+| Most focused day in the entire year | "Tuesday, September 2026, with 120 hours" | `focusTotals` gave only the best month for a long range, and its description promised "best day or week". No "this year" range. |
+| How much did I focus in August? | September's figures, called August | The closed set of eight ranges had no August, so the model sent "last month". |
+| What did I do on 3 October? | Email on 9 October | No way to name a day; the search matched "3" and "October" in other dates. |
+| Did I focus more this week than last week? | "More this week (21h 49m) than last week (24h 48m)" | The model compared two figures itself. |
+| Daily average, longest session, when did I start today? | Invented figures | No tool gave them, so the model worked them out or guessed. |
+| What did I work on yesterday? | Searched for "work" | `findSessions` required words. |
+| When do I focus best? | Today's two hours | The model passed today. |
+| Which month did I focus the most? | "This month" | Nothing named a best month across ranges. |
+
+### Changes
+
+| Part | Change |
+|---|---|
+| Periods | `AskRange` (now `Core/AskRange.swift`) adds this year, last year, and any day, month or year as an ISO date. `AskRange.resolving` also reads a weekday, month or day of a month as a question says it ("monday", "aug", "3 october", "31 february"), as the latest one up to today. A date the calendar lacks is refused with "There is no such date as …", never rolled over. A period after today is "still to come". |
+| `focusTotals` | Names the most focused day of every multi-day range, and the best week and month when the range holds them (`HistoryTreeBuilder.best`, the loop History's summary already used). Adds the average on each day with focus (History's own average), the longest finished session, and for one day when the first session began. Verbs carry tense: "was" for a period that is over, "so far is" for one still under way. |
+| `compareFocus` | New tool: two periods' focus and the difference, worked out from the minutes shown. |
+| `findSessions` | Words are optional: none lists every session in the range. Each line gives its start time. |
+| Words naming an app | A word search whose words name an app adds the app's own time in front, since the model answered "how long in Safari" with the time of the sessions Safari was used in. |
+| Dates in labels | A day, week or month outside this year carries its year. The Used line names periods by title ("August 2026"). |
+| Instructions | Period as the question says it; all time when none is named, habits included; `compareFocus` for comparisons; a day is answered with a day; never add, subtract, average or compare; past tense for what is over. |
+| Sampling | Greedy, so the same question over the same history gets the same tools and answer. Two full probe runs matched exactly. |
+| Relative ranges carry their dates | Totals and comparisons say `last month (September 2026)`, `this week (5 Oct – 11 Oct)`. Sent "this month" and "last month" for "September than August", the model labelled October as September; the comparison's verdict now names both periods with their dates. |
+| Empty searches widen | A word search that finds nothing in a range shorter than all time goes on to say what the whole record holds. The model searched today alone for a note with no date asked. |
+
+Greedy decoding makes answers repeatable, not robust: one sentence of
+instructions moved two answers from right to wrong between probe runs. Where
+a wrong answer could come from the model's choice of tool or period, the fix
+went into the facts (dates beside relative names, widened searches, an app's
+own time beside a word search), so the answer is right whichever tool it picks.
+
+Rejected, from probes:
+
+- A regex `@Guide(.pattern(...))` on the period. The model then wrote the next argument as broken JSON (`words:<ctrl46>Thesis`), and 9 of 25 answers failed with "Failed to parse generated content". The period is plain text, read in code.
+- `GenerationOptions.toolCallingMode = .required` (macOS 27). The model never finished answering.
+
+After (25 questions, the twenty plus five more): 25 right, the same in two
+runs. The reported question now answers "The most focused day in the entire
+year was Tuesday, 15 September." The probe's history is a fixture, so the
+hand checks in §7 still stand for real history.
+
+Checks: `AskAccuracyChecks` (732–739, at the registry's tail) cover the best
+day of any range, named periods and periods still to come, first starts,
+averages and the longest session, comparisons, an app's own time and the
+widened search. `AskChecks` covers reading dates, weekdays and months and
+refusing 31 February; `AskModelChecks` covers the new tool and refusals.
+Mutation: with long ranges naming only the best month again, check 732 fails.
+
+Fix review (fix-reviewer, FIX FIRST, all four fixed with checks 738–739 and
+date cases in `AskChecks`):
+
+- A search missed a session running since before midnight without saying
+  so: "missed" meant "the range holds today". It now means the running
+  session overlaps the range, the rule the first-start figure already used.
+- The widened search was cut as two texts and could drop "Newest 10 of N."
+  and the running note; it is now one list with one tail.
+- "29 february" with no year was refused in a year without one; it is the
+  latest 29 February there was.
+- No check pinned today's date named by day and month ("15 november" on
+  15 November); one does now.
 
 ## Out of scope
 

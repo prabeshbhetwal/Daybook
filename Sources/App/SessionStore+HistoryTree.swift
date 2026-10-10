@@ -73,6 +73,14 @@ extension SessionStore {
                                            live: liveToday(calendar), calendar: calendar)
     }
 
+    /// The `level` period inside a span with the most focus, live for today:
+    /// any range's best day, week or month, from the same day index as the rows.
+    func historyBest(_ level: HistoryLevel, in span: DateInterval) -> (place: HistoryPlace, focused: TimeInterval)? {
+        let calendar = periodCalendar
+        return HistoryTreeBuilder.best(level, in: span, byDate: tree().byDate, live: liveToday(calendar),
+                                       calendar: calendar)
+    }
+
     /// A place's focus by category, largest first, live for today. Read from
     /// the same day index as the rows, so a card's split and its figure agree.
     func historyCategories(for place: HistoryPlace) -> [WorkTypeShare] {

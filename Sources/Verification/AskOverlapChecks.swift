@@ -27,15 +27,17 @@ enum AskOverlapChecks: CheckSuite {
 
             let cases: [(AskRequest, String)] = [
                 (.focusTotals(.today, words: "thesis"),
-                 "Sessions matching “thesis” today: 1h over 1 session on 1 day."),
+                 "Sessions matching “thesis” today (Wed 15 Nov): 1h over 1 session on 1 day."),
                 (.focusTotals(.yesterday, words: "thesis"),
-                 "Sessions matching “thesis” yesterday: 1h over 1 session on 1 day."),
+                 "Sessions matching “thesis” yesterday (Tue 14 Nov): 1h over 1 session on 1 day."),
                 // Monday's hour, and the overnight session's two hours over Tuesday and Wednesday.
                 (.focusTotals(.thisWeek, words: "thesis"),
-                 "Sessions matching “thesis” this week: 3h over 2 sessions on 3 days."),
-                // The line is dated by a day inside the range, not the day the session began.
-                (.findSessions(words: "thesis", .today), "Wed 15 Nov · Thesis · 1h"),
-                (.findSessions(words: "thesis", .yesterday), "Tue 14 Nov · Thesis · 1h"),
+                 "Sessions matching “thesis” this week (13 Nov – 19 Nov): 3h over 2 sessions on 3 days, an average of 1h on each day "
+                 + "with focus; the longest finished session was Thesis on Tue 14 Nov, 2h."),
+                // The line is dated by a day inside the range, not the day the session began,
+                // and timed from where it enters the range.
+                (.findSessions(words: "thesis", .today), "Wed 15 Nov · 12:00am · Thesis · 1h"),
+                (.findSessions(words: "thesis", .yesterday), "Tue 14 Nov · 11:00pm · Thesis · 1h"),
             ]
             for (request, want) in cases {
                 let got = f.store.askLookup(request)

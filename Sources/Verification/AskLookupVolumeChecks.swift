@@ -15,7 +15,8 @@ enum AskLookupVolumeChecks: CheckSuite {
         let started = Date()
         let problems = AskLookupChecks.withFixture(extraThesisDays: 1_001) { f, problems in
             let thesis = f.store.askLookup(.focusTotals(.allTime, words: "thesis"))
-            let thesisWant = "Sessions matching “thesis” in all your history: 19h 41m over 1003 sessions on 1003 days."
+            let thesisWant = "Sessions matching “thesis” in all your history: 19h 41m over 1003 sessions on 1003 days, "
+                + "an average of 1m on each day with focus; the longest finished session was Thesis on Tue 17 Oct, 2h."
             expect(thesis == thesisWant, "all-time thesis says “\(thesis)”, not “\(thesisWant)”", &problems)
 
             let safari = f.store.askLookup(.appTime(.allTime, app: "safari"))

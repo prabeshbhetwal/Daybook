@@ -2,13 +2,14 @@ import Foundation
 
 /// Details of what Ask's lookups say: which day its best-hours reading ran
 /// to, how a long list is cut, where a breakdown starts, and what it says to
-/// a search with nothing to search for.
+/// a search with no words.
 enum AskLookupDetailChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("Ask's best hours name the last day actually read", bestHoursNameTheLastDayRead),
         ("Ask says how many sessions matched when it lists only the newest ten", longListsSayHowManyMatched),
         ("Ask's breakdown starts at the first recorded day", breakdownStartsAtRecord),
-        ("Ask asks for words when a session search has none", searchNeedsWords),
+        ("Ask lists every session in the range when a session search has no words",
+         searchWithoutWordsListsEverySession),
     ]
 
     private static func bestHoursNameTheLastDayRead() -> [String] {
@@ -32,7 +33,7 @@ enum AskLookupDetailChecks: CheckSuite {
             expect(lines.count == 10, "the list has \(lines.count) lines, not 10", &problems)
 
             let few = f.store.askLookup(.findSessions(words: "thesis", .thisWeek))
-            expect(few == "Mon 13 Nov · Thesis · 1h", "one match says “\(few)”", &problems)
+            expect(few == "Mon 13 Nov · 9:00am · Thesis · 1h", "one match says “\(few)”", &problems)
         }
     }
 
@@ -49,12 +50,17 @@ enum AskLookupDetailChecks: CheckSuite {
         }
     }
 
-    private static func searchNeedsWords() -> [String] {
+    /// "What did I do yesterday?" has no word to search for, so a list
+    /// without words is every session in the range, each with its start.
+    private static func searchWithoutWordsListsEverySession() -> [String] {
         AskLookupChecks.withFixture { f, problems in
             for words in ["", "   ", " \n\t "] {
                 let got = f.store.askLookup(.findSessions(words: words, .thisWeek))
-                expect(got == "Give one or more words to search for.", "words “\(words)” say “\(got)”", &problems)
+                expect(got == "Tue 14 Nov · 2:00pm · Parser · 1h 30m\nMon 13 Nov · 9:00am · Thesis · 1h",
+                       "words “\(words)” say “\(got)”", &problems)
             }
+            let none = f.store.askLookup(.findSessions(words: "", .lastWeek))
+            expect(none == "No sessions recorded last week.", "an empty week says “\(none)”", &problems)
         }
     }
 }
