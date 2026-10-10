@@ -76,11 +76,13 @@ with the sandbox disabled. Otherwise leave it alone and say why.
 - If `$MAIN/graphify-out/` exists and code changed, run `graphify update .`
   in `$MAIN`.
 - Never launch or relaunch the live app, and never run `./build.sh`,
-  `--test` or `--run` in `$MAIN`. Each replaces `$MAIN/Daybook.app`, and
-  each relaunches a copy running from it. The user opens Daybook from the
-  Dock, and its single-instance lock turns away a second copy. If `Sources/`
-  or `Assets/` changed, say the new build is on `main` and leave updating the
-  app to the user.
+  `--test`, `--run` or `--install` in `$MAIN`. Each replaces a bundle the
+  user may be running (`--install` replaces the live app,
+  `~/Applications/Daybook.app`), and each relaunches a copy running from it.
+  The user opens Daybook from the Dock, and its single-instance lock turns
+  away a second copy. If `Sources/` or `Assets/` changed, say the new build is
+  on `main` and leave updating the app to the user
+  (`./build.sh --install` in `$MAIN`).
 
 ## 9. Report
 
