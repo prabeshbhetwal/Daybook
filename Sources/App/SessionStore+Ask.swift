@@ -114,11 +114,18 @@ extension SessionStore {
         return starts.min().map(askTime)
     }
 
-    /// The finished session with the most work inside the range.
+    /// The finished session with the most work inside the range. A session
+    /// continued on another day is one session, as the session count has it,
+    /// though the search lists each of its days apart; it is named by its
+    /// first day in the range. On a tie, the newest.
     private func askLongest(_ clips: [AskClip]) -> (name: String, day: String, worked: TimeInterval)? {
-        clips.filter { $0.hit.workType.countsAsFocus }.max { $0.worked < $1.worked }.map {
-            (name: $0.hit.name, day: askDay($0.days.min() ?? $0.hit.day), worked: $0.worked)
-        }
+        let sessions = Dictionary(grouping: clips.filter { $0.hit.workType.countsAsFocus }, by: \.hit.threadID)
+        let longest = sessions.values.compactMap { parts -> (name: String, day: Date, worked: TimeInterval)? in
+            guard let first = parts.first else { return nil }
+            return (name: first.hit.name, day: parts.flatMap(\.days).min() ?? first.hit.day,
+                    worked: parts.reduce(0) { $0 + $1.worked })
+        }.max { ($0.worked, $0.day, $0.name) < ($1.worked, $1.day, $1.name) }
+        return longest.map { (name: $0.name, day: askDay($0.day), worked: $0.worked) }
     }
 
     // MARK: - Comparison
@@ -154,14 +161,19 @@ extension SessionStore {
                            calendar.date(byAdding: .day, value: -1, to: interval.end) ?? interval.start)
             let firstWeek = calendar.dateInterval(of: .weekOfYear, for: interval.start)?.start ?? interval.start
             let days = max(0, calendar.dateComponents([.day], from: firstWeek, to: last).day ?? 0)
-            let weeks = min(14, days / 7 + 1)
+            // Insights' rhythm reads at most 14 weeks; a longer range is read
+            // for its latest 14 and says so, rather than passing for the whole.
+            let wanted = days / 7 + 1
+            let weeks = min(14, wanted)
             reading = insightReading(scope: .week, anchoredAt: last, limit: weeks, calendar: calendar)
             // Insights reads whole weeks: to the Sunday that ends the week
             // holding `last`, or to today when that week is not over.
             let weekEnd = calendar.dateInterval(of: .weekOfYear, for: last)?.end ?? last
             let readTo = min(calendar.startOfDay(for: now()),
                              calendar.date(byAdding: .day, value: -1, to: weekEnd) ?? last)
-            span = "Over the \(weeks == 1 ? "week" : "\(weeks) weeks") to \(askDay(readTo, weekday: false))"
+            span = wanted > weeks
+                ? "Over the latest \(weeks) weeks to \(askDay(readTo, weekday: false)), as far back as Insights reads"
+                : "Over the \(weeks == 1 ? "week" : "\(weeks) weeks") to \(askDay(readTo, weekday: false))"
         }
         return AskFacts.bestHours(range, span: span, window: reading.facts.bestWindow,
                                   strongest: reading.facts.bestWindowPhrase)

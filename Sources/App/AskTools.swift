@@ -84,7 +84,8 @@ struct BestHoursTool: Tool {
     let generation: Int
     let name = "bestHours"
     let description = "Returns the two-hour window of the day with the most focus, and the strongest weekday, "
-        + "for a period, or for all time when no period is given."
+        + "over the weeks of a period, at most its latest 14 as Insights reads them; with no period given, "
+        + "the latest 14 weeks."
 
     /// The period is optional: given one, for "when do I focus best?" the
     /// model passed today and answered from a single morning (probe, 2026-10-10).

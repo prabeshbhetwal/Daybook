@@ -16,6 +16,8 @@ enum AskAccuracyChecks: CheckSuite {
         ("A search that finds nothing in its range says what the whole record holds", emptySearchWidens),
         ("A widened search keeps its count and running note whole when cut", widenedSearchKeepsItsTail),
         ("A session running since before midnight is named in yesterday's searches", overnightSessionIsNamed),
+        ("A session continued on another day is one session when Ask names the longest", continuedSessionIsOne),
+        ("Ask's best hours say when a range is longer than the 14 weeks Insights reads", bestHoursSayWhenCut),
     ]
 
     private static func bestDayOfAnyRange() -> [String] {
@@ -153,5 +155,40 @@ enum AskAccuracyChecks: CheckSuite {
             let lastWeek = f.store.askLookup(.findSessions(words: "", .lastWeek))
             expect(lastWeek == "No sessions recorded last week.", "last week's list says “\(lastWeek)”", &problems)
         }
+    }
+
+    /// Thesis on Monday continued for an hour on Wednesday is two hours of
+    /// one session, longer than Parser's 1h 30m. Listed a day at a time, it
+    /// lost to Parser (Codex review, PR #30).
+    private static func continuedSessionIsOne() -> [String] {
+        AskLookupChecks.withFixture { f, problems in
+            let today = f.calendar.startOfDay(for: f.clock.value)
+            guard let monday = f.engine.archive.records.first(where: {
+                $0.name == "Thesis" && $0.start >= today.addingTimeInterval(-3 * 86_400)
+            }) else { return problems.append("the fixture has no Thesis this week") }
+            let more = SessionRecord(name: "Thesis", workType: .deepWork, start: today.addingTimeInterval(8 * 3_600),
+                                     end: today.addingTimeInterval(9 * 3_600), workSeconds: 3_600,
+                                     threadID: monday.threadID)
+            _ = f.engine.archive.append(more)
+            let week = f.store.askLookup(.focusTotals(.thisWeek, words: nil))
+            expect(week.contains("; the longest finished session was Thesis on Mon 13 Nov, 2h."),
+                   "this week's longest reads “\(week)”", &problems)
+        }
+    }
+
+    /// "When do I focus best?" reads all time, and Insights reads 14 weeks
+    /// at most: an answer over a longer record must not pass for the whole.
+    private static func bestHoursSayWhenCut() -> [String] {
+        var problems = AskLookupChecks.withFixture(extraThesisDays: 120) { f, problems in
+            let long = f.store.askLookup(.bestHours(.allTime))
+            expect(long.hasPrefix("Over the latest 14 weeks to 15 Nov, as far back as Insights reads: most focus"),
+                   "a record of 23 weeks says “\(long)”", &problems)
+        }
+        problems += AskLookupChecks.withFixture { f, problems in
+            let short = f.store.askLookup(.bestHours(.allTime))
+            expect(short.hasPrefix("Over the 5 weeks to 15 Nov: most focus"), "a record of 5 weeks says “\(short)”",
+                   &problems)
+        }
+        return problems
     }
 }

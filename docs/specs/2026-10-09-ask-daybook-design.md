@@ -236,6 +236,17 @@ date cases in `AskChecks`):
 - No check pinned today's date named by day and month ("15 november" on
   15 November); one does now.
 
+Codex review on PR #30, both fixed with checks:
+
+- The longest session was chosen from the search's per-day results, so a
+  session continued on another day lost to a shorter one. Its parts are now
+  summed by thread, as the session count already counts them.
+- "When do I focus best?" defaults to all time, but best hours read at most
+  the latest 14 weeks, as Insights' rhythm does, and §7's hand check ties
+  the two. The reading is kept and stated: a longer range says "Over the
+  latest 14 weeks to …, as far back as Insights reads", and the tool's
+  description no longer promises all time.
+
 ## Out of scope
 
 - Daily review note (project 2) and background tidying (project 3).
