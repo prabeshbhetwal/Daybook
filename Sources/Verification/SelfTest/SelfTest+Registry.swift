@@ -68,6 +68,7 @@ extension SelfTest {
             + AskLiveAppTimeChecks.tests
             + AskOverlapChecks.tests
             + AskMidnightAskChecks.tests
+            + AskEdgeChecks.tests
             + HistoryCurrentPeriodChecks.tests
     }
 
