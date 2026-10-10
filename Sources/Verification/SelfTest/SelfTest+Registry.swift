@@ -87,6 +87,7 @@ extension SelfTest {
             + AskSourceOrderChecks.tests
             + AskCatalogueChecks.tests
             + AskLookupLinkChecks.tests
+            + AskGateChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

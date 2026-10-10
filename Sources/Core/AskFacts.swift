@@ -244,6 +244,12 @@ enum AskFacts {
         "There is no such date as “\(raw)”."
     }
 
+    /// What a lookup says once an answer has made all the lookups it may.
+    static let lookupLimitReached = "Lookup limit reached for this question. Answer from what the earlier lookups returned."
+
+    /// What the gate says when a model names a lookup there is none of.
+    static func unknownLookup(_ name: String) -> String { "No lookup called “\(name)”." }
+
     /// What a lookup says about a period that starts after today.
     static func stillToCome(_ range: AskRange) -> String { "\(sentenceStart(range.title)) is still to come." }
 
