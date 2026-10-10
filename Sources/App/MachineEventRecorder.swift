@@ -117,36 +117,27 @@ final class MachineEventRecorder {
 
     /// What a quit says about how the run ended.
     ///
-    /// A reason macOS gave names a log out, restart or shut down. Without one,
-    /// the sender decides. loginwindow quits apps only for macOS's own log
-    /// out, restart or shut down, so its quit waits for the next launch to say
-    /// which, however long the announcement came before it. The Dock's is the
-    /// person's own Quit. Any other sender quit Daybook itself — System
-    /// Settings applying a permission makes AppKit announce a power-off too,
-    /// so the announcement alone names nothing. ⌘Q sends no event at all.
+    /// The sender decides first. Any app but loginwindow or the Dock quit
+    /// Daybook itself, whatever reason it gave: System Settings' Quit & Reopen
+    /// carries macOS's own log-out reason ('rlgo'), and AppKit announces a
+    /// power-off for it, so neither names anything. From loginwindow, or a
+    /// sender that cannot be told, a reason names a log out, restart or shut
+    /// down; loginwindow's quit without one waits for the next launch, however
+    /// long the announcement came before it. The Dock's is the person's own
+    /// Quit. ⌘Q sends no event at all.
     static func exit(for quit: QuitRequest?,
                      powerOffAnnounced: Bool) -> (kind: MachineEvent.Kind, detail: String?) {
+        if let quit, let sender = quit.sender, let app = QuitSender.appName(sender, named: quit.senderName) {
+            return (.quitByApp, app)
+        }
         switch quit?.reason {
         case OSType(kAERestart)?, OSType(kAEShowRestartDialog)?: return (.restart, nil)
         case OSType(kAEShutDown)?, OSType(kAEShowShutdownDialog)?: return (.shutDown, nil)
         case OSType(kAEReallyLogOut)?, OSType(kAELogOut)?: return (.logOut, nil)
         default: break
         }
-        if let quit, let sender = quit.sender {
-            if sender == "com.apple.loginwindow" || sender.hasSuffix("/loginwindow") {
-                return (.powerOffUnknown, nil)
-            }
-            if sender != "com.apple.dock" { return (.quitByApp, displayName(of: quit)) }
-        }
+        if let sender = quit?.sender, QuitSender.isMacOS(sender) { return (.powerOffUnknown, nil) }
         return (powerOffAnnounced ? .powerOffUnknown : .quit, nil)
-    }
-
-    private static func displayName(of quit: QuitRequest) -> String {
-        if let sender = quit.sender,
-           sender == "com.apple.systempreferences" || sender.hasPrefix("com.apple.settings") {
-            return "System Settings"
-        }
-        return quit.senderName ?? quit.sender.map { ($0 as NSString).lastPathComponent } ?? "another app"
     }
 
     private static func fourLetters(_ code: OSType) -> String {
