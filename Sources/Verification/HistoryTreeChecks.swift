@@ -316,7 +316,7 @@ enum HistoryTreeChecks {
                 parent = place
             }
             let days = store.historyRows(under: path.last)
-            if days.first(where: { $0.place.span.contains(today) })?.focused != liveFocus {
+            if days.first(where: { $0.place.span.holds(today) })?.focused != liveFocus {
                 failures.append("today's row does not carry the live figure")
             }
             if store.historyTreeComputeCount != built { failures.append("reading live rows rebuilt the tree") }

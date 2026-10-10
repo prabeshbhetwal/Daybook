@@ -158,7 +158,7 @@ struct HistoryPeriodRail: View {
     /// switch used to rebuild both, for a week's rail that shows neither.
     static func showsThisMonth(place: HistoryPlace?, top: HistoryTop) -> Bool {
         let span = place?.span ?? top.span
-        return (place?.level ?? top.place?.level) == .month && span.contains(top.today)
+        return (place?.level ?? top.place?.level) == .month && span.holds(top.today)
     }
 
     var body: some View {
