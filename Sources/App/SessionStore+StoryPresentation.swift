@@ -37,6 +37,7 @@ extension SessionStore {
         return Array(StoryChronology.build(records: engine.archive.records, running: running,
                                           usage: effectiveUsageSnapshot?.sessions(touching: day) ?? [],
                                           machineEvents: machineEvents(on: day),
+                                          eventLogStart: machineEventLog?.events.first?.at,
                                           day: day, now: now()).reversed())
             .filter { moment in
                 if case .entry(.session(let session)) = moment, session.isRunning {
