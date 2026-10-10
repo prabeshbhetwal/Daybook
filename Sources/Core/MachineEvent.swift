@@ -14,33 +14,58 @@ struct MachineEvent: Codable, Equatable {
     enum Kind: String, Codable, CaseIterable {
         case systemSleep, wake, displaySleep, displayWake
         case lock, unlock, userSwitchedOut, userSwitchedIn
-        /// How a run ended, from the reason macOS gave for quitting it.
+        /// How a run ended. A log out, restart or shut down is the reason
+        /// macOS gave, confirmed at the next launch by the boot and the login
+        /// session; a quit is Daybook's own.
         case logOut, restart, shutDown, quit, updateRelaunch
-        /// macOS said it was logging out or powering off, and Daybook ended
-        /// before learning which.
+        /// Another app quit Daybook: System Settings applying a permission, a
+        /// script, an installer. `detail` names it.
+        case quitByApp
+        /// macOS asked Daybook to quit for a log out, restart or shut down
+        /// that then never happened: another app refused, or it was cancelled.
+        case logOutCancelled, restartCancelled, shutDownCancelled
+        /// The Mac went down and came back, and macOS never said which.
+        case restartOrShutDown
+        /// Only ever the marker's word for a power-off macOS announced without
+        /// a reason; the next launch settles it. Entries written as this before
+        /// that are read by what followed them (`MachineEventLog`).
         case powerOffUnknown
         /// How a run ended without saying so, worked out at the next launch.
         case crashed, forceQuit, powerLost, kernelPanic
         case macStarted, daybookStarted
+        /// The Mac came back on a different macOS; `detail` is the new one.
+        case macOSUpdated
     }
 
     let kind: Kind
     let at: Date
     /// Set only for an event found afterwards: it happened by this moment.
     var latest: Date?
+    /// Who quit Daybook, or the macOS version the Mac came back on.
+    var detail: String?
 
-    init(kind: Kind, at: Date, latest: Date? = nil) {
+    init(kind: Kind, at: Date, latest: Date? = nil, detail: String? = nil) {
         self.kind = kind
         self.at = at
         self.latest = latest
+        self.detail = detail
     }
 
     /// When the event is known to be over: `latest`, or `at` for one seen live.
     var end: Date { latest ?? at }
+
+    /// What the event list says happened.
+    var title: String {
+        switch kind {
+        case .quitByApp: return "Daybook quit by \(detail ?? "another app")"
+        case .macOSUpdated: return detail.map { "macOS updated to \($0)" } ?? kind.title
+        default: return kind.title
+        }
+    }
 }
 
 extension MachineEvent.Kind {
-    /// What the event list says happened.
+    /// What the event list says happened, when the event adds no detail.
     var title: String {
         switch self {
         case .systemSleep: return "Mac went to sleep"
@@ -56,6 +81,11 @@ extension MachineEvent.Kind {
         case .shutDown: return "Mac shut down"
         case .quit: return "Daybook quit"
         case .updateRelaunch: return "Daybook updated"
+        case .quitByApp: return "Daybook quit by another app"
+        case .logOutCancelled: return "Log out cancelled after Daybook quit"
+        case .restartCancelled: return "Restart cancelled after Daybook quit"
+        case .shutDownCancelled: return "Shut down cancelled after Daybook quit"
+        case .restartOrShutDown: return "Mac restarted or shut down"
         case .powerOffUnknown: return "Shut down, restarted or logged out"
         case .crashed: return "Daybook crashed"
         case .forceQuit: return "Daybook was force quit"
@@ -63,6 +93,7 @@ extension MachineEvent.Kind {
         case .kernelPanic: return "Mac restarted after a problem"
         case .macStarted: return "Mac started up"
         case .daybookStarted: return "Daybook opened"
+        case .macOSUpdated: return "macOS updated"
         }
     }
 
@@ -73,9 +104,14 @@ extension MachineEvent.Kind {
     static let gapCauses: [(kind: Self, title: String)] = [
         (.powerLost, "Mac lost power"), (.kernelPanic, "Mac restarted after a problem"),
         (.crashed, "Daybook crashed"), (.forceQuit, "Daybook was force quit"),
-        (.shutDown, "Mac shut down"), (.restart, "Mac restarted"), (.logOut, "Logged out"),
-        (.powerOffUnknown, "Shut down, restarted or logged out"),
-        (.updateRelaunch, "Daybook updating"), (.quit, "Daybook quit"),
+        (.macOSUpdated, "Mac updating macOS"),
+        (.shutDown, "Mac shut down"), (.restart, "Mac restarted"),
+        (.restartOrShutDown, "Mac restarted or shut down"), (.logOut, "Logged out"),
+        (.updateRelaunch, "Daybook updating"), (.quitByApp, "Daybook quit by another app"),
+        (.logOutCancelled, "Daybook quit; log out cancelled"),
+        (.restartCancelled, "Daybook quit; restart cancelled"),
+        (.shutDownCancelled, "Daybook quit; shut down cancelled"),
+        (.quit, "Daybook quit"),
         (.systemSleep, "Mac asleep"), (.userSwitchedOut, "Another user"),
         (.lock, "Mac locked"), (.displaySleep, "Display off"),
     ]

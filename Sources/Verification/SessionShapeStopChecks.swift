@@ -54,6 +54,13 @@ enum SessionShapeStopChecks: CheckSuite {
         // Most telling first.
         expect(dark == "Along the way the Mac restarted once and the display turned off once.",
                "a dark display and a restart read as such, got \(dark ?? "nil")", &problems)
+        // System Settings quitting Daybook for a permission, then a restart
+        // called off after Daybook quit: both dated at the stop.
+        let others = away([use(0, 20, .systemLock), use(30, 40, .systemLock)],
+                          [MachineEvent(kind: .quitByApp, at: at(20), detail: "System Settings"),
+                           event(.restartCancelled, 40)])
+        expect(others == "Along the way Daybook was quit by another app once and quit for a cancelled restart once.",
+               "another app's quit and a cancelled restart read as such, got \(others ?? "nil")", &problems)
         return problems
     }
 

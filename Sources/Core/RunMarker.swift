@@ -19,6 +19,12 @@ struct RunMarker: Codable, Equatable {
     /// Matched against a crash report's, so a crash of some other Daybook —
     /// a test build, a second copy — is not taken for this run's.
     var pid: Int32?
+    /// macOS when this run began; a boot on another one followed an update.
+    var osVersion: String?
+    /// What the quit said, kept as written so a surprising exit can be traced:
+    /// the reason's four letters, and who sent it.
+    var quitReason: String?
+    var quitSender: String?
 
     /// Nil when there is none or it does not read — a first run, or one a
     /// newer build wrote — and the launch then knows nothing of the last run.
@@ -41,13 +47,18 @@ struct RunMarker: Codable, Equatable {
     }
 
     /// The events a launch records about the run before it: how that run
-    /// ended, when the run left no word of it or its word needed the boot to
-    /// confirm it; when the Mac started, if it has started since; and this
+    /// ended, when the run left no word of it or its word needed confirming;
+    /// a macOS update and the Mac's start, if it has started since; and this
     /// launch.
     ///
-    /// A restart or a shut down can still be called off by another app after
-    /// Daybook has quit for it. A new boot says it went ahead; the same boot
-    /// says it was called off, and Daybook had simply quit.
+    /// A log out, restart or shut down macOS asked Daybook to quit for can
+    /// still be called off by another app after Daybook has gone. What the
+    /// launch finds confirms it: a new boot for a restart or shut down, a
+    /// login session that began after Daybook quit for a log out. A power-off
+    /// macOS announced without naming one is settled the same way — the Mac
+    /// went down, you logged out, or neither happened and only Daybook quit.
+    /// Nothing is guessed from how long anything took: an update, a FileVault
+    /// unlock or an app that holds up a restart can each take any time.
     ///
     /// A run ends without a word in four ways, told apart by what is left:
     /// - A crash leaves a crash report about this run's process, written
@@ -65,13 +76,24 @@ struct RunMarker: Codable, Equatable {
             // unknown; it is not taken as a restart.
             let rebooted = !marker.bootSessionID.isEmpty && marker.bootSessionID != launch.bootSessionID
             let lastSeen = marker.heartbeat
+            let loggedBackIn = launch.consoleLogin.map { $0 > lastSeen } ?? false
+            // "Cancelled" is a claim too: it needs the boot or the login
+            // session known. Without them only the quit is certain.
+            let bootKnown = !marker.bootSessionID.isEmpty
             switch marker.exit {
+            case .restart?:
+                let kind: MachineEvent.Kind = rebooted ? .restart : bootKnown ? .restartCancelled : .quit
+                events.append(MachineEvent(kind: kind, at: lastSeen))
+            case .shutDown?:
+                let kind: MachineEvent.Kind = rebooted ? .shutDown : bootKnown ? .shutDownCancelled : .quit
+                events.append(MachineEvent(kind: kind, at: lastSeen))
+            case .logOut?:
+                let kind: MachineEvent.Kind = rebooted || loggedBackIn ? .logOut
+                    : launch.consoleLogin == nil ? .quit : .logOutCancelled
+                events.append(MachineEvent(kind: kind, at: lastSeen))
             case .powerOffUnknown?:
-                // Recorded when macOS announced it; the quit that would have
-                // named the reason never came.
-                events.append(MachineEvent(kind: .powerOffUnknown, at: lastSeen))
-            case let named? where named == .restart || named == .shutDown:
-                events.append(MachineEvent(kind: rebooted ? named : .quit, at: lastSeen))
+                let kind: MachineEvent.Kind = rebooted ? .restartOrShutDown : loggedBackIn ? .logOut : .quit
+                events.append(MachineEvent(kind: kind, at: lastSeen))
             case .some:
                 break // Recorded as it happened.
             case nil:
@@ -91,7 +113,13 @@ struct RunMarker: Codable, Equatable {
                                                latest: max(lastSeen, launch.now)))
                 }
             }
-            if rebooted { events.append(MachineEvent(kind: .macStarted, at: launch.bootTime)) }
+            if rebooted {
+                if let before = marker.osVersion, !before.isEmpty, !launch.osVersion.isEmpty,
+                   before != launch.osVersion {
+                    events.append(MachineEvent(kind: .macOSUpdated, at: launch.bootTime, detail: launch.osVersion))
+                }
+                events.append(MachineEvent(kind: .macStarted, at: launch.bootTime))
+            }
         }
         events.append(MachineEvent(kind: .daybookStarted, at: launch.now))
         return events
