@@ -3,8 +3,8 @@ import Foundation
 /// What a review note is written from. Any History day, week or month becomes
 /// `NoteFacts` through figures the app already computes: a day's from its
 /// Story projection, a period's from History's summary and its days'
-/// projections. Nothing here is stored; the questions at the bottom decide
-/// where a note is offered.
+/// projections. Nothing here is stored; the questions below (current, Wrap
+/// up, Yesterday) decide where a note is offered.
 extension SessionStore {
     var appleIntelligenceEnabled: Bool { engine.store.useAppleIntelligence }
 
@@ -20,7 +20,9 @@ extension SessionStore {
     }
 
     /// The facts for a day, week or month; nil for a year, and for a place
-    /// with no sessions.
+    /// with no sessions. Week and month facts read History's index, which is
+    /// current only while History is open, so they are requested from History
+    /// views alone.
     func noteFacts(for place: HistoryPlace) -> NoteFacts? {
         switch place.level {
         case .day: return dayNoteFacts(place)
