@@ -3,15 +3,16 @@ import Foundation
 /// Story shows stretches in chronological order. The compact Sessions digest
 /// may fold a resumed thread; doing so here would move the afternoon above the
 /// lunch break and hide the interval between them.
-/// Why a hole in the day's recording is there, when the recording itself
-/// says. The tracker ends a stretch `.idle` after three minutes without
-/// input and `.systemLock` at the lock screen; a hole that begins where one
-/// of those ended has a cause the story can name. Any other hole — the app
-/// closed, the Mac asleep, evidence missing — stays "not recorded".
+/// Why a hole in the day's recording is there. A machine event inside it —
+/// a sleep, a shut down, a crash — names it. Without one, the recording
+/// itself may say: the tracker ends a stretch `.idle` after three minutes
+/// without input and `.systemLock` at the lock screen. Any other hole stays
+/// "not recorded"; so do holes from before machine events were kept.
 enum StoryGapReason: Equatable {
     case idle
     case locked
     case unknown
+    case machine(MachineEvent.Kind)
 
     /// What the row says. "Not recorded" answered what; the reader asks why.
     var title: String {
@@ -19,6 +20,8 @@ enum StoryGapReason: Equatable {
         case .idle: return "No input"
         case .locked: return "Mac locked"
         case .unknown: return "Not recorded"
+        case .machine(let kind):
+            return MachineEvent.Kind.gapCauses.first { $0.kind == kind }?.title ?? kind.title
         }
     }
 
@@ -63,7 +66,8 @@ enum StoryMoment: Identifiable, Equatable {
 
 enum StoryChronology {
     static func build(records: [SessionRecord], running: RunningThread?,
-                      usage: [AppUsageSession], day: Date, now: Date,
+                      usage: [AppUsageSession], machineEvents: [MachineEvent] = [],
+                      day: Date, now: Date,
                       calendar: Calendar = .current) -> [StoryMoment] {
         guard let bounds = calendar.dateInterval(of: .day, for: day) else { return [] }
         var entries = records.filter { $0.end > bounds.start && $0.start < bounds.end }
@@ -105,13 +109,32 @@ enum StoryChronology {
         let coverage = merge(occupied + recorded)
         for pair in zip(coverage, coverage.dropFirst()) {
             if pair.1.start.timeIntervalSince(pair.0.end) >= 60 {
-                result.append(.unrecorded(DateInterval(start: pair.0.end, end: pair.1.start),
-                                          reason: gapReason(endingAt: pair.0.end, in: usage)))
+                let gap = DateInterval(start: pair.0.end, end: pair.1.start)
+                result.append(.unrecorded(gap, reason: gapReason(for: gap, usage: usage,
+                                                                 events: machineEvents)))
             }
         }
         return result.sorted {
             $0.start == $1.start ? $0.id < $1.id : $0.start < $1.start
         }
+    }
+
+    /// The most telling machine event inside the hole names it. The recording
+    /// stops a moment after the event that stopped it, and a run found to
+    /// have ended afterwards is dated from its last heartbeat, so an event
+    /// counts from a little before the hole and by its whole window.
+    ///
+    /// A lock or a dark display that follows three minutes without input is
+    /// what idleness does, not why the hole is there: "No input" stands.
+    static func gapReason(for gap: DateInterval, usage: [AppUsageSession],
+                          events: [MachineEvent]) -> StoryGapReason {
+        let edge = gap.start.addingTimeInterval(-2)
+        let inside = events.filter { $0.at < gap.end && $0.end >= edge }.map(\.kind)
+        let fallback = gapReason(endingAt: gap.start, in: usage)
+        guard let cause = MachineEvent.Kind.gapCauses.first(where: { inside.contains($0.kind) })?.kind
+        else { return fallback }
+        if fallback == .idle, cause == .lock || cause == .displaySleep { return .idle }
+        return .machine(cause)
     }
 
     /// The stretch that ended where the hole begins says why it ended. Only

@@ -56,7 +56,10 @@ session action routes back to it, including the global hotkey. Corrections
 (rename, change type, re-answer an away) apply to the whole thread across days,
 never move time boundaries, survive relaunch, and can be undone field by field.
 Writes are atomic, a failed save keeps the old record and offers Retry, and an
-interrupted write cannot record the same interval twice.
+interrupted write cannot record the same interval twice. Every sleep, wake,
+lock, log out, restart, shut down and quit is recorded as it happens, and a
+crash, force quit or power cut is worked out at the next launch, so History
+names why each hole in a day is there.
 
 **Data that ages honestly.** App-use history is a versioned envelope with an
 accuracy epoch. Data recorded before a recorder fix is preserved and marked as

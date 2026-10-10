@@ -10,6 +10,11 @@ final class EventMonitor {
     var onSystemDidWake: (() -> Void)?
     var onAppActivated: ((NSRunningApplication) -> Void)?
     var onWillPowerOff: (() -> Void)?
+    /// Every notification above, named for the machine event log. Display
+    /// sleep and system sleep share `onSystemWillSleep`; here they differ.
+    /// Called after the closure above it, so writing the log never moves the
+    /// moment the engine reads.
+    var onMachineEvent: ((MachineEvent.Kind) -> Void)?
 
     private var workspaceTokens: [NSObjectProtocol] = []
     private var distributedTokens: [NSObjectProtocol] = []
@@ -31,24 +36,36 @@ final class EventMonitor {
             distributed.addObserver(forName: Notification.Name("com.apple.screenIsLocked"),
                                     object: nil, queue: .main) { [weak self] _ in
                 self?.onScreenLocked?()
+                self?.onMachineEvent?(.lock)
             })
         distributedTokens.append(
             distributed.addObserver(forName: Notification.Name("com.apple.screenIsUnlocked"),
                                     object: nil, queue: .main) { [weak self] _ in
                 self?.onScreenUnlocked?()
+                self?.onMachineEvent?(.unlock)
             })
 
         // Sleep / wake — workspace notification centre (never NotificationCenter.default).
-        for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification] {
+        let sleeps: [(Notification.Name, MachineEvent.Kind)] = [
+            (NSWorkspace.willSleepNotification, .systemSleep),
+            (NSWorkspace.screensDidSleepNotification, .displaySleep),
+        ]
+        for (name, kind) in sleeps {
             workspaceTokens.append(
                 workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                     self?.onSystemWillSleep?()
+                    self?.onMachineEvent?(kind)
                 })
         }
-        for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification] {
+        let wakes: [(Notification.Name, MachineEvent.Kind)] = [
+            (NSWorkspace.didWakeNotification, .wake),
+            (NSWorkspace.screensDidWakeNotification, .displayWake),
+        ]
+        for (name, kind) in wakes {
             workspaceTokens.append(
                 workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                     self?.onSystemDidWake?()
+                    self?.onMachineEvent?(kind)
                 })
         }
 
@@ -57,11 +74,13 @@ final class EventMonitor {
             workspace.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification,
                                   object: nil, queue: .main) { [weak self] _ in
                 self?.onScreenLocked?()
+                self?.onMachineEvent?(.userSwitchedOut)
             })
         workspaceTokens.append(
             workspace.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification,
                                   object: nil, queue: .main) { [weak self] _ in
                 self?.onScreenUnlocked?()
+                self?.onMachineEvent?(.userSwitchedIn)
             })
 
         workspaceTokens.append(
@@ -76,6 +95,7 @@ final class EventMonitor {
             workspace.addObserver(forName: NSWorkspace.willPowerOffNotification,
                                   object: nil, queue: .main) { [weak self] _ in
                 self?.onWillPowerOff?()
+                self?.onMachineEvent?(.powerOffUnknown)
             })
     }
 

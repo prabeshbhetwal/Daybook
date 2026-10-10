@@ -209,12 +209,16 @@ enum BackupScheduleChecks: CheckSuite {
         expect(DataBackup.stageStart(writing.lastPathComponent, otherwise: -1) == now - 60,
                "a stage's start is read from its name", &problems)
 
-        // The running app's lock is not history, so it is not backed up.
+        // The running app's lock and run marker are not history, so they are
+        // not backed up: a restored marker would read as a crash.
         try? Data().write(to: data.appendingPathComponent(InstanceLock.fileName))
+        try? Data().write(to: data.appendingPathComponent(RunMarker.fileName))
         let clone = try? DataBackup.clone(of: data)
-        expect(clone.map { !FileManager.default.fileExists(atPath: $0.appendingPathComponent(InstanceLock.fileName).path) } == true
-               && clone.map { FileManager.default.fileExists(atPath: $0.appendingPathComponent("a.json").path) } == true,
-               "the clone keeps the data and drops the lock file", &problems)
+        let dropped = [InstanceLock.fileName, RunMarker.fileName].allSatisfy { name in
+            clone.map { !FileManager.default.fileExists(atPath: $0.appendingPathComponent(name).path) } == true
+        }
+        expect(dropped && clone.map { FileManager.default.fileExists(atPath: $0.appendingPathComponent("a.json").path) } == true,
+               "the clone keeps the data and drops the lock file and run marker", &problems)
         if let clone { try? FileManager.default.removeItem(at: clone) }
         return problems
     }

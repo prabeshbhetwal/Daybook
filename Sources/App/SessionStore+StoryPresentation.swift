@@ -36,6 +36,7 @@ extension SessionStore {
             workType: engine.activeWorkType, start: engine.sessionStartDate, worked: engine.elapsed)
         return Array(StoryChronology.build(records: engine.archive.records, running: running,
                                           usage: effectiveUsageSnapshot?.sessions(touching: day) ?? [],
+                                          machineEvents: machineEvents(on: day),
                                           day: day, now: now()).reversed())
             .filter { moment in
                 if case .entry(.session(let session)) = moment, session.isRunning {
@@ -43,6 +44,13 @@ extension SessionStore {
                 }
                 return true
             }
+    }
+
+    /// The machine events of a day, oldest first, including one found
+    /// afterwards whose window reaches into it.
+    func machineEvents(on day: Date) -> [MachineEvent] {
+        guard let bounds = Calendar.current.dateInterval(of: .day, for: day) else { return [] }
+        return machineEventLog?.events(in: bounds) ?? []
     }
 
     var storyAppColourIndices: [String: Int] {
