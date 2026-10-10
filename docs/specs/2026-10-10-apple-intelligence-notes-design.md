@@ -1,7 +1,7 @@
 # Apple Intelligence: review notes
 
 Date: 2026-10-10
-Status: design approved 2026-10-10 in chat; written spec awaiting review
+Status: built 2026-10-11; live probe and hand checks pending
 
 ## Why
 
@@ -57,26 +57,32 @@ nothing to look at).
 | Rejected: the model gathers facts with Ask's tools | Several calls, and choosing tools caused most of Ask's wrong answers (§8 of the Ask spec). |
 | When | Past periods are written the first time they are opened. Current periods (today, this week, this month) are written only on request, because their figures change every second. |
 | One note per period | A day's note is written once, with story, pattern and tip; weeks and months get story and pattern. Each place shows the parts it needs, so History, Today and the Yesterday notice never tell one day two ways. The tip's label ("For tomorrow:", "For today:") is app-rendered. |
-| Storage | In memory, keyed by period and a fingerprint of the facts. Nothing is written to disk except the date the Yesterday notice was dismissed. |
+| Storage | In memory, keyed by the period's place and the facts' text itself (no separate hash). Nothing is written to disk except the date the Yesterday notice was dismissed. |
 | Tips | Built on one of the candidate observations code supplies. The model chooses and words it; it never states a pattern code did not measure. |
 
 ## 1. Parts
 
 | Layer | File | Responsibility |
 |---|---|---|
-| Core | `Sources/Core/NoteFacts.swift` | The facts for one period: its label and dates, sessions in order (name, start, length), top apps, peak hour, longest stretch, switches per stretch, change from the previous period, goal result and 2–4 candidate observations. Also the set of figures in the formats the facts use, and a fingerprint. Built from `DaySummaryInput` and `PeriodSummaryInput`. Lists are capped (top 8 sessions by time, plus counts). No `FoundationModels` import. |
-| Core | `Sources/Core/NoteAudit.swift` | `passes(_ text:, facts:)`: every run of digits in the text must appear among the facts' figures. |
-| App | `Sources/App/ModelGate.swift` | `isUsable`: macOS 26, `availability == .available` and the Settings switch, read on every call rather than kept from launch. `AskModel.canAsk` uses the availability part only, so Ask is unchanged. |
-| App | `Sources/App/NoteWriter.swift` | `@MainActor`. One `LanguageModelSession` per note, with greedy sampling and `@Generable struct WrittenNote { story, pattern, tip? }`; the tip is asked for on days only. Runs the audit, keeps the cache, cancels an older request when a newer visible one starts, and has a `responder` seam for checks. |
-| App | `Sources/App/SessionStore+Notes.swift` | Builds `NoteFacts` for a History place, for today and for yesterday from the read models those surfaces already publish, and publishes each note's state (none, writing, written, failed). |
-| App | `Sources/App/SettingsModel.swift` | `useAppleIntelligence` (default true) and `yesterdayNoteDismissedDay`. |
-| Surfaces | `Sources/Surfaces/Story/PeriodNote.swift` | The note view used in every place: text, caption, "Writing…" line, failure line. |
+| Core | `Sources/Core/NoteFacts.swift` | The facts for one period as plain text: its label and dates, sessions in order (name, start, length), top apps, and up to four candidate observations (longest stretch, when focus began, change from the previous period, goal result and similar). Also `WrittenNote` (story, pattern, optional tip) and the two inputs the facts are built from, `NoteDayInput` and `NotePeriodInput`. No `FoundationModels` import. |
+| Core | `Sources/Core/NoteFactsBuilder.swift` | `NoteFacts.day` and `NoteFacts.period`, the wording and formats of the facts, and the app-rendered figures line. Lists are capped (a day names its top 8 sessions by time, in start order, and counts the rest). Split from `NoteFacts` to keep each file under 300 lines. |
+| Core | `Sources/Core/NoteAudit.swift` | `passes(_ note:, facts:)`: every run of digits in the story, pattern and tip must appear among the digit runs of the facts' text, with leading zeros ignored. |
+| App | `Sources/App/ModelGate.swift` | `modelAvailable`: macOS 26 and `availability == .available`, read on every call rather than kept from launch. `AskModel.canAsk` reads it too, so Ask is unchanged. The Settings switch is read by `NoteWriter.isUsable`. |
+| App | `Sources/App/NoteWriter.swift` | `@MainActor ObservableObject`. Publishes each place's note state (writing, written, failed) and keeps the cache and the failed keys. One `LanguageModelSession` per note, with greedy sampling and `@Generable GeneratedNote { story, pattern, tip }`; the tip is kept on days only. Runs the audit, writes one note at a time, and has a `responder` seam for checks. |
+| App | `Sources/App/SessionStore+Notes.swift` | Builds `NoteFacts` for a History place, for today and for yesterday from the read models those surfaces already publish, and answers whether Wrap up today or the Yesterday notice is offered. It publishes nothing and adds no stored property, so `SessionStore` gains no `keep_internals` entry. |
+| App | `Sources/App/MainWindowModel.swift` | `notes`: builds the `NoteWriter` on first read, so a Mac that never shows a note holds none. Views reach the writer as `navigation.notes`. |
+| App | `Sources/App/SettingsModel.swift` | `useAppleIntelligence` (default true). It and `yesterdayNoteDismissedDay` are stored in `PersistenceStore`. |
+| Surfaces | `Sources/Surfaces/Story/PeriodNote.swift` | The note view used in every place: text, tip where a label is given, caption, "Writing…" line, failure line and the link for a note written on request. |
 | Surfaces | `Sources/Surfaces/Story/YesterdayNotice.swift` | The Yesterday notice: figures line, note, Done. |
-| Surfaces | `StoryRail.swift`, `HistoryTreeRow.swift`, Settings › Privacy | Place the views and the switch. |
+| Surfaces | `Sources/Surfaces/Story/TodayNotes.swift` | Places the Yesterday notice and Wrap up today at the top of Today's rail. |
+| Surfaces | `HistoryTreeRow.swift`, `StoryRail.swift`, Settings › Privacy | Place the views and the switch. |
+| Surfaces | `SnapshotNotes.swift`, `Snapshotter.swift` | Two gallery scenarios (`reviewNotes`, `reviewNotesHistory`) that show fixed notes without a model. |
+| Checks | `ReviewNoteFactsChecks`, `ReviewNoteGateChecks`, `ReviewNoteStoreChecks`, `ReviewNoteWriterChecks`, `ReviewNoteWriterFailureChecks`, `ReviewNoteWriterQueueChecks` | Under `Sources/Verification/`; §6 lists what they guard. |
 
 Rules kept:
 
 - Views bind to the store and settings only; they never read storage or compute figures.
+- Views gate on the switch and read no expensive store methods in a body that redraws every second. Today's rail holds its offers in state and builds them again only when their cause changes (the day turning over, a session starting, stopping or being added, the model becoming usable or not).
 - Each file stays under 300 lines.
 - Lengths are design tokens or `.zoomed`, and text uses the type roles.
 - `SessionEngine` and `SessionStore` internals are reached only through methods on their owners (`keep_internals`).
@@ -84,20 +90,26 @@ Rules kept:
 ## 2. Writing a note
 
 1. A view appears for a place, or the person presses "Write a note" or "Wrap up today".
-2. `SessionStore+Notes` builds `NoteFacts` and asks `NoteWriter` for that period's note.
-3. `NoteWriter` returns the cached note if the key matches. Otherwise it checks `ModelGate`, builds a session with the instructions for the period's kind (day, or week and month), and asks for a `WrittenNote` from the facts.
-4. The audit runs on story, pattern and tip together. A note that fails is dropped.
-5. The store publishes the result and the view redraws.
+2. The view asks `NoteWriter` for that place's note, and `NoteWriter` has `SessionStore+Notes` build the `NoteFacts`.
+3. `NoteWriter` returns the cached note if the key (the place's id and the facts' text) matches. Otherwise it checks `ModelGate` and the switch, builds a session with the instructions for the period's kind (day, or week and month), and asks for a note from the facts.
+4. The audit runs on story, pattern and tip together. A note that fails the audit, comes back blank or throws is dropped and remembered as failed.
+5. `NoteWriter` publishes the result and the view redraws. The store publishes nothing.
 
 Instructions tell the model to use digits for every figure, to quote session
 names as written, to build the pattern and tip on one listed observation, and
 to stay within two sentences for the story and one each for pattern and tip.
 
+Where the facts come from, as built:
+
+- A day's facts, and the figures line on the Yesterday notice, read the Story day projection, which is always current.
+- A week's or month's facts read History's index, which is refreshed only while History is open, so those notes are requested only from History.
+- A week or month is compared with the one before only when both are finished whole calendar periods. A running period, or one cut short at the start of the record, is not weighed against a whole one. A day is compared with the whole day before.
+
 ## 3. Places
 
 | Place | Position | Written | Shows |
 |---|---|---|---|
-| History day, past | Top of that day's Story rail | On first open | Story, pattern |
+| History day, past | Top of the opened day row, above the day's story; the same slot as a week's or month's note | On first open | Story, pattern |
 | History week or month, past | Under its period card when open | On first open | Story, pattern |
 | History week or month, current | Same | On "Write a note" | Story, pattern |
 | Today | Top of today's Story rail | On "Wrap up today", offered once today has a session and none is running | Story, pattern, tip for tomorrow |
@@ -118,16 +130,20 @@ to stay within two sentences for the story and one each for pattern and tip.
 The figures line uses the same figures and formatting as the History card
 for that day.
 
+A note the writer holds for a place is shown whenever that place's view is
+built again, so an on-request note stays shown after its view is recreated.
+Its link shows only while there is nothing to show.
+
 ## 4. When it cannot write
 
 | Case | Behaviour |
 |---|---|
 | Model unusable or switch off | No note, no link, no Yesterday notice. A note being written is cancelled. |
 | No sessions in the period | No note and no link. |
-| Audit fails, refusal, guardrail, unsupported language, context exceeded | Automatic notes show nothing. Requested notes show "Couldn't write a note for this period." No retry: greedy sampling would give the same result. |
-| Facts change (rename, correction, deletion) | The fingerprint changes and the note is written again when next viewed. |
+| Audit fails, refusal, guardrail, unsupported language, context exceeded | Automatic notes show nothing. Requested notes show "Couldn't write a note for this period." No retry: greedy sampling would give the same result. Every failure (audit, blank note, thrown error) is remembered per place and facts for the session, so it is not asked again until the facts change. |
+| Facts change (rename, correction, deletion) | The facts' text changes, and with it the cache key, so the note is written again when next viewed. |
 | Midnight | Notes are keyed by period, so today's wrap-up becomes yesterday's History note and Yesterday notice while its facts are unchanged, and is written again if they changed. The Yesterday notice moves to the new yesterday. |
-| Several periods opened quickly | One call at a time; the newest visible request wins. |
+| Several periods opened quickly | One call at a time. A newer request replaces the one running. A replaced period still on screen is written once the writer is idle; one whose view has closed is dropped. |
 | Figures written as words | Not caught by the audit. Marked `ponytail:` in `NoteAudit`; widen to number words if the probe finds any. |
 
 ## 5. Privacy
@@ -145,7 +161,7 @@ model.
 |---|---|---|
 | Audit | Notes with matching, missing and reformatted figures | A figure missing from the facts passes, or a matching one fails |
 | Facts | Day built from `SelfTest.base` with the app's calendar | Sessions out of order, observations missing, caps not applied |
-| Fingerprint | Same day before and after a rename | Fingerprint unchanged |
+| Cache key | Same day before and after a rename | The facts' text, and so the key, is unchanged |
 | Cache | Stand-in responder counting calls | A second view of unchanged facts calls it again |
 | Failed audit | Responder returns an invented figure | Any note is published |
 | Gate | Switch off in `MemoryDefaults` | A note, link or Yesterday notice is published |
@@ -159,9 +175,36 @@ copy: let the audit accept every note; the failed-audit check must fail.
 Live quality: Ask's probe harness gains a `--noteprobe` entry over 20 fixture
 periods. Target: no audit failures, and Sir's read of tone and accuracy.
 
+## 6a. Probe (2026-10-11)
+
+The live probe could not run. On 2026-10-11 the on-device model reported
+available, but every generation request hung: the system's model manager was
+stuck on a model-asset lookup, and restarting it needs root or a reboot. No
+model-written note has been read yet.
+
+The probe covers 20 fixture periods, about 40 model calls:
+
+- days with 1, 3 and 9 sessions
+- sessions named with digits
+- a session across midnight
+- a running session
+- finished and current weeks and months
+
+Pass bar: 0 audit failures, and Sir's read of tone and truth.
+
+A run of the facts alone, with no model, raised three wording watch-points for
+the probe to judge:
+
+- A comma inside a session name in the "Most time went to" list, which is itself comma-separated.
+- A name ending in a number, followed by a duration, which can read as one figure.
+- "Focus began at 12:00 am" for a session continued from the night before.
+
+Merge waits on this probe passing.
+
 ## 7. Hand checks
 
-Run on Sir's build with Apple Intelligence on, before merge. Record results here.
+Run on Sir's build with Apple Intelligence on, before merge and after the
+probe in §6a. Record results here.
 
 | # | Step | Passes when |
 |---|---|---|
