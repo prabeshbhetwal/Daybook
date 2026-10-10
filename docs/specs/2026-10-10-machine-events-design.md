@@ -182,13 +182,14 @@ sheet.
 | Which events belong to a hole | One rule, `MachineEvent.falls(in:)`, for the hole's name, its card and the pins: from 2 s before the hole, and by the whole window of an event found afterwards (dated from its last heartbeat). Recording before the hole shows the Mac was awake and unlocked, so earlier events are ignored. A closer with no opener (an unlock alone) counts from the hole's start or the last launch inside it. |
 | Crash, force quit, power cut, panic | A dashed "some time in this window" stretch from the last heartbeat to `latest`, then "Daybook not running" until the launch that found it (a launch at `latest` itself counts). The Mac may have started long before, so the stretch never says "Mac off". |
 | Sub-minute stretches | Nothing recorded or locked under a minute joins a neighbour at least as deep, the deeper first (a lid's close joins the sleep; the seconds before recording resumes join the lock). A neighbour grows by at most a minute at each end; an off stretch or a crash window never grows. A short lock between stretches of nothing stays a lock. The same minute the story already leaves unsaid between recordings. |
+| Kinds from #29 | Quit by another app, the three cancelled kinds and "restarted or shut down" end a run like a quit (off until Daybook opens; pinned when they left no hole). macOS updated is dated at the boot, so it counts as a start. Every line shows `event.title`, so the quitting app and the macOS version stay. |
 | Events outside any gap | A run's end (shut down, restart, log out, quit, update, crash) not inside a gap becomes a pin row on the rule, with when Daybook was back, inside a session too: the session's shape names a stop only where a recorded stretch ended at the lock screen. |
 | Away answers | An answer splits a hole and each piece keeps the hole's name. A piece is read against the whole hole (`GapAnatomy.of(_:in:events:)`) and always unfolds. |
 | The raw list | Kept, folded, newest first, "All N Mac events". |
 | Fills | Lighter is nearer the desk: stripes (nothing recorded), locked, asleep, off; dark appearance runs the other way. The window frame uses `StoryStyle.attentionInk`. |
 | Expand all | Opens gaps whose reason is a machine event. |
 
-Checks 732–744 (`GapAnatomyChecks`): the screenshot's day (nothing recorded,
+Checks 738–750 (`GapAnatomyChecks`, after #29's `MachineEventExitChecks`): the screenshot's day (nothing recorded,
 then one locked stretch with its display-off time, the trailing sliver
 absorbed), sleep under a lock, a crash window, a restart cutting a lock, only
 events inside the hole counting, the pin rule, a heartbeat-dated power cut
@@ -196,7 +197,8 @@ events inside the hole counting, the pin rule, a heartbeat-dated power cut
 split hole, slivers, Expand all with pins kept out of quiet runs, the limits
 on slivers (a short lock stays; a minute's growth at most), and stretches cut
 exactly to the hole. A
-mutation run with sliver folding and pins removed failed 732, 736 and 737.
+mutation run with sliver folding and pins removed failed what are now 738,
+742 and 743.
 The fix-reviewer's findings on the first version are all fixed; the store's
 choice of the whole hole for a split piece has no check, since away answers
 are engine internals a check cannot set.

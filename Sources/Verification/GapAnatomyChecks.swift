@@ -134,6 +134,11 @@ enum GapAnatomyChecks: CheckSuite {
                &problems)
         let inHole = pins([use(0, 20), use(80, 90)], [event(.shutDown, 30), event(.daybookStarted, 79)])
         expect(inHole.isEmpty, "a shut down inside a hole belongs to its card, got \(inHole)", &problems)
+        let quitBy = GapAnatomy.of(gap(20, 80), events: [
+            MachineEvent(kind: .quitByApp, at: at(30), detail: "System Settings"), event(.daybookStarted, 79),
+        ])
+        expect(shape(quitBy).contains("Daybook quit by System Settings 30–79"),
+               "the card names the app that quit Daybook, got \(shape(quitBy))", &problems)
         return problems
     }
 

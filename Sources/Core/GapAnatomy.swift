@@ -36,9 +36,12 @@ struct GapAnatomy: Equatable {
         var displayOff: DateInterval?
         /// When Daybook opened and found what happened, for an uncertain one.
         var foundAt: Date?
+        /// The causing event's own detail: which app quit Daybook.
+        var detail: String?
 
         var title: String {
             guard let cause else { return "Nothing recorded" }
+            if cause == .quitByApp, let detail { return "Daybook quit by \(detail)" }
             // After a crash, force quit, power cut or panic, the one thing
             // known until the next launch is that Daybook was not running:
             // the Mac may have started again long before.
@@ -61,6 +64,7 @@ struct GapAnatomy: Equatable {
         let cause: MachineEvent.Kind
         let span: DateInterval
         var foundAt: Date?
+        var detail: String?
     }
 
     /// The order a locked stretch is named by when its reasons overlap.
@@ -100,7 +104,7 @@ struct GapAnatomy: Equatable {
                 ? lockNames.lazy.compactMap { kind in covering.first { $0.cause == kind } }.first
                 : covering.first { $0.state == deepest }
             pieces.append(Stretch(state: deepest, span: DateInterval(start: start, end: end),
-                                  cause: run?.cause, foundAt: run?.foundAt))
+                                  cause: run?.cause, foundAt: run?.foundAt, detail: run?.detail))
         }
         var stretches = absorbingSlivers(pieces)
         for index in stretches.indices
@@ -169,7 +173,7 @@ struct GapAnatomy: Equatable {
         var result: [Stretch] = []
         for stretch in stretches {
             if let last = result.last, last.state == stretch.state, last.cause == stretch.cause,
-               last.foundAt == stretch.foundAt {
+               last.foundAt == stretch.foundAt, last.detail == stretch.detail {
                 result[result.count - 1].span = DateInterval(start: last.span.start, end: stretch.span.end)
             } else {
                 result.append(stretch)
@@ -228,7 +232,8 @@ struct GapAnatomy: Equatable {
             if ended.contains(event.kind) {
                 let end = resumed(from: event.at)
                 if end > event.at { runs.append(Run(state: .off, cause: event.kind,
-                                                    span: DateInterval(start: event.at, end: end))) }
+                                                    span: DateInterval(start: event.at, end: end),
+                                                    detail: event.detail)) }
             }
             if found.contains(event.kind) {
                 let foundAt = events.first { $0.kind == .daybookStarted && $0.at >= event.end }?.at
