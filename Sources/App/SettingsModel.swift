@@ -267,6 +267,9 @@ extension EnvironmentValues {
 final class SettingsModel: ObservableObject {
 
     private let store: PersistenceStore
+    /// Absent outside the running application, so nothing pulses in checks
+    /// that build a model without one.
+    private let haptics: HapticPlayer?
     private let onChange: () -> Void
     private let onTrackingChanged: (Bool) -> Void
     private let onAppearanceChanged: (AppearancePreference) -> Void
@@ -323,8 +326,10 @@ final class SettingsModel: ObservableObject {
          backupRoot: URL = DataBackup.iCloudDriveRoot,
          trashBackup: @escaping (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) },
          backupWork: @escaping (@escaping () -> Void) -> Void = { DispatchQueue.global(qos: .utility).async(execute: $0) },
-         installedAppCatalog: InstalledAppCatalog = InstalledAppCatalog()) {
+         installedAppCatalog: InstalledAppCatalog = InstalledAppCatalog(),
+         haptics: HapticPlayer? = nil) {
         self.store = store
+        self.haptics = haptics
         self.trackingEnabled = isTrackingEnabled
         self.onChange = onChange
         self.onTrackingChanged = onTrackingChanged
@@ -462,7 +467,22 @@ final class SettingsModel: ObservableObject {
 
     var hapticsEnabled: Bool {
         get { store.hapticsEnabled }
-        set { write { store.hapticsEnabled = newValue } }
+        set {
+            write { store.hapticsEnabled = newValue }
+            haptics?.setEnabled(newValue)
+        }
+    }
+
+    func playHaptic(_ moment: HapticMoment) {
+        haptics?.play(moment)
+    }
+
+    /// Nil without a player, so Settings has nothing to report.
+    func tryHaptics() async -> MouseLinkStatus? {
+        guard let haptics else { return nil }
+        return await withCheckedContinuation { continuation in
+            haptics.tryPulse { continuation.resume(returning: $0) }
+        }
     }
 
     var remindersEnabled: Bool {

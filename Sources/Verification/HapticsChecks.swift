@@ -10,6 +10,7 @@ enum HapticsChecks: CheckSuite {
         ("The waveform mask says which pulses the mouse offers", capabilityMask),
         ("Each moment has its pulse, and the goal reward gets its own", momentTable),
         ("Haptic feedback is off until turned on, and the switch is saved", settingWritesThrough),
+        ("The player stays silent while off and sends one pulse per moment while on", playerGating),
     ]
 
     private static func padded(_ bytes: [UInt8]) -> [UInt8] {
@@ -133,5 +134,79 @@ enum HapticsChecks: CheckSuite {
                    "Settings search reaches the switch", &problems)
             return problems
         }
+    }
+
+    /// Stands in for the MX Master 4: records what it was asked to do, and
+    /// answers a rediscovery with whatever status the check sets.
+    private final class FakeMouseLink: MouseHapticLink {
+        var opened = 0, closed = 0
+        var played: [UInt8] = []
+        var status = MouseLinkStatus.ready
+        func open() { opened += 1 }
+        func close() { closed += 1 }
+        func play(_ waveform: UInt8) { played.append(waveform) }
+        func rediscover(completion: @escaping (MouseLinkStatus) -> Void) { completion(status) }
+    }
+
+    private static func playerGating() -> [String] {
+        var problems: [String] = []
+        var enabled = false
+        var patterns: [TrackpadPattern] = []
+        let mouse = FakeMouseLink()
+        let player = HapticPlayer(isEnabled: { enabled }, mouse: mouse,
+                                  trackpad: { patterns.append($0) })
+
+        player.play(.goalReached)
+        expect(patterns.isEmpty && mouse.played.isEmpty,
+               "off: nothing reaches either device, got \(patterns) \(mouse.played)", &problems)
+
+        enabled = true
+        player.play(.goalReached)
+        expect(patterns == [.generic] && mouse.played == [7],
+               "on: the goal plays generic and completed once each, got \(patterns) \(mouse.played)",
+               &problems)
+        player.play(.zoomStep)
+        expect(patterns == [.generic, .levelChange] && mouse.played == [7, 4],
+               "a zoom step adds level change and subtle collision, got \(patterns) \(mouse.played)",
+               &problems)
+
+        player.setEnabled(true)
+        expect(mouse.opened == 1, "turning on opens the mouse once, got \(mouse.opened)", &problems)
+        player.setEnabled(false)
+        enabled = false
+        player.play(.breakDue)
+        expect(mouse.closed == 1 && mouse.played == [7, 4],
+               "turning off closes the mouse and later moments stay silent, got \(mouse.closed) \(mouse.played)",
+               &problems)
+
+        // Launched with the switch on and no mouse: no error, the trackpad still pulses.
+        mouse.status = .noMouse
+        patterns = []
+        var answer: MouseLinkStatus?
+        player.tryPulse { answer = $0 }
+        expect(answer == .noMouse && patterns == [.generic] && mouse.played == [7, 4],
+               "Try without a mouse reports it and still pulses the trackpad, got \(String(describing: answer)) \(patterns) \(mouse.played)",
+               &problems)
+        mouse.status = .ready
+        player.tryPulse { answer = $0 }
+        expect(answer == .ready && mouse.played == [7, 4, 7],
+               "Try with a ready mouse plays completed on it, got \(String(describing: answer)) \(mouse.played)",
+               &problems)
+
+        // The Settings switch reaches the player.
+        MainActor.assumeIsolated {
+            let suite = "fc-selftest-haptics-player-\(UUID().uuidString)"
+            defer { MemoryDefaults.remove(named: suite) }
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return }
+            let apps = InstalledAppCatalog(discoverStandard: { [] }, discoverSpotlight: { [] },
+                                           observed: { [] })
+            let model = SettingsModel(store: PersistenceStore(defaults: defaults),
+                                      isTrackingEnabled: true, onChange: {},
+                                      onTrackingChanged: { _ in }, installedAppCatalog: apps,
+                                      haptics: player)
+            model.hapticsEnabled = true
+            expect(mouse.opened == 2, "the Settings switch opens the mouse, got \(mouse.opened)", &problems)
+        }
+        return problems
     }
 }
