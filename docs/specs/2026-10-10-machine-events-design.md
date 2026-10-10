@@ -215,3 +215,24 @@ mutation run with sliver folding and pins removed failed what are now 738,
 The fix-reviewer's findings on the first version are all fixed; the store's
 choice of the whole hole for a split piece has no check, since away answers
 are engine internals a check cannot set.
+
+## Amendment, 10 October 2026, late: a stop no event explains
+
+The tracker ends a stretch `.systemLock` not only at the lock screen, sleep
+or quit but also when Spotlight, Control Centre, Notification Centre, the
+Dock, WindowManager or a password prompt comes forward
+(`AppUsageArchive.systemProcesses`), when recording is turned off and on Step
+away. None of these logs an event, so such a hole fell back to "Mac locked".
+
+| Question | Decision |
+|---|---|
+| A hole that ended `.systemLock` with no event in it, after the log began | `StoryGapReason.recordingStopped`: "Not recorded", hint "Recording stopped while Spotlight, Control Centre or a password prompt was in front, or app recording was off." (Sir's wording.) Since the log began a lock leaves its own event, and `falls(in:)` already counts one reported late (the screen saver's password delay). |
+| Before the log | Unchanged: "Mac locked", no hint. The log begins at `machineEventLog.events.first?.at`; a hole whose stop came before it, even one the first launch ends, is pre-log. |
+| How Core learns the start | `StoryChronology.build(…, eventLogStart:)` from `SessionStore.storyMoments(on:)`; the History cache key carries it beside the event count. Core reads no storage. |
+| Same rule elsewhere | The session card's "Along the way" sentence leaves such a stop out (`SessionShape+Stops`, branch `claude/session-shape-unexplained-stops`). |
+| Daybook on its way out | Once a restart, shut down or log out is announced Daybook can record a little more before it quits, so its hole can start more than 2 s after the event. A live run ending at or before the stop with no "Daybook opened" since makes the hole `.unknown` ("Not recorded", the old hint): the event's pin beside it names it, and the Spotlight hint would be false (fix-reviewer). |
+
+Not done: such a hole is not named by the event itself, which would need
+`falls(in:)` to reach back to it for the card and the pins as well. The
+session card and the gap share the rule but not the code; one helper can
+replace both once the session-shape branch lands.

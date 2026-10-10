@@ -12,6 +12,10 @@ enum StoryGapReason: Equatable {
     case idle
     case locked
     case unknown
+    /// Ended `.systemLock` after the machine event log began, with no event
+    /// in the hole: a lock would have left one, so something else stopped
+    /// the recording.
+    case recordingStopped
     case machine(MachineEvent.Kind)
 
     /// What the row says. "Not recorded" answered what; the reader asks why.
@@ -19,7 +23,7 @@ enum StoryGapReason: Equatable {
         switch self {
         case .idle: return "No input"
         case .locked: return "Mac locked"
-        case .unknown: return "Not recorded"
+        case .unknown, .recordingStopped: return "Not recorded"
         case .machine(let kind):
             return MachineEvent.Kind.gapCauses.first { $0.kind == kind }?.title ?? kind.title
         }
@@ -28,9 +32,13 @@ enum StoryGapReason: Equatable {
     /// The likely causes, where the title cannot name one. "No input" and
     /// "Mac locked" are already their own reason.
     var explanation: String? {
-        self == .unknown
-            ? "The Mac may have been asleep or off, or Daybook wasn't running."
-            : nil
+        switch self {
+        case .unknown: return "The Mac may have been asleep or off, or Daybook wasn't running."
+        case .recordingStopped:
+            return "Recording stopped while Spotlight, Control Centre or a password prompt was in front, "
+                + "or app recording was off."
+        default: return nil
+        }
     }
 }
 
@@ -71,9 +79,10 @@ enum StoryMoment: Identifiable, Equatable {
 }
 
 enum StoryChronology {
+    /// `eventLogStart` is when the machine event log began, nil without one.
     static func build(records: [SessionRecord], running: RunningThread?,
                       usage: [AppUsageSession], machineEvents: [MachineEvent] = [],
-                      day: Date, now: Date,
+                      eventLogStart: Date? = nil, day: Date, now: Date,
                       calendar: Calendar = .current) -> [StoryMoment] {
         guard let bounds = calendar.dateInterval(of: .day, for: day) else { return [] }
         var entries = records.filter { $0.end > bounds.start && $0.start < bounds.end }
@@ -116,8 +125,8 @@ enum StoryChronology {
         for pair in zip(coverage, coverage.dropFirst()) {
             if pair.1.start.timeIntervalSince(pair.0.end) >= 60 {
                 let gap = DateInterval(start: pair.0.end, end: pair.1.start)
-                result.append(.unrecorded(gap, reason: gapReason(for: gap, usage: usage,
-                                                                 events: machineEvents)))
+                result.append(.unrecorded(gap, reason: gapReason(for: gap, usage: usage, events: machineEvents,
+                                                                 eventLogStart: eventLogStart)))
             }
         }
         result += pins(machineEvents, day: bounds, gaps: result)
@@ -134,9 +143,9 @@ enum StoryChronology {
     /// A lock or a dark display that follows three minutes without input is
     /// what idleness does, not why the hole is there: "No input" stands.
     static func gapReason(for gap: DateInterval, usage: [AppUsageSession],
-                          events: [MachineEvent]) -> StoryGapReason {
+                          events: [MachineEvent], eventLogStart: Date? = nil) -> StoryGapReason {
         let inside = events.filter { $0.falls(in: gap) }.map(\.kind)
-        let fallback = gapReason(endingAt: gap.start, in: usage)
+        let fallback = gapReason(endingAt: gap.start, in: usage, events: events, eventLogStart: eventLogStart)
         guard let cause = MachineEvent.Kind.gapCauses.first(where: { inside.contains($0.kind) })?.kind
         else { return fallback }
         if fallback == .idle, cause == .lock || cause == .displaySleep { return .idle }
@@ -164,10 +173,26 @@ enum StoryChronology {
 
     /// The stretch that ended where the hole begins says why it ended. Only
     /// an idle trim or the lock screen is a cause; anything else is unknown.
-    private static func gapReason(endingAt edge: Date, in usage: [AppUsageSession]) -> StoryGapReason {
+    /// The tracker also ends a stretch `.systemLock` when Spotlight, Control
+    /// Centre, the Dock or a password prompt comes forward, when recording
+    /// is turned off and on Step away. Before the log that reads as a lock,
+    /// as it always has; since, a lock leaves its own event in the hole, so
+    /// reaching here it was one of the others. Or Daybook was on its way out:
+    /// once a restart, shut down or log out is announced it can record a
+    /// little more before it quits, so the hole starts past the event's 2 s.
+    /// The event's pin beside the hole names that one.
+    private static func gapReason(endingAt edge: Date, in usage: [AppUsageSession],
+                                  events: [MachineEvent], eventLogStart: Date?) -> StoryGapReason {
         let ending = usage.filter { abs($0.end.timeIntervalSince(edge)) < 1 }
         if ending.contains(where: { $0.endReason == .idle }) { return .idle }
-        if ending.contains(where: { $0.endReason == .systemLock }) { return .locked }
+        if ending.contains(where: { $0.endReason == .systemLock }) {
+            guard let eventLogStart, edge >= eventLogStart else { return .locked }
+            let lastRunEdge = events.filter {
+                $0.latest == nil && $0.at <= edge
+                    && (MachineEvent.Kind.runEndings.contains($0.kind) || $0.kind == .daybookStarted)
+            }.max { $0.at < $1.at }
+            return lastRunEdge.map { $0.kind != .daybookStarted } == true ? .unknown : .recordingStopped
+        }
         return .unknown
     }
 
