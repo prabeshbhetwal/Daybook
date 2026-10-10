@@ -70,6 +70,9 @@ enum SettingsAccessibilityChecks {
             where !listed.contains(shortcut.glyphs) {
             failures.append("\(shortcut.glyphs) answers a Session command but is not listed")
         }
+        for commandKey in ["⌘F", "⌘K"] where !listed.contains(commandKey) {
+            failures.append("\(commandKey) answers a Navigate menu command but is not listed")
+        }
         for zoomKey in ["⌘+", "⌘−", "⌘0"] where !listed.contains(zoomKey) {
             failures.append("\(zoomKey) answers a View menu zoom command but is not listed")
         }

@@ -128,7 +128,7 @@ enum AppearancePreference: String, CaseIterable {
 /// The panels attached over the story. History is a reading workspace and
 /// session controls are an in-window strip, so neither is a sheet.
 enum StorySheetKind: String, CaseIterable, Identifiable {
-    case awards, settings
+    case awards, settings, ask
 
     var id: String { rawValue }
 
@@ -136,6 +136,7 @@ enum StorySheetKind: String, CaseIterable, Identifiable {
         switch self {
         case .awards: return "Awards"
         case .settings: return "Settings"
+        case .ask: return "Ask Daybook"
         }
     }
 }
@@ -193,6 +194,9 @@ struct HistorySessionPick: Hashable {
     @Published private(set) var reportSession: DaySession?
     @Published var settingsQuery: String = ""
     private weak var store: SessionStore?
+    /// Ask Daybook's model, built the first time Ask is opened, so with Ask
+    /// never used nothing of it exists.
+    private(set) var askModel: AskModel?
 
     init(opening route: AppTab = .story,
          requestedDate: Date? = nil,
@@ -503,6 +507,13 @@ struct HistorySessionPick: Hashable {
 
     func openSettings() {
         openSheet(.settings)
+    }
+
+    /// ⌘K: builds Ask's model on first use and opens its sheet. Closing the
+    /// sheet keeps the model, so reopening shows the last answer.
+    func openAsk() {
+        if askModel == nil, let store { askModel = AskModel(store: store) }
+        openSheet(.ask)
     }
 
     /// Settings, on the Categories section, with the editor already open. The

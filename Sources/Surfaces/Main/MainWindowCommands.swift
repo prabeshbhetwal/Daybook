@@ -23,6 +23,11 @@ struct MainWindowCommands: Commands {
                 revealMainWindow()
             }
             .keyboardShortcut("f", modifiers: [.command])
+            Button("Ask Daybook…") {
+                navigation.openAsk()
+                revealMainWindow()
+            }
+            .keyboardShortcut("k", modifiers: [.command])
             Divider()
             Button("Awards") { route(to: .awards) }
                 .keyboardShortcut("6", modifiers: [.command])

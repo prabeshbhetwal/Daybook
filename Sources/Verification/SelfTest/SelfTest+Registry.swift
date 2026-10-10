@@ -56,6 +56,19 @@ extension SelfTest {
             + MemoryDefaultsChecks.tests
             + BackupScheduleChecks.later
             + HistoryOpenPathChecks.tests
+            + AskChecks.tests
+            + AskLookupChecks.tests
+            + AskLookupVolumeChecks.tests
+            + AskModelChecks.tests
+            + HistoryLivePatchChecks.tests
+            + AskThreadChecks.tests
+            + AskRunningSessionChecks.tests
+            + AskRangeZoneChecks.tests
+            + AskLookupDetailChecks.tests
+            + AskLiveAppTimeChecks.tests
+            + AskOverlapChecks.tests
+            + AskMidnightAskChecks.tests
+            + AskEdgeChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
