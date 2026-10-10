@@ -27,10 +27,14 @@ TEST=0
 CHECK=0
 for arg in "$@"; do
   case "$arg" in
-    --run)   RUN=1 ;;
-    --test)  TEST=1 ;;
-    --check) CHECK=1; TEST=1 ;;
-    *) echo "usage: $0 [--run] [--test] [--check]" >&2; exit 2 ;;
+    --run)     RUN=1 ;;
+    --test)    TEST=1 ;;
+    --check)   CHECK=1; TEST=1 ;;
+    # The live app lives outside iCloud's Desktop and Documents, which
+    # quarantine a bundle again after this script clears it
+    # (docs/plans/2026-10-10-live-app-location.md).
+    --install) TEST=1; LOCAL_APP_DIR="${HOME}/Applications/${APP_NAME}.app" ;;
+    *) echo "usage: $0 [--run] [--test] [--check] [--install]" >&2; exit 2 ;;
   esac
 done
 SPARKLE_DIR="$("${PROJECT_DIR}/scripts/fetch-sparkle.sh")"
@@ -38,7 +42,9 @@ SPARKLE_DIR="$("${PROJECT_DIR}/scripts/fetch-sparkle.sh")"
 # Build only in an isolated directory. The local bundle remains untouched until
 # compilation, signing, strict verification, and any requested self-test pass.
 STAGE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/${APP_NAME}.XXXXXX")"
+APP_DIR="${STAGE_ROOT}/${APP_NAME}.app"
 LOCK_HELD=0
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 # Whatever stops the build, the previous local app is back in place and this
 # run's leftovers are gone.
@@ -47,6 +53,12 @@ cleanup() {
   if [ -e "${BACKUP_APP_DIR}" ] && [ ! -e "${LOCAL_APP_DIR}" ]; then
     mv "${BACKUP_APP_DIR}" "${LOCAL_APP_DIR}" && echo "Restored the previous local app." >&2
   fi
+  # The self-test registers the staged app with Launch Services, and the
+  # record stays at this path after the folder goes, even when the app was
+  # moved out to be promoted. 206 had built up by 10 October 2026, when
+  # System Settings reopened Daybook by bundle identifier and Launch
+  # Services picked an old worktree's copy.
+  "${LSREGISTER}" -u "${APP_DIR}" >/dev/null 2>&1 || true
   rm -rf "${STAGE_ROOT}" "${CANDIDATE_APP_DIR}"
   if [ -e "${LOCAL_APP_DIR}" ]; then rm -rf "${BACKUP_APP_DIR}"; fi
   if [ "${LOCK_HELD}" -eq 1 ]; then rmdir "${PROMOTION_LOCK}" || true; fi
@@ -57,7 +69,6 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 
-APP_DIR="${STAGE_ROOT}/${APP_NAME}.app"
 MACOS_DIR="${APP_DIR}/Contents/MacOS"
 RESOURCES_DIR="${APP_DIR}/Contents/Resources"
 BINARY="${MACOS_DIR}/${APP_NAME}"
@@ -349,7 +360,9 @@ fi
 # a second build waits its turn.
 # ponytail: a build killed with SIGKILL leaves the lock behind; remove it by
 # hand when no build is running. Add owner-pid checks if that becomes common.
-mkdir -p "${PROMOTION_ROOT}"
+# ponytail: the lock is per checkout, so two checkouts running --install at
+# once can race on ~/Applications. Lock beside the target if that happens.
+mkdir -p "${PROMOTION_ROOT}" "${LOCAL_APP_DIR%/*}"
 waited=0
 until mkdir "${PROMOTION_LOCK}" 2>/dev/null; do
   if [ "${waited}" -eq 0 ]; then
@@ -366,7 +379,8 @@ done
 LOCK_HELD=1
 
 # Move the staged app next to the local one so the swap is a same-volume
-# rename, and verify it there before anything is replaced.
+# rename, and verify it there before anything is replaced. ~/Applications
+# is on the same volume as a checkout in the home folder.
 mv "${APP_DIR}" "${CANDIDATE_APP_DIR}"
 codesign --verify "${CANDIDATE_APP_DIR}"
 
@@ -398,11 +412,24 @@ app_pids() {
     esac
   done
 }
+# The bundle a running copy was opened from. A quarantined bundle runs
+# translocated, from …/AppTranslocation/<UUID>/d/Daybook.app, and the
+# read-only mount at …/<UUID> names the bundle it stands for. The checkout's
+# own app is one: iCloud quarantines it again after this script clears it.
+app_origin() {
+  bundle="$(ps -o args= -p "$1" 2>/dev/null)"
+  bundle="${bundle%%/Contents/MacOS/${APP_NAME}*}"
+  case "${bundle}" in
+    */AppTranslocation/*/d/"${APP_NAME}.app")
+      mountpoint="${bundle%/d/${APP_NAME}.app}"
+      bundle="$(mount | grep -F " on ${mountpoint} (nullfs" || true)"
+      bundle="${bundle%% on "${mountpoint}" (*}" ;;
+  esac
+  echo "${bundle}"
+}
 local_app_running() {
   for pid in $(app_pids); do
-    case "$(ps -o args= -p "${pid}" 2>/dev/null)" in
-      "${LOCAL_APP_DIR}/Contents/MacOS/${APP_NAME}"*) return 0 ;;
-    esac
+    [ "$(app_origin "${pid}")" = "${LOCAL_APP_DIR}" ] && return 0
   done
   return 1
 }
@@ -418,9 +445,9 @@ fi
 if [ "${RUN}" -eq 1 ]; then
   # A checkout under an iCloud-synced folder is re-quarantined after this
   # script's own xattr -cr, and Launch Services then runs a translocated,
-  # read-only copy at a random path: stale after the next build, and not
-  # findable by its path to quit. This is our own build product. Strip it
-  # again at the last moment, right before opening.
+  # read-only copy at a random path, stale after the next build (app_origin
+  # traces it back here). This is our own build product. Strip it again at
+  # the last moment, right before opening.
   xattr -dr com.apple.quarantine "${LOCAL_APP_DIR}" 2>/dev/null || true
   # `open` on a running app only brings it forward: the old process keeps
   # its old code while the new binary sits unused on disk. Quit any running
