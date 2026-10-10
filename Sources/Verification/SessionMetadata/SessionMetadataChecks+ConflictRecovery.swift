@@ -50,8 +50,7 @@ extension SessionMetadataChecks {
                     allProblems.append("could not seed \(conflict.label) conflict sidecar")
                     continue
                 }
-                let file = folder.appendingPathComponent("session-metadata.json")
-                let originalBytes = try? Data(contentsOf: file)
+                let originalBytes = sidecarBytes(in: folder)
                 let originalCache = archive.allMetadata
                 let later = PowerObservation(
                     id: UUID(), timestamp: moment.addingTimeInterval(120), source: .ups,
@@ -68,7 +67,7 @@ extension SessionMetadataChecks {
                 func expectBlocked(_ phase: String, archive subject: SessionMetadataArchive,
                                    store subjectStore: SessionStore) {
                     let queue = persistence.pendingPowerObservations
-                    expect((try? Data(contentsOf: file)) == originalBytes
+                    expect(sidecarBytes(in: folder) == originalBytes
                            && subject.allMetadata == originalCache,
                            "\(conflict.label) conflict changed sidecar bytes or cache \(phase)",
                            &allProblems)

@@ -293,7 +293,7 @@ final class AppUsageArchive {
 
     private let directory: URL
     private let fileURL: URL
-    private let journalURL: URL
+    private let journal: JournalFile
     private var journalEntries = 0
     private let now: () -> Date
     private let calendar: Calendar
@@ -317,7 +317,7 @@ final class AppUsageArchive {
          now: @escaping () -> Date = Date.init) {
         self.directory = directory
         self.fileURL = directory.appendingPathComponent("app-usage.json")
-        self.journalURL = directory.appendingPathComponent("app-usage-journal.jsonl")
+        self.journal = JournalFile(url: directory.appendingPathComponent("app-usage-journal.jsonl"))
         self.now = now
         self.calendar = calendar
         self.cache = []
@@ -553,20 +553,7 @@ final class AppUsageArchive {
 
     private func appendToJournal(_ change: JournalChange) -> Bool {
         do {
-            try FileManager.default.createDirectory(at: directory,
-                                                    withIntermediateDirectories: true)
-            if !FileManager.default.fileExists(atPath: journalURL.path) {
-                guard FileManager.default.createFile(atPath: journalURL.path, contents: nil) else {
-                    Diagnostics.log("failed to create the app usage journal")
-                    return false
-                }
-            }
-            var line = try JSONEncoder().encode(change)
-            line.append(0x0A)
-            let handle = try FileHandle(forWritingTo: journalURL)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: line)
+            try journal.append(JSONEncoder().encode(change))
             journalEntries += 1
             return true
         } catch {
@@ -579,10 +566,7 @@ final class AppUsageArchive {
     /// absorbed. If clearing fails, replaying those lines again is harmless.
     private func compact(to sessions: [AppUsageSession]) -> Bool {
         guard save(sessions: sessions) else { return false }
-        if (try? FileManager.default.removeItem(at: journalURL)) != nil
-            || !FileManager.default.fileExists(atPath: journalURL.path) {
-            journalEntries = 0
-        }
+        if journal.remove() { journalEntries = 0 }
         return true
     }
 
@@ -600,19 +584,10 @@ final class AppUsageArchive {
     /// fails, the journal stays where the next launch replays it, and nothing
     /// more is written.
     private func replayJournal() {
-        guard let data = try? Data(contentsOf: journalURL) else { return }
-        let lines = data.split(separator: 0x0A, omittingEmptySubsequences: true)
-        let lastWriteCut = data.last.map { $0 != 0x0A } ?? false
+        guard let contents = journal.read() else { return }
+        let replay = journal.replay(JournalChange.self, from: contents)
         var sessions = cache
-        var applied = 0
-        var skippedTornLine = false
-        var unreadableLine: Int?
-        for (offset, line) in lines.enumerated() {
-            guard let change = try? JSONDecoder().decode(JournalChange.self, from: Data(line)) else {
-                if offset == lines.count - 1, lastWriteCut { skippedTornLine = true; break }
-                unreadableLine = unreadableLine ?? offset + 1
-                continue
-            }
+        for change in replay.changes {
             switch change {
             case .upsert(let session):
                 if let index = sessions.firstIndex(where: { $0.id == session.id }) {
@@ -623,14 +598,13 @@ final class AppUsageArchive {
             case .remove(let id):
                 sessions.removeAll { $0.id == id }
             }
-            applied += 1
         }
         let changed = sessions != cache
         cache = sessions
-        journalEntries = lines.count
-        if let unreadableLine {
+        journalEntries = contents.lines.count
+        if let unreadableLine = replay.unreadableLine {
             guard !changed || save(sessions: sessions),
-                  let aside = UnreadableFile.setAside(journalURL, prefix: "app-usage-journal-corrupt-",
+                  let aside = UnreadableFile.setAside(journal.url, prefix: "app-usage-journal-corrupt-",
                                                       pathExtension: "jsonl", at: now()) else {
                 isReadOnly = true
                 Diagnostics.log("app usage journal unreadable at line \(unreadableLine); kept in place read-only, since its readable lines could not be saved to a snapshot or it could not be set aside")
@@ -641,50 +615,22 @@ final class AppUsageArchive {
             return
         }
         // Starting each launch from one clean snapshot keeps the journal short.
-        if applied > 0 { _ = compact(to: sessions) }
+        if !replay.changes.isEmpty { _ = compact(to: sessions) }
         // The next append must start on a line of its own. A journal that was
         // compacted away or moved aside needs nothing: the next append starts
         // a new one. If one left behind cannot be repaired, appending would
         // bury that record too.
-        guard lastWriteCut, FileManager.default.fileExists(atPath: journalURL.path) else { return }
-        if skippedTornLine {
-            guard dropTornLine(from: data) else {
+        guard contents.lastWriteCut, FileManager.default.fileExists(atPath: journal.url.path) else { return }
+        if replay.skippedTornLine {
+            guard journal.dropTornLine(from: contents.data) else {
                 isReadOnly = true
                 Diagnostics.log("app usage journal ends in a torn line that could not be removed; kept read-only")
                 return
             }
             Diagnostics.log("app usage journal ended in a torn line; cut it off")
-        } else if !endLastLine() {
+        } else if !journal.endLastLine() {
             isReadOnly = true
             Diagnostics.log("app usage journal's last line has no end and could not be given one; kept read-only")
-        }
-    }
-
-    /// Writes the newline a cut-short write left off a line that reads.
-    private func endLastLine() -> Bool {
-        do {
-            let handle = try FileHandle(forWritingTo: journalURL)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: Data([0x0A]))
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    /// Truncates the journal to just before its last line.
-    private func dropTornLine(from data: Data) -> Bool {
-        var end = data.endIndex
-        while end > data.startIndex, data[end - 1] == 0x0A { end -= 1 }
-        let keep = data[..<end].lastIndex(of: 0x0A).map { $0 + 1 } ?? data.startIndex
-        do {
-            let handle = try FileHandle(forWritingTo: journalURL)
-            defer { try? handle.close() }
-            try handle.truncate(atOffset: UInt64(keep - data.startIndex))
-            return true
-        } catch {
-            return false
         }
     }
 

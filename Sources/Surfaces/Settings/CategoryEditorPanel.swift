@@ -16,6 +16,10 @@ final class CategoryEditorPanelModel: ObservableObject {
     private var panel: NSPanel?
     private var closeObserver: NSObjectProtocol?
     private let panelModel = CategoryEditorPanelModel()
+    /// The form, kept here rather than in the view so closing the panel shuts
+    /// it at once, not whenever the released view's state happens to go: an
+    /// open form holds every update's relaunch.
+    private let editor = CategoryEditorState()
     private var ticketCount: UInt64 = 0
     /// Set on each `show`, since the store that should adopt a new category
     /// is the caller's.
@@ -33,6 +37,7 @@ final class CategoryEditorPanelModel: ObservableObject {
     func show(_ request: CategoryEditorRequest, model: SettingsModel,
               onSaved: ((WorkTypeDefinition, Bool) -> Void)? = nil) {
         self.onSaved = onSaved
+        model.track(editor)
         ticketCount &+= 1
         panelModel.ticket = CategoryEditorTicket(id: ticketCount, request: request)
         let panel = self.panel ?? makePanel(model: model)
@@ -53,6 +58,7 @@ final class CategoryEditorPanelModel: ObservableObject {
 
     private func release(_ closing: NSPanel) {
         guard panel === closing else { return }
+        editor.close()
         if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
         closeObserver = nil
         zoomFollower = nil
@@ -69,7 +75,7 @@ final class CategoryEditorPanelModel: ObservableObject {
 
     private func makePanel(model: SettingsModel) -> NSPanel {
         let content = CategoryEditorPanelView(
-            model: model, panelModel: panelModel,
+            model: model, panelModel: panelModel, editor: editor,
             onClose: { [weak self] in self?.close() },
             onSaved: { [weak self] definition, wasNew in self?.onSaved?(definition, wasNew) })
         let hosting = NSHostingView(rootView: content)
@@ -110,7 +116,7 @@ struct CategoryEditorPanelView: View {
     @ObservedObject var model: SettingsModel
     @ObservedObject var panelModel: CategoryEditorPanelModel
     @ObservedObject private var catalog = WorkTypeCatalog.shared
-    @StateObject private var editor = CategoryEditorState()
+    @ObservedObject var editor: CategoryEditorState
     var onClose: () -> Void
     var onSaved: (WorkTypeDefinition, Bool) -> Void
 

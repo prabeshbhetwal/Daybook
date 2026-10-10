@@ -18,7 +18,7 @@ enum UpdateCountdownStep: Equatable {
 /// "Daybook 1.1 is ready": installs and relaunches when the count
 /// reaches zero, or now, or later. The count runs from a deadline the panel
 /// controller owns, not from a timer in the view; at zero it waits while a
-/// note, the away question or a naming is open.
+/// note, the away question, a naming or a rule or category form is open.
 final class UpdateCountdownPanel {
     static let seconds: TimeInterval = 30
     private var panel: NSPanel?
@@ -118,7 +118,7 @@ private struct UpdateCountdownView: View {
 
     private func message(at date: Date) -> String {
         if state.waiting {
-            return "Waiting until you finish your note or answer. Then it installs and relaunches."
+            return "Waiting until you finish your note, form or answer. Then it installs and relaunches."
         }
         let left = max(1, Int(state.deadline.timeIntervalSince(date).rounded(.up)))
         return "It installs and relaunches in \(left) seconds. A running session carries on; "

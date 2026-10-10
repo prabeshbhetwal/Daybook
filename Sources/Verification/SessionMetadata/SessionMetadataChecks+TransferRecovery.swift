@@ -35,7 +35,7 @@ extension SessionMetadataChecks {
             let originalEvent = PowerObservation(timestamp: returnedAt, source: .external,
                 percentage: 64, charging: .notCharging, boundary: .sourceChanged)
             monitor.handler?(originalEvent)
-            let bytesBefore = try? Data(contentsOf: folder.appendingPathComponent("session-metadata.json"))
+            let bytesBefore = sidecarBytes(in: folder)
             let cacheBefore = metadata.allMetadata
             clock.advance(300)
             failNext = true
@@ -61,7 +61,7 @@ extension SessionMetadataChecks {
             expect(store?.powerMetadataError(for: unrelatedEditor) == nil
                    && store?.noteError(for: unrelatedEditor) == nil,
                    "power failure leaked into an unrelated note editor", &problems)
-            expect((try? Data(contentsOf: folder.appendingPathComponent("session-metadata.json"))) == bytesBefore
+            expect(sidecarBytes(in: folder) == bytesBefore
                    && metadata.allMetadata == cacheBefore,
                    "failed transfer changed sidecar bytes or cache ownership", &problems)
             expect(metadata.metadata(for: successor)?.power.isEmpty != false,

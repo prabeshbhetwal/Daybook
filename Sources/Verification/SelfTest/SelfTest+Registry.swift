@@ -85,6 +85,8 @@ extension SelfTest {
             + SessionShapeUnexplainedStopChecks.tests
             + GapUnexplainedStopChecks.tests
             + SheetQuitChecks.tests
+            + UpdateFormHoldChecks.tests
+            + SessionMetadataJournalChecks.tests
             + ReviewNoteFactsChecks.tests
             + ReviewNoteGateChecks.tests
             + ReviewNoteStoreChecks.tests
