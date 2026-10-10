@@ -95,6 +95,17 @@ struct AskNotice: Equatable {
         return text
     }
 
+    /// A catalogue lookup by name, with the arguments the model sent. A period
+    /// that does not exist is answered as such, and nothing is looked up. A name
+    /// the catalogue lacks is answered with nothing.
+    func lookup(name: String, arguments: [String: String], generation: Int) -> String {
+        guard let entry = AskLookups.named(name) else { return "" }
+        switch entry.read(arguments, { self.range($0) }) {
+        case let .refusal(text): return text
+        case let .request(request): return lookup(request, generation: generation)
+        }
+    }
+
     /// The period a tool's text names, read in the store's calendar and clock,
     /// so "monday" is the Monday the lookups mean; nil when it names none.
     func range(_ raw: String) -> AskRange? {
@@ -176,12 +187,8 @@ struct AskNotice: Equatable {
     @available(macOS 26, *)
     private func liveSession() -> LanguageModelSession {
         if let existing = session as? LanguageModelSession { return existing }
-        let fresh = LanguageModelSession(tools: [FocusTotalsTool(model: self, generation: generation),
-                                                 CompareFocusTool(model: self, generation: generation),
-                                                 BestHoursTool(model: self, generation: generation),
-                                                 FindSessionsTool(model: self, generation: generation),
-                                                 AppTimeTool(model: self, generation: generation)],
-                                         instructions: Self.instructions(today: today()))
+        let tools = AskLookups.all.compactMap { try? AskOnDeviceTool($0, model: self, generation: generation) }
+        let fresh = LanguageModelSession(tools: tools, instructions: Self.instructions(today: today()))
         session = fresh
         sessionDay = dayStart()
         return fresh
