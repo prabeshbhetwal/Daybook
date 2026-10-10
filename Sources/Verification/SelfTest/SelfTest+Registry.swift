@@ -82,6 +82,7 @@ extension SelfTest {
             + MachineEventSenderChecks.tests
             + AskAccuracyChecks.tests
             + AskEntryChecks.tests
+            + SessionShapeUnexplainedStopChecks.tests
             + GapUnexplainedStopChecks.tests
     }
 

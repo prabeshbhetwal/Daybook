@@ -125,10 +125,15 @@ extension SessionStore {
         }
         let activity = RecordedActivity(segments: segments, spans: session.spans)
         let apps = activity.appRanks
+        // The session's own events, with the 2 s a stop at either end, or at
+        // midnight, may be matched across.
+        let reach = DateInterval(start: session.start.addingTimeInterval(-2),
+                                 end: max(session.start, session.end).addingTimeInterval(2))
         let text = SessionShape.storyProse(.init(segments: segments, activity: activity,
                                                  workType: session.workType,
                                                  stretches: session.stretches, worked: session.worked,
-                                                 machineEvents: machineEvents(on: day)))
+                                                 machineEvents: machineEventLog?.events(in: reach) ?? [],
+                                                 eventLogStart: machineEventLog?.events.first?.at))
         let bounds = session.end > session.start ? DateInterval(start: session.start, end: session.end) : nil
         let bins = bounds.map { SessionShape.bins(activity: activity, in: $0) } ?? []
         let notes = Self.sessionEvidenceNotes(

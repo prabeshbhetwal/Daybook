@@ -158,18 +158,23 @@ enum SessionShape {
         /// The day's machine events, which say whether a stretch that ended
         /// `.systemLock` was a lock, a sleep or a quit. Empty before the log.
         let machineEvents: [MachineEvent]
+        /// When the machine event log began; nil without one. A stop after it
+        /// that left no event was not a lock.
+        let eventLogStart: Date?
 
         init(segments: [TimelineSegment],
              workType: WorkType,
              stretches: Int,
              worked: TimeInterval,
-             machineEvents: [MachineEvent] = []) {
+             machineEvents: [MachineEvent] = [],
+             eventLogStart: Date? = nil) {
             let visible = segments.filter { $0.seconds > 0 }.sorted { $0.start < $1.start }
             self.segments = visible
             self.workType = workType
             self.stretches = stretches
             self.worked = worked
             self.machineEvents = machineEvents
+            self.eventLogStart = eventLogStart
             if let first = visible.map(\.start).min(), let last = visible.map(\.end).max(), last > first {
                 // Compatibility callers expose worked time but not the session
                 // spans. Preserve their former missing-recording qualification
@@ -183,13 +188,14 @@ enum SessionShape {
 
         init(segments: [TimelineSegment], activity: RecordedActivity,
              workType: WorkType, stretches: Int, worked: TimeInterval,
-             machineEvents: [MachineEvent] = []) {
+             machineEvents: [MachineEvent] = [], eventLogStart: Date? = nil) {
             self.segments = segments.filter { $0.seconds > 0 }.sorted { $0.start < $1.start }
             self.activity = activity
             self.workType = workType
             self.stretches = stretches
             self.worked = worked
             self.machineEvents = machineEvents
+            self.eventLogStart = eventLogStart
         }
     }
 
