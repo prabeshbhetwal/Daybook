@@ -86,6 +86,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private let backups = BackupScheduler()
     /// A second copy launched while this one runs asks it to come forward.
     private var secondLaunchObserver: NSObjectProtocol?
+    private var sheetQuitObserver: NSObjectProtocol?
     /// SwiftUI's window actions, handed over by the scene. They live here, not
     /// in the menu bar icon's view, so they still work with the icon hidden.
     var windowOpener: WindowOpener?
@@ -545,6 +546,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         ZoomModel.shared.apply(percent: InterfaceZoom.nearestPercent(toScale: settings.interfaceZoom))
         machineEvents.start(evidence: LaunchEvidence.gather(now: Date()))
         store.machineEventLog = machineEvents.log
+        sheetQuitObserver = SheetQuitPolicy.observe()
         wireMonitor()
         monitor.start()
 
