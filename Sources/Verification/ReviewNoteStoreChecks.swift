@@ -19,7 +19,7 @@ enum ReviewNoteStoreChecks: CheckSuite {
         ("The Yesterday notice is offered once per day until dismissed", yesterdayOffer),
         ("Yesterday's figures line is right when History has never been open", figuresLineWithoutHistory),
         ("Wrap up today is offered only when today has a session and none is running", wrapUpOffer),
-        ("A day's and a week's goal lines use the store's goal and the day's goal credit", goalLines),
+        ("A day's, a week's and the Yesterday line's goal figures use the store's goal and the day's goal credit", goalLines),
     ]
 
     private typealias Fixture = AskLookupChecks.Fixture
@@ -248,6 +248,8 @@ enum ReviewNoteStoreChecks: CheckSuite {
             let weekMet = f.store.noteFacts(for: week)?.observations ?? []
             expect(weekMet.contains("Goal met on 1 of 2 days with focus"),
                    "a 1h goal, met on Tuesday only, says \(weekMet)", &problems)
+            let metLine = f.store.noteFiguresLine(for: tuesday)
+            expect(metLine == "1h 30m focus · goal met · 1 session", "the Yesterday line at a 1h goal says “\(metLine)”", &problems)
 
             // 1h 30m is Tuesday's focus, not its credit: a goal set there is missed.
             f.engine.store.dailyGoal = 5_400
@@ -256,6 +258,9 @@ enum ReviewNoteStoreChecks: CheckSuite {
             let weekMissed = f.store.noteFacts(for: week)?.observations ?? []
             expect(weekMissed.contains("Goal met on 0 of 2 days with focus"),
                    "a 1h 30m goal, met on no day, says \(weekMissed)", &problems)
+            let missedLine = f.store.noteFiguresLine(for: tuesday)
+            expect(missedLine == "1h 30m focus · goal missed · 1 session",
+                   "the Yesterday line at a 1h 30m goal says “\(missedLine)”", &problems)
         }
     }
 }

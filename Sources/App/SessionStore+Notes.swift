@@ -20,9 +20,10 @@ extension SessionStore {
     }
 
     /// The facts for a day, week or month; nil for a year, and for a place
-    /// with no sessions. Week and month facts read History's index, which is
-    /// current only while History is open, so they are requested from History
-    /// views alone.
+    /// with no sessions. A week's or month's summary and previous-period focus
+    /// come from History's index, its session totals and goal days from
+    /// per-day projections; request them from History, where the index is
+    /// current.
     func noteFacts(for place: HistoryPlace) -> NoteFacts? {
         switch place.level {
         case .day: return dayNoteFacts(place)
@@ -32,9 +33,10 @@ extension SessionStore {
     }
 
     /// "1h 30m focus · goal missed · 1 session". A day's figures come from
-    /// its own projection, which is always current; History's index is only
-    /// refreshed while History is open, and the Yesterday notice shows this
-    /// line over the Story. Other places read History's summary, goal left out.
+    /// its own projection, which is always current: History's index is
+    /// refreshed only while History is open or when Ask looks something up,
+    /// and the Yesterday notice shows this line over the Story. Other places
+    /// read History's summary, goal left out.
     func noteFiguresLine(for place: HistoryPlace) -> String {
         guard place.level == .day else {
             let summary = historySummary(for: place)
