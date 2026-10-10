@@ -10,10 +10,16 @@ extension SessionStore {
         askBringHistoryUpToDate()
         switch request {
         case let .focusTotals(range, words):
+            if let future = askStillToCome(range) { return future }
             return words.map { askMatchingTotals(range, words: $0) } ?? askTotals(range)
-        case let .bestHours(range): return askBestHours(range)
-        case let .findSessions(words, range): return askSessions(range, words: words)
-        case let .appTime(range, app): return askAppTime(range, app: app)
+        case let .bestHours(range):
+            return askStillToCome(range) ?? askBestHours(range)
+        case let .findSessions(words, range):
+            return askStillToCome(range) ?? askSessions(range, words: words)
+        case let .appTime(range, app):
+            return askStillToCome(range) ?? askAppTime(range, app: app)
+        case let .compare(first, second, words):
+            return askStillToCome(first) ?? askStillToCome(second) ?? askCompare(first, second, words: words)
         }
     }
 
@@ -31,53 +37,111 @@ extension SessionStore {
                       || reviewEvidenceRevision?.sameArchive(as: revision) != true)
     }
 
+    /// What a lookup says about a period that begins after today, which has
+    /// nothing to count yet; nil for any other.
+    private func askStillToCome(_ range: AskRange) -> String? {
+        askInterval(range).start > periodCalendar.startOfDay(for: now()) ? AskFacts.stillToCome(range) : nil
+    }
+
     // MARK: - Focus totals
+
+    /// History's headline for the range: its total, sessions and focused days.
+    private func askSummary(_ range: AskRange) -> HistorySummary {
+        historySummary(for: range.level.map { HistoryPlace(level: $0, span: askInterval(range)) })
+    }
 
     private func askTotals(_ range: AskRange) -> String {
         let today = periodCalendar.startOfDay(for: now())
-        let place = range.level.map { HistoryPlace(level: $0, span: askInterval(range)) }
-        let summary = historySummary(for: place)
-        // One day is its own best and has no breakdown: neither is given.
-        let singleDay = range == .today || range == .yesterday
-        let best: (unit: String, label: String, focused: TimeInterval)? = singleDay ? nil : summary.best.map {
-            (unit: $0.place.level.spokenName, label: askLabel($0.place), focused: $0.focused)
-        }
-        // Rows are newest first in History; here they read oldest first, and
-        // run from the first recorded day to today, not from the start of the
-        // period, which may be days before anything was recorded.
-        var parts: (name: String, items: [(label: String, focused: TimeInterval)])?
-        if !singleDay {
+        let interval = askInterval(range)
+        let summary = askSummary(range)
+        var totals = AskTotals(dates: askDates(range), focused: summary.focused, sessions: summary.sessions,
+                               focusedDays: summary.focusedDays)
+        if range.isOneDay {
+            totals.firstStart = askFirstStart(range)
+        } else {
+            // A day is its own best and has no breakdown. A longer range
+            // names its best day, and its best week and month when it holds
+            // them, whatever unit History's headline happens to pick: asked
+            // for the best day of the year, the model was handed a month.
+            let units: [HistoryLevel] = range.level == .week ? [.day]
+                : range.level == .month ? [.day, .week] : [.day, .week, .month]
+            totals.best = units.compactMap { unit in
+                historyBest(unit, in: interval).map { best in
+                    let current = best.place.span.holds(today)
+                    let label = askLabel(best.place)
+                    let now = unit == .day ? "today" : "this \(unit.spokenName)"
+                    return AskBest(unit: unit.spokenName, label: current ? "\(now) (\(label))" : label,
+                                   focused: best.focused, isCurrent: current)
+                }
+            }
+            // Rows are newest first in History; here they read oldest first, and
+            // run from the first recorded day to today, not from the start of the
+            // period, which may be days before anything was recorded.
             let first = historyTop().firstDay
+            let place = range.level.map { HistoryPlace(level: $0, span: interval) }
             let rows = historyRows(under: place).filter { $0.place.start <= today && $0.place.span.end > first }
             if let level = rows.first?.place.level {
-                parts = (level.spokenName, rows.reversed().map { (label: askLabel($0.place), focused: $0.focused) })
+                totals.parts = (level.spokenName, rows.reversed().map { (label: askLabel($0.place), focused: $0.focused) })
             }
         }
-        return AskFacts.focusTotals(range, words: nil, focused: summary.focused, sessions: summary.sessions,
-                                    focusedDays: summary.focusedDays, best: best, parts: parts)
+        totals.longest = askLongest(askHits(matching: nil, in: range))
+        return AskFacts.focusTotals(range, words: nil, totals)
     }
 
     private func askMatchingTotals(_ range: AskRange, words: String) -> String {
         let clips = askHits(matching: HistoryFilter(query: words), in: range).filter { $0.hit.workType.countsAsFocus }
-        return AskFacts.focusTotals(range, words: words, focused: clips.reduce(0) { $0 + $1.worked },
-                                    sessions: Set(clips.map(\.hit.threadID)).count,
-                                    focusedDays: Set(clips.flatMap(\.days)).count, best: nil, parts: nil,
-                                    sessionRunning: askSessionIsMissed(range))
+        var totals = AskTotals(dates: askDates(range), focused: clips.reduce(0) { $0 + $1.worked },
+                               sessions: Set(clips.map(\.hit.threadID)).count,
+                               focusedDays: Set(clips.flatMap(\.days)).count)
+        totals.longest = askLongest(clips)
+        // Asked how long Safari was used, the model searched for the word
+        // and gave the time of the sessions Safari was used in (probe,
+        // 2026-10-10), so words that name an app bring the app's own time.
+        totals.app = askApp(words, among: historySortedUsage().uniqueUse(within: [askInterval(range)]))
+            .map { (name: $0.name, total: $0.total) }
+        return AskFacts.focusTotals(range, words: words, totals, sessionRunning: askSessionIsMissed(range))
     }
 
-    // MARK: - Sessions
-
-    private func askSessions(_ range: AskRange, words: String) -> String {
-        guard !words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return AskFacts.needsWords }
-        let found = askHits(matching: HistoryFilter(query: words), in: range)
-        // Dated by the first day of the range the session has work on, so a
-        // session begun last night is not listed under yesterday's date for today.
-        let hits = found.prefix(10).map {
-            (day: askText("EEE d MMM", $0.days.min() ?? $0.hit.day), name: $0.hit.name, worked: $0.worked,
-             note: $0.hit.noteSnippet)
+    /// When the first session of a day began: a saved one, or the one
+    /// running now, which is saved only when it ends. One begun the night
+    /// before began, as far as this day goes, at midnight.
+    private func askFirstStart(_ range: AskRange) -> String? {
+        let interval = askInterval(range)
+        var starts = askHits(matching: nil, in: range).flatMap(\.spans).map(\.start)
+        if engine.state != .idle, engine.sessionStartDate < interval.end, now() > interval.start {
+            starts.append(max(engine.sessionStartDate, interval.start))
         }
-        return AskFacts.sessions(range, words: words, hits: hits, matched: found.count,
-                                 sessionRunning: askSessionIsMissed(range))
+        return starts.min().map(askTime)
+    }
+
+    /// The finished session with the most work inside the range. A session
+    /// continued on another day is one session, as the session count has it,
+    /// though the search lists each of its days apart; it is named by its
+    /// first day in the range. On a tie, the newest.
+    private func askLongest(_ clips: [AskClip]) -> (name: String, day: String, worked: TimeInterval)? {
+        let sessions = Dictionary(grouping: clips.filter { $0.hit.workType.countsAsFocus }, by: \.hit.threadID)
+        let longest = sessions.values.compactMap { parts -> (name: String, day: Date, worked: TimeInterval)? in
+            guard let first = parts.first else { return nil }
+            return (name: first.hit.name, day: parts.flatMap(\.days).min() ?? first.hit.day,
+                    worked: parts.reduce(0) { $0 + $1.worked })
+        }.max { ($0.worked, $0.day, $0.name) < ($1.worked, $1.day, $1.name) }
+        return longest.map { (name: $0.name, day: askDay($0.day), worked: $0.worked) }
+    }
+
+    // MARK: - Comparison
+
+    private func askCompare(_ first: AskRange, _ second: AskRange, words: String?) -> String {
+        let today = periodCalendar.startOfDay(for: now())
+        func side(_ range: AskRange) -> AskSide {
+            let focused = words.map { words in
+                askHits(matching: HistoryFilter(query: words), in: range).filter { $0.hit.workType.countsAsFocus }
+                    .reduce(0) { $0 + $1.worked }
+            } ?? askSummary(range).focused
+            return AskSide(range: range, focused: focused, isCurrent: askInterval(range).holds(today),
+                           dates: askDates(range))
+        }
+        return AskFacts.comparison(side(first), side(second), words: words,
+                                   sessionRunning: askSessionIsMissed(first) || askSessionIsMissed(second))
     }
 
     // MARK: - Best hours
@@ -89,7 +153,7 @@ extension SessionStore {
         let span: String
         if interval.duration <= 86_400 * 1.5 {
             reading = insightReading(scope: .day, anchoredAt: interval.start, limit: 1, calendar: calendar)
-            span = range == .yesterday ? "Yesterday" : "Today"
+            span = range == .today ? "Today" : range == .yesterday ? "Yesterday" : range.title
         } else {
             // Insights reads no further than today, so a range that runs on
             // past it is read to today.
@@ -97,14 +161,19 @@ extension SessionStore {
                            calendar.date(byAdding: .day, value: -1, to: interval.end) ?? interval.start)
             let firstWeek = calendar.dateInterval(of: .weekOfYear, for: interval.start)?.start ?? interval.start
             let days = max(0, calendar.dateComponents([.day], from: firstWeek, to: last).day ?? 0)
-            let weeks = min(14, days / 7 + 1)
+            // Insights' rhythm reads at most 14 weeks; a longer range is read
+            // for its latest 14 and says so, rather than passing for the whole.
+            let wanted = days / 7 + 1
+            let weeks = min(14, wanted)
             reading = insightReading(scope: .week, anchoredAt: last, limit: weeks, calendar: calendar)
             // Insights reads whole weeks: to the Sunday that ends the week
             // holding `last`, or to today when that week is not over.
             let weekEnd = calendar.dateInterval(of: .weekOfYear, for: last)?.end ?? last
             let readTo = min(calendar.startOfDay(for: now()),
                              calendar.date(byAdding: .day, value: -1, to: weekEnd) ?? last)
-            span = "Over the \(weeks == 1 ? "week" : "\(weeks) weeks") to \(askText("d MMM", readTo))"
+            span = wanted > weeks
+                ? "Over the latest \(weeks) weeks to \(askDay(readTo, weekday: false)), as far back as Insights reads"
+                : "Over the \(weeks == 1 ? "week" : "\(weeks) weeks") to \(askDay(readTo, weekday: false))"
         }
         return AskFacts.bestHours(range, span: span, window: reading.facts.bestWindow,
                                   strongest: reading.facts.bestWindowPhrase)
@@ -122,18 +191,8 @@ extension SessionStore {
             ranked.sort { $0.total == $1.total ? $0.name < $1.name : $0.total > $1.total }
             return AskFacts.appTime(range, app: nil, top: ranked)
         }
-        // "safari." finds Safari: case, accents and full stops don't count.
-        let wanted = SearchWords.fold(query.replacingOccurrences(of: ".", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines))
-        // The app with the most use in the range; the first bundle ID on a tie.
-        var match: (id: String, name: String, total: TimeInterval)?
-        for (id, name) in historyAppNames where !wanted.isEmpty && SearchWords.fold(name).contains(wanted) {
-            guard let total = use[id]?.total else { continue }
-            let better = match.map { total > $0.total || (total == $0.total && id < $0.id) } ?? true
-            if better { match = (id: id, name: name, total: total) }
-        }
         let running = askSessionIsMissed(range)
-        guard let match else {
+        guard let match = askApp(query, among: use) else {
             return AskFacts.appTime(range, app: (query: query, name: nil, total: 0, sessions: 0), top: [],
                                     sessionRunning: running)
         }
@@ -148,95 +207,19 @@ extension SessionStore {
                                 top: [], sessionRunning: running)
     }
 
-    // MARK: - Shared
-
-    /// Whether a search over the range misses a session still going: one is
-    /// in progress, and the range holds today. A search reads saved sessions,
-    /// and the running one is saved when it ends.
-    private func askSessionIsMissed(_ range: AskRange) -> Bool {
-        guard engine.state != .idle else { return false }
-        let today = periodCalendar.startOfDay(for: now())
-        let interval = askInterval(range)
-        return interval.start <= today && today < interval.end
-    }
-
-    private func askInterval(_ range: AskRange) -> DateInterval {
-        range.interval(now: now(), firstDay: historyTop().firstDay, calendar: periodCalendar)
-    }
-
-    /// A search hit's part of a range: the work of its records that falls
-    /// inside it, the days that work lands on, and the stretches of the
-    /// records inside the range.
-    private struct AskClip {
-        let hit: HistorySearchHit
-        let worked: TimeInterval
-        let days: Set<Date>
-        let spans: [DateInterval]
-    }
-
-    /// The sessions a search finds that touch the range, each clipped to it:
-    /// one that crosses midnight is found by the part inside, not by the day
-    /// it began, and brings only that part's work. The range is half-open:
-    /// `DateInterval.contains` takes its end, which would count Monday's
-    /// session in last week. The search is not capped: it lists newest first
-    /// and stops at its limit before the range is applied, so any cap would
-    /// drop the oldest sessions from a long range's count. A session with no
-    /// work inside the range, paused all through it, is not a hit for word
-    /// totals and lists (`needingWork`); an app's session count keeps it, as
-    /// History's app filter does, since the app was in front inside it.
-    private func askHits(matching filter: HistoryFilter, in range: AskRange,
-                         needingWork: Bool = true) -> [AskClip] {
-        let interval = askInterval(range)
-        let records = Dictionary(engine.archive.records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return historySearchHits(matching: filter, limit: .max).compactMap { hit -> AskClip? in
-            let inside = hit.recordIDs.compactMap { records[$0] }.filter { askTouches($0, interval) }
-            let worked = inside.reduce(0) { $0 + $1.workSeconds(in: (interval.start, interval.end)) }
-            guard !inside.isEmpty, !needingWork || worked > 0 else { return nil }
-            return AskClip(hit: hit, worked: worked,
-                           days: inside.reduce(into: Set<Date>()) { $0.formUnion(askDays(of: $1, in: interval)) },
-                           spans: inside.map {
-                               let start = max($0.start, interval.start)
-                               return DateInterval(start: start, end: max(start, min($0.end, interval.end)))
-                           })
+    /// The app a name means among those used: "safari." finds Safari, as
+    /// case, accents and full stops don't count. The one with the most use
+    /// on a partial match; the first bundle ID on a tie.
+    private func askApp(_ query: String, among use: [String: (name: String, total: TimeInterval, longest: TimeInterval)])
+        -> (id: String, name: String, total: TimeInterval)? {
+        let wanted = SearchWords.fold(query.replacingOccurrences(of: ".", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines))
+        var match: (id: String, name: String, total: TimeInterval)?
+        for (id, name) in historyAppNames where !wanted.isEmpty && SearchWords.fold(name).contains(wanted) {
+            guard let total = use[id]?.total else { continue }
+            let better = match.map { total > $0.total || (total == $0.total && id < $0.id) } ?? true
+            if better { match = (id: id, name: name, total: total) }
         }
-    }
-
-    /// Whether a record overlaps the range; one with no length, by the
-    /// instant it happened, as `workSeconds(in:)` places it.
-    private func askTouches(_ record: SessionRecord, _ interval: DateInterval) -> Bool {
-        record.span > 0 ? record.start < interval.end && record.end > interval.start
-                        : record.end >= interval.start && record.end < interval.end
-    }
-
-    /// The days of the range that hold some of a record's work, as History
-    /// attributes it to days.
-    private func askDays(of record: SessionRecord, in interval: DateInterval) -> Set<Date> {
-        let calendar = periodCalendar
-        var days: Set<Date> = []
-        var day = calendar.startOfDay(for: max(record.start, interval.start))
-        let last = min(record.end, interval.end)
-        for _ in 0..<HistoryStats.maximumCalendarDaysPerRecord {
-            if record.workSeconds(on: day, calendar: calendar) > 0 { days.insert(calendar.startOfDay(for: day)) }
-            guard let next = calendar.date(byAdding: .day, value: 1, to: day), next < last else { break }
-            day = next
-        }
-        return days
-    }
-
-    /// A date named in the calendar the period was worked out in.
-    private func askText(_ format: String, _ date: Date) -> String {
-        DateFormats.australian(format, in: periodCalendar.timeZone).string(from: date)
-    }
-
-    /// A History row's period: `Tue 14 Nov`, `13 Nov – 19 Nov`, `November 2023`, `2023`.
-    private func askLabel(_ place: HistoryPlace) -> String {
-        switch place.level {
-        case .year: return askText("yyyy", place.start)
-        case .month: return askText("MMMM yyyy", place.start)
-        case .week:
-            let last = periodCalendar.date(byAdding: .day, value: -1, to: place.span.end) ?? place.start
-            return "\(askText("d MMM", place.start)) – \(askText("d MMM", last))"
-        case .day: return askText("EEE d MMM", place.start)
-        }
+        return match
     }
 }

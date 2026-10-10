@@ -1,86 +1,85 @@
 import Foundation
 
-/// The periods Ask Daybook can look up: a closed set, so the model names one
-/// of eight rather than inventing dates, and each one is the period History
-/// draws under the same name.
-enum AskRange: String, CaseIterable, Sendable {
-    case today
-    case yesterday
-    case thisWeek = "this week"
-    case lastWeek = "last week"
-    case thisMonth = "this month"
-    case lastMonth = "last month"
-    case last30Days = "last 30 days"
-    case allTime = "all time"
-
-    /// Half-open `[start, end)`. Pass `Calendar.forPeriods`, so a week starts
-    /// on Monday and a month is the Gregorian month wherever the Mac is set.
-    func interval(now: Date, firstDay: Date, calendar: Calendar) -> DateInterval {
-        let today = calendar.startOfDay(for: now)
-        // Some zones skip midnight, so a day there begins at 01:00 and adding
-        // days to it keeps the hour: each edge is brought back to a day's start.
-        let tomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: today) ?? today)
-        func period(_ component: Calendar.Component, offset: Int) -> DateInterval {
-            let anchor = calendar.date(byAdding: component, value: offset, to: today) ?? today
-            return calendar.dateInterval(of: component, for: anchor) ?? DateInterval(start: today, end: tomorrow)
-        }
-        switch self {
-        case .today: return period(.day, offset: 0)
-        case .yesterday: return period(.day, offset: -1)
-        case .thisWeek: return period(.weekOfYear, offset: 0)
-        case .lastWeek: return period(.weekOfYear, offset: -1)
-        case .thisMonth: return period(.month, offset: 0)
-        case .lastMonth: return period(.month, offset: -1)
-        case .last30Days:
-            let start = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -29, to: today) ?? today)
-            return DateInterval(start: start, end: tomorrow)
-        case .allTime:
-            return DateInterval(start: min(calendar.startOfDay(for: firstDay), today), end: tomorrow)
-        }
-    }
-
-    /// The History level that holds this range's breakdown; `nil` when none does.
-    var level: HistoryLevel? {
-        switch self {
-        case .today, .yesterday: return .day
-        case .thisWeek, .lastWeek: return .week
-        case .thisMonth, .lastMonth, .last30Days: return .month
-        case .allTime: return nil
-        }
-    }
-
-    /// How a sentence places something in this range.
-    var inPhrase: String {
-        switch self {
-        case .last30Days: return "in the last 30 days"
-        case .allTime: return "in all your history"
-        default: return rawValue
-        }
-    }
-}
-
 /// One lookup the model can make. `provenance` is what the sheet shows under
 /// the answer, so the reader can see which facts it rested on.
 enum AskRequest: Equatable, Sendable {
     case focusTotals(AskRange, words: String?)
     case bestHours(AskRange)
+    /// Empty words list every session in the range.
     case findSessions(words: String, AskRange)
     case appTime(AskRange, app: String?)
+    case compare(AskRange, with: AskRange, words: String?)
 
+    /// Periods by their titles, so a named month reads `August 2026`, not `2026-08`.
     var provenance: String {
         switch self {
         case let .focusTotals(range, words):
-            return "focus totals" + (words.map { " matching “\($0)”" } ?? "") + " (\(range.rawValue))"
-        case let .bestHours(range): return "best hours (\(range.rawValue))"
-        case let .findSessions(words, range): return "sessions matching “\(words)” (\(range.rawValue))"
-        case let .appTime(range, app): return "app time" + (app.map { " for \($0)" } ?? "") + " (\(range.rawValue))"
+            return "focus totals" + Self.matching(words) + " (\(range.title))"
+        case let .bestHours(range): return "best hours (\(range.title))"
+        case let .findSessions(words, range):
+            return "sessions" + Self.matching(words.isEmpty ? nil : words) + " (\(range.title))"
+        case let .appTime(range, app): return "app time" + (app.map { " for \($0)" } ?? "") + " (\(range.title))"
+        case let .compare(first, second, words):
+            return "comparison" + Self.matching(words) + " (\(first.title) with \(second.title))"
         }
     }
+
+    private static func matching(_ words: String?) -> String { words.map { " matching “\($0)”" } ?? "" }
+}
+
+/// A range's most focused day, week or month. `isCurrent` when it holds
+/// today: it may yet be beaten, so it is said to be the best so far.
+struct AskBest {
+    let unit: String
+    let label: String
+    let focused: TimeInterval
+    var isCurrent = false
+}
+
+/// One side of a comparison: its range, its focus, whether it holds today,
+/// and the dates a relative range covers.
+struct AskSide {
+    let range: AskRange
+    let focused: TimeInterval
+    var isCurrent = false
+    var dates: String?
+}
+
+/// One range's figures, gathered by the store for `AskFacts.focusTotals`.
+struct AskTotals {
+    /// The dates a relative range covers, as `September 2026`: see `AskFacts.placed`.
+    var dates: String?
+    var focused: TimeInterval = 0
+    var sessions = 0
+    var focusedDays = 0
+    /// The most focused day, week and month inside the range, smallest first.
+    var best: [AskBest] = []
+    /// When the first session of a one-day range began, as `9:10am`.
+    var firstStart: String?
+    /// The longest session that has ended, with the day it is listed under.
+    var longest: (name: String, day: String, worked: TimeInterval)?
+    /// The app the words name and its own time in front, which is not the
+    /// time of the sessions it was used in.
+    var app: (name: String, total: TimeInterval)?
+    var parts: (name: String, items: [(label: String, focused: TimeInterval)])?
+}
+
+/// One session in a list: the day and time it began in the range, its name,
+/// the work inside the range and the note line that matched.
+struct AskSessionLine {
+    let day: String
+    let time: String
+    let name: String
+    let worked: TimeInterval
+    var note: String?
 }
 
 /// The text every lookup hands the model. Fixed wording, so the model quotes
 /// facts rather than composing them, and capped, so a long history cannot
-/// crowd out the question in the model's small context window.
+/// crowd out the question in the model's small context window. Every figure
+/// a question may want is worked out here or in the store, never by the
+/// model: averages, the longest session, the difference between two periods.
+/// Past periods are spoken of in the past tense, so the model copies "was".
 enum AskFacts {
     static let maximumBytes = 1_024
 
@@ -114,29 +113,63 @@ enum AskFacts {
         return kept + ellipsis + tail
     }
 
-    static func focusTotals(_ range: AskRange, words: String?, focused: TimeInterval, sessions: Int,
-                            focusedDays: Int,
-                            best: (unit: String, label: String, focused: TimeInterval)?,
-                            parts: (name: String, items: [(label: String, focused: TimeInterval)])?,
+    static func focusTotals(_ range: AskRange, words: String?, _ totals: AskTotals,
                             sessionRunning: Bool = false) -> String {
         // Only a search leaves the running session out; the plain total counts it.
         let tail = words != nil && sessionRunning ? runningNote : ""
-        guard sessions > 0 else {
-            return capped(words.map { "No sessions match “\($0)” \(range.inPhrase)." }
-                          ?? "No focus recorded \(range.inPhrase).", keeping: tail)
+        let app = totals.app.map { " \($0.name) itself was in front for \(DurationText.compact($0.total)) \(range.inPhrase)." }
+        let phrase = placed(range, totals.dates)
+        guard totals.sessions > 0 else {
+            return capped((words.map { "No sessions match “\($0)” \(phrase)." }
+                           ?? "No focus recorded \(phrase).") + (app ?? ""), keeping: tail)
         }
-        let lead = words.map { "Sessions matching “\($0)” \(range.inPhrase)" } ?? sentenceStart(range.inPhrase)
+        let lead = words.map { "Sessions matching “\($0)” \(phrase)" } ?? sentenceStart(phrase)
         let verb = words == nil ? "focused over" : "over"
-        var text = "\(lead): \(DurationText.compact(focused)) \(verb) \(count(sessions, "session")) on \(count(focusedDays, "day"))"
-        if let best {
-            text += "; best \(best.unit) \(best.label), \(DurationText.compact(best.focused))"
+        var text = "\(lead): \(DurationText.compact(totals.focused)) \(verb) \(count(totals.sessions, "session"))"
+            + " on \(count(totals.focusedDays, "day"))"
+        if !range.isOneDay, totals.focusedDays > 1 {
+            text += ", an average of \(DurationText.compact(totals.focused / Double(totals.focusedDays)))"
+                + " on each day with focus"
         }
-        text += "."
-        if let parts, !parts.items.isEmpty {
+        for best in totals.best {
+            text += "; the most focused \(best.unit) \(best.isCurrent ? "so far is" : "was") \(best.label), "
+                + "with \(DurationText.compact(best.focused))"
+        }
+        if let first = totals.firstStart { text += "; the first session began at \(first)" }
+        if let longest = totals.longest, totals.sessions > 1 {
+            text += "; the longest finished session was \(longest.name) on \(longest.day), "
+                + DurationText.compact(longest.worked)
+        }
+        text += "." + (app ?? "")
+        if let parts = totals.parts, !parts.items.isEmpty {
             let items = parts.items.map { "\($0.label) \(DurationText.compact($0.focused))" }
             text += " By \(parts.name): \(items.joined(separator: ", "))."
         }
         return capped(text, keeping: tail)
+    }
+
+    /// Two ranges' focus and the difference between them, worked out from
+    /// the minutes shown, so the figures given add up as the reader checks them.
+    static func comparison(_ first: AskSide, _ second: AskSide, words: String?, sessionRunning: Bool = false) -> String {
+        // The verdict names the dates too: told only "this month has less than last month", the
+        // model said September had less than October when it was the other way round.
+        func named(_ side: AskSide) -> String {
+            side.range.title + (side.isCurrent ? " so far" : "") + (side.dates.map { " (\($0))" } ?? "")
+        }
+        func phrase(_ side: AskSide) -> String {
+            side.range.inPhrase + (side.isCurrent ? " so far" : "") + (side.dates.map { " (\($0))" } ?? "")
+        }
+        let subject = words.map { "Sessions matching “\($0)”" } ?? "Focus"
+        let a = shownMinutes(first.focused), b = shownMinutes(second.focused)
+        var text = "\(subject) \(phrase(first)): \(DurationText.compact(a)); "
+            + "\(phrase(second)): \(DurationText.compact(b)). "
+        if a == b {
+            text += "\(sentenceStart(named(first))) and \(named(second)) are level."
+        } else {
+            text += "\(sentenceStart(named(first))) has \(DurationText.compact(abs(a - b))) "
+                + "\(a > b ? "more" : "less") than \(named(second))."
+        }
+        return capped(text, keeping: words != nil && sessionRunning ? runningNote : "")
     }
 
     static func bestHours(_ range: AskRange, span: String,
@@ -149,20 +182,24 @@ enum AskFacts {
         return capped(text + ".")
     }
 
-    /// `matched` is how many sessions matched, when `hits` holds only the newest of them.
-    static func sessions(_ range: AskRange, words: String,
-                         hits: [(day: String, name: String, worked: TimeInterval, note: String?)],
-                         matched: Int? = nil, sessionRunning: Bool = false) -> String {
+    /// `matched` is how many sessions matched, when `lines` holds only the
+    /// newest of them. Empty words list every session in the range.
+    static func sessions(_ range: AskRange, words: String, lines: [AskSessionLine],
+                         matched: Int? = nil, sessionRunning: Bool = false, lead: String = "") -> String {
         var tail = ""
-        if let matched, matched > hits.count { tail += " Newest \(hits.count) of \(matched)." }
+        if let matched, matched > lines.count { tail += " Newest \(lines.count) of \(matched)." }
         if sessionRunning { tail += runningNote }
-        guard !hits.isEmpty else { return capped("No sessions match “\(words)” \(range.inPhrase).", keeping: tail) }
-        let lines = hits.map { hit in
-            var line = "\(hit.day) · \(hit.name) · \(DurationText.compact(hit.worked))"
-            if let note = hit.note, !note.isEmpty { line += " · note: \(note.prefix(80))" }
-            return line
+        guard !lines.isEmpty else {
+            let none = words.isEmpty ? "No sessions recorded" : "No sessions match “\(words)”"
+            return capped("\(none) \(range.inPhrase).", keeping: tail)
         }
-        return capped(lines.joined(separator: "\n"), keeping: tail)
+        let text = lines.map { line in
+            var text = "\(line.day) · " + (line.time.isEmpty ? "" : "\(line.time) · ")
+                + "\(line.name) · \(DurationText.compact(line.worked))"
+            if let note = line.note, !note.isEmpty { text += " · note: \(note.prefix(80))" }
+            return text
+        }
+        return capped(lead + text.joined(separator: "\n"), keeping: tail)
     }
 
     static func appTime(_ range: AskRange,
@@ -181,12 +218,40 @@ enum AskFacts {
         return capped("Most-used apps \(range.inPhrase): \(apps.joined(separator: ", ")).")
     }
 
-    /// What a session search says when it is given nothing to search for.
-    static let needsWords = "Give one or more words to search for."
+    /// A search that found nothing in its range, then the whole record's
+    /// matches, cut as one list so "Newest 10 of N." and the running-session
+    /// note are kept whole and said once.
+    static func sessionsElsewhere(_ range: AskRange, words: String, lines: [AskSessionLine],
+                                  matched: Int? = nil, sessionRunning: Bool = false) -> String {
+        sessions(.allTime, words: words, lines: lines, matched: matched, sessionRunning: sessionRunning,
+                 lead: "No sessions match “\(words)” \(range.inPhrase). In all your history:\n")
+    }
+
+    /// How a sentence places a range, with the dates a relative one covers:
+    /// `last month (September 2026)`. Asked about September and August, the
+    /// model compared this month with last month and called them September
+    /// and August (probe, 2026-10-10); named, the months show the mix-up.
+    static func placed(_ range: AskRange, _ dates: String?) -> String {
+        range.inPhrase + (dates.map { " (\($0))" } ?? "")
+    }
+
+    /// What a lookup says when the model names a period there is no such
+    /// thing as: an unknown name, or a date the calendar lacks, such as 31 February.
+    static func noSuchPeriod(_ raw: String) -> String {
+        "There is no such date as “\(raw)”."
+    }
+
+    /// What a lookup says about a period that starts after today.
+    static func stillToCome(_ range: AskRange) -> String { "\(sentenceStart(range.title)) is still to come." }
 
     private static func count(_ n: Int, _ noun: String) -> String { n == 1 ? "1 \(noun)" : "\(n) \(noun)s" }
 
     private static func sentenceStart(_ text: String) -> String { text.prefix(1).uppercased() + text.dropFirst() }
+
+    /// Seconds cut to the whole minutes `DurationText.compact` shows.
+    private static func shownMinutes(_ seconds: TimeInterval) -> TimeInterval {
+        TimeInterval((DurationText.wholeSeconds(seconds) ?? 0) / 60 * 60)
+    }
 
     /// The two-hour window as `9–11am`, `11am–1pm` or `12–2am`.
     private static func windowLabel(_ startHour: Int) -> String {

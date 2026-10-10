@@ -8,7 +8,7 @@ import FoundationModels
 enum AskModelChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("Ask says plainly why it cannot answer, for every availability and error", noticesCoverEveryCase),
-        ("Each Ask tool returns the lookup it names, and bad arguments fall back", toolsMatchLookups),
+        ("Each Ask tool returns the lookup it names, and a period that does not exist is refused", toolsMatchLookups),
         ("Ask's Used line lists each lookup in order, and a new question clears it", provenanceRecordsLookups),
         ("A blank Ask question is ignored", blankQuestionIsIgnored),
         ("Opening Ask twice builds its model once", askModelIsBuiltOnce),
@@ -115,19 +115,28 @@ enum AskModelChecks: CheckSuite {
             let hours = BestHoursTool(model: model, generation: generation)
             let find = FindSessionsTool(model: model, generation: generation)
             let apps = AppTimeTool(model: model, generation: generation)
+            let compare = CompareFocusTool(model: model, generation: generation)
             let cases: [(String, AskRequest, @MainActor () async -> String)] = [
                 ("focusTotals", .focusTotals(.thisWeek, words: nil),
                  { await totals.call(arguments: .init(range: "this week", words: nil)) }),
                 ("focusTotals with words", .focusTotals(.lastMonth, words: "thesis"),
                  { await totals.call(arguments: .init(range: "last month", words: "thesis")) }),
-                ("focusTotals with an unknown range", .focusTotals(.thisWeek, words: nil),
-                 { await totals.call(arguments: .init(range: "nonsense", words: nil)) }),
+                ("focusTotals for a named month", .focusTotals(.month(year: 2023, month: 10), words: nil),
+                 { await totals.call(arguments: .init(range: "2023-10", words: nil)) }),
                 ("focusTotals with empty words", .focusTotals(.thisWeek, words: nil),
                  { await totals.call(arguments: .init(range: "this week", words: "")) }),
+                ("compareFocus", .compare(.thisWeek, with: .day(year: 2023, month: 10, day: 17), words: nil),
+                 { await compare.call(arguments: .init(first: "this week", second: "2023-10-17", words: nil)) }),
+                ("focusTotals for a weekday by name", .focusTotals(.day(year: 2023, month: 11, day: 13), words: nil),
+                 { await totals.call(arguments: .init(range: "Monday", words: nil)) }),
                 ("bestHours", .bestHours(.last30Days),
                  { await hours.call(arguments: .init(range: "last 30 days")) }),
+                ("bestHours with no period", .bestHours(.allTime),
+                 { await hours.call(arguments: .init(range: nil)) }),
                 ("findSessions", .findSessions(words: "thesis", .allTime),
                  { await find.call(arguments: .init(words: "thesis", range: "all time")) }),
+                ("findSessions with no words", .findSessions(words: "", .thisWeek),
+                 { await find.call(arguments: .init(words: nil, range: "this week")) }),
                 ("appTime", .appTime(.thisWeek, app: "safari"),
                  { await apps.call(arguments: .init(range: "this week", app: "safari")) }),
                 ("appTime with an empty app", .appTime(.today, app: nil),
@@ -143,6 +152,25 @@ enum AskModelChecks: CheckSuite {
             }
             let used = "Used: " + cases.map { $0.1.provenance }.joined(separator: " · ")
             expect(model.used == used, "the tools recorded “\(model.used)”, not “\(used)”", &problems)
+
+            // A period the calendar lacks is said to be so, and looks nothing
+            // up: it once fell back to this week and answered from it.
+            let refusals: [(String, String, @MainActor () async -> String)] = [
+                ("focusTotals", "2023-02-31", { await totals.call(arguments: .init(range: "2023-02-31", words: nil)) }),
+                ("compareFocus", "nonsense",
+                 { await compare.call(arguments: .init(first: "this week", second: "nonsense", words: nil)) }),
+                ("bestHours", "2023-13", { await hours.call(arguments: .init(range: "2023-13")) }),
+                ("findSessions", "2023-02-30", { await find.call(arguments: .init(words: nil, range: "2023-02-30")) }),
+                ("appTime", "nonsense", { await apps.call(arguments: .init(range: "nonsense", app: nil)) }),
+            ]
+            for (label, raw, call) in refusals {
+                let outcome = Outcome()
+                Task { @MainActor in outcome.text = await call() }
+                InstalledAppCatalog.turnRunLoop(until: { outcome.text != nil }, timeout: 5)
+                expect(outcome.text == AskFacts.noSuchPeriod(raw),
+                       "\(label) given “\(raw)” returned “\(outcome.text ?? "nothing")”", &problems)
+            }
+            expect(model.used == used, "a refused period was listed as a lookup: “\(model.used)”", &problems)
         }
     }
 

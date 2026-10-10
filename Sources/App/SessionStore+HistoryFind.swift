@@ -64,11 +64,13 @@ extension SessionStore {
     }
 
     /// The same list for any filter, so a lookup can search without touching
-    /// the one History is showing.
-    func historySearchHits(matching filter: HistoryFilter, limit: Int = 200) -> [HistorySearchHit] {
+    /// the one History is showing. An empty filter finds nothing, as an empty
+    /// search field does, unless `listingAll` asks for every session.
+    func historySearchHits(matching filter: HistoryFilter, limit: Int = 200,
+                           listingAll: Bool = false) -> [HistorySearchHit] {
         let calendar = Calendar.current
         let words = SearchWords.words(in: filter.query)
-        guard !words.isEmpty || filter.appBundleID != nil || filter.workType != nil else { return [] }
+        guard listingAll || !words.isEmpty || filter.appBundleID != nil || filter.workType != nil else { return [] }
         let formats = ["EEEE d MMMM yyyy", "d/M/yyyy", "h:mm a", "HH:mm"].map { DateFormats.australian($0) }
         let stable = DateFormatter()
         stable.locale = Locale(identifier: "en_US_POSIX")

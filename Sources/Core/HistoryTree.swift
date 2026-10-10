@@ -235,19 +235,27 @@ enum HistoryTreeBuilder {
                         calendar: Calendar) -> HistorySummary {
         let whole = row(HistoryPlace(level: top.place?.level ?? .year, span: top.span), byDate: byDate, live: live,
                         calendar: calendar)
-        let level = bestLevel(for: top)
+        return HistorySummary(focused: whole.focused, tracked: whole.tracked, focusedDays: whole.focusedDays,
+                              sessions: whole.sessions,
+                              best: best(bestLevel(for: top), in: top.span, byDate: byDate, live: live,
+                                         calendar: calendar))
+    }
+
+    /// The `level` period inside `span` with the most focus, each clipped to
+    /// the span; the earliest on a tie, and nil when none has any.
+    static func best(_ level: HistoryLevel, in span: DateInterval, byDate: [Date: HistoryDay], live: HistoryDay? = nil,
+                     calendar: Calendar) -> (place: HistoryPlace, focused: TimeInterval)? {
         var best: (place: HistoryPlace, focused: TimeInterval)?
-        var cursor = period(level, containing: top.span.start, calendar: calendar).start
-        while cursor < top.span.end {
+        var cursor = period(level, containing: span.start, calendar: calendar).start
+        while cursor < span.end {
             let whole = period(level, containing: cursor, calendar: calendar)
-            if let span = whole.intersection(with: top.span), span.duration > 0 {
-                let candidate = row(HistoryPlace(level: level, span: span), byDate: byDate, live: live, calendar: calendar)
+            if let part = whole.intersection(with: span), part.duration > 0 {
+                let candidate = row(HistoryPlace(level: level, span: part), byDate: byDate, live: live, calendar: calendar)
                 if candidate.focused > (best?.focused ?? 0) { best = (candidate.place, candidate.focused) }
             }
             cursor = whole.end
         }
-        return HistorySummary(focused: whole.focused, tracked: whole.tracked, focusedDays: whole.focusedDays,
-                              sessions: whole.sessions, best: best)
+        return best
     }
 
     /// The best month of a year or the record; the best day of a month or week.

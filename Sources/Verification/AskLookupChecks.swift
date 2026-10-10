@@ -118,14 +118,16 @@ enum AskLookupChecks: CheckSuite {
     private static func focusTotalsMatchHistory() -> [String] {
         withFixture { f, problems in
             let text = f.store.askLookup(.focusTotals(.thisWeek, words: nil))
-            let lead = "This week: 2h 30m focused over 2 sessions on 2 days; best day Tue 14 Nov, 1h 30m."
+            let lead = "This week (13 Nov – 19 Nov): 2h 30m focused over 2 sessions on 2 days, an average of 1h 15m on each day with focus; "
+                + "the most focused day was Tue 14 Nov, with 1h 30m; "
+                + "the longest finished session was Parser on Tue 14 Nov, 1h 30m."
             expect(text.hasPrefix(lead), "this week's totals say “\(text)”, not “\(lead)…”", &problems)
 
             let week = AskRange.thisWeek.interval(now: f.clock.value, firstDay: f.store.historyTop().firstDay,
                                                   calendar: f.calendar)
             let summary = f.store.historySummary(for: HistoryPlace(level: .week, span: week))
             expect(summary.focused == 9_000, "History reads \(summary.focused)s for the week, not 9000s", &problems)
-            expect(text.hasPrefix("This week: \(DurationText.compact(summary.focused)) focused over "
+            expect(text.hasPrefix("This week (13 Nov – 19 Nov): \(DurationText.compact(summary.focused)) focused over "
                                   + "\(summary.sessions) sessions on \(summary.focusedDays) days"),
                    "Ask's week differs from History's: “\(text)”", &problems)
 
@@ -137,9 +139,10 @@ enum AskLookupChecks: CheckSuite {
                 expect(!text.contains(day), "the answer names \(day), a day that has not come: “\(text)”", &problems)
             }
 
-            // One day is its own best and has no breakdown: neither is said.
+            // One day is its own best and has no breakdown: neither is said,
+            // but when its first session began is.
             let yesterday = f.store.askLookup(.focusTotals(.yesterday, words: nil))
-            expect(yesterday == "Yesterday: 1h 30m focused over 1 session on 1 day.",
+            expect(yesterday == "Yesterday (Tue 14 Nov): 1h 30m focused over 1 session on 1 day; the first session began at 2:00pm.",
                    "yesterday says “\(yesterday)”", &problems)
         }
     }
@@ -149,7 +152,7 @@ enum AskLookupChecks: CheckSuite {
             f.engine.start(workType: .deepWork, intent: "Thesis")
             f.clock.advance(20 * 60)
             let text = f.store.askLookup(.focusTotals(.today, words: nil))
-            expect(text == "Today: 20m focused over 1 session on 1 day.",
+            expect(text == "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am.",
                    "the running session's 20m, alone, reads “\(text)”", &problems)
         }
     }
@@ -157,7 +160,7 @@ enum AskLookupChecks: CheckSuite {
     private static func wordsNarrowTotals() -> [String] {
         withFixture { f, problems in
             let week = f.store.askLookup(.focusTotals(.thisWeek, words: "thesis"))
-            expect(week == "Sessions matching “thesis” this week: 1h over 1 session on 1 day.",
+            expect(week == "Sessions matching “thesis” this week (13 Nov – 19 Nov): 1h over 1 session on 1 day.",
                    "thesis this week says “\(week)”", &problems)
             let month = f.store.askLookup(.focusTotals(.lastMonth, words: "thesis"))
             expect(month.contains("2h"), "thesis last month says “\(month)”, not 2h", &problems)
@@ -168,12 +171,13 @@ enum AskLookupChecks: CheckSuite {
         withFixture { f, problems in
             let cases: [(AskRequest, String)] = [
                 // "thesis" matches the name, so no note is shown with it.
-                (.findSessions(words: "thesis", .thisWeek), "Mon 13 Nov · Thesis · 1h"),
-                (.findSessions(words: "outline", .thisWeek), "Mon 13 Nov · Thesis · 1h · note: chapter two outline"),
-                (.findSessions(words: "thesis", .lastMonth), "Tue 17 Oct · Thesis · 2h"),
+                (.findSessions(words: "thesis", .thisWeek), "Mon 13 Nov · 9:00am · Thesis · 1h"),
+                (.findSessions(words: "outline", .thisWeek), "Mon 13 Nov · 9:00am · Thesis · 1h · note: chapter two outline"),
+                (.findSessions(words: "thesis", .lastMonth), "Tue 17 Oct · 9:00am · Thesis · 2h"),
                 (.findSessions(words: "zebra", .thisWeek), "No sessions match “zebra” this week."),
                 // Monday's session sits on the day the last week ends at midnight.
-                (.findSessions(words: "thesis", .lastWeek), "No sessions match “thesis” last week."),
+                (.findSessions(words: "thesis", .lastWeek),
+                 "No sessions match “thesis” last week. In all your history:\nMon 13 Nov · 9:00am · Thesis · 1h\nTue 17 Oct · 9:00am · Thesis · 2h"),
             ]
             for (request, want) in cases {
                 let got = f.store.askLookup(request)
@@ -273,7 +277,7 @@ enum AskLookupChecks: CheckSuite {
             expect(f.store.historyDays.isEmpty, "History's index was built before any lookup", &problems)
 
             let first = f.store.askLookup(.focusTotals(.thisWeek, words: nil))
-            expect(first.hasPrefix("This week: 2h 30m focused over 2 sessions"),
+            expect(first.hasPrefix("This week (13 Nov – 19 Nov): 2h 30m focused over 2 sessions"),
                    "with History hidden, this week says “\(first)”", &problems)
             expect(!f.store.reviewVisible, "a lookup left History showing", &problems)
 
@@ -291,7 +295,7 @@ enum AskLookupChecks: CheckSuite {
             f.clock.advance(20 * 60)
             expect(f.engine.stop(), "the session did not stop", &problems)
             let later = f.store.askLookup(.focusTotals(.today, words: nil))
-            expect(later == "Today: 20m focused over 1 session on 1 day.",
+            expect(later == "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am.",
                    "after a saved session, today says “\(later)”", &problems)
             expect(!f.store.reviewVisible, "a lookup left History showing", &problems)
         }
