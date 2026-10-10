@@ -75,9 +75,12 @@ with the sandbox disabled. Otherwise leave it alone and say why.
 
 - If `$MAIN/graphify-out/` exists and code changed, run `graphify update .`
   in `$MAIN`.
-- If `Sources/` or `Assets/` changed, ask once: "Relaunch the app on the new
-  build?" On yes, run `./build.sh --run` in `$MAIN` with the sandbox disabled.
-  It replaces the local app, quits the running copy and opens the new one.
+- Never launch or relaunch the live app, and never run `./build.sh`,
+  `--test` or `--run` in `$MAIN`. Each replaces `$MAIN/Daybook.app`, and
+  each relaunches a copy running from it. The user opens Daybook from the
+  Dock, and its single-instance lock turns away a second copy. If `Sources/`
+  or `Assets/` changed, say the new build is on `main` and leave updating the
+  app to the user.
 
 ## 9. Report
 
@@ -86,5 +89,5 @@ Shipped <sha> "<subject>"
 origin/main <old>..<new>
 Checks: N/N on the merged tree (or: skipped, docs only)
 Main checkout: fast-forwarded | left alone (<reason>)
-App: relaunched | unchanged | not relaunched (user's choice)
+App: not touched (new build on main | docs only)
 ```
