@@ -193,10 +193,15 @@ struct HistorySessionPick: Hashable {
     /// The session whose full report is open over the story, or nil.
     @Published private(set) var reportSession: DaySession?
     @Published var settingsQuery: String = ""
-    private weak var store: SessionStore?
+    /// Read by `MainWindowModel+Ask.swift`, which cannot see a private one.
+    private(set) weak var store: SessionStore?
     /// Ask Daybook's model, built the first time Ask is opened, so with Ask
-    /// never used nothing of it exists.
-    private(set) var askModel: AskModel?
+    /// never used nothing of it exists. Set only in `MainWindowModel+Ask.swift`.
+    var askModel: AskModel?
+    /// Whether Ask's side panel is open, beside Story and History. It starts
+    /// closed at each launch. Set only in `MainWindowModel+Ask.swift` and by
+    /// `closeSheet()`.
+    @Published var askPanelOpen = false
 
     init(opening route: AppTab = .story,
          requestedDate: Date? = nil,
@@ -384,6 +389,27 @@ struct HistorySessionPick: Hashable {
         }
     }
 
+    /// A source that names a week, month or year: unfold History down to that
+    /// row and put the keyboard on it. The row is found by its level and its
+    /// first day, not its span, because a current period is listed with its
+    /// whole calendar span while History draws its row only to today. A period
+    /// outside the record has no row, and History opens at the top.
+    func openHistory(place: HistoryPlace) {
+        guard let store else { return }
+        let path = HistoryTreeBuilder.path(to: place.start, top: store.historyTop(), calendar: SessionStore.historyCalendar)
+        guard let index = path.firstIndex(where: { $0.level == place.level && $0.start == place.start }) else {
+            navigateHistory(to: nil)
+            return
+        }
+        animated(Tokens.Motion.reveal) {
+            historySession = nil
+            historyOpen = Array(path.prefix(through: index))
+            historyFocus = .row(path[index])
+            historyScrollTarget = path[index].id
+            historyScrollRequest &+= 1
+        }
+    }
+
     /// A session row clicked: the rail describes it. Its day is opened if
     /// it was not, so the row is on screen.
     func selectHistory(session thread: UUID, on day: Date) {
@@ -471,7 +497,15 @@ struct HistorySessionPick: Hashable {
 
     func closeSheet() {
         if sheet == .settings { focusRestorationRequest = .settings }
+        dismissSheet()
+    }
+
+    /// Takes the sheet down without handing focus back to the control that
+    /// opened it, for a caller that moves focus itself (Ask's side panel).
+    func dismissSheet() {
         sheet = nil
+        // A placement changed in Settings takes effect as Settings closes.
+        if askPanelOpen, askPlacement == .sheet { askPanelOpen = false }
     }
 
     func consumeFocusRestorationRequest() {
@@ -507,13 +541,6 @@ struct HistorySessionPick: Hashable {
 
     func openSettings() {
         openSheet(.settings)
-    }
-
-    /// ⌘K: builds Ask's model on first use and opens its sheet. Closing the
-    /// sheet keeps the model, so reopening shows the last answer.
-    func openAsk() {
-        if askModel == nil, let store { askModel = AskModel(store: store) }
-        openSheet(.ask)
     }
 
     /// Settings, on the Categories section, with the editor already open. The

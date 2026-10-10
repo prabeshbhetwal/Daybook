@@ -27,6 +27,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case zoom
     case timelineLabels
     case askButton
+    case askPlacement
     case entryDetails
     case idlePause
     case agentQuiet
@@ -75,6 +76,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .zoom: return \SettingsModel.interfaceZoom
         case .timelineLabels: return \SettingsModel.showsTimelineLabels
         case .askButton: return \SettingsModel.showsAskButton
+        case .askPlacement: return \SettingsModel.askPlacement
         case .entryDetails: return \SettingsModel.expandsEntryDetails
         case .idlePause: return \SettingsModel.idlePauseThreshold
         case .agentQuiet: return \SettingsModel.agentQuietPolicy
@@ -799,6 +801,11 @@ final class SettingsModel: ObservableObject {
     var showsAskButton: Bool {
         get { store.showsAskButton }
         set { write { store.showsAskButton = newValue } }
+    }
+
+    var askPlacement: AskPlacement {
+        get { store.askPlacement }
+        set { write { store.askPlacement = newValue } }
     }
 
     var interfaceLayout: InterfaceDensity.Layout { interfaceDensity.layout }

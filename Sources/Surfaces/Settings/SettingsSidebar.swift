@@ -156,7 +156,7 @@ extension SettingsSection {
                                "Show the session time in the menu bar", "Dock icon", "Keyboard",
                                "Start or end a session from any app", "Confirmations",
                                "Ask before changing how a break counts", "Ask before removing a session",
-                               "Ask Daybook", "Show Ask in the toolbar", "Open Ask"]
+                               "Ask Daybook", "Show Ask in the toolbar", "Open Ask", "Open Ask in"]
         case .focus: return ["Daily goal", "Usual pace compares with", "Suggest activities from",
                              "Streak counts a day after", "New sessions start as",
                              "Keep sessions longer than", "Offer to continue for"]
@@ -192,7 +192,8 @@ extension SettingsSection {
 
     var mutableControlKeys: [SettingsControlKey] {
         switch self {
-        case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon, .confirmations, .askButton]
+        case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon, .confirmations, .askButton,
+                              .askPlacement]
         case .focus: return [.dailyGoal, .paceWindow, .suggestionWindow, .streakMinimum, .defaultCategory,
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
@@ -232,6 +233,7 @@ extension SettingsControlKey {
         case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
         case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]
         case .askButton: return ["Apple Intelligence", "Question", "Command-K", "Sparkles", "Assistant"]
+        case .askPlacement: return ["Side panel", "Sheet", "Sidebar", "Inspector", "Panel"]
         default: return []
         }
     }

@@ -40,6 +40,7 @@ final class PersistenceStore {
         static let appearanceRawValue = "fc.appearancePreference"
         static let showsTimelineLabels = "fc.showsTimelineLabels"
         static let showsAskButton = "fc.showsAskButton"
+        static let askPlacement = "fc.askPlacement"
         static let pendingPowerObservations = "fc.pendingPowerObservations"
         static let pendingPowerTransfers = "fc.pendingPowerTransfers"
         static let pendingPowerMetadataError = "fc.pendingPowerMetadataError"
@@ -780,6 +781,13 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.showsAskButton) }
     }
 
+    /// Where Ask opens: a sheet over the window, or a panel beside Story and
+    /// History. A value this build cannot read opens the sheet.
+    var askPlacement: AskPlacement {
+        get { defaults.string(forKey: Key.askPlacement).flatMap(AskPlacement.init(rawValue:)) ?? .sheet }
+        set { defaults.set(newValue.rawValue, forKey: Key.askPlacement) }
+    }
+
     /// Decodes a stored value. Bytes this build cannot read are kept aside
     /// first: the caller falls back to a default, and its next save would
     /// otherwise write over the only copy.
@@ -837,7 +845,7 @@ final class PersistenceStore {
                     Key.storyTileOrderRawValue,
                     Key.expandsEntryDetails,
                     Key.interfaceDensityRawValue, Key.interfaceZoom, Key.appearanceRawValue,
-                    Key.showsTimelineLabels, Key.showsAskButton, Key.pendingPowerObservations,
+                    Key.showsTimelineLabels, Key.showsAskButton, Key.askPlacement, Key.pendingPowerObservations,
                     Key.pendingPowerTransfers,
                     Key.pendingPowerMetadataError, Key.activityRules,
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
