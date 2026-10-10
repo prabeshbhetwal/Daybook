@@ -12,7 +12,33 @@ enum HapticsChecks: CheckSuite {
         ("Haptic feedback is off until turned on, and the switch is saved", settingWritesThrough),
         ("The player stays silent while off and sends one pulse per moment while on", playerGating),
         ("Try explains what it reached in words", tryMessages),
+        ("A pulse that finds the mouse gone looks for it again and is sent once more", resendAfterReconnect),
     ]
+
+    /// The mouse sleeps while you are away and comes back as a new device;
+    /// the first pulse after that, usually the away question, must not be lost.
+    private static func resendAfterReconnect() -> [String] {
+        var problems: [String] = []
+        var attempts = 0, reconnects = 0
+        var outcomes = [false, true]
+        let delivered = MouseHaptics.sendRetryingOnce({ attempts += 1; return outcomes.removeFirst() },
+                                                      reconnect: { reconnects += 1; return true })
+        expect(delivered && attempts == 2 && reconnects == 1,
+               "a failed send reconnects once and sends again, got delivered=\(delivered) attempts=\(attempts) reconnects=\(reconnects)",
+               &problems)
+
+        attempts = 0; reconnects = 0
+        _ = MouseHaptics.sendRetryingOnce({ attempts += 1; return true },
+                                          reconnect: { reconnects += 1; return true })
+        expect(attempts == 1 && reconnects == 0, "a send that works is not repeated", &problems)
+
+        attempts = 0; reconnects = 0
+        let gone = MouseHaptics.sendRetryingOnce({ attempts += 1; return false },
+                                                 reconnect: { reconnects += 1; return false })
+        expect(!gone && attempts == 1 && reconnects == 1,
+               "a mouse that is really gone is not sent to again, got attempts=\(attempts)", &problems)
+        return problems
+    }
 
     private static func tryMessages() -> [String] {
         var problems: [String] = []

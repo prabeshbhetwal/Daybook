@@ -124,4 +124,11 @@ enum MouseHaptics {
                          waveform: UInt8) -> Bool {
         configuration.isEnabled && configuration.intensity > 0 && capabilities.supports(waveform)
     }
+
+    /// A send that fails usually means the mouse slept and came back as a new
+    /// device. Find it again and send once more, so the first pulse after a
+    /// return (the away question, as often as not) is not the one lost.
+    static func sendRetryingOnce(_ attempt: () -> Bool, reconnect: () -> Bool) -> Bool {
+        attempt() || (reconnect() && attempt())
+    }
 }

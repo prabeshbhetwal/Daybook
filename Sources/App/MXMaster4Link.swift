@@ -50,19 +50,29 @@ final class MXMaster4Link: MouseHapticLink {
     func play(_ waveform: UInt8) {
         work.async {
             if self.status != .ready { self.discover(force: false) }
-            guard self.status == .ready, let device = self.device, let index = self.featureIndex,
-                  let configuration = self.configuration, let capabilities = self.capabilities,
-                  MouseHaptics.playable(configuration: configuration, capabilities: capabilities,
-                                        waveform: waveform) else { return }
-            let request = HIDPP.request(feature: index, function: 4, softwareID: Self.softwareID,
-                                        parameters: [waveform, 0, 0])
-            // Asleep, switched to another computer, or gone: the next pulse
-            // finds the mouse again, with its feature index and settings.
-            if !Self.send(request, to: device) {
+            guard self.status == .ready else { return }
+            let delivered = MouseHaptics.sendRetryingOnce({ self.sendPlay(waveform) }, reconnect: {
+                self.discover(force: true)
+                return self.status == .ready
+            })
+            // Gone for good: a later pulse looks again, after the retry wait.
+            if !delivered {
                 self.release()
                 self.status = .closed
             }
         }
+    }
+
+    /// True when the mouse took the play, or when it has nothing it could
+    /// play (haptics off, waveform not offered); false only when the send fails.
+    private func sendPlay(_ waveform: UInt8) -> Bool {
+        guard let device, let index = featureIndex, let configuration, let capabilities else {
+            return false
+        }
+        guard MouseHaptics.playable(configuration: configuration, capabilities: capabilities,
+                                    waveform: waveform) else { return true }
+        return Self.send(HIDPP.request(feature: index, function: 4, softwareID: Self.softwareID,
+                                       parameters: [waveform, 0, 0]), to: device)
     }
 
     func rediscover(completion: @escaping (MouseLinkStatus) -> Void) {
