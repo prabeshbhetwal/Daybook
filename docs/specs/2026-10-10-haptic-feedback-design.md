@@ -192,6 +192,24 @@ Hand checks before shipping:
   idle level (no wakeups from movement reports).
 - Logi Options+ still applies its own button and haptic settings while
   Daybook is running.
+- Added after the review: Easy-Switch the mouse away and back, then press the
+  start/stop shortcut (not Try, which always looks the mouse up afresh): the
+  pulse is felt. And with haptics turned off in Logi Options+, a notice does
+  not pulse the mouse.
+
+## Implementation note (2026-10-10, during the build)
+
+§3 described one `IOHIDManager` with matching and removal callbacks. That
+traps: a device owned by a manager on a dispatch queue is activated with it,
+and registering its input-report callback afterwards fails with "Device has
+already been activated/cancelled". The built link has no manager. Each
+discovery creates a listening device object from the mouse's IOKit service
+and cancels it when the three answers are in; plays go through a second
+device object that never listens. There are no removal callbacks: a failed
+play looks the mouse up again and sends once more (check 701), and a failed
+discovery makes later pulses wait 10 s before looking again. A probe of the
+built link against the mouse: ready in 0.33 s, three pulses felt, and 10 s
+of continuous mouse movement afterwards cost 0.0004 s of CPU.
 
 ## 9. Evidence (probes, 2026-10-10, macOS 27, MacBook built-in trackpad, MX Master 4 over Bluetooth LE)
 
