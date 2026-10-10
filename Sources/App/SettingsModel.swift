@@ -266,6 +266,12 @@ extension EnvironmentValues {
     }
 }
 
+/// A form whose draft a relaunch would lose while it is open: an activity
+/// rule or a category being made or changed.
+protocol FormDraft: AnyObject {
+    var isOpen: Bool { get }
+}
+
 /// The Settings window's model. Wraps the `PersistenceStore` properties the
 /// window edits and tells the session store to refresh after each write, so a
 /// changed goal moves the ring and a changed threshold moves the away ladder
@@ -320,6 +326,9 @@ final class SettingsModel: ObservableObject {
     /// something else redrew them.
     let installedAppCatalog: InstalledAppCatalog
     private var catalogChanges: AnyCancellable?
+    /// The rule and category forms Settings and the category panel draw.
+    /// Held weakly: a form goes with the panel that drew it.
+    private let forms = NSHashTable<AnyObject>.weakObjects()
 
     init(store: PersistenceStore,
          isTrackingEnabled: Bool,
@@ -370,6 +379,15 @@ final class SettingsModel: ObservableObject {
     /// Whether Settings can hand over to Ask. Absent outside the running
     /// application, like the tour's row.
     var canOpenAsk: Bool { onOpenAsk != nil }
+
+    /// Counts a form in `holdsOpenForm`; tracking one twice keeps it once.
+    func track(_ form: FormDraft) { forms.add(form) }
+
+    /// Whether a rule or category form is open. A relaunch would lose its
+    /// draft, so an update's countdown waits for it.
+    var holdsOpenForm: Bool {
+        forms.allObjects.contains { ($0 as? FormDraft)?.isOpen == true }
+    }
 
     func openAsk() { onOpenAsk?() }
 
