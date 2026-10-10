@@ -580,7 +580,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         store.refresh()
         observeWindowRequests()
         applyPresence()
-        updater.isBusy = { [weak self] in self?.store.holdsUnsavedWork ?? false }
+        updater.isBusy = { [weak self] in
+            self.map { AppUpdater.wouldLoseWork(store: $0.store, settings: $0.settings) } ?? false
+        }
         updater.onRelaunch = { [weak self] in self?.machineEvents.markUpdateRelaunch() }
         settings.updater = updater
         // New or not by the welcome's own rule: recorded app use alone makes

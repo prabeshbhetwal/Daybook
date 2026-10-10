@@ -23,6 +23,12 @@ final class AppUpdater: NSObject, UpdateControlling, SPUUpdaterDelegate {
     @Published private(set) var lastCheck: Date?
     /// Whether a relaunch now would lose something; the countdown waits.
     var isBusy: () -> Bool = { false }
+
+    /// What `isBusy` asks in the running app: a note, the away question or a
+    /// naming in the window, or a rule or category form.
+    static func wouldLoseWork(store: SessionStore, settings: SettingsModel) -> Bool {
+        store.holdsUnsavedWork || settings.holdsOpenForm
+    }
     /// Runs just before Sparkle quits the app to reopen the new version.
     var onRelaunch: () -> Void = {}
     private var controller: SPUStandardUpdaterController?

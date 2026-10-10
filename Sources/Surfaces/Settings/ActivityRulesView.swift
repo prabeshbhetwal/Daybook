@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-final class ActivityRuleEditorState: ObservableObject {
+final class ActivityRuleEditorState: ObservableObject, FormDraft {
     @Published var selectedID: UUID?
     @Published var name = ""
     @Published var workType: WorkType = .deepWork
@@ -24,6 +24,8 @@ final class ActivityRuleEditorState: ObservableObject {
     var consumedFocusRequest = 0
 
     func requestFocus() { focusRequest += 1 }
+
+    var isOpen: Bool { selectedID != nil }
 
     func edit(_ rule: ActivityRule) {
         selectedID = rule.id; name = rule.name; workType = rule.workType

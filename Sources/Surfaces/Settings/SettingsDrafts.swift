@@ -16,6 +16,9 @@ final class SettingsDrafts {
         if let drafts = held.object(forKey: model) { return drafts }
         let drafts = SettingsDrafts()
         held.setObject(drafts, forKey: model)
+        // A relaunch would lose them too: an update waits while one is open.
+        model.track(drafts.rule)
+        model.track(drafts.category)
         return drafts
     }
 }
