@@ -11,6 +11,7 @@ enum StoryRenderEvidence: String, Hashable {
     case historyDayRail
     case historySessionRail
     case historySearchRail
+    case historySoFar
     case activityQuietChoice
     case firstRunWelcome
     case firstRunFirstSession
