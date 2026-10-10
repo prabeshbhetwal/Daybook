@@ -217,14 +217,14 @@ enum SessionMetadataJournalChecks: CheckSuite {
                && archive.appendPower(reading(0), for: kept) == .saved
                && archive.appendPower(reading(10), for: kept) == .saved
                && archive.appendPower(reading(1), for: removed) == .saved
-               && archive.retain(recordIDs: [kept]) == .saved
+               && archive.retain(recordIDs: [kept, bare]) == .saved
                && archive.reassignPower(from: kept, to: moved,
                                         atOrAfter: SelfTest.base.addingTimeInterval(300)) == .saved,
                "could not seed readings, a removal and a move", &problems)
         var minute = 20.0
         while journalLines(directory) < SessionMetadataArchive.journalCompactionThreshold - 1 {
-            guard archive.appendPower(reading(minute), for: moved) == .saved else {
-                return problems + ["could not fill the journal"]
+            guard archive.appendPower(reading(minute), for: moved) == .saved, minute < 2_000 else {
+                return problems + ["could not fill the journal (\(journalLines(directory)) lines)"]
             }
             minute += 1
         }
