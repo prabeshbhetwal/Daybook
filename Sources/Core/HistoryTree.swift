@@ -304,7 +304,7 @@ enum HistoryTreeBuilder {
         var level: HistoryLevel? = top.rootLevel
         while let current = level, current <= .week {
             let whole = period(current, containing: top.today, calendar: calendar)
-            guard let span = whole.intersection(with: bounds) else { break }
+            guard let span = whole.intersection(with: bounds), span.duration > 0 else { break }
             result.append(HistoryPlace(level: current, span: span))
             bounds = span
             level = current.child
@@ -320,7 +320,7 @@ enum HistoryTreeBuilder {
         var level: HistoryLevel? = top.rootLevel
         while let current = level {
             let whole = period(current, containing: day, calendar: calendar)
-            guard let span = whole.intersection(with: bounds) else { break }
+            guard let span = whole.intersection(with: bounds), span.duration > 0 else { break }
             result.append(HistoryPlace(level: current, span: span))
             bounds = span
             level = current.child
