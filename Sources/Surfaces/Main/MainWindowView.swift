@@ -32,7 +32,8 @@ struct MainWindowView: View {
     var body: some View {
       GeometryReader { geometry in
         VStack(spacing: 0) {
-            StoryChromeBar(store: store, navigation: navigation)
+            StoryChromeBar(store: store, navigation: navigation,
+                           showsAsk: AskChromeButton.isShown(switchOn: settings.showsAskButton))
                 .accessibilitySortPriority(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)

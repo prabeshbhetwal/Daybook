@@ -16,6 +16,12 @@ enum StoryStyle {
     /// as text it was 2:1 in light mode. This is Apple's high-contrast orange.
     static let attentionInk = Color(lightHex: 0xC93400, darkHex: 0xFF9F0A)
     static let successWash = Color(lightHex: 0xEFF8EF, darkHex: 0x25352B)
+    /// Ask's sparkles: blue to violet to pink, the colours assistants wear.
+    /// Each stop keeps 3:1 against the elevated fill in both appearances.
+    static let askSparkles = LinearGradient(
+        colors: [Color(lightHex: 0x2F6BFF, darkHex: 0x6EA0FF), Color(lightHex: 0x8E4CF0, darkHex: 0xB98CFF),
+                 Color(lightHex: 0xD93A73, darkHex: 0xFF7EAA)],
+        startPoint: .topLeading, endPoint: .bottomTrailing)
     /// The Mac's states inside a hole in the day. Each step further from the
     /// desk is more ink: darker in light appearance, lighter in dark.
     static let macLocked = Color(lightHex: 0x9C9CA5, darkHex: 0x636369)

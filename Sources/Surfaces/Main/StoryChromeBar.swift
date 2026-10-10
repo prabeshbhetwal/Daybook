@@ -6,8 +6,8 @@ enum StoryChromeFocus: Hashable {
 }
 
 /// The window's one chrome row, in the design's order: clearance for the native
-/// traffic lights, the scope, the period it resolves to, the live session, and
-/// Settings. It never scrolls and it is the only global navigation.
+/// traffic lights, the scope, the period it resolves to, the live session, Ask
+/// and Settings. It never scrolls and it is the only global navigation.
 enum ChromeSessionControl {
     /// The story's chrome holds the full controls, so it has no small pill;
     /// History's chrome holds its own centre, so the pill is its way back to
@@ -18,6 +18,9 @@ enum ChromeSessionControl {
 struct StoryChromeBar: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
+    /// Whether Ask's button is in the bar: Ask can run on this Mac and the
+    /// Settings switch is on.
+    var showsAsk = false
     @FocusState private var focusedControl: StoryChromeFocus?
     /// The activity field in the bar, so ⌘7 and the tour can hand it the cursor.
     @FocusState private var intentFocused: Bool
@@ -40,6 +43,9 @@ struct StoryChromeBar: View {
                     .transition(Tokens.Motion.transition(
                         .opacity.combined(with: .scale(scale: 0.9)), reduceMotion: reduceMotion))
                     .coachAnchor(.sessionControl)
+            }
+            if showsAsk {
+                AskChromeButton { navigation.openAsk() }
             }
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")

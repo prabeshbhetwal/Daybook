@@ -76,12 +76,19 @@ is known. Native controls preserve visible keyboard focus.
 ## Chrome bar
 
 One row: a slot for the way back, the workspace's controls, the session
-control, Settings. The slot is the width of one round button and is empty on
+control, Ask, Settings. The slot is the width of one round button and is empty on
 the Story; History puts a bare back arrow in it. The Story's controls are its
 day arrows and date, with a History link; History's is Jump to date, which
 opens the calendar. The bar holds controls and the way back, never a title, and
 History's search heads its page rather than sitting in the bar. The
 session control never wraps.
+
+Ask is a capsule, not a circle: the sparkles and the word "Ask", because an
+icon alone would leave Ask as hidden as ⌘K. The sparkles take the
+`askSparkles` gradient; Apple's Apple Intelligence glyph may only name
+Apple Intelligence, so it appears only in the Ask sheet's line saying who
+answers. Short of room, the word goes and the sparkles stay. The button is
+absent on a Mac that can never run Ask and when its Settings switch is off.
 
 ## Vocabulary
 

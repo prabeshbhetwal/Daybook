@@ -39,6 +39,7 @@ final class PersistenceStore {
         static let interfaceZoom = "fc.interfaceZoom"
         static let appearanceRawValue = "fc.appearancePreference"
         static let showsTimelineLabels = "fc.showsTimelineLabels"
+        static let showsAskButton = "fc.showsAskButton"
         static let pendingPowerObservations = "fc.pendingPowerObservations"
         static let pendingPowerTransfers = "fc.pendingPowerTransfers"
         static let pendingPowerMetadataError = "fc.pendingPowerMetadataError"
@@ -768,6 +769,17 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.showsTimelineLabels) }
     }
 
+    /// Whether the window's bar shows the Ask button. On by default: ⌘K alone
+    /// is found only by someone who already knows it is there.
+    var showsAskButton: Bool {
+        get {
+            guard let value = defaults.object(forKey: Key.showsAskButton) as? NSNumber,
+                  CFGetTypeID(value) == CFBooleanGetTypeID() else { return true }
+            return value.boolValue
+        }
+        set { defaults.set(newValue, forKey: Key.showsAskButton) }
+    }
+
     /// Decodes a stored value. Bytes this build cannot read are kept aside
     /// first: the caller falls back to a default, and its next save would
     /// otherwise write over the only copy.
@@ -825,7 +837,7 @@ final class PersistenceStore {
                     Key.storyTileOrderRawValue,
                     Key.expandsEntryDetails,
                     Key.interfaceDensityRawValue, Key.interfaceZoom, Key.appearanceRawValue,
-                    Key.showsTimelineLabels, Key.pendingPowerObservations,
+                    Key.showsTimelineLabels, Key.showsAskButton, Key.pendingPowerObservations,
                     Key.pendingPowerTransfers,
                     Key.pendingPowerMetadataError, Key.activityRules,
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,

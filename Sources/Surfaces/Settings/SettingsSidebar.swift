@@ -68,7 +68,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     /// What the page is about, under its title in the detail.
     var summary: String {
         switch self {
-        case .general: return "Starting at login, and where Daybook shows: menu bar and Dock."
+        case .general: return "Starting at login, where Daybook shows (menu bar and Dock), and Ask Daybook."
         case .sessions: return "Your goal, your categories, and what starts a session by itself."
         case .activities: return "Rules that start and name a session from the apps you are in."
         case .awayAndBreaks: return "What happens when you step away, and when to be reminded to rest."
@@ -155,7 +155,8 @@ extension SettingsSection {
         case .general: return ["Open at login", "Show the icon in the menu bar",
                                "Show the session time in the menu bar", "Dock icon", "Keyboard",
                                "Start or end a session from any app", "Confirmations",
-                               "Ask before changing how a break counts", "Ask before removing a session"]
+                               "Ask before changing how a break counts", "Ask before removing a session",
+                               "Ask Daybook", "Show Ask in the toolbar", "Open Ask"]
         case .focus: return ["Daily goal", "Usual pace compares with", "Suggest activities from",
                              "Streak counts a day after", "New sessions start as",
                              "Keep sessions longer than", "Offer to continue for"]
@@ -191,7 +192,7 @@ extension SettingsSection {
 
     var mutableControlKeys: [SettingsControlKey] {
         switch self {
-        case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon, .confirmations]
+        case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon, .confirmations, .askButton]
         case .focus: return [.dailyGoal, .paceWindow, .suggestionWindow, .streakMinimum, .defaultCategory,
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
@@ -230,6 +231,7 @@ extension SettingsControlKey {
         case .keepAwake: return ["Keep awake", "Caffeine", "Caffeinate", "Amphetamine", "KeepingYouAwake"]
         case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
         case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]
+        case .askButton: return ["Apple Intelligence", "Question", "Command-K", "Sparkles", "Assistant"]
         default: return []
         }
     }
