@@ -127,7 +127,8 @@ extension SessionStore {
         let apps = activity.appRanks
         let text = SessionShape.storyProse(.init(segments: segments, activity: activity,
                                                  workType: session.workType,
-                                                 stretches: session.stretches, worked: session.worked))
+                                                 stretches: session.stretches, worked: session.worked,
+                                                 machineEvents: machineEvents(on: day)))
         let bounds = session.end > session.start ? DateInterval(start: session.start, end: session.end) : nil
         let bins = bounds.map { SessionShape.bins(activity: activity, in: $0) } ?? []
         let notes = Self.sessionEvidenceNotes(

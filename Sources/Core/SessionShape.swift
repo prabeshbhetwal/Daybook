@@ -155,16 +155,21 @@ enum SessionShape {
         /// Canonical foreground projection, when the caller already knows the
         /// supplied session spans. Older callers can still provide segments.
         let activity: RecordedActivity
+        /// The day's machine events, which say whether a stretch that ended
+        /// `.systemLock` was a lock, a sleep or a quit. Empty before the log.
+        let machineEvents: [MachineEvent]
 
         init(segments: [TimelineSegment],
              workType: WorkType,
              stretches: Int,
-             worked: TimeInterval) {
+             worked: TimeInterval,
+             machineEvents: [MachineEvent] = []) {
             let visible = segments.filter { $0.seconds > 0 }.sorted { $0.start < $1.start }
             self.segments = visible
             self.workType = workType
             self.stretches = stretches
             self.worked = worked
+            self.machineEvents = machineEvents
             if let first = visible.map(\.start).min(), let last = visible.map(\.end).max(), last > first {
                 // Compatibility callers expose worked time but not the session
                 // spans. Preserve their former missing-recording qualification
@@ -177,12 +182,14 @@ enum SessionShape {
         }
 
         init(segments: [TimelineSegment], activity: RecordedActivity,
-             workType: WorkType, stretches: Int, worked: TimeInterval) {
+             workType: WorkType, stretches: Int, worked: TimeInterval,
+             machineEvents: [MachineEvent] = []) {
             self.segments = segments.filter { $0.seconds > 0 }.sorted { $0.start < $1.start }
             self.activity = activity
             self.workType = workType
             self.stretches = stretches
             self.worked = worked
+            self.machineEvents = machineEvents
         }
     }
 
@@ -248,24 +255,6 @@ enum SessionShape {
         return switches == 1
             ? "You moved between apps once."
             : "You moved between apps \(switches) times."
-    }
-
-    /// Stretches that ended because input stopped or the Mac locked. These are
-    /// recorded reasons, not inferences about what you were doing.
-    private static func awayClause(_ input: Input) -> String? {
-        let idle = input.segments.filter { $0.endReason == .idle }.count
-        let locked = input.segments.filter { $0.endReason == .systemLock }.count
-        var parts: [String] = []
-        if idle > 0 {
-            parts.append(idle == 1
-                         ? "input stopped once"
-                         : "input stopped \(idle) times")
-        }
-        if locked > 0 {
-            parts.append(locked == 1 ? "the Mac locked once" : "the Mac locked \(locked) times")
-        }
-        guard !parts.isEmpty else { return nil }
-        return "Along the way \(parts.joined(separator: " and "))."
     }
 
     /// Why time without input still counted. Only said when there was such

@@ -76,6 +76,7 @@ extension SelfTest {
             + MachineEventChecks.tests
             + MachineEventStoryChecks.tests
             + HapticsChecks.tests
+            + SessionShapeStopChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
