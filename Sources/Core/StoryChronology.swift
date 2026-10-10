@@ -38,11 +38,15 @@ enum StoryMoment: Identifiable, Equatable {
     case entry(DayEntry)
     case appUse(DateInterval, seconds: TimeInterval)
     case unrecorded(DateInterval, reason: StoryGapReason = .unknown)
+    /// A shut down, restart, quit or crash that left no hole of its own:
+    /// Daybook was back within the minute a hole needs. `resumed` is when.
+    case machine(MachineEvent, resumed: Date?)
 
     var start: Date {
         switch self {
         case .entry(let entry): return entry.start
         case .appUse(let span, _), .unrecorded(let span, _): return span.start
+        case .machine(let event, _): return event.at
         }
     }
 
@@ -50,6 +54,7 @@ enum StoryMoment: Identifiable, Equatable {
         switch self {
         case .entry(let entry): return entry.end
         case .appUse(let span, _), .unrecorded(let span, _): return span.end
+        case .machine(let event, _): return event.end
         }
     }
 
@@ -60,6 +65,7 @@ enum StoryMoment: Identifiable, Equatable {
         case .entry(.rest(let rest)): return "rest-" + rest.id.uuidString
         case .appUse(let span, _): return "app-\(span.start.timeIntervalSince1970)"
         case .unrecorded(let span, _): return "gap-\(span.start.timeIntervalSince1970)"
+        case .machine(let event, _): return "machine-\(event.kind.rawValue)-\(event.at.timeIntervalSince1970)"
         }
     }
 }
@@ -114,6 +120,7 @@ enum StoryChronology {
                                                                  events: machineEvents)))
             }
         }
+        result += pins(machineEvents, day: bounds, gaps: result)
         return result.sorted {
             $0.start == $1.start ? $0.id < $1.id : $0.start < $1.start
         }
@@ -128,13 +135,31 @@ enum StoryChronology {
     /// what idleness does, not why the hole is there: "No input" stands.
     static func gapReason(for gap: DateInterval, usage: [AppUsageSession],
                           events: [MachineEvent]) -> StoryGapReason {
-        let edge = gap.start.addingTimeInterval(-2)
-        let inside = events.filter { $0.at < gap.end && $0.end >= edge }.map(\.kind)
+        let inside = events.filter { $0.falls(in: gap) }.map(\.kind)
         let fallback = gapReason(endingAt: gap.start, in: usage)
         guard let cause = MachineEvent.Kind.gapCauses.first(where: { inside.contains($0.kind) })?.kind
         else { return fallback }
         if fallback == .idle, cause == .lock || cause == .displaySleep { return .idle }
         return .machine(cause)
+    }
+
+    /// A run's end that no hole already tells: a restart, quit or crash
+    /// Daybook came back from within the minute, or one after the day's last
+    /// recording. A gap's own events are inside its card. One inside a
+    /// session is pinned too: the session's shape names a stop only where a
+    /// recorded stretch ended at the lock screen, so it can miss a restart.
+    private static func pins(_ events: [MachineEvent], day: DateInterval,
+                             gaps moments: [StoryMoment]) -> [StoryMoment] {
+        let gaps = moments.compactMap { moment -> DateInterval? in
+            if case .unrecorded(let gap, _) = moment { return gap }
+            return nil
+        }
+        return events.filter { event in
+            MachineEvent.Kind.runEndings.contains(event.kind) && day.holds(event.at)
+                && !gaps.contains { event.falls(in: $0) }
+        }.map { event in
+            .machine(event, resumed: events.first { $0.kind == .daybookStarted && $0.at >= event.end }?.at)
+        }
     }
 
     /// The stretch that ended where the hole begins says why it ended. Only
