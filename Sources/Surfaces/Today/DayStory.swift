@@ -122,10 +122,16 @@ struct DayStory: View {
             case .item(let item):
                 if case .moment(.entry(.session)) = item { ids.append(item.id) }
                 if case .moment(.appUse) = item { ids.append(item.id) }
+                if case .moment(.unrecorded(_, let reason)) = item, StoryGapCard.unfolds(reason) {
+                    ids.append(item.id)
+                }
             case .quiet(let run):
                 ids.append("quiet-" + run.id)
                 for moment in run.moments {
                     if case .appUse = moment { ids.append(StoryTimelineItem.moment(moment).id) }
+                    if case .unrecorded(_, let reason) = moment, StoryGapCard.unfolds(reason) {
+                        ids.append(StoryTimelineItem.moment(moment).id)
+                    }
                 }
             }
         }
@@ -217,27 +223,17 @@ struct DayStory: View {
                 case .entry(let entry):
                     row(entry, isFirst: isFirst, isLast: isLast)
                 case .unrecorded(let span, let reason):
-                    let power = store.ambientPowerSummary(within: span)
-                    // The stretch before the hole says why it ended, when it
-                    // ended for input or the lock screen.
-                    let title = reason.title
-                    storyRow(time: span.start, tint: .secondary, dotSize: 5.zoomed,
+                    storyRow(time: span.start, tint: .secondary, dotSize: 5.zoomed, pin: reason.pin,
                              isFirst: isFirst, isLast: isLast) {
-                        HStack(alignment: .firstTextBaseline) {
-                            // Nothing was recorded but the Mac's power, which
-                            // is the one thing the row can honestly add.
-                            Text(title + (power.map { " · \($0.headline)" } ?? ""))
-                            Spacer(minLength: Tokens.Space.s)
-                            Text(durations: Tokens.duration(span.duration)).monospacedDigit()
-                        }
-                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
-                        .padding(.vertical, 10.zoomed)
-                        .help(reason.explanation ?? "")
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(title), \(Tokens.timeRange(span.start, span.end)). "
-                                            + (reason.explanation.map { "\($0) " } ?? "")
-                                            + (power.map { "Power: \($0.headline). " } ?? "")
-                                            + "This interval is not assumed to be work or rest.")
+                        StoryGapCard(span: span, reason: reason, anatomy: store.gapAnatomy(of: span),
+                                     power: store.ambientPowerSummary(within: span),
+                                     isOpen: opened.ids.contains(item.id),
+                                     onToggle: { toggle(item.id) })
+                    }
+                case .machine(let event, let resumed):
+                    storyRow(time: event.at, tint: .secondary, dotSize: 5.zoomed, pin: event.kind.pin,
+                             isFirst: isFirst, isLast: isLast) {
+                        StoryMachinePin(event: event, resumed: resumed)
                     }
                 case .appUse(let span, let seconds):
                     storyRow(time: span.start, tint: Tokens.Palette.app(rank: 1), dotSize: 7.zoomed,
@@ -367,6 +363,7 @@ struct DayStory: View {
     private func storyRow<Content: View>(time: Date,
                                          tint: Color,
                                          dotSize: CGFloat,
+                                         pin: StoryPin? = nil,
                                          isFirst: Bool,
                                          isLast: Bool,
                                          @ViewBuilder content: () -> Content) -> some View {
@@ -381,7 +378,7 @@ struct DayStory: View {
                 .frame(width: timeColumn, height: DayStory.dotCentre * 2, alignment: .trailing)
                 .accessibilityHidden(true)
             }
-            rail(tint: tint, dotSize: dotSize, isFirst: isFirst, isLast: isLast)
+            rail(tint: tint, dotSize: dotSize, pin: pin, isFirst: isFirst, isLast: isLast)
                 .frame(width: railColumn)
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -396,7 +393,8 @@ struct DayStory: View {
     /// time label is centred on.
     static var dotCentre: CGFloat { 19.zoomed }
 
-    private func rail(tint: Color, dotSize: CGFloat, isFirst: Bool, isLast: Bool) -> some View {
+    private func rail(tint: Color, dotSize: CGFloat, pin: StoryPin? = nil,
+                      isFirst: Bool, isLast: Bool) -> some View {
         GeometryReader { geometry in
             let dotCentre = DayStory.dotCentre
             ZStack(alignment: .top) {
@@ -405,18 +403,30 @@ struct DayStory: View {
                     .frame(width: 2.zoomed)
                     .padding(.top, isFirst ? dotCentre : 0)
                     .padding(.bottom, isLast ? max(0, geometry.size.height - dotCentre) : 0)
-                Circle()
-                    .fill(tint)
-                    .frame(width: dotSize, height: dotSize)
-                    .background(Circle().fill(StoryStyle.canvas)
-                        .frame(width: dotSize + 6.zoomed, height: dotSize + 6.zoomed))
-                    .background {
-                        if dotSize >= 13.zoomed {
-                            Circle().fill(tint.opacity(0.16))
-                                .frame(width: dotSize + 12.zoomed, height: dotSize + 12.zoomed)
+                if let pin {
+                    // A machine event wears its glyph on the rule in place of
+                    // a dot, ringed so it reads as a mark, not a session.
+                    Image(systemName: pin.symbol)
+                        .font(Tokens.Typography.micro)
+                        .foregroundStyle(pin.tint)
+                        .frame(width: 17.zoomed, height: 17.zoomed)
+                        .background(Circle().fill(StoryStyle.canvas))
+                        .overlay(Circle().strokeBorder(Color.secondary.opacity(0.45), lineWidth: 1))
+                        .offset(y: dotCentre - 17.zoomed / 2)
+                } else {
+                    Circle()
+                        .fill(tint)
+                        .frame(width: dotSize, height: dotSize)
+                        .background(Circle().fill(StoryStyle.canvas)
+                            .frame(width: dotSize + 6.zoomed, height: dotSize + 6.zoomed))
+                        .background {
+                            if dotSize >= 13.zoomed {
+                                Circle().fill(tint.opacity(0.16))
+                                    .frame(width: dotSize + 12.zoomed, height: dotSize + 12.zoomed)
+                            }
                         }
-                    }
-                    .offset(y: dotCentre - dotSize / 2)
+                        .offset(y: dotCentre - dotSize / 2)
+                }
             }
             .frame(maxWidth: .infinity)
         }

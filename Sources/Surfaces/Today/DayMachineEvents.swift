@@ -1,9 +1,10 @@
 import SwiftUI
 
 /// The day's machine events under its story: every sleep, wake, lock, quit,
-/// crash and start, each with its time. Folded at first: the holes above
-/// already name their causes, and this is the record behind them. An event
-/// found only afterwards shows the window it happened in.
+/// crash and start, each with its time, newest first like the story above.
+/// Folded at first: the holes above already unfold into what the Mac did,
+/// and this is the raw record behind them. An event found only afterwards
+/// shows the window it happened in.
 struct DayMachineEvents: View {
     let events: [MachineEvent]
     @State private var isOpen = false
@@ -12,7 +13,7 @@ struct DayMachineEvents: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Button { isOpen.toggle() } label: {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                    Text(events.count == 1 ? "1 Mac event" : "\(events.count) Mac events")
+                    Text(events.count == 1 ? "1 Mac event" : "All \(events.count) Mac events")
                         .font(Tokens.Typography.body)
                         .foregroundStyle(.secondary)
                     Spacer(minLength: Tokens.Space.xs)
@@ -30,7 +31,7 @@ struct DayMachineEvents: View {
             if isOpen {
                 Grid(alignment: .leadingFirstTextBaseline,
                      horizontalSpacing: Tokens.Space.m, verticalSpacing: Tokens.Space.xs) {
-                    ForEach(Array(events.enumerated()), id: \.offset) { _, event in
+                    ForEach(Array(events.reversed().enumerated()), id: \.offset) { _, event in
                         GridRow {
                             Text(time(of: event)).monospacedDigit()
                             Text(event.kind.title)

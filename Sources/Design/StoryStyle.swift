@@ -16,6 +16,13 @@ enum StoryStyle {
     /// as text it was 2:1 in light mode. This is Apple's high-contrast orange.
     static let attentionInk = Color(lightHex: 0xC93400, darkHex: 0xFF9F0A)
     static let successWash = Color(lightHex: 0xEFF8EF, darkHex: 0x25352B)
+    /// The Mac's states inside a hole in the day. Each step further from the
+    /// desk is more ink: darker in light appearance, lighter in dark.
+    static let macLocked = Color(lightHex: 0x9C9CA5, darkHex: 0x636369)
+    static let macAsleep = Color(lightHex: 0x6C6C75, darkHex: 0x98989F)
+    static let macOff = Color(lightHex: 0x3A3A3C, darkHex: 0xD1D1D6)
+    /// The stripes of time no event explains.
+    static let macHatch = Color(lightHex: 0xC4C4CC, darkHex: 0x5A5A5E)
     static let line = Color(light: NSColor.black.withAlphaComponent(0.07),
                             dark: NSColor.white.withAlphaComponent(0.09))
     static var columnInsets: EdgeInsets {
