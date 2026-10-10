@@ -76,7 +76,9 @@ enum ReviewNoteStoreEdgeChecks: CheckSuite {
     /// The record starts on 17 October, so October, and the week of 16 October,
     /// are only partly in it; November, December and the week of 6 November are
     /// whole. Sessions are added on 24 Oct, 8 Nov and 5 Dec, before History is
-    /// first read, and the clock moves to January so every period has finished.
+    /// first read. On 15 Nov, the current week of 13 Nov and that week cut short
+    /// have a whole week before them and are still not compared with it. The
+    /// clock then moves to January so every period has finished.
     private static func previousPeriodInRecord() -> [String] {
         AskLookupChecks.withFixture { f, problems in
             func date(_ month: Int, _ day: Int, hour: Int = 9, year: Int = 2023) -> Date {
@@ -88,11 +90,20 @@ enum ReviewNoteStoreEdgeChecks: CheckSuite {
                 return
             }
             f.store.setReviewVisible(true)
-            f.clock.value = date(1, 10, year: 2024)
             func observations(_ level: HistoryLevel, containing day: Date) -> [String] {
                 let period = HistoryPlace(level: level, span: HistoryTreeBuilder.period(level, containing: day, calendar: f.calendar))
                 return f.store.noteFacts(for: period)?.observations ?? ["no facts"]
             }
+            // The clock is on Wed 15 Nov: the week of 6 Nov is whole and in the record.
+            let running = observations(.week, containing: date(11, 14))
+            expect(!running.contains { $0.contains("than the week before") },
+                   "the week still running is compared with the week before: \(running)", &problems)
+            let cut = HistoryPlace(level: .week, span: DateInterval(start: f.calendar.startOfDay(for: date(11, 13)),
+                                                                    end: f.calendar.startOfDay(for: date(11, 15))))
+            let part = f.store.noteFacts(for: cut)?.observations ?? ["no facts"]
+            expect(!part.contains { $0.contains("than the week before") },
+                   "a week cut short on 15 November is compared with the whole week before: \(part)", &problems)
+            f.clock.value = date(1, 10, year: 2024)
             let november = observations(.month, containing: date(11, 14))
             expect(!november.contains { $0.contains("than the month before") },
                    "November is compared with a partly recorded October: \(november)", &problems)

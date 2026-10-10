@@ -31,6 +31,7 @@ enum NoteState: Equatable {
     private var failedKeys: Set<String> = []
     /// The key each place's `.written` or `.failed` state was published for,
     /// so a note shown for figures that have since moved can be told.
+    // ponytail: one key per place, never trimmed; cap it if that ever matters.
     private var publishedKeys: [String: String] = [:]
     private var running: Running?
     /// Places whose write was set aside for a newer request, oldest first.

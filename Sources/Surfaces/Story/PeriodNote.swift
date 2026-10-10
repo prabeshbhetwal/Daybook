@@ -7,8 +7,9 @@ import SwiftUI
 ///
 /// A note is shown whenever the writer holds one for the place, however the
 /// view came to be: an on-request note that was written, or one that failed
-/// when asked for, is there again when its view is rebuilt. Its link shows
-/// only while there is nothing to show.
+/// when asked for, is shown again when its view is rebuilt, unless its facts
+/// have changed since (`NoteWriter.forgetIfStale`), when its link returns. The
+/// link shows only while there is nothing to show.
 struct PeriodNote: View {
     enum Trigger {
         /// Written when the note appears.
