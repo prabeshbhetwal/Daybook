@@ -94,7 +94,7 @@ the log (about 1 ms) never moves the moment the engine reads.
 
 ## Checks
 
-693–703 (`MachineEventChecks`, `MachineEventStoryChecks`): the verdict table
+708–718 (`MachineEventChecks`, `MachineEventStoryChecks`): the verdict table
 (including a called-off shut down and another process's crash), the log's
 round trip (torn line, unknown kind), report dating and pid, the boot ID,
 quit-reason mapping, a full recorder round trip (deferred restart, called-off
