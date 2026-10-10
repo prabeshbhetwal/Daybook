@@ -104,10 +104,13 @@ private struct AnswerReader {
         }
         let days = (written + relative).sorted { $0.range.lowerBound < $1.range.lowerBound }
         // A month inside a day ("15 Sep") is part of that date, not a month named.
+        // A bare "may" is the verb unless it is capitalised: "You may do well".
         let months = Self.scan(Pattern.monthAlone, text).compactMap { match -> Month? in
             guard !days.contains(where: { $0.range.contains(match.range.lowerBound) }),
                   let month = Self.monthNumber(match.groups[0]) else { return nil }
-            return Month(range: match.range, month: month, year: match.groups[1].flatMap { Int($0) })
+            let year = match.groups[1].flatMap { Int($0) }
+            if month == 5, year == nil, match.groups[0]?.first?.isUppercase != true { return nil }
+            return Month(range: match.range, month: month, year: year)
         }
         // A year inside a date ("15 Sep 2026", "September 2026") is part of it.
         let dated = days.map(\.range) + months.map(\.range)

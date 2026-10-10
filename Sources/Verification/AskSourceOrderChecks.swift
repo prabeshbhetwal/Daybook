@@ -17,6 +17,7 @@ enum AskSourceOrderChecks: CheckSuite {
         ("Session names match whatever the case or accents", accentsAndCaseIgnored),
         ("Dates the picker cannot read fall back to each lookup's own place", unreadFormatsFallBackToAnchors),
         ("A place two lookups share is listed once, at its first place", sameTargetListedOnce),
+        ("The word may names May only when capitalised or written with a year", mayIsMonthOnlyWhenWritten),
     ]
 
     /// Every date comes from the calendar the picker is given, so the suite
@@ -36,6 +37,9 @@ enum AskSourceOrderChecks: CheckSuite {
         static let sep = AskLink(
             target: .period(HistoryPlace(level: .month, span: DateInterval(start: date(2026, 9, 1), end: date(2026, 10, 1)))),
             label: "September 2026", role: .totals)
+        static let may = AskLink(
+            target: .period(HistoryPlace(level: .month, span: DateInterval(start: date(2026, 5, 1), end: date(2026, 6, 1)))),
+            label: "May 2026", role: .totals)
         static let week = AskLink(
             target: .period(HistoryPlace(level: .week, span: DateInterval(start: date(2026, 10, 5), end: date(2026, 10, 12)))),
             label: "5 Oct \u{2013} 11 Oct", role: .bestWeek)
@@ -158,6 +162,14 @@ enum AskSourceOrderChecks: CheckSuite {
         var problems: [String] = []
         expectOrder("Tue 15 Sep.", [[Fixture.tue15], [Fixture.tue15, Fixture.sep]],
                     ["Tue 15 Sep", "September 2026 [anchor]"], &problems)
+        return problems
+    }
+
+    private static func mayIsMonthOnlyWhenWritten() -> [String] {
+        var problems: [String] = []
+        expectOrder("You may do well.", [[Fixture.may]], ["May 2026 [anchor]"], &problems)
+        expectOrder("In May you focused most.", [[Fixture.may]], ["May 2026"], &problems)
+        expectOrder("In may 2026 you focused most.", [[Fixture.may]], ["May 2026"], &problems)
         return problems
     }
 }
