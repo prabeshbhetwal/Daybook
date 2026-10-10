@@ -86,6 +86,7 @@ extension SelfTest {
             + GapUnexplainedStopChecks.tests
             + SheetQuitChecks.tests
             + UpdateFormHoldChecks.tests
+            + SessionMetadataJournalChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

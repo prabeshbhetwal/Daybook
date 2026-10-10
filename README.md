@@ -230,6 +230,13 @@ when the journal grows long, so the history is never trimmed. If a crash cuts
 the last line short, the next launch drops that one change and keeps
 everything before it.
 
+Notes and power readings for each session follow the same pattern:
+`session-metadata.json` (version 2) plus `session-metadata-journal.jsonl`.
+A power reading is one journal line rather than a rewrite of every session's
+metadata. A version 1 file is rewritten as version 2 before the first journal
+line, so a build that does not know the journal leaves it read-only rather than
+writing over changes it cannot see.
+
 Until October 2026 the app was called FocusContinuity. Its first launch under
 the new name carries the data folder and preferences across and deletes
 nothing.
