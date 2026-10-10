@@ -80,7 +80,13 @@ struct RunMarker: Codable, Equatable {
             // "Cancelled" is a claim too: it needs the boot or the login
             // session known. Without them only the quit is certain.
             let bootKnown = !marker.bootSessionID.isEmpty
+            // Another app's quit kept as the exit its reason named, as the
+            // build before the sender rule did: System Settings' Quit &
+            // Reopen carries macOS's own log-out reason.
+            let otherApp = marker.quitSender.flatMap { QuitSender.appName($0) }
             switch marker.exit {
+            case let exit? where otherApp != nil && [.restart, .shutDown, .logOut, .powerOffUnknown].contains(exit):
+                events.append(MachineEvent(kind: .quitByApp, at: lastSeen, detail: otherApp))
             case .restart?:
                 let kind: MachineEvent.Kind = rebooted ? .restart : bootKnown ? .restartCancelled : .quit
                 events.append(MachineEvent(kind: kind, at: lastSeen))
@@ -123,5 +129,25 @@ struct RunMarker: Codable, Equatable {
         }
         events.append(MachineEvent(kind: .daybookStarted, at: launch.now))
         return events
+    }
+}
+
+/// Who sent a quit, as the run marker keeps it: a bundle identifier, or an
+/// executable's path for a process without one.
+enum QuitSender {
+    /// loginwindow quits apps only for macOS's own log out, restart or shut down.
+    static func isMacOS(_ sender: String) -> Bool {
+        sender == "com.apple.loginwindow" || sender.hasSuffix("/loginwindow")
+    }
+
+    /// The name to show for another app that quit Daybook; nil for macOS's
+    /// own quits and the Dock's, which is the person's own Quit. System
+    /// Settings sends its Quit & Reopen from a privacy extension.
+    static func appName(_ sender: String, named name: String? = nil) -> String? {
+        guard !isMacOS(sender), sender != "com.apple.dock" else { return nil }
+        if sender == "com.apple.systempreferences" || sender.hasPrefix("com.apple.settings") {
+            return "System Settings"
+        }
+        return name ?? (sender.hasPrefix("/") ? (sender as NSString).lastPathComponent : sender)
     }
 }

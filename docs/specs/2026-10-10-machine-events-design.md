@@ -109,6 +109,19 @@ the event reads "Mac restarted or shut down", beside "Mac started up" and
 its time. The marker keeps the reason's four letters and the sender, so a
 surprising exit can be traced.
 
+Sir's hand check at 19:56 the same evening showed what System Settings
+actually sends: its Quit & Reopen comes from
+`com.apple.settings.PrivacySecurity.extension` with reason `rlgo`
+(`kAEReallyLogOut`), macOS's own log-out code, which is why AppKit announces
+a power-off for it. The first version of this fix let a reason win over the
+sender and kept it as a log out. The sender now decides first: a reason
+counts only from loginwindow or a sender that cannot be told. A marker the
+earlier build left with another app's sender is read at the next launch as
+that app's quit. After that Quit & Reopen, Launch Services reopened Daybook
+by bundle identifier and chose a stale copy (an old worktree's build), not
+the main checkout's quarantined one; stale registrations are a matter for
+where the live app lives.
+
 Three rules from the review of this fix:
 
 - "Cancelled" is a claim and needs evidence: a restart or shut down reads
