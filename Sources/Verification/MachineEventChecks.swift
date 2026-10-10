@@ -59,8 +59,8 @@ enum MachineEventChecks: CheckSuite {
                "a restart the boot confirms is recorded with the Mac's start, got \(describe(restart))", &problems)
         // Another app called the shut down off after Daybook had quit for it.
         let calledOff = RunMarker.previousRun(marker(exit: .shutDown), launch(rebooted: false))
-        expect(calledOff == [MachineEvent(kind: .quit, at: lastSeen), started],
-               "a shut down on the same boot was called off: Daybook quit, got \(describe(calledOff))", &problems)
+        expect(calledOff == [MachineEvent(kind: .shutDownCancelled, at: lastSeen), started],
+               "a shut down on the same boot was called off after Daybook quit, got \(describe(calledOff))", &problems)
         return problems
     }
 
@@ -95,7 +95,7 @@ enum MachineEventChecks: CheckSuite {
     private static func unfinishedPowerOff() -> [String] {
         var problems: [String] = []
         let events = RunMarker.previousRun(marker(exit: .powerOffUnknown), launch(rebooted: true))
-        expect(events == [MachineEvent(kind: .powerOffUnknown, at: lastSeen),
+        expect(events == [MachineEvent(kind: .restartOrShutDown, at: lastSeen),
                           MachineEvent(kind: .macStarted, at: booted),
                           MachineEvent(kind: .daybookStarted, at: now)],
                "a power-off with no quit after it is recorded once, got \(describe(events))", &problems)
@@ -170,7 +170,7 @@ enum MachineEventChecks: CheckSuite {
             (nil, false, .quit), (nil, true, .powerOffUnknown),
         ]
         for (reason, announced, expected) in cases {
-            let kind = MachineEventRecorder.exitKind(quitReason: reason, powerOffAnnounced: announced)
+            let kind = MachineEventRecorder.exit(for: .init(reason: reason), powerOffAnnounced: announced).kind
             expect(kind == expected, "reason \(String(describing: reason)) names \(expected), got \(kind)", &problems)
         }
         return problems
@@ -202,8 +202,8 @@ enum MachineEventChecks: CheckSuite {
         let announced = clock.value
         first.record(.powerOffUnknown)
         clock.advance(30)
-        first.recordExit(quitReason: OSType(kAERestart))
-        first.recordExit(quitReason: nil)
+        first.recordExit(.init(reason: OSType(kAERestart), sender: "com.apple.loginwindow"))
+        first.recordExit(nil)
         expect(kinds() == [.daybookStarted, .systemSleep],
                "a restart waits for the next boot to confirm it, got \(kinds())", &problems)
         expect(RunMarker.load(from: folder)?.exit == .restart, "the marker says the run restarted", &problems)
@@ -232,7 +232,7 @@ enum MachineEventChecks: CheckSuite {
         fourth.record(.powerOffUnknown)
         clock.advance(MachineEventRecorder.powerOffGrace + 10)
         fourth.record(.lock)
-        fourth.recordExit(quitReason: nil)
+        fourth.recordExit(nil)
         expect(kinds().last == .quit && RunMarker.load(from: folder)?.exit == .quit,
                "a power-off called off ends as a quit, got \(kinds())", &problems)
 
@@ -241,10 +241,10 @@ enum MachineEventChecks: CheckSuite {
         fifth.start(evidence: evidence("boot-2"))
         let before = kinds().count
         fifth.record(.powerOffUnknown)
-        fifth.recordExit(quitReason: nil)
+        fifth.recordExit(nil)
         clock.advance(120)
         launch("boot-3")
-        expect(Array(kinds().dropFirst(before)) == [.powerOffUnknown, .macStarted, .daybookStarted],
+        expect(Array(kinds().dropFirst(before)) == [.restartOrShutDown, .macStarted, .daybookStarted],
                "an unnamed power-off is recorded once, by the next launch, got \(kinds())", &problems)
         withExtendedLifetime(running) {}
         return problems

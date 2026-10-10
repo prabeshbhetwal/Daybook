@@ -78,6 +78,22 @@ final class MachineEventLog {
         }
         lastLineOpen = data.last.map { $0 != 0x0A } ?? false
         sortByTime()
+        events = Self.settlingUnnamedPowerOffs(events)
+    }
+
+    /// The first build wrote a power-off macOS announced without a reason as it
+    /// was found, though the announcement alone proves nothing: System Settings
+    /// quitting Daybook to apply a permission makes the same one. What came
+    /// next settles it — a "Mac started up" before the next "Daybook opened"
+    /// means the Mac went down; otherwise only Daybook quit. The file keeps
+    /// what was written.
+    static func settlingUnnamedPowerOffs(_ events: [MachineEvent]) -> [MachineEvent] {
+        events.enumerated().map { index, event in
+            guard event.kind == .powerOffUnknown else { return event }
+            let next = events[(index + 1)...].first { $0.kind == .macStarted || $0.kind == .daybookStarted }
+            return MachineEvent(kind: next?.kind == .macStarted ? .restartOrShutDown : .quit,
+                                at: event.at, latest: event.latest, detail: event.detail)
+        }
     }
 
     /// Found-afterwards events are written at the next launch, after newer

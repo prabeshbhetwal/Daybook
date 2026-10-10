@@ -33,7 +33,7 @@ struct DayMachineEvents: View {
                     ForEach(Array(events.enumerated()), id: \.offset) { _, event in
                         GridRow {
                             Text(time(of: event)).monospacedDigit()
-                            Text(event.kind.title)
+                            Text(event.title)
                         }
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(spoken(event))
@@ -52,9 +52,9 @@ struct DayMachineEvents: View {
 
     private func spoken(_ event: MachineEvent) -> String {
         guard let latest = event.latest else {
-            return "\(Tokens.timeOfDayOnly(event.at)), \(event.kind.title)"
+            return "\(Tokens.timeOfDayOnly(event.at)), \(event.title)"
         }
         return "Between \(Tokens.timeOfDayOnly(event.at)) and \(Tokens.timeOfDayOnly(latest)), "
-            + event.kind.title
+            + event.title
     }
 }
