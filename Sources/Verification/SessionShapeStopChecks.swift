@@ -25,9 +25,10 @@ enum SessionShapeStopChecks: CheckSuite {
     }
 
     /// The session's "Along the way" sentence, or nil when it has none.
-    private static func away(_ segments: [TimelineSegment], _ events: [MachineEvent]) -> String? {
+    private static func away(_ segments: [TimelineSegment], _ events: [MachineEvent],
+                             loggedSince: Date? = nil) -> String? {
         SessionShape.sentences(.init(segments: segments, workType: .deepWork, stretches: 1,
-                                     worked: 7_200, machineEvents: events))
+                                     worked: 7_200, machineEvents: events, eventLogStart: loggedSince))
             .first { $0.hasPrefix("Along the way") }
     }
 
@@ -94,29 +95,134 @@ enum SessionShapeStopChecks: CheckSuite {
     /// The card's prose is built in the App layer, which must hand the day's
     /// log to `SessionShape`.
     private static func sessionCardReadsTheLog() -> [String] {
-        MainActor.assumeIsolated {
-            var problems: [String] = []
-            let clock = TestClock(at(120))
+        var problems: [String] = []
+        let text = cardText(logging: [event(.systemSleep, 20 + 0.5 / 60), event(.wake, 25)])
+        expect(text.contains("Along the way the Mac slept once."),
+               "the session card names the sleep in the day's log, got \(text)", &problems)
+        return problems
+    }
+
+    /// The prose of a session card on `SelfTest.base`'s day, with `events` in
+    /// the store's log: Xcode until a `.systemLock` stop (minute 20 unless
+    /// given), then Safari 10 to 20 minutes after it.
+    private static func cardText(logging events: [MachineEvent], from: Date? = nil,
+                                 stop: Date? = nil) -> String {
+        let start = from ?? at(0), stop = stop ?? at(20)
+        let end = stop.addingTimeInterval(1_200)
+        return MainActor.assumeIsolated {
+            let clock = TestClock(stop.addingTimeInterval(6_000))
             let folder = SelfTest.scratchDirectory()
             let log = MachineEventLog(directory: folder)
-            log.append([event(.systemSleep, 20 + 0.5 / 60), event(.wake, 25)])
+            log.append(events)
             let usage = AppUsageArchive(directory: folder, now: { clock.value })
             _ = usage.record(AppUsageSession(bundleID: "com.apple.dt.Xcode", appName: "Xcode",
-                                             start: at(0), end: at(20), endReason: .systemLock))
+                                             start: start, end: stop, endReason: .systemLock))
             _ = usage.record(AppUsageSession(bundleID: "com.apple.Safari", appName: "Safari",
-                                             start: at(30), end: at(40), endReason: .appSwitch))
+                                             start: stop.addingTimeInterval(600), end: end,
+                                             endReason: .appSwitch))
             let store = SessionStore(engine: SelfTest.makeEngine(clock), now: { clock.value })
             store.attach(tracker: AppUsageTracker(archive: usage, ownBundleID: "fc.stop.test",
                                                   idle: .disabled, now: { clock.value }),
                          usage: usage)
             store.machineEventLog = log
             let session = DaySession(id: UUID(), threadID: UUID(), name: "Parser", workType: .deepWork,
-                                     start: at(0), end: at(40), worked: 2_400, stretches: 1,
-                                     spans: [DateInterval(start: at(0), end: at(40))], isRunning: false)
-            let text = store.storySessionDetail(session, on: SelfTest.base).text ?? ""
-            expect(text.contains("Along the way the Mac slept once."),
-                   "the session card names the sleep in the day's log, got \(text)", &problems)
-            return problems
+                                     start: start, end: end, worked: end.timeIntervalSince(start), stretches: 1,
+                                     spans: [DateInterval(start: start, end: end)], isRunning: false)
+            return store.storySessionDetail(session, on: SelfTest.base).text ?? ""
         }
+    }
+}
+
+/// Since the machine event log began, a lock leaves its own event. A stop
+/// with none — Spotlight, Control Centre or the Dock coming forward,
+/// recording turned off, Step away — is left out rather than called a lock.
+enum SessionShapeUnexplainedStopChecks: CheckSuite {
+    static let tests: [(String, () -> [String])] = [
+        ("A stop the event log has no event for is not called a lock",
+         SessionShapeStopChecks.unexplainedStopsLeftOut),
+        ("A session card knows when its machine event log began",
+         SessionShapeStopChecks.cardReadsTheLogStart),
+        ("A lock reported after the stop, before recording resumed, names it",
+         SessionShapeStopChecks.lateLockNamed),
+        ("A stop after a restart was announced belongs to it, counted once",
+         SessionShapeStopChecks.runEndingNamed),
+        ("A stop just before midnight is named by an event just after it",
+         SessionShapeStopChecks.midnightEventReached),
+    ]
+}
+
+extension SessionShapeStopChecks {
+    fileprivate static func unexplainedStopsLeftOut() -> [String] {
+        var problems: [String] = []
+        let started = event(.daybookStarted, -60)
+        let mixed = away([use(0, 20, .systemLock), use(30, 40, .systemLock), use(50, 60, .idle)],
+                         [started, event(.systemSleep, 20)], loggedSince: started.at)
+        expect(mixed == "Along the way input stopped once and the Mac slept once.",
+               "a stop with no event since the log began is left out, got \(mixed ?? "nil")", &problems)
+        let alone = away([use(0, 20, .systemLock)], [started], loggedSince: started.at)
+        expect(alone == nil, "unexplained stops alone say nothing, got \(alone ?? "nil")", &problems)
+        // The day the log began: a stop before its first event is still a lock.
+        let firstDay = away([use(0, 20, .systemLock), use(30, 40, .systemLock)],
+                            [event(.daybookStarted, 25)], loggedSince: at(25))
+        expect(firstDay == "Along the way the Mac locked once.",
+               "a stop from before the log is still a lock, got \(firstDay ?? "nil")", &problems)
+        return problems
+    }
+
+    fileprivate static func cardReadsTheLogStart() -> [String] {
+        var problems: [String] = []
+        let text = cardText(logging: [event(.daybookStarted, -60)])
+        expect(!text.contains("Along the way"),
+               "the card leaves out a stop the log has no event for, got \(text)", &problems)
+        return problems
+    }
+
+    fileprivate static func lateLockNamed() -> [String] {
+        var problems: [String] = []
+        let started = event(.daybookStarted, -60)
+        // A screen saver with a 5 s password delay.
+        let delayed = away([use(0, 20, .systemLock), use(30, 40, .appSwitch)],
+                           [started, event(.lock, 20 + 5 / 60.0)], loggedSince: started.at)
+        expect(delayed == "Along the way the Mac locked once.",
+               "a lock 5 s after the stop names it, got \(delayed ?? "nil")", &problems)
+        // The session's last stretch looks as far as its span's end.
+        let last = away([use(0, 20, .systemLock)], [started, event(.lock, 21)], loggedSince: started.at)
+        expect(last == "Along the way the Mac locked once.",
+               "a lock after the last stop names it, got \(last ?? "nil")", &problems)
+        // Once recording has begun again, a lock is not this stop's.
+        let resumed = away([use(0, 20, .systemLock), use(30, 40, .appSwitch)],
+                           [started, event(.lock, 35)], loggedSince: started.at)
+        expect(resumed == nil, "a lock after recording resumed names nothing, got \(resumed ?? "nil")", &problems)
+        return problems
+    }
+
+    fileprivate static func runEndingNamed() -> [String] {
+        var problems: [String] = []
+        let started = event(.daybookStarted, -60)
+        // Announced at minute 20; Daybook recorded on until it quit 30 s later.
+        let late = away([use(0, 20.5, .systemLock)], [started, event(.restart, 20)], loggedSince: started.at)
+        expect(late == "Along the way the Mac restarted once.",
+               "a stop after the announcement is the restart's, got \(late ?? "nil")", &problems)
+        let both = away([use(0, 20, .systemLock), use(20.2, 20.5, .systemLock)],
+                        [started, event(.restart, 20)], loggedSince: started.at)
+        expect(both == "Along the way the Mac restarted once.",
+               "one restart behind two stops counts once, got \(both ?? "nil")", &problems)
+        // Once Daybook has started again, an earlier ending explains nothing.
+        let relaunched = away([use(30, 40, .systemLock)],
+                              [started, event(.quit, 10), event(.daybookStarted, 11)], loggedSince: started.at)
+        expect(relaunched == nil, "an ending before a relaunch names nothing, got \(relaunched ?? "nil")", &problems)
+        return problems
+    }
+
+    fileprivate static func midnightEventReached() -> [String] {
+        var problems: [String] = []
+        let midnight = Calendar.current.dateInterval(of: .day, for: SelfTest.base)?.end ?? at(900)
+        let stop = midnight.addingTimeInterval(-0.5)
+        let text = cardText(logging: [event(.daybookStarted, -60),
+                                      MachineEvent(kind: .systemSleep, at: midnight.addingTimeInterval(0.3))],
+                            from: stop.addingTimeInterval(-1_200), stop: stop)
+        expect(text.contains("Along the way the Mac slept once."),
+               "a sleep 0.3 s after midnight names the stop before it, got \(text)", &problems)
+        return problems
     }
 }
