@@ -5,7 +5,7 @@ import AppKit
 /// colour it wears. Built-ins keep their meaning and can only change their
 /// look; a category the user made can also say whether watching counts, and
 /// can be retired and brought back.
-final class CategoryEditorState: ObservableObject {
+final class CategoryEditorState: ObservableObject, FormDraft {
     @Published var selectedID: String?
     @Published var name = ""
     @Published var symbolName = WorkTypeSymbols.fallback
@@ -38,6 +38,8 @@ final class CategoryEditorState: ObservableObject {
     func requestFocus() { focusRequest += 1 }
 
     var isBuiltIn: Bool { selectedID.map { WorkType(rawValue: $0).isBuiltIn } ?? false }
+
+    var isOpen: Bool { selectedID != nil }
 
     func edit(_ definition: WorkTypeDefinition) {
         selectedID = definition.id
