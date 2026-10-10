@@ -52,7 +52,7 @@ final class PersistenceStore {
         static let idlePauseThreshold = "fc.idlePauseThreshold"
         static let agentQuietPolicy = "fc.agentQuietPolicy"
         static let countsAgentAppInFront = "fc.countsAgentAppInFront"
-        static let detectsAgentTraffic = "fc.detectsAgentTraffic"
+        static let noticesAppsAtWork = "fc.noticesAppsAtWork"
         static let countsKeepAwake = "fc.countsKeepAwake"
         static let streakMinimum = "fc.streakMinimum"
         static let minimumRecordedSession = "fc.minimumRecordedSession"
@@ -484,12 +484,12 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.countsAgentAppInFront) }
     }
 
-    /// Whether a coding or AI app busy on the network counts as an agent at
-    /// work (`WorkTraffic`). On by default: it is the one way that needs no
-    /// setup and works with any agent.
-    var detectsAgentTraffic: Bool {
-        get { defaults.object(forKey: Key.detectsAgentTraffic) as? Bool ?? true }
-        set { defaults.set(newValue, forKey: Key.detectsAgentTraffic) }
+    /// Whether an app used in the session that keeps sending data or keeps
+    /// the processor busy counts as work going on (`WorkTraffic`). On by
+    /// default: it is the one way that needs no setup and works with any app.
+    var noticesAppsAtWork: Bool {
+        get { defaults.object(forKey: Key.noticesAppsAtWork) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.noticesAppsAtWork) }
     }
 
     /// Whether a keep-awake app holding the screen on counts as the user
@@ -823,7 +823,7 @@ final class PersistenceStore {
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,
                     Key.idlePauseThreshold, Key.agentQuietPolicy, Key.countsAgentAppInFront,
-                    Key.detectsAgentTraffic, Key.countsKeepAwake,
+                    Key.noticesAppsAtWork, Key.countsKeepAwake,
                     Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
                     Key.showsMenuBarIcon, Key.dockIconMode, Key.nameCategoryKept,

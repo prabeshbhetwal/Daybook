@@ -146,10 +146,10 @@ enum AgentPresenceChecks: CheckSuite {
         let prefs = PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard)
         expect(prefs.agentQuietPolicy == .countAsWork, "agent time counts as work by default, got \(prefs.agentQuietPolicy)", &problems)
         expect(!prefs.countsAgentAppInFront, "an agent's window in front is off by default", &problems)
-        expect(prefs.detectsAgentTraffic, "noticing AI tools at work is on by default", &problems)
+        expect(prefs.noticesAppsAtWork, "noticing AI tools at work is on by default", &problems)
         expect(!prefs.countsKeepAwake, "a keep-awake app is off by default", &problems)
-        prefs.detectsAgentTraffic = false
-        expect(!prefs.detectsAgentTraffic, "turning noticing off is kept", &problems)
+        prefs.noticesAppsAtWork = false
+        expect(!prefs.noticesAppsAtWork, "turning noticing off is kept", &problems)
         prefs.agentQuietPolicy = .pauseQuietly
         expect(prefs.agentQuietPolicy == .pauseQuietly, "the choice is kept, got \(prefs.agentQuietPolicy)", &problems)
         MemoryDefaults.remove(named: suite)

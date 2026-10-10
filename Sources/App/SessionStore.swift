@@ -345,15 +345,16 @@ final class SessionStore: ObservableObject {
     /// call, a presentation — or a keep-awake app. Set by the coordinator from
     /// powerd's assertion list; the default is neither.
     var readWatching: () -> WatchDetector.Reading = { WatchDetector.Reading() }
-    /// One network reading for `workTraffic`. Set by the coordinator; the
-    /// default reads nothing, so checks never run `nettop`.
+    /// One reading for `workTraffic` and `workLoad`. Set by the coordinator;
+    /// the default reads nothing, so checks never run `nettop`.
     var readWorkTraffic: (@escaping @MainActor (WorkTrafficReader.Reading?) -> Void) -> Void = { _ in }
     /// Set by the coordinator from the lock notifications. While the screen is
     /// locked, no HID reading counts as presence.
     var screenLocked = false
     var watchingCache: (at: Date, value: WatchDetector.Reading)?
     var quietSampler = QuietSampler()
-    var workTraffic = WorkTraffic()
+    var workTraffic = WorkTraffic.sending
+    var workLoad = WorkTraffic.computing
     var trafficReadPending = false
     var lastTrafficRead: Date?
     /// When an agent's hook last pinged (`AgentPresence.pingName`). Set by

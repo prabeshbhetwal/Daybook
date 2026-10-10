@@ -128,9 +128,9 @@ machinery that nothing used any more, with no change in behaviour.
 
 - Today told as a story, with its goal, app use, rhythm and streak beside it
 - Focus sessions with pause, away, breaks and threads you can continue later
-- Quiet while an AI agent works for you can count as work, with any tool:
-  noticed from what coding apps send, or told by the agent's own hooks,
-  rather than read from a screen kept awake
+- Quiet while an app works for you (an AI agent, a render, a build) can count
+  as work: noticed from what the session's apps send and compute, or told by
+  an agent's own hooks, rather than read from a screen kept awake
 - Optional activity rules that start sessions from the apps you use, always
   saying why and offering Undo
 - History as one timeline that unfolds: years into months, months into weeks,

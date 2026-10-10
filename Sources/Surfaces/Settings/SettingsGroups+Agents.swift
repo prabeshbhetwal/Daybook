@@ -1,28 +1,27 @@
 import SwiftUI
 
-/// Settings → Away & Breaks → AI agents: what quiet means while an agent
-/// works, and how Daybook can tell it is working. Written for someone who has
+/// Settings → Away & Breaks → Apps working for you: what quiet means while
+/// an agent, a render or a build works, and how Daybook can tell. Written for someone who has
 /// never heard of a hook.
 extension SettingsGroups {
     var agentsPanel: some View {
-        SurfacePanel(title: "AI agents", layout: layout) {
-            preferenceRow("While an AI agent works for you", detail: agentPolicyDetail) {
-                Picker("While an AI agent works for you", selection: $model.agentQuietPolicy) {
+        SurfacePanel(title: "Apps working for you", layout: layout) {
+            preferenceRow("While an app works for you", detail: agentPolicyDetail) {
+                Picker("While an app works for you", selection: $model.agentQuietPolicy) {
                     ForEach(AgentQuietPolicy.allCases, id: \.self) { policy in
                         Text(policy.title).tag(policy)
                     }
                 }
                 .labelsHidden()
-                .accessibilityLabel("While an AI agent works for you")
+                .accessibilityLabel("While an app works for you")
             }
             rowDivider
-            toggleRow("Notice AI tools at work by themselves",
-                      detail: "Needs no setup and works with most AI tools: Cursor, Antigravity, Claude, "
-                        + "Codex, Gemini, Copilot and others. An AI agent at work keeps sending your work to "
-                        + "its AI service, so Daybook watches how much data coding and AI apps send. It never "
-                        + "looks at what they send. A long upload from one of them, such as a big git push, "
-                        + "counts too while it lasts.",
-                      isOn: $model.detectsAgentTraffic)
+            toggleRow("Notice apps working for you by themselves",
+                      detail: "Needs no setup. When an app you used in this session keeps sending data, as an "
+                        + "AI agent does with its AI service, or keeps the processor busy, as a render, an "
+                        + "export or a build does, Daybook takes it that the work goes on. It only looks at "
+                        + "how much, never at what. Syncing and backup apps you did not use do not count.",
+                      isOn: $model.noticesAppsAtWork)
                 .disabled(model.agentQuietPolicy == .ignore)
             rowDivider
             toggleRow("Count a coding app in front as you being here",
@@ -55,25 +54,26 @@ extension SettingsGroups {
     private var agentPolicyDetail: String {
         switch model.agentQuietPolicy {
         case .countAsWork:
-            return "When an AI agent is busy on your task and you are only watching, your session keeps "
-                + "counting. Once the agent stops, the usual rules for stepping away apply."
+            return "When an AI agent, a render or a build is busy on your task and you are only "
+                + "watching, your session keeps counting. Once it stops, the usual rules for stepping "
+                + "away apply."
         case .pauseQuietly:
-            return "While you only watch an agent work, your session stops counting, but you are not "
+            return "While you only watch an app work, your session stops counting, but you are not "
                 + "asked whether you took a break. Type or click to carry on."
         case .ignore:
-            return "Agents make no difference. If you do not type or click for a while, it counts as "
-                + "time away and you are asked about it."
+            return "Apps at work make no difference. If you do not type or click for a while, it counts "
+                + "as time away and you are asked about it."
         }
     }
 
     /// The limits, said plainly: the screen has to be on, and a run left
     /// going overnight is not a night's work.
     private var agentExplanation: String {
-        var text = "Daybook notices an agent only while the screen is on and unlocked; locking the Mac "
-            + "or letting the screen sleep is still time away."
+        var text = "Daybook notices work going on only while the screen is on and unlocked; locking the "
+            + "Mac or letting the screen sleep is still time away."
         if !FocusConstants.isNever(model.longAwayCap) {
             text += " After \(Tokens.duration(model.longAwayCap)) without a key or click, Daybook takes "
-                + "it that you have left, even if an agent is still busy."
+                + "it that you have left, even if an app is still busy."
         }
         return text
     }

@@ -120,7 +120,7 @@ extension SessionStore {
         }
         // An agent at work is watched too, but only on a screen someone could
         // be looking at: never locked, asleep, or woken without a person.
-        let lastActivity = [lastAgentPing, workTraffic.lastBusy].compactMap { $0 }.max()
+        let lastActivity = [lastAgentPing, workTraffic.lastBusy, workLoad.lastBusy].compactMap { $0 }.max()
         let agentSeen = displayAwake && !screenLocked && !presenceGate.isAwaitingConfirmation
             ? AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: lastActivity,
                                      frontmostBundleID: engine.currentAppBundleID,
@@ -148,7 +148,7 @@ extension SessionStore {
         default: return
         }
         guard quiet >= WorkTraffic.interval, quiet < engine.store.longAwayCap, screenInUse, !trafficReadPending,
-              engine.store.detectsAgentTraffic, engine.store.agentQuietPolicy != .ignore,
+              engine.store.noticesAppsAtWork, engine.store.agentQuietPolicy != .ignore,
               lastTrafficRead.map({ now.timeIntervalSince($0) >= WorkTraffic.interval }) ?? true
         else { return }
         trafficReadPending = true
@@ -157,11 +157,29 @@ extension SessionStore {
             guard let self else { return }
             self.trafficReadPending = false
             guard let reading else { return }
-            let workApps = Set(reading.apps.values.filter(AgentPresence.isWorkApp))
-            self.workTraffic.observe(totals: reading.totals,
-                                     app: { reading.apps[$0].flatMap { workApps.contains($0) ? $0 : nil } },
-                                     at: Date())
+            let used = self.appsUsedInSession(), watched = self.readWatching().watchedApps
+            let own = Bundle.main.bundleIdentifier
+            func counting(sending: Bool) -> (Int32) -> String? {
+                { pid in
+                    reading.apps[pid].flatMap {
+                        WorkTraffic.counts($0, used: used, watched: watched, own: own, sending: sending) ? $0 : nil
+                    }
+                }
+            }
+            let at = Date()
+            if let sent = reading.sent { self.workTraffic.observe(totals: sent, app: counting(sending: true), at: at) }
+            self.workLoad.observe(totals: reading.cpu, app: counting(sending: false), at: at)
         }
+    }
+
+    /// The apps worked in since the running session began.
+    private func appsUsedInSession() -> Set<String> {
+        let start = engine.sessionStartDate, today = now()
+        var usage = effectiveUsageSnapshot?.sessions(touching: today) ?? []
+        if !Calendar.current.isDate(start, inSameDayAs: today) {
+            usage += effectiveUsageSnapshot?.sessions(touching: start) ?? []
+        }
+        return WorkTraffic.appsUsed(usage, since: start, frontmost: engine.currentAppBundleID)
     }
 
     /// The app's one repeating timer: it observes presence, drives engine

@@ -14,6 +14,9 @@ enum WatchDetector {
     struct Reading: Equatable {
         var watching = false
         var keptAwake = false
+        /// The apps being watched. A call or a film uploads and decodes; that
+        /// is watching, and must not read as work going on.
+        var watchedApps: Set<String> = []
     }
 
     private static let displayTypes: Set<String> = [
@@ -33,8 +36,10 @@ enum WatchDetector {
                   assertions.contains(where: {
                       displayTypes.contains(($0["AssertType"] as? String) ?? "")
                   }) else { continue }
-            if NSRunningApplication(processIdentifier: pid)?.activationPolicy == .regular {
+            let app = NSRunningApplication(processIdentifier: pid)
+            if app?.activationPolicy == .regular {
                 reading.watching = true
+                if let bundleID = app?.bundleIdentifier { reading.watchedApps.insert(bundleID) }
             } else {
                 reading.keptAwake = true
             }
