@@ -1,8 +1,9 @@
 import Foundation
 
 /// What a launch can find out about how the previous run ended, beyond the
-/// run's own marker: which boot this is, and the reports macOS writes when an
-/// app crashes or the kernel panics. Gathered once at launch.
+/// run's own marker: which boot this is, the reports macOS writes when an app
+/// crashes or the kernel panics, the macOS version, and when the login session
+/// at the Mac's own screen began. Gathered once at launch.
 struct LaunchEvidence {
     /// A Daybook crash report: when it was written and which process it is
     /// about, when its body says.
@@ -19,6 +20,12 @@ struct LaunchEvidence {
     /// as a power loss.
     let panicReports: [Date]
     let now: Date
+    /// macOS's version and build, e.g. "27.2 (26B5101f)". A boot on a
+    /// different one followed an update.
+    var osVersion = ""
+    /// When the login session at the Mac's own screen began. A log out ends
+    /// it, so one that began after Daybook quit means the log out went ahead.
+    var consoleLogin: Date?
 
     static let crashFolder = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Logs/DiagnosticReports", isDirectory: true)
@@ -32,7 +39,7 @@ struct LaunchEvidence {
             bootSessionID: boot.id, bootTime: boot.start,
             crashReports: crashReports(in: crashFolder),
             panicReports: reports(in: panicFolder, prefix: "", pathExtension: "panic").map(\.date),
-            now: now)
+            now: now, osVersion: SystemFacts.osVersion, consoleLogin: SystemFacts.consoleLogin())
     }
 
     static func crashReports(in folder: URL) -> [CrashReport] {
@@ -74,16 +81,54 @@ struct LaunchEvidence {
 /// boot, so unlike the boot time it cannot be moved by a clock change.
 enum BootSession {
     static func current() -> (id: String, start: Date)? {
-        var size = 0
-        guard sysctlbyname("kern.bootsessionuuid", nil, &size, nil, 0) == 0, size > 0 else { return nil }
-        var bytes = [CChar](repeating: 0, count: size)
-        guard sysctlbyname("kern.bootsessionuuid", &bytes, &size, nil, 0) == 0 else { return nil }
-        let id = String(decoding: bytes.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        guard let id = SystemFacts.kernelString("kern.bootsessionuuid"), !id.isEmpty else { return nil }
         var time = timeval()
         var length = MemoryLayout<timeval>.size
-        guard !id.isEmpty, sysctlbyname("kern.boottime", &time, &length, nil, 0) == 0 else { return nil }
+        guard sysctlbyname("kern.boottime", &time, &length, nil, 0) == 0 else { return nil }
         let start = Date(timeIntervalSince1970: TimeInterval(time.tv_sec)
                          + TimeInterval(time.tv_usec) / 1_000_000)
         return (id, start)
+    }
+}
+
+/// Small facts about this Mac that the launch evidence reads.
+enum SystemFacts {
+    /// "27.2 (26B5101f)": the version people know, and the build, which also
+    /// changes for a security update that leaves the version alone.
+    static var osVersion: String {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        let name = "\(version.majorVersion).\(version.minorVersion)"
+            + (version.patchVersion > 0 ? ".\(version.patchVersion)" : "")
+        return kernelString("kern.osversion").map { "\(name) (\($0))" } ?? name
+    }
+
+    /// When `user`'s session at the Mac's own screen began, from the login
+    /// records macOS keeps (the ones `last` reads). Nil when there is none.
+    static func consoleLogin(of user: String = NSUserName()) -> Date? {
+        setutxent()
+        defer { endutxent() }
+        var latest: Date?
+        while let entry = getutxent() {
+            let record = entry.pointee
+            guard Int32(record.ut_type) == USER_PROCESS, text(record.ut_line) == "console",
+                  text(record.ut_user) == user else { continue }
+            let began = Date(timeIntervalSince1970: TimeInterval(record.ut_tv.tv_sec)
+                             + TimeInterval(record.ut_tv.tv_usec) / 1_000_000)
+            latest = max(latest ?? began, began)
+        }
+        return latest
+    }
+
+    static func kernelString(_ name: String) -> String? {
+        var size = 0
+        guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var bytes = [CChar](repeating: 0, count: size)
+        guard sysctlbyname(name, &bytes, &size, nil, 0) == 0 else { return nil }
+        return String(decoding: bytes.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+
+    /// A fixed-size C character field, up to its first zero.
+    private static func text<Field>(_ field: Field) -> String {
+        withUnsafeBytes(of: field) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
     }
 }

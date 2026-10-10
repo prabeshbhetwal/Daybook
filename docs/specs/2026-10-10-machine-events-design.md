@@ -36,10 +36,11 @@ relaunch, crash, force quit, power loss, kernel panic and Mac start-up.
 | Sleep, wake, display off/on | Live | `NSWorkspace` notifications, one kind per notification (`EventMonitor`) |
 | Lock, unlock | Live | `com.apple.screenIsLocked` / `…Unlocked` |
 | User switched out / in | Live | `sessionDidResignActive` / `…BecomeActive` |
-| Log out | Live, at quit | `kAEQuitReason` on the quit Apple event, read in `applicationShouldTerminate` (`kAEReallyLogOut`, `kAELogOut`) |
-| Restart, shut down | At quit, confirmed next launch | The same reason (`kAERestart`, `kAEShutDown` and their dialog variants), kept in the marker. Another app can still call it off after Daybook has quit, so the next launch records it only if the boot changed, and records "Daybook quit" if not |
-| Shut down, restart or log out (unnamed) | Next launch | `willPowerOff` arrived but no quit followed; kept in the marker, not the log |
-| Quit | Live | A quit with no reason (⌘Q, the Quit button) |
+| Log out, restart, shut down | At quit, confirmed next launch | `kAEQuitReason` on the quit Apple event, read in `applicationShouldTerminate` (`kAEReallyLogOut`/`kAELogOut`, `kAERestart`, `kAEShutDown` and the dialog variants), kept in the marker. Another app can still call it off after Daybook has quit, so the next launch confirms it: a new boot for a restart or shut down, a login session begun after the quit for a log out. Otherwise it reads "Restart / Shut down / Log out cancelled after Daybook quit" |
+| Quit by another app | Live | A quit Apple event with no reason from any sender but loginwindow or the Dock (`keySenderPIDAttr`, named through `NSRunningApplication` or `proc_pidpath`): "Daybook quit by System Settings", "… by osascript" |
+| Shut down, restart or log out (unnamed) | Next launch | `willPowerOff` arrived and no named quit followed; kept in the marker, never written as such. The next launch settles it: a new boot is "Mac restarted or shut down", a new login session is "Logged out", neither is "Daybook quit" |
+| Quit | Live | A quit with no reason (⌘Q, the Quit button, the Dock) |
+| macOS updated | Next launch | The boot is new and `kern.osversion`/the version differs from the marker's: "macOS updated to 27.3 (…)", dated at boot |
 | Update relaunch | Live | Sparkle's `updaterWillRelaunchApplication` |
 | Crash | Next launch | No clean exit, and a `~/Library/Logs/DiagnosticReports/Daybook*.ips` written after the run began whose body's `"pid"` is the run's (a test build's crash is not this run's) |
 | Force quit | Next launch | No clean exit, same boot, no crash report |
@@ -73,8 +74,11 @@ events:
 | quit, log out, update | yes | – | Daybook opened |
 | quit, log out, update | no | – | Mac started, Daybook opened |
 | restart or shut down | no | – | Mac restarted / shut down, Mac started, Daybook opened |
-| restart or shut down | yes | – | Daybook quit (the restart was called off), Daybook opened |
-| unnamed power-off | any | – | Shut down, restarted or logged out; then as above |
+| restart or shut down | yes | – | Restart / Shut down cancelled after Daybook quit, Daybook opened |
+| log out | yes | – | Logged out if the login session began after the quit, else Log out cancelled after Daybook quit |
+| unnamed power-off | no | – | Mac restarted or shut down, Mac started, Daybook opened |
+| unnamed power-off | yes | – | Logged out if the login session began after it, else Daybook quit |
+| any, on a new boot | no | – | macOS updated to … first, when the version differs |
 | nil | any | crash report after launch | Daybook crashed (then Mac started if rebooted) |
 | nil | yes | none | Daybook was force quit |
 | nil | no | panic report | Mac restarted after a problem, Mac started |
@@ -82,6 +86,52 @@ events:
 
 A power-off announced but not followed by a quit within two minutes was
 called off by another app; the heartbeat clears it.
+
+### Why the power-off notice names nothing (10 October, evening)
+
+The first build took `willPowerOff` as proof of a log out, restart or shut
+down. That evening Sir turned on haptic feedback, granted Input Monitoring
+with Touch ID (tccd: `kTCCServiceListenEvent` modified, 17:35:02), and System
+Settings quit Daybook to apply it (AppKit: "Handling Quit AppleEvent",
+17:35:03) and reopened it at 17:35:43. AppKit announced a power-off for that
+quit too; the event carried no reason; the Mac did not reboot and the login
+session never ended (`last`: console since 14:14). The day read "Shut down,
+restarted or logged out".
+
+A throwaway SwiftUI menu-bar probe confirmed that a reason, when a quit
+carries one, is readable in `applicationShouldTerminate` (`isQuit=true
+attr='rest'`), so the reason was absent rather than missed. Exits are now
+named from evidence only: the reason, the sender, the boot, the login
+session and the macOS version. No timing threshold separates a restart from
+a shut down: an update, a FileVault unlock or an app that holds up a restart
+can each take any time. When macOS gave no reason and the Mac booted again,
+the event reads "Mac restarted or shut down", beside "Mac started up" and
+its time. The marker keeps the reason's four letters and the sender, so a
+surprising exit can be traced.
+
+Three rules from the review of this fix:
+
+- "Cancelled" is a claim and needs evidence: a restart or shut down reads
+  cancelled only when the previous run knew its boot, a log out only when
+  the login records are readable. Otherwise only the quit is certain, and it
+  reads "Daybook quit".
+- loginwindow quits apps only for macOS's own log out, restart or shut down,
+  so its quit always waits for the next launch, however long after the
+  announcement it came. The two-minute grace now only clears an announcement
+  that no quit followed.
+- The marker keeps the first quit's reason and sender;
+  `applicationWillTerminate`'s second call, which has no event, does not
+  erase them.
+
+Entries the first build wrote as an unnamed power-off are read on load by
+what followed them: a "Mac started up" before the next "Daybook opened"
+reads "Mac restarted or shut down", otherwise "Daybook quit". The file keeps
+what was written.
+
+The live app ran translocated after System Settings reopened it: the main
+checkout is under the iCloud-synced Desktop, which re-quarantines the bundle
+after `build.sh` clears the flag (`build.sh` notes this). That is a separate
+matter for where the live app lives.
 
 ## Naming a hole
 
