@@ -155,7 +155,7 @@ Settings groups the backed controls into seven pages:
 | General | Login item, menu bar icon and time, Dock icon, the global shortcut and the window's keys, whether removing a session or changing how a break counts asks first, the tour, appearance, density, zoom (80% to 140%, the same steps as the View menu), Story time gutter, entry expansion and folding quiet stretches |
 | Sessions | Daily goal, what usual pace compares with, how far back activity suggestions look, the streak's daily minimum, the category new sessions start as, the shortest session kept, how long an ended session is offered to continue, categories, guessing sessions from the app in front, ending a paused automatic session, and milestones |
 | Activities | Activity rules, their application picker, and whether they run |
-| Away & Breaks | Absence thresholds, full-screen prompt threshold and break reminders |
+| Away & Breaks | Absence thresholds, full-screen prompt threshold, what quiet means while an AI agent works, and break reminders |
 | Recording | App recording, how many apps a card lists and how many recent app visits are shown |
 | Privacy | Local storage, when app use was first measured precisely, the backup of older app use, backups (schedule, destination, how long automatic ones are kept, the last and next backup, Back Up Now and Show Backups), and Reveal data folder |
 | About & Updates | Automatic update checks, how often and what happens when one is found, Check Now, and diagnostics |
@@ -167,6 +167,52 @@ Motion always follows the system. The window always opens on the day's story.
 Recent-visit limits never reduce totals, and the app detail can reveal its
 full list for the day. Unsupported sync, export, retention and
 destructive data controls are not presented as working features.
+
+### AI agents
+
+With no key or click for a while, a session pauses and asks about the time on
+return. A screen kept on, by a keep-awake app for example, does not change
+that: it cannot tell watching an agent work from lunch. What can is the agent
+itself. **While an AI agent works for you** chooses what that time is:
+
+| Choice | While the agent works and you only watch |
+|---|---|
+| Count it as work (default) | The session keeps counting. When the agent stops, time away is measured from its last step |
+| Pause without asking | The clock stops, as it does behind a film, and nothing is asked. A key or click carries on |
+| Treat it as time away | Agents change nothing |
+
+Daybook can tell an agent is working in four ways, surest first:
+
+- **The agent tells it** (exact). **Copy Setup Message** puts a request on the
+  clipboard; paste it into any agent that supports hooks (Claude Code, Codex,
+  Gemini CLI, Cursor) and it adds hooks that run
+  `notifyutil -p com.prabesh.daybook.agent-activity` as it starts and finishes
+  each step. Any script can post the same notification.
+- **It notices by itself** (on by default, no setup, any tool). Every 20
+  seconds of quiet in a session, Daybook reads how many bytes each app has
+  sent, from macOS's own `nettop`; no permission, and never what was sent. A
+  coding or AI app (Cursor, Antigravity, VS Code, Xcode, a terminal, Claude,
+  Codex, Gemini and any app that declares itself a developer tool) sending
+  200 KB or more a minute, in at least two of three readings, is at work: a
+  cloud agent uploads the whole conversation with each step. Received bytes
+  are not counted, because an idle editor downloads updates and chatter. Any
+  steady upload from those apps counts while it lasts, a large `git push`
+  included. Agents in a browser, or in `tmux` or `screen` (whose processes
+  belong to no app), are not seen this way; their hooks still work.
+- **A coding app in front** (off by default). It needs nothing but cannot see
+  whether you walked away.
+- **A keep-awake app** (off by default). Amphetamine, Caffeine,
+  KeepingYouAwake or `caffeinate` holding the screen on counts as you being
+  here, lunch included.
+
+Activity up to five minutes apart is one stretch of work. A single command
+that runs longer than **Pause after no input for** without a step can still
+pause the session. Once a session has paused for quiet, an agent's later steps
+do not resume it; your own key or click does.
+
+Agents count only while the screen is on and unlocked. Past **End session
+after** without a key or click, Daybook takes it that you have left, however
+busy an agent still is.
 
 ### Backups
 

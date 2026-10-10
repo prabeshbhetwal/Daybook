@@ -27,6 +27,10 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case timelineLabels
     case entryDetails
     case idlePause
+    case agentQuiet
+    case agentAppInFront
+    case agentTraffic
+    case keepAwake
     case streakMinimum
     case minimumSession
     case continueWindow
@@ -69,6 +73,10 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .timelineLabels: return \SettingsModel.showsTimelineLabels
         case .entryDetails: return \SettingsModel.expandsEntryDetails
         case .idlePause: return \SettingsModel.idlePauseThreshold
+        case .agentQuiet: return \SettingsModel.agentQuietPolicy
+        case .agentAppInFront: return \SettingsModel.countsAgentAppInFront
+        case .agentTraffic: return \SettingsModel.detectsAgentTraffic
+        case .keepAwake: return \SettingsModel.countsKeepAwake
         case .streakMinimum: return \SettingsModel.streakMinimum
         case .minimumSession: return \SettingsModel.minimumRecordedSession
         case .continueWindow: return \SettingsModel.continueWindow
@@ -487,6 +495,32 @@ final class SettingsModel: ObservableObject {
     var idlePauseThreshold: TimeInterval {
         get { store.idlePauseThreshold }
         set { write { store.idlePauseThreshold = newValue } }
+    }
+
+    var agentQuietPolicy: AgentQuietPolicy {
+        get { store.agentQuietPolicy }
+        set { write { store.agentQuietPolicy = newValue } }
+    }
+
+    var countsAgentAppInFront: Bool {
+        get { store.countsAgentAppInFront }
+        set { write { store.countsAgentAppInFront = newValue } }
+    }
+
+    var detectsAgentTraffic: Bool {
+        get { store.detectsAgentTraffic }
+        set { write { store.detectsAgentTraffic = newValue } }
+    }
+
+    var countsKeepAwake: Bool {
+        get { store.countsKeepAwake }
+        set { write { store.countsKeepAwake = newValue } }
+    }
+
+    /// The message that sets an agent up to tell Daybook when it works.
+    func copyAgentSetupMessage() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(AgentPresence.setupMessage, forType: .string)
     }
 
     var streakMinimum: TimeInterval {

@@ -537,7 +537,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             tracker.appActivated(bundleID: frontmost.bundleIdentifier,
                                  name: frontmost.localizedName ?? "Unknown")
         }
-        store.isWatching = WatchDetector.isWatching
+        store.readWatching = WatchDetector.read
+        store.readWorkTraffic = WorkTrafficReader.read
+        AgentPings.listen { [weak store] in store?.lastAgentPing = Date() }
         // Apps the purpose rules do not know fall back to what they declare
         // about themselves.
         PurposeMap.declaredCategory = { AppCategoryReader.shared.category(for: $0) }

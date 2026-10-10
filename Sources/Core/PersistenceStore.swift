@@ -50,6 +50,10 @@ final class PersistenceStore {
         static let savedActivities = "fc.savedActivities"
         static let categoryChoices = "fc.categoryChoices"
         static let idlePauseThreshold = "fc.idlePauseThreshold"
+        static let agentQuietPolicy = "fc.agentQuietPolicy"
+        static let countsAgentAppInFront = "fc.countsAgentAppInFront"
+        static let detectsAgentTraffic = "fc.detectsAgentTraffic"
+        static let countsKeepAwake = "fc.countsKeepAwake"
         static let streakMinimum = "fc.streakMinimum"
         static let minimumRecordedSession = "fc.minimumRecordedSession"
         static let continueWindow = "fc.continueWindow"
@@ -464,6 +468,37 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.idlePauseThreshold) }
     }
 
+    /// What quiet at the keyboard means while an AI agent works.
+    var agentQuietPolicy: AgentQuietPolicy {
+        get {
+            defaults.string(forKey: Key.agentQuietPolicy).flatMap(AgentQuietPolicy.init(rawValue:))
+                ?? .countAsWork
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.agentQuietPolicy) }
+    }
+
+    /// Whether an agent's window in front counts as the user being there.
+    /// Off by default: it cannot tell watching from having walked away.
+    var countsAgentAppInFront: Bool {
+        get { defaults.bool(forKey: Key.countsAgentAppInFront) }
+        set { defaults.set(newValue, forKey: Key.countsAgentAppInFront) }
+    }
+
+    /// Whether a coding or AI app busy on the network counts as an agent at
+    /// work (`WorkTraffic`). On by default: it is the one way that needs no
+    /// setup and works with any agent.
+    var detectsAgentTraffic: Bool {
+        get { defaults.object(forKey: Key.detectsAgentTraffic) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.detectsAgentTraffic) }
+    }
+
+    /// Whether a keep-awake app holding the screen on counts as the user
+    /// being there. Off by default: it holds the screen on over lunch too.
+    var countsKeepAwake: Bool {
+        get { defaults.bool(forKey: Key.countsKeepAwake) }
+        set { defaults.set(newValue, forKey: Key.countsKeepAwake) }
+    }
+
     /// A day joins the streak once its focus reaches this.
     var streakMinimum: TimeInterval {
         get {
@@ -787,7 +822,9 @@ final class PersistenceStore {
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,
-                    Key.idlePauseThreshold, Key.streakMinimum, Key.minimumRecordedSession,
+                    Key.idlePauseThreshold, Key.agentQuietPolicy, Key.countsAgentAppInFront,
+                    Key.detectsAgentTraffic, Key.countsKeepAwake,
+                    Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,
                     Key.showsMenuBarIcon, Key.dockIconMode, Key.nameCategoryKept,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,

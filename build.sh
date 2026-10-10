@@ -82,7 +82,7 @@ keep_internals engine Sources/Core/SessionEngine \
 # PersistenceStore, also often called `store`, has its own automaticActivityRecord,
 # savedActivities and state, so those three setters cannot be told apart here.
 keep_internals store Sources/App/SessionStore \
-  'LiveFrame|appliedDefaultWorkType|apply|cachedTypical|cachedTypicalMinute|deferredAutomationPending|earliestDayCache|historyAppLensCache|historySearchAppsCache|historySortedUsageCache|idle|lastLiveFrame|lastSampleWatching|pendingWakeActivation|presenceGate|refreshBreak|schedulesTicker|startTicker|stopTicker|tick|ticker|updateTicker|watchingCache|watchingEndedAt' \
+  'LiveFrame|appliedDefaultWorkType|apply|cachedTypical|cachedTypicalMinute|deferredAutomationPending|earliestDayCache|historyAppLensCache|historySearchAppsCache|historySortedUsageCache|idle|lastLiveFrame|lastTrafficRead|pendingWakeActivation|presenceGate|quietSampler|refreshBreak|schedulesTicker|startTicker|stopTicker|tick|ticker|trafficReadPending|updateTicker|watchingCache|workTraffic' \
   'activityAutomationError|breakCountdown|canUndoCorrection|correctionError|dashboardArchiveReadModelGeneration|dashboardReadModelGeneration|elapsed|goal|historyIndexGeneration|isBreakDue|longestToday|nextBreakTier|pendingActivityChoice|pendingAway|pendingAwayRange|previousSession|quickStarts|reviewReadModelGeneration|sessionsToday|streak|streakBest|threadElapsed|todayTotal|trackedToday|weekBars'
 
 # What a guard's grep pipeline found: true when its last stage printed a line.

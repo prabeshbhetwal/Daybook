@@ -101,13 +101,14 @@ extension SessionEngine {
             } else if seconds >= store.idlePauseThreshold {
                 enterPause(reason: .idle, at: now().addingTimeInterval(-seconds))
             }
-        case (.running, .watchingObserved(let seconds)):
+        case (.running, .watchingObserved(let seconds, let byAgent)):
             // Quiet, but watched: something on screen is keeping the display
-            // awake. Nobody left, so this is never an absence to ask about. In
-            // a session whose work is attending — Meetings, Learning — it is
-            // the work; anywhere else the clock stops quietly, back-dated to
-            // the last input like an idle pause.
-            if seconds >= store.idlePauseThreshold, !activeWorkType.countsWhileWatching {
+            // awake, or an agent is at work. Nobody left, so this is never an
+            // absence to ask about. In a session whose work is attending —
+            // Meetings, Learning — or an agent's run the user counts as work,
+            // it is the work; anywhere else the clock stops quietly,
+            // back-dated to the last input like an idle pause.
+            if seconds >= store.idlePauseThreshold, !watchingCounts(byAgent: byAgent) {
                 enterPause(reason: .watching, at: now().addingTimeInterval(-seconds))
             }
         case (.running, .resetSession):
@@ -166,8 +167,8 @@ extension SessionEngine {
             apply(.continueSession)
         case (.awaitingUserDecision, .idleObserved(let seconds)):
             noteQuietWhileAwaiting(seconds)
-        case (.awaitingUserDecision, .watchingObserved(let seconds)):
-            if !activeWorkType.countsWhileWatching { noteQuietWhileAwaiting(seconds) }
+        case (.awaitingUserDecision, .watchingObserved(let seconds, let byAgent)):
+            if !watchingCounts(byAgent: byAgent) { noteQuietWhileAwaiting(seconds) }
         case (.awaitingUserDecision, .launch),
              (.awaitingUserDecision, .dwellExpired), (.awaitingUserDecision, .manualPause),
              (.awaitingUserDecision, .overrideApplied):
@@ -176,5 +177,11 @@ extension SessionEngine {
             break // unreachable: every row for this state is listed above
         }
         return forceEmit
+    }
+
+    /// Whether quiet while something is watched is still session time: the
+    /// work type's own rule, or the user's word on agents.
+    func watchingCounts(byAgent: Bool) -> Bool {
+        activeWorkType.countsWhileWatching || (byAgent && store.agentQuietPolicy == .countAsWork)
     }
 }

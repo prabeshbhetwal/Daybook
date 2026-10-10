@@ -162,7 +162,12 @@ extension SettingsSection {
         case .categories: return ["Categories", "New category", "Category name", "Icon", "Colour"]
         case .away:
             return ["Pause after no input for", "Ask me after", "End session after",
-                    "Full-screen prompt after", "Remind me to take breaks", "After 20 minutes"]
+                    "Full-screen prompt after", "While an AI agent works for you",
+                    "Notice AI tools at work by themselves",
+                    "Count a coding app in front as you being here",
+                    "Count a keep-awake app as you being here",
+                    "Let your agent tell Daybook when it works", "Remind me to take breaks",
+                    "After 20 minutes"]
         case .automatic:
             return ["Guess sessions from the app in front", "End a paused automatic session after",
                     "Celebrate milestones"]
@@ -190,7 +195,8 @@ extension SettingsSection {
         case .focus: return [.dailyGoal, .paceWindow, .suggestionWindow, .streakMinimum, .defaultCategory,
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
-        case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .reminders, .breakTiers]
+        case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .agentQuiet,
+                            .agentTraffic, .agentAppInFront, .keepAwake, .reminders, .breakTiers]
         case .automatic: return [.automaticSessions, .automaticGap, .rewards]
         case .activities: return [.activityRuleAutomation, .activityRules]
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
@@ -219,6 +225,8 @@ extension SettingsControlKey {
         switch self {
         case .zoom: return ["Text size", "Bigger", "Smaller", "Scale"]
         case .confirmations: return ["Don't ask again", "Warnings", "Dialogs"]
+        case .agentQuiet: return ["AI", "Agent", "Claude", "Codex", "Cursor", "Gemini", "Antigravity", "Hooks"]
+        case .keepAwake: return ["Keep awake", "Caffeine", "Caffeinate", "Amphetamine", "KeepingYouAwake"]
         case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
         case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]
         default: return []

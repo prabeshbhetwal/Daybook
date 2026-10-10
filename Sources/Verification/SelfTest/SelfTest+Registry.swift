@@ -69,6 +69,9 @@ extension SelfTest {
             + AskOverlapChecks.tests
             + AskMidnightAskChecks.tests
             + AskEdgeChecks.tests
+            + PauseFloorChecks.tests
+            + AgentPresenceChecks.tests
+            + WorkTrafficChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
