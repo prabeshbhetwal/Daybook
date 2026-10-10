@@ -3,6 +3,10 @@ import FoundationModels
 /// Whether Ask can run on this Mac, for the places that offer it before the
 /// sheet opens: the bar's button and Settings.
 extension AskModel {
+    /// Whether the model can be asked now: the check Ask shares with the
+    /// written notes, read afresh because it can change while the app runs.
+    var canAsk: Bool { ModelGate.modelAvailable }
+
     /// macOS 26 and a Mac that can run Apple's model. Apple Intelligence
     /// merely switched off still counts, since the sheet says how to turn it
     /// on; a Mac that can never run Ask is not shown a way into it. Read once:

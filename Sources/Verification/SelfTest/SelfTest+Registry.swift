@@ -88,6 +88,7 @@ extension SelfTest {
             + AskCatalogueChecks.tests
             + AskLookupLinkChecks.tests
             + AskGateChecks.tests
+            + AskChatChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

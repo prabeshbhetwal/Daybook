@@ -1,34 +1,23 @@
 import SwiftUI
 
-/// Ask Daybook: one question field, the answer below it, and the lookups the
-/// answer rested on. The sheet only shows `AskModel`'s state and hands the
-/// typed question to `model.ask`; a lookup can start nowhere else.
+/// Ask Daybook: one question field, and the chat below it, each turn with
+/// its answer and the lookups the answer rested on. The sheet only shows
+/// `AskModel`'s state and hands the typed question to `model.ask`; a lookup
+/// can start nowhere else.
 struct AskSheet: View {
     @ObservedObject var model: AskModel
-    /// The field's own text. Kept after an answer or a failure, so ↩ asks
-    /// again; only "New question" empties it.
-    @State private var text: String
+    /// The field's own text. Emptied once a question starts an answer.
+    @State private var text = ""
     @FocusState private var fieldFocused: Bool
-
-    init(model: AskModel) {
-        self.model = model
-        _text = State(initialValue: model.question)
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             if model.canAsk { field }
             if let notice = model.notice { noticeLine(notice) }
             ScrollView {
-                VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                    answer
+                VStack(alignment: .leading, spacing: Tokens.Space.m) {
+                    ForEach(model.turns) { turn in turnView(turn) }
                     if showsExamples { examples }
-                    if !model.used.isEmpty {
-                        Text(model.used)
-                            .font(Tokens.Typography.caption)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -42,8 +31,8 @@ struct AskSheet: View {
         .onChange(of: model.isAnswering) { wasAnswering, isAnswering in
             guard wasAnswering, !isAnswering else { return }
             fieldFocused = true
-            if model.notice == nil, !model.answer.isEmpty {
-                AccessibilityNotification.Announcement(model.answer).post()
+            if let last = model.turns.last, last.state == .answered {
+                AccessibilityNotification.Announcement(last.answer).post()
             }
         }
     }
@@ -58,7 +47,7 @@ struct AskSheet: View {
         TextField("Ask about your focus…", text: $text)
             .textFieldStyle(.plain)
             .focused($fieldFocused)
-            .onSubmit { model.ask(text) }
+            .onSubmit { send(text) }
             .disabled(model.isAnswering)
             .accessibilityLabel("Question")
             .padding(.horizontal, Tokens.Space.m)
@@ -84,15 +73,44 @@ struct AskSheet: View {
         }
     }
 
-    @ViewBuilder private var answer: some View {
-        if model.answer.isEmpty {
-            if model.isAnswering { ProgressView().controlSize(.small) }
-        } else {
-            Text(model.answer)
-                .font(Tokens.Typography.control)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
+    private func send(_ question: String) {
+        model.ask(question)
+        if model.isAnswering { text = "" }
+    }
+
+    /// The question, then what its turn has to show: the lookup being made, the
+    /// answer as it streams, or the notice for an answer that failed.
+    private func turnView(_ turn: AskTurn) -> some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            Text(turn.question)
+                .font(Tokens.Typography.caption)
+                .foregroundStyle(.secondary)
+            switch turn.state {
+            case let .lookingUp(line):
+                HStack(spacing: Tokens.Space.s) {
+                    ProgressView().controlSize(.small)
+                    if let line { Text(line).font(Tokens.Typography.caption).foregroundStyle(.secondary) }
+                }
+            case .answering, .answered, .stopped:
+                Text(turn.answer)
+                    .font(Tokens.Typography.control)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                if turn.state == .stopped { caption("Stopped.") }
+                if turn.state == .answered, !turn.provenance.isEmpty {
+                    caption("Used: " + turn.provenance.joined(separator: " · "))
+                }
+            case let .failed(notice):
+                noticeLine(notice)
+            }
         }
+    }
+
+    private func caption(_ line: String) -> some View {
+        Text(line)
+            .font(Tokens.Typography.caption)
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
     }
 
     // MARK: Examples and footer
@@ -100,7 +118,7 @@ struct AskSheet: View {
     /// Before the first question: an empty sheet does not say what it can
     /// answer, and someone who found Ask by its button has not seen one asked.
     private var showsExamples: Bool {
-        model.canAsk && model.answer.isEmpty && !model.isAnswering && model.notice == nil
+        model.canAsk && model.turns.isEmpty && model.notice == nil
     }
 
     private var examples: some View {
@@ -110,10 +128,7 @@ struct AskSheet: View {
                 .foregroundStyle(.secondary)
                 .accessibilityAddTraits(.isHeader)
             ForEach(AskModel.examples, id: \.self) { example in
-                Button(example) {
-                    text = example
-                    model.ask(example)
-                }
+                Button(example) { send(example) }
                 .buttonStyle(StoryLinkStyle())
                 .accessibilityHint("Asks this question")
             }
@@ -132,9 +147,9 @@ struct AskSheet: View {
             .font(Tokens.Typography.caption)
             .foregroundStyle(.secondary)
             Spacer()
-            if !model.answer.isEmpty {
-                Button("New question") {
-                    model.newQuestion()
+            if !model.turns.isEmpty {
+                Button("New chat") {
+                    model.newChat()
                     text = ""
                     fieldFocused = true
                 }

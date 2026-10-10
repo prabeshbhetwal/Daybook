@@ -96,12 +96,7 @@ enum AskCatalogueChecks: CheckSuite {
                 guard let entry = AskLookups.named(name) else { problems.append("no entry named \(name)"); continue }
                 let got = entry.read(arguments, model.range)
                 expect(got == .request(request), "\(name) \(arguments) read as \(got), not \(request)", &problems)
-                let text = model.lookup(name: name, arguments: arguments, generation: model.generation)
-                let want = f.store.askLookup(request)
-                expect(text == want, "\(name) \(arguments) returned “\(text)”, not “\(want)”", &problems)
             }
-            let used = "Used: " + cases.map { $0.2.provenance }.joined(separator: " · ")
-            expect(model.used == used, "the lookups recorded “\(model.used)”, not “\(used)”", &problems)
 
             // A period the calendar lacks is said to be so, and looks nothing
             // up: it once fell back to this week and answered from it.
@@ -119,12 +114,32 @@ enum AskCatalogueChecks: CheckSuite {
                 let got = AskLookups.named(name)?.read(arguments, model.range)
                 expect(got == .refusal(want), "\(name) \(arguments) read as \(String(describing: got)), not “\(want)”",
                        &problems)
-                let text = model.lookup(name: name, arguments: arguments, generation: model.generation)
-                expect(text == want, "\(name) \(arguments) returned “\(text)”, not “\(want)”", &problems)
             }
-            expect(model.used == used, "a refused period was listed as a lookup: “\(model.used)”", &problems)
-            let unknown = model.lookup(name: "nonsense", arguments: [:], generation: model.generation)
-            expect(unknown.isEmpty && model.used == used, "an unknown lookup gave “\(unknown)”", &problems)
+            guard #available(macOS 26, *) else { return }
+
+            // The lookups themselves, in answers of five, which the gate lets through.
+            let limit = AskGate.lookupLimit
+            for start in stride(from: 0, to: cases.count, by: limit) {
+                let chunk = Array(cases[start..<min(start + limit, cases.count)])
+                let made = AskThreadChecks.answer(lookingUp: chunk.map { ($0.0, $0.1) }, on: model)
+                for (text, (name, arguments, request)) in zip(made.texts, chunk) {
+                    let want = f.store.askLookup(request)
+                    expect(text == want, "\(name) \(arguments) returned “\(text)”, not “\(want)”", &problems)
+                }
+                expect(made.texts.count == chunk.count, "\(made.texts.count) lookups answered, not \(chunk.count)", &problems)
+                let provenance = chunk.map { $0.2.provenance }
+                expect(made.provenance == provenance, "the lookups recorded \(made.provenance), not \(provenance)", &problems)
+            }
+            for start in stride(from: 0, to: refusals.count, by: limit) {
+                let chunk = Array(refusals[start..<min(start + limit, refusals.count)])
+                let made = AskThreadChecks.answer(lookingUp: chunk.map { ($0.0, $0.1) }, on: model)
+                expect(made.texts == chunk.map { AskFacts.noSuchPeriod($0.2) },
+                       "the refused periods returned \(made.texts)", &problems)
+                expect(made.provenance.isEmpty, "a refused period was listed as a lookup: \(made.provenance)", &problems)
+            }
+            let unknown = AskThreadChecks.answer(lookingUp: [("nonsense", [:])], on: model)
+            expect(unknown.texts == [AskFacts.unknownLookup("nonsense")] && unknown.provenance.isEmpty,
+                   "an unknown lookup gave \(unknown.texts), listed \(unknown.provenance)", &problems)
         }
     }
 
@@ -147,6 +162,11 @@ enum AskCatalogueChecks: CheckSuite {
                  .compare(.thisWeek, with: .day(year: 2023, month: 10, day: 17), words: nil)),
                 ("appTime", ["range": "this week", "app": "safari"], .appTime(.thisWeek, app: "safari")),
             ]
+            // The tools run inside an answer, held open while they are called.
+            let hold = AskThreadChecks.Gate()
+            model.responder = { _, _ in await withCheckedContinuation { hold.release = $0 } }
+            model.ask("tools")
+            InstalledAppCatalog.turnRunLoop(until: { hold.release != nil }, timeout: 5)
             for (name, arguments, request) in cases {
                 guard let entry = AskLookups.named(name),
                       let tool = try? AskOnDeviceTool(entry, model: model, generation: model.generation)
@@ -160,8 +180,6 @@ enum AskCatalogueChecks: CheckSuite {
                 let want = f.store.askLookup(request)
                 expect(outcome.text == want, "\(name) returned “\(outcome.text ?? "nothing")”, not “\(want)”", &problems)
             }
-            let used = "Used: " + cases.map { $0.2.provenance }.joined(separator: " · ")
-            expect(model.used == used, "the tools recorded “\(model.used)”, not “\(used)”", &problems)
 
             // A period that does not exist is refused, and nothing is looked up.
             guard let totals = try? AskOnDeviceTool(AskLookups.named("focusTotals")!, model: model,
@@ -176,7 +194,12 @@ enum AskCatalogueChecks: CheckSuite {
             InstalledAppCatalog.turnRunLoop(until: { outcome.text != nil }, timeout: 5)
             expect(outcome.text == AskFacts.noSuchPeriod("31 february"),
                    "a period that does not exist returned “\(outcome.text ?? "nothing")”", &problems)
-            expect(model.used == used, "a refused period was listed as a lookup: “\(model.used)”", &problems)
+            hold.release?.resume()
+            InstalledAppCatalog.turnRunLoop(until: { !model.isAnswering }, timeout: 5)
+            let used = cases.map { $0.2.provenance }
+            expect(model.turns.last?.provenance == used,
+                   "the tools recorded \(String(describing: model.turns.last?.provenance)), not \(used); "
+                   + "a refused period must not be listed", &problems)
         }
     }
 }

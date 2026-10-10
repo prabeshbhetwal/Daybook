@@ -495,9 +495,10 @@ enum Snapshotter {
             navigation.openAsk()
         case .askAnswered:
             navigation.openAsk()
-            navigation.askModel?.present(
+            navigation.askModel?.present(turns: [AskTurn(
+                question: "When do I focus best?",
                 answer: "Mornings. Over the 4 weeks to 15 Nov: most focus 9–11am (2h); strongest on Tuesdays.",
-                used: "Used: best hours (last 30 days)")
+                state: .answered, provenance: ["best hours (last 30 days)"])])
         case .settingsActivityRules:
             navigation.settingsSection = .activities
         case .storyReport:
