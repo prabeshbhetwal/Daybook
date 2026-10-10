@@ -12,6 +12,7 @@ final class PersistenceStore {
         static let dailyGoal = "fc.dailyGoal"
         static let autoSessions = "fc.autoSessions"
         static let rewardsEnabled = "fc.rewardsEnabled"
+        static let hapticsEnabled = "fc.hapticsEnabled"
         static let rewardLog = "fc.rewardLog"
         static let learning = "fc.learning"
         static let logGrouping = "fc.logGrouping"
@@ -323,6 +324,13 @@ final class PersistenceStore {
     var rewardsEnabled: Bool {
         get { defaults.object(forKey: Key.rewardsEnabled) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.rewardsEnabled) }
+    }
+
+    /// A pulse on the trackpad and an MX Master 4 with notices. Off until the
+    /// person turns it on, so any macOS permission prompt comes then.
+    var hapticsEnabled: Bool {
+        get { defaults.object(forKey: Key.hapticsEnabled) as? Bool ?? false }
+        set { defaults.set(newValue, forKey: Key.hapticsEnabled) }
     }
 
     /// `RewardKind.rawValue` → when it last fired. Persisted so a relaunch
@@ -774,7 +782,8 @@ final class PersistenceStore {
         let keys = [Key.state, Key.overrides, Key.threshold, Key.name,
                     Key.menuSessions, Key.menuApps, Key.trackingDisabled,
                     Key.purposeOverrides, Key.dailyGoal, Key.autoSessions,
-                    Key.rewardsEnabled, Key.rewardLog, Key.learning, Key.logGrouping,
+                    Key.rewardsEnabled, Key.hapticsEnabled, Key.rewardLog, Key.learning,
+                    Key.logGrouping,
                     Key.remindersDisabled, Key.workInterval, Key.breakLength,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,

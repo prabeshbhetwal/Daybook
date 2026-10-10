@@ -9,6 +9,7 @@ enum HapticsChecks: CheckSuite {
         ("The mouse's haptic switch is one bit of its configuration byte", configurationBit),
         ("The waveform mask says which pulses the mouse offers", capabilityMask),
         ("Each moment has its pulse, and the goal reward gets its own", momentTable),
+        ("Haptic feedback is off until turned on, and the switch is saved", settingWritesThrough),
     ]
 
     private static func padded(_ bytes: [UInt8]) -> [UInt8] {
@@ -107,5 +108,30 @@ enum HapticsChecks: CheckSuite {
             expect(moment == wanted, "reward \(kind) is \(wanted), got \(moment)", &problems)
         }
         return problems
+    }
+
+    private static func settingWritesThrough() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let suite = "fc-selftest-haptics-\(UUID().uuidString)"
+            defer { MemoryDefaults.remove(named: suite) }
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no memory suite"] }
+            let store = PersistenceStore(defaults: defaults)
+            expect(store.hapticsEnabled == false, "haptic feedback starts off", &problems)
+            var changes = 0
+            let apps = InstalledAppCatalog(discoverStandard: { [] }, discoverSpotlight: { [] },
+                                           observed: { [] })
+            let model = SettingsModel(store: store, isTrackingEnabled: true,
+                                      onChange: { changes += 1 }, onTrackingChanged: { _ in },
+                                      installedAppCatalog: apps)
+            model.hapticsEnabled = true
+            expect(store.hapticsEnabled, "turning it on is saved", &problems)
+            expect(changes == 1, "one change notification for the write, got \(changes)", &problems)
+            store.removeAll()
+            expect(store.hapticsEnabled == false, "removeAll clears it back to off", &problems)
+            expect(SettingsControlKey.haptics.modelKeyPath == \SettingsModel.hapticsEnabled,
+                   "Settings search reaches the switch", &problems)
+            return problems
+        }
     }
 }

@@ -165,7 +165,7 @@ extension SettingsSection {
                     "Full-screen prompt after", "Remind me to take breaks", "After 20 minutes"]
         case .automatic:
             return ["Guess sessions from the app in front", "End a paused automatic session after",
-                    "Celebrate milestones"]
+                    "Celebrate milestones", "Haptic feedback"]
         case .activities:
             return ["Use my activity rules", "Activity rules", "New rule", "Activity name",
                     "Start after", "Add application", "Running now"]
@@ -191,7 +191,7 @@ extension SettingsSection {
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
         case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .reminders, .breakTiers]
-        case .automatic: return [.automaticSessions, .automaticGap, .rewards]
+        case .automatic: return [.automaticSessions, .automaticGap, .rewards, .haptics]
         case .activities: return [.activityRuleAutomation, .activityRules]
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
         case .appearance: return [.appearance, .density, .zoom, .timelineLabels, .entryDetails, .quietFold]

@@ -19,6 +19,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case activityRules
     case automaticGap
     case rewards
+    case haptics
     case sessionsPerApp
     case usageRecording
     case appearance
@@ -61,6 +62,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .activityRules: return \SettingsModel.activityRules
         case .automaticGap: return \SettingsModel.breakLength
         case .rewards: return \SettingsModel.rewardsEnabled
+        case .haptics: return \SettingsModel.hapticsEnabled
         case .sessionsPerApp: return \SettingsModel.menuSessionCount
         case .usageRecording: return \SettingsModel.isTrackingEnabled
         case .appearance: return \SettingsModel.appearancePreference
@@ -456,6 +458,11 @@ final class SettingsModel: ObservableObject {
     var rewardsEnabled: Bool {
         get { store.rewardsEnabled }
         set { write { store.rewardsEnabled = newValue } }
+    }
+
+    var hapticsEnabled: Bool {
+        get { store.hapticsEnabled }
+        set { write { store.hapticsEnabled = newValue } }
     }
 
     var remindersEnabled: Bool {
