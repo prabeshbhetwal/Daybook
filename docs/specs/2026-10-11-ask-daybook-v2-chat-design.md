@@ -170,7 +170,10 @@ are taken one at a time and counted in the order they arrive.
 - **Stop.** While answering, the send button is Stop. Stop cancels the
   answer; the turn keeps what had streamed and shows "Stopped.". This also
   covers a model that never finishes, as `toolCallingMode = .required` did, so
-  there is no watchdog timer.
+  there is no watchdog timer. Stop also drops the model session, and the next
+  question builds a new one carrying the last two finished turns, as a full
+  context does below: a lookup the stopped answer had already begun could
+  otherwise land in the next answer's session and be counted there.
 - **Context full.** On `exceededContextWindowSize` (macOS 26) or
   `contextSizeExceeded` (macOS 27): drop the session, build a new one whose
   instructions are today's followed by the last two finished turns as plain
