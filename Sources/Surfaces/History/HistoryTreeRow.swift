@@ -218,23 +218,44 @@ struct HistoryTreeRow: View {
             .accessibilityHidden(true)
     }
 
+    /// The period's review note, above what is under it. A year has none, nor
+    /// has a period with no session; that is read off the row, since this
+    /// redraws every second and the facts a note is written from are not
+    /// cheap. A period still running is written on request, as its figures
+    /// are still moving.
+    @ViewBuilder private var note: some View {
+        if row.place.level != .year, row.sessions > 0, let writer = navigation.notes {
+            PeriodNote(writer: writer, place: row.place,
+                       trigger: store.noteIsCurrent(row.place) ? .onRequest(label: "Write a note") : .automatic,
+                       tipLabel: nil,
+                       insets: EdgeInsets(top: Tokens.Space.m, leading: Tokens.Space.s, bottom: Tokens.Space.s,
+                                          trailing: HistoryRowLayout.inset))
+        }
+    }
+
     @ViewBuilder private var children: some View {
         if row.place.level == .day {
-            // The dashboard's own day, for this date: the same headline, the
-            // same timeline, the same cards.
-            ProjectedDayStoryColumn(store: store, projection: store.storyDayProjection(on: row.place.start),
-                                    context: .main, isHistory: true)
-                .padding(.vertical, Tokens.Space.m)
-                .padding(.leading, Tokens.Space.s)
-                // Every row and card keeps this inset from the column's edge;
-                // without it the day's cards ran past the week card above.
-                .padding(.trailing, HistoryRowLayout.inset)
+            VStack(alignment: .leading, spacing: 0) {
+                note
+                // The dashboard's own day, for this date: the same headline, the
+                // same timeline, the same cards.
+                ProjectedDayStoryColumn(store: store, projection: store.storyDayProjection(on: row.place.start),
+                                        context: .main, isHistory: true)
+                    .padding(.vertical, Tokens.Space.m)
+                    .padding(.leading, Tokens.Space.s)
+                    // Every row and card keeps this inset from the column's edge;
+                    // without it the day's cards ran past the week card above.
+                    .padding(.trailing, HistoryRowLayout.inset)
+            }
         } else {
             let rows = store.historyRows(under: row.place)
             // AnyView breaks the recursion in the opaque type; the tree is at
             // most four rows deep, so it costs nothing worth measuring.
-            AnyView(ForEach(rows) { child in
-                HistoryTreeRow(store: store, navigation: navigation, row: child, depth: depth + 1)
+            AnyView(Group {
+                note
+                ForEach(rows) { child in
+                    HistoryTreeRow(store: store, navigation: navigation, row: child, depth: depth + 1)
+                }
             })
         }
     }

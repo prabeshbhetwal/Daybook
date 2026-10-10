@@ -96,9 +96,12 @@ enum NoteState: Equatable {
         if running?.placeID == place.id { stop() }
     }
 
-    /// For snapshots only: shows a note without asking the model.
+    /// For snapshots only: shows a note without asking the model. It is
+    /// cached for the place's facts too, so a view that then asks for the
+    /// place is served this note and not a write.
     func present(_ note: WrittenNote, for place: HistoryPlace) {
         states[place.id] = .written(note)
+        if let facts = store?.noteFacts(for: place) { cache[place.id + "\n" + facts.text] = note }
     }
 
     // MARK: - Writing
