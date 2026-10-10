@@ -7,6 +7,8 @@ enum StoryRenderEvidence: String, Hashable {
     case storyChromeControls
     case askButton
     case askButtonWithWord
+    case askTranscript
+    case askSources
     case historyEmpty
     case historyIntegrityNotice
     case historyPeriodRail

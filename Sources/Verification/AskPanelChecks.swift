@@ -1,9 +1,12 @@
 import Foundation
 
 /// Where Ask opens, sheet or side panel: the saved choice, its place in
-/// Settings, and what changing it does to a panel that is open.
+/// Settings, and what changing it does to a panel that is open. The chat
+/// both places show is checked in `AskChatSurfaceChecks`, listed here.
 enum AskPanelChecks: CheckSuite {
-    static let tests: [(String, () -> [String])] = [
+    static let tests: [(String, () -> [String])] = ownTests + AskChatSurfaceChecks.tests
+
+    private static let ownTests: [(String, () -> [String])] = [
         ("Ask opens as a sheet until the side panel is chosen, and the choice is saved", placementSavedDefaultSheet),
         ("A panel left open when the choice becomes the sheet closes as Settings closes", placementChangeClosesPanelWhenSettingsClose),
     ]

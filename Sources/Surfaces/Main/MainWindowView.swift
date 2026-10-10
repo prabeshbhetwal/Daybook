@@ -184,7 +184,7 @@ struct MainWindowView: View {
                 case .awards:
                     AwardsView(store: store, scrolls: insightsScrolls)
                 case .ask:
-                    if let ask = navigation.askModel { AskSheet(model: ask) }
+                    if let ask = navigation.askModel { AskSheet(model: ask, onFollow: navigation.follow) }
                 }
         }
     }

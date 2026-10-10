@@ -7,7 +7,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
-    case askEmpty, askAnswered
+    case askEmpty, askAnswered, askFailed, askStopped
     case storyDay, storyDayEntry
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
     case welcomeOpening, welcomeStep
@@ -37,7 +37,9 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awardsEarned: return "Awards — earned and in progress"
         case .awardsEmpty: return "Awards — nothing earned yet"
         case .askEmpty: return "Ask — questions to try before the first"
-        case .askAnswered: return "Ask — an answer over the story"
+        case .askAnswered: return "Ask — two answers, each with its sources"
+        case .askFailed: return "Ask — an answer that failed"
+        case .askStopped: return "Ask — an answer stopped part way"
         case .storyDay: return "Story — the day"
         case .storyDayEntry: return "Story — an entry opened"
         case .storyShape: return "Story — recorded shape and session actions"
@@ -119,7 +121,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .insights
         case .awardsEarned, .awardsEmpty:
             return .awards
-        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered,
+        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped,
              .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
              .welcomeOpening, .welcomeStep:
             return .story
@@ -434,7 +436,7 @@ enum Snapshotter {
             return store
         case .awardsEmpty:
             return FixtureFactory.store(for: .firstRun)
-        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered:
+        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
@@ -493,12 +495,9 @@ enum Snapshotter {
             navigation.focusSessionControls()
         case .askEmpty:
             navigation.openAsk()
-        case .askAnswered:
+        case .askAnswered, .askFailed, .askStopped:
             navigation.openAsk()
-            navigation.askModel?.present(turns: [AskTurn(
-                question: "When do I focus best?",
-                answer: "Mornings. Over the 4 weeks to 15 Nov: most focus 9–11am (2h); strongest on Tuesdays.",
-                state: .answered, provenance: ["best hours (last 30 days)"])])
+            navigation.askModel?.present(turns: askTurns(for: scenario))
         case .settingsActivityRules:
             navigation.settingsSection = .activities
         case .storyReport:
