@@ -206,7 +206,7 @@ already been activated/cancelled". The built link has no manager. Each
 discovery creates a listening device object from the mouse's IOKit service
 and cancels it when the three answers are in; plays go through a second
 device object that never listens. There are no removal callbacks: a failed
-play looks the mouse up again and sends once more (check 701), and a failed
+play looks the mouse up again and sends once more (check 727), and a failed
 discovery makes later pulses wait 10 s before looking again. A probe of the
 built link against the mouse: ready in 0.33 s, three pulses felt, and 10 s
 of continuous mouse movement afterwards cost 0.0004 s of CPU.
