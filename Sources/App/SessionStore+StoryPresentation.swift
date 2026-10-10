@@ -53,6 +53,21 @@ extension SessionStore {
         return machineEventLog?.events(in: bounds) ?? []
     }
 
+    /// What the Mac's events say happened inside a hole in the day. An away
+    /// answer splits a hole and each piece keeps the hole's name, so a piece
+    /// beside an answer is read against the whole hole it came from.
+    func gapAnatomy(of gap: DateInterval) -> GapAnatomy {
+        let events = machineEvents(on: gap.start)
+        let split = engine.awayDecisions.contains { $0.range.start <= gap.end && $0.range.end >= gap.start }
+        guard split else { return GapAnatomy.of(gap, events: events) }
+        let hole = storyMoments(on: gap.start).lazy.compactMap { moment -> DateInterval? in
+            guard case .unrecorded(let hole, _) = moment, hole.start <= gap.start, hole.end >= gap.end
+            else { return nil }
+            return hole
+        }.first
+        return GapAnatomy.of(gap, in: hole, events: events)
+    }
+
     var storyAppColourIndices: [String: Int] {
         Dictionary(uniqueKeysWithValues: rankedApps.enumerated().map { ($0.element.bundleID, $0.offset) })
     }

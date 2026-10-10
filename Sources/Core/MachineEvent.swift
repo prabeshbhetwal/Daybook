@@ -62,6 +62,18 @@ struct MachineEvent: Codable, Equatable {
         default: return kind.title
         }
     }
+
+    /// Whether the event belongs to a hole in the recording. The recording
+    /// stops a moment after the event that stopped it, and a run found to
+    /// have ended afterwards is dated from its last heartbeat, so an event
+    /// counts from a little before the hole and by its whole window. The
+    /// hole's name, its card and the story's pins all ask this.
+    func falls(in hole: DateInterval) -> Bool {
+        at < hole.end && end >= hole.start.addingTimeInterval(-2)
+    }
+
+    /// Daybook was back within the minute a hole needs, so none was left.
+    func isQuickReturn(at resumed: Date) -> Bool { resumed.timeIntervalSince(end) < 60 }
 }
 
 extension MachineEvent.Kind {
@@ -96,6 +108,12 @@ extension MachineEvent.Kind {
         case .macOSUpdated: return "macOS updated"
         }
     }
+
+    /// How a run of Daybook ends: said at the time, or found at the next launch.
+    static let runEndings: Set<Self> = [.logOut, .restart, .shutDown, .quit, .updateRelaunch, .quitByApp,
+                                        .logOutCancelled, .restartCancelled, .shutDownCancelled,
+                                        .restartOrShutDown, .powerOffUnknown,
+                                        .crashed, .forceQuit, .powerLost, .kernelPanic]
 
     /// What a hole in the day says when an event explains it, most telling
     /// first: a hole that holds a lock and a sleep was a sleep. An event that
