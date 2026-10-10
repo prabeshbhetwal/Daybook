@@ -687,14 +687,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     }
 
     /// Always quits. First it notes why, while the quit's Apple event is still
-    /// the current one: only that event says restart, shut down or log out.
+    /// the current one: only that event says restart, shut down or log out,
+    /// and who asked.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        machineEvents.recordExit(quitReason: MachineEventRecorder.currentQuitReason())
+        machineEvents.recordExit(MachineEventRecorder.currentQuit())
         return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        machineEvents.recordExit(quitReason: nil)
+        machineEvents.recordExit(nil)
         engine.persist()
         tracker.suspend()
         monitor.stop()

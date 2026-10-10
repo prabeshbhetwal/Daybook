@@ -69,8 +69,11 @@ struct GapAnatomy: Equatable {
         .lock: .unlock, .userSwitchedOut: .userSwitchedIn, .displaySleep: .displayWake, .systemSleep: .wake,
     ]
     static let found: Set<MachineEvent.Kind> = [.crashed, .forceQuit, .powerLost, .kernelPanic]
-    private static let ended: Set<MachineEvent.Kind> = [.logOut, .restart, .shutDown, .powerOffUnknown,
-                                                        .quit, .updateRelaunch]
+    /// A run's end said at the time: off until Daybook opens again.
+    private static let ended = MachineEvent.Kind.runEndings.subtracting(found)
+    /// The Mac or Daybook coming up inside a hole. A new macOS is dated at
+    /// the boot it came back on.
+    private static let startKinds: Set<MachineEvent.Kind> = [.macStarted, .daybookStarted, .macOSUpdated]
 
     /// The anatomy of the hole `piece` from any events; it picks the ones
     /// that fall in the hole. An away answer can split a hole: pass the whole
@@ -110,8 +113,7 @@ struct GapAnatomy: Equatable {
             }
         }
         stretches = clipped(stretches, to: piece)
-        let starts = inside.filter { ($0.kind == .daybookStarted || $0.kind == .macStarted)
-            && $0.at > piece.start && $0.at < piece.end }
+        let starts = inside.filter { startKinds.contains($0.kind) && $0.at > piece.start && $0.at < piece.end }
         let marks = (stretches.dropFirst().map(\.span.start) + starts.map(\.at)).sorted()
         let distinct = marks.enumerated().filter { index, mark in
             index == 0 || mark.timeIntervalSince(marks[index - 1]) >= 1
@@ -198,7 +200,7 @@ struct GapAnatomy: Equatable {
     /// last start inside it.
     private static func runs(_ inside: [MachineEvent], in gap: DateInterval,
                              all events: [MachineEvent]) -> [Run] {
-        let boundaries = ended.union(found).union([.macStarted, .daybookStarted])
+        let boundaries = ended.union(found).union(startKinds)
         var open: [MachineEvent.Kind: Date] = [:]
         var lastBoundary = gap.start
         var runs: [Run] = []

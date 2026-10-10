@@ -114,7 +114,7 @@ struct StoryGapCard: View {
         case .unexplained:
             let inside = anatomy.starts.filter { stretch.span.start < $0.at && $0.at < stretch.span.end }
             guard !inside.isEmpty else { return nil }
-            return inside.map { "\($0.kind.title) at \(Tokens.timeOfDayOnly($0.at))" }.joined(separator: ", ")
+            return inside.map { "\($0.title) at \(Tokens.timeOfDayOnly($0.at))" }.joined(separator: ", ")
         case .asleep, .off:
             return nil
         }
@@ -142,13 +142,13 @@ struct StoryMachinePin: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
-            Text(event.kind.title)
+            Text(event.title)
             if let back { Text("· " + back).foregroundStyle(.secondary) }
         }
         .font(Tokens.Typography.body)
         .padding(.vertical, 10.zoomed)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(Tokens.timeOfDayOnly(event.at)), \(event.kind.title)"
+        .accessibilityLabel("\(Tokens.timeOfDayOnly(event.at)), \(event.title)"
                             + (back.map { ". \($0)" } ?? ""))
     }
 
@@ -173,9 +173,11 @@ extension MachineEvent.Kind {
         case .userSwitchedOut, .userSwitchedIn: return StoryPin(symbol: "person.2", tint: .secondary)
         case .systemSleep: return StoryPin(symbol: "moon", tint: .secondary)
         case .wake: return StoryPin(symbol: "sun.max", tint: .secondary)
-        case .logOut, .restart, .shutDown, .powerOffUnknown, .macStarted:
+        case .logOut, .restart, .shutDown, .restartOrShutDown, .powerOffUnknown, .macStarted:
             return StoryPin(symbol: "power", tint: .secondary)
-        case .quit, .updateRelaunch, .daybookStarted:
+        case .macOSUpdated: return StoryPin(symbol: "arrow.down.circle", tint: .secondary)
+        case .quit, .updateRelaunch, .quitByApp, .logOutCancelled, .restartCancelled, .shutDownCancelled,
+             .daybookStarted:
             return StoryPin(symbol: "smallcircle.filled.circle", tint: .secondary)
         // A run that ended without saying so is the one kind the rule flags.
         case .crashed, .forceQuit, .powerLost, .kernelPanic:
