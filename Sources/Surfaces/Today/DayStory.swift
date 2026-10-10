@@ -148,6 +148,12 @@ struct DayStory: View {
                 }
             }
             if entries.isEmpty { empty }
+            let machineEvents = store.machineEvents(on: projection?.date ?? store.selectedDay)
+            if !machineEvents.isEmpty {
+                DayMachineEvents(events: machineEvents)
+                    .padding(.leading, (showsTimes ? timeColumn : 0) + railColumn)
+                    .padding(.top, Tokens.Space.s)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: openInitialEntries)

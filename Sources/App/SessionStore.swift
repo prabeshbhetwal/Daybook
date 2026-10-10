@@ -386,6 +386,8 @@ final class SessionStore: ObservableObject {
     var continuationIndex: ContinuationPolicy.Index?
     var tracker: AppUsageTracker?
     var usage: AppUsageArchive?
+    /// Sleeps, locks, quits and crashes, which name the holes in a day.
+    var machineEventLog: MachineEventLog?
     var ticker: Timer?
     let schedulesTicker: Bool
     /// How many snapshots were actually built. Verification reads it.
