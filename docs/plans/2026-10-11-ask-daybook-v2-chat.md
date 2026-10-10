@@ -43,7 +43,7 @@
 
 - `AskNotice` moves from `AskModel.swift` to Core (`AskTurn.swift`), unchanged, so a Core `AskTurn` can hold one.
 - The placement is read by `MainWindowModel.openAsk()` from the store's preferences at call time (`store.engine.store.askPlacement`), so ⌘K, the bar button and Settings need no extra wiring. A placement changed while the panel is open closes it when Settings closes (`closeSheet()`), which is the moment the change becomes visible.
-- The README's backup sentence states the default truthfully (see Task 9); its wording is confirmed with the owner before Task 9 runs.
+- The README's backup sentence states the default truthfully (see Task 9): new installs back up daily to iCloud Drive. The owner chose this wording on 2026-10-11 over softening the claim or making backups opt-in.
 
 ## File map
 
@@ -461,7 +461,7 @@ struct AskChromeButton: View { init(isActive: Bool = false, action: @escaping ()
 
 - [ ] **Step 2: Record** each result in the spec's Evidence section under "After (date)", in the style of the baseline table.
 
-- [ ] **Step 3: README.** The "Private by construction" paragraph opens with "Nothing leaves your Mac unless you want it to." The update-check clause becomes "the update check asks GitHub for the latest version, which you can turn off in Settings". The backup sentence states the default: "Backups are on from the start: every day they are copied into iCloud Drive, which uploads them to your own iCloud account when iCloud Drive is on, or into a folder you choose; Settings can change how often, or turn them off." Ask's sentence stays as it is. (Wording confirmed with the owner before this step.)
+- [ ] **Step 3: README.** The "Private by construction" paragraph opens with "Nothing leaves your Mac unless you want it to." The update-check clause becomes "the update check asks GitHub for the latest version, which you can turn off in Settings". The backup sentence states the default: "Backups are on from the start: every day they are copied into iCloud Drive, which uploads them to your own iCloud account when iCloud Drive is on, or into a folder you choose; Settings can change how often, or turn them off." Ask's sentence stays as it is.
 
 - [ ] **Step 4: Commit** — "The README says nothing leaves your Mac unless you want it to, and the Ask v2 spec records its probe results".
 
