@@ -198,6 +198,10 @@ enum MachineEventChecks: CheckSuite {
         clock.advance(60)
         first.record(.systemSleep)
         clock.advance(60)
+        // macOS announces the restart; the quit comes after other apps save.
+        let announced = clock.value
+        first.record(.powerOffUnknown)
+        clock.advance(30)
         first.recordExit(quitReason: OSType(kAERestart))
         first.recordExit(quitReason: nil)
         expect(kinds() == [.daybookStarted, .systemSleep],
@@ -210,6 +214,10 @@ enum MachineEventChecks: CheckSuite {
         launch("boot-2")
         expect(kinds() == [.daybookStarted, .systemSleep, .restart, .macStarted, .daybookStarted],
                "the new boot records the restart once, got \(kinds())", &problems)
+        let restartedAt = MachineEventLog(directory: folder).events.first { $0.kind == .restart }?.at
+        expect(restartedAt == announced,
+               "the restart is dated when macOS announced it, where recording stopped, got \(String(describing: restartedAt))",
+               &problems)
         let stopped = clock.value
         clock.advance(300)
         launch("boot-2")

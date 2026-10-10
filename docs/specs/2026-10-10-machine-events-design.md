@@ -50,6 +50,11 @@ relaunch, crash, force quit, power loss, kernel panic and Mac start-up.
 An event found at the next launch carries a window: `at` is the run's last
 heartbeat, `latest` the report, boot or launch by which it had happened.
 
+A log out, restart or shut down is dated when macOS announced it
+(`willPowerOff`), not when its quit arrived. The quit can come minutes
+later while other apps ask to save, but recording stopped at the
+announcement, so the event sits where the hole begins.
+
 ## The run marker
 
 `run-state.json` holds `bootSessionID`, `launchedAt`, `heartbeat`, `exit` and

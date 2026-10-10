@@ -75,7 +75,10 @@ final class MachineEventRecorder {
     /// The first call decides; a later one changes nothing.
     func recordExit(quitReason: OSType?) {
         guard var marker, marker.exit == nil || marker.exit == .powerOffUnknown else { return }
-        let at = now()
+        // The quit for a log out, restart or shut down can come well after
+        // macOS announced it, while other apps ask to save first. Recording
+        // stopped at the announcement, so that is when the event is dated.
+        let at = powerOffAnnounced ?? now()
         let kind = relaunchingForUpdate
             ? .updateRelaunch
             : Self.exitKind(quitReason: quitReason, powerOffAnnounced: powerOffAnnounced != nil)
