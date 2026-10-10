@@ -57,8 +57,7 @@ extension SessionMetadataChecks {
             firstEngine!.start(workType: .deepWork, intent: "Ordinary recovery")
             firstStore!.refresh()
             let affectedRecord = firstEngine!.activeRecordID
-            let file = folder.appendingPathComponent("session-metadata.json")
-            let bytesBeforeFailure = try? Data(contentsOf: file)
+            let bytesBeforeFailure = sidecarBytes(in: folder)
             let cacheBeforeFailure = firstMetadata.allMetadata
 
             clock.advance(600)
@@ -68,7 +67,7 @@ extension SessionMetadataChecks {
             failNext = true
             firstMonitor.handler?(failedObservation)
             var problems: [String] = []
-            expect((try? Data(contentsOf: file)) == bytesBeforeFailure
+            expect(sidecarBytes(in: folder) == bytesBeforeFailure
                    && firstMetadata.allMetadata == cacheBeforeFailure,
                    "failed ordinary append changed sidecar bytes or cache", &problems)
             expect(storedQueue() == [StoredPendingObservation(
@@ -89,7 +88,7 @@ extension SessionMetadataChecks {
                 id: UUID(), timestamp: clock.value, source: .battery,
                 percentage: 63, charging: .notCharging, boundary: .sourceChanged)
             firstMonitor.handler?(laterObservation)
-            expect((try? Data(contentsOf: file)) == bytesBeforeFailure
+            expect(sidecarBytes(in: folder) == bytesBeforeFailure
                    && firstMetadata.allMetadata == cacheBeforeFailure,
                    "a later distinct sample bypassed the blocked queue front", &problems)
             expect(storedQueue() == [
