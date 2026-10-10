@@ -15,11 +15,16 @@ struct YesterdayNotice: View {
     let onDone: () -> Void
     /// Read when the rail builds the notice; see `PeriodNote.usable`.
     private let usable: Bool
+    /// Read when the rail builds the notice, so the note under the figures
+    /// checks its facts again when the archive changes; see `PeriodNote.evidence`.
+    private let evidence: SessionStore.NoteEvidence
 
-    init(writer: NoteWriter, place: HistoryPlace, figures: String, onDone: @escaping () -> Void) {
+    init(writer: NoteWriter, place: HistoryPlace, figures: String, evidence: SessionStore.NoteEvidence,
+         onDone: @escaping () -> Void) {
         self.writer = writer
         self.place = place
         self.figures = figures
+        self.evidence = evidence
         self.onDone = onDone
         usable = writer.isUsable
     }
@@ -34,7 +39,8 @@ struct YesterdayNotice: View {
                     .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .padding(.top, Tokens.Space.xs)
-                PeriodNote(writer: writer, place: place, trigger: .automatic, tipLabel: "For today:",
+                PeriodNote(writer: writer, place: place, evidence: evidence, trigger: .automatic,
+                           tipLabel: "For today:",
                            insets: EdgeInsets(top: Tokens.Space.s, leading: 0, bottom: 0, trailing: 0))
                 Button("Done", action: onDone)
                     .buttonStyle(StoryLinkStyle(tint: .secondary))

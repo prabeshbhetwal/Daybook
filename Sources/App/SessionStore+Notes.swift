@@ -19,6 +19,23 @@ extension SessionStore {
         place.span.holds(now())
     }
 
+    /// What a note on screen is checked against again: the session archive's
+    /// and the session metadata's revisions, as `evidenceRevision` has them.
+    /// A rename, correction, deletion, edited note or a session stopping
+    /// moves one, and the facts may have changed with it. App use is left out
+    /// on purpose: it moves every few seconds while you work, and a "Wrap up
+    /// today" note just written would go back to its link. A few counters and
+    /// no projection, so a view that redraws every second may take it.
+    struct NoteEvidence: Hashable {
+        let sessions: Int
+        let metadata: Int
+    }
+
+    var noteEvidence: NoteEvidence {
+        let revision = evidenceRevision
+        return NoteEvidence(sessions: revision.sessions, metadata: revision.metadata)
+    }
+
     /// The facts for a day, week or month; nil for a year, and for a place
     /// with no sessions. A week's or month's summary and previous-period focus
     /// come from History's index, its session totals and goal days from

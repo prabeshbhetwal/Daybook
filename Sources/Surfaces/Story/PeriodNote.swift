@@ -9,7 +9,9 @@ import SwiftUI
 /// view came to be: an on-request note that was written, or one that failed
 /// when asked for, is shown again when its view is rebuilt, unless its facts
 /// have changed since (`NoteWriter.forgetIfStale`), when its link returns. The
-/// link shows only while there is nothing to show.
+/// link shows only while there is nothing to show. A note already on screen
+/// checks its facts again when `evidence` changes, so a rename or correction
+/// reaches it while the view stays.
 struct PeriodNote: View {
     enum Trigger {
         /// Written when the note appears.
@@ -32,14 +34,20 @@ struct PeriodNote: View {
     /// parent's redraw (which a change in Settings causes), it is an input
     /// that differs.
     private let usable: Bool
+    /// The store's `noteEvidence` when the parent built this view, so the
+    /// store's changes (a rename, a correction, a session stopping) reach a
+    /// note that stays on screen. Passed in for the reason `usable` is: the
+    /// writer does not publish them.
+    private let evidence: SessionStore.NoteEvidence
     /// Whether the person pressed the link in this view, so only a note they
     /// asked for in front of them is announced to VoiceOver.
     @State private var asked = false
 
-    init(writer: NoteWriter, place: HistoryPlace, trigger: Trigger, tipLabel: String?,
-         insets: EdgeInsets = EdgeInsets()) {
+    init(writer: NoteWriter, place: HistoryPlace, evidence: SessionStore.NoteEvidence, trigger: Trigger,
+         tipLabel: String?, insets: EdgeInsets = EdgeInsets()) {
         self.writer = writer
         self.place = place
+        self.evidence = evidence
         self.trigger = trigger
         self.tipLabel = tipLabel
         self.insets = insets
@@ -91,6 +99,7 @@ struct PeriodNote: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: write)
         .onChange(of: usable) { _, usable in if usable { write() } else { writer.cancelAll() } }
+        .onChange(of: evidence) { write() }
         .onDisappear { writer.cancel(place) }
         .announcesChanges(to: asked ? announcement : nil)
     }
@@ -117,10 +126,11 @@ struct PeriodNote: View {
         return tipLabel + " " + tip
     }
 
-    /// An automatic note is written as it appears. `request` is cheap to call
-    /// again: an unchanged note comes back from memory, a renamed session's
-    /// is written afresh. An on-request note is not written, but one written
-    /// for figures that have since moved is forgotten, so its link is back.
+    /// An automatic note is written as it appears, and again when `evidence`
+    /// changes. `request` is cheap to call again: an unchanged note comes back
+    /// from memory, a renamed session's is written afresh. An on-request note
+    /// is not written, but one written for figures that have since moved is
+    /// forgotten, so its link is back.
     private func write() {
         switch trigger {
         case .automatic: writer.request(place, requested: false)

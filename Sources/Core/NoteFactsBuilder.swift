@@ -4,6 +4,13 @@ private func timeOfDay(_ date: Date, _ calendar: Calendar) -> String {
     DateFormats.australian("h:mm a", in: calendar.timeZone).string(from: date)
 }
 
+/// A session or stretch the day begins in the middle of: the day's sessions are
+/// clipped to its start, so it began the night before.
+// ponytail: one that truly began at 00:00 reads the same, since only the clipped start is kept; carry the unclipped start in `DaySession` to tell them apart.
+private func carriesOver(_ date: Date, _ calendar: Calendar) -> Bool {
+    date == calendar.startOfDay(for: date)
+}
+
 private func longDate(_ date: Date, _ calendar: Calendar) -> String {
     DateFormats.australian("EEEE d MMMM yyyy", in: calendar.timeZone).string(from: date)
 }
@@ -46,10 +53,12 @@ extension NoteFacts {
         var observations: [String] = []
         let stretches = sessions.flatMap { session in session.spans.map { (span: $0, name: session.name) } }
         if let longest = stretches.max(by: { $0.span.duration < $1.span.duration }), longest.span.duration >= 600 {
-            observations.append("Longest stretch: \(DurationText.compact(longest.span.duration)) in \(longest.name), "
-                                + "from \(timeOfDay(longest.span.start, calendar))")
+            let from = carriesOver(longest.span.start, calendar) ? "before midnight" : timeOfDay(longest.span.start, calendar)
+            observations.append("Longest stretch: \(DurationText.compact(longest.span.duration)) in \(longest.name), from \(from)")
         }
-        observations.append("Focus began at \(timeOfDay(sessions[0].start, calendar)) with \(sessions[0].name)")
+        observations.append(carriesOver(sessions[0].start, calendar)
+            ? "Focus carried on past midnight with \(sessions[0].name)"
+            : "Focus began at \(timeOfDay(sessions[0].start, calendar)) with \(sessions[0].name)")
         if let top = topApps.first, top.share > 0.4 {
             observations.append("Most app time was in \(top.appName) (\(DurationText.compact(top.total)))")
         }
@@ -110,15 +119,18 @@ extension NoteFacts {
         return parts.joined(separator: " · ")
     }
 
-    /// `Parser at 9:13 am, 1h 30m; …` in start order. Past the limit, the
-    /// sessions with the most time are named and the rest counted.
+    /// `Parser at 9:13 am, 1h 30m; …` in start order, `Parser from before
+    /// midnight, 1h` for one carried over from the night before. Past the
+    /// limit, the sessions with the most time are named and the rest counted.
     private static func sessionList(_ sessions: [DaySession], calendar: Calendar) -> String {
         let kept = Set(sessions.indices.sorted {
             sessions[$0].worked != sessions[$1].worked ? sessions[$0].worked > sessions[$1].worked : $0 < $1
         }.prefix(namedSessionLimit))
         var entries = sessions.indices.filter(kept.contains).map { index in
-            "\(sessions[index].name) at \(timeOfDay(sessions[index].start, calendar)), "
-                + DurationText.compact(sessions[index].worked)
+            let session = sessions[index]
+            let began = carriesOver(session.start, calendar) ? "from before midnight"
+                : "at " + timeOfDay(session.start, calendar)
+            return "\(session.name) \(began), " + DurationText.compact(session.worked)
         }
         if sessions.count > namedSessionLimit { entries.append("and \(sessions.count - namedSessionLimit) more") }
         return entries.joined(separator: "; ")

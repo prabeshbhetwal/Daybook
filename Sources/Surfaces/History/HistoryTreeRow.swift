@@ -225,7 +225,7 @@ struct HistoryTreeRow: View {
     /// are still moving.
     @ViewBuilder private var note: some View {
         if row.place.level != .year, row.sessions > 0, let writer = navigation.notes {
-            PeriodNote(writer: writer, place: row.place,
+            PeriodNote(writer: writer, place: row.place, evidence: store.noteEvidence,
                        trigger: store.noteIsCurrent(row.place) ? .onRequest(label: "Write a note") : .automatic,
                        tipLabel: nil,
                        insets: EdgeInsets(top: Tokens.Space.m, leading: Tokens.Space.s, bottom: Tokens.Space.s,

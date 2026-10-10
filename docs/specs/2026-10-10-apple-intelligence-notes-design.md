@@ -69,20 +69,20 @@ nothing to look at).
 | Core | `Sources/Core/NoteAudit.swift` | `passes(_ note:, facts:)`: every run of digits in the story, pattern and tip must appear among the digit runs of the facts' text, with leading zeros ignored. |
 | App | `Sources/App/ModelGate.swift` | `modelAvailable`: macOS 26 and `availability == .available`, read on every call rather than kept from launch. `AskModel.canAsk` reads it too, so Ask is unchanged. The Settings switch is read by `NoteWriter.isUsable`. |
 | App | `Sources/App/NoteWriter.swift` | `@MainActor ObservableObject`. Publishes each place's note state (writing, written, failed) and keeps the cache and the failed keys. One `LanguageModelSession` per note, with greedy sampling and `@Generable GeneratedNote { story, pattern, tip }`; the tip is kept on days only. Runs the audit, writes one note at a time, and has a `responder` seam for checks. Remembers the key each published state was written for: `forgetIfStale(_:)` drops a note or failure whose facts have since changed, and `cancelAll()` stops the note being written and drops those waiting. |
-| App | `Sources/App/SessionStore+Notes.swift` | Builds `NoteFacts` for a History place, for today and for yesterday from the read models those surfaces already publish, and answers whether Wrap up today or the Yesterday notice is offered. It publishes no note state (only the redraw after the Yesterday notice is dismissed) and adds no stored property, so `SessionStore` gains no `keep_internals` entry. |
-| App | `Sources/App/MainWindowModel.swift` | `notes`: builds the `NoteWriter` on first read, so a Mac that never shows a note holds none. Views reach the writer as `navigation.notes`. |
+| App | `Sources/App/SessionStore+Notes.swift` | Builds `NoteFacts` for a History place, for today and for yesterday from the read models those surfaces already publish, and answers whether Wrap up today or the Yesterday notice is offered. `noteEvidence` is the session archive's and the session metadata's revisions, read from `evidenceRevision`: the cheap value a note on screen is checked against again (§3). It publishes no note state (only the redraw after the Yesterday notice is dismissed) and adds no stored property, so `SessionStore` gains no `keep_internals` entry. |
+| App | `Sources/App/MainWindowModel.swift` | `notes`: builds the `NoteWriter` on first read. Today's rail reads it on every redraw, so every Mac that shows the rail holds one, whether or not a note is ever shown. Views reach the writer as `navigation.notes`. |
 | App | `Sources/App/SettingsModel.swift` | `useAppleIntelligence` (default true). It and `yesterdayNoteDismissedDay` are stored in `PersistenceStore`. |
-| Surfaces | `Sources/Surfaces/Story/PeriodNote.swift` | The note view used in every place: text, tip where a label is given, caption, "Writing…" line, failure line and the link for a note written on request. When it appears, an on-request note calls `forgetIfStale`; when the model becomes unusable it calls `cancelAll`. |
+| Surfaces | `Sources/Surfaces/Story/PeriodNote.swift` | The note view used in every place: text, tip where a label is given, caption, "Writing…" line, failure line and the link for a note written on request. Its parent passes in `noteEvidence`. When the view appears, and again whenever that evidence changes, an automatic note is requested and an on-request note calls `forgetIfStale`; when the model becomes unusable it calls `cancelAll`. |
 | Surfaces | `Sources/Surfaces/Story/YesterdayNotice.swift` | The Yesterday notice: figures line, note, Done. |
 | Surfaces | `Sources/Surfaces/Story/TodayNotes.swift` | Places the Yesterday notice and Wrap up today at the top of Today's rail. |
 | Surfaces | `HistoryTreeRow.swift`, `StoryRail.swift`, Settings › Privacy | Place the views and the switch. |
 | Surfaces | `SnapshotNotes.swift`, `Snapshotter.swift` | Two gallery scenarios (`reviewNotes`, `reviewNotesHistory`) that show fixed notes without a model. |
-| Checks | `ReviewNoteFactsChecks`, `ReviewNoteGateChecks`, `ReviewNoteStoreChecks`, `ReviewNoteWriterChecks`, `ReviewNoteWriterFailureChecks`, `ReviewNoteWriterQueueChecks`, `ReviewNoteStoreEdgeChecks`, `ReviewNoteWriterStateChecks` | Under `Sources/Verification/`; §6 lists what they guard. |
+| Checks | `ReviewNoteFactsChecks`, `ReviewNoteGateChecks`, `ReviewNoteStoreChecks`, `ReviewNoteWriterChecks`, `ReviewNoteWriterFailureChecks`, `ReviewNoteWriterQueueChecks`, `ReviewNoteStoreEdgeChecks`, `ReviewNoteWriterStateChecks`, `ReviewNoteFreshnessChecks` | Under `Sources/Verification/`; §6 lists what they guard. |
 
 Rules kept:
 
 - Views bind to the store and settings only; they never read storage or compute figures.
-- Views gate on the switch and read no expensive store methods in a body that redraws every second. Today's rail holds its offers in state and builds them again only when their cause changes (the day turning over, a session starting, stopping or being added, the model becoming usable or not).
+- Views gate on the switch and read no expensive store methods in a body that redraws every second. Today's rail holds its offers in state and builds them again only when their cause changes (the day turning over, a session starting, stopping or being added, the model becoming usable or not). Reading the model's availability costs about 215 µs of CPU, so the rail reads it once per redraw and passes it to the notes it places. `noteEvidence` is a few counter reads, with no projection, and is taken in the same redraws.
 - Each new note file stays under 300 lines. `StoryRail.swift`, `SettingsModel.swift` and `MainWindowModel.swift` were already over it and received placement lines only.
 - Lengths are design tokens or `.zoomed`, and text uses the type roles.
 - `SessionEngine` and `SessionStore` internals are reached only through methods on their owners (`keep_internals`).
@@ -91,19 +91,24 @@ Rules kept:
 
 1. A view appears for a place, or the person presses "Write a note" or "Wrap up today".
 2. The view asks `NoteWriter` for that place's note, and `NoteWriter` has `SessionStore+Notes` build the `NoteFacts`.
-3. `NoteWriter` returns the cached note if the key (the place's id and the facts' text) matches. Otherwise it checks `ModelGate` and the switch, builds a session with the instructions for the period's kind (day, or week and month), and asks for a note from the facts.
+3. `NoteWriter` returns the cached note if the key (the place's id and the facts' text) matches. Otherwise it checks `ModelGate` and the switch, builds a session with the one instruction string (the same for every kind of period; the difference between a day and a week or month lives in the tip guide of `GeneratedNote`), and asks for a note from the facts.
 4. The audit runs on story, pattern and tip together. A note that fails the audit, comes back blank or throws is dropped and remembered as failed.
 5. `NoteWriter` publishes the result and the view redraws. The store publishes no note state.
 
-Instructions tell the model to use digits for every figure, to quote session
-names as written, to build the pattern and tip on one listed observation, and
-to stay within two sentences for the story and one each for pattern and tip.
+The instructions tell the model to use only the facts, to write every figure
+in digits as the facts write it, never to total, average or compare figures
+itself, and to write in plain Australian English in the second person. The
+guides on `GeneratedNote` tell it to quote session names as written, to build
+the pattern and tip on one listed observation, to stay within two sentences
+for the story and one each for pattern and tip, and to leave the tip empty for
+a week or month.
 
 Where the facts come from, as built:
 
 - A day's facts, and the figures line on the Yesterday notice, read the Story day projection, which is always current.
 - A week's or month's facts read History's index, which is refreshed only while History is open, so those notes are requested only from History.
 - A week or month is compared with the one before only when both are finished whole calendar periods and the one before lies wholly within the record, that is, begins on or after its first day. A running period, one cut short at the start of the record, or one whose predecessor was recorded only in part is not weighed against a whole one. A day is compared with the whole day before.
+- A session carried on from the night before is not said to begin at midnight. The day's session is clipped to the day's start, so one starting exactly there is written "Focus carried on past midnight with …", "… from before midnight, 1h" in the session list and "from before midnight" on the longest stretch, never "12:00 am". A session that truly began at 00:00 reads the same, since only the clipped start is kept (`ponytail:` in `NoteFactsBuilder`).
 - A day's session count is History's own: a session resumed after another on the same thread is one session, so "Focus: … over N sessions", the stretches observation and the figures line agree with the day's card. The "Sessions in order" list still names every row the Story shows.
 
 ## 3. Places
@@ -112,6 +117,7 @@ Where the facts come from, as built:
 |---|---|---|---|
 | History day, past | Top of the opened day row, above the day's story; the same slot as a week's or month's note | On first open | Story, pattern |
 | History week or month, past | Under its period card when open | On first open | Story, pattern |
+| History day, current | Same slot as a past day's | On "Write a note", offered even while a session runs | Story, pattern |
 | History week or month, current | Same | On "Write a note" | Story, pattern |
 | Today | Top of today's Story rail | On "Wrap up today", offered once today has a session and none is running | Story, pattern, tip for tomorrow |
 | Yesterday | Top of today's Story rail, above the backup offer | When yesterday had a session and the notice has not been dismissed for that date | Figures line, story, pattern, tip for today |
@@ -131,12 +137,28 @@ Where the facts come from, as built:
 The figures line uses the same figures and formatting as the History card
 for that day.
 
+History offers "Write a note" on a current day while a session runs, whereas
+Today's rail offers "Wrap up today" only when none does. The difference is
+kept: a current period is written on request, and the evidence check below
+refreshes it as its figures change.
+
 A note the writer holds for a place is shown whenever that place's view is
 built again, so an on-request note stays shown after its view is recreated.
 Its link shows only while there is nothing to show. A note written on request
 for figures that have since changed (a session added to a running day or
 week, a rename) counts as nothing: the writer forgets it when the view
 appears, and the link returns.
+
+A note already on screen checks its facts again when the session archive or
+the session metadata changes (a rename, a correction, a deletion, an edited
+session note, a session stopping), through the `noteEvidence` its parent
+passes to `PeriodNote`: an automatic note is requested again and an on-request
+note is forgotten if its facts changed. This holds in History, where a rename on
+an opened day reaches the note above its story, and in the Yesterday notice,
+where the note no longer lags the figures line above it when an away card is
+answered after midnight. App use is
+not part of that evidence: it moves every few seconds while you work, and would
+send a Wrap up today note just written back to its link.
 
 ## 4. When it cannot write
 
@@ -145,8 +167,8 @@ appears, and the link returns.
 | Model unusable or switch off | No note, no link, no Yesterday notice. The note being written is cancelled and any waiting are dropped (`cancelAll`), so nothing is left showing "Writing…"; notes already written stay in memory, hidden. |
 | No sessions in the period | No note and no link. |
 | Audit fails, refusal, guardrail, unsupported language, context exceeded | Automatic notes show nothing. Requested notes show "Couldn't write a note for this period." No retry: greedy sampling would give the same result. Every failure (audit, blank note, thrown error) is remembered per place and facts for the session, so it is not asked again until the facts change. |
-| Facts change (rename, correction, deletion, a session added) | The facts' text changes, and with it the cache key, so the note is written again when next viewed. A note written on request returns to its link instead, since nothing writes it unasked. |
-| Midnight | Notes are keyed by period, so today's wrap-up becomes yesterday's History note and Yesterday notice while its facts are unchanged, and is written again if they changed. The Yesterday notice moves to the new yesterday. Done closes the day the notice showed, not whichever day is yesterday when it is pressed after midnight, so the new yesterday is still offered. |
+| Facts change (rename, correction, deletion, a session added) | The facts' text changes, and with it the cache key, so the note is written again, at once if it is on screen (the view checks again when `noteEvidence` moves, §3) and otherwise when next viewed. A note written on request returns to its link instead, since nothing writes it unasked. Changes in app use alone are not watched. |
+| Midnight | Notes are keyed by period and the facts' text. A day's first fact line ends "(so far)" while it is current, so the text, and with it the key, always changes at midnight: today's wrap-up is never carried over, and the finished day's note, in History and in the Yesterday notice, is always written afresh. The Yesterday notice moves to the new yesterday. Done closes the day the notice showed, not whichever day is yesterday when it is pressed after midnight, so the new yesterday is still offered. |
 | Several periods opened quickly | One call at a time. A newer request replaces the one running. A replaced period still on screen is written once the writer is idle; one whose view has closed is dropped. |
 | Figures written as words | Not caught by the audit. Marked `ponytail:` in `NoteAudit`; widen to number words if the probe finds any. |
 
@@ -176,6 +198,8 @@ model.
 | Cancel all | A note being written and one waiting, then `cancelAll` | A "Writing…" state is left, a late answer is published, or the waiting note is started again |
 | Session count | A day with Parser, Mail, then Parser again on one thread | The facts or the figures line say 3 sessions where History counts 2 |
 | Previous period | Months and weeks whose predecessor starts before, or after, the record's first day | A partly recorded period is compared, or a wholly recorded one is not |
+| Evidence | A rename, an edited session note, a session running and stopping, and app use recorded | A rename, a session note or a stop leaves `noteEvidence` as it was, a running session moves it, or app use alone moves it |
+| Carried over | A session from 10 pm on a Friday to 2 am on the Saturday | Saturday's facts name 12:00 am, or omit "carried on past midnight", "from before midnight" in the list and on the longest stretch; Friday's lose their 10:00 pm start |
 | Views | `--gallery` / `--snapshot` with fixed notes | Layout breaks at 80% and 140% zoom; VoiceOver labels missing |
 
 Run in Sydney and with `TZ=Europe/Berlin`. Mutation test in a temporary tree
@@ -207,6 +231,9 @@ the probe to judge:
 - A comma inside a session name in the "Most time went to" list, which is itself comma-separated.
 - A name ending in a number, followed by a duration, which can read as one figure.
 - "Focus began at 12:00 am" for a session continued from the night before.
+
+The third was fixed after the final review (§2, §6), so the probe's day
+across midnight reads the fixed wording.
 
 Merge waits on this probe passing.
 

@@ -199,8 +199,9 @@ struct HistorySessionPick: Hashable {
     private(set) var askModel: AskModel?
     private var noteWriter: NoteWriter?
 
-    /// The review notes' writer, built on first read, so with Apple
-    /// Intelligence never used nothing of it exists.
+    /// The review notes' writer, built on first read. The Today rail reads it
+    /// on every redraw, so a Mac that shows the rail holds one whether or not
+    /// a note is ever shown.
     var notes: NoteWriter? {
         if noteWriter == nil, let store { noteWriter = NoteWriter(store: store) }
         return noteWriter

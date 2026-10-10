@@ -37,9 +37,9 @@ enum NoteState: Equatable {
     /// Places whose write was set aside for a newer request, oldest first.
     /// Each shows `.writing` until it is started again or its view cancels.
     private var pending: [Pending] = []
-    /// Checks only: stands in for the model. It gets the facts and may throw.
-    /// Nothing in the app sets it. It stands in for the model's availability,
-    /// never for the Apple Intelligence switch.
+    /// Stands in for the model, in checks and in the gallery's snapshots
+    /// (`SnapshotNotes`). It gets the facts and may throw. It stands in for
+    /// the model's availability, never for the Apple Intelligence switch.
     var responder: (@MainActor (NoteFacts) async throws -> WrittenNote)?
 
     private struct Pending {
@@ -62,7 +62,9 @@ enum NoteState: Equatable {
     }
 
     /// The switch is on and the model is ready, read on every call: either
-    /// can change while the app runs.
+    /// can change while the app runs. Each read asks the system for the
+    /// model's availability, about 215 µs of CPU, so a view that redraws every
+    /// second (the Today rail) reads it once per redraw and passes it down.
     var isUsable: Bool {
         guard let store, store.appleIntelligenceEnabled else { return false }
         return responder != nil || ModelGate.modelAvailable
