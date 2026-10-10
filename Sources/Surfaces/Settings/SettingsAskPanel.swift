@@ -13,6 +13,18 @@ extension SettingsGroups {
                       detail: "The Ask button beside Settings. ⌘K opens Ask either way.",
                       isOn: $model.showsAskButton)
                 .disabled(!AskModel.isOffered)
+            rowDivider
+            preferenceRow("Open Ask in",
+                          detail: "A side panel stays beside Story and History, so sources open next to the chat.") {
+                Picker("Open Ask in", selection: $model.askPlacement) {
+                    Text("Sheet").tag(AskPlacement.sheet)
+                    Text("Side panel").tag(AskPlacement.panel)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .disabled(!AskModel.isOffered)
+                .accessibilityLabel("Open Ask in")
+            }
             if model.canOpenAsk {
                 Button("Open Ask") { model.openAsk() }
                     .buttonStyle(.bordered)

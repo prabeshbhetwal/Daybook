@@ -8,13 +8,17 @@ struct AskChatView: View {
     @ObservedObject var model: AskModel
     /// What a source, in the text or in the list, opens.
     let onFollow: (AskLink) -> Void
+    /// Whether the footer carries "New chat". The side panel has its own in
+    /// its header, and one is enough.
+    let showsNewChat: Bool
     /// The field's own text. Emptied once a question starts an answer.
     @State private var text = ""
     @FocusState private var fieldFocused: Bool
 
-    init(model: AskModel, onFollow: @escaping (AskLink) -> Void) {
+    init(model: AskModel, onFollow: @escaping (AskLink) -> Void, showsNewChat: Bool = true) {
         self.model = model
         self.onFollow = onFollow
+        self.showsNewChat = showsNewChat
     }
 
     /// What Ask says aloud when an answer finishes: the answer, then its sources.
@@ -33,6 +37,11 @@ struct AskChatView: View {
         .onAppear {
             model.prepare()
             fieldFocused = true
+        }
+        // A new chat started from outside this view (the panel's header)
+        // leaves the cursor where the next question goes.
+        .onChange(of: model.turns.isEmpty) { _, isEmpty in
+            if isEmpty { fieldFocused = true }
         }
         .onChange(of: model.isAnswering) { wasAnswering, isAnswering in
             guard wasAnswering, !isAnswering else { return }
@@ -162,7 +171,7 @@ struct AskChatView: View {
             .font(Tokens.Typography.caption)
             .foregroundStyle(.secondary)
             Spacer(minLength: Tokens.Space.s)
-            if !model.turns.isEmpty {
+            if showsNewChat, !model.turns.isEmpty {
                 Button("New chat") {
                     model.newChat()
                     text = ""

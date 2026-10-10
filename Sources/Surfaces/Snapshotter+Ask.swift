@@ -1,5 +1,10 @@
 import Foundation
 
+extension SnapshotScenario {
+    /// Drawn with Ask's side panel open, in a window wide enough for it.
+    var showsAskPanel: Bool { self == .askPanelStory || self == .askPanelHistory }
+}
+
 /// The chats the Ask scenarios show: written out, with no model behind them.
 extension Snapshotter {
     static func askTurns(for scenario: SnapshotScenario) -> [AskTurn] {

@@ -25,8 +25,24 @@ struct MainWindowView: View {
     /// The content minimum at 100%, scaled by the zoom and held to the screen.
     static let minimumBase = CGSize(width: 980, height: 680) // zoom: fixed, the 100% size
 
+    /// The content minimum at 100% with the side panel on show or not: the
+    /// panel's width is added, so Story and History keep the room they had.
+    static func contentBase(askPanelOpen: Bool) -> CGSize {
+        askPanelOpen
+            ? CGSize(width: minimumBase.width + AskLayout.panelBaseWidth, height: minimumBase.height)
+            : minimumBase
+    }
+
+    /// Ask's side panel is on show when it is open, is still the saved choice
+    /// (a sheet closed some other way than Settings can leave it open after the
+    /// choice became the sheet) and Ask has been started.
+    private var askPanelShown: Bool {
+        navigation.askPanelOpen && settings.askPlacement == .panel && navigation.askModel != nil
+    }
+
     private var minimum: CGSize {
-        ZoomWindowFit.minimum(base: Self.minimumBase, screenVisible: screenVisible.value)
+        ZoomWindowFit.minimum(base: Self.contentBase(askPanelOpen: askPanelShown),
+                              screenVisible: screenVisible.value)
     }
 
     var body: some View {
@@ -51,10 +67,19 @@ struct MainWindowView: View {
                     .transition(Tokens.Motion.transition(Tokens.Motion.slideDown,
                                                          reduceMotion: reduceMotion))
             }
-            readingWorkspace
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .clipped()
-                .accessibilitySortPriority(1)
+            HStack(spacing: 0) {
+                readingWorkspace
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .clipped()
+                    .accessibilitySortPriority(1)
+                if askPanelShown, let ask = navigation.askModel {
+                    Divider()
+                    AskPanel(model: ask, onFollow: navigation.follow, onClose: navigation.closeAskPanel)
+                        .frame(width: AskLayout.panelWidth)
+                        .frame(maxHeight: .infinity)
+                        .clipped()
+                }
+            }
         }
         .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
         // The open report is modal: what is dimmed behind it can be neither
@@ -94,7 +119,7 @@ struct MainWindowView: View {
         .onChange(of: geometry.size) { _, newSize in windowSize.value = newSize }
       }
         .frame(minWidth: minimum.width, minHeight: minimum.height)
-        .background(ZoomWindowFit(base: Self.minimumBase) { screenVisible.value = $0 })
+        .background(ZoomWindowFit(base: Self.contentBase(askPanelOpen: askPanelShown)) { screenVisible.value = $0 })
         .background(StoryStyle.canvas)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .zoomRoot()

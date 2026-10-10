@@ -6,8 +6,9 @@ import SwiftUI
 /// A view's minimum size follows the zoom by itself, but a window that is
 /// already open stays as large as it was, so a zoom-up leaves it too small for
 /// its content. This anchor grows its window to the new minimum when the zoom
-/// changes, keeping the top-left corner and moving the window back onto the
-/// screen if the growth pushed it off. It never shrinks one.
+/// changes, or when its base grows (a side panel opening), keeping the
+/// top-left corner and moving the window back onto the screen if the growth
+/// pushed it off. It never shrinks one.
 ///
 /// It also reports the visible size of the window's screen, which a view needs
 /// to cap its own minimum (see `minimum(base:screenVisible:)`).
@@ -42,7 +43,16 @@ struct ZoomWindowFit: NSViewRepresentable {
 }
 
 final class ZoomWindowFitAnchor: NSView {
-    var base = CGSize.zero
+    /// A base that grows (a panel opening) grows the window to hold it, as a
+    /// zoom step does. Queued, since the view update that sets this is not the
+    /// place to move a window; the first base, set before the view has a
+    /// window, grows nothing.
+    var base = CGSize.zero {
+        didSet {
+            guard oldValue != .zero, base.width > oldValue.width || base.height > oldValue.height else { return }
+            DispatchQueue.main.async { [weak self] in self?.fit() }
+        }
+    }
     var onScreen: ((CGSize) -> Void)?
     private weak var host: NSWindow?
     private var reported: CGSize?
