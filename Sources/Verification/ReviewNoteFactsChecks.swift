@@ -8,6 +8,7 @@ enum ReviewNoteFactsChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A day's note facts list sessions in start order with their times", dayFactsOrder),
         ("A day with ten sessions names its eight longest and counts the rest", dayFactsCap),
+        ("A day's facts count sessions as History does, not by the rows the Story lists", dayFactsSessionCount),
         ("A day without sessions has no note facts, even with breaks and app use", dayWithoutSessions),
         ("A period's note facts carry History's figures and its best day", periodFacts),
         ("The figures line says focus, goal and sessions and drops the goal when there is none", figuresLine),
@@ -33,10 +34,12 @@ enum ReviewNoteFactsChecks: CheckSuite {
         AppRank(bundleID: "test." + name.lowercased(), appName: name, total: total, share: share, longest: total)
     }
 
-    private static func dayInput(_ sessions: [DaySession], apps: [AppRank] = [], isCurrent: Bool = false,
-                                 goal: TimeInterval = 0, goalCredit: TimeInterval = 0,
+    /// `count` is the sessions as History counts them; one row per session when nil.
+    private static func dayInput(_ sessions: [DaySession], count: Int? = nil, apps: [AppRank] = [],
+                                 isCurrent: Bool = false, goal: TimeInterval = 0, goalCredit: TimeInterval = 0,
                                  previous: TimeInterval = 0) -> NoteDayInput {
-        NoteDayInput(date: SelfTest.base, isCurrent: isCurrent, sessions: sessions, apps: apps,
+        NoteDayInput(date: SelfTest.base, isCurrent: isCurrent, sessions: sessions,
+                     sessionCount: count ?? sessions.count, apps: apps,
                      focused: sessions.reduce(0) { $0 + $1.worked }, goal: goal, goalCredit: goalCredit,
                      previousFocused: previous)
     }
@@ -113,9 +116,27 @@ enum ReviewNoteFactsChecks: CheckSuite {
         return problems
     }
 
+    /// Parser, Mail, then Parser again on its own thread: three rows, two sessions.
+    private static func dayFactsSessionCount() -> [String] {
+        var problems: [String] = []
+        let rows = [session("Parser", spans: [DateInterval(start: at(9, 0), end: at(10, 0))], worked: 3_600),
+                    session("Mail", spans: [DateInterval(start: at(10, 0), end: at(10, 30))], worked: 1_800),
+                    session("Parser", spans: [DateInterval(start: at(11, 0), end: at(11, 30))], worked: 1_800)]
+        guard let counted = NoteFacts.day(dayInput(rows, count: 2), calendar: calendar),
+              let listed = NoteFacts.day(dayInput(rows), calendar: calendar) else { return ["a day with sessions produced no facts"] }
+        expect(counted.lines.contains("Focus: 2h over 2 sessions"), "two sessions over three rows say \(counted.lines)", &problems)
+        expect(counted.observations.contains("2 sessions ran as 3 stretches"),
+               "two sessions over three stretches say \(counted.observations)", &problems)
+        // With a session to a row there is nothing to say about stretches.
+        expect(listed.lines.contains("Focus: 2h over 3 sessions"), "three sessions say \(listed.lines)", &problems)
+        expect(!listed.observations.contains { $0.contains("stretches") },
+               "three sessions of one stretch say \(listed.observations)", &problems)
+        return problems
+    }
+
     private static func dayWithoutSessions() -> [String] {
         var problems: [String] = []
-        let input = NoteDayInput(date: SelfTest.base, isCurrent: false, sessions: [],
+        let input = NoteDayInput(date: SelfTest.base, isCurrent: false, sessions: [], sessionCount: 0,
                                  apps: [app("Xcode", 3_600, share: 1)], focused: 3_600, goal: 7_200,
                                  goalCredit: 3_600, previousFocused: 1_800)
         expect(NoteFacts.day(input, calendar: calendar) == nil, "a day with no sessions should have no facts", &problems)

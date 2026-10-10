@@ -27,12 +27,15 @@ struct WrittenNote: Equatable {
     let tip: String?
 }
 
-/// What one day is described from. `previousFocused` is the day before's
-/// focus, 0 when there is none.
+/// What one day is described from. `sessionCount` is the sessions as History
+/// counts them: a session resumed after another is one, so the count can be
+/// below `sessions`. `previousFocused` is the day before's focus, 0 when there
+/// is none.
 struct NoteDayInput {
     let date: Date
     let isCurrent: Bool
     let sessions: [DaySession]
+    let sessionCount: Int
     let apps: [AppRank]
     let focused: TimeInterval
     let goal: TimeInterval

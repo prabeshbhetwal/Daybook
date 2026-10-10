@@ -15,7 +15,7 @@ enum ReviewNoteStoreChecks: CheckSuite {
         ("A session running across midnight leaves yesterday's facts as they were and changes today's",
          runningAcrossMidnight),
         ("Today and this week are current, so their notes wait for a request", currentPeriods),
-        ("A finished period is compared with the one before it, a partial one is not", finishedPeriodsCompare),
+        ("A period still running or cut short is not compared with the whole one before it", partialPeriodsNotCompared),
         ("The Yesterday notice is offered once per day until dismissed", yesterdayOffer),
         ("Yesterday's figures line is right when History has never been open", figuresLineWithoutHistory),
         ("Wrap up today is offered only when today has a session and none is running", wrapUpOffer),
@@ -154,7 +154,7 @@ enum ReviewNoteStoreChecks: CheckSuite {
         }
     }
 
-    private static func finishedPeriodsCompare() -> [String] {
+    private static func partialPeriodsNotCompared() -> [String] {
         AskLookupChecks.withFixture { f, problems in
             f.store.setReviewVisible(true)
             let november = place(.month, containing: f.clock.value, f)
@@ -162,10 +162,11 @@ enum ReviewNoteStoreChecks: CheckSuite {
             expect(!during.contains { $0.contains("than the month before") },
                    "November is compared with October while it runs: \(during)", &problems)
 
-            // November: 2h 30m. October: 2h.
+            // November has finished, but the record starts on 17 October: October is only partly recorded.
             f.clock.value = f.calendar.date(from: DateComponents(year: 2023, month: 12, day: 5, hour: 9, minute: 13))!
             let after = f.store.noteFacts(for: november)?.observations ?? []
-            expect(after.contains("30m more focus than the month before"), "finished November says \(after)", &problems)
+            expect(!after.contains { $0.contains("than the month before") },
+                   "finished November is compared with a partly recorded October: \(after)", &problems)
             let cut = HistoryPlace(level: .month, span: DateInterval(start: november.start, end: moment(f, back: 20, 0)))
             let part = f.store.noteFacts(for: cut)?.observations ?? []
             expect(!part.contains { $0.contains("than the month before") },
@@ -178,7 +179,7 @@ enum ReviewNoteStoreChecks: CheckSuite {
             let tuesday = f.store.notePlace(forDayContaining: moment(f, back: 1, 12))
             expect(f.store.yesterdayNotePlace() == tuesday, "yesterday's offer is \(String(describing: f.store.yesterdayNotePlace()))",
                    &problems)
-            f.store.dismissYesterdayNote()
+            f.store.dismissYesterdayNote(tuesday)
             expect(f.store.yesterdayNotePlace() == nil, "the offer came back after Done", &problems)
 
             // Wednesday gets a session; on Thursday it is the new yesterday.

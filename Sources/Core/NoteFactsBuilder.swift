@@ -33,7 +33,7 @@ extension NoteFacts {
         let topApps = input.apps.filter { $0.total > 0 }
 
         var lines = ["Day: " + longDate(input.date, calendar) + (input.isCurrent ? " (so far)" : ""),
-                     "Focus: \(DurationText.compact(input.focused)) over \(counted(sessions.count, "session"))"]
+                     "Focus: \(DurationText.compact(input.focused)) over \(counted(input.sessionCount, "session"))"]
         if input.goal > 0 {
             lines.append("Daily goal: \(DurationText.compact(input.goal)), met: \(input.goalCredit >= input.goal ? "yes" : "no")")
         }
@@ -57,8 +57,8 @@ extension NoteFacts {
             observations.append(change)
         }
         let stretchCount = sessions.reduce(0) { $0 + $1.stretches }
-        if stretchCount > sessions.count {
-            observations.append("\(counted(sessions.count, "session")) ran as \(counted(stretchCount, "stretch", plural: "stretches"))")
+        if stretchCount > input.sessionCount {
+            observations.append("\(counted(input.sessionCount, "session")) ran as \(counted(stretchCount, "stretch", plural: "stretches"))")
         }
         return NoteFacts(kind: .day, lines: lines, observations: Array(observations.prefix(4)))
     }

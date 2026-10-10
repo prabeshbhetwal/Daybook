@@ -64,9 +64,9 @@ extension SessionStore {
         return place
     }
 
-    /// Closes the Yesterday notice for the day it is showing.
-    func dismissYesterdayNote() {
-        guard let place = yesterdayPlace() else { return }
+    /// Closes the Yesterday notice for the day it is showing. The caller names
+    /// the day, since pressing Done after midnight finds a later yesterday.
+    func dismissYesterdayNote(_ place: HistoryPlace) {
         engine.store.yesterdayNoteDismissedDay = place.start
         objectWillChange.send()
     }
@@ -86,8 +86,9 @@ extension SessionStore {
         let before = calendar.date(byAdding: .day, value: -1, to: place.start)
             .map { storyDayProjection(on: $0, calendar: calendar).focused } ?? 0
         return NoteFacts.day(NoteDayInput(date: place.start, isCurrent: noteIsCurrent(place), sessions: sessions,
-                                          apps: day.apps, focused: day.focused, goal: engine.store.dailyGoal,
-                                          goalCredit: day.goalCredit, previousFocused: before),
+                                          sessionCount: day.focusSessionCount, apps: day.apps, focused: day.focused,
+                                          goal: engine.store.dailyGoal, goalCredit: day.goalCredit,
+                                          previousFocused: before),
                              calendar: calendar)
     }
 
@@ -118,13 +119,15 @@ extension SessionStore {
 
     /// The focus of the same-level period just before, or 0 for no
     /// comparison. A period still running, or cut short by a month's edge or
-    /// the start of the record, is not weighed against a whole one.
+    /// the start of the record, is not weighed against a whole one, nor is one
+    /// whose period before began ahead of the record's first day.
     private func previousFocused(before place: HistoryPlace, isCurrent: Bool) -> TimeInterval {
         let calendar = periodCalendar
         let whole = HistoryTreeBuilder.period(place.level, containing: place.start, calendar: calendar)
         guard !isCurrent, whole == place.span,
               let dayBefore = calendar.date(byAdding: .day, value: -1, to: place.start) else { return 0 }
         let span = HistoryTreeBuilder.period(place.level, containing: dayBefore, calendar: calendar)
+        guard span.start >= historyTop().firstDay else { return 0 }
         return historySummary(for: HistoryPlace(level: place.level, span: span)).focused
     }
 }

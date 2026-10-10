@@ -60,7 +60,7 @@ struct TodayNotes: View {
         if let writer, usable {
             if let place = offers.yesterday {
                 YesterdayNotice(writer: writer, place: place, figures: offers.yesterdayFigures) {
-                    store.dismissYesterdayNote()
+                    store.dismissYesterdayNote(place)
                     offers.yesterday = nil
                 }
                 .id(place.id)

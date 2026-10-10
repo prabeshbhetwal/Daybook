@@ -89,7 +89,7 @@ struct PeriodNote: View {
         .padding(shown == nil ? EdgeInsets() : insets)
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear(perform: write)
-        .onChange(of: usable) { _, usable in if usable { write() } }
+        .onChange(of: usable) { _, usable in if usable { write() } else { writer.cancelAll() } }
         .onDisappear { writer.cancel(place) }
         .announcesChanges(to: asked ? announcement : nil)
     }
@@ -118,9 +118,13 @@ struct PeriodNote: View {
 
     /// An automatic note is written as it appears. `request` is cheap to call
     /// again: an unchanged note comes back from memory, a renamed session's
-    /// is written afresh.
+    /// is written afresh. An on-request note is not written, but one written
+    /// for figures that have since moved is forgotten, so its link is back.
     private func write() {
-        if case .automatic = trigger { writer.request(place, requested: false) }
+        switch trigger {
+        case .automatic: writer.request(place, requested: false)
+        case .onRequest: writer.forgetIfStale(place)
+        }
     }
 
     /// What VoiceOver is told when a note the person asked for arrives.

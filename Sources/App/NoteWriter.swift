@@ -29,6 +29,9 @@ enum NoteState: Equatable {
     /// would fail the same way; changed facts make a new key and are tried.
     // ponytail: never trimmed either, for the same reason as the cache.
     private var failedKeys: Set<String> = []
+    /// The key each place's `.written` or `.failed` state was published for,
+    /// so a note shown for figures that have since moved can be told.
+    private var publishedKeys: [String: String] = [:]
     private var running: Running?
     /// Places whose write was set aside for a newer request, oldest first.
     /// Each shows `.writing` until it is started again or its view cancels.
@@ -78,23 +81,23 @@ enum NoteState: Equatable {
         pending.removeAll { $0.place.id == place.id }
         guard let facts = store.noteFacts(for: place) else {
             if running?.placeID == place.id { stop() }
-            fail(place.id, requested: requested)
+            fail(place.id, key: Self.cacheKey(place, nil), requested: requested)
             startPending()
             return
         }
-        let key = place.id + "\n" + facts.text
+        let key = Self.cacheKey(place, facts)
         if running?.key == key {
             if requested { running?.requested = true }
             return
         }
         if running?.placeID == place.id { stop() }
         if let note = cache[key] {
-            states[place.id] = .written(note)
+            publish(.written(note), for: place.id, key: key)
             startPending()
             return
         }
         if failedKeys.contains(key) {
-            fail(place.id, requested: requested)
+            fail(place.id, key: key, requested: requested)
             startPending()
             return
         }
@@ -122,20 +125,54 @@ enum NoteState: Equatable {
         startPending()
     }
 
+    /// For when the model becomes unusable, the switch turned off: the note
+    /// being written is stopped and those waiting are dropped, so none is left
+    /// showing "Writing…". Notes already written stay in memory.
+    func cancelAll() {
+        stop()
+        dropPending()
+    }
+
+    /// For an on-request note's view when it appears: a note or failure shown
+    /// for facts that have since changed is forgotten, so the person's link
+    /// comes back. A note being written is left alone.
+    func forgetIfStale(_ place: HistoryPlace) {
+        switch states[place.id] {
+        case .written?, .failed?:
+            guard let store else { return }
+            if publishedKeys[place.id] != Self.cacheKey(place, store.noteFacts(for: place)) { states[place.id] = nil }
+        default:
+            break
+        }
+    }
+
     /// For snapshots only: shows a note without asking the model. It is
     /// cached for the place's facts too, so a view that then asks for the
     /// place is served this note and not a write.
     func present(_ note: WrittenNote, for place: HistoryPlace) {
-        states[place.id] = .written(note)
-        if let facts = store?.noteFacts(for: place) { cache[place.id + "\n" + facts.text] = note }
+        let facts = store?.noteFacts(for: place)
+        let key = Self.cacheKey(place, facts)
+        publish(.written(note), for: place.id, key: key)
+        if facts != nil { cache[key] = note }
     }
 
     // MARK: - Writing
 
+    /// The place and its facts' text; a place with no facts has the bare
+    /// place, which no facts' key equals.
+    private static func cacheKey(_ place: HistoryPlace, _ facts: NoteFacts?) -> String {
+        place.id + "\n" + (facts?.text ?? "")
+    }
+
+    private func publish(_ state: NoteState, for placeID: String, key: String) {
+        states[placeID] = state
+        publishedKeys[placeID] = key
+    }
+
     /// Shows a failure. One the person asked to see stays when an automatic
     /// request fails the same place again.
-    private func fail(_ placeID: String, requested: Bool) {
-        states[placeID] = .failed(requested: requested || states[placeID] == .failed(requested: true))
+    private func fail(_ placeID: String, key: String, requested: Bool) {
+        publish(.failed(requested: requested || states[placeID] == .failed(requested: true)), for: placeID, key: key)
     }
 
     /// Starts the place set aside most recently, when nothing is being written.
@@ -176,10 +213,10 @@ enum NoteState: Equatable {
         }
         if let note = Self.tidy(note, for: facts), NoteAudit.passes(note, facts: facts) {
             cache[current.key] = note
-            states[current.placeID] = .written(note)
+            publish(.written(note), for: current.placeID, key: current.key)
         } else {
             failedKeys.insert(current.key)
-            states[current.placeID] = .failed(requested: current.requested)
+            publish(.failed(requested: current.requested), for: current.placeID, key: current.key)
         }
         startPending()
     }
