@@ -101,36 +101,85 @@ extension SessionStore {
                                                displayAwake: displayAwake,
                                                screenLocked: screenLocked)
         let quiet = applyPresenceObservation(observation)
+        sampleWorkTraffic(now: now, quiet: quiet,
+                          screenInUse: displayAwake && !screenLocked && !presenceGate.isAwaitingConfirmation)
         if quiet < 60 {
             // Recent input: nothing to tell apart, and any watching is over.
             watchingCache = nil
-            lastSampleWatching = false
-            watchingEndedAt = nil
+            quietSampler.noteInput()
             tracker?.observeIdle(seconds: quiet)
             engine.transition(on: .idleObserved(seconds: quiet))
             return
         }
-        let watching: Bool
+        let holders: WatchDetector.Reading
         if let cache = watchingCache, now.timeIntervalSince(cache.at) < 5 {
-            watching = cache.value
+            holders = cache.value
         } else {
-            watching = isWatching()
-            watchingCache = (now, watching)
+            holders = readWatching()
+            watchingCache = (now, holders)
         }
-        if watching {
-            lastSampleWatching = true
-            watchingEndedAt = nil
-            tracker?.observeIdle(seconds: quiet)
-            engine.transition(on: .watchingObserved(seconds: quiet))
-            return
+        // An agent at work is watched too, but only on a screen someone could
+        // be looking at: never locked, asleep, or woken without a person.
+        let lastActivity = [lastAgentPing, workTraffic.lastBusy, workLoad.lastBusy].compactMap { $0 }.max()
+        let agentSeen = displayAwake && !screenLocked && !presenceGate.isAwaitingConfirmation
+            ? AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: lastActivity,
+                                     frontmostBundleID: engine.currentAppBundleID,
+                                     keptAwake: holders.keptAwake,
+                                     policy: engine.store.agentQuietPolicy,
+                                     countsAppInFront: engine.store.countsAgentAppInFront,
+                                     countsKeepAwake: engine.store.countsKeepAwake,
+                                     cap: engine.store.longAwayCap)
+            : nil
+        let reading = quietSampler.read(now: now, quiet: quiet, film: holders.watching, agentSeen: agentSeen,
+                                        idlePaused: engine.state == .paused(reason: .idle))
+        tracker?.observeIdle(seconds: reading.trackerSeconds)
+        engine.transition(on: reading.event)
+    }
+
+    /// One network reading every `WorkTraffic.interval` of quiet, so a coding
+    /// or AI app at work is known by the time quiet would pause anything.
+    /// Only where an agent can still change something — a running session, a
+    /// watched pause, the away question — and on a screen in use: an idle
+    /// pause or a locked night would otherwise read every 20 seconds for hours,
+    /// for nothing. Typing stops the readings; the next quiet starts afresh.
+    private func sampleWorkTraffic(now: Date, quiet: TimeInterval, screenInUse: Bool) {
+        switch engine.state {
+        case .running, .paused(reason: .watching), .awaitingUserDecision: break
+        default: return
         }
-        if lastSampleWatching { watchingEndedAt = now }
-        lastSampleWatching = false
-        // Once the watching stops, idle counts from then — not from the last
-        // keypress before the film, which would put the film into the absence.
-        let effective = watchingEndedAt.map { min(quiet, now.timeIntervalSince($0)) } ?? quiet
-        tracker?.observeIdle(seconds: effective)
-        engine.transition(on: .idleObserved(seconds: effective))
+        guard quiet >= WorkTraffic.interval, quiet < engine.store.longAwayCap, screenInUse, !trafficReadPending,
+              engine.store.noticesAppsAtWork, engine.store.agentQuietPolicy != .ignore,
+              lastTrafficRead.map({ now.timeIntervalSince($0) >= WorkTraffic.interval }) ?? true
+        else { return }
+        trafficReadPending = true
+        lastTrafficRead = now
+        readWorkTraffic { [weak self] reading in
+            guard let self else { return }
+            self.trafficReadPending = false
+            guard let reading else { return }
+            let used = self.appsUsedInSession(), watched = self.readWatching().watchedApps
+            let own = Bundle.main.bundleIdentifier
+            func counting(sending: Bool) -> (Int32) -> String? {
+                { pid in
+                    reading.apps[pid].flatMap {
+                        WorkTraffic.counts($0, used: used, watched: watched, own: own, sending: sending) ? $0 : nil
+                    }
+                }
+            }
+            let at = Date()
+            if let sent = reading.sent { self.workTraffic.observe(totals: sent, app: counting(sending: true), at: at) }
+            self.workLoad.observe(totals: reading.cpu, app: counting(sending: false), at: at)
+        }
+    }
+
+    /// The apps worked in since the running session began.
+    private func appsUsedInSession() -> Set<String> {
+        let start = engine.sessionStartDate, today = now()
+        var usage = effectiveUsageSnapshot?.sessions(touching: today) ?? []
+        if !Calendar.current.isDate(start, inSameDayAs: today) {
+            usage += effectiveUsageSnapshot?.sessions(touching: start) ?? []
+        }
+        return WorkTraffic.appsUsed(usage, since: start, frontmost: engine.currentAppBundleID)
     }
 
     /// The app's one repeating timer: it observes presence, drives engine

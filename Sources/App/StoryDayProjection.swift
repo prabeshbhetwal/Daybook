@@ -43,6 +43,9 @@ struct StoryDayProjectionCacheKey: Hashable {
     let overlayRevision: Int
     let decisionHistoryRevision: Int
     let metadataRevision: Int
+    /// The log only grows, so its length is its revision. A launch adds a
+    /// past day's crash or power loss after that day may have been drawn.
+    let machineEventCount: Int
 }
 
 struct StoryPeriodProjection: Identifiable {
@@ -72,7 +75,8 @@ extension SessionStore {
             usageRevision: revision.usage,
             overlayRevision: -1,
             decisionHistoryRevision: engine.decisionHistoryRevision,
-            metadataRevision: revision.metadata)
+            metadataRevision: revision.metadata,
+            machineEventCount: machineEventLog?.events.count ?? 0)
         let runningTouchesDay = dayBounds.map { bounds in
             engine.runningSpan.map { $0.end > bounds.start && $0.start < bounds.end } ?? false
         } ?? false

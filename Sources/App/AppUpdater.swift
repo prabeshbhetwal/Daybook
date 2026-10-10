@@ -23,6 +23,8 @@ final class AppUpdater: NSObject, UpdateControlling, SPUUpdaterDelegate {
     @Published private(set) var lastCheck: Date?
     /// Whether a relaunch now would lose something; the countdown waits.
     var isBusy: () -> Bool = { false }
+    /// Runs just before Sparkle quits the app to reopen the new version.
+    var onRelaunch: () -> Void = {}
     private var controller: SPUStandardUpdaterController?
     private var canCheckObservation: NSKeyValueObservation?
     private let countdown = UpdateCountdownPanel()
@@ -110,6 +112,7 @@ final class AppUpdater: NSObject, UpdateControlling, SPUUpdaterDelegate {
 
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) { noteCheck(updater) }
     func updaterDidNotFindUpdate(_ updater: SPUUpdater) { noteCheck(updater) }
+    func updaterWillRelaunchApplication(_ updater: SPUUpdater) { onRelaunch() }
 
     func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
         noteCheck(updater)

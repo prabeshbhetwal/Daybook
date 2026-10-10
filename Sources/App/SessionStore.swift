@@ -341,16 +341,25 @@ final class SessionStore: ObservableObject {
     /// Real HID idle in the product; tests inject `.disabled` so a fixture's
     /// open stretch is not trimmed by however long the build Mac sat untouched.
     let idle: IdleMonitor
-    /// Whether something on screen is being watched right now — a video, a
-    /// call, a presentation keeping the display awake. Set by the coordinator
-    /// from powerd's assertion list; the default never is.
-    var isWatching: () -> Bool = { false }
+    /// Who holds the display awake right now: something watched — a video, a
+    /// call, a presentation — or a keep-awake app. Set by the coordinator from
+    /// powerd's assertion list; the default is neither.
+    var readWatching: () -> WatchDetector.Reading = { WatchDetector.Reading() }
+    /// One reading for `workTraffic` and `workLoad`. Set by the coordinator;
+    /// the default reads nothing, so checks never run `nettop`.
+    var readWorkTraffic: (@escaping @MainActor (WorkTrafficReader.Reading?) -> Void) -> Void = { _ in }
     /// Set by the coordinator from the lock notifications. While the screen is
     /// locked, no HID reading counts as presence.
     var screenLocked = false
-    var watchingCache: (at: Date, value: Bool)?
-    var lastSampleWatching = false
-    var watchingEndedAt: Date?
+    var watchingCache: (at: Date, value: WatchDetector.Reading)?
+    var quietSampler = QuietSampler()
+    var workTraffic = WorkTraffic.sending
+    var workLoad = WorkTraffic.computing
+    var trafficReadPending = false
+    var lastTrafficRead: Date?
+    /// When an agent's hook last pinged (`AgentPresence.pingName`). Set by
+    /// the coordinator; nil until one does.
+    var lastAgentPing: Date?
     /// Owns confirmed-active time and suppresses the HID reset caused by wake.
     /// Kept pure so wake versus human input can be exercised with an injected
     /// clock and no CoreGraphics permissions.
@@ -377,6 +386,8 @@ final class SessionStore: ObservableObject {
     var continuationIndex: ContinuationPolicy.Index?
     var tracker: AppUsageTracker?
     var usage: AppUsageArchive?
+    /// Sleeps, locks, quits and crashes, which name the holes in a day.
+    var machineEventLog: MachineEventLog?
     var ticker: Timer?
     let schedulesTicker: Bool
     /// How many snapshots were actually built. Verification reads it.

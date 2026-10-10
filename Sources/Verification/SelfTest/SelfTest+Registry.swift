@@ -70,6 +70,11 @@ extension SelfTest {
             + AskMidnightAskChecks.tests
             + AskEdgeChecks.tests
             + HistoryCurrentPeriodChecks.tests
+            + PauseFloorChecks.tests
+            + AgentPresenceChecks.tests
+            + WorkTrafficChecks.tests
+            + MachineEventChecks.tests
+            + MachineEventStoryChecks.tests
             + HapticsChecks.tests
     }
 

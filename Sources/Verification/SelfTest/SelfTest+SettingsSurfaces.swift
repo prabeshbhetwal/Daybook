@@ -110,7 +110,8 @@ extension SelfTest {
             .idlePause, .streakMinimum, .minimumSession, .continueWindow, .defaultCategory,
             .openAtLogin, .menuBarTime, .menuBarIcon, .dockIcon, .updateChecks, .updateFrequency,
             .updateInstall, .railApps, .paceWindow, .suggestionWindow, .breakTiers, .quietFold,
-            .confirmations, .backupSchedule, .backupRetention, .backupDestination
+            .confirmations, .backupSchedule, .backupRetention, .backupDestination,
+            .agentQuiet, .agentAppInFront, .appsAtWork, .keepAwake
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,

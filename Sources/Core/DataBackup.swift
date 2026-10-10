@@ -132,6 +132,9 @@ enum DataBackup {
         let clone = temporary.appendingPathComponent("\(clonePrefix)\(now)-\(UUID().uuidString)", isDirectory: true)
         try fileManager.copyItem(at: dataDirectory, to: clone)
         try? fileManager.removeItem(at: clone.appendingPathComponent(InstanceLock.fileName))
+        // A running app's marker says it never quit; restored, it would be
+        // read as a crash at the time of the backup.
+        try? fileManager.removeItem(at: clone.appendingPathComponent(RunMarker.fileName))
         return clone
     }
 

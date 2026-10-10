@@ -13,12 +13,13 @@ enum SettingsReadOnlyRowLayout: Equatable {
 /// coordinator-owned model; read-only rows come from its live diagnostics.
 struct SettingsGroups: View {
     @ObservedObject var model: SettingsModel
+    @State var copiedAgentSetup = false
     let section: SettingsSection
     @Environment(\.focusInterfaceDensity) private var density
     /// What the last Try reached, shown under its button until the next one.
     @State private var hapticTryResult: MouseLinkStatus?
 
-    private var layout: InterfaceDensity.Layout { density.layout }
+    var layout: InterfaceDensity.Layout { density.layout }
 
     @ViewBuilder var body: some View {
         switch section {
@@ -346,6 +347,8 @@ struct SettingsGroups: View {
                 }
                 explanation(awayExplanation)
             }
+
+            agentsPanel
 
             SurfacePanel(title: "Breaks", layout: layout) {
                 toggleRow("Remind me to take breaks",
@@ -742,7 +745,7 @@ struct SettingsGroups: View {
         }
     }
 
-    private func preferenceRow<Accessory: View>(
+    func preferenceRow<Accessory: View>(
         _ title: String,
         detail: String? = nil,
         @ViewBuilder accessory: () -> Accessory
@@ -821,7 +824,7 @@ struct SettingsGroups: View {
     /// A switch whose label says what it does, not only what it is called.
     /// The description sits under the switch and is not part of its target:
     /// reading it must not flip it, and the whole row used to.
-    private func toggleRow(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
+    func toggleRow(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
         VStack(alignment: .leading, spacing: 3.zoomed) {
             Toggle(isOn: isOn) {
                 Text(title).font(Tokens.Typography.rowTitle)
@@ -859,7 +862,7 @@ struct SettingsGroups: View {
         }
     }
 
-    private var rowDivider: some View { Divider() }
+    var rowDivider: some View { Divider() }
 
     /// The app's menus come and go with the Dock icon, so the detail names both.
     private var dockIconDetail: String {
@@ -873,7 +876,7 @@ struct SettingsGroups: View {
         }
     }
 
-    private func explanation(_ text: String) -> some View {
+    func explanation(_ text: String) -> some View {
         Text(text)
             .font(Tokens.Typography.body)
             .foregroundStyle(.secondary)

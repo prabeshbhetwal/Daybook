@@ -8,6 +8,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     let engine: SessionEngine
     private let monitor = EventMonitor()
+    /// Why recording stopped and started again: sleep, lock, quit, crash.
+    private let machineEvents = MachineEventRecorder()
     private let notifier = Notifier()
     let usage = AppUsageArchive()
     private(set) lazy var tracker = AppUsageTracker(
@@ -535,6 +537,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         store.screenLocked = screenLocked
         applyApplicationAppearance(settings.appearancePreference)
         ZoomModel.shared.apply(percent: InterfaceZoom.nearestPercent(toScale: settings.interfaceZoom))
+        machineEvents.start(evidence: LaunchEvidence.gather(now: Date()))
+        store.machineEventLog = machineEvents.log
         wireMonitor()
         monitor.start()
 
@@ -551,7 +555,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             tracker.appActivated(bundleID: frontmost.bundleIdentifier,
                                  name: frontmost.localizedName ?? "Unknown")
         }
-        store.isWatching = WatchDetector.isWatching
+        store.readWatching = WatchDetector.read
+        store.readWorkTraffic = WorkTrafficReader.read
+        AgentPings.listen { [weak store] in store?.lastAgentPing = Date() }
         // Apps the purpose rules do not know fall back to what they declare
         // about themselves.
         PurposeMap.declaredCategory = { AppCategoryReader.shared.category(for: $0) }
@@ -567,6 +573,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         observeWindowRequests()
         applyPresence()
         updater.isBusy = { [weak self] in self?.store.holdsUnsavedWork ?? false }
+        updater.onRelaunch = { [weak self] in self?.machineEvents.markUpdateRelaunch() }
         settings.updater = updater
         // New or not by the welcome's own rule: recorded app use alone makes
         // an install an existing one, so its history is not uploaded unasked.
@@ -679,7 +686,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+    /// Always quits. First it notes why, while the quit's Apple event is still
+    /// the current one: only that event says restart, shut down or log out.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        machineEvents.recordExit(quitReason: MachineEventRecorder.currentQuitReason())
+        return .terminateNow
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
+        machineEvents.recordExit(quitReason: nil)
         engine.persist()
         tracker.suspend()
         monitor.stop()
@@ -839,6 +854,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self.sampleInput()
             if delivered { self.scheduleAutomation() }
         }
+        monitor.onMachineEvent = { [weak self] in self?.machineEvents.record($0) }
         monitor.onWillPowerOff = { [weak self] in
             self?.engine.persist()
             self?.tracker.suspend()

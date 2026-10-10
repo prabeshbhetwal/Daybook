@@ -56,7 +56,10 @@ session action routes back to it, including the global hotkey. Corrections
 (rename, change type, re-answer an away) apply to the whole thread across days,
 never move time boundaries, survive relaunch, and can be undone field by field.
 Writes are atomic, a failed save keeps the old record and offers Retry, and an
-interrupted write cannot record the same interval twice.
+interrupted write cannot record the same interval twice. Every sleep, wake,
+lock, log out, restart, shut down and quit is recorded as it happens, and a
+crash, force quit or power cut is worked out at the next launch, so History
+names why each hole in a day is there.
 
 **Data that ages honestly.** App-use history is a versioned envelope with an
 accuracy epoch. Data recorded before a recorder fix is preserved and marked as
@@ -128,6 +131,9 @@ machinery that nothing used any more, with no change in behaviour.
 
 - Today told as a story, with its goal, app use, rhythm and streak beside it
 - Focus sessions with pause, away, breaks and threads you can continue later
+- Quiet while an app works for you (an AI agent, a render, a build) can count
+  as work: noticed from what the session's apps send and compute, or told by
+  an agent's own hooks, rather than read from a screen kept awake
 - Optional activity rules that start sessions from the apps you use, always
   saying why and offering Undo
 - History as one timeline that unfolds: years into months, months into weeks,
