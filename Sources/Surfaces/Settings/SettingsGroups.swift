@@ -15,6 +15,8 @@ struct SettingsGroups: View {
     @ObservedObject var model: SettingsModel
     let section: SettingsSection
     @Environment(\.focusInterfaceDensity) private var density
+    /// What the last Try reached, shown under its button until the next one.
+    @State private var hapticTryResult: MouseLinkStatus?
 
     private var layout: InterfaceDensity.Layout { density.layout }
 
@@ -447,6 +449,20 @@ struct SettingsGroups: View {
                           detail: "A short notice in the corner when you reach the daily goal, keep a "
                             + "streak going or beat your usual pace.",
                           isOn: $model.rewardsEnabled)
+                rowDivider
+                toggleRow("Haptic feedback",
+                          detail: "A short pulse on the trackpad or an MX Master 4 mouse with Daybook's "
+                            + "notices and a few of your own actions. The trackpad pulses only while a "
+                            + "finger rests on it.",
+                          isOn: $model.hapticsEnabled)
+                rowDivider
+                preferenceRow("Try haptic feedback",
+                              detail: hapticTryResult?.tryMessage ?? "Plays the goal pulse.") {
+                    Button("Try") {
+                        Task { @MainActor in hapticTryResult = await model.tryHaptics() }
+                    }
+                    .disabled(!model.hapticsEnabled)
+                }
             }
         }
     }

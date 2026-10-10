@@ -165,7 +165,7 @@ extension SettingsSection {
                     "Full-screen prompt after", "Remind me to take breaks", "After 20 minutes"]
         case .automatic:
             return ["Guess sessions from the app in front", "End a paused automatic session after",
-                    "Celebrate milestones", "Haptic feedback"]
+                    "Celebrate milestones", "Haptic feedback", "Try haptic feedback"]
         case .activities:
             return ["Use my activity rules", "Activity rules", "New rule", "Activity name",
                     "Start after", "Add application", "Running now"]

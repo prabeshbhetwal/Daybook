@@ -4,6 +4,24 @@ import SwiftUI
 /// Where the mouse link stands, as Try reports it.
 enum MouseLinkStatus: Equatable {
     case closed, ready, noMouse, hapticsOff, notPermitted, noReply
+
+    /// The line under Settings' Try button. The trackpad always gets the
+    /// pulse; it is felt only under a resting finger, which the system does
+    /// not report, so each line says where the pulse went, not what was felt.
+    var tryMessage: String {
+        switch self {
+        case .ready:
+            return "Sent to the MX Master 4 and the trackpad."
+        case .noMouse, .closed:
+            return "No MX Master 4 connected over Bluetooth. Sent to the trackpad: rest a finger on it to feel the pulse."
+        case .hapticsOff:
+            return "The MX Master 4 has haptics turned off. Turn them on in Logi Options+."
+        case .notPermitted:
+            return "macOS blocked access to the mouse. Allow Daybook in System Settings › Privacy & Security › Input Monitoring."
+        case .noReply:
+            return "The MX Master 4 did not answer. Move it to wake it, then try again."
+        }
+    }
 }
 
 /// The mouse half of the player: the MX Master 4 in the app, a fake in checks.

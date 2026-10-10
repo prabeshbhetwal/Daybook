@@ -31,6 +31,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private(set) lazy var menuBarLabel = MenuBarLabelModel(store: store)
     /// The Session menu's view of the store, on the same terms.
     private(set) lazy var sessionCommandState = SessionCommandState(store: store)
+    /// Pulses the trackpad and an MX Master 4 with notices while the setting
+    /// is on. Reads the setting at each pulse, so the switch takes effect at once.
+    private(set) lazy var haptics = HapticPlayer(
+        isEnabled: { [weak self] in self?.engine.store.hapticsEnabled ?? false },
+        mouse: MXMaster4Link())
     /// The Settings window's model. Writes go to the same preferences the
     /// engine reads; `onChange` refreshes every surface that shows them.
     private(set) lazy var settings = SettingsModel(
@@ -52,7 +57,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             for session in self.usage.sessions { names[session.bundleID] = session.appName }
             return names.map { InstalledApplication(bundleID: $0.key, name: $0.value,
                                                       url: nil, isInstalled: false) }
-        }))
+        }),
+        haptics: haptics)
     /// One route object for the window, menu popover, commands and deep links.
     /// It always opens on the day's story.
     @MainActor private(set) lazy var mainWindow = MainWindowModel(opening: .story, store: store)

@@ -11,7 +11,26 @@ enum HapticsChecks: CheckSuite {
         ("Each moment has its pulse, and the goal reward gets its own", momentTable),
         ("Haptic feedback is off until turned on, and the switch is saved", settingWritesThrough),
         ("The player stays silent while off and sends one pulse per moment while on", playerGating),
+        ("Try explains what it reached in words", tryMessages),
     ]
+
+    private static func tryMessages() -> [String] {
+        var problems: [String] = []
+        let noMouse = "No MX Master 4 connected over Bluetooth. Sent to the trackpad: rest a finger on it to feel the pulse."
+        let expected: [(MouseLinkStatus, String)] = [
+            (.ready, "Sent to the MX Master 4 and the trackpad."),
+            (.noMouse, noMouse),
+            (.closed, noMouse),
+            (.hapticsOff, "The MX Master 4 has haptics turned off. Turn them on in Logi Options+."),
+            (.notPermitted, "macOS blocked access to the mouse. Allow Daybook in System Settings › Privacy & Security › Input Monitoring."),
+            (.noReply, "The MX Master 4 did not answer. Move it to wake it, then try again."),
+        ]
+        for (status, message) in expected {
+            expect(status.tryMessage == message, "\(status) says \"\(message)\", got \"\(status.tryMessage)\"",
+                   &problems)
+        }
+        return problems
+    }
 
     private static func padded(_ bytes: [UInt8]) -> [UInt8] {
         bytes + [UInt8](repeating: 0, count: HIDPP.reportLength - bytes.count)
