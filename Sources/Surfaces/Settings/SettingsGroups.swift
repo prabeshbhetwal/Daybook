@@ -567,6 +567,14 @@ struct SettingsGroups: View {
                                 SettingsDiagnostics.accuracyEpochLabel)
                                 ?? "Not established",
                             detail: "Earlier app use may include time you were not at the Mac.")
+                // Without a usable on-device model there is nothing to switch.
+                if ModelGate.modelAvailable {
+                    rowDivider
+                    toggleRow("Use Apple Intelligence",
+                              detail: "Writes notes and suggestions with Apple's on-device model. "
+                                + "Nothing leaves this Mac.",
+                              isOn: $model.useAppleIntelligence)
+                }
                 // Only an upgrade from the oldest format leaves this copy;
                 // without one the row said nothing worth reading.
                 if let backup = model.diagnostics.legacyBackupURL {
