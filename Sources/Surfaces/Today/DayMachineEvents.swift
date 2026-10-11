@@ -1,61 +1,51 @@
 import SwiftUI
 
-/// The day's machine events under its story: every sleep, wake, lock, quit,
-/// crash and start, each with its time, newest first like the story above.
-/// Folded at first: the holes above already unfold into what the Mac did,
-/// and this is the raw record behind them. An event found only afterwards
-/// shows the window it happened in.
+/// What the Mac did across the day, under its story, drawn like a gap card.
+/// Folded, it says how long the Mac was locked or asleep and how often
+/// Daybook quit, beside a bar of the day; unfolded, the track gains its times
+/// and each stretch away from the desk gets a line, newest first like the
+/// story above. The stretches are the ones the gap cards tell, read across
+/// the whole day, so a lock and its unlock make one line, not four.
 struct DayMachineEvents: View {
-    let events: [MachineEvent]
+    let account: DayMacAccount
     @State private var isOpen = false
+    @Environment(\.focusInterfaceDensity) private var density
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            Button { isOpen.toggle() } label: {
-                HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-                    Text(events.count == 1 ? "1 Mac event" : "All \(events.count) Mac events")
-                        .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: Tokens.Space.xs)
-                    Image(systemName: "chevron.down")
-                        .font(Tokens.Typography.caption)
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(isOpen ? 180 : 0))
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(StoryPressStyle(hovers: true))
-            .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
-            .accessibilityHint(isOpen ? "Hide the Mac's events"
-                                      : "Show when the Mac slept, woke, locked, quit or started")
+        VStack(alignment: .leading, spacing: Tokens.Space.m) {
+            Button { isOpen.toggle() } label: { header }
+                .buttonStyle(StoryPressStyle())
+                .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+                .accessibilityHint(isOpen ? "Fold what the Mac did"
+                                          : "Show when the Mac was locked, asleep or off, and when Daybook quit")
             if isOpen {
-                Grid(alignment: .leadingFirstTextBaseline,
-                     horizontalSpacing: Tokens.Space.m, verticalSpacing: Tokens.Space.xs) {
-                    ForEach(Array(events.reversed().enumerated()), id: \.offset) { _, event in
-                        GridRow {
-                            Text(time(of: event)).monospacedDigit()
-                            Text(event.title)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(spoken(event))
-                    }
-                }
-                .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                GapTrack(span: account.span, anatomy: account.anatomy, plainUnexplained: true)
+                Rectangle().fill(StoryStyle.line).frame(height: 1)
+                GapStretchList(anatomy: account.anatomy, stretches: account.rows)
             }
         }
+        .padding(StoryStyle.entryInsets(for: density))
+        .background(StoryStyle.well.opacity(0.6), in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
     }
 
-    private func time(of event: MachineEvent) -> String {
-        guard let latest = event.latest else { return Tokens.timeOfDayOnly(event.at) }
-        return Tokens.timeRange(event.at, latest)
-    }
-
-    private func spoken(_ event: MachineEvent) -> String {
-        guard let latest = event.latest else {
-            return "\(Tokens.timeOfDayOnly(event.at)), \(event.title)"
+    private var header: some View {
+        HStack(spacing: Tokens.Space.m) {
+            VStack(alignment: .leading, spacing: 2.zoomed) {
+                Text("What the Mac did").font(Tokens.Typography.label)
+                Text(account.summary).font(Tokens.Typography.body).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: Tokens.Space.s)
+            if !isOpen {
+                GapBar(span: account.span, anatomy: account.anatomy, plainUnexplained: true)
+                    .frame(width: 120.zoomed, height: 5.zoomed)
+            }
+            Image(systemName: "chevron.right")
+                .font(Tokens.Typography.caption).foregroundStyle(.secondary)
+                .rotationEffect(.degrees(isOpen ? 90 : 0))
         }
-        return "Between \(Tokens.timeOfDayOnly(event.at)) and \(Tokens.timeOfDayOnly(latest)), "
-            + event.title
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("What the Mac did, \(Tokens.timeRange(account.span.start, account.span.end)). "
+                            + DurationText.spoken(in: account.summary) + ".")
     }
 }

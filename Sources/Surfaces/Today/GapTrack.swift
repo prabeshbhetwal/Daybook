@@ -7,6 +7,8 @@ import SwiftUI
 struct GapTrack: View {
     let span: DateInterval
     let anatomy: GapAnatomy
+    /// Across a whole day, time no event explains is the Mac in use.
+    var plainUnexplained = false
 
     private var barTop: CGFloat { 4.zoomed }
     private var barHeight: CGFloat { 10.zoomed }
@@ -17,7 +19,7 @@ struct GapTrack: View {
         GeometryReader { geometry in
             let width = geometry.size.width
             ZStack(alignment: .topLeading) {
-                GapBar(span: span, anatomy: anatomy)
+                GapBar(span: span, anatomy: anatomy, plainUnexplained: plainUnexplained)
                     .frame(height: barHeight)
                     .offset(y: barTop)
                 ForEach(anatomy.stretches.filter { $0.state == .uncertain }.map(\.span), id: \.self) { window in
@@ -78,12 +80,13 @@ struct GapTrack: View {
 struct GapBar: View {
     let span: DateInterval
     let anatomy: GapAnatomy
+    var plainUnexplained = false
 
     var body: some View {
         GeometryReader { geometry in
             HStack(spacing: 0) {
                 ForEach(Array(anatomy.stretches.enumerated()), id: \.offset) { _, stretch in
-                    GapFill(state: stretch.state)
+                    GapFill(state: stretch.state, plainUnexplained: plainUnexplained)
                         .frame(width: geometry.size.width
                                * CGFloat(stretch.span.duration / max(span.duration, 1)))
                 }
@@ -97,9 +100,13 @@ struct GapBar: View {
 /// A state's fill: lighter for nearer the desk, darker for further away.
 struct GapFill: View {
     let state: GapAnatomy.State
+    /// Across a whole day, time no event explains is the Mac in use: the
+    /// plain track, not hatched like a hole's unexplained time.
+    var plainUnexplained = false
 
     var body: some View {
         switch state {
+        case .unexplained where plainUnexplained: StoryStyle.macInUse
         case .unexplained, .uncertain: HatchFill()
         case .locked: StoryStyle.macLocked
         case .asleep: StoryStyle.macAsleep

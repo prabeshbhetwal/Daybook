@@ -89,6 +89,7 @@ extension SelfTest {
             + SessionMetadataJournalChecks.tests
             + MachineRunCardChecks.tests
             + AppUsageJournalChecks.tests
+            + DayMacAccountChecks.tests
             + StoreFormHoldChecks.tests
     }
 
