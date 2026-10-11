@@ -4,6 +4,17 @@ enum AskLayout {
     /// The side panel's width at 100%.
     static let panelBaseWidth: CGFloat = 360 // zoom: fixed, the 100% size
     static var panelWidth: CGFloat { panelBaseWidth.zoomed }
+
+    /// Whether a screen with `visible` free can hold the window with the panel
+    /// beside Story and History at `scale`: its minimum (the window's with the
+    /// panel's width added) is not held to the screen by `InterfaceZoom`'s
+    /// margin. Where it is held, the reading column would narrow until it
+    /// overlapped itself, so Ask opens as a sheet there. The one place the rule lives.
+    static func panelHasRoom(scale: CGFloat, visible: CGSize) -> Bool {
+        let base = MainWindowView.contentBase(askPanelOpen: true)
+        return InterfaceZoom.windowMinimum(base: base, scale: scale, visible: visible)
+            == CGSize(width: base.width * scale, height: base.height * scale)
+    }
 }
 
 /// Ask Daybook beside the reading workspace: the same chat the sheet shows,

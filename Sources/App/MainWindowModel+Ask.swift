@@ -6,6 +6,27 @@ extension MainWindowModel {
     /// used by the next ⌘K with nothing to wire.
     var askPlacement: AskPlacement { store?.engine.store.askPlacement ?? .sheet }
 
+    /// Where Ask opens now: the saved choice, but the sheet where the window's
+    /// screen cannot hold the side panel at this zoom. The saved choice itself
+    /// is not changed, so the panel returns where there is room again.
+    private var askOpensAs: AskPlacement {
+        askPlacement == .panel && askPanelHasRoom ? .panel : .sheet
+    }
+
+    /// The window says whether its screen can hold the side panel at the
+    /// current zoom (`AskLayout.panelHasRoom`), when it learns its screen and
+    /// whenever the zoom or the screen changes. Room lost with the panel open
+    /// closes it and opens the sheet on the same chat, unless another sheet is
+    /// over the window, which stays; room regained changes nothing until the
+    /// next ⌘K.
+    func updateAskPanelRoom(_ hasRoom: Bool) {
+        guard hasRoom != askPanelHasRoom else { return }
+        askPanelHasRoom = hasRoom
+        guard !hasRoom, askPanelOpen else { return }
+        askPanelOpen = false
+        if sheet == nil { openSheet(.ask) }
+    }
+
     /// ⌘K, the bar's Ask button and Settings' Open Ask. Builds Ask's model on
     /// first use and keeps it, so reopening shows the last answer. The sheet
     /// opens over the window; the side panel toggles. A sheet already over the
@@ -13,7 +34,7 @@ extension MainWindowModel {
     /// than toggles, since it cannot be seen under that sheet.
     func openAsk() {
         if askModel == nil, let store { askModel = AskModel(store: store) }
-        switch askPlacement {
+        switch askOpensAs {
         case .sheet:
             askPanelOpen = false
             openSheet(.ask)

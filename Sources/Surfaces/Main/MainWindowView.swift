@@ -45,6 +45,13 @@ struct MainWindowView: View {
                               screenVisible: screenVisible.value)
     }
 
+    /// Whether this window's screen can hold the side panel at the current
+    /// zoom. The model is told, so Ask opens as a sheet where it cannot.
+    private var panelHasRoom: Bool {
+        AskLayout.panelHasRoom(scale: ZoomModel.shared.scale,
+                               visible: ZoomWindowFit.visible(screenVisible: screenVisible.value))
+    }
+
     var body: some View {
       GeometryReader { geometry in
         VStack(spacing: 0) {
@@ -129,6 +136,11 @@ struct MainWindowView: View {
             firstRun.observe(coachSignals)
         }
         .onChange(of: coachSignals) { _, signals in firstRun.observe(signals) }
+        // Only the real window knows its screen; an offscreen capture shows
+        // the panel it was asked to show on any machine.
+        .onChange(of: panelHasRoom, initial: true) { _, room in
+            if presentsNativeSheets { navigation.updateAskPanelRoom(room) }
+        }
         .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
             sheetContent(presented, within: windowSize.value == .zero ? nil : windowSize.value)

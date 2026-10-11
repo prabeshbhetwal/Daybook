@@ -395,9 +395,16 @@ came from." then "Try asking" and v1's four example questions, each asking itsel
 - While it is open the window's minimum width grows by its width (980 to
   1,340 points at 100%). `ZoomWindowFit` grows the window to fit, keeping the
   top-left corner and the screen's bounds, as it does for a zoom step; closing
-  never shrinks the window. At a zoom whose minimum the screen cannot hold, the
-  minimum is held to the screen as today and the reading column narrows; the
-  gap cards wrap their subtitle.
+  never shrinks the window.
+- A screen that cannot hold the panel gets the sheet instead. The panel has
+  room when the window's minimum with it (1,340 by 680 points at 100%, times the
+  zoom) is not held to the screen's visible area less the 40 point margin:
+  1,380 by 720 at 100%, 1,916 by 992 at 140%. Where it has none, ⌘K, the bar's
+  Ask button and Settings' Open Ask open the sheet whatever the choice, and the
+  choice is kept. A panel that is open when the room goes (a zoom step, a move
+  to a smaller screen) closes and the sheet opens on the same chat; the next ⌘K
+  opens the panel again once there is room. Another sheet over the window, such
+  as Settings, stays: only the panel closes.
 - Settings, Awards and the session report still cover the whole window, panel included.
   With the side-panel placement, ⌘K over Settings or Awards closes that sheet
   and opens the panel, so the shortcut always lands in the chat.
@@ -405,8 +412,9 @@ came from." then "Try asking" and v1's four example questions, each asking itsel
 
 Settings, in the Ask panel of General: **Open Ask in** `Sheet | Side panel`,
 detail "A side panel stays beside Story and History, so sources open next to
-the chat." Changing it while the panel is open closes the panel; the next ⌘K
-uses the new choice. Disabled on a Mac that can never run Ask.
+the chat. On a screen too small for both, Ask opens as a sheet." Changing it
+while the panel is open closes the panel; the next ⌘K uses the new choice.
+Disabled on a Mac that can never run Ask.
 
 ## 8. Copy
 

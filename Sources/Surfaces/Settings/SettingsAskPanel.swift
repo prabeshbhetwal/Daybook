@@ -15,7 +15,8 @@ extension SettingsGroups {
                 .disabled(!AskModel.isOffered)
             rowDivider
             preferenceRow("Open Ask in",
-                          detail: "A side panel stays beside Story and History, so sources open next to the chat.") {
+                          detail: "A side panel stays beside Story and History, so sources open next to the chat. "
+                              + "On a screen too small for both, Ask opens as a sheet.") {
                 Picker("Open Ask in", selection: $model.askPlacement) {
                     Text("Sheet").tag(AskPlacement.sheet)
                     Text("Side panel").tag(AskPlacement.panel)

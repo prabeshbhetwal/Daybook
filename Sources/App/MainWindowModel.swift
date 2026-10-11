@@ -208,6 +208,10 @@ struct HistorySessionPick: Hashable {
     /// closed at each launch. Set only in `MainWindowModel+Ask.swift` and when
     /// `sheet` changes while the choice is not the side panel.
     @Published var askPanelOpen = false
+    /// Whether the window's screen can hold the side panel at the current
+    /// zoom, as the window last said. Assumed so until it says otherwise. Set
+    /// only in `MainWindowModel+Ask.swift`.
+    var askPanelHasRoom = true
 
     init(opening route: AppTab = .story,
          requestedDate: Date? = nil,

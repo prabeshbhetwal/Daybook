@@ -19,14 +19,20 @@ struct ZoomWindowFit: NSViewRepresentable {
     /// again when the window moves to another.
     let onScreen: (CGSize) -> Void
 
-    /// The content minimum at the current zoom, held to a screen's visible
-    /// size: the one the window is on once it is known (`screenVisible` not
-    /// zero), else the main screen's, else no cap. Read while a view draws.
+    /// The content minimum at the current zoom, held to the screen's visible
+    /// size (see `visible(screenVisible:)`). Read while a view draws.
     static func minimum(base: CGSize, screenVisible: CGSize = .zero) -> CGSize {
-        let visible = screenVisible == .zero
+        InterfaceZoom.windowMinimum(base: base, scale: ZoomModel.shared.scale,
+                                    visible: visible(screenVisible: screenVisible))
+    }
+
+    /// The visible size a view measures its window against: the window's
+    /// screen once it is known (`screenVisible` not zero), else the main
+    /// screen's, else no limit.
+    static func visible(screenVisible: CGSize = .zero) -> CGSize {
+        screenVisible == .zero
             ? NSScreen.main?.visibleFrame.size ?? CGSize(width: CGFloat.infinity, height: CGFloat.infinity)
             : screenVisible
-        return InterfaceZoom.windowMinimum(base: base, scale: ZoomModel.shared.scale, visible: visible)
     }
 
     func makeNSView(context: Context) -> ZoomWindowFitAnchor {
