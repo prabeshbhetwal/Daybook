@@ -24,7 +24,7 @@ struct AskLookup {
 /// arrives; anything else, and a date the calendar lacks, is answered as such
 /// rather than swapped for another period.
 enum AskLookups {
-    static let all: [AskLookup] = [focusTotals, compareFocus, bestHours, findSessions, appTime, dayEvents, sessionDetail]
+    static let all: [AskLookup] = [focusTotals, compareFocus, bestHours, findSessions, appTime, dayEvents, sessionDetail, goals]
 
     static func named(_ name: String) -> AskLookup? {
         all.first { $0.spec.name == name }
@@ -159,5 +159,20 @@ enum AskLookups {
             let raw = arguments["range"] ?? ""
             guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
             return .request(.sessionDetail(range, words: text(arguments["words"])))
+        })
+
+    /// The period is optional, and left out it is all time, which says no
+    /// period line: the goal, today, the streak and the awards are not a period's.
+    private static let goals = AskLookup(
+        spec: AskLookupSpec(
+            name: "goals",
+            description: "Returns the daily goal, progress towards it today, the days a period met it, the current "
+                + "and longest streak, and the awards earned and still to earn.",
+            parameters: [AskParameter(name: "range", description: rangeGuide + "; leave out for all time",
+                                      required: false)]),
+        read: { arguments, period in
+            guard let raw = text(arguments["range"]) else { return .request(.goals(nil)) }
+            guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
+            return .request(.goals(range))
         })
 }

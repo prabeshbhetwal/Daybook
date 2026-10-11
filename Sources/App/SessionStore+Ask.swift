@@ -34,6 +34,8 @@ extension SessionStore {
             return askStillToCome(range) ?? askDayEvents(range)
         case let .sessionDetail(range, words):
             return askStillToCome(range) ?? askSessionDetail(range, words: words)
+        case let .goals(range):
+            return range.flatMap(askStillToCome) ?? askGoals(range)
         }
     }
 
