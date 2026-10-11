@@ -223,6 +223,14 @@ struct HistorySessionPick: Hashable {
         return noteWriter
     }
 
+    private var rescue: SearchRescue?
+
+    /// History's search rescue, built on first read.
+    var searchRescue: SearchRescue? {
+        if rescue == nil, let store { rescue = SearchRescue(store: store) }
+        return rescue
+    }
+
     init(opening route: AppTab = .story,
          requestedDate: Date? = nil,
          store: SessionStore? = nil) {
