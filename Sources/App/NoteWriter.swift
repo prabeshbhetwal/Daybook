@@ -227,7 +227,7 @@ enum NoteState: Equatable {
             states[current.placeID] = nil
             return dropPending()
         }
-        if let note = Self.tidy(note, for: facts), NoteAudit.passes(note, facts: facts) {
+        if let note = Self.tidy(note), NoteAudit.passes(note, facts: facts) {
             cache[current.key] = note
             publish(.written(note), for: current.placeID, key: current.key)
         } else {
@@ -237,15 +237,14 @@ enum NoteState: Equatable {
         startPending()
     }
 
-    /// The note as shown: whitespace trimmed, and a tip only on a day and
-    /// only when it says something. A blank story or pattern is no note; the
-    /// audit passes it, having no figures to refuse.
-    private static func tidy(_ note: WrittenNote?, for facts: NoteFacts) -> WrittenNote? {
+    /// The note as shown: whitespace trimmed. A blank story or pattern is no
+    /// note; the audit passes it, having no figures to refuse.
+    private static func tidy(_ note: WrittenNote?) -> WrittenNote? {
         guard let note else { return nil }
         func trimmed(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
-        let story = trimmed(note.story), pattern = trimmed(note.pattern), tip = trimmed(note.tip ?? "")
+        let story = trimmed(note.story), pattern = trimmed(note.pattern)
         guard !story.isEmpty, !pattern.isEmpty else { return nil }
-        return WrittenNote(story: story, pattern: pattern, tip: facts.kind == .day && !tip.isEmpty ? tip : nil)
+        return WrittenNote(story: story, pattern: pattern)
     }
 
     private func write(_ facts: NoteFacts) async throws -> WrittenNote {
@@ -264,7 +263,7 @@ enum NoteState: Equatable {
         switch facts.kind {
         case .day:
             let note = try await session.respond(to: facts.text, generating: GeneratedNote.self, options: options).content
-            return WrittenNote(story: note.story, pattern: note.pattern, tip: note.tip)
+            return WrittenNote(story: note.story, pattern: note.pattern)
         case .period:
             return try await PeriodForm.form(for: facts).write(facts, in: session, options: options)
         }

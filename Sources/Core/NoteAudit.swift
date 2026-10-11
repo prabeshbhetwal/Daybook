@@ -15,17 +15,17 @@ import Foundation
 /// so the note fails; a weekday written beside a date must be the weekday the
 /// facts give that date, or the note fails.
 enum NoteAudit {
-    /// The mentions in the note's story, pattern and tip that no figure in
+    /// The mentions in the note's story and pattern that no figure in
     /// the facts matches. Each is the readings it has (a time without am or
     /// pm has two).
     static func unmatched(_ note: WrittenNote, facts: NoteFacts) -> [Set<NoteFigure>] {
         let held = NoteFigure.held(in: facts.text)
-        return [note.story, note.pattern, note.tip ?? ""]
+        return [note.story, note.pattern]
             .flatMap(NoteFigure.read)
             .filter { $0.isDisjoint(with: held) }
     }
 
-    /// Whether every figure in the note's story, pattern and tip is also in the facts.
+    /// Whether every figure in the note's story and pattern is also in the facts.
     static func passes(_ note: WrittenNote, facts: NoteFacts) -> Bool {
         unmatched(note, facts: facts).isEmpty
     }

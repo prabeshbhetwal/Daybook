@@ -77,10 +77,11 @@ extension SessionStore {
     }
 
     /// Yesterday, when it had a session and the notice has not been closed
-    /// for it.
+    /// for it. Asks the day's projection, not its facts: a day has facts
+    /// exactly when it has a focus session, and the facts weigh 14 days more.
     func yesterdayNotePlace() -> HistoryPlace? {
         guard let place = yesterdayPlace(), engine.store.yesterdayNoteDismissedDay != place.start,
-              noteFacts(for: place) != nil else { return nil }
+              !storyDayProjection(on: place.start, calendar: periodCalendar).focusSessions.isEmpty else { return nil }
         return place
     }
 
@@ -102,17 +103,63 @@ extension SessionStore {
         let day = storyDayProjection(on: place.start, calendar: calendar)
         let sessions = day.focusSessions
         guard !sessions.isEmpty else { return nil }
-        // The day before is compared whole, however far through today is.
-        let before = calendar.date(byAdding: .day, value: -1, to: place.start)
-            .map { storyDayProjection(on: $0, calendar: calendar).focused } ?? 0
+        let typical = NoteBaseline.typical(noteEarlierDays(before: place.start))
         // The Story's own longest stretch: a session's span counts its pauses, its work does not.
         let longest = storyLongestFocusStretch(in: place.span)
             .map { NoteStretch(name: $0.name, start: $0.start, worked: $0.seconds) }
         return NoteFacts.day(NoteDayInput(date: place.start, isCurrent: noteIsCurrent(place), sessions: sessions,
                                           sessionCount: day.focusSessionCount, apps: day.apps, focused: day.focused,
                                           goal: engine.store.dailyGoal, goalCredit: day.goalCredit,
-                                          previousFocused: before, longestStretch: longest),
+                                          typicalFocused: typical.focused, typicalStretch: typical.stretch,
+                                          typicalDays: typical.days, longestStretch: longest,
+                                          focusByPart: noteFocusByPart(place.span)),
                              calendar: calendar)
+    }
+
+    /// The baseline's days, the 14 whole days before `day`: each one's focus
+    /// and how many focus stretches had work on it, counted as the Story
+    /// counts a day's focus (each stretch's own work inside the day, the
+    /// running one's too). One pass over the stretches inside the window: the
+    /// facts are built for every History day row's note.
+    func noteEarlierDays(before day: Date) -> [(focused: TimeInterval, stretches: Int)] {
+        let calendar = periodCalendar
+        var days: [(span: DateInterval, focused: TimeInterval, stretches: Int)] = []
+        var end = calendar.startOfDay(for: day)
+        for _ in 0..<NoteBaseline.days {
+            guard let earlier = calendar.date(byAdding: .day, value: -1, to: end) else { break }
+            let start = calendar.startOfDay(for: earlier)
+            days.append((DateInterval(start: start, end: end), 0, 0))
+            end = start
+        }
+        guard let first = days.last?.span.start, let last = days.first?.span.end else { return [] }
+        for record in engine.archive.records
+        where record.workType.countsAsFocus && record.end > first && record.start < last {
+            for index in days.indices {
+                let work = record.workSeconds(in: (start: days[index].span.start, end: days[index].span.end))
+                if work > 0 { days[index].focused += work; days[index].stretches += 1 }
+            }
+        }
+        return days.map { ($0.focused + storyRunningFocusSeconds(in: $0.span), $0.stretches) }
+    }
+
+    /// The day's focus by part of the day, counted as its total is: each
+    /// stretch's own work inside the part, the running one's too.
+    func noteFocusByPart(_ day: DateInterval) -> [NoteDayPart: TimeInterval] {
+        let calendar = periodCalendar
+        func clock(_ hour: Int) -> Date {
+            hour >= 24 ? day.end : calendar.date(bySettingHour: hour, minute: 0, second: 0, of: day.start) ?? day.start
+        }
+        let records = engine.archive.records(on: day.start).filter { $0.workType.countsAsFocus }
+        var focus: [NoteDayPart: TimeInterval] = [:]
+        for part in NoteDayPart.allCases {
+            for hours in part.hours {
+                let span = (start: clock(hours.from), end: clock(hours.to))
+                guard span.end > span.start else { continue }
+                let archived = records.reduce(0) { $0 + $1.workSeconds(in: span) }
+                focus[part, default: 0] += archived + storyRunningFocusSeconds(in: DateInterval(start: span.start, end: span.end))
+            }
+        }
+        return focus
     }
 
     private func periodNoteFacts(_ place: HistoryPlace) -> NoteFacts? {

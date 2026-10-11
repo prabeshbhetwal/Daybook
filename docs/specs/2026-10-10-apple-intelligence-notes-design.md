@@ -491,6 +491,36 @@ A three-session form that gave the sentence to fill was worse than the guide
 for three: it wrote "You spent 11h 41m on Thesis", a figure the facts do not
 hold, which the audit would have dropped.
 
+## 6b. A day's note without a tip (2026-10-12)
+
+Sir's Yesterday card for Sun 11 Oct read "5h 40m focus · goal missed · 4
+sessions", a story that retold the session list, and "For today: Keep Coding
+sessions running past midnight." The tip came from the observation "Focus
+carried on past midnight with Coding": a session crossing midnight, which is the
+calendar's doing, handed to a guide that asked for "one concrete action" every
+day. The audit had only ever checked figures; nothing checked whether a tip was
+worth reading.
+
+Live probe, five fixture days (Sir's 11 Oct rebuilt, an ordinary day, nine short
+sessions, a release past midnight, two long sessions), greedy, macOS 27.2:
+
+| Facts | Tips | Audit |
+|---|---|---|
+| As shipped (§2) | 5 of 5 useless: "You could use Coding at 11:07 pm to start a new session", "Start the next session with Thesis at 9:00 am for 2 hours" | 5 pass |
+| Baseline facts, tip only from a daytime observation | 3 of 3 still invented: "Try using Xcode for 4 hours today", "Try using the hands-on app feature in Xcode" | 2 fail, both on the tip |
+| Baseline facts, no tip (built) | none | 5 pass |
+
+So a day's note is now a story and a pattern, as a week's is. The facts name
+where the time went (busiest three, as a week's do) instead of listing the
+sessions in order, and weigh the day against the person's own typical day: the
+median focus of the days with focus among the 14 before (three at least, as the
+goal's pace baseline), the part of the day that held the most focus, stretches
+against the typical stretch, and the longest stretch unless it carried over. The
+figures line shows what the goal counted when it was missed ("5h 40m focus ·
+3h 59m towards 4h goal"): the goal counts focus with hands-on use only, and on
+11 Oct that was 3h 59m (probed on a copy of the live data), so "goal missed"
+was right but read as a fault. Checks 956–960.
+
 ## 7. Hand checks
 
 Run on Sir's build with Apple Intelligence on, before merge and after the
@@ -500,7 +530,7 @@ probe in §6a. Record results here.
 |---|---|---|
 | 1 | Open yesterday in History | Note appears within 3 s; every figure matches the cards |
 | 2 | Open today's main window | Yesterday notice shows; Done hides it until tomorrow |
-| 3 | End all sessions, press Wrap up today | Note with a tip for tomorrow appears |
+| 3 | End all sessions, press Wrap up today | Note appears, with no tip (§6b) |
 | 4 | Open this week, press Write a note | Note appears; reopening shows the same note |
 | 5 | Turn the switch off | Every note, link and notice disappears at once |
 | 6 | Rename a session from yesterday, reopen yesterday | Note mentions the new name |

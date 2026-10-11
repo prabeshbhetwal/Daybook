@@ -11,7 +11,7 @@ enum ReviewNoteFreshnessChecks: CheckSuite {
          evidenceMovesOnEdit),
         ("A session stopping moves that evidence, and a session running does not", evidenceAroundASession),
         ("Recording app use leaves that evidence as it was", evidenceIgnoresAppUse),
-        ("A session carried over from the night before is not said to begin at midnight", carriedOverMidnight),
+        ("A session carried over from the night before is no observation of the day it carries into", carriedOverMidnight),
     ]
 
     private typealias Checks = ReviewNoteWriterChecks
@@ -68,7 +68,10 @@ enum ReviewNoteFreshnessChecks: CheckSuite {
 
     /// Night shift runs from 10 pm on Fri 10 Nov to 2 am on Sat 11 Nov. The
     /// day's session is clipped to its start, so Saturday's facts hold a
-    /// session beginning at midnight that began the night before.
+    /// session beginning at midnight that began the night before. That is the
+    /// calendar's doing, not the person's, so Saturday's facts do not mention
+    /// it: the note once said "Focus carried on past midnight", and its tip
+    /// "Keep Coding sessions running past midnight".
     private static func carriedOverMidnight() -> [String] {
         AskLookupChecks.withFixture { f, problems in
             let start = moment(f, back: 5, 22)
@@ -79,15 +82,15 @@ enum ReviewNoteFreshnessChecks: CheckSuite {
                   let saturday = f.store.noteFacts(for: f.store.notePlace(forDayContaining: moment(f, back: 4, 12)))?.text
             else { problems.append("a day has no facts"); return }
 
-            expect(friday.contains("Night shift at 10:00 pm, 2h") && friday.contains("Focus began at 10:00 pm with Night shift"),
+            let atNight = "The most focus came at night, after 10 pm or before 5 am: 2h"
+            expect(friday.contains("Most time went to: Night shift: 2h") && friday.contains(atNight)
+                   && friday.contains("Longest stretch: 2h in Night shift, from 10:00 pm"),
                    "Friday's facts are “\(friday)”", &problems)
-            expect(!saturday.contains("12:00 am"), "Saturday's facts name 12:00 am: “\(saturday)”", &problems)
-            expect(saturday.contains("Focus carried on past midnight with Night shift"),
-                   "Saturday's facts do not say focus carried on: “\(saturday)”", &problems)
-            expect(saturday.contains("Night shift from before midnight, 2h"),
-                   "Saturday's session list does not say it began before midnight: “\(saturday)”", &problems)
-            expect(saturday.contains("Longest stretch: 2h in Night shift, from before midnight"),
-                   "Saturday's longest stretch does not say it began before midnight: “\(saturday)”", &problems)
+            expect(saturday.contains("Most time went to: Night shift: 2h") && saturday.contains(atNight),
+                   "Saturday's facts are “\(saturday)”", &problems)
+            for artefact in ["12:00 am", "midnight", "carried", "Longest stretch", "began"] {
+                expect(!saturday.contains(artefact), "Saturday's facts say “\(artefact)”: “\(saturday)”", &problems)
+            }
         }
     }
 }

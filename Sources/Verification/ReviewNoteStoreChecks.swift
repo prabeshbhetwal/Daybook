@@ -132,10 +132,11 @@ enum ReviewNoteStoreChecks: CheckSuite {
             let todayAt45 = f.store.noteFacts(for: thursday)?.text
 
             // Only the half hour before midnight is Wednesday's; it stops growing.
-            expect(yesterdayAt30?.contains("Night shift at") == true && yesterdayAt30?.contains(", 30m") == true,
+            expect(yesterdayAt30?.contains("Most time went to: Night shift: 30m") == true,
                    "yesterday's share is not its 30m: \(yesterdayAt30 ?? "none")", &problems)
             expect(yesterdayAt30 == yesterdayAt45, "yesterday changed as the session grew: “\(yesterdayAt30 ?? "none")” then “\(yesterdayAt45 ?? "none")”", &problems)
-            expect(todayAt30?.contains(", 30m") == true && todayAt45?.contains(", 45m") == true,
+            expect(todayAt30?.contains("Most time went to: Night shift: 30m") == true
+                   && todayAt45?.contains("Most time went to: Night shift: 45m") == true,
                    "today's share is “\(todayAt30 ?? "none")” then “\(todayAt45 ?? "none")”", &problems)
             expect(todayAt30 != todayAt45, "today's facts did not change as the session grew", &problems)
         }
@@ -245,7 +246,7 @@ enum ReviewNoteStoreChecks: CheckSuite {
 
             f.engine.store.dailyGoal = 3_600
             let met = f.store.noteFacts(for: tuesday)?.lines ?? []
-            expect(met.contains("Daily goal: 1h, met: yes"), "a 1h goal with 1h of credit says \(met)", &problems)
+            expect(met.contains("Daily goal: 1h; counted towards it: 1h of focus with hands-on app use; met: yes"), "a 1h goal with 1h of credit says \(met)", &problems)
             let weekMet = f.store.noteFacts(for: week)?.observations ?? []
             expect(weekMet.contains("Goal met on 1 of 2 days with focus"),
                    "a 1h goal, met on Tuesday only, says \(weekMet)", &problems)
@@ -255,12 +256,12 @@ enum ReviewNoteStoreChecks: CheckSuite {
             // 1h 30m is Tuesday's focus, not its credit: a goal set there is missed.
             f.engine.store.dailyGoal = 5_400
             let missed = f.store.noteFacts(for: tuesday)?.lines ?? []
-            expect(missed.contains("Daily goal: 1h 30m, met: no"), "a 1h 30m goal with 1h of credit says \(missed)", &problems)
+            expect(missed.contains("Daily goal: 1h 30m; counted towards it: 1h of focus with hands-on app use; met: no"), "a 1h 30m goal with 1h of credit says \(missed)", &problems)
             let weekMissed = f.store.noteFacts(for: week)?.observations ?? []
             expect(weekMissed.contains("Goal met on 0 of 2 days with focus"),
                    "a 1h 30m goal, met on no day, says \(weekMissed)", &problems)
             let missedLine = f.store.noteFiguresLine(for: tuesday)
-            expect(missedLine == "1h 30m focus · goal missed · 1 session",
+            expect(missedLine == "1h 30m focus · 1h towards 1h 30m goal · 1 session",
                    "the Yesterday line at a 1h 30m goal says “\(missedLine)”", &problems)
         }
     }

@@ -15,7 +15,7 @@ enum ReviewNoteWriterFailureChecks: CheckSuite {
     private typealias Checks = ReviewNoteWriterChecks
     private static let plain = Checks.plain
 
-    private static let invented = WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else.", tip: nil)
+    private static let invented = WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else.")
 
     private static func failureNotRetried() -> [String] {
         Checks.withWriter { f, writer, model, problems in
@@ -66,7 +66,7 @@ enum ReviewNoteWriterFailureChecks: CheckSuite {
             let blanks = [("", "Focus began after lunch."), ("You worked on Parser.", "  \n"), (" ", "")]
             for (story, pattern) in blanks {
                 let writer = NoteWriter(store: f.store)
-                writer.responder = model.answer(WrittenNote(story: story, pattern: pattern, tip: "Start early."))
+                writer.responder = model.answer(WrittenNote(story: story, pattern: pattern))
                 writer.request(tuesday, requested: false)
                 expect(Checks.settle(writer, tuesday), "the note for “\(story)” and “\(pattern)” never settled", &problems)
                 expect(writer.state(for: tuesday) == .failed(requested: false),
