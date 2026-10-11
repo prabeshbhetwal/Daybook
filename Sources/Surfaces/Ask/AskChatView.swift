@@ -14,6 +14,11 @@ struct AskChatView: View {
     /// The field's own text. Emptied once a question starts an answer.
     @State private var text = ""
     @FocusState private var fieldFocused: Bool
+    /// Whether the cursor was in the field when the question in progress was
+    /// asked, and has not left it since. Only then does it come back to the
+    /// field with the answer: beside History, a finished answer must not pull
+    /// the cursor out of History.
+    @State private var askedFromField = false
 
     init(model: AskModel, onFollow: @escaping (AskLink) -> Void, showsNewChat: Bool = true) {
         self.model = model
@@ -36,16 +41,23 @@ struct AskChatView: View {
         }
         .onAppear {
             model.prepare()
-            fieldFocused = true
+            focusField()
         }
-        // A new chat started from outside this view (the panel's header)
-        // leaves the cursor where the next question goes.
+        // A new chat, from the footer or from outside this view (the panel's
+        // header), forgets what was typed and leaves the cursor where the next
+        // question goes.
         .onChange(of: model.turns.isEmpty) { _, isEmpty in
-            if isEmpty { fieldFocused = true }
+            guard isEmpty else { return }
+            text = ""
+            focusField()
+        }
+        // The cursor moved on while the answer was worked out, to History say: it stays there.
+        .onChange(of: fieldFocused) { _, focused in
+            if !focused, model.isAnswering { askedFromField = false }
         }
         .onChange(of: model.isAnswering) { wasAnswering, isAnswering in
             guard wasAnswering, !isAnswering else { return }
-            fieldFocused = true
+            if askedFromField { fieldFocused = true }
             if let last = model.turns.last, last.state == .answered {
                 Announcement.post(Self.announcement(for: last))
             }
@@ -154,8 +166,20 @@ struct AskChatView: View {
 
     private func send(_ question: String) {
         guard !model.isAnswering else { return }
+        let fromField = fieldFocused
         model.ask(question)
-        if model.isAnswering { text = "" }
+        if model.isAnswering {
+            text = ""
+            askedFromField = fromField
+        }
+    }
+
+    /// The cursor goes to the field whenever the chat opens or starts over. Set
+    /// while the view is still going into the window, the focus is lost to the
+    /// control that had it (the bar's activity field, when the panel opens), so
+    /// it is set a turn later.
+    private func focusField() {
+        DispatchQueue.main.async { fieldFocused = true }
     }
 
     /// Who answers, under Apple's own mark for it: the one place the
@@ -172,12 +196,8 @@ struct AskChatView: View {
             .foregroundStyle(.secondary)
             Spacer(minLength: Tokens.Space.s)
             if showsNewChat, !model.turns.isEmpty {
-                Button("New chat") {
-                    model.newChat()
-                    text = ""
-                    fieldFocused = true
-                }
-                .buttonStyle(StoryActionStyle())
+                Button("New chat") { model.newChat() }
+                    .buttonStyle(StoryActionStyle())
             }
         }
     }

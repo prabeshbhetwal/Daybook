@@ -118,8 +118,8 @@ private struct AskSourceRow: View {
         }
         .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.control))
         .help(source.link.label)
-        .accessibilityElement(children: .ignore)
+        // The Button keeps its own press action; `.ignore` here took it away,
+        // and VoiceOver could read a source but not open it.
         .accessibilityLabel(AskSourcesView.accessibilityLabel(for: source))
-        .accessibilityAddTraits(.isButton)
     }
 }
