@@ -64,25 +64,25 @@ nothing to look at).
 
 | Layer | File | Responsibility |
 |---|---|---|
-| Core | `Sources/Core/NoteFacts.swift` | The facts for one period as plain text: its label and dates, sessions in order (name, start, length), top apps, and up to four candidate observations (longest stretch, when focus began, change from the previous period, goal result and similar). Also `WrittenNote` (story, pattern, optional tip) and the two inputs the facts are built from, `NoteDayInput` (which carries `sessionCount`, the sessions as History counts them) and `NotePeriodInput`. No `FoundationModels` import. |
-| Core | `Sources/Core/NoteFactsBuilder.swift` | `NoteFacts.day` and `NoteFacts.period`, the wording and formats of the facts, and the app-rendered figures line. Lists are capped (a day names its top 8 sessions by time, in start order, and counts the rest). Split from `NoteFacts` to keep each file under 300 lines. |
-| Core | `Sources/Core/NoteAudit.swift` | `passes(_ note:, facts:)`: every figure in the story, pattern and tip must appear among the facts' figures. A figure is a run of digits (leading zeros ignored) or a number spelled out in words, read as the digits it stands for (§6a). |
+| Core | `Sources/Core/NoteFacts.swift` | The facts for one period as plain text: its label and dates, sessions in order (name, start, length), top apps, and candidate observations (a day's up to four: longest stretch, when focus began, change from the previous period, goal result and similar; a week's or month's up to five, §2). A day's observations that only the pattern may use, such as a drop in focus from the day before, are listed under "Context:" apart from the "Observations:" a tip may build on (`patternOnly`). Also `WrittenNote` (story, pattern, optional tip) and the inputs the facts are built from: `NoteDayInput` (which carries `sessionCount`, the sessions as History counts them, and `longestStretch`, the Story's own pause-aware figure as a `NoteStretch`) and `NotePeriodInput` (with the same `longestStretch` and a month's `busiestWeekday`). No `FoundationModels` import. |
+| Core | `Sources/Core/NoteFactsBuilder.swift` | `NoteFacts.day` and `NoteFacts.period`, the wording and formats of the facts, and the app-rendered figures line. Lists are capped (a day names its top 8 sessions by time, in start order, and counts the rest; a week or month names its top 3 by time). A session left unnamed is called by its kind, as the Story titles it. Split from `NoteFacts` to keep each file under 300 lines. |
+| Core | `Sources/Core/NoteAudit.swift`, `NoteFigure.swift`, `NotePiece.swift`, `NoteNumberWords.swift` | `passes(_ note:, facts:)`: every figure in the story, pattern and tip must appear among the facts' figures, compared by kind and value and not by digits (§2). `NotePiece` cuts a text into numbers, clock times and words; `NoteNumberWords` reads "forty-six" and "two thousand twenty-six"; `NoteFigure.read` types what remains. |
 | App | `Sources/App/ModelGate.swift` | `modelAvailable`: macOS 26 and `availability == .available`, read on every call rather than kept from launch. `AskModel.canAsk` reads it too, so Ask is unchanged. The Settings switch is read by `NoteWriter.isUsable`. |
-| App | `Sources/App/NoteWriter.swift` | `@MainActor ObservableObject`. Publishes each place's note state (writing, written, failed) and keeps the cache and the failed keys. One `LanguageModelSession` per note, with greedy sampling and `@Generable GeneratedNote { story, pattern, tip }`; the tip is kept on days only. Runs the audit, writes one note at a time, and has a `responder` seam for checks. Remembers the key each published state was written for: `forgetIfStale(_:)` drops a note or failure whose facts have since changed, and `cancelAll()` stops the note being written and drops those waiting. |
-| App | `Sources/App/SessionStore+Notes.swift` | Builds `NoteFacts` for a History place, for today and for yesterday from the read models those surfaces already publish, and answers whether Wrap up today or the Yesterday notice is offered. `noteEvidence` is the session archive's and the session metadata's revisions, read from `evidenceRevision`: the cheap value a note on screen is checked against again (§3). It publishes no note state (only the redraw after the Yesterday notice is dismissed) and adds no stored property, so `SessionStore` gains no `keep_internals` entry. |
+| App | `Sources/App/NoteWriter.swift` | `@MainActor ObservableObject`. Publishes each place's note state (writing, written, failed) and keeps the cache and the failed keys. One `LanguageModelSession` per note, with greedy sampling and a `@Generable` form for each kind (`GeneratedNote.swift`: a day's `GeneratedNote { story, pattern, tip }`, a week's or month's `GeneratedPeriodNote { story, pattern }`); the tip is kept on days only. Runs the audit, writes one note at a time, and has a `responder` seam for checks. `NoteWriter+Failure.swift` says which thrown errors would fail the same way again (§4). Remembers the key each published state was written for: `forgetIfStale(_:)` drops a note or failure whose facts have since changed, and `cancelAll()` stops the note being written and drops those waiting. |
+| App | `Sources/App/SessionStore+Notes.swift` | Builds `NoteFacts` for a History place, for today and for yesterday from the read models those surfaces already publish, and answers whether Wrap up today or the Yesterday notice is offered. `noteEvidence` is the session archive's and the session metadata's revisions, read from `evidenceRevision`, and the daily goal: the cheap value a note on screen is checked against again (§3). The longest stretch of a day, week or month is `storyLongestFocusStretch`, the Story's own; a month's busiest weekday is summed from the per-day projections the period's session totals already read. It publishes no note state (only the redraw after the Yesterday notice is dismissed) and adds no stored property, so `SessionStore` gains no `keep_internals` entry. |
 | App | `Sources/App/MainWindowModel.swift` | `notes`: builds the `NoteWriter` on first read. Today's rail reads it on every redraw, so every Mac that shows the rail holds one, whether or not a note is ever shown. Views reach the writer as `navigation.notes`. |
 | App | `Sources/App/SettingsModel.swift` | `useAppleIntelligence` (default true). It and `yesterdayNoteDismissedDay` are stored in `PersistenceStore`. |
 | Surfaces | `Sources/Surfaces/Story/PeriodNote.swift` | The note view used in every place: text, tip where a label is given, caption, "Writing…" line, failure line and the link for a note written on request. Its parent passes in `noteEvidence`. When the view appears, and again whenever that evidence changes, an automatic note is requested and an on-request note calls `forgetIfStale`; when the model becomes unusable it calls `cancelAll`. |
 | Surfaces | `Sources/Surfaces/Story/YesterdayNotice.swift` | The Yesterday notice: figures line, note, Done. |
-| Surfaces | `Sources/Surfaces/Story/TodayNotes.swift` | Places the Yesterday notice and Wrap up today at the top of Today's rail. |
+| Surfaces | `Sources/Surfaces/Story/TodayNotes.swift` | Places the Yesterday notice and Wrap up today at the top of Today's rail. The offers are built again when their cause changes; the cause includes `noteEvidence`, so a new daily goal or a correction to yesterday rebuilds the figures line. |
 | Surfaces | `HistoryTreeRow.swift`, `StoryRail.swift`, Settings › Privacy | Place the views and the switch. |
 | Surfaces | `SnapshotNotes.swift`, `Snapshotter.swift` | Two gallery scenarios (`reviewNotes`, `reviewNotesHistory`) that show fixed notes without a model. |
-| Checks | `ReviewNoteFactsChecks`, `ReviewNoteGateChecks`, `ReviewNoteStoreChecks`, `ReviewNoteWriterChecks`, `ReviewNoteWriterFailureChecks`, `ReviewNoteWriterQueueChecks`, `ReviewNoteStoreEdgeChecks`, `ReviewNoteWriterStateChecks`, `ReviewNoteFreshnessChecks` | Under `Sources/Verification/`; §6 lists what they guard. |
+| Checks | `ReviewNoteFactsChecks`, `ReviewNoteGateChecks`, `ReviewNoteStoreChecks`, `ReviewNoteWriterChecks`, `ReviewNoteWriterFailureChecks`, `ReviewNoteWriterQueueChecks`, `ReviewNoteStoreEdgeChecks`, `ReviewNoteWriterStateChecks`, `ReviewNoteFreshnessChecks`, `ReviewNoteWordChecks`, `ReviewNoteFigureChecks`, `ReviewNoteStretchChecks`, `ReviewNoteGoalChecks`, `ReviewNoteTransientChecks`, `ReviewNotePeriodChecks` | Under `Sources/Verification/`; §6 lists what they guard. |
 
 Rules kept:
 
 - Views bind to the store and settings only; they never read storage or compute figures.
-- Views gate on the switch and read no expensive store methods in a body that redraws every second. Today's rail holds its offers in state and builds them again only when their cause changes (the day turning over, a session starting, stopping or being added, the model becoming usable or not). Reading the model's availability costs about 215 µs of CPU, so the rail reads it once per redraw and passes it to the notes it places. `noteEvidence` is a few counter reads, with no projection, and is taken in the same redraws.
+- Views gate on the switch and read no expensive store methods in a body that redraws every second. Today's rail holds its offers in state and builds them again only when their cause changes (the day turning over, a session starting, stopping or being added, the model becoming usable or not, and `noteEvidence`: a correction to yesterday or a new daily goal). Reading the model's availability costs about 215 µs of CPU, so the rail reads it once per redraw and passes it to the notes it places. `noteEvidence` is a few counter reads, with no projection, and is taken in the same redraws.
 - Each new note file stays under 300 lines. `StoryRail.swift`, `SettingsModel.swift` and `MainWindowModel.swift` were already over it and received placement lines only.
 - Lengths are design tokens or `.zoomed`, and text uses the type roles.
 - `SessionEngine` and `SessionStore` internals are reached only through methods on their owners (`keep_internals`).
@@ -91,22 +91,53 @@ Rules kept:
 
 1. A view appears for a place, or the person presses "Write a note" or "Wrap up today".
 2. The view asks `NoteWriter` for that place's note, and `NoteWriter` has `SessionStore+Notes` build the `NoteFacts`.
-3. `NoteWriter` returns the cached note if the key (the place's id and the facts' text) matches. Otherwise it checks `ModelGate` and the switch, builds a session with the one instruction string (the same for every kind of period; the difference between a day and a week or month lives in the tip guide of `GeneratedNote`), and asks for a note from the facts.
-4. The audit runs on story, pattern and tip together. A note that fails the audit, comes back blank or throws is dropped and remembered as failed.
+3. `NoteWriter` returns the cached note if the key (the place's id and the facts' text) matches. Otherwise it checks `ModelGate` and the switch, builds a session with the one instruction string (the same for every kind of period; a day and a week or month differ in the form asked for, `GeneratedNote` or `GeneratedPeriodNote`), and asks for a note from the facts.
+4. The audit runs on story, pattern and tip together. A note that fails the audit, comes back blank or is refused is dropped and remembered as failed; an error that is the Mac's state is shown as a failure but not remembered (§4).
 5. `NoteWriter` publishes the result and the view redraws. The store publishes no note state.
 
 The instructions tell the model to use only the facts, to write every figure
 in digits as the facts write it, never to total, average or compare figures
 itself, and to write in plain Australian English in the second person. The
-guides on `GeneratedNote` tell it to quote session names as written, to build
-the pattern and tip on one listed observation, to stay within two sentences
-for the story and one each for pattern and tip, and to leave the tip empty for
-a week or month.
+guides on `GeneratedNote` (a day) tell it to quote session names as written,
+to build the pattern on one listed observation or context line, to stay
+within two sentences for the story and one each for pattern and tip, and to
+write the tip as one concrete action for the next day built on one of the
+observations, never commenting on less focus or a missed goal. The guides on
+`GeneratedPeriodNote` (a week or month, which has no tip) ask the story to name
+the two or three sessions that took the most time, each with its duration
+exactly as the facts write it, not in order and not added together, and the
+pattern to state the first listed observation with its figures as listed.
+
+The tip guide is a deliberate exception to "fixes go in the facts, not the
+prompt", because tone is wording and not a fact. The facts still do the
+main work: a drop in focus from the day before is listed under "Context:",
+not under "Observations:", so the tip has nothing to scold about. An
+earlier version marked each usable observation "(usable for a tip)"; the
+model parroted the mark ("Use the call to Mum for a tip"), so the facts split
+the lists instead.
+
+The audit weighs figures by kind and value, not by digits (`NoteFigure`):
+
+| Kind | Reads as | Compared as |
+|---|---|---|
+| Duration | "1h 30m", "90 minutes", "1.5 hours", "one hour thirty minutes", "1-hour 30-minute" | seconds; a smaller unit continues a duration only when it follows a larger, so separate figures are never summed |
+| Clock time | "9:13 am", "9:13am", "9 pm", "21:13" | minute of the day; with no am or pm it reads both ways |
+| Date | "14 November", "6th of October", "Tuesday 6 October 2026" | month and day |
+| Year | a four-digit number from 1900 to 2100 | the year |
+| Count | a number before session(s), day(s), stretch(es), week(s), month(s) | number and noun, "three stretches" = "3 stretches" |
+| Percentage | "40%", "40 percent" | the number |
+| Bare number | any other: a session name's "Q4", "v2", "1.3", "3 of 7" | the number, against bare numbers only |
+
+Every figure in the note must match one the facts hold, of the same kind and
+value. So "9h" fails against a 9:13 start, "seventeen hours forty-one
+minutes" fails against a session count and a duration that are both in the
+facts, and a bare 30 does not pass because the facts hold 30m. A session
+name's digits are facts, and pass when the note quotes the name.
 
 Where the facts come from, as built:
 
-- A day's facts, and the figures line on the Yesterday notice, read the Story day projection, which is always current.
-- A week's or month's facts read History's index, which is refreshed only while History is open, so those notes are requested only from History.
+- A day's facts, and the figures line on the Yesterday notice, read the Story day projection, which is always current. A day's longest stretch is the Story's own (`storyLongestFocusStretch`): the work of one recorded stretch with its pauses taken out, since a stretch's span from start to end counts a pause as focus (a 9 to 11 session with an hour paused read "2h", more than the day's focus). A session left unnamed is its kind's name in the facts, as in the Story.
+- A week's or month's facts read History's index, which is refreshed only while History is open, so those notes are requested only from History. They name the top three sessions by time (naming more led the model to total "other sessions") and carry up to five observations, each a sentence a note can quote whole, in this order: the best day with its focus; a month's busiest weekday with its focus and number of days (left out when focus fell on one weekday only); the longest stretch with its day and start; the change from the period before; the goal days; and the top session's share when it is over 40%.
 - A week or month is compared with the one before only when both are finished whole calendar periods and the one before lies wholly within the record, that is, begins on or after its first day. A running period, one cut short at the start of the record, or one whose predecessor was recorded only in part is not weighed against a whole one. A day is compared with the whole day before.
 - A session carried on from the night before is not said to begin at midnight. The day's session is clipped to the day's start, so one starting exactly there is written "Focus carried on past midnight with …", "… from before midnight, 1h" in the session list and "from before midnight" on the longest stretch, never "12:00 am". A session that truly began at 00:00 reads the same, since only the clipped start is kept (`ponytail:` in `NoteFactsBuilder`).
 - A day's session count is History's own: a session resumed after another on the same thread is one session, so "Focus: … over N sessions", the stretches observation and the figures line agree with the day's card. The "Sessions in order" list still names every row the Story shows.
@@ -149,14 +180,17 @@ for figures that have since changed (a session added to a running day or
 week, a rename) counts as nothing: the writer forgets it when the view
 appears, and the link returns.
 
-A note already on screen checks its facts again when the session archive or
-the session metadata changes (a rename, a correction, a deletion, an edited
-session note, a session stopping), through the `noteEvidence` its parent
+A note already on screen checks its facts again when the session archive, the
+session metadata or the daily goal changes (a rename, a correction, a
+deletion, an edited session note, a session stopping, a new goal), through
+the `noteEvidence` its parent
 passes to `PeriodNote`: an automatic note is requested again and an on-request
 note is forgotten if its facts changed. This holds in History, where a rename on
 an opened day reaches the note above its story, and in the Yesterday notice,
 where the note no longer lags the figures line above it when an away card is
-answered after midnight. App use is
+answered after midnight. A day's facts and the Yesterday figures line both state
+the goal and weigh the day against it, so the goal is part of the evidence;
+before it was, a new goal left the note's old wording on screen. App use is
 not part of that evidence: it moves every few seconds while you work, and would
 send a Wrap up today note just written back to its link.
 
@@ -166,11 +200,12 @@ send a Wrap up today note just written back to its link.
 |---|---|
 | Model unusable or switch off | No note, no link, no Yesterday notice. The note being written is cancelled and any waiting are dropped (`cancelAll`), so nothing is left showing "Writing…"; notes already written stay in memory, hidden. |
 | No sessions in the period | No note and no link. |
-| Audit fails, refusal, guardrail, unsupported language, context exceeded | Automatic notes show nothing. Requested notes show "Couldn't write a note for this period." No retry: greedy sampling would give the same result. Every failure (audit, blank note, thrown error) is remembered per place and facts for the session, so it is not asked again until the facts change. |
+| Audit fails, blank note, refusal, guardrail, unsupported language, context exceeded | Automatic notes show nothing. Requested notes show "Couldn't write a note for this period." No retry: greedy sampling would give the same result. These failures are remembered per place and facts for the session, so the model is not asked again until the facts change. The thrown ones are told by `NoteWriter.repeats(_:)`, named as `AskModel.notice(for:)` names them (macOS 26's `GenerationError` and macOS 27's `LanguageModelError`). |
+| Any other error from the model (memory pressure, a model not ready, a rate limit, a timeout, an unknown error) | Shown as a failure like the above, but not remembered: it is the Mac's state and not the facts'. The next request for the place asks the model again, and an on-request note returns to its link when its view appears (`forgetIfStale`). The live probe was refused from its eleventh note on under memory pressure; before this the writer then never asked for those periods again. |
 | Facts change (rename, correction, deletion, a session added) | The facts' text changes, and with it the cache key, so the note is written again, at once if it is on screen (the view checks again when `noteEvidence` moves, §3) and otherwise when next viewed. A note written on request returns to its link instead, since nothing writes it unasked. Changes in app use alone are not watched. |
 | Midnight | Notes are keyed by period and the facts' text. A day's first fact line ends "(so far)" while it is current, so the text, and with it the key, always changes at midnight: today's wrap-up is never carried over, and the finished day's note, in History and in the Yesterday notice, is always written afresh. The Yesterday notice moves to the new yesterday. Done closes the day the notice showed, not whichever day is yesterday when it is pressed after midnight, so the new yesterday is still offered. |
 | Several periods opened quickly | One call at a time. A newer request replaces the one running. A replaced period still on screen is written once the writer is idle; one whose view has closed is dropped. |
-| Figures written as words | Read by the audit as the digits they stand for: the probe found the model writing most of a week's or month's figures this way (§6a). A lone "one", "half", "dozen" and ordinals are still not read (`ponytail:` in `NoteAudit`). |
+| Figures written as words | Read by the audit as the value they stand for, typed (§2): the probe found the model writing most of a week's or month's figures this way (§6a). A lone "one" counts before a unit or a thing counted ("one hour", "one session"); "half", "dozen", "a quarter of an hour" and ordinals ("tenth") are still not read, and "and" ends a figure (`ponytail:` in `NoteNumberWords`). |
 
 ## 5. Privacy
 
@@ -202,15 +237,54 @@ model.
 | Carried over | A session from 10 pm on a Friday to 2 am on the Saturday | Saturday's facts name 12:00 am, or omit "carried on past midnight", "from before midnight" in the list and on the longest stretch; Friday's lose their 10:00 pm start |
 | Spelled figures | Notes writing "forty-six", "two thousand twenty-six" and "five thirty" | A spelled number reads as other than its digits, a spelled figure the facts lack passes (the digits-only audit passed it), or one the facts hold, or a session name's, fails |
 | Most-time list | A week whose sessions are "Budget, then notes" and "Release 1.3" | The list reads other than `name: duration` joined by semicolons, so a comma or a trailing number runs into the figures |
+| Typed figures | Facts written by hand in the builder's wording; notes stating "9h" against a 9:13 start, "13 minutes", "9 sessions", "15 sessions" against a 15 November, "9:15 am", "9:13 pm", "40%", "2 days" against 2 sessions, "5 stretches" against 3, and "seventeen hours forty-one minutes" | A figure whose digits are elsewhere in the facts passes (`ReviewNoteFigureChecks`) |
+| Same figures, other words | The facts' own durations, times, dates and counts in digits, as "1 hour 30 minutes", "90 minutes", "1.5 hours", "1-hour 30-minute", "one hour and thirty minutes", "09:13", "9:13am", "15th November" | A figure the facts hold fails |
+| Duration reading | "1h 30m", "1 hour, 30 minutes", "1h30m", "90 minutes", "ninety minutes" all 5400 s; "Xcode 1h, Safari 30m" and "30m, then 1h" stay two figures | Separate durations are summed, or one duration reads as two |
+| Bare numbers | Names "Q4 plan v2", "Sprint 42 review", "Release 1.3", "2026 tax return" quoted from the facts, against facts without them, and a bare 30 against facts that hold 30m | A name's digits fail when quoted, pass when the name is absent, or a bare number passes on a duration |
+| Probe wording | The live run's week note with its invented total and its digit-named day, against the facts the app now writes | The invented total passes, or the digit-named day fails |
+| Pause in a stretch | A session from 9 to 11 with an hour paused (1h of work), read from a store | The day's longest stretch reads 2h, or differs from the Story's `storyLongestFocusStretch` |
+| Unnamed session | A session saved with a blank name | The facts list it blank where the Story titles it by kind |
+| Context | A day 1h below the day before, and one 30m above | A drop is listed among the observations a tip may use, or a rise is kept from it |
+| Goal evidence | `noteEvidence` before and after a new goal, a note written for one goal, and the offers' cause | A new goal leaves the evidence, a written note or the cause as it was; or setting the goal to what it was moves it |
+| Correction to yesterday | A rename of yesterday's session, then `TodayNoteOffers.cause` | The cause stays as it was |
+| Mac's state | A responder throwing rate-limited, assets-unavailable, a Cocoa error, the probe's unknown error and (macOS 27) a timeout | The second request does not ask the model again, or the writer does not recover when the Mac does |
+| Facts' errors | A responder throwing context-exceeded, guardrail, refusal and unsupported-language errors (and macOS 27's) | One is asked for again |
+| Link returns | An on-request note that failed for the Mac's state, one refused, and a day with no sessions, each `forgetIfStale` | The state failure stays where the link should return, or a refusal or a day with no facts is forgotten |
+| Period facts | A month's input with five sessions, a best day, a busiest weekday, a longest stretch, a comparison and goal days; a week and a month on one weekday | More than three sessions are named, the observations are other than those five in order, a week names a busiest weekday, or a month on one weekday does |
+| Period from the store | A session from 11 to 2 with an hour paused and no name, a week and a month | The longest stretch counts the pause, the unnamed session is blank in the list, or the month lacks its busiest weekday |
 | Views | `--gallery` / `--snapshot` with fixed notes | Layout breaks at 80% and 140% zoom; VoiceOver labels missing |
 
 Run in Sydney and with `TZ=Europe/Berlin`. Mutation test in a temporary tree
 copy: let the audit accept every note; the failed-audit check must fail.
 
+The fix wave's mutants, each put back by hand in a temporary tree copy, and
+the check that caught it (checks are numbered by position; titles are in the
+suites above):
+
+| Old behaviour put back | Caught by |
+|---|---|
+| The longest stretch is the longest span, pause included | Pause in a stretch |
+| A blank session name stays blank in a day's facts | Unnamed session |
+| The first version's digits-only audit | Typed figures, Same figures in other words, Bare numbers, Probe wording |
+| The goal is left out of `noteEvidence` | Goal evidence |
+| The offers' cause leaves out `noteEvidence` | Correction to yesterday (and the goal assertion of Goal evidence) |
+| Every thrown error is remembered | Mac's state, Link returns |
+| Nothing thrown is remembered | Facts' errors |
+| A failure that was not remembered stays on screen | Link returns |
+| A drop in focus is offered to the tip | Context |
+| Five sessions named in a week's or month's list | Period facts |
+| The store gives no busiest weekday, or the builder leaves it out | Period facts, Period from the store |
+| A blank session name stays blank in a period's totals | Period from the store |
+
 Live quality: Ask's probe harness gains a `--noteprobe` entry over 20 fixture
 periods. Target: no audit failures, and Sir's read of tone and accuracy.
 
 ## 6a. Probe (2026-10-11)
+
+Two runs are recorded. The first is kept as it was written, as evidence of
+what the fix wave answered; the second, after the wave, follows it.
+
+### First run (2026-10-11, before the fix wave)
 
 After the Mac restarted, the on-device model wrote notes for 20 fixture
 periods. **20 of 20 passed the audit.** No note stated a figure the facts
@@ -317,6 +391,53 @@ alone did not make the period notes dependable.
   under memory pressure an automatic note is never tried again until its
   facts change. The probe waited and asked again; the app does not.
 - Merge waits on Sir's read of the above, and on hand checks 1 to 6.
+
+### Second run (2026-10-11, after the fix wave)
+
+The same 20 periods through the same harness, rebuilt from the fixed sources.
+The audit is the typed one (§2). The bar Sir set for the wave: no invented
+figure anywhere; week and month notes as specific and readable as day notes,
+and kept; no reprimanding or nonsensical tip.
+
+| | First run | Second run |
+|---|---|---|
+| Audit, days | 13 of 13 (digits and words only) | 13 of 13 (typed figures) |
+| Audit, weeks and months | 7 of 7, one with an invented total and four with figures in words | 7 of 7, every figure in digits, none dropped, none invented |
+| Latency | median 3.9 s, fastest 2.7 s, slowest 8.1 s | median 4.8 s, fastest 3.1 s, slowest 7.6 s |
+| Day tips: mild reprimands | 5 of 13 | 0 of 13 |
+| Day tips: nonsense | 2 of 13 | 0 of 13 (one is vague: "Use the time spent in Numbers to organise the quarterly budget proposal notes.") |
+| Thrown errors | 10 of 20 under memory pressure in the first attempt, then retried by the probe | 0 |
+
+The writer's state matched the audit's verdict for all 20, and greedy sampling
+gave the same note each time. Latency is on a Mac that another session's
+builds kept at a load average of about 20 to 100, so Hand check 1's 3 s bar
+is still not met on a busy Mac.
+
+An intermediate run marked each observation a tip may use with "(usable for a
+tip)". Tips then echoed the mark ("Use the call to Mum at 10:30 am for a
+tip.", "The 2-hour stretch in 2026 tax return at 2:00 pm is usable for a tip.")
+though none scolded. The facts now list a pattern-only observation under
+"Context:" and the others under "Observations:", with no mark. Two further
+variants were tried on the fixture with the model and left out: putting
+"Most app time was in …" under Context as well and relabelling the apps line
+"Apps in front during these sessions" (the tips then pointed at Xcode and
+Mail), and a tip guide asking for "a session named in the observations" (the
+tips all became "set a timer for …", two with a duration the facts do not
+hold, which the audit would drop).
+
+| Place | Story | Pattern | Tip |
+|---|---|---|---|
+| Wed 7 Oct, digit names | You worked on Q4 plan v2 for 1 hour 30 minutes at 9:00 am, then Sprint 42 review for 1 hour at 11:00 am, and finally 2026 tax return for 2 hours at 2:00 pm. | The longest focus stretch was 2 hours in 2026 tax return, from 2:00 pm. | Review the 2026 tax return notes before starting the next session. |
+| Fri 9 Oct, yesterday on the Yesterday notice ("For today:"), runs past midnight | You worked on Thesis at 9:00 am for 2 hours, then Parser at 2:00 pm for 1 hour 12 minutes, Email at 4:30 pm for 30 minutes, and Release 1.3 at 10:30 pm for 1 hour 30 minutes. | The longest stretch of focus was 2 hours in Thesis at 9:00 am. | You could set a timer for 1 hour 30 minutes for Release 1.3 next time. |
+| Week of 28 Sep | You spent 11h on Thesis, 6h 36m on Parser, and 2h on Email. | You had your best day on Monday 28 September 2026 with 5h 18m. | not shown |
+| September | You spent 68h on Thesis, 41h 48m on Parser, and 10h 30m on Email. | You had your best day on Tuesday 15 September 2026 with 9h. | not shown |
+
+What is still weak, honestly:
+
+- Every week and month pattern restates the best day, because its guide asks for the first listed observation. The longest stretch, the busiest weekday, the comparison and the goal days are in the facts but not yet in a note. The earlier guide ("exactly one of the listed observations") picked the goal line every time, "You met your goal on 3 of 7 days", which is true and bland; the best day is the more specific of the two.
+- A day with one session and a top app (Sat 3 Oct) still reads the apps line as a second block of work ("then 1 hour 30 minutes in Books"). The figure is in the facts, so the audit cannot see the misreading; the audit checks that a figure is held, not what it measures.
+- Several day tips read "Start the next session with Thesis at 8:00 am for 5 hours": concrete and not a reprimand, but pushy about a duration.
+- The typed audit cannot see a figure attached to the wrong thing, such as the best day's focus given to another day.
 
 ## 7. Hand checks
 
