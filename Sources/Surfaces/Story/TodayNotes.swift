@@ -24,18 +24,22 @@ struct TodayNoteOffers: Equatable {
 
     /// What can change an offer: the day turning over, a session starting,
     /// stopping or pausing (the state), a session added or removed (the
-    /// count), and the model becoming usable or not. The rail reads the model's
-    /// availability once per redraw (about 215 µs of CPU) and passes it in.
+    /// count), the model becoming usable or not, and the store's note
+    /// evidence: a correction to yesterday or a new daily goal changes the
+    /// figures line and whether the goal was met, which the other inputs miss.
+    /// The rail reads the model's availability once per redraw (about 215 µs
+    /// of CPU) and passes it in; the evidence is a few counters.
     struct Cause: Equatable {
         let today: HistoryPlace
         let state: SessionState
         let sessions: Int
         let usable: Bool
+        let evidence: SessionStore.NoteEvidence
     }
 
     @MainActor static func cause(store: SessionStore, usable: Bool) -> Cause {
         Cause(today: store.notePlace(forDayContaining: store.now()), state: store.state,
-              sessions: store.sessionsToday, usable: usable)
+              sessions: store.sessionsToday, usable: usable, evidence: store.noteEvidence)
     }
 }
 

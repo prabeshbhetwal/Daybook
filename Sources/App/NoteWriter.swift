@@ -25,8 +25,10 @@ enum NoteState: Equatable {
     /// only for the figures it was written from.
     // ponytail: never trimmed; a note is about 0.5 KB and only a request adds one, cap it if that ever matters.
     private var cache: [String: WrittenNote] = [:]
-    /// The keys of notes that failed. The model is greedy, so the same facts
-    /// would fail the same way; changed facts make a new key and are tried.
+    /// The keys of notes that failed the audit, came back blank or were
+    /// refused. The model is greedy, so the same facts would fail the same
+    /// way; changed facts make a new key and are tried. A failure that is the
+    /// Mac's state (memory pressure, a model not ready) is not kept here.
     // ponytail: never trimmed either, for the same reason as the cache.
     private var failedKeys: Set<String> = []
     /// The key each place's `.written` or `.failed` state was published for,
@@ -111,8 +113,10 @@ enum NoteState: Equatable {
         }
         states[place.id] = .writing
         let task = Task { [weak self] in
-            let note = try? await self?.write(facts)
-            self?.finish(facts: facts, note: note)
+            var note: WrittenNote?
+            var repeats = true
+            do { note = try await self?.write(facts) } catch { repeats = Self.repeats(error) }
+            self?.finish(facts: facts, note: note, repeats: repeats)
         }
         running = Running(place: place, placeID: place.id, key: key, requested: requested, task: task)
     }
@@ -138,12 +142,18 @@ enum NoteState: Equatable {
 
     /// For an on-request note's view when it appears: a note or failure shown
     /// for facts that have since changed is forgotten, so the person's link
-    /// comes back. A note being written is left alone.
+    /// comes back; so is a failure that was not remembered (`repeats(_:)`),
+    /// which is the Mac's state and not the facts'. A note being written is
+    /// left alone.
     func forgetIfStale(_ place: HistoryPlace) {
         switch states[place.id] {
         case .written?, .failed?:
             guard let store else { return }
-            if publishedKeys[place.id] != Self.cacheKey(place, store.noteFacts(for: place)) { states[place.id] = nil }
+            let facts = store.noteFacts(for: place)
+            let key = Self.cacheKey(place, facts)
+            var stale = publishedKeys[place.id] != key
+            if case .failed? = states[place.id], facts != nil, !failedKeys.contains(key) { stale = true }
+            if stale { states[place.id] = nil }
         default:
             break
         }
@@ -202,12 +212,15 @@ enum NoteState: Equatable {
         running = nil
     }
 
-    /// What the model returned, or nil when it threw. A note that fails is
-    /// remembered by its key. A cancelled task has been replaced or dropped
-    /// already; one that finds the switch off or the model gone leaves no
-    /// state at all, and the places waiting are dropped. Otherwise the next
-    /// place waiting is started.
-    private func finish(facts: NoteFacts, note: WrittenNote?) {
+    /// What the model returned, or nil when it threw; `repeats` is false for
+    /// an error that is the Mac's state and not the facts' (`repeats(_:)`). A
+    /// note that fails the audit or comes back blank, and one the model
+    /// refused, is remembered by its key; one that failed for the Mac's state
+    /// is shown as failed but asked for again with the next view. A cancelled
+    /// task has been replaced or dropped already; one that finds the switch
+    /// off or the model gone leaves no state at all, and the places waiting
+    /// are dropped. Otherwise the next place waiting is started.
+    private func finish(facts: NoteFacts, note: WrittenNote?, repeats: Bool) {
         guard !Task.isCancelled, let current = running else { return }
         running = nil
         guard isUsable else {
@@ -218,7 +231,7 @@ enum NoteState: Equatable {
             cache[current.key] = note
             publish(.written(note), for: current.placeID, key: current.key)
         } else {
-            failedKeys.insert(current.key)
+            if repeats { failedKeys.insert(current.key) }
             publish(.failed(requested: current.requested), for: current.placeID, key: current.key)
         }
         startPending()
@@ -277,6 +290,6 @@ enum NoteState: Equatable {
     var story: String
     @Guide(description: "One sentence building on exactly one of the listed observations.")
     var pattern: String
-    @Guide(description: "For a day: one sentence of advice for the next day, building on one listed observation. For a week or month: empty.")
+    @Guide(description: "For a day: one concrete action for the next day, built on one observation marked usable for a tip. Never comment on less focus or a missed goal. For a week or month: empty.")
     var tip: String
 }

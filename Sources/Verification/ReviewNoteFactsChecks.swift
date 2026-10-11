@@ -34,14 +34,18 @@ enum ReviewNoteFactsChecks: CheckSuite {
         AppRank(bundleID: "test." + name.lowercased(), appName: name, total: total, share: share, longest: total)
     }
 
-    /// `count` is the sessions as History counts them; one row per session when nil.
+    /// `count` is the sessions as History counts them; one row per session when nil. The longest
+    /// stretch is the longest span, as for sessions that were never paused.
     private static func dayInput(_ sessions: [DaySession], count: Int? = nil, apps: [AppRank] = [],
                                  isCurrent: Bool = false, goal: TimeInterval = 0, goalCredit: TimeInterval = 0,
                                  previous: TimeInterval = 0) -> NoteDayInput {
-        NoteDayInput(date: SelfTest.base, isCurrent: isCurrent, sessions: sessions,
-                     sessionCount: count ?? sessions.count, apps: apps,
-                     focused: sessions.reduce(0) { $0 + $1.worked }, goal: goal, goalCredit: goalCredit,
-                     previousFocused: previous)
+        let longest = sessions.flatMap { session in
+            session.spans.map { NoteStretch(name: session.name, start: $0.start, worked: $0.duration) }
+        }.max { $0.worked < $1.worked }
+        return NoteDayInput(date: SelfTest.base, isCurrent: isCurrent, sessions: sessions,
+                            sessionCount: count ?? sessions.count, apps: apps,
+                            focused: sessions.reduce(0) { $0 + $1.worked }, goal: goal, goalCredit: goalCredit,
+                            previousFocused: previous, longestStretch: longest)
     }
 
     /// Parser 9:13 to 10:13 and 10:30 to 11:00 (1h 30m), Thesis 2:00 to 2:45 pm (45m).
@@ -75,8 +79,8 @@ enum ReviewNoteFactsChecks: CheckSuite {
                                       "2 sessions ran as 3 stretches"],
                "observations are not the four rules in order: \(facts.observations)", &problems)
         expect(facts.text == facts.lines.joined(separator: "\n") + "\nObservations:\n- "
-               + facts.observations.joined(separator: "\n- "),
-               "text is not lines, then Observations:, then bullets: \(facts.text)", &problems)
+               + facts.observations.map { $0 + NoteFacts.tipMark }.joined(separator: "\n- "),
+               "text is not lines, then Observations:, then bullets that a tip may use: \(facts.text)", &problems)
         return problems
     }
 
@@ -138,7 +142,7 @@ enum ReviewNoteFactsChecks: CheckSuite {
         var problems: [String] = []
         let input = NoteDayInput(date: SelfTest.base, isCurrent: false, sessions: [], sessionCount: 0,
                                  apps: [app("Xcode", 3_600, share: 1)], focused: 3_600, goal: 7_200,
-                                 goalCredit: 3_600, previousFocused: 1_800)
+                                 goalCredit: 3_600, previousFocused: 1_800, longestStretch: nil)
         expect(NoteFacts.day(input, calendar: calendar) == nil, "a day with no sessions should have no facts", &problems)
         return problems
     }
@@ -206,9 +210,9 @@ enum ReviewNoteFactsChecks: CheckSuite {
                "a note with no digits should pass", &problems)
         expect(NoteAudit.passes(note(tip: "Start at 09:13 again, 2:00 pm was fine."), facts: facts),
                "a leading zero and a repeated figure should pass", &problems)
-        expect(NoteAudit.digitRuns(in: "a05b0c007d12") == ["5", "0", "7", "12"],
-               "digit runs wrong: \(NoteAudit.digitRuns(in: "a05b0c007d12"))", &problems)
-        expect(NoteAudit.digitRuns(in: "none").isEmpty, "text without digits has no runs", &problems)
+        expect(NoteFigure.read("09:13 am") == NoteFigure.read("9:13 am") && !NoteFigure.read("9:13 am").isEmpty,
+               "a leading zero changed a time: \(NoteFigure.read("09:13 am"))", &problems)
+        expect(NoteFigure.read("none").isEmpty, "text without digits has no figures", &problems)
         return problems
     }
 

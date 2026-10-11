@@ -20,20 +20,23 @@ extension SessionStore {
     }
 
     /// What a note on screen is checked against again: the session archive's
-    /// and the session metadata's revisions, as `evidenceRevision` has them.
-    /// A rename, correction, deletion, edited note or a session stopping
-    /// moves one, and the facts may have changed with it. App use is left out
-    /// on purpose: it moves every few seconds while you work, and a "Wrap up
-    /// today" note just written would go back to its link. A few counters and
-    /// no projection, so a view that redraws every second may take it.
+    /// and the session metadata's revisions, as `evidenceRevision` has them,
+    /// and the daily goal, which a day's facts and the Yesterday figures line
+    /// both state and weigh the day against. A rename, correction, deletion,
+    /// edited note, a session stopping or a new goal moves one, and the facts
+    /// may have changed with it. App use is left out on purpose: it moves every
+    /// few seconds while you work, and a "Wrap up today" note just written
+    /// would go back to its link. A few counters and no projection, so a view
+    /// that redraws every second may take it.
     struct NoteEvidence: Hashable {
         let sessions: Int
         let metadata: Int
+        let goal: TimeInterval
     }
 
     var noteEvidence: NoteEvidence {
         let revision = evidenceRevision
-        return NoteEvidence(sessions: revision.sessions, metadata: revision.metadata)
+        return NoteEvidence(sessions: revision.sessions, metadata: revision.metadata, goal: engine.store.dailyGoal)
     }
 
     /// The facts for a day, week or month; nil for a year, and for a place
@@ -102,10 +105,13 @@ extension SessionStore {
         // The day before is compared whole, however far through today is.
         let before = calendar.date(byAdding: .day, value: -1, to: place.start)
             .map { storyDayProjection(on: $0, calendar: calendar).focused } ?? 0
+        // The Story's own longest stretch: a session's span counts its pauses, its work does not.
+        let longest = storyLongestFocusStretch(in: place.span)
+            .map { NoteStretch(name: $0.name, start: $0.start, worked: $0.seconds) }
         return NoteFacts.day(NoteDayInput(date: place.start, isCurrent: noteIsCurrent(place), sessions: sessions,
                                           sessionCount: day.focusSessionCount, apps: day.apps, focused: day.focused,
                                           goal: engine.store.dailyGoal, goalCredit: day.goalCredit,
-                                          previousFocused: before),
+                                          previousFocused: before, longestStretch: longest),
                              calendar: calendar)
     }
 

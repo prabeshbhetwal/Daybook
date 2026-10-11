@@ -317,7 +317,7 @@ extension SessionStore {
         return credited
     }
 
-    private func storyLongestFocusStretch(in interval: DateInterval)
+    func storyLongestFocusStretch(in interval: DateInterval)
         -> (seconds: TimeInterval, name: String, start: Date)? {
         var candidates: [(seconds: TimeInterval, name: String, start: Date)] = []
         for record in engine.archive.records where record.workType.countsAsFocus {
