@@ -1,0 +1,75 @@
+import Foundation
+
+/// One earlier named session, reduced to what name matching reads.
+struct NameHistoryEntry: Equatable {
+    let name: String
+    let workType: WorkType
+    let end: Date
+    /// Bundle ID → seconds in front within the session.
+    let appSeconds: [String: TimeInterval]
+}
+
+/// An earlier name worth offering for a session that has none.
+struct NameCandidate: Equatable {
+    /// The most recent spelling.
+    let name: String
+    /// Shared app time, plus the category bonus.
+    let score: Double
+    /// The most common category among the name's sessions.
+    let usualWorkType: WorkType
+    /// Bundle IDs by share of the name's time, at most three.
+    let usualApps: [String]
+}
+
+/// Ranks the person's own earlier names by the app time they share with a
+/// session. Pure: the caller decides which sessions count as history.
+enum NameCandidates {
+    static let threshold = 0.3, categoryBonus = 0.1, limit = 3
+
+    /// Σ over apps of min(share in a, share in b), so 0 to 1; 0 when either
+    /// side has no time.
+    static func shared(_ a: [String: TimeInterval], _ b: [String: TimeInterval]) -> Double {
+        let totalA = a.values.reduce(0, +), totalB = b.values.reduce(0, +)
+        guard totalA > 0, totalB > 0 else { return 0 }
+        return a.reduce(0) { sum, app in
+            sum + min(app.value / totalA, (b[app.key] ?? 0) / totalB)
+        }
+    }
+
+    /// Groups `history` by name, ignoring case and accents, keeps the groups
+    /// whose shared time with `appSeconds` reaches `threshold`, and ranks them
+    /// by score. A tie goes to the group used more recently.
+    static func rank(appSeconds: [String: TimeInterval], workType: WorkType,
+                     history: [NameHistoryEntry]) -> [NameCandidate] {
+        let groups = Dictionary(grouping: history) {
+            SearchWords.fold($0.name.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        let ranked: [(candidate: NameCandidate, end: Date)] = groups.compactMap { key, entries in
+            guard !key.isEmpty else { return nil }
+            let newest = entries.max { $0.end < $1.end }!
+            let mix = entries.reduce(into: [String: TimeInterval]()) { total, entry in
+                for (app, seconds) in entry.appSeconds { total[app, default: 0] += seconds }
+            }
+            let sharedTime = shared(appSeconds, mix)
+            guard sharedTime >= threshold else { return nil }
+            let usual = usualWorkType(of: entries)
+            // Ties between apps resolve by bundle ID so the order is stable.
+            let apps = mix.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.prefix(3).map(\.key)
+            let score = sharedTime + (usual == workType ? categoryBonus : 0)
+            return (NameCandidate(name: newest.name.trimmingCharacters(in: .whitespacesAndNewlines),
+                                  score: score, usualWorkType: usual, usualApps: apps),
+                    newest.end)
+        }
+        return ranked
+            .sorted { ($0.candidate.score, $0.end) > ($1.candidate.score, $1.end) }
+            .prefix(limit).map(\.candidate)
+    }
+
+    /// The category most of the entries are filed under; a tie goes to the
+    /// one used most recently.
+    private static func usualWorkType(of entries: [NameHistoryEntry]) -> WorkType {
+        let counts = Dictionary(grouping: entries, by: \.workType).mapValues(\.count)
+        let most = counts.values.max() ?? 0
+        return entries.filter { counts[$0.workType] == most }.max { $0.end < $1.end }!.workType
+    }
+}
