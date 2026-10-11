@@ -27,6 +27,15 @@ import FoundationModels
 
     private weak var store: SessionStore?
     private var typing: AnyCancellable?
+    /// How long to wait for the model; checks shorten it.
+    var timeout: Duration = .seconds(10)
+    /// Which rescue is under way, counted up whenever one starts or ends: a
+    /// reply or a timer from an earlier one finds it is not current and does nothing.
+    private var generation = 0
+    private var asking: Task<Void, Never>?
+    private var timer: Task<Void, Never>?
+    /// Set while the rescue writes its own text into the field.
+    private var applying = false
     /// Stands in for the model in checks: the unread words in, phrases and
     /// kept words out. It stands in for the model's availability, never for
     /// the Apple Intelligence switch.
@@ -35,8 +44,10 @@ import FoundationModels
     init(store: SessionStore) {
         self.store = store
         typing = store.$historySearchText.sink { [weak self] text in
-            guard let self, !rescuedTexts.isEmpty else { return }
-            rescuedTexts = rescuedTexts.filter(text.contains)
+            guard let self else { return }
+            // The person typed on: the answer being waited for is for other words.
+            if !applying { end(generation) }
+            if !rescuedTexts.isEmpty { rescuedTexts = rescuedTexts.filter(text.contains) }
         }
     }
 
@@ -48,21 +59,42 @@ import FoundationModels
     }
 
     /// Asks only when the field has unread words and lists nothing. A reply
-    /// that arrives after the field changed, or fails, changes nothing.
+    /// that arrives after the field changed, after the wait ran out, or that
+    /// fails, changes nothing.
     func rescue(undoManager: UndoManager?) {
         guard isUsable, !isRescuing, let store else { return }
         let original = store.historySearchText
         let leftover = store.historyParsedSearch.leftover
         guard !leftover.isEmpty, store.historySearchHits().isEmpty else { return }
         isRescuing = true
-        Task { [weak self] in await self?.finish(original, leftover, undoManager) }
+        generation &+= 1
+        let mine = generation
+        asking = Task { [weak self] in await self?.finish(mine, original, leftover, undoManager) }
+        // A sleeping timer, not a race: the model may ignore cancellation, and
+        // a group would wait for it.
+        timer = Task { [weak self, wait = timeout] in
+            try? await Task.sleep(for: wait)
+            self?.end(mine)
+        }
     }
 
-    private func finish(_ original: String, _ leftover: String, _ undoManager: UndoManager?) async {
-        defer { isRescuing = false }
-        guard let store, let reply = try? await ask(leftover, store),
-              isUsable, store.historySearchText == original else { return }
-        let phrases = accepted(reply.phrases, store)
+    /// Stops waiting for rescue `id`, unless another has begun since.
+    private func end(_ id: Int) {
+        guard id == generation, isRescuing else { return }
+        generation &+= 1
+        isRescuing = false
+        asking?.cancel()
+        timer?.cancel()
+    }
+
+    private func finish(_ id: Int, _ original: String, _ leftover: String, _ undoManager: UndoManager?) async {
+        let reply = try? await asked(leftover)
+        defer { end(id) }
+        guard let store, let reply, id == generation, isUsable, store.historySearchText == original,
+              store.historyParsedSearch.leftover == leftover else { return }
+        // What is left once every unread word goes is what was read: the phrases already there.
+        let read = store.historyParsedSearch.phrases.map { String(original[$0.range]) }
+        let phrases = accepted(reply.phrases, store).filter { !read.contains($0) }
         // A phrase-less rescue would only drop words, and nothing is added
         // that was not typed: the kept words are the typed ones or none.
         guard !phrases.isEmpty else { return }
@@ -73,19 +105,30 @@ import FoundationModels
             unused.remove(at: at)
             kept.append(word)
         }
-        // What is left once every unread word goes is what was read: the phrases already there.
-        let read = store.historyParsedSearch.phrases.map { String(original[$0.range]) }
+        // The new text must read as exactly the phrases the person typed, then the
+        // model's, then the kept words: a phrase that joins a typed word or
+        // swallows a kept one would show a chip the model made without its mark.
+        let text = (read + phrases + kept).joined(separator: " ")
+        let parsed = store.parsedHistoryQuery(text)
+        guard parsed.phrases.map({ String(text[$0.range]) }) == read + phrases,
+              parsed.leftover == kept.joined(separator: " ") else { return }
         undoManager?.registerUndo(withTarget: store) { $0.setHistoryQuery(original) }
-        store.setHistoryQuery((read + phrases + kept).joined(separator: " "))
+        applying = true
+        store.setHistoryQuery(text)
+        applying = false
         rescuedTexts.formUnion(phrases)
+    }
+
+    private func asked(_ leftover: String) async throws -> (phrases: [String], keep: [String]) {
+        guard let store else { throw CancellationError() }
+        return try await ask(leftover, store)
     }
 
     /// The phrases, trimmed, that the parser reads as one period, weekday or length phrase and nothing else.
     private func accepted(_ phrases: [String], _ store: SessionStore) -> [String] {
         var taken: [String] = []
         for phrase in phrases.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }) where !taken.contains(phrase) {
-            let parsed = SearchQuery.parse(phrase, now: store.now(), calendar: store.periodCalendar,
-                                           apps: store.historyAppNames, categories: WorkType.allCases)
+            let parsed = store.parsedHistoryQuery(phrase)
             if parsed.phrases.count == 1, parsed.leftover.isEmpty,
                [.period, .weekdays, .length].contains(parsed.phrases[0].kind) { taken.append(phrase) }
         }

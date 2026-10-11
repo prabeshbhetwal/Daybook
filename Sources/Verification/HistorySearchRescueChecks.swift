@@ -14,6 +14,8 @@ enum HistorySearchRescueChecks: CheckSuite {
         ("A failed or outdated reply changes nothing", failedOrStale),
         ("Undo restores the typed text", undo),
         ("A rescue never takes an app or category name", noNames),
+        ("A rescue the model never answers ends, and the next one runs", unanswered),
+        ("A rescue never changes a chip the model did not make or marks one the person typed", rereads),
     ]
 
     private typealias Fixture = AskLookupChecks.Fixture
@@ -24,7 +26,10 @@ enum HistorySearchRescueChecks: CheckSuite {
         AskLookupChecks.withFixture { f, problems in MainActor.assumeIsolated { body(f, &problems) } }
     }
 
-    @MainActor private final class Asked { var words: [String] = [] }
+    @MainActor private final class Asked {
+        var words: [String] = []
+        var gate: CheckedContinuation<Void, Never>?
+    }
 
     /// Types `text`, presses Return with a model that answers `reply`, and
     /// waits for the rescue to end.
@@ -198,6 +203,82 @@ enum HistorySearchRescueChecks: CheckSuite {
             expect(f.store.historyParsedSearch.leftover == text && f.store.historyFilter.span == nil,
                    "undo left the filter on the rescued phrase", &problems)
             expect(rescue.rescuedTexts.isEmpty, "undo left a mark: \(rescue.rescuedTexts)", &problems)
+        }
+    }
+
+    /// The model never answers within the wait: it ignores cancellation and
+    /// replies late. The wait ends, the text is left alone, a late reply does
+    /// nothing, and a stale one does not stop a newer rescue.
+    private static func unanswered() -> [String] {
+        fixture { f, problems in
+            let asked = Asked()
+            let rescue = SearchRescue(store: f.store)
+            rescue.timeout = .milliseconds(150)
+            rescue.responder = { words in
+                asked.words.append(words)
+                if asked.words.count == 1 {
+                    await withCheckedContinuation { (wake: CheckedContinuation<Void, Never>) in
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { wake.resume() }
+                    }
+                } else {
+                    await withCheckedContinuation { asked.gate = $0 }
+                }
+                return (["last week"], [])
+            }
+            f.store.setHistoryQuery("zzzz")
+            rescue.rescue(undoManager: nil)
+            expect(rescue.isRescuing, "a rescue was not under way", &problems)
+            let ended = InstalledAppCatalog.turnRunLoop(until: { !rescue.isRescuing }, timeout: 5)
+            expect(ended && f.store.historySearchText == "zzzz" && rescue.rescuedTexts.isEmpty,
+                   "after the wait: ended \(ended), field “\(f.store.historySearchText)”", &problems)
+
+            // Return again on other words; the first reply lands while this one waits.
+            rescue.timeout = .seconds(10)
+            f.store.setHistoryQuery("zzzz yyyy")
+            rescue.rescue(undoManager: nil)
+            _ = InstalledAppCatalog.turnRunLoop(until: { asked.words.count == 2 }, timeout: 5)
+            expect(asked.words.count == 2 && rescue.isRescuing, "the second rescue did not run: asked \(asked.words.count)", &problems)
+            _ = InstalledAppCatalog.turnRunLoop(until: { false }, timeout: 0.6)
+            expect(rescue.isRescuing && f.store.historySearchText == "zzzz yyyy",
+                   "a late reply ended or changed the newer rescue: \(rescue.isRescuing), “\(f.store.historySearchText)”", &problems)
+            asked.gate?.resume()
+            _ = InstalledAppCatalog.turnRunLoop(until: { !rescue.isRescuing }, timeout: 5)
+            expect(f.store.historySearchText == "last week" && rescue.rescuedTexts == ["last week"],
+                   "the second rescue read “\(f.store.historySearchText)”", &problems)
+
+            // Typing on ends the wait at once, and the reply that follows changes nothing.
+            f.store.setHistoryQuery("qqqq")
+            rescue.rescue(undoManager: nil)
+            _ = InstalledAppCatalog.turnRunLoop(until: { asked.words.count == 3 }, timeout: 5)
+            expect(asked.words.count == 3 && rescue.isRescuing, "the third rescue did not run", &problems)
+            f.store.setHistoryQuery("qqqq w")
+            expect(!rescue.isRescuing, "typing left the rescue under way", &problems)
+            asked.gate?.resume()
+            _ = InstalledAppCatalog.turnRunLoop(until: { false }, timeout: 0.2)
+            expect(f.store.historySearchText == "qqqq w" && rescue.rescuedTexts.isEmpty,
+                   "a reply after typing changed “\(f.store.historySearchText)”", &problems)
+        }
+    }
+
+    /// The probe's three rows: the new text must read as the phrases typed,
+    /// then the model's, then the kept words. Anything else changes nothing.
+    private static func rereads() -> [String] {
+        fixture { f, problems in
+            let rows: [(text: String, phrases: [String], keep: [String])] = [
+                ("september zzzz", ["2022"], []),        // would join "september" into a September 2022 chip
+                ("12 zzzz", ["october"], ["12"]),        // would swallow the kept "12" into a date
+                ("last week zzzz", ["last week"], []),   // would repeat a phrase the person typed
+            ]
+            for row in rows {
+                let (rescue, asked) = press(f, row.text, row.phrases, row.keep)
+                expect(asked.words.count == 1, "the model was not asked about “\(row.text)”", &problems)
+                expect(f.store.historySearchText == row.text,
+                       "“\(row.text)” became “\(f.store.historySearchText)”", &problems)
+                expect(rescue.rescuedTexts.isEmpty, "“\(row.text)” marked \(rescue.rescuedTexts)", &problems)
+            }
+            let (rescue, _) = press(f, "Parser quarter before last", ["the week before last"], ["Parser"])
+            expect(f.store.historySearchText == "the week before last Parser" && rescue.rescuedTexts == ["the week before last"],
+                   "a phrase the parser reads alone was not taken: “\(f.store.historySearchText)”", &problems)
         }
     }
 }
