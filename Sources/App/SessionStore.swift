@@ -233,7 +233,10 @@ final class SessionStore: ObservableObject {
     var historyMenuWorkType: WorkType?
     @Published var historyRangeStart: Date?
     @Published var historyRangeEnd: Date?
-    @Published var historyAppNames: [String: String] = [:]
+    /// A name typed before the names loaded is read again once it has.
+    @Published var historyAppNames: [String: String] = [:] {
+        didSet { if historyAppNames != oldValue { refoldHistorySearch() } }
+    }
     /// Source qualifications shown before History's derived filters and rows.
     /// Legacy evidence remains visible; defensive span omissions remain in the
     /// source archive and are counted explicitly rather than disappearing.
@@ -390,7 +393,9 @@ final class SessionStore: ObservableObject {
     let now: () -> Date
     /// The calendar `periodCalendar` is made from; nil reads the Mac's own each
     /// time. Self-tests hand the store a region or calendar here.
-    var periodCalendarBase: Calendar?
+    var periodCalendarBase: Calendar? {
+        didSet { refoldHistorySearch() }
+    }
     let applicationIsRunning: (String) -> Bool
     let activateApplication: (String, Bool) -> Void
     /// Rebuilt with `continuationCandidates` after archive mutations, so Focus

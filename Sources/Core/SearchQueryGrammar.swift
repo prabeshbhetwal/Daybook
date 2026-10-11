@@ -140,10 +140,9 @@ struct SearchGrammar {
     // MARK: Lengths
 
     private func length(_ t: SearchTokens, _ i: Int) -> SearchMatch? {
-        if t.word(i) == "between", let low = duration(t, i + 1), t.word(i + 1 + low.used) == "and",
-           let high = duration(t, i + 2 + low.used) {
-            let (lower, upper) = (Swift.min(low.seconds, high.seconds), Swift.max(low.seconds, high.seconds))
-            return SearchMatch(count: 2 + low.used + high.used, effect: .length(min: lower, max: upper),
+        if t.word(i) == "between", let range = between(t, i + 1) {
+            let (lower, upper) = (Swift.min(range.low, range.high), Swift.max(range.low, range.high))
+            return SearchMatch(count: 1 + range.used, effect: .length(min: lower, max: upper),
                                label: "\(DurationText.compact(lower))–\(DurationText.compact(upper))")
         }
         for (words, isLower) in Self.overWords.map({ ($0, true) }) + Self.underWords.map({ ($0, false) }) {
@@ -155,6 +154,18 @@ struct SearchGrammar {
                                label: (isLower ? "Over " : "Under ") + text)
         }
         return nil
+    }
+
+    /// "1h and 2h", or "1 and 2 hours", whose unit follows the second number
+    /// only: the words after "between", the two lengths and how many words.
+    private func between(_ t: SearchTokens, _ i: Int) -> (low: TimeInterval, high: TimeInterval, used: Int)? {
+        if let low = duration(t, i), t.word(i + low.used) == "and", let high = duration(t, i + low.used + 1) {
+            return (low.seconds, high.seconds, low.used + 1 + high.used)
+        }
+        guard let first = t.count(i), t.word(i + first.used) == "and", let second = t.count(i + first.used + 1),
+              let unit = t.word(i + first.used + 1 + second.used).flatMap(Self.unitSeconds),
+              let high = duration(t, i + first.used + 1) else { return nil }
+        return (Double(first.value) * unit, high.seconds, first.used + 1 + high.used)
     }
 
     /// "1h", "1 h", "90 min", "1h 30m", "1.5h", "an hour", "forty minutes",
@@ -176,13 +187,16 @@ struct SearchGrammar {
             let used = t.word(i + 1) == "an" ? 2 : 1
             return t.word(i + used) == "hour" ? (1_800, used + 1, false) : nil
         }
-        if let joined = word.wholeMatch(of: #/(\d+(?:\.\d+)?)([a-z]+)/#), let amount = Double(joined.1),
+        // "1h", "1.5h", ".5h", and "1h30m" in one word.
+        if let joined = word.wholeMatch(of: #/(\d*\.?\d+)([a-z]+)(?:(\d+)([a-z]+))?/#), let amount = Double(joined.1),
            let unit = Self.unitSeconds(String(joined.2)) {
-            return (amount * unit, 1, unit == 3_600)
+            guard let extra = joined.3 else { return (amount * unit, 1, unit == 3_600) }
+            guard unit == 3_600, let minutes = Double(extra), joined.4.flatMap({ Self.unitSeconds(String($0)) }) == 60 else { return nil }
+            return (amount * unit + minutes * 60, 1, false)
         }
         var amount = 0.0
         var used = 1
-        if word.wholeMatch(of: #/\d+(?:\.\d+)?/#) != nil, let number = Double(word) {
+        if word.wholeMatch(of: #/\d*\.?\d+/#) != nil, let number = Double(word) {
             amount = number
         } else if let number = t.count(i, article: true) {
             (amount, used) = (Double(number.value), number.used)

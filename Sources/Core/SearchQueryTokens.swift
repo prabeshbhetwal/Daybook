@@ -14,8 +14,17 @@ struct SearchToken {
     /// Inside double quotes: never part of a phrase.
     let literal: Bool
 
+    /// The word without the punctuation around it; a "." that starts a number
+    /// stays, so ".5h" is half an hour and not five.
     static func trimmed(_ text: String) -> String {
-        text.trimmingCharacters(in: CharacterSet(charactersIn: ",;:.!?()"))
+        let marks = Set(",;:.!?()")
+        var body = Substring(text)
+        while let first = body.first, marks.contains(first),
+              !(first == "." && body.dropFirst().first?.isNumber == true) {
+            body.removeFirst()
+        }
+        while let last = body.last, marks.contains(last) { body.removeLast() }
+        return String(body)
     }
 }
 

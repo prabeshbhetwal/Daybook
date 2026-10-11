@@ -36,11 +36,27 @@ extension SessionStore {
         setHistoryQuery("")
     }
 
+    /// Reads the typed text again with the day, zone and app names as they are
+    /// now. A typed "today" or "yesterday", a zone change and an app name typed
+    /// before the names loaded all mean something else than when they were read.
+    /// Nothing is published when the reading is unchanged. Not for the ticker:
+    /// History's own hooks (opening, midnight, a zone change, names loading).
+    func refoldHistorySearch() {
+        guard !historySearchText.isEmpty else { return }
+        foldHistorySearch()
+    }
+
+    /// `text` read as the search field is: the one reading, shared with the
+    /// rescue, which checks its rebuilt text against it before committing.
+    func parsedHistoryQuery(_ text: String) -> ParsedSearch {
+        SearchQuery.parse(text, now: now(), calendar: periodCalendar, apps: historyAppNames,
+                          categories: WorkType.allCases)
+    }
+
     /// Reads the text and sets the filter: the unread words search; the typed
     /// app or category stands for the menu's while it is typed.
     private func foldHistorySearch() {
-        let parsed = SearchQuery.parse(historySearchText, now: now(), calendar: periodCalendar,
-                                       apps: historyAppNames, categories: WorkType.allCases)
+        let parsed = parsedHistoryQuery(historySearchText)
         var filter = HistoryFilter()
         filter.query = parsed.leftover
         filter.span = parsed.span
@@ -50,8 +66,8 @@ extension SessionStore {
         filter.maxLength = parsed.maxLength
         filter.appBundleID = parsed.appBundleID ?? historyMenuApp
         filter.workType = parsed.workType ?? historyMenuWorkType
-        historyParsedSearch = parsed
-        historyFilter = filter
+        if historyParsedSearch != parsed { historyParsedSearch = parsed }
+        if historyFilter != filter { historyFilter = filter }
     }
 
     /// Removes every typed name of a kind. The parser reads only the first, so
