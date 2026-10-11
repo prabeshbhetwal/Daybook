@@ -45,7 +45,7 @@ enum ReviewNoteStoreEdgeChecks: CheckSuite {
             let facts = f.store.noteFacts(for: sunday)
             expect(facts?.lines.contains("Focus: 2h over 2 sessions") == true,
                    "the facts say \(facts?.lines ?? []), not 2 sessions", &problems)
-            expect(facts?.observations.contains("2 sessions ran as 3 stretches") == true,
+            expect(facts?.observations.contains("Focus ran as 3 stretches averaging 40m") == true,
                    "the observations are \(facts?.observations ?? [])", &problems)
             let line = f.store.noteFiguresLine(for: sunday)
             expect(line.hasPrefix("2h focus") && line.hasSuffix(" · 2 sessions"), "the figures line says “\(line)”", &problems)

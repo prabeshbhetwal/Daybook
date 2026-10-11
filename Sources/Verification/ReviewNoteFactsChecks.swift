@@ -6,12 +6,12 @@ import Foundation
 /// so the clock times read the same wherever the checks run.
 enum ReviewNoteFactsChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
-        ("A day's note facts list sessions in start order with their times", dayFactsOrder),
-        ("A day with ten sessions names its eight longest and counts the rest", dayFactsCap),
+        ("A day's note facts name where the time went and weigh the day against a typical one", dayFactsOrder),
+        ("A day with ten sessions names its three busiest, and a difference under a minute is left out", dayFactsCap),
         ("A day's facts count sessions as History does, not by the rows the Story lists", dayFactsSessionCount),
         ("A day without sessions has no note facts, even with breaks and app use", dayWithoutSessions),
         ("A period's note facts carry History's figures and its best day", periodFacts),
-        ("The figures line says focus, goal and sessions and drops the goal when there is none", figuresLine),
+        ("The figures line says focus, goal and sessions, the goal's counted time when missed", figuresLine),
         ("The audit passes a note whose figures are all in the facts", auditPasses),
         ("The audit drops a note with a figure the facts do not hold", auditFails),
         ("Digits in a session name are facts, so they pass the audit", auditNameDigits),
@@ -38,14 +38,16 @@ enum ReviewNoteFactsChecks: CheckSuite {
     /// stretch is the longest span, as for sessions that were never paused.
     private static func dayInput(_ sessions: [DaySession], count: Int? = nil, apps: [AppRank] = [],
                                  isCurrent: Bool = false, goal: TimeInterval = 0, goalCredit: TimeInterval = 0,
-                                 previous: TimeInterval = 0) -> NoteDayInput {
+                                 typical: TimeInterval = 0, typicalStretch: TimeInterval = 0, typicalDays: Int = 14,
+                                 parts: [NoteDayPart: TimeInterval] = [:]) -> NoteDayInput {
         let longest = sessions.flatMap { session in
             session.spans.map { NoteStretch(name: session.name, start: $0.start, worked: $0.duration) }
         }.max { $0.worked < $1.worked }
         return NoteDayInput(date: SelfTest.base, isCurrent: isCurrent, sessions: sessions,
                             sessionCount: count ?? sessions.count, apps: apps,
                             focused: sessions.reduce(0) { $0 + $1.worked }, goal: goal, goalCredit: goalCredit,
-                            previousFocused: previous, longestStretch: longest)
+                            typicalFocused: typical, typicalStretch: typicalStretch, typicalDays: typicalDays,
+                            longestStretch: longest, focusByPart: parts)
     }
 
     /// Parser 9:13 to 10:13 and 10:30 to 11:00 (1h 30m), Thesis 2:00 to 2:45 pm (45m).
@@ -56,7 +58,8 @@ enum ReviewNoteFactsChecks: CheckSuite {
                                      DateInterval(start: at(10, 30), end: at(11, 0))], worked: 5_400)
         let thesis = session("Thesis", spans: [DateInterval(start: at(14, 0), end: at(14, 45))], worked: 2_700)
         let apps = [app("Xcode", 3_600, share: 0.45), app("Safari", 1_800, share: 0.22), app("Idle", 0, share: 0)]
-        let input = dayInput([thesis, parser], apps: apps, goal: 7_200, goalCredit: 8_100)
+        let input = dayInput([thesis, parser], apps: apps, goal: 7_200, goalCredit: 8_100, typical: 7_200,
+                             typicalStretch: 3_600, parts: [.morning: 5_400, .afternoon: 2_700])
         return NoteFacts.day(input, calendar: calendar)!
     }
 
@@ -64,19 +67,14 @@ enum ReviewNoteFactsChecks: CheckSuite {
         var problems: [String] = []
         let facts = parserAndThesis()
         expect(facts.kind == .day, "a day's facts have kind day, got \(facts.kind)", &problems)
-        expect(facts.lines.contains("Sessions in order: Parser at 9:13 am, 1h 30m; Thesis at 2:00 pm, 45m"),
-               "sessions are not listed in start order: \(facts.lines)", &problems)
-        expect(facts.lines.first == "Day: Wednesday 15 November 2023", "day line wrong: \(facts.lines)", &problems)
-        expect(facts.lines.contains("Focus: 2h 15m over 2 sessions"), "focus line wrong: \(facts.lines)", &problems)
-        expect(facts.lines.contains("Daily goal: 2h, met: yes"), "goal line wrong: \(facts.lines)", &problems)
-        expect(facts.lines.contains("Top apps: Xcode 1h, Safari 30m"),
-               "top apps should stop at the first with no time: \(facts.lines)", &problems)
-        expect(facts.observations.first == "Longest stretch: 1h in Parser, from 9:13 am",
-               "first observation wrong: \(facts.observations)", &problems)
-        expect(facts.observations == ["Longest stretch: 1h in Parser, from 9:13 am",
-                                      "Focus began at 9:13 am with Parser",
-                                      "Most app time was in Xcode (1h)",
-                                      "2 sessions ran as 3 stretches"],
+        expect(facts.lines == ["Day: Wednesday 15 November 2023", "Focus: 2h 15m over 2 sessions",
+                               "Daily goal: 2h; counted towards it: 2h 15m of focus with hands-on app use; met: yes",
+                               "Most time went to: Parser: 1h 30m; Thesis: 45m", "Top apps: Xcode 1h, Safari 30m"],
+               "lines wrong (top apps stop at the first with no time): \(facts.lines)", &problems)
+        expect(facts.observations == ["15m more focus than your typical day of 2h (the median of 14 days with focus in your last 14)",
+                                      "The most focus came in the morning, between 5 am and noon: 1h 30m",
+                                      "Focus ran as 3 stretches averaging 45m; your typical stretch is 1h",
+                                      "Longest stretch: 1h in Parser, from 9:13 am"],
                "observations are not the four rules in order: \(facts.observations)", &problems)
         expect(facts.text == facts.lines.joined(separator: "\n") + "\nObservations:\n- "
                + facts.observations.joined(separator: "\n- "),
@@ -93,29 +91,24 @@ enum ReviewNoteFactsChecks: CheckSuite {
                            spans: [DateInterval(start: start, end: start.addingTimeInterval(TimeInterval(300 * (index + 1))))],
                            worked: TimeInterval(300 * (index + 1)))
         }
-        let input = dayInput(jobs.reversed(), isCurrent: true, goal: 10_800, goalCredit: 1_000, previous: 20_000)
-        guard let facts = NoteFacts.day(input, calendar: calendar),
-              let line = facts.lines.first(where: { $0.hasPrefix("Sessions in order:") }) else {
-            return ["a day with ten sessions produced no sessions line"]
-        }
-        expect(line.hasSuffix("; and 2 more"), "the rest are not counted: \(line)", &problems)
-        expect(line.components(separatedBy: " at ").count - 1 == 8, "not exactly eight sessions named: \(line)", &problems)
-        expect(!line.contains("Job A at") && !line.contains("Job B at"),
-               "the two shortest sessions should be dropped: \(line)", &problems)
-        expect(line.contains("Job C at 10:00 am") && line.contains("Job J at 5:00 pm"),
-               "the eight longest should keep their own times: \(line)", &problems)
-        expect(line.range(of: "Job C")!.lowerBound < line.range(of: "Job J")!.lowerBound,
-               "the eight are not in start order: \(line)", &problems)
+        let input = dayInput(jobs.reversed(), isCurrent: true, goal: 10_800, goalCredit: 1_000, typical: 20_000)
+        guard let facts = NoteFacts.day(input, calendar: calendar) else { return ["a day with ten sessions produced no facts"] }
+        expect(facts.lines.contains("Most time went to: Job J: 50m; Job I: 45m; Job H: 40m"),
+               "the three busiest are not named, busiest first: \(facts.lines)", &problems)
         expect(facts.lines.first == "Day: Wednesday 15 November 2023 (so far)",
                "a current day should say so: \(facts.lines)", &problems)
         expect(facts.lines.contains("Focus: 4h 35m over 10 sessions"),
                "focus line wrong: \(facts.lines)", &problems)
-        expect(facts.lines.contains("Daily goal: 3h, met: no"), "a missed goal should say no: \(facts.lines)", &problems)
-        expect(facts.observations.contains("58m less focus than the day before"),
-               "the drop from the day before is missing: \(facts.observations)", &problems)
+        expect(facts.lines.contains("Daily goal: 3h; counted towards it: 16m of focus with hands-on app use; met: no"),
+               "a missed goal should say no: \(facts.lines)", &problems)
+        expect(facts.observations.first == "58m less focus than your typical day of 5h 33m "
+               + "(the median of 14 days with focus in your last 14)",
+               "the drop from the typical day is missing: \(facts.observations)", &problems)
+        expect(!facts.observations.contains { $0.hasPrefix("The most focus came") },
+               "no focus by part of the day should mean no line for it: \(facts.observations)", &problems)
         // A difference under a minute is no observation.
-        let flat = NoteFacts.day(dayInput(jobs, previous: 16_500 + 30), calendar: calendar)!
-        expect(!flat.observations.contains { $0.hasSuffix("focus than the day before") },
+        let flat = NoteFacts.day(dayInput(jobs, typical: 16_500 + 30), calendar: calendar)!
+        expect(!flat.observations.contains { $0.contains("typical day") },
                "a difference under a minute should be left out: \(flat.observations)", &problems)
         return problems
     }
@@ -129,12 +122,15 @@ enum ReviewNoteFactsChecks: CheckSuite {
         guard let counted = NoteFacts.day(dayInput(rows, count: 2), calendar: calendar),
               let listed = NoteFacts.day(dayInput(rows), calendar: calendar) else { return ["a day with sessions produced no facts"] }
         expect(counted.lines.contains("Focus: 2h over 2 sessions"), "two sessions over three rows say \(counted.lines)", &problems)
-        expect(counted.observations.contains("2 sessions ran as 3 stretches"),
+        expect(counted.observations.contains("Focus ran as 3 stretches averaging 40m"),
                "two sessions over three stretches say \(counted.observations)", &problems)
-        // With a session to a row there is nothing to say about stretches.
+        expect(counted.lines.contains("Most time went to: Parser: 1h 30m; Mail: 30m"),
+               "the two Parser rows are not one name's time: \(counted.lines)", &problems)
         expect(listed.lines.contains("Focus: 2h over 3 sessions"), "three sessions say \(listed.lines)", &problems)
-        expect(!listed.observations.contains { $0.contains("stretches") },
-               "three sessions of one stretch say \(listed.observations)", &problems)
+        // A single stretch has nothing to say about stretches.
+        let single = NoteFacts.day(dayInput([rows[0]]), calendar: calendar)
+        expect(single?.observations.contains { $0.hasPrefix("Focus ran as") } == false,
+               "one stretch says \(single?.observations ?? [])", &problems)
         return problems
     }
 
@@ -142,7 +138,8 @@ enum ReviewNoteFactsChecks: CheckSuite {
         var problems: [String] = []
         let input = NoteDayInput(date: SelfTest.base, isCurrent: false, sessions: [], sessionCount: 0,
                                  apps: [app("Xcode", 3_600, share: 1)], focused: 3_600, goal: 7_200,
-                                 goalCredit: 3_600, previousFocused: 1_800, longestStretch: nil)
+                                 goalCredit: 3_600, typicalFocused: 1_800, typicalStretch: 1_800, typicalDays: 5,
+                                 longestStretch: nil, focusByPart: [.morning: 3_600])
         expect(NoteFacts.day(input, calendar: calendar) == nil, "a day with no sessions should have no facts", &problems)
         return problems
     }
@@ -190,15 +187,17 @@ enum ReviewNoteFactsChecks: CheckSuite {
         let met = NoteFacts.figuresLine(focused: 15_000, sessions: 3, goal: 14_400, goalCredit: 14_400)
         expect(met == "4h 10m focus · goal met · 3 sessions", "met line wrong: \(met)", &problems)
         let missed = NoteFacts.figuresLine(focused: 5_400, sessions: 2, goal: 7_200, goalCredit: 5_400)
-        expect(missed == "1h 30m focus · goal missed · 2 sessions", "missed line wrong: \(missed)", &problems)
+        expect(missed == "1h 30m focus · 1h 30m towards 2h goal · 2 sessions", "missed line wrong: \(missed)", &problems)
+        // More focus than the goal, missed: the goal counts only focus with hands-on use.
+        let short = NoteFacts.figuresLine(focused: 20_400, sessions: 4, goal: 14_400, goalCredit: 14_340)
+        expect(short == "5h 40m focus · 3h 59m towards 4h goal · 4 sessions", "short line wrong: \(short)", &problems)
         let none = NoteFacts.figuresLine(focused: 3_600, sessions: 1, goal: 0, goalCredit: 0)
         expect(none == "1h focus · 1 session", "no-goal line wrong: \(none)", &problems)
         return problems
     }
 
-    private static func note(story: String = "A steady day.", pattern: String = "Mornings were strongest.",
-                             tip: String? = nil) -> WrittenNote {
-        WrittenNote(story: story, pattern: pattern, tip: tip)
+    private static func note(story: String = "A steady day.", pattern: String = "Mornings were strongest.") -> WrittenNote {
+        WrittenNote(story: story, pattern: pattern)
     }
 
     private static func auditPasses() -> [String] {
@@ -208,7 +207,7 @@ enum ReviewNoteFactsChecks: CheckSuite {
                "a note quoting only figures in the facts should pass", &problems)
         expect(NoteAudit.passes(note(story: "No figures at all"), facts: facts),
                "a note with no digits should pass", &problems)
-        expect(NoteAudit.passes(note(tip: "Start at 09:13 again, 2:00 pm was fine."), facts: facts),
+        expect(NoteAudit.passes(note(pattern: "Start at 09:13 again, 1h 30m was fine."), facts: facts),
                "a leading zero and a repeated figure should pass", &problems)
         expect(NoteFigure.read("09:13 am") == NoteFigure.read("9:13 am") && !NoteFigure.read("9:13 am").isEmpty,
                "a leading zero changed a time: \(NoteFigure.read("09:13 am"))", &problems)
@@ -223,8 +222,8 @@ enum ReviewNoteFactsChecks: CheckSuite {
                "a note with 10, which the facts do not hold, should fail", &problems)
         expect(NoteAudit.passes(note(pattern: "Your longest stretch was 2h 15m"), facts: facts),
                "the same note with a figure the facts hold should pass", &problems)
-        expect(!NoteAudit.passes(note(tip: "Try 25 minutes tomorrow"), facts: facts),
-               "a figure in the tip alone should fail the note", &problems)
+        expect(!NoteAudit.passes(note(story: "Try 25 minutes tomorrow"), facts: facts),
+               "a figure in the story alone should fail the note", &problems)
         return problems
     }
 

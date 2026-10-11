@@ -15,7 +15,7 @@ enum ReviewNoteWriterStateChecks: CheckSuite {
 
     private typealias Checks = ReviewNoteWriterChecks
     private static let plain = Checks.plain
-    private static let invented = WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else.", tip: nil)
+    private static let invented = WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else.")
 
     @MainActor private static func wait(_ condition: () -> Bool) -> Bool {
         InstalledAppCatalog.turnRunLoop(until: condition, timeout: 5)

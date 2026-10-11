@@ -19,71 +19,80 @@ private func counted(_ count: Int, _ noun: String, plural: String? = nil) -> Str
     "\(count) \(count == 1 ? noun : plural ?? noun + "s")"
 }
 
-/// "1h more focus than the week before", or nil with no period before or a
-/// difference under a minute. `fell` is true for "less".
-private func comparison(_ focused: TimeInterval, with previous: TimeInterval,
-                        before noun: String) -> (text: String, fell: Bool)? {
-    guard previous > 0 else { return nil }
-    let difference = focused - previous
+/// "1h more focus than the week before", or nil with nothing to compare with
+/// or a difference under a minute. `than` ends the sentence.
+private func comparison(_ focused: TimeInterval, with other: TimeInterval, than: String) -> String? {
+    guard other > 0 else { return nil }
+    let difference = focused - other
     guard abs(difference) >= 60 else { return nil }
-    return ("\(DurationText.compact(abs(difference))) \(difference > 0 ? "more" : "less") focus than the \(noun) before",
-            difference < 0)
+    return "\(DurationText.compact(abs(difference))) \(difference > 0 ? "more" : "less") focus than \(than)"
 }
 
-/// What a session is called: the name it was given, or its kind's name when it
-/// was left blank, as the Story titles it.
-private func title(_ session: DaySession) -> String {
-    session.workType.sessionTitle(named: session.name)
-}
-
-/// The most sessions a day's facts name; the rest are counted.
-private let namedSessionLimit = 8
-
-/// The sessions a week's or month's facts name, by time spent. The probe's
-/// week notes totalled "other sessions" when there were more.
+/// The sessions a day's, week's or month's facts name, by time spent. The
+/// probe's week notes totalled "other sessions" when there were more.
 private let namedTotalLimit = 3
+
+/// "Most time went to: Parser: 1h 40m; Thesis: 50m", busiest first: "name:
+/// duration" joined by semicolons, since a name may hold a comma or end in a
+/// number.
+private func mostTimeLine(_ totals: [(name: String, worked: TimeInterval)]) -> String {
+    "Most time went to: " + totals.prefix(namedTotalLimit)
+        .map { "\($0.name): \(DurationText.compact($0.worked))" }.joined(separator: "; ")
+}
 
 extension NoteFacts {
 
-    /// The facts for one day, or nil when it has no sessions.
+    /// The facts for one day, or nil when it has no sessions. The sessions are
+    /// named by time spent, not listed in order: History already lists them,
+    /// and a note handed the list retold it. The observations weigh the day
+    /// against the person's own typical day, and none is a calendar artefact:
+    /// a session carried over from the night before once became "Focus carried
+    /// on past midnight", and the tip built on it said to keep doing that.
     static func day(_ input: NoteDayInput, calendar: Calendar) -> NoteFacts? {
         guard !input.sessions.isEmpty else { return nil }
-        let sessions = input.sessions.sorted { $0.start < $1.start }
-        let topApps = input.apps.filter { $0.total > 0 }
-
+        let compact = DurationText.compact
         var lines = ["Day: " + longDate(input.date, calendar) + (input.isCurrent ? " (so far)" : ""),
-                     "Focus: \(DurationText.compact(input.focused)) over \(counted(input.sessionCount, "session"))"]
+                     "Focus: \(compact(input.focused)) over \(counted(input.sessionCount, "session"))"]
         if input.goal > 0 {
-            lines.append("Daily goal: \(DurationText.compact(input.goal)), met: \(input.goalCredit >= input.goal ? "yes" : "no")")
+            lines.append("Daily goal: \(compact(input.goal)); counted towards it: \(compact(input.goalCredit)) "
+                         + "of focus with hands-on app use; met: \(input.goalCredit >= input.goal ? "yes" : "no")")
         }
-        lines.append("Sessions in order: " + sessionList(sessions, calendar: calendar))
+        // Named as the Story and a week's facts name them: a blank name is its kind's.
+        var worked: [String: TimeInterval] = [:]
+        for session in input.sessions { worked[session.workType.sessionTitle(named: session.name), default: 0] += session.worked }
+        lines.append(mostTimeLine(worked.map { (name: $0.key, worked: $0.value) }
+            .sorted { $0.worked != $1.worked ? $0.worked > $1.worked : $0.name < $1.name }))
+        let topApps = input.apps.filter { $0.total > 0 }
         if !topApps.isEmpty {
-            lines.append("Top apps: " + topApps.prefix(3).map { "\($0.appName) \(DurationText.compact($0.total))" }
+            lines.append("Top apps: " + topApps.prefix(3).map { "\($0.appName) \(compact($0.total))" }
                 .joined(separator: ", "))
         }
 
         var observations: [String] = []
-        var patternOnly: Set<String> = []
-        if let longest = input.longestStretch, longest.worked >= 600 {
-            let from = carriesOver(longest.start, calendar) ? "before midnight" : timeOfDay(longest.start, calendar)
-            observations.append("Longest stretch: \(DurationText.compact(longest.worked)) in \(longest.name), from \(from)")
+        if let change = comparison(input.focused, with: input.typicalFocused,
+                                   than: "your typical day of \(compact(input.typicalFocused)) (the median of "
+                                       + "\(input.typicalDays) days with focus in your last \(NoteBaseline.days))") {
+            observations.append(change)
         }
-        observations.append(carriesOver(sessions[0].start, calendar)
-            ? "Focus carried on past midnight with \(title(sessions[0]))"
-            : "Focus began at \(timeOfDay(sessions[0].start, calendar)) with \(title(sessions[0]))")
-        if let top = topApps.first, top.share > 0.4 {
-            observations.append("Most app time was in \(top.appName) (\(DurationText.compact(top.total)))")
+        // The part that held the most focus, worth saying once it holds a fair share of it. The
+        // share is of the parts' own sum: on a day with no midnight the day's total runs an hour long.
+        let partsTotal = input.focusByPart.values.reduce(0, +)
+        if let best = NoteDayPart.allCases.map({ (part: $0, focused: input.focusByPart[$0] ?? 0) })
+            .max(by: { $0.focused < $1.focused }), best.focused >= 60, best.focused >= partsTotal * 0.4 {
+            observations.append("The most focus came \(best.part.phrase): \(compact(best.focused))")
         }
-        if let change = comparison(input.focused, with: input.previousFocused, before: "day") {
-            observations.append(change.text)
-            // A tip built on a drop in focus reads as a scolding; the pattern may still name it.
-            if change.fell { patternOnly.insert(change.text) }
+        let stretchCount = input.sessions.reduce(0) { $0 + $1.stretches }
+        if stretchCount > 1 {
+            observations.append("Focus ran as \(counted(stretchCount, "stretch", plural: "stretches")) averaging "
+                                + compact(input.focused / Double(stretchCount))
+                                + (input.typicalStretch > 0 ? "; your typical stretch is \(compact(input.typicalStretch))" : ""))
         }
-        let stretchCount = sessions.reduce(0) { $0 + $1.stretches }
-        if stretchCount > input.sessionCount {
-            observations.append("\(counted(input.sessionCount, "session")) ran as \(counted(stretchCount, "stretch", plural: "stretches"))")
+        // A stretch the day begins in the middle of is the night before's.
+        if let longest = input.longestStretch, longest.worked >= 600, !carriesOver(longest.start, calendar) {
+            observations.append("Longest stretch: \(compact(longest.worked)) in \(longest.name), "
+                                + "from \(timeOfDay(longest.start, calendar))")
         }
-        return NoteFacts(kind: .day, lines: lines, observations: Array(observations.prefix(4)), patternOnly: patternOnly)
+        return NoteFacts(kind: .day, lines: lines, observations: observations)
     }
 
     /// The facts for one week or month, or nil when History counts no
@@ -102,11 +111,7 @@ extension NoteFacts {
         var lines = [heading + (input.isCurrent ? " (so far)" : ""),
                      "Focus: \(DurationText.compact(summary.focused)) over \(counted(summary.sessions, "session")) "
                      + "on \(counted(summary.focusedDays, "day"))"]
-        if !input.sessionTotals.isEmpty {
-            // "name: duration" joined by semicolons, as the day's list is: a name may hold a comma or end in a number.
-            lines.append("Most time went to: " + input.sessionTotals.prefix(namedTotalLimit)
-                .map { "\($0.name): \(DurationText.compact($0.worked))" }.joined(separator: "; "))
-        }
+        if !input.sessionTotals.isEmpty { lines.append(mostTimeLine(input.sessionTotals)) }
 
         // Each is a sentence the note can quote whole, as a day's are.
         var observations: [String] = []
@@ -122,8 +127,8 @@ extension NoteFacts {
             observations.append("Longest stretch: \(DurationText.compact(longest.worked)) in \(longest.name), "
                                 + "on \(longDate(longest.start, calendar)) from \(from)")
         }
-        if let change = comparison(summary.focused, with: input.previousFocused, before: noun) {
-            observations.append(change.text)
+        if let change = comparison(summary.focused, with: input.previousFocused, than: "the \(noun) before") {
+            observations.append(change)
         }
         if input.goal > 0 {
             observations.append("Goal met on \(input.goalMetDays) of \(summary.focusedDays) days with focus")
@@ -135,30 +140,19 @@ extension NoteFacts {
                          namedSessions: min(input.sessionTotals.count, namedTotalLimit))
     }
 
-    /// "4h 10m focus · goal met · 3 sessions"; the goal part is left out when
-    /// there is no goal.
+    /// "4h 10m focus · goal met · 3 sessions", or "5h 40m focus · 3h 59m
+    /// towards 4h goal · 4 sessions" when the goal was missed: the goal counts
+    /// only focus with hands-on use, so a day can hold more focus than its goal
+    /// and still miss it, and "goal missed" beside the larger figure read as a
+    /// fault. The goal part is left out when there is no goal.
     static func figuresLine(focused: TimeInterval, sessions: Int, goal: TimeInterval,
                             goalCredit: TimeInterval) -> String {
         var parts = ["\(DurationText.compact(focused)) focus"]
-        if goal > 0 { parts.append(goalCredit >= goal ? "goal met" : "goal missed") }
+        if goal > 0 {
+            parts.append(goalCredit >= goal ? "goal met"
+                         : "\(DurationText.compact(goalCredit)) towards \(DurationText.compact(goal)) goal")
+        }
         parts.append(counted(sessions, "session"))
         return parts.joined(separator: " · ")
-    }
-
-    /// `Parser at 9:13 am, 1h 30m; …` in start order, `Parser from before
-    /// midnight, 1h` for one carried over from the night before. Past the
-    /// limit, the sessions with the most time are named and the rest counted.
-    private static func sessionList(_ sessions: [DaySession], calendar: Calendar) -> String {
-        let kept = Set(sessions.indices.sorted {
-            sessions[$0].worked != sessions[$1].worked ? sessions[$0].worked > sessions[$1].worked : $0 < $1
-        }.prefix(namedSessionLimit))
-        var entries = sessions.indices.filter(kept.contains).map { index in
-            let session = sessions[index]
-            let began = carriesOver(session.start, calendar) ? "from before midnight"
-                : "at " + timeOfDay(session.start, calendar)
-            return "\(title(session)) \(began), " + DurationText.compact(session.worked)
-        }
-        if sessions.count > namedSessionLimit { entries.append("and \(sessions.count - namedSessionLimit) more") }
-        return entries.joined(separator: "; ")
     }
 }

@@ -49,8 +49,8 @@ enum ReviewNoteWordChecks: CheckSuite {
         return problems
     }
 
-    private static func note(_ story: String, tip: String? = nil) -> WrittenNote {
-        WrittenNote(story: story, pattern: "Nothing else.", tip: tip)
+    private static func note(_ story: String, pattern: String = "Nothing else.") -> WrittenNote {
+        WrittenNote(story: story, pattern: pattern)
     }
 
     private static func wordsInTheAudit() -> [String] {
@@ -62,8 +62,8 @@ enum ReviewNoteWordChecks: CheckSuite {
                "figures in words that the facts hold should pass", &problems)
         expect(!NoteAudit.passes(note("You worked for forty-six minutes."), facts: facts),
                "a spelled-out 46, which the facts lack, should fail", &problems)
-        expect(!NoteAudit.passes(note("Fine.", tip: "Try five hours tomorrow."), facts: facts),
-               "a spelled-out figure in the tip alone should fail the note", &problems)
+        expect(!NoteAudit.passes(note("Fine.", pattern: "Try five hours tomorrow."), facts: facts),
+               "a spelled-out figure in the pattern alone should fail the note", &problems)
         expect(NoteAudit.passes(note("You read Seven habits at 9:00 am."), facts: facts),
                "a number word in a session name is in the facts and should pass", &problems)
         let plain = NoteFacts(kind: .day, lines: ["Focus: 1h 30m over 2 sessions"], observations: [])

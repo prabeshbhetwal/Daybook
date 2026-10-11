@@ -116,6 +116,7 @@ extension SelfTest {
             + AskPanelChecks.tests
             + SupportingInkChecks.tests
             + SnapshotStillChecks.tests
+            + YesterdayNoteInsightChecks.tests
             + HistorySearchQueryChecks.tests
             + HistorySearchFilterChecks.tests
             + HistorySearchRescueChecks.tests

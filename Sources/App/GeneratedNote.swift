@@ -1,19 +1,17 @@
 import FoundationModels
 
-/// What the model fills in for a day. The audit reads the figures in all three.
+/// What the model fills in for a day. The audit reads the figures in both.
+/// Asked for the sessions "in what order", the story retold the list History
+/// already shows; it now names where the time went instead.
 @available(macOS 26, *)
 @Generable struct GeneratedNote {
-    @Guide(description: "At most two sentences on what the person worked on and in what order. Quote session names exactly as written.")
+    @Guide(description: "One or two sentences on what the day held: the sessions listed under Most time went to, each with its duration exactly as listed, and when the most focus came if an observation says. Quote session names exactly as written. Do not say when each session began.")
     var story: String
-    @Guide(description: "One sentence building on exactly one of the observations or context lines.")
+    @Guide(description: "One sentence on the first listed observation, quoting its figures exactly as listed.")
     var pattern: String
-    // Tone is wording, not facts, so this is one place the guide carries a rule the facts cannot: the probe found
-    // five tips in thirteen turning a drop in focus into a mild reprimand, though the instructions say not to scold.
-    @Guide(description: "One concrete action for the next day, built on one of the observations. Never comment on less focus or a missed goal.")
-    var tip: String
 }
 
-/// What the model fills in for a week or month, which has no tip. The probe
+/// What the model fills in for a week or month. The probe
 /// found these notes dropping their figures ("Thesis for hours"), spelling
 /// them out, and listing sessions "then" as if in order though the facts list
 /// them by time spent. This form is for a period whose facts name three
@@ -62,13 +60,13 @@ enum PeriodForm: Equatable {
         switch self {
         case .solo:
             let note = try await session.respond(to: facts.text, generating: GeneratedSoloPeriodNote.self, options: options).content
-            return WrittenNote(story: note.story, pattern: note.pattern, tip: nil)
+            return WrittenNote(story: note.story, pattern: note.pattern)
         case .pair:
             let note = try await session.respond(to: facts.text, generating: GeneratedPairPeriodNote.self, options: options).content
-            return WrittenNote(story: note.story, pattern: note.pattern, tip: nil)
+            return WrittenNote(story: note.story, pattern: note.pattern)
         case .trio:
             let note = try await session.respond(to: facts.text, generating: GeneratedPeriodNote.self, options: options).content
-            return WrittenNote(story: note.story, pattern: note.pattern, tip: nil)
+            return WrittenNote(story: note.story, pattern: note.pattern)
         }
     }
 }
