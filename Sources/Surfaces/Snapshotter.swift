@@ -229,6 +229,12 @@ enum Snapshotter {
     /// the Gallery and the checks need.
     private static var renderZoom: Double?
 
+    /// True while `run` draws PNGs. Its stills never ask the live model for a
+    /// review note: whether it is ready, and when it answers, differ from run
+    /// to run ("Writing…" in some stills of one build). The Gallery and the
+    /// checks leave notes to the model as before.
+    static var rendersStills = false
+
     static let matrix: [SnapshotRender] = SnapshotScenario.allCases.flatMap { scenario in
         scenario.presentations.flatMap { presentation in
             SnapshotAppearance.allCases.map { appearance in
@@ -292,7 +298,8 @@ enum Snapshotter {
         let percent = requested.map { InterfaceZoom.nearestPercent(toScale: $0) }
             ?? InterfaceZoom.defaultPercent
         renderZoom = percent == InterfaceZoom.defaultPercent ? nil : Double(percent) / 100
-        defer { renderZoom = nil }
+        rendersStills = true
+        defer { renderZoom = nil; rendersStills = false }
         for item in selected {
             let name = item.filename(atZoom: percent)
             let output = directory.appendingPathComponent(name)
@@ -500,6 +507,11 @@ enum Snapshotter {
     static func navigation(for scenario: SnapshotScenario,
                                    store: SessionStore) -> MainWindowModel {
         let navigation = MainWindowModel(opening: scenario.tab ?? .story, store: store)
+        if rendersStills {
+            // A note a scenario shows is presented (`presentNotes`); any other
+            // fails as it would with the model not ready, and shows nothing.
+            navigation.notes?.responder = { _ in throw CocoaError(.featureUnsupported) }
+        }
         switch scenario {
         case .reviewHistorySelection, .askPanelHistory:
             navigation.open(tab: .review)

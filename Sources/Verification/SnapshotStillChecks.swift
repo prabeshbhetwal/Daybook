@@ -17,6 +17,7 @@ enum SnapshotStillChecks: CheckSuite {
         ("Stills ask AppKit for overlay scrollers whatever is attached", stillScrollersAreOverlay),
         ("The welcome's ring holds its first breath in a still that settles slowly", coachRingHoldsStill),
         ("Taking stills does not keep the frames drawn while they settle", stillsReleaseFrames),
+        ("A rendered still never asks the live model for a review note", stillNotesSkipModel),
     ]
 
     private static func findFieldHoldsStill() -> [String] {
@@ -126,6 +127,19 @@ enum SnapshotStillChecks: CheckSuite {
             let grown = (footprint() - before) / 1_048_576
             // About 25 frames of 4 MB a still: kept, three stills hold 300 MB.
             expect(grown < 64, "three stills kept \(grown) MB after they were taken", &problems)
+            return problems
+        }
+    }
+
+    private static func stillNotesSkipModel() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            Snapshotter.rendersStills = true
+            defer { Snapshotter.rendersStills = false; FixtureFactory.cleanUp() }
+            let store = Snapshotter.store(for: .focusPaused)
+            let navigation = Snapshotter.navigation(for: .focusPaused, store: store)
+            expect(navigation.notes?.responder != nil,
+                   "a rendered still left its review notes to the live model", &problems)
             return problems
         }
     }
