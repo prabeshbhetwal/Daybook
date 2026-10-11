@@ -152,9 +152,14 @@ struct StoryMachinePin: View {
                             + (back.map { ". \($0)" } ?? ""))
     }
 
-    private var back: String? {
+    private var back: String? { event.returnLine(resumed: resumed) }
+}
+
+extension MachineEvent {
+    /// When Daybook was back after this event, as a pin or a run card says it.
+    func returnLine(resumed: Date?) -> String? {
         guard let resumed else { return nil }
-        return event.isQuickReturn(at: resumed) ? "Daybook back within a minute"
+        return isQuickReturn(at: resumed) ? "Daybook back within a minute"
             : "Daybook back at \(Tokens.timeOfDayOnly(resumed))"
     }
 }

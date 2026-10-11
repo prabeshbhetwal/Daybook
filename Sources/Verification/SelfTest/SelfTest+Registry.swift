@@ -87,6 +87,7 @@ extension SelfTest {
             + SheetQuitChecks.tests
             + UpdateFormHoldChecks.tests
             + SessionMetadataJournalChecks.tests
+            + MachineRunCardChecks.tests
             + AppUsageJournalChecks.tests
     }
 
