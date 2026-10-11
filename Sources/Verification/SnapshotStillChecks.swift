@@ -117,22 +117,25 @@ enum SnapshotStillChecks: CheckSuite {
     }
 }
 
-/// The welcome's ring beside a mark that changes 0.6 s in, so the still is
-/// taken after the ring's first breath (0.4 s) was due.
+/// The welcome's ring beside a mark that changes every 0.1 s for 0.6 s. A
+/// still settles after 0.15 s without change, so this one is taken after the
+/// ring's first breath (0.4 s) was due.
 private struct SlowCoachRing: View {
     let animated: Bool
-    @State private var late = false
+    @State private var step = 0
 
     var body: some View {
         HStack {
             CoachRing(rect: CGRect(x: 30, y: 30, width: 60, height: 30),
                       bounds: CGRect(x: 0, y: 0, width: 120, height: 90), animated: animated)
                 .frame(width: 120, height: 90)
-            (late ? Color(red: 0, green: 1, blue: 0) : Color(red: 1, green: 0, blue: 0))
+            Color(white: Double(step) / 6)
                 .frame(width: 20, height: 20)
         }
         .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { late = true }
+            for next in 1...6 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1 * Double(next)) { step = next }
+            }
         }
     }
 }
