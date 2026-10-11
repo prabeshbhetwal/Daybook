@@ -197,6 +197,15 @@ struct HistorySessionPick: Hashable {
     /// Ask Daybook's model, built the first time Ask is opened, so with Ask
     /// never used nothing of it exists.
     private(set) var askModel: AskModel?
+    private var noteWriter: NoteWriter?
+
+    /// The review notes' writer, built on first read. The Today rail reads it
+    /// on every redraw, so a Mac that shows the rail holds one whether or not
+    /// a note is ever shown.
+    var notes: NoteWriter? {
+        if noteWriter == nil, let store { noteWriter = NoteWriter(store: store) }
+        return noteWriter
+    }
 
     init(opening route: AppTab = .story,
          requestedDate: Date? = nil,

@@ -13,6 +13,8 @@ final class PersistenceStore {
         static let autoSessions = "fc.autoSessions"
         static let rewardsEnabled = "fc.rewardsEnabled"
         static let hapticsEnabled = "fc.hapticsEnabled"
+        static let useAppleIntelligence = "fc.useAppleIntelligence"
+        static let yesterdayNoteDismissedDay = "fc.yesterdayNoteDismissedDay"
         static let rewardLog = "fc.rewardLog"
         static let learning = "fc.learning"
         static let logGrouping = "fc.logGrouping"
@@ -336,6 +338,22 @@ final class PersistenceStore {
     var hapticsEnabled: Bool {
         get { defaults.object(forKey: Key.hapticsEnabled) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.hapticsEnabled) }
+    }
+
+    /// Notes and suggestions written by Apple's on-device model, where this Mac
+    /// has one. On until the person turns it off; with no model it does nothing.
+    var useAppleIntelligence: Bool {
+        get { defaults.object(forKey: Key.useAppleIntelligence) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.useAppleIntelligence) }
+    }
+
+    /// The day whose Yesterday notice was dismissed, so it stays gone on a relaunch.
+    var yesterdayNoteDismissedDay: Date? {
+        get { defaults.object(forKey: Key.yesterdayNoteDismissedDay) as? Date }
+        set {
+            if let newValue { defaults.set(newValue, forKey: Key.yesterdayNoteDismissedDay) }
+            else { defaults.removeObject(forKey: Key.yesterdayNoteDismissedDay) }
+        }
     }
 
     /// `RewardKind.rawValue` → when it last fired. Persisted so a relaunch
@@ -830,6 +848,7 @@ final class PersistenceStore {
                     Key.menuSessions, Key.menuApps, Key.trackingDisabled,
                     Key.purposeOverrides, Key.dailyGoal, Key.autoSessions,
                     Key.rewardsEnabled, Key.hapticsEnabled, Key.rewardLog, Key.learning,
+                    Key.useAppleIntelligence, Key.yesterdayNoteDismissedDay,
                     Key.logGrouping,
                     Key.remindersDisabled, Key.workInterval, Key.breakLength,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,

@@ -180,10 +180,11 @@ extension SettingsSection {
             return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
                     "Expand entry details by default", "Fold quiet stretches after"]
         case .data:
-            // The upgrade copy's row may be absent, so it is not listed.
+            // The upgrade copy's row may be absent, so it is not listed; the
+            // Apple Intelligence row is listed only on a Mac that shows it.
             return ["Privacy", "App use measured precisely since", "Backups", "Back up automatically",
                     "Back up to", "Keep automatic backups", "Last backup", "Next backup", "Back Up Now",
-                    "Reveal data folder"]
+                    "Reveal data folder"] + (ModelGate.modelAvailable ? ["Use Apple Intelligence"] : [])
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
         case .advanced: return ["Version", "Build", "Recovery"]
@@ -203,7 +204,7 @@ extension SettingsSection {
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
         case .appearance: return [.appearance, .density, .zoom, .timelineLabels, .entryDetails, .quietFold]
         case .updates: return [.updateChecks, .updateFrequency, .updateInstall]
-        case .data: return [.backupSchedule, .backupDestination, .backupRetention]
+        case .data: return [.appleIntelligence, .backupSchedule, .backupDestination, .backupRetention]
         case .advanced: return []
         }
     }
