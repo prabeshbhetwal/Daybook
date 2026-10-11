@@ -27,7 +27,7 @@ final class AppUpdater: NSObject, UpdateControlling, SPUUpdaterDelegate {
     /// What `isBusy` asks in the running app: a note, the away question or a
     /// naming in the window, or a rule or category form.
     static func wouldLoseWork(store: SessionStore, settings: SettingsModel) -> Bool {
-        store.holdsUnsavedWork || settings.holdsOpenForm
+        store.holdsUnsavedWork || settings.openForms.anyOpen
     }
     /// Runs just before Sparkle quits the app to reopen the new version.
     var onRelaunch: () -> Void = {}

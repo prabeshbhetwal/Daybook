@@ -18,7 +18,7 @@ enum UpdateCountdownStep: Equatable {
 /// "Daybook 1.1 is ready": installs and relaunches when the count
 /// reaches zero, or now, or later. The count runs from a deadline the panel
 /// controller owns, not from a timer in the view; at zero it waits while a
-/// note, the away question, a naming or a rule or category form is open.
+/// note, the away question, a naming or a form is open.
 final class UpdateCountdownPanel {
     static let seconds: TimeInterval = 30
     private var panel: NSPanel?

@@ -15,6 +15,10 @@ final class ActivityEditorPanelModel: ObservableObject {
     private var panel: NSPanel?
     private var closeObserver: NSObjectProtocol?
     private let model = ActivityEditorPanelModel()
+    /// The form, kept here rather than in the view so closing the panel shuts
+    /// it at once, not whenever the released view's state happens to go: a
+    /// changed form holds every update's relaunch.
+    let editor = ActivityEditorState()
     /// The content at 100%. It opens at the zoom, held to its screen, and
     /// `.preferredContentSize` leaves the frame to us: resized on a zoom change.
     static let base = CGSize(width: 460, height: 420) // zoom: fixed, the 100% size
@@ -25,6 +29,7 @@ final class ActivityEditorPanelModel: ObservableObject {
     var title: String? { panel?.title }
 
     func show(_ request: ActivityEditorRequest, store: SessionStore) {
+        store.openForms.track(editor)
         model.request = request
         model.ticket &+= 1
         let panel = self.panel ?? makePanel(store: store)
@@ -45,6 +50,7 @@ final class ActivityEditorPanelModel: ObservableObject {
 
     private func release(_ closing: NSPanel) {
         guard panel === closing else { return }
+        editor.close()
         if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
         closeObserver = nil
         zoomFollower = nil
@@ -53,7 +59,8 @@ final class ActivityEditorPanelModel: ObservableObject {
     }
 
     private func makePanel(store: SessionStore) -> NSPanel {
-        let content = ActivityEditorPanelView(store: store, model: model, onClose: { [weak self] in self?.close() })
+        let content = ActivityEditorPanelView(store: store, model: model, editor: editor,
+                                              onClose: { [weak self] in self?.close() })
         let hosting = NSHostingView(rootView: content)
         hosting.sizingOptions = [.preferredContentSize]
         let panel = NSPanel(contentRect: NSRect(origin: .zero, size: Self.base),
@@ -88,26 +95,6 @@ final class ActivityEditorPanelModel: ObservableObject {
     }
 }
 
-/// The form's draft. An object because `@State` is unavailable here.
-final class ActivityEditorState: ObservableObject {
-    @Published var editingID: UUID?
-    @Published var name = ""
-    @Published var workType: WorkType = .deepWork
-    @Published var message: String?
-    var consumedTicket: UInt64 = 0
-
-    func beginNew() {
-        editingID = UUID(); name = ""; workType = .deepWork; message = nil
-    }
-
-    func edit(_ activity: SavedActivity) {
-        editingID = activity.id; name = activity.name
-        workType = activity.startableWorkType; message = nil
-    }
-
-    func close() { editingID = nil; message = nil }
-}
-
 /// The panel's content, one surface: the pinned list, recent names to pin
 /// with a click, and the form, always present. Click a pinned row to edit
 /// it in the form; leave the form blank to pin something new.
@@ -115,7 +102,7 @@ struct ActivityEditorPanelView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var model: ActivityEditorPanelModel
     @ObservedObject private var catalog = WorkTypeCatalog.shared
-    @StateObject private var editor = ActivityEditorState()
+    @ObservedObject var editor: ActivityEditorState
     var onClose: () -> Void
 
     var body: some View {
