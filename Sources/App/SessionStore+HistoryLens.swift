@@ -53,26 +53,37 @@ extension SessionStore {
         let filter = historyFilter
         guard let bundleID = filter.appBundleID, filter.workType == nil,
               filter.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        // The running stretch is not in the archive yet; without it, the app's
-        // use in the session you are in read as use outside every session.
-        var records = engine.archive.records
-        var running: HistoryLensRunning?
-        if let span = engine.runningSpan, engine.activeWorkType.countsAsFocus {
-            running = HistoryLensRunning(thread: engine.activeThreadID, start: span.start,
-                                         minute: Int(span.end.timeIntervalSinceReferenceDate / 60))
-            records.append(SessionRecord(name: "", workType: engine.activeWorkType, start: span.start,
-                                         end: span.end, workSeconds: span.end.timeIntervalSince(span.start),
-                                         threadID: engine.activeThreadID))
-        }
+        let running = historyLensRunning()
         let calendar = Calendar.current
         let key = HistoryLensKey(bundleID: bundleID, revision: evidenceRevision, running: running,
                                  usageMinute: usageLiveMinute, timeZone: calendar.timeZone)
         if let cached = historyAppLensCache, cached.key == key { return cached.lens }
-        let lens = HistoryAppLens.build(bundleID: bundleID, records: records,
-                                        usage: historySortedUsage(), calendar: calendar,
-                                        accurateFrom: effectiveUsageSnapshot?.accurateFrom)
+        let lens = appLens(bundleID: bundleID, usage: historySortedUsage())
         historyAppLensCache = (key, lens)
         return lens
+    }
+
+    /// The running session as the app's story sees it, nil with none that
+    /// counts as focus.
+    private func historyLensRunning() -> HistoryLensRunning? {
+        guard let span = engine.runningSpan, engine.activeWorkType.countsAsFocus else { return nil }
+        return HistoryLensRunning(thread: engine.activeThreadID, start: span.start,
+                                  minute: Int(span.end.timeIntervalSinceReferenceDate / 60))
+    }
+
+    /// One app's story over the given app use, whatever History's filter
+    /// holds. Ask reads it for a period by passing the use clipped to it.
+    func appLens(bundleID: String, usage: SortedUsage) -> HistoryAppLens {
+        // The running stretch is not in the archive yet; without it, the app's
+        // use in the session you are in read as use outside every session.
+        var records = engine.archive.records
+        if let span = engine.runningSpan, historyLensRunning() != nil {
+            records.append(SessionRecord(name: "", workType: engine.activeWorkType, start: span.start,
+                                         end: span.end, workSeconds: span.end.timeIntervalSince(span.start),
+                                         threadID: engine.activeThreadID))
+        }
+        return HistoryAppLens.build(bundleID: bundleID, records: records, usage: usage,
+                                    calendar: Calendar.current, accurateFrom: effectiveUsageSnapshot?.accurateFrom)
     }
 
     /// Every app in front during the sessions a search matched, busiest

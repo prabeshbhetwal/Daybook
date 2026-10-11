@@ -119,7 +119,8 @@ enum AskLookups {
         spec: AskLookupSpec(
             name: "appTime",
             description: "Returns how long an app such as Safari or Xcode was in front during a period and in how "
-                + "many sessions, or the most-used apps when no app is named. Use it for any question about an app.",
+                + "many sessions, or the most-used apps when no app is named. Use it for any question about an app. "
+                + "Also gives the hours of the day it was in front.",
             parameters: [AskParameter(name: "range", description: rangeGuide, required: true),
                          AskParameter(name: "app",
                                       description: "An app name such as Safari; leave out to list the most-used apps",

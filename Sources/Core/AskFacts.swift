@@ -131,18 +131,44 @@ enum AskFacts {
 
     static func appTime(_ range: AskRange,
                         app: (query: String, name: String?, total: TimeInterval, sessions: Int)?,
-                        top: [(name: String, total: TimeInterval)], sessionRunning: Bool = false) -> String {
+                        top: [(name: String, total: TimeInterval)], sessionRunning: Bool = false,
+                        hours: [TimeInterval]? = nil) -> String {
+        let phrase = hours.flatMap(hoursPhrase)
         if let app {
             let tail = sessionRunning ? runningNote : ""
             guard let name = app.name else {
                 return capped("No app called “\(app.query)” was used \(range.inPhrase).", keeping: tail)
             }
             return capped("\(name) \(range.inPhrase): \(DurationText.compact(app.total)) in front; "
-                          + "used in \(count(app.sessions, "session")).", keeping: tail)
+                          + "used in \(count(app.sessions, "session"))"
+                          + (phrase.map { "; most in front \($0)" } ?? "") + ".", keeping: tail)
         }
         guard !top.isEmpty else { return capped("No app use recorded \(range.inPhrase).") }
         let apps = top.prefix(5).map { "\($0.name) \(DurationText.compact($0.total))" }
-        return capped("Most-used apps \(range.inPhrase): \(apps.joined(separator: ", ")).")
+        return capped("Most-used apps \(range.inPhrase): \(apps.joined(separator: ", "))."
+                      + (phrase.map { " Busiest hours: \($0)." } ?? ""))
+    }
+
+    /// The up to three clock hours with the most time, each at least a
+    /// minute, most first and the earlier hour on a tie; nil with none. Each
+    /// hour is a span with its duration, so a clock time never stands bare
+    /// beside one. `hours` has an entry for each hour of the day, from 0.
+    static func hoursPhrase(_ hours: [TimeInterval]) -> String? {
+        let top = hours.enumerated().filter { $0.element >= 60 }
+            .sorted { $0.element == $1.element ? $0.offset < $1.offset : $0.element > $1.element }
+            .prefix(3)
+        // Any ordinary day carries the hour; the label reads only its clock hour.
+        let day = Date(timeIntervalSinceReferenceDate: 43_200)
+        func label(_ hour: Int) -> String {
+            DateFormats.hourLabel(Calendar.current.date(bySettingHour: hour % 24, minute: 0, second: 0, of: day) ?? day)
+        }
+        let spans = top.map { "from \(label($0.offset)) to \(label($0.offset + 1)) (\(DurationText.compact($0.element)))" }
+        switch spans.count {
+        case 0: return nil
+        case 1: return spans[0]
+        case 2: return "\(spans[0]), then \(spans[1])"
+        default: return "\(spans[0]), then \(spans[1]) and \(spans[2])"
+        }
     }
 
     /// A search that found nothing in its range, then the whole record's

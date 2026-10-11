@@ -29,12 +29,15 @@ enum AskCatalogueChecks: CheckSuite {
     private static func entriesMatchVersionOne() -> [String] {
         guard #available(macOS 26, *) else { return [] }
         var problems: [String] = []
-        let names = AskLookups.all.map(\.spec.name)
+        let names = AskLookups.all.prefix(V1.tools.count).map(\.spec.name)
         let want = V1.tools.map(\.name)
-        expect(names == want, "the catalogue lists \(names), not \(want)", &problems)
+        expect(names == want, "the catalogue starts with \(names), not \(want)", &problems)
+        // What each lookup says beyond version one's, appended to its description.
+        let added = ["appTime": " Also gives the hours of the day it was in front."]
         for (entry, old) in zip(AskLookups.all, V1.tools) {
-            expect(entry.spec.description == old.description,
-                   "\(old.name) is described as “\(entry.spec.description)”, not “\(old.description)”", &problems)
+            let description = old.description + (added[old.name] ?? "")
+            expect(entry.spec.description == description,
+                   "\(old.name) is described as “\(entry.spec.description)”, not “\(description)”", &problems)
             expect(AskLookups.named(old.name)?.spec == entry.spec, "named(\(old.name)) is not its own entry", &problems)
         }
         expect(AskLookups.named("nonsense") == nil, "an unknown name found an entry", &problems)

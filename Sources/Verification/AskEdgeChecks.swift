@@ -80,8 +80,8 @@ enum AskEdgeChecks: CheckSuite {
             f.clock.value = now
 
             let cases: [(AskRequest, String)] = [
-                (.appTime(.today, app: "notes"), "Notes today: 10m in front; used in 0 sessions."),
-                (.appTime(.yesterday, app: "notes"), "Notes yesterday: 30m in front; used in 1 session."),
+                (.appTime(.today, app: "notes"), "Notes today: 10m in front; used in 0 sessions; most in front from 8am to 9am (10m)."),
+                (.appTime(.yesterday, app: "notes"), "Notes yesterday: 30m in front; used in 1 session; most in front from 11pm to 12am (30m)."),
             ]
             for (request, want) in cases {
                 let got = f.store.askLookup(request)
@@ -123,8 +123,8 @@ enum AskEdgeChecks: CheckSuite {
             f.clock.value = now
 
             let cases: [(AskRequest, String)] = [
-                (.appTime(.today, app: "notes"), "Notes today: 40m in front; used in 1 session."),
-                (.appTime(.yesterday, app: "notes"), "Notes yesterday: 10m in front; used in 0 sessions."),
+                (.appTime(.today, app: "notes"), "Notes today: 40m in front; used in 1 session; most in front from 12am to 1am (30m), then from 8am to 9am (10m)."),
+                (.appTime(.yesterday, app: "notes"), "Notes yesterday: 10m in front; used in 0 sessions; most in front from 12pm to 1pm (10m)."),
             ]
             for (request, want) in cases {
                 let got = f.store.askLookup(request)

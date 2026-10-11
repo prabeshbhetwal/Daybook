@@ -210,7 +210,9 @@ extension SessionStore {
             var ranked: [(name: String, total: TimeInterval)] = []
             for (id, entry) in use { ranked.append((name: historyAppName(for: id), total: entry.total)) }
             ranked.sort { $0.total == $1.total ? $0.name < $1.name : $0.total > $1.total }
-            return AskFacts.appTime(range, app: nil, top: ranked)
+            // A day also says its busiest hours, as the Story rail draws them.
+            let day = askInterval(range).start
+            return AskFacts.appTime(range, app: nil, top: ranked, hours: range.isOneDay ? askRailHours(on: day) : nil)
         }
         let running = askSessionIsMissed(range)
         guard let match = askApp(query, among: use) else {
@@ -225,7 +227,8 @@ extension SessionStore {
         }
         let sessions = Set(used.map(\.hit.threadID)).count
         return AskFacts.appTime(range, app: (query: query, name: match.name, total: match.total, sessions: sessions),
-                                top: [], sessionRunning: running)
+                                top: [], sessionRunning: running,
+                                hours: askAppHours(bundleID: match.id, in: askInterval(range)))
     }
 
     /// The app a name means among those used: "safari." finds Safari, as

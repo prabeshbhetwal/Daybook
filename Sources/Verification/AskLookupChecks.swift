@@ -201,7 +201,7 @@ enum AskLookupChecks: CheckSuite {
     private static func appTimeResolvesLooseNames() -> [String] {
         withFixture { f, problems in
             let cases: [(AskRequest, String)] = [
-                (.appTime(.thisWeek, app: "safari."), "Safari this week: 1h in front; used in 1 session."),
+                (.appTime(.thisWeek, app: "safari."), "Safari this week: 1h in front; used in 1 session; most in front from 2pm to 3pm (1h)."),
                 (.appTime(.thisWeek, app: "Figma"), "No app called “Figma” was used this week."),
                 (.appTime(.lastWeek, app: "Safari"), "No app called “Safari” was used last week."),
             ]
