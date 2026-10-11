@@ -107,6 +107,13 @@ extension SelfTest {
             + ReviewNoteTransientChecks.tests
             + ReviewNotePeriodChecks.tests
             + ReviewNoteVagueChecks.tests
+            + AskSourceOrderChecks.tests
+            + AskCatalogueChecks.tests
+            + AskLookupLinkChecks.tests
+            + AskGateChecks.tests
+            + AskChatChecks.tests
+            + AskFollowChecks.tests
+            + AskPanelChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

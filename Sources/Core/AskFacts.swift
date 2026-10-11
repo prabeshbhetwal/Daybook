@@ -62,6 +62,9 @@ struct AskTotals {
     /// time of the sessions it was used in.
     var app: (name: String, total: TimeInterval)?
     var parts: (name: String, items: [(label: String, focused: TimeInterval)])?
+
+    /// The text names the longest session only when there is more than one to choose from.
+    var namesLongest: Bool { sessions > 1 }
 }
 
 /// One session in a list: the day and time it began in the range, its name,
@@ -136,7 +139,7 @@ enum AskFacts {
                 + "with \(DurationText.compact(best.focused))"
         }
         if let first = totals.firstStart { text += "; the first session began at \(first)" }
-        if let longest = totals.longest, totals.sessions > 1 {
+        if let longest = totals.longest, totals.namesLongest {
             text += "; the longest finished session was \(longest.name) on \(longest.day), "
                 + DurationText.compact(longest.worked)
         }
@@ -240,6 +243,12 @@ enum AskFacts {
     static func noSuchPeriod(_ raw: String) -> String {
         "There is no such date as “\(raw)”."
     }
+
+    /// What a lookup says once an answer has made all the lookups it may.
+    static let lookupLimitReached = "Lookup limit reached for this question. Answer from what the earlier lookups returned."
+
+    /// What the gate says when a model names a lookup there is none of.
+    static func unknownLookup(_ name: String) -> String { "No lookup called “\(name)”." }
 
     /// What a lookup says about a period that starts after today.
     static func stillToCome(_ range: AskRange) -> String { "\(sentenceStart(range.title)) is still to come." }

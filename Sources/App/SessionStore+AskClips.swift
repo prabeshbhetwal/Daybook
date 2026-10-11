@@ -18,7 +18,7 @@ extension SessionStore {
     /// The newest ten sessions in the range that match the words, or every
     /// session in it when there are none, so "what did I do yesterday?"
     /// needs no word to search for.
-    func askSessions(_ range: AskRange, words: String) -> String {
+    func askSessions(_ range: AskRange, words: String) -> AskLookupResult {
         let words = words.trimmingCharacters(in: .whitespacesAndNewlines)
         let filter = words.isEmpty ? nil : HistoryFilter(query: words)
         let found = askHits(matching: filter, in: range)
@@ -28,25 +28,38 @@ extension SessionStore {
         // what the whole record holds as well.
         let everywhere = found.isEmpty && filter != nil && range != .allTime
             ? askHits(matching: filter, in: .allTime) : []
+        // The period asked about comes first, whether or not the search had to leave it.
+        let anchor = askPeriodLink(range, role: .totals)
         guard !everywhere.isEmpty else {
-            return AskFacts.sessions(range, words: words, lines: askLines(found), matched: found.count,
-                                     sessionRunning: askSessionIsMissed(range))
+            let listed = askListing(found)
+            return AskLookupResult(
+                text: AskFacts.sessions(range, words: words, lines: listed.lines, matched: found.count,
+                                        sessionRunning: askSessionIsMissed(range)),
+                links: [anchor] + listed.links)
         }
-        return AskFacts.sessionsElsewhere(range, words: words, lines: askLines(everywhere), matched: everywhere.count,
-                                          sessionRunning: askSessionIsMissed(.allTime))
+        let listed = askListing(everywhere)
+        return AskLookupResult(
+            text: AskFacts.sessionsElsewhere(range, words: words, lines: listed.lines, matched: everywhere.count,
+                                             sessionRunning: askSessionIsMissed(.allTime)),
+            links: [anchor] + listed.links)
     }
 
     /// The newest ten, each dated by the first day of the range it has work
     /// on, so a session begun last night is not listed under yesterday's date
     /// for today, and timed from where it enters that day: one begun at 11pm
     /// and paused until midnight reads 12:00am on the day it has work.
-    private func askLines(_ found: [AskClip]) -> [AskSessionLine] {
-        found.prefix(10).map { clip in
+    /// Each line has its place beside it, under the day it is dated by.
+    private func askListing(_ found: [AskClip]) -> (lines: [AskSessionLine], links: [AskLink]) {
+        var lines: [AskSessionLine] = []
+        var links: [AskLink] = []
+        for clip in found.prefix(10) {
             let day = clip.days.min() ?? clip.hit.day
             let start = clip.spans.map(\.start).min().map { max($0, day) }
-            return AskSessionLine(day: askDay(day), time: start.map(askTime) ?? "",
-                                  name: clip.hit.name, worked: clip.worked, note: clip.hit.noteSnippet)
+            lines.append(AskSessionLine(day: askDay(day), time: start.map(askTime) ?? "",
+                                        name: clip.hit.name, worked: clip.worked, note: clip.hit.noteSnippet))
+            links.append(askSessionLink(thread: clip.hit.threadID, name: clip.hit.name, day: day, role: .session))
         }
+        return (lines, links)
     }
 
     // MARK: - Shared

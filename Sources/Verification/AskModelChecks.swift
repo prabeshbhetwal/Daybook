@@ -1,31 +1,30 @@
+import Combine
 import Foundation
 import FoundationModels
 
 /// Ask Daybook's model layer without a model: the words shown when it cannot
-/// answer, the tools it is handed and the lookups they make. None of these
+/// answer, the lookups it records and the chat's state. None of these
 /// starts a `LanguageModelSession`; its answers are not repeatable, and a
-/// runner with Apple Intelligence off has none to give.
+/// runner with Apple Intelligence off has none to give. The tools it is handed
+/// are `AskCatalogueChecks`'.
 enum AskModelChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("Ask says plainly why it cannot answer, for every availability and error", noticesCoverEveryCase),
-        ("Each Ask tool returns the lookup it names, and a period that does not exist is refused", toolsMatchLookups),
-        ("Ask's Used line lists each lookup in order, and a new question clears it", provenanceRecordsLookups),
+        ("Ask's provenance lists each lookup of an answer in order, and a new chat empties the turns",
+         provenanceRecordsLookups),
         ("A blank Ask question is ignored", blankQuestionIsIgnored),
         ("Opening Ask twice builds its model once", askModelIsBuiltOnce),
-        ("A failed Ask answer leaves the previous answer and its sources on screen", failedAnswerKeepsPrevious),
+        ("A failed Ask answer changes only its own turn", failedAnswerChangesOnlyItsTurn),
+        ("Whether Ask can answer is read when it opens, asks or starts over, and published only when it changes",
+         availabilityIsPublishedState),
     ]
-
-    /// One value a main-actor task fills in while the check turns the run loop.
-    private final class Outcome {
-        var text: String?
-    }
 
     private static func notice(_ text: String, opensSettings: Bool = false) -> AskNotice {
         AskNotice(text: text, opensSettings: opensSettings)
     }
 
     /// The Ask fixture with the body on the main actor, where `AskModel` lives.
-    private static func withFixture(_ body: @MainActor (AskLookupChecks.Fixture, inout [String]) -> Void) -> [String] {
+    static func withFixture(_ body: @MainActor (AskLookupChecks.Fixture, inout [String]) -> Void) -> [String] {
         AskLookupChecks.withFixture { f, problems in MainActor.assumeIsolated { body(f, &problems) } }
     }
 
@@ -48,7 +47,7 @@ enum AskModelChecks: CheckSuite {
         }
 
         let context = LanguageModelSession.GenerationError.Context(debugDescription: "probe")
-        let full = notice("Started a new thread — the last one was full.")
+        let full = AskModel.contextFull
         let refused = notice("Can't answer that one.")
         let language = notice("Ask doesn't understand this language yet.")
         let refusal = LanguageModelSession.GenerationError.Refusal(transcriptEntries: [])
@@ -79,7 +78,7 @@ enum AskModelChecks: CheckSuite {
     private static func newerErrors() -> [(Error, AskNotice)] {
         #if compiler(>=6.4)
         guard #available(macOS 27, *) else { return [] }
-        let full = notice("Started a new thread — the last one was full.")
+        let full = AskModel.contextFull
         let refused = notice("Can't answer that one.")
         let timeout = LanguageModelError.timeout(.init(debugDescription: "probe"))
         return [
@@ -96,103 +95,32 @@ enum AskModelChecks: CheckSuite {
         #endif
     }
 
-    // MARK: - Tools
-
-    private static func toolsMatchLookups() -> [String] {
-        guard #available(macOS 26, *) else { return [] }
-        return toolChecks()
-    }
-
-    /// Each tool is called as the model would call it, on the main actor, and
-    /// must hand back exactly what the store's lookup says for the request
-    /// the arguments name. The run loop is turned to let the call land.
-    @available(macOS 26, *)
-    private static func toolChecks() -> [String] {
-        withFixture { f, problems in
-            let model = AskModel(store: f.store)
-            let generation = model.generation
-            let totals = FocusTotalsTool(model: model, generation: generation)
-            let hours = BestHoursTool(model: model, generation: generation)
-            let find = FindSessionsTool(model: model, generation: generation)
-            let apps = AppTimeTool(model: model, generation: generation)
-            let compare = CompareFocusTool(model: model, generation: generation)
-            let cases: [(String, AskRequest, @MainActor () async -> String)] = [
-                ("focusTotals", .focusTotals(.thisWeek, words: nil),
-                 { await totals.call(arguments: .init(range: "this week", words: nil)) }),
-                ("focusTotals with words", .focusTotals(.lastMonth, words: "thesis"),
-                 { await totals.call(arguments: .init(range: "last month", words: "thesis")) }),
-                ("focusTotals for a named month", .focusTotals(.month(year: 2023, month: 10), words: nil),
-                 { await totals.call(arguments: .init(range: "2023-10", words: nil)) }),
-                ("focusTotals with empty words", .focusTotals(.thisWeek, words: nil),
-                 { await totals.call(arguments: .init(range: "this week", words: "")) }),
-                ("compareFocus", .compare(.thisWeek, with: .day(year: 2023, month: 10, day: 17), words: nil),
-                 { await compare.call(arguments: .init(first: "this week", second: "2023-10-17", words: nil)) }),
-                ("focusTotals for a weekday by name", .focusTotals(.day(year: 2023, month: 11, day: 13), words: nil),
-                 { await totals.call(arguments: .init(range: "Monday", words: nil)) }),
-                ("bestHours", .bestHours(.last30Days),
-                 { await hours.call(arguments: .init(range: "last 30 days")) }),
-                ("bestHours with no period", .bestHours(.allTime),
-                 { await hours.call(arguments: .init(range: nil)) }),
-                ("findSessions", .findSessions(words: "thesis", .allTime),
-                 { await find.call(arguments: .init(words: "thesis", range: "all time")) }),
-                ("findSessions with no words", .findSessions(words: "", .thisWeek),
-                 { await find.call(arguments: .init(words: nil, range: "this week")) }),
-                ("appTime", .appTime(.thisWeek, app: "safari"),
-                 { await apps.call(arguments: .init(range: "this week", app: "safari")) }),
-                ("appTime with an empty app", .appTime(.today, app: nil),
-                 { await apps.call(arguments: .init(range: "today", app: "")) }),
-            ]
-            for (label, request, call) in cases {
-                let outcome = Outcome()
-                Task { @MainActor in outcome.text = await call() }
-                InstalledAppCatalog.turnRunLoop(until: { outcome.text != nil }, timeout: 5)
-                let want = f.store.askLookup(request)
-                expect(outcome.text == want, "\(label) returned “\(outcome.text ?? "nothing")”, not “\(want)”",
-                       &problems)
-            }
-            let used = "Used: " + cases.map { $0.1.provenance }.joined(separator: " · ")
-            expect(model.used == used, "the tools recorded “\(model.used)”, not “\(used)”", &problems)
-
-            // A period the calendar lacks is said to be so, and looks nothing
-            // up: it once fell back to this week and answered from it.
-            let refusals: [(String, String, @MainActor () async -> String)] = [
-                ("focusTotals", "2023-02-31", { await totals.call(arguments: .init(range: "2023-02-31", words: nil)) }),
-                ("compareFocus", "nonsense",
-                 { await compare.call(arguments: .init(first: "this week", second: "nonsense", words: nil)) }),
-                ("bestHours", "2023-13", { await hours.call(arguments: .init(range: "2023-13")) }),
-                ("findSessions", "2023-02-30", { await find.call(arguments: .init(words: nil, range: "2023-02-30")) }),
-                ("appTime", "nonsense", { await apps.call(arguments: .init(range: "nonsense", app: nil)) }),
-            ]
-            for (label, raw, call) in refusals {
-                let outcome = Outcome()
-                Task { @MainActor in outcome.text = await call() }
-                InstalledAppCatalog.turnRunLoop(until: { outcome.text != nil }, timeout: 5)
-                expect(outcome.text == AskFacts.noSuchPeriod(raw),
-                       "\(label) given “\(raw)” returned “\(outcome.text ?? "nothing")”", &problems)
-            }
-            expect(model.used == used, "a refused period was listed as a lookup: “\(model.used)”", &problems)
-        }
-    }
-
     // MARK: - The model's own state
 
     private static func provenanceRecordsLookups() -> [String] {
-        withFixture { f, problems in
+        guard #available(macOS 26, *) else { return [] }
+        return withFixture { f, problems in
             let model = AskModel(store: f.store)
             let totals = AskRequest.focusTotals(.thisWeek, words: nil)
-            expect(model.lookup(totals, generation: model.generation) == f.store.askLookup(totals),
-                   "lookup differs from the store's", &problems)
-            expect(model.used == "Used: focus totals (this week)", "Used reads “\(model.used)”", &problems)
-            _ = model.lookup(.bestHours(.last30Days), generation: model.generation)
-            let both = "Used: focus totals (this week) · best hours (last 30 days)"
-            expect(model.used == both, "Used reads “\(model.used)”, not “\(both)”", &problems)
+            var text = ""
+            model.responder = { [unowned model] _, _ in
+                text = model.lookup(name: "focusTotals", arguments: ["range": "this week"], generation: model.generation)
+                _ = model.lookup(name: "bestHours", arguments: ["range": "last 30 days"], generation: model.generation)
+            }
+            model.ask("How long this week, and when do I focus best?")
+            InstalledAppCatalog.turnRunLoop(until: { !model.isAnswering }, timeout: 5)
+            expect(text == f.store.askLookup(totals), "lookup differs from the store's", &problems)
+            let both = ["focus totals (this week)", "best hours (last 30 days)"]
+            expect(model.turns.last?.provenance == both,
+                   "the provenance reads \(String(describing: model.turns.last?.provenance)), not \(both)", &problems)
 
-            model.present(answer: "About two and a half hours.", used: "Used: focus totals (this week)")
-            expect(model.answer == "About two and a half hours." && model.used == "Used: focus totals (this week)",
-                   "present(answer:used:) did not show what it was given", &problems)
-            model.newQuestion()
-            expect(model.used.isEmpty && model.answer.isEmpty && model.question.isEmpty && model.notice == nil,
-                   "a new question left “\(model.used)”, “\(model.answer)”, “\(model.question)” behind", &problems)
+            let shown = [AskTurn(question: "When do I focus best?", answer: "About two and a half hours.",
+                                 state: .answered, provenance: ["focus totals (this week)"])]
+            model.present(turns: shown)
+            expect(model.turns == shown, "present(turns:) did not show what it was given", &problems)
+            model.newChat()
+            expect(model.turns.isEmpty && model.notice == nil && !model.isAnswering,
+                   "a new chat left \(model.turns) and \(String(describing: model.notice)) behind", &problems)
         }
     }
 
@@ -201,8 +129,27 @@ enum AskModelChecks: CheckSuite {
             let model = AskModel(store: f.store)
             model.ask("   \n ")
             expect(!model.isAnswering, "a blank question started an answer", &problems)
-            expect(model.answer.isEmpty && model.question.isEmpty && model.notice == nil,
-                   "a blank question changed what the sheet shows", &problems)
+            expect(model.turns.isEmpty && model.notice == nil, "a blank question changed what the sheet shows", &problems)
+        }
+    }
+
+    /// A view that asks Apple's model whether it is there each time it is drawn
+    /// is drawn again for every tick of a running session. The answer is state
+    /// the model keeps, so the views read a stored value.
+    private static func availabilityIsPublishedState() -> [String] {
+        withFixture { f, problems in
+            let model = AskModel(store: f.store)
+            model.responder = { _, show in show("Done.") }
+            var seen: [Bool] = []
+            let watch = model.$canAsk.sink { seen.append($0) }
+            defer { watch.cancel() }
+            expect(model.canAsk == ModelGate.modelAvailable, "Ask opened believing canAsk is \(model.canAsk)", &problems)
+            model.prepare()
+            model.ask("When do I focus best?")
+            InstalledAppCatalog.turnRunLoop(until: { !model.isAnswering }, timeout: 5)
+            model.newChat()
+            expect(seen == [ModelGate.modelAvailable],
+                   "canAsk published \(seen) while Apple's model did not change", &problems)
         }
     }
 
@@ -217,14 +164,15 @@ enum AskModelChecks: CheckSuite {
         }
     }
 
-    private static func failedAnswerKeepsPrevious() -> [String] {
+    private static func failedAnswerChangesOnlyItsTurn() -> [String] {
         guard #available(macOS 26, *) else { return [] }
         return failureChecks()
     }
 
     /// A tool runs, then the response fails, as when the context overflows
-    /// after a lookup. The sheet must show the answer and sources from before
-    /// the question, not sources the shown answer never rested on.
+    /// after a lookup. The turn that failed shows the notice, with no
+    /// half-answer and no sources it never rested on; the turns before it are
+    /// as they were.
     @available(macOS 26, *)
     private static func failureChecks() -> [String] {
         withFixture { f, problems in
@@ -232,24 +180,33 @@ enum AskModelChecks: CheckSuite {
             let failures: [(label: String, error: Error, notice: String)] = [
                 ("a failed request", CocoaError(.fileReadNoSuchFile), "Couldn't answer:"),
                 ("a full context", LanguageModelSession.GenerationError.exceededContextWindowSize(context),
-                 "Started a new thread"),
+                 AskModel.contextFull.text),
             ]
-            for (label, error, noticePrefix) in failures {
+            for (label, error, noticeText) in failures {
                 let model = AskModel(store: f.store)
                 model.responder = { [unowned model] _, show in
-                    _ = model.lookup(.focusTotals(.thisWeek, words: nil), generation: model.generation)
+                    _ = model.lookup(name: "focusTotals", arguments: ["range": "this week"], generation: model.generation)
                     show("This week you focused for")
                     throw error
                 }
-                model.present(answer: "Earlier answer.", used: "Used: best hours (today)")
+                let earlier = AskTurn(question: "When do I focus best?", answer: "Earlier answer.", state: .answered,
+                                      provenance: ["best hours (today)"])
+                model.present(turns: [earlier])
                 model.ask("How long this week?")
                 expect(model.isAnswering, "\(label): the question did not start an answer", &problems)
                 InstalledAppCatalog.turnRunLoop(until: { !model.isAnswering }, timeout: 5)
                 expect(!model.isAnswering, "\(label) left the sheet answering", &problems)
-                expect(model.answer == "Earlier answer." && model.used == "Used: best hours (today)",
-                       "after \(label) the sheet shows “\(model.answer)” resting on “\(model.used)”", &problems)
-                expect(model.notice?.text.hasPrefix(noticePrefix) == true,
-                       "after \(label) the notice is \(String(describing: model.notice))", &problems)
+                expect(model.turns.count == 2 && model.turns[0] == earlier,
+                       "after \(label) the earlier turn reads \(model.turns)", &problems)
+                guard model.turns.count == 2 else { continue }
+                let failed = model.turns[1]
+                if case let .failed(shown) = failed.state {
+                    expect(shown.text.hasPrefix(noticeText), "after \(label) the notice is “\(shown.text)”", &problems)
+                } else {
+                    problems.append("after \(label) the turn is \(failed.state), not failed")
+                }
+                expect(failed.answer.isEmpty && failed.sources.isEmpty,
+                       "after \(label) the turn kept “\(failed.answer)” and \(failed.sources.count) sources", &problems)
             }
         }
     }
