@@ -221,6 +221,16 @@ final class SessionStore: ObservableObject {
     /// cannot use SwiftUI's macro-backed local state.
     @Published var historyDays: [HistoryDay] = []
     @Published var historyFilter = HistoryFilter()
+    // The search field's text is the one source: the phrases and the filter
+    // are derived from it by `setHistoryQuery` (SessionStore+HistoryQuery.swift),
+    // which writes these. Internal rather than private(set) because that is
+    // another file; `build.sh` keeps views from assigning them.
+    @Published var historySearchText = ""
+    @Published var historyParsedSearch = ParsedSearch(leftover: "", phrases: [])
+    /// What the app and category menus picked; a name typed in the field wins
+    /// while it is there.
+    var historyMenuApp: String?
+    var historyMenuWorkType: WorkType?
     @Published var historyRangeStart: Date?
     @Published var historyRangeEnd: Date?
     @Published var historyAppNames: [String: String] = [:]

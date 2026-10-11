@@ -51,7 +51,7 @@ extension SessionStore {
     /// app's use outside every session would not answer them.
     func historyAppLens() -> HistoryAppLens? {
         let filter = historyFilter
-        guard let bundleID = filter.appBundleID, filter.workType == nil,
+        guard let bundleID = filter.appBundleID, filter.workType == nil, !filter.hasPhrases,
               filter.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         // The running stretch is not in the archive yet; without it, the app's
         // use in the session you are in read as use outside every session.

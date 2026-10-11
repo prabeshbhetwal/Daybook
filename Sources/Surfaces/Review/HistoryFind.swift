@@ -40,7 +40,7 @@ struct HistoryFindBar: View {
 
     // MARK: Field
 
-    private var query: String { store.historyFilter.query }
+    private var query: String { store.historySearchText }
     private var fieldShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
     }
@@ -210,6 +210,6 @@ struct HistoryFindBar: View {
     }
 
     private var queryBinding: Binding<String> {
-        Binding(get: { store.historyFilter.query }, set: store.setHistoryQuery)
+        Binding(get: { store.historySearchText }, set: store.setHistoryQuery)
     }
 }

@@ -108,6 +108,7 @@ extension SelfTest {
             + ReviewNotePeriodChecks.tests
             + ReviewNoteVagueChecks.tests
             + HistorySearchQueryChecks.tests
+            + HistorySearchFilterChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
