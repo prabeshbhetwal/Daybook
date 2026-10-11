@@ -92,7 +92,7 @@ struct SettingsView: View {
         HStack(spacing: Tokens.Space.xs) {
             Image(systemName: "magnifyingglass")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
             TextField("Search", text: $navigation.settingsQuery)
                 .textFieldStyle(.plain)
@@ -119,7 +119,7 @@ struct SettingsView: View {
                     .accessibilityAddTraits(.isHeader)
                 Text(page.summary)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(sections) { section in

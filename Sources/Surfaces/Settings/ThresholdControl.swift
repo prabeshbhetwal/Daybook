@@ -89,7 +89,7 @@ struct ThresholdControl: View {
                 .accessibilityLabel("\(label), minutes")
             Text("min")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         }
         .onAppear {
             if draft.text.isEmpty, !isNever { draft.text = String(Int((selection / 60).rounded())) }

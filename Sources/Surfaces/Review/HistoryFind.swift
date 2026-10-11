@@ -49,7 +49,7 @@ struct HistoryFindBar: View {
     private var field: some View {
         HStack(spacing: Tokens.Space.s) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(fieldFocused ? AnyShapeStyle(StoryStyle.focus) : AnyShapeStyle(.secondary))
+                .foregroundStyle(fieldFocused ? AnyShapeStyle(StoryStyle.focus) : AnyShapeStyle(StoryStyle.supportingInk))
                 .accessibilityHidden(true)
             ZStack(alignment: .leading) {
                 if query.isEmpty { placeholder.accessibilityHidden(true) }
@@ -64,7 +64,7 @@ struct HistoryFindBar: View {
                 if let matchCount {
                     Text(matchCount)
                         .font(Tokens.Typography.body.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .lineLimit(1)
                         .fixedSize()
                         .transition(.opacity)
@@ -138,7 +138,7 @@ struct HistoryFindBar: View {
     private var keycap: some View {
         Text("⌘F")
             .font(Tokens.Typography.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .padding(.horizontal, 6.zoomed)
             .padding(.vertical, 2.zoomed)
             .overlay(RoundedRectangle(cornerRadius: 5.zoomed, style: .continuous).strokeBorder(Tokens.Colour.line))

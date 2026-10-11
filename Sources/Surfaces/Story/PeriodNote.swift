@@ -86,11 +86,11 @@ struct PeriodNote: View {
                 .buttonStyle(StoryLinkStyle())
                 .accessibilityHint("Writes a short note with Apple Intelligence on this Mac.")
             case .writing?:
-                Text("Writing…").font(Tokens.Typography.body).foregroundStyle(.secondary)
+                Text("Writing…").font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             case .written(let note)?:
                 written(note)
             case .failure?:
-                Text(Self.failure).font(Tokens.Typography.body).foregroundStyle(.secondary)
+                Text(Self.failure).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             case nil:
                 EmptyView()
             }
@@ -116,7 +116,7 @@ struct PeriodNote: View {
             }
             Label(Self.caption, systemImage: "apple.intelligence")
                 .font(Tokens.Typography.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         }
         .accessibilityElement(children: .combine)
     }

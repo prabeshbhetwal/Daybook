@@ -17,11 +17,11 @@ struct GapStretchList: View {
                         .frame(width: 10.zoomed, height: 10.zoomed)
                         .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
                     Text(time(of: stretch.span))
-                        .font(Tokens.Typography.body.monospacedDigit()).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body.monospacedDigit()).foregroundStyle(StoryStyle.supportingInk)
                     VStack(alignment: .leading, spacing: 2.zoomed) {
                         Text(stretch.title).font(Tokens.Typography.body)
                         if let detail = detail(of: stretch) {
-                            Text(detail).font(Tokens.Typography.body).foregroundStyle(.secondary)
+                            Text(detail).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }

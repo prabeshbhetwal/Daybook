@@ -47,7 +47,7 @@ struct HistorySearchRail: View {
                     .font(Tokens.Typography.heading.monospacedDigit())
                 Text("recorded app use")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             if inside + outside > 0 {
                 GeometryReader { geometry in
@@ -80,7 +80,7 @@ struct HistorySearchRail: View {
             if let peak {
                 Text("Most use: \(peak).")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -143,7 +143,7 @@ struct HistorySearchRail: View {
                     .font(Tokens.Typography.heading)
                 Text(durations: "\(Tokens.duration(best.focused)) focused")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
         }
     }
@@ -151,18 +151,18 @@ struct HistorySearchRail: View {
     private func note(_ text: String) -> some View {
         Text(durations: text)
             .font(Tokens.Typography.body)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private func legendRow(_ colour: Color, _ label: String, _ value: String) -> some View {
         HStack(spacing: Tokens.Space.s) {
             RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 10.zoomed, height: 10.zoomed)
-            Text(label).font(Tokens.Typography.body).foregroundStyle(.secondary)
+            Text(label).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             Spacer(minLength: Tokens.Space.xs)
             Text(durations: value)
                 .font(Tokens.Typography.label.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(DurationText.spoken(in: "\(label), \(value)"))

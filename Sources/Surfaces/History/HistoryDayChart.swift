@@ -57,12 +57,12 @@ struct HistoryResultChart: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Each day")
                     .font(Tokens.Typography.label)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 Spacer(minLength: Tokens.Space.s)
                 if let hint {
                     Text(hint)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                 }
             }
             HStack(alignment: .bottom, spacing: days.count > 120 ? 1 : 2.zoomed) {
@@ -79,7 +79,7 @@ struct HistoryResultChart: View {
                 Text("Today")
             }
             .font(Tokens.Typography.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             if isLens {
                 HStack(spacing: Tokens.Space.m) {
                     swatch(primaryColour, "In a session")
@@ -124,11 +124,11 @@ struct HistoryResultChart: View {
             let lift = Self.height * average / peak
             ZStack(alignment: .trailing) {
                 DashedRule()
-                    .stroke(Color.secondary.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [3.zoomed, 3.zoomed]))
+                    .stroke(Color.secondary.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [3.zoomed, 3.zoomed])) // ink: quiet, a drawn mark
                     .frame(height: 1)
                 Text("average day")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .padding(.horizontal, Tokens.Space.xs)
                     .background(StoryStyle.card)
                     .offset(y: -8.zoomed)
@@ -142,7 +142,7 @@ struct HistoryResultChart: View {
     private func swatch(_ colour: Color, _ label: String) -> some View {
         HStack(spacing: Tokens.Space.xs) {
             RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9.zoomed, height: 9.zoomed)
-            Text(label).font(Tokens.Typography.caption).foregroundStyle(.secondary)
+            Text(label).font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
         }
     }
 

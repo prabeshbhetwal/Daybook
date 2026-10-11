@@ -16,7 +16,7 @@ struct RhythmChart: View {
         if hours.allSatisfy({ $0.seconds == 0 }) {
             Text("Nothing recorded in this window yet.")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .frame(height: height + 18.zoomed, alignment: .leading)
         } else {
             VStack(spacing: Tokens.Space.xs) {
@@ -56,7 +56,7 @@ struct RhythmChart: View {
                                 }
                             }
                         }
-                        .font(Tokens.Typography.caption).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
                         .accessibilityHidden(true)
                 } else {
                   HStack(spacing: barSpacing) {

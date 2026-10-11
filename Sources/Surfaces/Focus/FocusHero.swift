@@ -334,7 +334,7 @@ struct FocusHero: View {
     @ViewBuilder private var liveRowLead: some View {
         ClockText(seconds: store.elapsed)
             .font(Tokens.Typography.clock)
-            .foregroundStyle(isQuiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+            .foregroundStyle(isQuiet ? AnyShapeStyle(StoryStyle.supportingInk) : AnyShapeStyle(.primary))
             .fixedSize()
             .elapsedClockAccessibility(store.elapsed)
             .transition(Tokens.Motion.transition(
@@ -345,7 +345,7 @@ struct FocusHero: View {
                 .lineLimit(1)
             Text(liveSubtitle)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(1)
         }
         .layoutPriority(1)
@@ -433,7 +433,7 @@ struct FocusHero: View {
         if let stripDetail, !showsAutomaticRow {
             Text(stripDetail)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
         if showsAutomaticRow { automaticControls }
@@ -453,7 +453,7 @@ struct FocusHero: View {
                 if !compact {
                     Text("Choose an activity or write your own. Start when you're ready.")
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .multilineTextAlignment(.center)
                 }
             }
@@ -475,7 +475,7 @@ struct FocusHero: View {
                     HStack(spacing: Tokens.Space.s) {
                         Text("Category")
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                         WorkTypePicker(selection: $store.workType)
                         Spacer(minLength: Tokens.Space.s)
                         StartButton(title: "Start focus", fills: false) {
@@ -491,7 +491,7 @@ struct FocusHero: View {
                 if !compact {
                     Text("Names you start will appear in the activity menu next time.")
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -570,11 +570,11 @@ struct FocusHero: View {
                 .font(Tokens.Typography.label)
                 // The focus ink: system blue at this size was under 4.5:1
                 // on the panel in both appearances.
-                .foregroundStyle(quiet ? AnyShapeStyle(.secondary)
+                .foregroundStyle(quiet ? AnyShapeStyle(StoryStyle.supportingInk)
                                        : AnyShapeStyle(StoryStyle.focus))
             ClockText(seconds: store.elapsed)
                 .font(Tokens.Typography.display)
-                .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)) // ink: quiet, large text, 3:1
                 .elapsedClockAccessibility(store.elapsed)
             VStack(alignment: compact ? .leading : .center, spacing: 2.zoomed) {
                 Text(store.activeIntent)
@@ -582,17 +582,17 @@ struct FocusHero: View {
                     .lineLimit(1)
                 Label(store.workType.displayName, systemImage: store.workType.symbolName)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 if let summary = store.threadSummaryLine {
                     Text(summary)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .lineLimit(1)
                 }
                 if let detail {
                     Text(detail)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .multilineTextAlignment(compact ? .leading : .center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -634,7 +634,7 @@ struct FocusHero: View {
             HStack(spacing: Tokens.Space.m) {
                 Text("Started automatically")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize()
                 automaticIntentField
                 WorkTypePicker(selection: $store.workType)
@@ -656,7 +656,7 @@ struct FocusHero: View {
             // nothing else says the session was automatic.
             Text(automaticSentence)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
             if compact {
                 automaticIntentField
                 HStack(spacing: Tokens.Space.s) {
@@ -704,7 +704,7 @@ struct FocusHero: View {
         .accessibilityLabel("Undo automatic session")
         .buttonStyle(StoryPressStyle())
         .font(Tokens.Typography.body)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(StoryStyle.supportingInk)
         .frame(minHeight: 28.zoomed)
     }
 
@@ -765,7 +765,7 @@ struct FocusHero: View {
                         .font(Tokens.Typography.body)
                         .foregroundStyle(store.goal.isMet
                                          ? AnyShapeStyle(StoryStyle.successInk)
-                                         : AnyShapeStyle(.secondary))
+                                         : AnyShapeStyle(StoryStyle.supportingInk))
                 }
             }
             .frame(maxWidth: 360.zoomed, alignment: .center)
@@ -780,7 +780,7 @@ struct FocusHero: View {
             // the light appearance.
             .foregroundStyle(store.goal.isMet
                              ? AnyShapeStyle(StoryStyle.successInk)
-                             : AnyShapeStyle(.secondary))
+                             : AnyShapeStyle(StoryStyle.supportingInk))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
     }

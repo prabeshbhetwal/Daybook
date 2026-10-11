@@ -49,7 +49,7 @@ struct InsightSection: View {
                 if expanded.value {
                     Text(presentation.provenance)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                         .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
                 }
@@ -112,7 +112,7 @@ struct CategoryShareBar: View {
                             .frame(width: 8.zoomed, height: 8.zoomed)
                         Text("\(share.workType.displayName) \(DurationText.percent(share.share))")
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                     }
                     .accessibilityElement(children: .combine)
                 }

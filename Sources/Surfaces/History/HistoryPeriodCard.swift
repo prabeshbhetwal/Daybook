@@ -47,13 +47,13 @@ struct HistoryPeriodCard: View {
                         .font(Tokens.Typography.rowTitle.monospacedDigit())
                     Image(systemName: "chevron.right")
                         .font(Tokens.Typography.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
                 }
                 Text(durations: Self.detail(row, summary: store.historySummary(for: row.place), today: top.today,
                                             calendar: calendar))
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 bars(Self.slots(row, top: top, calendar: calendar), colour: colour)
                     .padding(.top, Tokens.Space.s)
                 if !shares.isEmpty {

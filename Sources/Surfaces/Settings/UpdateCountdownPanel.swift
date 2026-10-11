@@ -99,7 +99,7 @@ private struct UpdateCountdownView: View {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 Text(message(at: context.date))
                     .font(Tokens.Typography.body.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: Tokens.Space.s) {

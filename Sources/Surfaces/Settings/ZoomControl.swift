@@ -35,12 +35,12 @@ struct ZoomControl: View {
                 // its labels with the accent, which reads as a control.
                 Text("A")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .accessibilityHidden(true)
             } maximumValueLabel: {
                 Text("A")
                     .font(Tokens.Typography.heading)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .accessibilityHidden(true)
             } onEditingChanged: { editing in
                 isDragging = editing
@@ -74,7 +74,7 @@ struct ZoomControl: View {
         return Button { model.interfaceZoom = 1 } label: {
             Image(systemName: "arrow.counterclockwise")
                 .font(Tokens.Typography.label)
-                .foregroundStyle(Color.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .frame(width: AccessibilityMetrics.minimumTargetSize,
                        height: AccessibilityMetrics.minimumTargetSize)
         }

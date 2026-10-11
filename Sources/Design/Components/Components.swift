@@ -22,7 +22,7 @@ struct SectionHeader: View {
             if let trailing {
                 Text(trailing)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
         }
         .accessibilityElement(children: .combine)
@@ -106,7 +106,7 @@ struct WorkTypePicker: View {
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             .padding(.horizontal, Tokens.Space.m)
             .frame(height: Tokens.Control.compactHeight)
@@ -257,7 +257,7 @@ struct PanelHeader: View {
                     if let subtitle {
                         Text(subtitle)
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -348,7 +348,7 @@ struct MenuBarLabel: View {
                     .font(Tokens.Typography.menuBar)
             }
         }
-        .foregroundStyle(display.isPaused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+        .foregroundStyle(display.isPaused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)) // ink: quiet, the system menu bar's own paused look
     }
 }
 

@@ -32,7 +32,7 @@ private struct RewardHUDView: View {
                     .lineLimit(2)
                 Text(model.detail)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     // A break prompt carries its reason, which is two sentences.
                     // At two lines the reason was the half that got truncated,
                     // leaving an instruction with no argument behind it.
