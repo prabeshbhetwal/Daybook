@@ -66,7 +66,7 @@ nothing to look at).
 |---|---|---|
 | Core | `Sources/Core/NoteFacts.swift` | The facts for one period as plain text: its label and dates, sessions in order (name, start, length), top apps, and up to four candidate observations (longest stretch, when focus began, change from the previous period, goal result and similar). Also `WrittenNote` (story, pattern, optional tip) and the two inputs the facts are built from, `NoteDayInput` (which carries `sessionCount`, the sessions as History counts them) and `NotePeriodInput`. No `FoundationModels` import. |
 | Core | `Sources/Core/NoteFactsBuilder.swift` | `NoteFacts.day` and `NoteFacts.period`, the wording and formats of the facts, and the app-rendered figures line. Lists are capped (a day names its top 8 sessions by time, in start order, and counts the rest). Split from `NoteFacts` to keep each file under 300 lines. |
-| Core | `Sources/Core/NoteAudit.swift` | `passes(_ note:, facts:)`: every run of digits in the story, pattern and tip must appear among the digit runs of the facts' text, with leading zeros ignored. |
+| Core | `Sources/Core/NoteAudit.swift` | `passes(_ note:, facts:)`: every figure in the story, pattern and tip must appear among the facts' figures. A figure is a run of digits (leading zeros ignored) or a number spelled out in words, read as the digits it stands for (§6a). |
 | App | `Sources/App/ModelGate.swift` | `modelAvailable`: macOS 26 and `availability == .available`, read on every call rather than kept from launch. `AskModel.canAsk` reads it too, so Ask is unchanged. The Settings switch is read by `NoteWriter.isUsable`. |
 | App | `Sources/App/NoteWriter.swift` | `@MainActor ObservableObject`. Publishes each place's note state (writing, written, failed) and keeps the cache and the failed keys. One `LanguageModelSession` per note, with greedy sampling and `@Generable GeneratedNote { story, pattern, tip }`; the tip is kept on days only. Runs the audit, writes one note at a time, and has a `responder` seam for checks. Remembers the key each published state was written for: `forgetIfStale(_:)` drops a note or failure whose facts have since changed, and `cancelAll()` stops the note being written and drops those waiting. |
 | App | `Sources/App/SessionStore+Notes.swift` | Builds `NoteFacts` for a History place, for today and for yesterday from the read models those surfaces already publish, and answers whether Wrap up today or the Yesterday notice is offered. `noteEvidence` is the session archive's and the session metadata's revisions, read from `evidenceRevision`: the cheap value a note on screen is checked against again (§3). It publishes no note state (only the redraw after the Yesterday notice is dismissed) and adds no stored property, so `SessionStore` gains no `keep_internals` entry. |
@@ -170,7 +170,7 @@ send a Wrap up today note just written back to its link.
 | Facts change (rename, correction, deletion, a session added) | The facts' text changes, and with it the cache key, so the note is written again, at once if it is on screen (the view checks again when `noteEvidence` moves, §3) and otherwise when next viewed. A note written on request returns to its link instead, since nothing writes it unasked. Changes in app use alone are not watched. |
 | Midnight | Notes are keyed by period and the facts' text. A day's first fact line ends "(so far)" while it is current, so the text, and with it the key, always changes at midnight: today's wrap-up is never carried over, and the finished day's note, in History and in the Yesterday notice, is always written afresh. The Yesterday notice moves to the new yesterday. Done closes the day the notice showed, not whichever day is yesterday when it is pressed after midnight, so the new yesterday is still offered. |
 | Several periods opened quickly | One call at a time. A newer request replaces the one running. A replaced period still on screen is written once the writer is idle; one whose view has closed is dropped. |
-| Figures written as words | Not caught by the audit. Marked `ponytail:` in `NoteAudit`; widen to number words if the probe finds any. |
+| Figures written as words | Read by the audit as the digits they stand for: the probe found the model writing most of a week's or month's figures this way (§6a). A lone "one", "half", "dozen" and ordinals are still not read (`ponytail:` in `NoteAudit`). |
 
 ## 5. Privacy
 
@@ -200,6 +200,8 @@ model.
 | Previous period | Months and weeks whose predecessor starts before, or after, the record's first day | A partly recorded period is compared, or a wholly recorded one is not |
 | Evidence | A rename, an edited session note, a session running and stopping, and app use recorded | A rename, a session note or a stop leaves `noteEvidence` as it was, a running session moves it, or app use alone moves it |
 | Carried over | A session from 10 pm on a Friday to 2 am on the Saturday | Saturday's facts name 12:00 am, or omit "carried on past midnight", "from before midnight" in the list and on the longest stretch; Friday's lose their 10:00 pm start |
+| Spelled figures | Notes writing "forty-six", "two thousand twenty-six" and "five thirty" | A spelled number reads as other than its digits, a spelled figure the facts lack passes (the digits-only audit passed it), or one the facts hold, or a session name's, fails |
+| Most-time list | A week whose sessions are "Budget, then notes" and "Release 1.3" | The list reads other than `name: duration` joined by semicolons, so a comma or a trailing number runs into the figures |
 | Views | `--gallery` / `--snapshot` with fixed notes | Layout breaks at 80% and 140% zoom; VoiceOver labels missing |
 
 Run in Sydney and with `TZ=Europe/Berlin`. Mutation test in a temporary tree
@@ -210,32 +212,111 @@ periods. Target: no audit failures, and Sir's read of tone and accuracy.
 
 ## 6a. Probe (2026-10-11)
 
-The live probe could not run. On 2026-10-11 the on-device model reported
-available, but every generation request hung: the system's model manager was
-stuck on a model-asset lookup, and restarting it needs root or a reboot. No
-model-written note has been read yet.
+After the Mac restarted, the on-device model wrote notes for 20 fixture
+periods. **20 of 20 passed the audit.** No note stated a figure the facts
+lack. Median 3.9 s a note, fastest 2.7 s, slowest 8.1 s (the day with nine
+sessions), on a Mac that other builds were keeping at a load average of 12
+to 90. Hand check 1's 3 s bar is therefore not met on a busy Mac. The notes
+below, and a read of them, are for Sir's judgement of tone and truth.
 
-The probe covers 20 fixture periods, about 40 model calls:
+How it ran. A temporary copy of the sources, outside the working tree, got a
+`--noteprobe` entry that runs before anything touches live data. It calls
+`NoteWriter`'s own generation and tidying code (the same instructions,
+`GeneratedNote` and greedy sampling), applies `NoteAudit` itself so a failing
+note's text can be read, then asks the real `NoteWriter` for the same place.
+The writer's state matched the audit's verdict for all 20. The fixture is an
+in-memory history from August to 10 October 2026:
 
-- days with 1, 3 and 9 sessions
-- sessions named with digits
-- a session across midnight
-- a running session
-- finished and current weeks and months
+- days with 1, 3 and 9 sessions, one named with digits ("Q4 plan v2",
+  "Sprint 42 review", "2026 tax return"), one of two very short sessions, one
+  with long names holding a comma and a dash, one after a very short day, one
+  after a longer day, one with no focus the day before
+- a session across midnight, read on both its days, and a running session
+- weeks and months, finished with a whole previous period, current, and the
+  first of the record
 
-Pass bar: 0 audit failures, and Sir's read of tone and truth.
+| Place | Audit | Story | Pattern | Tip |
+|---|---|---|---|---|
+| Wed 7 Oct, digit names | pass | You worked on Q4 plan v2 for 1 hour 30 minutes at 9:00 am, then Sprint 42 review for 1 hour at 11:00 am, and finally 2026 tax return for 2 hours at 2:00 pm. | The 2-hour stretch in 2026 tax return at 2:00 pm was the longest focus period of the day. | You spent 1 hour less focusing than the day before; consider adjusting your schedule for consistency. |
+| Sat 10 Oct, so far, a session from the night before | pass | You worked on Release 1.3 from before midnight for 1h 15m, then Thesis at 9:10 am for 1h 50m, and Parser at 1:00 pm for 1h 30m. | The longest stretch of focus was 1h 50m in Thesis at 9:10 am. | You had 37 minutes less focus than the day before, so consider reviewing your priorities for the next day. |
+| Mon 10 Aug, goal missed | pass | You worked on Thesis at 9:00 am for 1h 30m, then Parser at 2:00 pm for 54m, and finally Email at 4:30 pm for 30m. | The longest stretch of focus was 1h 30m in Thesis, from 9:00 am. | Next day, start with Thesis at 9:00 am to build momentum. |
+| Fri 2 Oct, names with a comma and a dash | pass | You worked on Mum's birthday – planning at 9:00 am for 40 minutes, then reviewing the quarterly budget proposal with Priya and sending notes at 10:30 am for 1 hour 35 minutes. | The longest stretch of focus was 1 hour 35 minutes in reviewing the quarterly budget proposal with Priya, then sending notes, from 10:30 am. | You spent 1 hour 27 minutes less focused than the day before; consider reviewing priorities for the next session. |
+| Week of 28 Sep | pass | You worked on reviewing the quarterly budget proposal with Priya and sending notes for one hour thirty-five minutes, then reading for one hour thirty minutes, then thesis for eleven hours, then parser for six hours thirty-six minutes, then email for two hours, and then other sessions for seventeen hours forty-one minutes over seven days. | You met your goal on three of seven days with focus. | not shown (tips appear on days only) |
+| Week of 14 Sep | pass | You worked on Thesis for hours, Parser for hours and hours, and Email for hours over fourteen sessions spread across five days. | Tuesday 15 September 2026 had the most focus of the week at nine hours. | not shown |
+| Week of 3 Aug | pass | You worked on Thesis for 7h 30m, Parser for 4h 30m, and Email for 2h 30m across 15 sessions over 5 days. | You met your goal on 0 of 5 days with focus. | not shown |
+| September | pass | You worked on Thesis for a total of 68h, followed by Parser for 41h 48m, and Email for 10h 30m. | You met your goal of having focus every day on 22 of 22 days. | not shown |
 
-A run of the facts alone, with no model, raised three wording watch-points for
-the probe to judge:
+Greedy sampling gave the same day notes word for word on every run.
 
-- A comma inside a session name in the "Most time went to" list, which is itself comma-separated.
-- A name ending in a number, followed by a duration, which can read as one figure.
-- "Focus began at 12:00 am" for a session continued from the night before.
+### Read of tone and truth
 
-The third was fixed after the final review (§2, §6), so the probe's day
-across midnight reads the fixed wording.
+Days (13 notes):
 
-Merge waits on this probe passing.
+- Times, order and durations match the facts in every day story. One story
+  misreads them: Sat 3 Oct (one session, Reading) says "then 1 hour 30 minutes
+  in Books", taking the top-app line for a second block of work.
+- Names are not always quoted as written: "Call Mum" became "called Mum", and
+  the long name lost its capital, and its comma in the story (the pattern
+  above keeps the comma).
+- The three wording watch-points: a name ending in a number followed by its
+  duration ("Release 1.3 for 2h 45m") read correctly everywhere; the
+  overnight wording ("from before midnight") was used correctly on both days
+  and nothing said a session began at midnight; a comma inside a name did
+  not break a day, but did garble a week (below).
+- No praise is shown anywhere. Tips are weaker than stories: 4 of 13 are sound
+  advice built on the stretch or start time ("start with Thesis at 9:00 am to
+  build momentum"); 2 restate an observation without advising; 5 turn the
+  comparison with the day before into a mild reprimand ("consider adjusting
+  your schedule for consistency"); 2 make no sense ("Next day, focus for 48
+  minutes less than the day before", "aim to spend more time on calls than on
+  apps"). One of the five reprimands, on the running day, also claims the
+  person "carried focus into the morning", which the facts do not say.
+- Days marked "so far" (and the current week and month) are written in the
+  past tense, where the instructions ask for the present.
+
+Weeks and months (7 notes), where the model is much less reliable:
+
+- It wrote most of the figures as words in 4 of 7 ("five hours and forty-six
+  minutes", "thirty-one hours thirty minutes"); in 2 it dropped them ("Thesis
+  for hours"). The digits-only audit read none of the spelled ones. All
+  pass now that it reads them, because each is in the facts.
+- One note invents a total. The week of 28 Sep says "other sessions for
+  seventeen hours forty-one minutes": it seems to have joined the week's 17
+  sessions to its 23h 41m. Both numbers are in the facts, so the audit
+  cannot see it. The audit checks that a figure exists in the facts, not what
+  it stands for; this is the limit of the design, and why the instructions ask
+  the model never to total.
+- Every pattern line is true. Stories list sessions with "then", as if in
+  order, though the list is by time spent.
+
+### Changes the probe prompted
+
+- The audit now reads numbers spelled out in words (see §4 and §6), as the
+  spec foresaw. Passing was 20 of 20 before and after.
+- A week's or month's most-time list is now "name: duration" joined by
+  semicolons, like the day's session list. Before, a name with a comma ran
+  into the figures in the week of 28 Sep ("Reviewing the quarterly budget
+  proposal with Priya, then sending notes 1h 35m"), and the story repeated
+  names.
+
+Tried and rejected on the fixture, without rebuilding the app: calling the
+top apps "apps in front during these sessions" (the tips then told the person
+to spend less time in Mail); durations in words and a shorter list (the
+period notes stayed erratic: some figures dropped, some spelled out). Facts
+alone did not make the period notes dependable.
+
+### For Sir
+
+- Whether week and month notes ship as they are, given the dropped figures and
+  the invented total; the day notes read well apart from some weak tips.
+- A first run was refused from the eleventh note on, with the system's
+  "not executed due to current system state: CriticalMemoryPressure, try
+  again later" (error 1013), while other builds held the Mac at a load average
+  near 80. That is the Mac, not the note, but `NoteWriter` treats any thrown
+  error as a failed note and remembers the facts as failed for the session, so
+  under memory pressure an automatic note is never tried again until its
+  facts change. The probe waited and asked again; the app does not.
+- Merge waits on Sir's read of the above, and on hand checks 1 to 6.
 
 ## 7. Hand checks
 
