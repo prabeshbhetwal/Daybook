@@ -181,10 +181,10 @@ extension SettingsSection {
                     "Expand entry details by default", "Fold quiet stretches after"]
         case .data:
             // The upgrade copy's row may be absent, so it is not listed; the
-            // Apple Intelligence row is listed only on a Mac that shows it.
+            // on-device AI row is listed only on a Mac that shows it.
             return ["Privacy", "App use measured precisely since", "Backups", "Back up automatically",
                     "Back up to", "Keep automatic backups", "Last backup", "Next backup", "Back Up Now",
-                    "Reveal data folder"] + (ModelGate.modelAvailable ? ["Use Apple Intelligence"] : [])
+                    "Reveal data folder"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
         case .advanced: return ["Version", "Build", "Recovery"]
@@ -233,7 +233,10 @@ extension SettingsControlKey {
         case .keepAwake: return ["Keep awake", "Caffeine", "Caffeinate", "Amphetamine", "KeepingYouAwake"]
         case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
         case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]
-        case .askButton: return ["Apple Intelligence", "Question", "Command-K", "Sparkles", "Assistant"]
+        // Rows say "on-device AI"; Apple's name for its model still finds them.
+        case .askButton: return ["Apple Intelligence", "On-device AI", "Question", "Command-K", "Sparkles", // name: Apple's
+                                 "Assistant"]
+        case .appleIntelligence: return ["Apple Intelligence"] // name: Apple's
         case .askPlacement: return ["Side panel", "Sheet", "Sidebar", "Inspector", "Panel"]
         default: return []
         }

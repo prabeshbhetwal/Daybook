@@ -63,7 +63,7 @@ enum AskEntryChecks: CheckSuite {
 
     private static func settingsReachAsk() -> [String] {
         var problems: [String] = []
-        for words in ["Apple Intelligence", "Command-K", "Show Ask in the toolbar", "Open Ask"] {
+        for words in ["Apple Intelligence", "On-device AI", "Command-K", "Show Ask in the toolbar", "Open Ask"] {
             let found = SettingsSection.matching(words).map(\.title)
             expect(found.contains("General"), "searching “\(words)” finds \(found), not General", &problems)
         }

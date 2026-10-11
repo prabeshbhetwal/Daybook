@@ -98,9 +98,12 @@ session control never wraps.
 
 Ask is a capsule, not a circle: the sparkles and the word "Ask", because an
 icon alone would leave Ask as hidden as ⌘K. The sparkles take the
-`askSparkles` gradient; Apple's Apple Intelligence glyph may only name
-Apple Intelligence, so it appears only in the Ask sheet's line saying who
-answers. Short of room, the word goes and the sparkles stay. While Ask's side
+`askSparkles` gradient. The app's copy says "on-device AI", never "Apple
+Intelligence", except where it sends the person to that switch in System
+Settings; Apple's glyph for Apple Intelligence may only stand beside that
+name, so every mark of the model is the sparkles: the Ask sheet's line
+saying who answers, a review note's caption and a suggested search chip.
+Short of room, the word goes and the sparkles stay. While Ask's side
 panel is open the button is pressed in and ringed in the action colour, which
 tells it from a hover. The button is absent on a Mac that can never run Ask and
 when its Settings switch is off.
