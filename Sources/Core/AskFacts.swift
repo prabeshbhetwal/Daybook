@@ -44,10 +44,13 @@ enum AskFacts {
         // Only a search leaves the running session out; the plain total counts it.
         let tail = words != nil && sessionRunning ? runningNote : ""
         let app = totals.app.map { " \($0.name) itself was in front for \(DurationText.compact($0.total)) \(range.inPhrase)." }
+        // What the words found beyond the sessions: the app's hours, a note's line.
+        let found = (totals.appHours.map { " Most in front \($0)." } ?? "")
+            + (totals.noteLine.map { " A matching note: “\($0)”." } ?? "")
         let phrase = placed(range, totals.dates)
         guard totals.sessions > 0 else {
             return capped((words.map { "No sessions match “\($0)” \(phrase)." }
-                           ?? "No focus recorded \(phrase).") + (app ?? ""), keeping: tail)
+                           ?? "No focus recorded \(phrase).") + (app ?? "") + found, keeping: tail)
         }
         let lead = words.map { "Sessions matching “\($0)” \(phrase)" } ?? sentenceStart(phrase)
         let verb = words == nil ? "focused over" : "over"
@@ -66,7 +69,14 @@ enum AskFacts {
             text += "; the longest finished session was \(longest.name) on \(longest.day), "
                 + DurationText.compact(longest.worked)
         }
-        text += "." + (app ?? "")
+        text += "." + (app ?? "") + found
+        if !totals.workTypes.isEmpty {
+            text += " By work type: " + totals.workTypes.map { "\($0.name) \(DurationText.compact($0.seconds))" }
+                .joined(separator: ", ") + "."
+        }
+        if let streak = totals.streak {
+            text += " The current streak is \(count(streak.days, "day")), since \(streak.since)."
+        }
         if let parts = totals.parts, !parts.items.isEmpty {
             let items = parts.items.map { "\($0.label) \(DurationText.compact($0.focused))" }
             text += " By \(parts.name): \(items.joined(separator: ", "))."

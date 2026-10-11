@@ -142,7 +142,7 @@ enum AskLookupChecks: CheckSuite {
             // One day is its own best and has no breakdown: neither is said,
             // but when its first session began is.
             let yesterday = f.store.askLookup(.focusTotals(.yesterday, words: nil))
-            expect(yesterday == "Yesterday (Tue 14 Nov): 1h 30m focused over 1 session on 1 day; the first session began at 2:00pm.",
+            expect(yesterday == "Yesterday (Tue 14 Nov): 1h 30m focused over 1 session on 1 day; the first session began at 2:00pm. By work type: Deep work 1h 30m.",
                    "yesterday says “\(yesterday)”", &problems)
         }
     }
@@ -152,7 +152,7 @@ enum AskLookupChecks: CheckSuite {
             f.engine.start(workType: .deepWork, intent: "Thesis")
             f.clock.advance(20 * 60)
             let text = f.store.askLookup(.focusTotals(.today, words: nil))
-            expect(text == "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am.",
+            expect(text == "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am. By work type: Deep work 20m.",
                    "the running session's 20m, alone, reads “\(text)”", &problems)
         }
     }
@@ -295,7 +295,7 @@ enum AskLookupChecks: CheckSuite {
             f.clock.advance(20 * 60)
             expect(f.engine.stop(), "the session did not stop", &problems)
             let later = f.store.askLookup(.focusTotals(.today, words: nil))
-            expect(later == "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am.",
+            expect(later == "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am. By work type: Deep work 20m.",
                    "after a saved session, today says “\(later)”", &problems)
             expect(!f.store.reviewVisible, "a lookup left History showing", &problems)
         }

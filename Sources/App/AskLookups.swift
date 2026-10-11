@@ -54,7 +54,7 @@ enum AskLookups {
             description: "Returns the focused time, sessions and days in a period, the average on each day with focus, "
                 + "the most focused day, week and month, the longest session and a breakdown; for one day, when the "
                 + "first session began. Optionally only for sessions matching some words. For the most focused day, "
-                + "week or month overall, use all time.",
+                + "week or month overall, use all time. Also gives the time in each work type.",
             parameters: [AskParameter(name: "range", description: rangeGuide, required: true),
                          AskParameter(name: "words", description: wordsGuide, required: false)]),
         read: { arguments, period in

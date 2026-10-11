@@ -45,6 +45,12 @@ struct AskSide {
     var dates: String?
 }
 
+/// A named part of a range's focus: a work type and its time.
+struct AskShare: Equatable {
+    let name: String
+    let seconds: TimeInterval
+}
+
 /// One range's figures, gathered by the store for `AskFacts.focusTotals`.
 struct AskTotals {
     /// The dates a relative range covers, as `September 2026`: see `AskFacts.placed`.
@@ -62,6 +68,14 @@ struct AskTotals {
     /// time of the sessions it was used in.
     var app: (name: String, total: TimeInterval)?
     var parts: (name: String, items: [(label: String, focused: TimeInterval)])?
+    /// The range's focus by work type, as History's cards split it, largest first.
+    var workTypes: [AskShare] = []
+    /// The current streak, in days, and the day it began, as `Fri 10 Nov`; all time only.
+    var streak: (days: Int, since: String)?
+    /// When the app the words name was in front: an `AskFacts.hoursPhrase`.
+    var appHours: String?
+    /// The first note line that holds a word of the search.
+    var noteLine: String?
 
     /// The text names the longest session only when there is more than one to choose from.
     var namesLongest: Bool { sessions > 1 }

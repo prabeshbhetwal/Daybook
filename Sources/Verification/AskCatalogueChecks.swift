@@ -33,7 +33,8 @@ enum AskCatalogueChecks: CheckSuite {
         let want = V1.tools.map(\.name)
         expect(names == want, "the catalogue starts with \(names), not \(want)", &problems)
         // What each lookup says beyond version one's, appended to its description.
-        let added = ["appTime": " Also gives the hours of the day it was in front."]
+        let added = ["appTime": " Also gives the hours of the day it was in front.",
+                     "focusTotals": " Also gives the time in each work type."]
         for (entry, old) in zip(AskLookups.all, V1.tools) {
             let description = old.description + (added[old.name] ?? "")
             expect(entry.spec.description == description,

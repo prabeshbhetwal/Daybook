@@ -14,6 +14,13 @@ enum AskFactsExtensionChecks: CheckSuite {
         ("Hours are worded top three, most first, earlier first on a tie", hoursPhraseWording),
         ("App time names the hours an app was in front", appTimeNamesHours),
         ("App hours are History's lens figures", appHoursAreTheLensFigures),
+        ("The shared Ask fixture holds the figures later checks pin", fixtureHoldsPinnedFigures),
+        ("Totals give the time in each work type, as History does", totalsGiveWorkTypes),
+        ("Words that name a work type give that type's total", wordsNameWorkType),
+        ("All-time totals name the current streak", allTimeNamesStreak),
+        ("Words that name an app bring its hours", wordsNameAppHours),
+        ("Words found in a note bring the note's line", wordsFindNoteLine),
+        ("Totals stay within 1 KB with the new parts", totalsStayWithinCap),
     ]
 
     private static func sessionLineSaysFrom() -> [String] {
@@ -116,5 +123,110 @@ enum AskFactsExtensionChecks: CheckSuite {
             _ = f.store.askLookup(.appTime(.allTime, app: "safari"))
             expect(f.store.historyFilter == filter, "an app time lookup changed History's filter", &problems)
         }
+    }
+
+    // MARK: - Focus totals
+
+    private static func fixtureHoldsPinnedFigures() -> [String] {
+        AskDataFixture.with { f, problems in
+            let archive = f.engine.archive
+            expect(archive.currentStreak() == 5 && archive.bestStreak() == 12,
+                   "the streak is \(archive.currentStreak()) days, the best \(archive.bestStreak())", &problems)
+            let monday = f.store.storyDayProjection(on: f.moment(2, 12), calendar: f.calendar)
+            expect(monday.focused == 16_920 && monday.goalCredit == 16_920,
+                   "Mon 13 Nov is \(monday.focused) s with \(monday.goalCredit) s of goal credit", &problems)
+            let tuesday = f.store.storyDayProjection(on: f.moment(1, 12), calendar: f.calendar)
+            expect(tuesday.focused == 3_600 && tuesday.goalCredit == 3_600,
+                   "Tue 14 Nov is \(tuesday.focused) s with \(tuesday.goalCredit) s of goal credit", &problems)
+            let october = f.store.storyDayProjection(on: f.octFifth.start, calendar: f.calendar)
+            expect(october.focused == 18_000 && october.goalCredit == 3_600,
+                   "Oct 5 is \(october.focused) s with \(october.goalCredit) s of goal credit", &problems)
+            let items = f.store.storyTimelineItems(on: f.moment(2, 12))
+            let decisions = items.compactMap { item -> String? in
+                if case let .decision(receipt, _) = item { return receipt.name }
+                return nil
+            }
+            expect(Set(decisions) == ["Meeting", "Coffee"] && decisions.count == 2,
+                   "Mon 13 Nov shows the answers \(decisions)", &problems)
+            let kinds = f.machineEvents.events.map(\.kind)
+            expect(kinds == [.wake, .lock, .unlock, .systemSleep, .wake, .crashed], "the event log holds \(kinds)", &problems)
+            let power = (f.metadata.metadata(for: f.thesisA.id)?.power.count ?? 0)
+                + (f.metadata.metadata(for: f.thesisB.id)?.power.count ?? 0)
+            expect(power == 4, "the Thesis records hold \(power) battery readings, not 4", &problems)
+            expect(f.engine.store.dailyGoal == 14_400 && f.engine.store.streakMinimum == 3_600,
+                   "the goal and the streak minimum are not set", &problems)
+        }
+    }
+
+    private static func totalsGiveWorkTypes() -> [String] {
+        AskDataFixture.with { f, problems in
+            let text = f.store.askLookup(.focusTotals(.thisMonth, words: nil))
+            expect(text.contains("By work type: Deep work 8h 12m, Admin 30m."), "this month says “\(text)”", &problems)
+            let place = HistoryPlace(level: .month, span: f.store.askInterval(.thisMonth))
+            let history = f.store.historyCategories(for: place)
+            let shares = f.store.askWorkTypes(.thisMonth)
+            expect(shares.map(\.name) == history.map(\.workType.displayName)
+                   && shares.map(\.seconds) == history.map(\.seconds) && shares.count == 2,
+                   "Ask's work types \(shares) differ from History's \(history)", &problems)
+        }
+    }
+
+    private static func wordsNameWorkType() -> [String] {
+        AskDataFixture.with { f, problems in
+            let text = f.store.askLookup(.focusTotals(.thisMonth, words: "admin"))
+            expect(text.hasPrefix("Sessions matching “admin” this month (November 2023)"), "the answer says “\(text)”", &problems)
+            expect(text.contains("30m over 1 session"), "the admin total is not given: “\(text)”", &problems)
+        }
+    }
+
+    private static func allTimeNamesStreak() -> [String] {
+        AskDataFixture.with { f, problems in
+            let text = f.store.askLookup(.focusTotals(.allTime, words: nil))
+            expect(text.contains("The current streak is 5 days, since Fri 10 Nov."), "all time says “\(text)”", &problems)
+            let month = f.store.askLookup(.focusTotals(.thisMonth, words: nil))
+            expect(!month.contains("streak"), "a month names the streak: “\(month)”", &problems)
+            f.clock.value = f.moment(-3, 9)
+            let later = f.store.askLookup(.focusTotals(.allTime, words: nil))
+            expect(!later.contains("streak"), "days after the streak ended, all time says “\(later)”", &problems)
+        }
+    }
+
+    private static func wordsNameAppHours() -> [String] {
+        AskDataFixture.with { f, problems in
+            let text = f.store.askLookup(.focusTotals(.allTime, words: "safari"))
+            let hours = "Most in front from 7am to 8am (4h), then from 9am to 10am (1h) and from 11am to 12pm (55m)."
+            expect(text.contains(hours), "Safari's totals say “\(text)”", &problems)
+            // No session is named Safari, yet the app's hours are still given.
+            let month = f.store.askLookup(.focusTotals(.lastMonth, words: "safari"))
+            expect(month.hasPrefix("No sessions match “safari” last month"), "last month says “\(month)”", &problems)
+        }
+    }
+
+    private static func wordsFindNoteLine() -> [String] {
+        AskDataFixture.with { f, problems in
+            let text = f.store.askLookup(.focusTotals(.allTime, words: "tokenizer"))
+            expect(text.contains("A matching note: “tokenizer rewrite”."), "the totals say “\(text)”", &problems)
+            let none = f.store.askLookup(.focusTotals(.allTime, words: "thesis"))
+            expect(!none.contains("A matching note"), "a name that no note line holds brought a note: “\(none)”", &problems)
+        }
+    }
+
+    private static func totalsStayWithinCap() -> [String] {
+        var problems = AskLookupChecks.withFixture(extraThesisDays: 1_000) { f, problems in
+            for range in AskRange.allCases {
+                let text = f.store.askLookup(.focusTotals(range, words: nil))
+                expect(text.utf8.count <= AskFacts.maximumBytes, "\(range.title) is \(text.utf8.count) bytes", &problems)
+            }
+        }
+        problems += AskDataFixture.with { f, problems in
+            for range in AskRange.allCases {
+                for words in [nil, "safari", "tokenizer"] {
+                    let text = f.store.askLookup(.focusTotals(range, words: words))
+                    expect(text.utf8.count <= AskFacts.maximumBytes,
+                           "\(range.title) with \(words ?? "no words") is \(text.utf8.count) bytes", &problems)
+                }
+            }
+        }
+        return problems
     }
 }

@@ -40,7 +40,7 @@ enum AskRunningSessionChecks: CheckSuite {
             says(.appTime(.lastWeek, app: "safari"), "No app called “safari” was used last week.", false)
 
             // Answers that already count the running session, or take no words, are left alone.
-            says(.focusTotals(.today, words: nil), "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am.", false)
+            says(.focusTotals(.today, words: nil), "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am. By work type: Deep work 20m.", false)
             says(.appTime(.today, app: nil), "No app use recorded today.", false)
             says(.bestHours(.today), "Not enough focus today to tell; it needs at least 30m.", false)
 
