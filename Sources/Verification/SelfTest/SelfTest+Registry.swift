@@ -117,6 +117,7 @@ extension SelfTest {
             + SupportingInkChecks.tests
             + AskFactsExtensionChecks.tests
             + AskDayEventsChecks.tests
+            + AskSessionDetailChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

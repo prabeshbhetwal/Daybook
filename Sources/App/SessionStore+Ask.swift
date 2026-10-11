@@ -32,6 +32,8 @@ extension SessionStore {
                 links: [askPeriodLink(first, role: .compared), askPeriodLink(second, role: .compared)])
         case let .dayEvents(range):
             return askStillToCome(range) ?? askDayEvents(range)
+        case let .sessionDetail(range, words):
+            return askStillToCome(range) ?? askSessionDetail(range, words: words)
         }
     }
 

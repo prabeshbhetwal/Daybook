@@ -24,7 +24,7 @@ struct AskLookup {
 /// arrives; anything else, and a date the calendar lacks, is answered as such
 /// rather than swapped for another period.
 enum AskLookups {
-    static let all: [AskLookup] = [focusTotals, compareFocus, bestHours, findSessions, appTime, dayEvents]
+    static let all: [AskLookup] = [focusTotals, compareFocus, bestHours, findSessions, appTime, dayEvents, sessionDetail]
 
     static func named(_ name: String) -> AskLookup? {
         all.first { $0.spec.name == name }
@@ -144,5 +144,20 @@ enum AskLookups {
             let raw = arguments["range"] ?? ""
             guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
             return .request(.dayEvents(range))
+        })
+
+    private static let sessionDetail = AskLookup(
+        spec: AskLookupSpec(
+            name: "sessionDetail",
+            description: "Returns the detail of sessions in a period: each working stretch with its start and end, "
+                + "its note and its battery reading, such as whether the Mac was plugged in.",
+            parameters: [AskParameter(name: "range", description: rangeGuide, required: true),
+                         AskParameter(name: "words",
+                                      description: "Words from the session's name, such as thesis; leave out for every session",
+                                      required: false)]),
+        read: { arguments, period in
+            let raw = arguments["range"] ?? ""
+            guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
+            return .request(.sessionDetail(range, words: text(arguments["words"])))
         })
 }

@@ -68,11 +68,7 @@ extension SessionStore {
     private func askNote(for hit: HistorySearchHit) -> String? {
         if let snippet = hit.noteSnippet { return snippet }
         for id in hit.recordIDs {
-            let line = (metadataArchive.metadata(for: id)?.note ?? "")
-                .split(whereSeparator: \.isNewline)
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .first { !$0.isEmpty }
-            if let line { return line }
+            if let line = askFirstNoteLine(of: id) { return line }
         }
         return nil
     }

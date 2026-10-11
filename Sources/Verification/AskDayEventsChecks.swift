@@ -221,8 +221,8 @@ enum AskDayEventsChecks: CheckSuite {
         let guide = AskLookups.all[0].spec.parameters[0].description
         let want = AskLookupSpec(name: "dayEvents", description: description,
                                  parameters: [AskParameter(name: "range", description: guide, required: true)])
-        expect(AskLookups.all.count == 6 && AskLookups.all.last?.spec == want,
-               "the sixth entry is \(String(describing: AskLookups.all.last?.spec))", &problems)
+        expect(AskLookups.all.count >= 6 && AskLookups.all[5].spec == want,
+               "the sixth entry is \(String(describing: AskLookups.all.dropFirst(5).first?.spec))", &problems)
         expect(AskLookups.named("dayEvents")?.spec == want, "named(dayEvents) is not that entry", &problems)
         if let entry = AskLookups.named("dayEvents") {
             guard let schema = try? AskOnDeviceTool.schema(for: entry.spec),
