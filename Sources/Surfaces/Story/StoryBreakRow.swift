@@ -7,6 +7,21 @@ private final class BreakChangeDraft: ObservableObject {
     var original: SessionRecord?
 }
 
+/// A break's name being written. A relaunch would lose it, so an update's
+/// countdown waits while the field is open, as it does for a note.
+final class BreakNameDraft: ObservableObject, FormDraft {
+    @Published var isEditing = false
+    @Published var text = ""
+
+    var isOpen: Bool { isEditing }
+
+    func begin(with name: String, in store: SessionStore) {
+        store.openForms.track(self)
+        text = name
+        isEditing = true
+    }
+}
+
 /// Every recorded break, one row, whichever way it was recorded: its name and
 /// length, a way to name it, a way to change how it counts, and Undo when the
 /// break was an answer to the away question. Rest is not work, so it is a
@@ -33,8 +48,7 @@ struct StoryBreakRow: View, Equatable {
     @StateObject private var draft = BreakChangeDraft()
     @StateObject private var dontAsk = DontAskAgain(.changeBreak)
     @Environment(\.confirmationPolicy) private var confirmations
-    @StateObject private var editing = BoolBox()
-    @StateObject private var nameDraft = TextBox()
+    @StateObject private var nameDraft = BreakNameDraft()
     @FocusState private var nameFocused: Bool
     @FocusState private var nameButtonFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -83,11 +97,11 @@ struct StoryBreakRow: View, Equatable {
                 Text(durations: Tokens.preciseDuration(rest.length))
                     .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(.secondary)
-                if canName, !editing.value { nameButton }
+                if canName, !nameDraft.isEditing { nameButton }
                 changeMenu
                 if receipt != nil { undoButton }
             }
-            if editing.value {
+            if nameDraft.isEditing {
                 nameField
                     .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
             }
@@ -97,7 +111,7 @@ struct StoryBreakRow: View, Equatable {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Tokens.Colour.elevated,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-        .onExitCommand { if editing.value { closeNameField() } }
+        .onExitCommand { if nameDraft.isEditing { closeNameField() } }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(Self.label(rest.name)), \(Tokens.spent(rest.length)), "
                             + Tokens.timeRange(rest.start, rest.end))
@@ -118,9 +132,8 @@ struct StoryBreakRow: View, Equatable {
 
     private var nameButton: some View {
         Button(name == nil ? "Name it" : "Rename") {
-            nameDraft.text = name ?? ""
             withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) {
-                editing.value = true
+                nameDraft.begin(with: name ?? "", in: store)
             }
         }
         .buttonStyle(StoryLinkStyle())
@@ -148,7 +161,7 @@ struct StoryBreakRow: View, Equatable {
                     // The field must be installed before it can take focus;
                     // the "Name it" button that had it has just gone.
                     DispatchQueue.main.async {
-                        if editing.value { nameFocused = true }
+                        if nameDraft.isEditing { nameFocused = true }
                     }
                 }
                 .accessibilityLabel("Break name")
@@ -183,7 +196,7 @@ struct StoryBreakRow: View, Equatable {
     /// reader is not dropped at the top of the window.
     private func closeNameField() {
         nameFocused = false
-        editing.value = false
+        nameDraft.isEditing = false
         DispatchQueue.main.async { nameButtonFocused = true }
     }
 

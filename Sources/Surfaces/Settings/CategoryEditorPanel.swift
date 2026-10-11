@@ -37,7 +37,7 @@ final class CategoryEditorPanelModel: ObservableObject {
     func show(_ request: CategoryEditorRequest, model: SettingsModel,
               onSaved: ((WorkTypeDefinition, Bool) -> Void)? = nil) {
         self.onSaved = onSaved
-        model.track(editor)
+        model.openForms.track(editor)
         ticketCount &+= 1
         panelModel.ticket = CategoryEditorTicket(id: ticketCount, request: request)
         let panel = self.panel ?? makePanel(model: model)

@@ -41,11 +41,11 @@ enum UpdateFormHoldChecks: CheckSuite {
             panel.show(.new, model: settings)
             // The panel's form takes its ticket when SwiftUI first draws it.
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            expect(panel.isVisible && settings.holdsOpenForm,
+            expect(panel.isVisible && settings.openForms.anyOpen,
                    "the open category panel did not hold the update (visible \(panel.isVisible))", &problems)
             panel.close()
             RunLoop.current.run(until: Date().addingTimeInterval(0.3))
-            expect(!settings.holdsOpenForm, "the closed category panel still held the update", &problems)
+            expect(!settings.openForms.anyOpen, "the closed category panel still held the update", &problems)
             return problems
         }
     }
