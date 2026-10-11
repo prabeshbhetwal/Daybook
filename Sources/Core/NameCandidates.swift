@@ -21,6 +21,17 @@ struct NameCandidate: Equatable {
     let usualApps: [String]
 }
 
+/// What the on-device model reads about one unnamed session.
+struct NameFacts: Equatable {
+    /// The session, its apps, its note and the candidates, one per line.
+    let text: String
+    let candidates: [NameCandidate]
+    /// Display names of the session's apps, for `NameAudit`.
+    let appNames: [String]
+    /// Changes when the session's facts change, so an answer is asked again.
+    let cacheKey: String
+}
+
 /// Ranks the person's own earlier names by the app time they share with a
 /// session. Pure: the caller decides which sessions count as history.
 enum NameCandidates {
