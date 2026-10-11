@@ -7,7 +7,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
-    case askEmpty, askAnswered, askFailed, askStopped, askGoals, askPanelStory, askPanelHistory
+    case askEmpty, askAnswered, askFailed, askStopped, askGoals, askPanelStory, askPanelHistory, askPanelGoals
     case reviewNotes, reviewNotesHistory
     case storyDay, storyDayEntry
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
@@ -44,6 +44,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .askGoals: return "Ask — an answer whose sources open History and Awards"
         case .askPanelStory: return "Ask — the side panel beside Story"
         case .askPanelHistory: return "Ask — the side panel beside History"
+        case .askPanelGoals: return "Ask — the side panel with an answer whose sources open History and Awards"
         case .reviewNotes: return "Review notes — Yesterday and Wrap up today on the rail"
         case .reviewNotesHistory: return "Review notes — a History day open under its week and month"
         case .storyDay: return "Story — the day"
@@ -129,7 +130,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awardsEarned, .awardsEmpty:
             return .awards
         case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askGoals, .askPanelStory,
-             .reviewNotes,
+             .askPanelGoals, .reviewNotes,
              .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
              .welcomeOpening, .welcomeStep:
             return .story
@@ -450,7 +451,7 @@ enum Snapshotter {
         case .awardsEmpty:
             return FixtureFactory.store(for: .firstRun)
         case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askGoals, .askPanelStory,
-             .reviewNotes:
+             .askPanelGoals, .reviewNotes:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
@@ -543,7 +544,7 @@ enum Snapshotter {
             // behind the window holds its own copy, made in `snapshotSettings`.
             store.engine.store.askPlacement = .panel
             navigation.openAsk()
-            navigation.askModel?.present(turns: askTurns(for: .askAnswered))
+            navigation.askModel?.present(turns: askTurns(for: scenario == .askPanelGoals ? .askGoals : .askAnswered))
         }
         return navigation
     }
