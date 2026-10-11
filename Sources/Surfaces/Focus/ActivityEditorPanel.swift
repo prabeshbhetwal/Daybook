@@ -140,7 +140,7 @@ struct ActivityEditorPanelView: View {
         if store.savedActivities.isEmpty {
             Text("Nothing pinned yet.")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         } else {
             VStack(spacing: 0) {
                 ForEach(Array(store.savedActivities.enumerated()), id: \.element.id) { index, item in
@@ -167,12 +167,12 @@ struct ActivityEditorPanelView: View {
                         .font(Tokens.Typography.rowTitle)
                     Text(item.workType.displayName + (retired ? " · retired, starts as Deep work" : ""))
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                 }
                 Spacer(minLength: Tokens.Space.s)
                 Image(systemName: "pencil")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(selected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(selected ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(StoryStyle.supportingInk))
             }
             .padding(.horizontal, Tokens.Space.m)
             .frame(minHeight: 44.zoomed)
@@ -191,7 +191,7 @@ struct ActivityEditorPanelView: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Text("Recent · click to pin")
                 .font(Tokens.Typography.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .textCase(.uppercase)
             ChipFlow(spacing: Tokens.Space.xs) {
                 ForEach(store.recentActivities.prefix(6)) { quick in
@@ -228,7 +228,7 @@ struct ActivityEditorPanelView: View {
                     HStack(spacing: Tokens.Space.s) {
                         Text(isNew ? "Pin an activity" : "Editing a pinned activity")
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                         if !isNew {
                             Button("New") { editor.beginNew() }
                                 .buttonStyle(StoryLinkStyle())
@@ -246,7 +246,7 @@ struct ActivityEditorPanelView: View {
             HStack(spacing: Tokens.Space.s) {
                 Text("Category")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 WorkTypePicker(selection: $editor.workType)
             }
             if let message = editor.message {

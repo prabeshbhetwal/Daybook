@@ -127,7 +127,7 @@ private struct TipBubble: View {
                 .font(Tokens.Typography.caption)
             Text(tip.detail)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .multilineTextAlignment(.leading)

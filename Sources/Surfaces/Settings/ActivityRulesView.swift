@@ -125,7 +125,7 @@ struct ActivityRulesView: View {
                      + "for its wait, files the session under its category and names it after "
                      + "the rule. An app in two rules asks which one, instead of guessing.")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                 if model.activityRules.isEmpty {
                     EmptyState("No rules yet",
@@ -209,13 +209,13 @@ struct ActivityRuleCard: View {
                             if !rule.isEnabled {
                                 Text("Off")
                                     .font(Tokens.Typography.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(StoryStyle.supportingInk)
                                     .fixedSize()
                             }
                         }
                         Text(detail)
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .lineLimit(1)
                     }
                     Spacer(minLength: Tokens.Space.s)
@@ -242,7 +242,7 @@ struct ActivityRuleCard: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(Tokens.Typography.control)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -277,7 +277,7 @@ struct ActivityRuleCard: View {
             if ruleApps.count > 4 {
                 Text("+\(ruleApps.count - 4)")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .padding(.leading, 10.zoomed)
             }
         }
@@ -356,7 +356,7 @@ struct ActivityRuleForm: View {
                                 .accessibilityLabel("Start after, whole seconds")
                             Text("seconds")
                                 .font(Tokens.Typography.body)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(StoryStyle.supportingInk)
                         }
                     }
                     Spacer(minLength: Tokens.Space.l)
@@ -371,7 +371,7 @@ struct ActivityRuleForm: View {
                 }
                 Text("How long you must be in one of its apps before the session begins.")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             chosenApps
@@ -428,7 +428,7 @@ struct ActivityRuleForm: View {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text("In this activity")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .textCase(.uppercase)
                 ChipFlow(spacing: Tokens.Space.xs) {
                     ForEach(editor.bundleIDs.sorted(), id: \.self) { id in
@@ -444,7 +444,7 @@ struct ActivityRuleForm: View {
                                 Text(app?.name ?? id).lineLimit(1)
                                 Image(systemName: "xmark")
                                     .font(Tokens.Typography.micro)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(StoryStyle.supportingInk)
                             }
                             .font(Tokens.Typography.body)
                             .padding(.horizontal, Tokens.Space.s)
@@ -467,7 +467,7 @@ struct ActivityRuleForm: View {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text("Running now")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .textCase(.uppercase)
                 ChipFlow(spacing: Tokens.Space.xs) {
                     ForEach(running) { app in
@@ -482,7 +482,7 @@ struct ActivityRuleForm: View {
                                 Text(app.name).lineLimit(1)
                                 Image(systemName: "plus")
                                     .font(Tokens.Typography.micro)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(StoryStyle.supportingInk)
                             }
                             .font(Tokens.Typography.body)
                             .padding(.horizontal, Tokens.Space.s)
@@ -536,7 +536,7 @@ struct InstalledAppPicker: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Text("All applications")
                 .font(Tokens.Typography.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .textCase(.uppercase)
                 // The list below carries this name for VoiceOver.
                 .accessibilityHidden(true)
@@ -558,7 +558,7 @@ struct InstalledAppPicker: View {
                                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
                                     .font(Tokens.Typography.control)
                                     .foregroundStyle(isOn ? AnyShapeStyle(Tokens.Colour.focus)
-                                                          : AnyShapeStyle(.secondary))
+                                                          : AnyShapeStyle(StoryStyle.supportingInk))
                                     .frame(width: 18.zoomed)
                                 if let url = application.url {
                                     Image(nsImage: AppIconProvider.shared.icon(forFile: url.path, size: 22.zoomed))
@@ -573,7 +573,7 @@ struct InstalledAppPicker: View {
                                     Text(application.displayName)
                                         .font(Tokens.Typography.control)
                                     Text(application.bundleID).font(Tokens.Typography.body)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(StoryStyle.supportingInk)
                                 }
                                 Spacer(minLength: 0)
                             }

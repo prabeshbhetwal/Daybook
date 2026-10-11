@@ -73,7 +73,7 @@ struct StoryShapeChart: View {
                     }
                 }
                 .font(Tokens.Typography.body.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .animation(Tokens.Motion.animation(Tokens.Motion.tick, reduceMotion: reduceMotion),
                            value: hovered.run?.id)
                 .accessibilityHidden(true)
@@ -120,7 +120,7 @@ struct StoryShapeChart: View {
             .overlay {
                 if run.isGap {
                     Rectangle()
-                        .strokeBorder(Color.secondary.opacity(0.65),
+                        .strokeBorder(Color.secondary.opacity(0.65), // ink: quiet, a drawn mark
                                       style: StrokeStyle(lineWidth: 1, dash: [2.zoomed, 2.zoomed]))
                 }
             }

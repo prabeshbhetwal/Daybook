@@ -23,7 +23,7 @@ struct BackupOfferNotice: View {
                         .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
                         .accessibilityHint("Backs up to iCloud Drive every day. Settings, Privacy changes where and how often.")
                     Button("Not now") { settings.answerBackupOffer(backUpDaily: false) }
-                        .buttonStyle(StoryLinkStyle(tint: .secondary))
+                        .buttonStyle(StoryLinkStyle(tint: StoryStyle.supportingInk))
                         .padding(.leading, Tokens.Space.s)
                         .accessibilityHint("Leaves backups off. Settings, Privacy can turn them on later.")
                 }

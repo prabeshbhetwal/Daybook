@@ -82,7 +82,7 @@ struct HistoryAppSessionTile: View {
                     .font(Tokens.Typography.heading.monospacedDigit())
                 Text("· \(DurationText.percent(use.share)) of the session")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             HistoryAppMomentsBar(use: use)
             line(HistoryAppLensText.visits(use))
@@ -94,7 +94,7 @@ struct HistoryAppSessionTile: View {
     private func line(_ text: String) -> some View {
         Text(durations: text)
             .font(Tokens.Typography.body)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

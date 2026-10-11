@@ -39,7 +39,7 @@ struct StoryGapCard: View {
                 Rectangle().fill(StoryStyle.line).frame(height: 1)
                 GapStretchList(anatomy: anatomy, stretches: anatomy.stretches)
                 Text("Not assumed to be work or rest.")
-                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             }
         }
         .padding(StoryStyle.entryInsets(for: density))
@@ -54,7 +54,7 @@ struct StoryGapCard: View {
                 // Nothing was recorded but the Mac's power, which is the one
                 // thing the card can honestly add to the time.
                 Text(Tokens.timeRange(span.start, span.end) + (power.map { " · \($0.headline)" } ?? ""))
-                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             }
             Spacer(minLength: Tokens.Space.s)
             if canUnfold && !isOpen {
@@ -65,7 +65,7 @@ struct StoryGapCard: View {
                 .font(Tokens.Typography.body.monospacedDigit())
             if canUnfold {
                 Image(systemName: "chevron.right")
-                    .font(Tokens.Typography.caption).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
                     .rotationEffect(.degrees(isOpen ? 90 : 0))
             }
         }
@@ -97,7 +97,7 @@ struct StoryMachinePin: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
             Text(event.title)
-            if let back { Text("· " + back).foregroundStyle(.secondary) }
+            if let back { Text("· " + back).foregroundStyle(StoryStyle.supportingInk) }
         }
         .font(Tokens.Typography.body)
         .padding(.vertical, 10.zoomed)
@@ -127,17 +127,17 @@ struct StoryPin {
 extension MachineEvent.Kind {
     var pin: StoryPin {
         switch self {
-        case .lock, .unlock: return StoryPin(symbol: "lock", tint: .secondary)
-        case .displaySleep, .displayWake: return StoryPin(symbol: "display", tint: .secondary)
-        case .userSwitchedOut, .userSwitchedIn: return StoryPin(symbol: "person.2", tint: .secondary)
-        case .systemSleep: return StoryPin(symbol: "moon", tint: .secondary)
-        case .wake: return StoryPin(symbol: "sun.max", tint: .secondary)
+        case .lock, .unlock: return StoryPin(symbol: "lock", tint: StoryStyle.supportingInk)
+        case .displaySleep, .displayWake: return StoryPin(symbol: "display", tint: StoryStyle.supportingInk)
+        case .userSwitchedOut, .userSwitchedIn: return StoryPin(symbol: "person.2", tint: StoryStyle.supportingInk)
+        case .systemSleep: return StoryPin(symbol: "moon", tint: StoryStyle.supportingInk)
+        case .wake: return StoryPin(symbol: "sun.max", tint: StoryStyle.supportingInk)
         case .logOut, .restart, .shutDown, .restartOrShutDown, .powerOffUnknown, .macStarted:
-            return StoryPin(symbol: "power", tint: .secondary)
-        case .macOSUpdated: return StoryPin(symbol: "arrow.down.circle", tint: .secondary)
+            return StoryPin(symbol: "power", tint: StoryStyle.supportingInk)
+        case .macOSUpdated: return StoryPin(symbol: "arrow.down.circle", tint: StoryStyle.supportingInk)
         case .quit, .updateRelaunch, .quitByApp, .logOutCancelled, .restartCancelled, .shutDownCancelled,
              .daybookStarted:
-            return StoryPin(symbol: "smallcircle.filled.circle", tint: .secondary)
+            return StoryPin(symbol: "smallcircle.filled.circle", tint: StoryStyle.supportingInk)
         // A run that ended without saying so is the one kind the rule flags.
         case .crashed, .forceQuit, .powerLost, .kernelPanic:
             return StoryPin(symbol: "exclamationmark.triangle", tint: StoryStyle.attentionInk)

@@ -278,7 +278,7 @@ struct HistoryTree: View {
             Text("History fills in as you work. Each day you record appears here, newest first, "
                  + "with its sessions one click away.")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
             StartButton(title: "Start focus", fills: false) {
                 navigation.focusSessionControls()

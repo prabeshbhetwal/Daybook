@@ -70,7 +70,7 @@ struct FocusContinuations: View {
                      ? "Names you start will be here to switch to next time."
                      : "Start a focus session and useful continuations will stay here on this Mac.")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 ForEach(rows) { row in continuation(row) }
@@ -159,7 +159,7 @@ private struct FocusContinuationLabel: View {
                     .lineLimit(1)
                 Text(detail)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .lineLimit(1)
             }
             Spacer(minLength: Tokens.Space.s)
@@ -187,11 +187,11 @@ private struct FocusContinuationLabel: View {
         case .duration(let seconds):
             Text(Tokens.preciseDuration(seconds))
                 .font(Tokens.Typography.body.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         case .current:
             Text("Current")
                 .font(Tokens.Typography.label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         }
     }
 }
@@ -207,7 +207,7 @@ struct FocusBreakLine: View {
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(store.isBreakDue
                              ? AnyShapeStyle(StoryStyle.attentionInk)
-                             : AnyShapeStyle(.secondary))
+                             : AnyShapeStyle(StoryStyle.supportingInk))
             .lineLimit(1)
             .accessibilityLabel("Break status: \(store.breakLabel)")
     }

@@ -18,19 +18,19 @@ struct AwardCard: View {
                     Text(award.title)
                         .font(Tokens.Typography.rowTitle)
                         .foregroundStyle(award.isEarned ? AnyShapeStyle(.primary)
-                                                        : AnyShapeStyle(.secondary))
+                                                        : AnyShapeStyle(StoryStyle.supportingInk))
                     // In words as well as in the badge's fill, which is the
                     // only difference someone who cannot tell the colours
                     // apart would otherwise have.
                     Text(award.isEarned ? "Earned" : "Not yet")
                         .font(Tokens.Typography.label)
                         .foregroundStyle(award.isEarned ? AnyShapeStyle(StoryStyle.successInk)
-                                                        : AnyShapeStyle(.secondary))
+                                                        : AnyShapeStyle(StoryStyle.supportingInk))
                         // The card's own label already says it.
                         .accessibilityHidden(true)
                     Text(award.detail)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -41,14 +41,14 @@ struct AwardCard: View {
                                                 set: { expanded.value = $0 })) {
                 Text(award.method)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, Tokens.Space.xs)
             } label: {
                 Text("How this is measured")
                     .font(Tokens.Typography.label)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             .animation(Tokens.Motion.animation(Tokens.Motion.rise, reduceMotion: reduceMotion),
                        value: expanded.value)
@@ -78,7 +78,7 @@ struct AwardCard: View {
             Image(systemName: award.isEarned ? award.symbolName : "circle.dotted")
                 .font(Tokens.Typography.heading)
                 .foregroundStyle(award.isEarned ? AnyShapeStyle(.white)
-                                                : AnyShapeStyle(.secondary))
+                                                : AnyShapeStyle(StoryStyle.supportingInk))
         }
         .frame(width: 44.zoomed, height: 44.zoomed)
         .accessibilityHidden(true)
@@ -129,7 +129,7 @@ struct AwardsView: View {
                 .font(Tokens.Typography.title)
             Text("Earned quietly, never announced. Nothing here interrupts a session.")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         }
     }
 
@@ -144,7 +144,7 @@ struct AwardsView: View {
                 Text("days with at least "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 HStack(spacing: Tokens.Space.xs) {
@@ -157,7 +157,7 @@ struct AwardsView: View {
                 // The count the bars show by colour alone.
                 Text("\(days.filter(\.met).count) of the last \(days.count) days")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(streakSummary(days))

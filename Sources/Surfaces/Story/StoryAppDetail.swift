@@ -35,11 +35,11 @@ struct StoryAppRow: View {
                 Text(app.appName).lineLimit(1)
                 Spacer(minLength: Tokens.Space.xs)
                 Text(durations: Tokens.preciseDuration(app.total))
-                    .monospacedDigit().foregroundStyle(.secondary)
+                    .monospacedDigit().foregroundStyle(StoryStyle.supportingInk)
                 if onOpen != nil {
                     Image(systemName: "chevron.right")
                         .font(Tokens.Typography.micro)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                 }
             }
             .font(Tokens.Typography.body)
@@ -82,7 +82,7 @@ struct StoryAppDetail: View {
                     Text(appName).font(Tokens.Typography.heading)
                         .accessibilityAddTraits(.isHeader)
                     Text(Tokens.longDate(day ?? store.selectedDay))
-                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                 }
                 Spacer()
                 Text(durations: Tokens.preciseDuration(evidence.total))
@@ -97,7 +97,7 @@ struct StoryAppDetail: View {
                 .help("Close app detail")
             }
             Text("Recorded app visits · newest first")
-                .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             ScrollView {
                 LazyVStack(spacing: Tokens.Space.s) {
                     ForEach(entries.prefix(shown)) { entry in
@@ -118,13 +118,13 @@ struct StoryAppDetail: View {
             }
             if entries.isEmpty {
                 Text("No app use was recorded on this day.")
-                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             }
             Text(shown < entries.count
                  ? "The list shows the newest \(shown) visits, set by Recent app visits in Settings. "
                     + "The total counts every visit."
                  : "The total counts every visit.")
-                .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Tokens.Space.xl)
@@ -158,12 +158,12 @@ struct StoryLooseAppUse: View {
                     VStack(alignment: .leading, spacing: 2.zoomed) {
                         Text("App use outside a session").font(Tokens.Typography.label)
                         Text(Tokens.timeRange(span.start, span.end))
-                            .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                            .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                         // No session covers this block, so the Mac's power is
                         // the one fact the story can add to it.
                         if let power {
                             Label(power.headline, systemImage: power.symbolName)
-                                .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                                .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                                 .accessibilityLabel("Power: \(power.headline)")
                         }
                     }
@@ -171,7 +171,7 @@ struct StoryLooseAppUse: View {
                     Text(durations: Tokens.preciseDuration(seconds))
                         .font(Tokens.Typography.body.monospacedDigit())
                     Image(systemName: "chevron.right")
-                        .font(Tokens.Typography.caption).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
                         .rotationEffect(.degrees(open ? 90 : 0))
                         .accessibilityHidden(true)
                 }
@@ -184,7 +184,7 @@ struct StoryLooseAppUse: View {
                     StoryAppRow(app: app, rank: store.storyAppColourIndices[app.bundleID] ?? index)
                 }
                 if let detail = power?.detail {
-                    Text(detail).font(Tokens.Typography.body).foregroundStyle(.secondary)
+                    Text(detail).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

@@ -11,11 +11,12 @@ enum StoryStyle {
     /// Links and text actions. The light value is a shade under Apple's
     /// #0071E3, which fell to 4.1:1 on the well and the rail.
     static let action = Color(lightHex: 0x0068D1, darkHex: 0x75B5FF)
-    /// Supporting text that has to be read: a role under a label, a footer, a
-    /// placeholder. `.secondary` is 3.9:1 on the light surfaces, under the 4.5:1
-    /// text needs; this is the primary ink at 75%, 5.6:1 or better on every
-    /// surface Ask draws on in both appearances, and still 4.7:1 measured on
-    /// the pixels of 12-point text, whose thin strokes never reach full ink.
+    /// Supporting text that has to be read, and the symbols beside it: a role
+    /// under a label, a footer, a placeholder, a state not reached yet.
+    /// `.secondary` is 3.8:1 on the light surfaces, under the 4.5:1 text
+    /// needs; this is the primary ink at 75%, 5.3:1 or better in the rendered
+    /// pixels of caption and body text on every surface and wash, in both
+    /// appearances (SupportingInkChecks).
     static let supportingInk = Color.primary.opacity(0.75)
     static let successInk = Color(lightHex: 0x087C3B, darkHex: 0x73D79A)
     /// Warning text and glyphs. System orange stays for tints and borders;
@@ -76,7 +77,7 @@ enum StoryStyle {
         case .yellow: return Color(lightHex: 0x8A6D00, darkHex: 0xFFE070)
         case .red: return Color(lightHex: 0xB3261E, darkHex: 0xFF8A80)
         case .brown: return Color(lightHex: 0x6B5236, darkHex: 0xD3B48F)
-        case .grey: return .secondary
+        case .grey: return supportingInk
         }
     }
 
@@ -120,7 +121,7 @@ struct StoryLinkStyle: ButtonStyle {
             .font(Tokens.Typography.label)
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .foregroundStyle(enabled ? AnyShapeStyle(tint) : AnyShapeStyle(.secondary))
+            .foregroundStyle(enabled ? AnyShapeStyle(tint) : AnyShapeStyle(.secondary)) // ink: quiet, a disabled control
             .padding(.horizontal, Tokens.Space.s)
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .contentShape(Rectangle())

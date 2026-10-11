@@ -79,7 +79,7 @@ struct DayPickerCalendar: View {
                     .contentTransition(.numericText())
                 Text(durations: monthSummary)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     // Three facts in a narrow popover: one line cut the goal
                     // count, which is the one worth reading.
                     .lineLimit(2)
@@ -159,7 +159,7 @@ struct DayPickerCalendar: View {
             ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
                     .font(Tokens.Typography.control)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .frame(width: cellWidth)
             }
         }
@@ -225,7 +225,7 @@ struct DayPickerCalendar: View {
                      : facts.tracked > 0 ? "·" : " ")
                     .font(Tokens.Typography.microFigure)
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus.opacity(0.82))
-                                     : AnyShapeStyle(.secondary))
+                                     : AnyShapeStyle(StoryStyle.supportingInk))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .accessibilityHidden(true)
@@ -313,7 +313,7 @@ struct DayPickerCalendar: View {
         Text("Under each date, its focused time. A dot is a day at the Mac with no "
              + "session; a tick, a met goal.")
             .font(Tokens.Typography.body)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .fixedSize(horizontal: false, vertical: true)
     }
 

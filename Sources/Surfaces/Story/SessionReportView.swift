@@ -244,7 +244,7 @@ struct SessionReportView: View {
                         }
                         Text(report.whenText)
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityLabel(report.whenSpoken)
                     }
@@ -261,13 +261,13 @@ struct SessionReportView: View {
             if let text = report.detail.text {
                 Text(text)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let note = report.detail.reportNote {
                 Text(note)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let power = report.power {
@@ -277,7 +277,7 @@ struct SessionReportView: View {
                     if let detail = power.detail {
                         Text(detail)
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -293,7 +293,7 @@ struct SessionReportView: View {
                 .font(Tokens.Typography.heading.monospacedDigit())
             Text(label)
                 .font(Tokens.Typography.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         }
         .accessibilityElement(children: .combine)
     }
@@ -313,12 +313,12 @@ struct SessionReportView: View {
                         Spacer(minLength: Tokens.Space.s)
                         Text(durations: Tokens.preciseDuration(stretch.worked))
                             .font(Tokens.Typography.body.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                     }
                     if let note = stretch.note {
                         Text(note)
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .padding(.leading, 28.zoomed)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -362,7 +362,7 @@ struct SessionReportView: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Text(title)
                 .font(Tokens.Typography.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .textCase(.uppercase)
                 .accessibilityAddTraits(.isHeader)
             content()
