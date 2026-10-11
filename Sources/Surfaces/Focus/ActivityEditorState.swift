@@ -26,5 +26,7 @@ final class ActivityEditorState: ObservableObject, FormDraft {
         opened = (name, workType)
     }
 
-    func close() { editingID = nil; message = nil }
+    /// Empties the form too: the panel keeps it between opens, and the next
+    /// open must not draw the last draft before setting up its own.
+    func close() { editingID = nil; name = ""; workType = .deepWork; message = nil }
 }
