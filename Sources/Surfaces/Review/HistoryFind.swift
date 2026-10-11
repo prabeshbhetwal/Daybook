@@ -71,7 +71,7 @@ struct HistoryFindBar: View {
                 }
                 Button { store.setHistoryQuery("") } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
@@ -113,7 +113,7 @@ struct HistoryFindBar: View {
 
     private func promptText(_ text: String) -> some View {
         Text(text)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
             .allowsHitTesting(false)
