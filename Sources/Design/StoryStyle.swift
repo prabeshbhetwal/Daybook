@@ -11,6 +11,12 @@ enum StoryStyle {
     /// Links and text actions. The light value is a shade under Apple's
     /// #0071E3, which fell to 4.1:1 on the well and the rail.
     static let action = Color(lightHex: 0x0068D1, darkHex: 0x75B5FF)
+    /// Supporting text that has to be read: a role under a label, a footer, a
+    /// placeholder. `.secondary` is 3.9:1 on the light surfaces, under the 4.5:1
+    /// text needs; this is the primary ink at 75%, 5.6:1 or better on every
+    /// surface Ask draws on in both appearances, and still 4.7:1 measured on
+    /// the pixels of 12-point text, whose thin strokes never reach full ink.
+    static let supportingInk = Color.primary.opacity(0.75)
     static let successInk = Color(lightHex: 0x087C3B, darkHex: 0x73D79A)
     /// Warning text and glyphs. System orange stays for tints and borders;
     /// as text it was 2:1 in light mode. This is Apple's high-contrast orange.

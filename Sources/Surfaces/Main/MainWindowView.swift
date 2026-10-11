@@ -25,8 +25,31 @@ struct MainWindowView: View {
     /// The content minimum at 100%, scaled by the zoom and held to the screen.
     static let minimumBase = CGSize(width: 980, height: 680) // zoom: fixed, the 100% size
 
+    /// The content minimum at 100% with the side panel on show or not: the
+    /// panel's width is added, so Story and History keep the room they had.
+    static func contentBase(askPanelOpen: Bool) -> CGSize {
+        askPanelOpen
+            ? CGSize(width: minimumBase.width + AskLayout.panelBaseWidth, height: minimumBase.height)
+            : minimumBase
+    }
+
+    /// Ask's side panel is on show when it is open, is still the saved choice
+    /// (a sheet closed some other way than Settings can leave it open after the
+    /// choice became the sheet) and Ask has been started.
+    private var askPanelShown: Bool {
+        navigation.askPanelOpen && settings.askPlacement == .panel && navigation.askModel != nil
+    }
+
     private var minimum: CGSize {
-        ZoomWindowFit.minimum(base: Self.minimumBase, screenVisible: screenVisible.value)
+        ZoomWindowFit.minimum(base: Self.contentBase(askPanelOpen: askPanelShown),
+                              screenVisible: screenVisible.value)
+    }
+
+    /// Whether this window's screen can hold the side panel at the current
+    /// zoom. The model is told, so Ask opens as a sheet where it cannot.
+    private var panelHasRoom: Bool {
+        AskLayout.panelHasRoom(scale: ZoomModel.shared.scale,
+                               visible: ZoomWindowFit.visible(screenVisible: screenVisible.value))
     }
 
     var body: some View {
@@ -51,10 +74,9 @@ struct MainWindowView: View {
                     .transition(Tokens.Motion.transition(Tokens.Motion.slideDown,
                                                          reduceMotion: reduceMotion))
             }
-            readingWorkspace
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .clipped()
-                .accessibilitySortPriority(1)
+            ReadingWithAskPanel(askModel: askPanelShown ? navigation.askModel : nil, navigation: navigation) {
+                readingWorkspace
+            }
         }
         .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
         // The open report is modal: what is dimmed behind it can be neither
@@ -94,7 +116,7 @@ struct MainWindowView: View {
         .onChange(of: geometry.size) { _, newSize in windowSize.value = newSize }
       }
         .frame(minWidth: minimum.width, minHeight: minimum.height)
-        .background(ZoomWindowFit(base: Self.minimumBase) { screenVisible.value = $0 })
+        .background(ZoomWindowFit(base: Self.contentBase(askPanelOpen: askPanelShown)) { screenVisible.value = $0 })
         .background(StoryStyle.canvas)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .zoomRoot()
@@ -114,6 +136,11 @@ struct MainWindowView: View {
             firstRun.observe(coachSignals)
         }
         .onChange(of: coachSignals) { _, signals in firstRun.observe(signals) }
+        // Only the real window knows its screen; an offscreen capture shows
+        // the panel it was asked to show on any machine.
+        .onChange(of: panelHasRoom, initial: true) { _, room in
+            if presentsNativeSheets { navigation.updateAskPanelRoom(room) }
+        }
         .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
             sheetContent(presented, within: windowSize.value == .zero ? nil : windowSize.value)
@@ -176,7 +203,9 @@ struct MainWindowView: View {
     }
 
     private func sheetBody(_ presented: StorySheetKind) -> some View {
-        StorySheet(title: presented.title, onClose: { navigation.closeSheet() }) {
+        StorySheet(title: presented.title, onClose: { navigation.closeSheet() }, accessory: {
+            if presented == .ask, let ask = navigation.askModel { AskNewChatButton(model: ask) }
+        }) {
                 switch presented {
                 case .settings:
                     SettingsView(model: settings, navigation: navigation,
@@ -184,7 +213,7 @@ struct MainWindowView: View {
                 case .awards:
                     AwardsView(store: store, scrolls: insightsScrolls)
                 case .ask:
-                    if let ask = navigation.askModel { AskSheet(model: ask) }
+                    if let ask = navigation.askModel { AskSheet(model: ask, navigation: navigation) }
                 }
         }
     }
@@ -262,13 +291,50 @@ struct StoryCanvas: View {
 
 /// A sheet that arrives from under the chrome, over a scrim. Escape and the
 /// close control both dismiss it; nothing behind it is unloaded.
-struct StorySheet<Content: View>: View {
+struct StorySheet<Content: View, Accessory: View>: View {
     let title: String
     let onClose: () -> Void
-    @ViewBuilder let content: Content
+    /// Beside the close control, for the one sheet that has a control of its
+    /// own in its header (Ask's New chat).
+    let accessory: Accessory
+    let content: Content
     /// A rule or category form open inside the sheet. While there is one,
     /// Escape cancels it instead of closing the sheet over its draft.
     @StateObject private var openForm = OpenInlineFormBox()
+
+    init(title: String, onClose: @escaping () -> Void,
+         @ViewBuilder accessory: () -> Accessory, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.onClose = onClose
+        self.accessory = accessory()
+        self.content = content()
+    }
+
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                       height: AccessibilityMetrics.minimumTargetSize)
+        }
+            .buttonStyle(StoryPressStyle())
+            .keyboardShortcut(openForm.value == nil ? .cancelAction : nil)
+            .help("Close \(title)")
+            .accessibilityLabel("Close \(title)")
+            // Behind Close rather than beside it: a stack spaces
+            // even an empty view, and Close moved while a form was open.
+            .background {
+                if let form = openForm.value {
+                    // Escape's owner while a form is open; clicking
+                    // Close still closes the sheet.
+                    Button("Cancel \(form.name)", action: form.cancel)
+                        .keyboardShortcut(.cancelAction)
+                        .frame(width: 0, height: 0)
+                        .opacity(0)
+                        .accessibilityHidden(true)
+                }
+            }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
                 HStack {
@@ -276,28 +342,10 @@ struct StorySheet<Content: View>: View {
                         .font(Tokens.Typography.heading)
                         .accessibilityAddTraits(.isHeader)
                     Spacer(minLength: Tokens.Space.m)
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .frame(width: AccessibilityMetrics.minimumTargetSize,
-                                   height: AccessibilityMetrics.minimumTargetSize)
+                    HStack(spacing: Tokens.Space.s) {
+                        accessory
+                        closeButton
                     }
-                        .buttonStyle(StoryPressStyle())
-                        .keyboardShortcut(openForm.value == nil ? .cancelAction : nil)
-                        .help("Close \(title)")
-                        .accessibilityLabel("Close \(title)")
-                        // Behind Close rather than beside it: a stack spaces
-                        // even an empty view, and Close moved while a form was open.
-                        .background {
-                            if let form = openForm.value {
-                                // Escape's owner while a form is open; clicking
-                                // Close still closes the sheet.
-                                Button("Cancel \(form.name)", action: form.cancel)
-                                    .keyboardShortcut(.cancelAction)
-                                    .frame(width: 0, height: 0)
-                                    .opacity(0)
-                                    .accessibilityHidden(true)
-                            }
-                        }
                 }
                 .padding(.horizontal, Tokens.Space.xl)
                 .padding(.vertical, Tokens.Space.m)
@@ -312,6 +360,14 @@ struct StorySheet<Content: View>: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isModal)
+    }
+}
+
+extension StorySheet where Accessory == EmptyView {
+    /// A sheet whose header holds only its title and Close: Settings, Awards
+    /// and the session report.
+    init(title: String, onClose: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.init(title: title, onClose: onClose, accessory: { EmptyView() }, content: content)
     }
 }
 

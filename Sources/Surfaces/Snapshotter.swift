@@ -7,7 +7,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
-    case askEmpty, askAnswered
+    case askEmpty, askAnswered, askFailed, askStopped, askPanelStory, askPanelHistory
+    case reviewNotes, reviewNotesHistory
     case storyDay, storyDayEntry
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
     case welcomeOpening, welcomeStep
@@ -37,7 +38,13 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awardsEarned: return "Awards — earned and in progress"
         case .awardsEmpty: return "Awards — nothing earned yet"
         case .askEmpty: return "Ask — questions to try before the first"
-        case .askAnswered: return "Ask — an answer over the story"
+        case .askAnswered: return "Ask — two answers, each with its sources"
+        case .askFailed: return "Ask — an answer that failed"
+        case .askStopped: return "Ask — an answer stopped part way"
+        case .askPanelStory: return "Ask — the side panel beside Story"
+        case .askPanelHistory: return "Ask — the side panel beside History"
+        case .reviewNotes: return "Review notes — Yesterday and Wrap up today on the rail"
+        case .reviewNotesHistory: return "Review notes — a History day open under its week and month"
         case .storyDay: return "Story — the day"
         case .storyDayEntry: return "Story — an entry opened"
         case .storyShape: return "Story — recorded shape and session actions"
@@ -113,13 +120,15 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .focus
         case .todayHistory, .todayHistoryExpanded:
             return .today
-        case .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse:
+        case .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse,
+             .askPanelHistory, .reviewNotesHistory:
             return .review
         case .insightsEnough, .insightsEmpty:
             return .insights
         case .awardsEarned, .awardsEmpty:
             return .awards
-        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered,
+        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askPanelStory,
+             .reviewNotes,
              .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
              .welcomeOpening, .welcomeStep:
             return .story
@@ -409,7 +418,7 @@ enum Snapshotter {
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
-        case .reviewHistorySelection:
+        case .reviewHistorySelection, .askPanelHistory:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.refreshReview(period: .week)
             return store
@@ -427,6 +436,11 @@ enum Snapshotter {
             store.refreshReview()
             store.setHistoryApp(store.historyAppBundleIDs.first)
             return store
+        case .reviewNotesHistory:
+            // Two weeks over two months, so a month and a week open above the day.
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            store.refreshReview()
+            return store
         case .historySparse:
             let store = FixtureFactory.store(for: .firstRun, accurateUsage: true)
             store.refreshReview()
@@ -441,7 +455,8 @@ enum Snapshotter {
             return store
         case .awardsEmpty:
             return FixtureFactory.store(for: .firstRun)
-        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered:
+        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askPanelStory,
+             .reviewNotes:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
@@ -483,7 +498,7 @@ enum Snapshotter {
                                    store: SessionStore) -> MainWindowModel {
         let navigation = MainWindowModel(opening: scenario.tab ?? .story, store: store)
         switch scenario {
-        case .reviewHistorySelection:
+        case .reviewHistorySelection, .askPanelHistory:
             navigation.open(tab: .review)
             if let day = store.historyDays.first(where: { $0.sessions > 0 })?.date {
                 navigation.openHistory(day: day)
@@ -500,11 +515,16 @@ enum Snapshotter {
             navigation.focusSessionControls()
         case .askEmpty:
             navigation.openAsk()
-        case .askAnswered:
+        case .askAnswered, .askFailed, .askStopped:
             navigation.openAsk()
-            navigation.askModel?.present(
-                answer: "Mornings. Over the 4 weeks to 15 Nov: most focus 9–11am (2h); strongest on Tuesdays.",
-                used: "Used: best hours (last 30 days)")
+            navigation.askModel?.present(turns: askTurns(for: scenario))
+        case .reviewNotes:
+            presentNotes(for: scenario, on: navigation, store: store)
+        case .reviewNotesHistory:
+            navigation.open(tab: .review)
+            if let day = presentNotes(for: scenario, on: navigation, store: store)?.start {
+                navigation.openHistory(day: day)
+            }
         case .settingsActivityRules:
             navigation.settingsSection = .activities
         case .storyReport:
@@ -524,6 +544,13 @@ enum Snapshotter {
                 navigation.settingsSection = section
             }
         }
+        if scenario.showsAskPanel {
+            // The store holds the choice the model reads; the settings model
+            // behind the window holds its own copy, made in `snapshotSettings`.
+            store.engine.store.askPlacement = .panel
+            navigation.openAsk()
+            navigation.askModel?.present(turns: askTurns(for: .askAnswered))
+        }
         return navigation
     }
 
@@ -531,7 +558,8 @@ enum Snapshotter {
         // The window is the same window at any zoom, so its size follows it:
         // the minimum is the shell's own minimum, and a viewport that showed
         // the whole story at 100% shows the whole story at 140%.
-        let width: CGFloat = item.presentation == .minimum ? 980.zoomed : 1_160.zoomed
+        let panel = item.scenario.showsAskPanel ? AskLayout.panelBaseWidth : 0
+        let width: CGFloat = item.presentation == .minimum ? (980 + panel).zoomed : (1_160 + panel).zoomed
         let height: CGFloat
         switch item.scenario.tab {
         case .focus: height = item.presentation == .minimum ? 680.zoomed : 780.zoomed
@@ -598,6 +626,7 @@ enum Snapshotter {
                                   diagnostics: diagnostics,
                                   dataDirectory: dataDirectory,
                                   installedAppCatalog: FixtureFactory.installedAppCatalog())
+        if item.scenario.showsAskPanel { persistence.askPlacement = .panel }
         model.interfaceDensity = density
         if let renderZoom { model.interfaceZoom = renderZoom }
         model.appearancePreference = item.appearance.preference

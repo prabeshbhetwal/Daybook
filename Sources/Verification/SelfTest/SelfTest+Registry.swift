@@ -91,6 +91,29 @@ extension SelfTest {
             + AppUsageJournalChecks.tests
             + DayMacAccountChecks.tests
             + StoreFormHoldChecks.tests
+            + ReviewNoteFactsChecks.tests
+            + ReviewNoteGateChecks.tests
+            + ReviewNoteStoreChecks.tests
+            + ReviewNoteWriterChecks.tests
+            + ReviewNoteWriterFailureChecks.tests
+            + ReviewNoteWriterQueueChecks.tests
+            + ReviewNoteStoreEdgeChecks.tests
+            + ReviewNoteWriterStateChecks.tests
+            + ReviewNoteFreshnessChecks.tests
+            + ReviewNoteWordChecks.tests
+            + ReviewNoteFigureChecks.tests
+            + ReviewNoteStretchChecks.tests
+            + ReviewNoteGoalChecks.tests
+            + ReviewNoteTransientChecks.tests
+            + ReviewNotePeriodChecks.tests
+            + ReviewNoteVagueChecks.tests
+            + AskSourceOrderChecks.tests
+            + AskCatalogueChecks.tests
+            + AskLookupLinkChecks.tests
+            + AskGateChecks.tests
+            + AskChatChecks.tests
+            + AskFollowChecks.tests
+            + AskPanelChecks.tests
             + SnapshotStillChecks.tests
     }
 

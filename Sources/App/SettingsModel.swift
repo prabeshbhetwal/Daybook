@@ -20,6 +20,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case automaticGap
     case rewards
     case haptics
+    case appleIntelligence
     case sessionsPerApp
     case usageRecording
     case appearance
@@ -27,6 +28,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case zoom
     case timelineLabels
     case askButton
+    case askPlacement
     case entryDetails
     case idlePause
     case agentQuiet
@@ -68,6 +70,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .automaticGap: return \SettingsModel.breakLength
         case .rewards: return \SettingsModel.rewardsEnabled
         case .haptics: return \SettingsModel.hapticsEnabled
+        case .appleIntelligence: return \SettingsModel.useAppleIntelligence
         case .sessionsPerApp: return \SettingsModel.menuSessionCount
         case .usageRecording: return \SettingsModel.isTrackingEnabled
         case .appearance: return \SettingsModel.appearancePreference
@@ -75,6 +78,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .zoom: return \SettingsModel.interfaceZoom
         case .timelineLabels: return \SettingsModel.showsTimelineLabels
         case .askButton: return \SettingsModel.showsAskButton
+        case .askPlacement: return \SettingsModel.askPlacement
         case .entryDetails: return \SettingsModel.expandsEntryDetails
         case .idlePause: return \SettingsModel.idlePauseThreshold
         case .agentQuiet: return \SettingsModel.agentQuietPolicy
@@ -512,6 +516,11 @@ final class SettingsModel: ObservableObject {
         set { write { store.remindersEnabled = newValue } }
     }
 
+    var useAppleIntelligence: Bool {
+        get { store.useAppleIntelligence }
+        set { write { store.useAppleIntelligence = newValue } }
+    }
+
     var breakThreshold: TimeInterval {
         get { store.breakThreshold }
         set { write { store.breakThreshold = newValue } }
@@ -802,6 +811,11 @@ final class SettingsModel: ObservableObject {
     var showsAskButton: Bool {
         get { store.showsAskButton }
         set { write { store.showsAskButton = newValue } }
+    }
+
+    var askPlacement: AskPlacement {
+        get { store.askPlacement }
+        set { write { store.askPlacement = newValue } }
     }
 
     var interfaceLayout: InterfaceDensity.Layout { interfaceDensity.layout }

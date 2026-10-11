@@ -72,21 +72,25 @@ even when closed, and the hidden menu bar panel alone was costing about 45 ms
 of work each second. Closed windows and panels now rest until shown again, and
 the app's CPU use during normal work went from 0.9% to 0.1%.
 
-**Private by construction.** Tracking stores app identity and time ranges,
-never content. The session names, intents and notes you write are content, and
-they are kept on the Mac. Two things can reach another server: the update check
-asks GitHub for the latest version, and dictating a note uses Apple's speech
-recognition, which runs on the Mac where your language supports that and
-otherwise may send the audio to Apple. Ask Daybook answers with Apple's
-on-device model, and your question, history and answers are not sent anywhere.
-Backups are copied, every day unless you choose otherwise, into iCloud Drive,
-which uploads them to your own iCloud account like any other document, or into
-a folder you choose. The app asks for no Accessibility,
-Automation, Screen Recording or Input Monitoring permission; idle detection
-uses system counters, not event content. The prompts you will see are
-notifications (at first launch, for break reminders), and microphone and
-speech recognition (only when you dictate a note). Launch at login, if you turn
-it on, adds a login item.
+**Private by construction.** Nothing leaves your Mac unless you want it to.
+Tracking stores app identity and time ranges, never content. The session names,
+intents and notes you write are content, and they are kept on the Mac. Three
+things can reach another server: the update check asks GitHub for the latest
+version, which you can turn off in Settings; dictating a note uses Apple's
+speech recognition, which runs on the Mac where your language supports that and
+otherwise may send the audio to Apple; and the backups described below, which
+iCloud Drive uploads to your own iCloud account. Ask Daybook answers with
+Apple's on-device model, and your question, history and answers are not sent
+anywhere. Review notes are written by the same on-device model, and nothing is
+sent anywhere.
+On a new install, backups are on from the start: every day they are copied
+into iCloud Drive, which uploads them to your own iCloud account when iCloud
+Drive is on, or into a folder you choose; Settings can change how often, or
+turn them off. The app asks for no Accessibility, Automation, Screen Recording
+or Input Monitoring permission; idle detection uses system counters, not event
+content. The prompts you will see are notifications (at first launch, for break
+reminders), and microphone and speech recognition (only when you dictate a
+note). Launch at login, if you turn it on, adds a login item.
 
 ## How it is verified
 

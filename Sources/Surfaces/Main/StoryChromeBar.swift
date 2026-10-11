@@ -45,7 +45,9 @@ struct StoryChromeBar: View {
                     .coachAnchor(.sessionControl)
             }
             if showsAsk {
-                AskChromeButton { navigation.openAsk() }
+                AskChromeButton(isActive: navigation.askPanelOpen && navigation.askPlacement == .panel) {
+                    navigation.openAsk()
+                }
             }
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")

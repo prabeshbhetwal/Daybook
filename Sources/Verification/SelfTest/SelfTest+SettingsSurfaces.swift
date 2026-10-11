@@ -105,13 +105,13 @@ extension SelfTest {
         let expectedControls: Set<SettingsControlKey> = [
             .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,
             .reminders, .activityRuleAutomation, .activityRules,
-            .automaticSessions, .automaticGap, .rewards, .haptics, .sessionsPerApp,
+            .automaticSessions, .automaticGap, .rewards, .haptics, .appleIntelligence, .sessionsPerApp,
             .usageRecording, .appearance, .density, .zoom, .timelineLabels, .entryDetails,
             .idlePause, .streakMinimum, .minimumSession, .continueWindow, .defaultCategory,
             .openAtLogin, .menuBarTime, .menuBarIcon, .dockIcon, .updateChecks, .updateFrequency,
             .updateInstall, .railApps, .paceWindow, .suggestionWindow, .breakTiers, .quietFold,
             .confirmations, .backupSchedule, .backupRetention, .backupDestination,
-            .agentQuiet, .agentAppInFront, .appsAtWork, .keepAwake, .askButton
+            .agentQuiet, .agentAppInFront, .appsAtWork, .keepAwake, .askButton, .askPlacement
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,

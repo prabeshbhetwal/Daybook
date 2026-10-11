@@ -156,7 +156,7 @@ extension SettingsSection {
                                "Show the session time in the menu bar", "Dock icon", "Keyboard",
                                "Start or end a session from any app", "Confirmations",
                                "Ask before changing how a break counts", "Ask before removing a session",
-                               "Ask Daybook", "Show Ask in the toolbar", "Open Ask"]
+                               "Ask Daybook", "Show Ask in the toolbar", "Open Ask", "Open Ask in"]
         case .focus: return ["Daily goal", "Usual pace compares with", "Suggest activities from",
                              "Streak counts a day after", "New sessions start as",
                              "Keep sessions longer than", "Offer to continue for"]
@@ -180,10 +180,11 @@ extension SettingsSection {
             return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
                     "Expand entry details by default", "Fold quiet stretches after"]
         case .data:
-            // The upgrade copy's row may be absent, so it is not listed.
+            // The upgrade copy's row may be absent, so it is not listed; the
+            // Apple Intelligence row is listed only on a Mac that shows it.
             return ["Privacy", "App use measured precisely since", "Backups", "Back up automatically",
                     "Back up to", "Keep automatic backups", "Last backup", "Next backup", "Back Up Now",
-                    "Reveal data folder"]
+                    "Reveal data folder"] + (ModelGate.modelAvailable ? ["Use Apple Intelligence"] : [])
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
         case .advanced: return ["Version", "Build", "Recovery"]
@@ -192,7 +193,8 @@ extension SettingsSection {
 
     var mutableControlKeys: [SettingsControlKey] {
         switch self {
-        case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon, .confirmations, .askButton]
+        case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon, .confirmations, .askButton,
+                              .askPlacement]
         case .focus: return [.dailyGoal, .paceWindow, .suggestionWindow, .streakMinimum, .defaultCategory,
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
@@ -203,7 +205,7 @@ extension SettingsSection {
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
         case .appearance: return [.appearance, .density, .zoom, .timelineLabels, .entryDetails, .quietFold]
         case .updates: return [.updateChecks, .updateFrequency, .updateInstall]
-        case .data: return [.backupSchedule, .backupDestination, .backupRetention]
+        case .data: return [.appleIntelligence, .backupSchedule, .backupDestination, .backupRetention]
         case .advanced: return []
         }
     }
@@ -232,6 +234,7 @@ extension SettingsControlKey {
         case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
         case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]
         case .askButton: return ["Apple Intelligence", "Question", "Command-K", "Sparkles", "Assistant"]
+        case .askPlacement: return ["Side panel", "Sheet", "Sidebar", "Inspector", "Panel"]
         default: return []
         }
     }
