@@ -582,9 +582,16 @@ final class AppUsageArchive {
     /// other unreadable history. Nothing reads a set-aside journal again, so
     /// it is never moved before that snapshot is written. If either step
     /// fails, the journal stays where the next launch replays it, and nothing
-    /// more is written.
+    /// more is written. So does a journal that is there but cannot be read:
+    /// the next compaction would otherwise drop its lines with it.
     private func replayJournal() {
-        guard let contents = journal.read() else { return }
+        guard let contents = journal.read() else {
+            if FileManager.default.fileExists(atPath: journal.url.path) {
+                isReadOnly = true
+                Diagnostics.log("app usage journal exists but could not be read; kept in place read-only")
+            }
+            return
+        }
         let replay = journal.replay(JournalChange.self, from: contents)
         var sessions = cache
         for change in replay.changes {
