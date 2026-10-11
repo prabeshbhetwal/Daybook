@@ -108,6 +108,39 @@ another branch held 11 to 22 GB each and one full run failed 207 of 207. The
 probe asks a refused question again a few seconds later, and its logs record
 how often. Probe results with refusals are not counted.
 
+### After (2026-10-12)
+
+The same model and kit over the finished lookups (no stubs). The 32 questions
+ran on the fixture of section 5, set on Fri 9 Oct 2026; part 1's 37 and the
+depth chat ran on part 1's fixture, unchanged, so they compare with the v1
+runs above. The first run found four answers that went wrong because a fact was
+ambiguous or silent; the facts were changed (Mac rows lead with their title and
+say "until midnight"; `dayEvents` says what did not happen; `sessionDetail`
+says "no note" and "no battery reading"; `dayEvents`' description names what
+the user said and whether it counted as focus) and everything ran again.
+
+| Probe | First run | After the fixes | Bar |
+|---|---|---|---|
+| 1. 32 questions about the new data | right lookup reached 26; answers right 25 | right lookup reached 24; answers right 27 | 28 and no invented figure: **not met** |
+| 2. Parity, 37 questions | three runs, identical: Parser read as 4h (fixed); 31 Feb answered "no data"; notes invented for a day with none | one run: 31 Feb refused again; "no notes yesterday" right; Parser read as "4h 30m" | every answer right: **not met** (one figure misread) |
+| 3. Depth, 30 turns | context full at turns 11, 19, 27; every turn answered | full at 17 and 26; turn 26 ended with the "needs more room" notice | recorded |
+| 4. Speed (busy machine, load 8 to 9) | median 4.7 s, max 24.9 s (a carry-over turn) | parity median 4.7 s, max 11.3 s; new questions median 5.9 s, max 14.4 s | a quiet-machine run is owed |
+
+What the numbers say:
+
+- Part 1's lookups invented an answer to every one of these questions; with
+  part 2 the facts the model reads are right, and 27 of 32 answers are.
+- The wrong answers left are the model's reading, not the facts: it counted
+  one stretch where the lookup says two, asked session detail for a sleep time,
+  read "no battery reading" as "not plugged in", read an award's own date as
+  "this month", and in one parity run wrote Parser 4h 30m where the line says
+  4h. Each fact change moves a few answers either way; greedy sampling makes a
+  run repeatable, not right.
+- The chat now carries over about every 8 to 9 turns instead of 24: eight
+  lookups and richer facts take more of the 4,096 tokens. The carry-over is
+  invisible except as a slower answer, and it loses implied referents as part
+  1 described.
+
 ## 1. The catalogue
 
 Part 1's five first, in their order, then the three new ones. Names,
