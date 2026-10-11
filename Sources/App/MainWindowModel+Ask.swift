@@ -48,11 +48,16 @@ extension MainWindowModel {
         askPanelOpen = false
     }
 
-    /// A source clicked in an answer: History at that day, session or period.
-    /// The sheet closes first (⌘K brings the chat back); the side panel stays,
-    /// so the source opens beside the chat. Every source opens History,
-    /// today's included: one rule.
+    /// A source clicked in an answer: History at that day, session or period,
+    /// or the Awards sheet for the streak. The Ask sheet gives way first (⌘K
+    /// brings the chat back); the side panel stays, so the source opens beside
+    /// the chat, and Awards covers the window as Settings does. Every source
+    /// opens where its figure is shown, today's included.
     func follow(_ link: AskLink) {
+        if link.target == .awards {
+            open(tab: .awards)
+            return
+        }
         open(tab: .review)
         switch link.target {
         case .day(let day):
@@ -67,6 +72,8 @@ extension MainWindowModel {
             openHistory(place: place)
         case .history:
             navigateHistory(to: nil)
+        case .awards:
+            break
         }
     }
 }

@@ -4,7 +4,9 @@ import Foundation
 enum AskSourceRole: String, Equatable {
     case totals = "Totals", bestDay = "Most focused day", bestWeek = "Most focused week",
          bestMonth = "Most focused month", longestSession = "Longest session", session = "Session",
-         compared = "Compared", bestHours = "Best hours", appTime = "App time"
+         compared = "Compared", bestHours = "Best hours", appTime = "App time",
+         whatHappened = "What happened", stretches = "Stretches", dailyGoal = "Daily goal",
+         streakAndAwards = "Streak and awards"
 }
 
 /// A place in the app one fact came from, and what following it opens.
@@ -15,6 +17,8 @@ struct AskLink: Hashable {
         case period(HistoryPlace)
         /// History at the top: all time, the last 30 days.
         case history
+        /// The Awards sheet, which shows the streak and the awards earned.
+        case awards
     }
 
     let target: Target
@@ -23,6 +27,9 @@ struct AskLink: Hashable {
     let role: AskSourceRole
     /// The session's own name, which is what an answer says to name it.
     var sessionName: String? = nil
+    /// Words that name a place that has no date, which is what an answer says to
+    /// name it. Used only by `.awards`.
+    var names: [String] = []
 }
 
 /// What a lookup hands back: its text, which is all the model reads, and the

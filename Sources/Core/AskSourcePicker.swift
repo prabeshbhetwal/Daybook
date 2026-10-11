@@ -145,6 +145,7 @@ private struct AnswerReader {
         case .history: return nil
         case .day(let date): return mention(ofDay: date)
         case .session: return link.sessionName.flatMap { mention(ofName: $0) }
+        case .awards: return link.names.compactMap { mention(ofName: $0) }.min { $0.lowerBound < $1.lowerBound }
         case .period(let place):
             switch place.level {
             case .day: return mention(ofDay: place.start)
