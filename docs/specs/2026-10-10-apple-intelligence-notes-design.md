@@ -519,7 +519,7 @@ against the typical stretch, and the longest stretch unless it carried over. The
 figures line shows what the goal counted when it was missed ("5h 40m focus ·
 3h 59m towards 4h goal"): the goal counts focus with hands-on use only, and on
 11 Oct that was 3h 59m (probed on a copy of the live data), so "goal missed"
-was right but read as a fault. Checks 956–960.
+was right but read as a fault. Checks 965–969.
 
 ## 7. Hand checks
 
