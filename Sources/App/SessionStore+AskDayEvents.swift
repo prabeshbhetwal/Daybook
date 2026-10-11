@@ -13,15 +13,18 @@ extension SessionStore {
         // Newest first, and no further than the text can hold: a long
         // history is counted, not read.
         var built: [(day: Date, events: AskEventDay)] = []
-        var bytes = 0
+        var bytes = 0, empty = 0
+        var cut = false
         for day in days where day <= calendar.startOfDay(for: now()) {
-            guard let events = askEventDay(day, calendar: calendar) else { continue }
+            // A candidate day that yields nothing is not a day with something to tell.
+            guard let events = askEventDay(day, calendar: calendar) else { empty += 1; continue }
             built.append((day, events))
             bytes += AskFacts.dayLine(events).utf8.count + 1
-            if range.isOneDay || bytes > AskFacts.maximumBytes { break }
+            if range.isOneDay || bytes > AskFacts.maximumBytes { cut = !range.isOneDay; break }
         }
         let log = askEventLogStart(before: interval, calendar: calendar)
-        let total = range.isOneDay ? built.count : days.count
+        // Days not read are counted as candidates; read ones, as listed.
+        let total = cut ? days.count - empty : built.count
         let events = built.map { $0.events }
         let shown = range.isOneDay ? built.count
             : AskFacts.dayEventsShown(events, total: total, logFrom: log.from, beforeLog: log.before)
@@ -113,7 +116,8 @@ extension SessionStore {
         let account = macAccount(on: day)
         for row in account?.rows ?? [] {
             found.append((row.span.start, 2, AskEventItem(
-                kind: .mac(title: row.title, found: row.foundAt.map(askTime)), from: askTime(row.span.start),
+                kind: .mac(title: row.title, uncertain: row.state == .uncertain || row.foundAt != nil,
+                           found: row.foundAt.map(askTime)), from: askTime(row.span.start),
                 to: row.span.duration > 0 ? askTime(row.span.end) : nil, length: nil)))
         }
         guard !found.isEmpty else { return nil }

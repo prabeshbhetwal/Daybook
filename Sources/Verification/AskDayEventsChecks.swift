@@ -16,6 +16,7 @@ enum AskDayEventsChecks: CheckSuite {
         ("With no event log, nothing is said about the Mac", noEventLog),
         ("An absence not yet answered says so", pendingAbsence),
         ("Nothing to tell says so", nothingToTell),
+        ("A day that yields nothing is not counted in \u{201C}Newest N of M days.\u{201D}", emptyCandidateDay),
         ("A long history stays within 1 KB and counts every day", longHistory),
         ("What happened lists the period and each day it names", linksListPeriodAndDays),
         ("The catalogue's sixth entry is dayEvents, with part 1's period guide", catalogueEntry),
@@ -65,7 +66,12 @@ enum AskDayEventsChecks: CheckSuite {
 
     private static func crashFound() -> [String] {
         AskDataFixture.with { f, problems in
-            // The fixture's crash has no launch after it yet; the launch that found it, at 8:02am.
+            let tuesday = AskRange.day(year: 2023, month: 11, day: 14)
+            // The fixture's crash has no launch after it yet: some time in its window, found at no time.
+            let before = f.store.askLookup(.dayEvents(tuesday))
+            expect(before.contains("from 8:00am to 8:02am \(dot) Daybook crashed \(dot) some time in this window\n"),
+                   "a crash not yet found says: \(before)", &problems)
+            // The launch that found it, at 8:02am.
             guard f.machineEvents.append([MachineEvent(kind: .daybookStarted, at: f.moment(1, 8, 2))]) else {
                 problems.append("could not log the launch"); return
             }
@@ -73,9 +79,23 @@ enum AskDayEventsChecks: CheckSuite {
             guard let crash = rows.first(where: { $0.foundAt == f.moment(1, 8, 2) }) else {
                 problems.append("no Mac row on Tue 14 Nov was found at 8:02am: \(rows.map(\.title))"); return
             }
-            let text = f.store.askLookup(.dayEvents(.day(year: 2023, month: 11, day: 14)))
-            expect(text.contains("\(crash.title) \(dot) found at 8:02am"),
-                   "Tue 14 Nov does not tell “\(crash.title)” found at 8:02am: \(text)", &problems)
+            let text = f.store.askLookup(.dayEvents(tuesday))
+            let line = "from 8:00am to 8:02am \(dot) \(crash.title) \(dot) some time in this window; "
+                + "found when Daybook opened at 8:02am"
+            expect(text.contains(line), "Tue 14 Nov does not tell “\(line)”: \(text)", &problems)
+        }
+    }
+
+    private static func emptyCandidateDay() -> [String] {
+        AskDataFixture.with { f, problems in
+            // A break with no length leaves no break on the day, though the archive holds it.
+            let blip = SessionRecord(name: "Blip", workType: .breakTime, start: f.moment(4, 10), end: f.moment(4, 10),
+                                     workSeconds: 0)
+            if f.engine.archive.append(blip) != nil { problems.append("could not save the break"); return }
+            let text = f.store.askLookup(.dayEvents(.allTime))
+            expect(text.contains("Mon 13 Nov") && text.contains("Tue 14 Nov") && !text.contains("Sat 11 Nov"),
+                   "all time lists: \(text)", &problems)
+            expect(!text.contains("Newest"), "a list that was not cut says it was: \(text)", &problems)
         }
     }
 

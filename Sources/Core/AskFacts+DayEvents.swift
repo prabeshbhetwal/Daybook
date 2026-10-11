@@ -11,8 +11,10 @@ struct AskEventItem: Equatable {
         case away(answer: String?, outcome: String?, credited: TimeInterval?)
         /// An absence not answered yet.
         case pending
-        /// A stretch or event the Mac's log tells, and when Daybook found it.
-        case mac(title: String, found: String?)
+        /// A stretch or event the Mac's log tells. An uncertain one (a crash)
+        /// happened some time in its window, and `found` is when Daybook
+        /// opened and found it.
+        case mac(title: String, uncertain: Bool, found: String?)
     }
 
     let kind: Kind
@@ -99,8 +101,10 @@ extension AskFacts {
                 + (credited.map { ", " + DurationText.compact($0) } ?? "")
         case .pending:
             what = "away, not answered yet"
-        case let .mac(title, found):
-            what = title + (found.map { " \u{00B7} found at \($0)" } ?? "")
+        case let .mac(title, uncertain, found):
+            // As the "What the Mac did" card words it, so the span is not read as how long it lasted.
+            what = title + (uncertain ? " \u{00B7} some time in this window"
+                            + (found.map { "; found when Daybook opened at \($0)" } ?? "") : "")
         }
         return "\(when) \u{00B7} \(what)"
     }
