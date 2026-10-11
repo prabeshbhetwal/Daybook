@@ -16,16 +16,18 @@ struct StorySessionDetail {
 
 /// Presentation items keep confirmations in the chronology without inserting
 /// artificial sessions into the evidence archive.
-/// One row of the story: an item shown in full, or a collapsed run of quiet
-/// ones the reader can open.
+/// One row of the story: an item shown in full, a collapsed run of quiet
+/// ones the reader can open, or back-to-back Mac events as one card.
 enum StoryTimelineRow: Identifiable {
     case item(StoryTimelineItem)
     case quiet(StoryQuietRun)
+    case machineRun(StoryMachineRun)
 
     var id: String {
         switch self {
         case .item(let item): return item.id
         case .quiet(let run): return "quiet-" + run.id
+        case .machineRun(let run): return run.id
         }
     }
 }
@@ -42,7 +44,8 @@ extension StoryTimelineItem {
 extension Array where Element == StoryTimelineItem {
     /// Groups runs of `minimumRun` or more consecutive quiet rows. A shorter
     /// run stays expanded: hiding one interval behind a disclosure costs the
-    /// reader a click and saves them nothing.
+    /// reader a click and saves them nothing. Back-to-back Mac events are
+    /// gathered too (`gatheringMachineRuns`).
     func groupingQuietRuns(minimumRun: Int = 3) -> [StoryTimelineRow] {
         var rows: [StoryTimelineRow] = []
         var pending: [StoryTimelineItem] = []
@@ -63,6 +66,35 @@ extension Array where Element == StoryTimelineItem {
             } else {
                 flush()
                 rows.append(.item(item))
+            }
+        }
+        flush()
+        return rows.gatheringMachineRuns()
+    }
+}
+
+extension Array where Element == StoryTimelineRow {
+    /// Two or more Mac-event pins with nothing between them become one card;
+    /// a lone pin stays a line, as a card for one would only add a click.
+    func gatheringMachineRuns() -> [StoryTimelineRow] {
+        var rows: [StoryTimelineRow] = []
+        var pins: [StoryMoment] = []
+
+        func flush() {
+            if pins.count >= 2 {
+                rows.append(.machineRun(StoryMachineRun(moments: pins)))
+            } else {
+                rows += pins.map { .item(.moment($0)) }
+            }
+            pins = []
+        }
+
+        for row in self {
+            if case .item(.moment(let moment)) = row, case .machine = moment {
+                pins.append(moment)
+            } else {
+                flush()
+                rows.append(row)
             }
         }
         flush()
