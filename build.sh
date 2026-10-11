@@ -470,13 +470,18 @@ if [ "${RUN}" -eq 1 ]; then
   # `open` on a running app only brings it forward: the old process keeps
   # its old code while the new binary sits unused on disk. Quit any running
   # copy, from any folder, the ordinary way so it saves on the way out.
-  osascript -e "quit app id \"${BUNDLE_ID}\"" >/dev/null 2>&1 || true
-  for _ in $(seq 1 100); do
+  # Right after a build the Mac is loaded, and one quit event can arrive late
+  # or not at all (twice on 11 October 2026), so ask again every 2 s. Each
+  # ask runs in the background: osascript waits up to 2 min for a reply.
+  for i in $(seq 1 300); do
     [ -z "$(app_pids)" ] && break
+    if [ $((i % 20)) -eq 1 ]; then
+      osascript -e "quit app id \"${BUNDLE_ID}\"" >/dev/null 2>&1 &
+    fi
     sleep 0.1
   done
   if [ -n "$(app_pids)" ]; then
-    echo "error: a running ${APP_NAME} did not quit within 10s; quit it, then run again" >&2
+    echo "error: a running ${APP_NAME} did not quit within 30s; quit it, then run again" >&2
     exit 1
   fi
   # Launch Services can drop an open that lands while the quit copy is still
