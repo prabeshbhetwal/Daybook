@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A review note for one place: the model's story and pattern, a tip where a
-/// label is given, and a caption saying where it was written. It draws
+/// A review note for one place: the model's story and pattern, and a caption
+/// saying where it was written. It draws
 /// nothing while the model is unusable, whatever is still in memory, so
 /// switching Apple Intelligence off hides every note at once.
 ///
@@ -23,8 +23,6 @@ struct PeriodNote: View {
     @ObservedObject var writer: NoteWriter
     let place: HistoryPlace
     let trigger: Trigger
-    /// The tip's label ("For today:"); nil leaves the tip out.
-    let tipLabel: String?
     /// Room around the note, kept only while there is something to draw, so a
     /// note that shows nothing leaves no gap.
     let insets: EdgeInsets
@@ -44,12 +42,11 @@ struct PeriodNote: View {
     @State private var asked = false
 
     init(writer: NoteWriter, place: HistoryPlace, evidence: SessionStore.NoteEvidence, trigger: Trigger,
-         tipLabel: String?, insets: EdgeInsets = EdgeInsets()) {
+         insets: EdgeInsets = EdgeInsets()) {
         self.writer = writer
         self.place = place
         self.evidence = evidence
         self.trigger = trigger
-        self.tipLabel = tipLabel
         self.insets = insets
         usable = writer.isUsable
     }
@@ -109,21 +106,11 @@ struct PeriodNote: View {
             Text(durations: note.paragraph)
                 .font(Tokens.Typography.body)
                 .fixedSize(horizontal: false, vertical: true)
-            if let tip = tipLine(note) {
-                Text(durations: tip)
-                    .font(Tokens.Typography.body)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
             Label(Self.caption, systemImage: "apple.intelligence")
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(StoryStyle.supportingInk)
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private func tipLine(_ note: WrittenNote) -> String? {
-        guard let tipLabel, let tip = note.tip else { return nil }
-        return tipLabel + " " + tip
     }
 
     /// An automatic note is written as it appears, and again when `evidence`
@@ -141,7 +128,7 @@ struct PeriodNote: View {
     /// What VoiceOver is told when a note the person asked for arrives.
     private var announcement: String? {
         switch writer.state(for: place) {
-        case .written(let note)?: return [note.paragraph, tipLine(note)].compactMap { $0 }.joined(separator: " ")
+        case .written(let note)?: return note.paragraph
         case .failed(requested: true)?: return Self.failure
         default: return nil
         }

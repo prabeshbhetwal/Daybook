@@ -9,38 +9,27 @@ struct NoteFacts: Equatable {
     let kind: Kind
     let lines: [String]
     /// Up to four candidate observations of a day, five of a week or month, in
-    /// the order their rules are listed. A day always has "Focus began at …";
-    /// a period may have none.
+    /// the order their rules are listed. Either may have none.
     let observations: [String]
-    /// The observations kept for the pattern only, such as a drop in focus from
-    /// the day before. The text lists them under "Context:", apart from the
-    /// observations a tip may build on: the probe found the tip scolding
-    /// whenever it was handed a drop, and parroting a mark put beside the
-    /// observations it could use ("Use the call to Mum for a tip"). Empty on a
-    /// period, which has no tip.
-    var patternOnly: Set<String> = []
     /// How many sessions a week's or month's "Most time went to" line names, up
     /// to three; 0 on a day. The model is asked for a different form by it.
     var namedSessions = 0
 
-    /// The lines, then "Observations:" and a bullet for each, then "Context:"
-    /// and a bullet for each pattern-only one (a heading is left out when it
-    /// has none), joined by newlines.
+    /// The lines, then "Observations:" and a bullet for each (the heading is
+    /// left out when there are none), joined by newlines.
     var text: String {
-        let usable = observations.filter { !patternOnly.contains($0) }
-        let context = observations.filter(patternOnly.contains)
-        var out = lines
-        if !usable.isEmpty { out += ["Observations:"] + usable.map { "- " + $0 } }
-        if !context.isEmpty { out += ["Context:"] + context.map { "- " + $0 } }
-        return out.joined(separator: "\n")
+        (observations.isEmpty ? lines : lines + ["Observations:"] + observations.map { "- " + $0 })
+            .joined(separator: "\n")
     }
 }
 
-/// A note as the model returns it: a story, a pattern and, on days, a tip.
+/// A note as the model returns it: a story and a pattern. There is no tip: a
+/// live probe found every tip the model wrote useless or invented ("Keep Coding
+/// sessions running past midnight", "Try using Xcode for 4 hours today"), even
+/// when the facts held something worth acting on.
 struct WrittenNote: Equatable {
     let story: String
     let pattern: String
-    let tip: String?
 }
 
 /// The longest stretch of focus on a day, worked out as the Story works out
@@ -54,9 +43,14 @@ struct NoteStretch: Equatable {
 
 /// What one day is described from. `sessionCount` is the sessions as History
 /// counts them: a session resumed after another is one, so the count can be
-/// below `sessions`. `previousFocused` is the day before's focus, 0 when there
-/// is none. `longestStretch` comes from the Story's own computation, so the
-/// facts cannot count a pause as focus.
+/// below `sessions`. `goalCredit` is the focus the goal counts, the part with
+/// hands-on use, so it can be below `focused`. `typicalFocused` and
+/// `typicalStretch` are the person's own baseline, the medians of the
+/// `typicalDays` days with focus among the 14 before (`NoteBaseline`), 0 when
+/// there is none.
+/// `longestStretch` comes from the Story's own computation, so the facts cannot
+/// count a pause as focus. `focusByPart` is the day's focus split by
+/// `NoteDayPart`, from each stretch's own work.
 struct NoteDayInput {
     let date: Date
     let isCurrent: Bool
@@ -66,8 +60,53 @@ struct NoteDayInput {
     let focused: TimeInterval
     let goal: TimeInterval
     let goalCredit: TimeInterval
-    let previousFocused: TimeInterval
+    let typicalFocused: TimeInterval
+    let typicalStretch: TimeInterval
+    let typicalDays: Int
     let longestStretch: NoteStretch?
+    let focusByPart: [NoteDayPart: TimeInterval]
+}
+
+/// A part of the day, for when a day's focus came. Night runs from 10 pm to
+/// 5 am, so it holds both ends of the day.
+enum NoteDayPart: CaseIterable {
+    case morning, afternoon, evening, night
+
+    var phrase: String {
+        switch self {
+        case .morning: return "in the morning, between 5 am and noon"
+        case .afternoon: return "in the afternoon, between noon and 5 pm"
+        case .evening: return "in the evening, between 5 pm and 10 pm"
+        case .night: return "at night, after 10 pm or before 5 am"
+        }
+    }
+
+    /// The part's hours on the day's clock, each [start, end); 24 is the day's end.
+    var hours: [(from: Int, to: Int)] {
+        switch self {
+        case .morning: return [(5, 12)]
+        case .afternoon: return [(12, 17)]
+        case .evening: return [(17, 22)]
+        case .night: return [(0, 5), (22, 24)]
+        }
+    }
+}
+
+/// The person's typical day, from the days with focus in the window before the
+/// one described: the median focus, the median of each day's focus per
+/// stretch, and how many days they are drawn from. The window and the fewest
+/// days are the daily goal's pace baseline's defaults; the window does not
+/// follow the pace setting, so changing that does not rewrite notes. Too few
+/// days is no baseline, and all three are 0.
+enum NoteBaseline {
+    static let days = FocusConstants.goalMedianWindowDays
+
+    static func typical(_ earlier: [(focused: TimeInterval, stretches: Int)])
+        -> (focused: TimeInterval, stretch: TimeInterval, days: Int) {
+        let days = earlier.filter { $0.focused > 0 && $0.stretches > 0 }
+        guard days.count >= FocusConstants.goalMedianMinimumDays else { return (0, 0, 0) }
+        return (days.map(\.focused).median, days.map { $0.focused / Double($0.stretches) }.median, days.count)
+    }
 }
 
 /// The weekday a month's focus went most to: `date` is any day on it, `days`

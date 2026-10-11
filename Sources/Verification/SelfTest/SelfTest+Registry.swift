@@ -116,6 +116,7 @@ extension SelfTest {
             + AskPanelChecks.tests
             + SupportingInkChecks.tests
             + SnapshotStillChecks.tests
+            + YesterdayNoteInsightChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

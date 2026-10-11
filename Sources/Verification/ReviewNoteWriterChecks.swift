@@ -13,8 +13,8 @@ enum ReviewNoteWriterChecks: CheckSuite {
         ("Opening another period cancels the note being written", newerWins),
         ("A note the person asks for while it is being written shows its failure", askedWhileWriting),
         ("Leaving a period cancels its note being written", leavingCancels),
-        ("A week's note never carries a tip", weekHasNoTip),
-        ("A day's note keeps its tip unless the tip is blank", dayTip),
+        ("A week's note is shown trimmed of blank space around it", weekTrimmed),
+        ("A day's note is shown trimmed of blank space around it", dayTrimmed),
         ("A day with no sessions fails quietly without asking the model", noFacts),
         ("Renaming a session writes the day's note again", renameRewrites),
     ]
@@ -22,7 +22,7 @@ enum ReviewNoteWriterChecks: CheckSuite {
     typealias Fixture = AskLookupChecks.Fixture
 
     /// Free of digits, so it passes the audit against any facts.
-    static let plain = WrittenNote(story: "You worked on Parser.", pattern: "Focus began after lunch.", tip: nil)
+    static let plain = WrittenNote(story: "You worked on Parser.", pattern: "Focus began after lunch.")
 
     /// What a stand-in model records, and the calls it can be holding.
     final class Model {
@@ -91,8 +91,7 @@ enum ReviewNoteWriterChecks: CheckSuite {
 
     private static func cacheHit() -> [String] {
         withWriter { f, writer, model, problems in
-            let note = WrittenNote(story: "You worked on Parser.", pattern: "Focus began after lunch.",
-                                   tip: "Start with the hard part.")
+            let note = WrittenNote(story: "You worked on Parser.", pattern: "Focus began after lunch.")
             writer.responder = model.answer(note)
             let tuesday = day(f, back: 1)
             writer.request(tuesday, requested: false)
@@ -110,7 +109,7 @@ enum ReviewNoteWriterChecks: CheckSuite {
 
     private static func failedAuditHidden() -> [String] {
         withWriter { f, writer, model, problems in
-            writer.responder = model.answer(WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else.", tip: nil))
+            writer.responder = model.answer(WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else."))
             let tuesday = day(f, back: 1)
             writer.request(tuesday, requested: false)
             expect(settle(writer, tuesday), "the note never settled", &problems)
@@ -186,7 +185,7 @@ enum ReviewNoteWriterChecks: CheckSuite {
     /// note, and its failure is one they are owed.
     private static func askedWhileWriting() -> [String] {
         withWriter { f, writer, model, problems in
-            writer.responder = model.hold(WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else.", tip: nil))
+            writer.responder = model.hold(WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else."))
             let tuesday = day(f, back: 1)
             writer.request(tuesday, requested: false)
             expect(InstalledAppCatalog.turnRunLoop(until: { model.entered > 0 }, timeout: 5), "the model was never asked", &problems)
@@ -222,10 +221,10 @@ enum ReviewNoteWriterChecks: CheckSuite {
         }
     }
 
-    private static func weekHasNoTip() -> [String] {
+    private static func weekTrimmed() -> [String] {
         withWriter { f, writer, model, problems in
             f.store.setReviewVisible(true)
-            writer.responder = model.answer(WrittenNote(story: plain.story, pattern: plain.pattern, tip: "Plan the week."))
+            writer.responder = model.answer(WrittenNote(story: "  " + plain.story, pattern: plain.pattern + "\n"))
             let week = HistoryPlace(level: .week, span: HistoryTreeBuilder.period(.week, containing: f.clock.value,
                                                                                  calendar: f.calendar))
             writer.request(week, requested: true)
@@ -235,20 +234,14 @@ enum ReviewNoteWriterChecks: CheckSuite {
         }
     }
 
-    private static func dayTip() -> [String] {
-        withWriter { f, _, model, problems in
+    private static func dayTrimmed() -> [String] {
+        withWriter { f, writer, model, problems in
             let tuesday = day(f, back: 1)
-            let tips: [(String?, String?)] = [("  Start with the hard part.\n", "Start with the hard part."),
-                                              ("  \n", nil), (nil, nil)]
-            for (given, want) in tips {
-                // The same facts hit the cache, so each tip gets a fresh writer.
-                let writer = NoteWriter(store: f.store)
-                writer.responder = model.answer(WrittenNote(story: plain.story, pattern: plain.pattern, tip: given))
-                writer.request(tuesday, requested: true)
-                expect(settle(writer, tuesday), "the note for tip \(String(describing: given)) never settled", &problems)
-                expect(writer.state(for: tuesday) == .written(WrittenNote(story: plain.story, pattern: plain.pattern, tip: want)),
-                       "the tip \(String(describing: given)) came out as \(String(describing: writer.state(for: tuesday)))", &problems)
-            }
+            writer.responder = model.answer(WrittenNote(story: plain.story + " \n", pattern: "\t" + plain.pattern))
+            writer.request(tuesday, requested: true)
+            expect(settle(writer, tuesday), "the day's note never settled", &problems)
+            expect(writer.state(for: tuesday) == .written(plain),
+                   "the day's note is \(String(describing: writer.state(for: tuesday)))", &problems)
         }
     }
 

@@ -77,7 +77,7 @@ struct TodayNotes: View {
             }
             if let place = offers.wrapUp {
                 PeriodNote(writer: writer, place: place, evidence: evidence,
-                           trigger: .onRequest(label: "Wrap up today"), tipLabel: "For tomorrow:")
+                           trigger: .onRequest(label: "Wrap up today"))
                     .noteCard()
                     .id(place.id)
             }
