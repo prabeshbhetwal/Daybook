@@ -81,7 +81,8 @@ speech recognition, which runs on the Mac where your language supports that and
 otherwise may send the audio to Apple; and the backups described below, which
 iCloud Drive uploads to your own iCloud account. Ask Daybook answers with
 Apple's on-device model, and your question, history and answers are not sent
-anywhere.
+anywhere. Review notes are written by the same on-device model, and nothing is
+sent anywhere.
 On a new install, backups are on from the start: every day they are copied
 into iCloud Drive, which uploads them to your own iCloud account when iCloud
 Drive is on, or into a folder you choose; Settings can change how often, or

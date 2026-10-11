@@ -8,6 +8,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
     case askEmpty, askAnswered, askFailed, askStopped, askPanelStory, askPanelHistory
+    case reviewNotes, reviewNotesHistory
     case storyDay, storyDayEntry
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport
     case welcomeOpening, welcomeStep
@@ -42,6 +43,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .askStopped: return "Ask — an answer stopped part way"
         case .askPanelStory: return "Ask — the side panel beside Story"
         case .askPanelHistory: return "Ask — the side panel beside History"
+        case .reviewNotes: return "Review notes — Yesterday and Wrap up today on the rail"
+        case .reviewNotesHistory: return "Review notes — a History day open under its week and month"
         case .storyDay: return "Story — the day"
         case .storyDayEntry: return "Story — an entry opened"
         case .storyShape: return "Story — recorded shape and session actions"
@@ -118,13 +121,14 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .todayHistory, .todayHistoryExpanded:
             return .today
         case .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse,
-             .askPanelHistory:
+             .askPanelHistory, .reviewNotesHistory:
             return .review
         case .insightsEnough, .insightsEmpty:
             return .insights
         case .awardsEarned, .awardsEmpty:
             return .awards
         case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askPanelStory,
+             .reviewNotes,
              .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
              .welcomeOpening, .welcomeStep:
             return .story
@@ -425,6 +429,11 @@ enum Snapshotter {
             store.refreshReview()
             store.setHistoryApp(store.historyAppBundleIDs.first)
             return store
+        case .reviewNotesHistory:
+            // Two weeks over two months, so a month and a week open above the day.
+            let store = FixtureFactory.insightsStore(withEvidence: true)
+            store.refreshReview()
+            return store
         case .historySparse:
             let store = FixtureFactory.store(for: .firstRun, accurateUsage: true)
             store.refreshReview()
@@ -439,7 +448,8 @@ enum Snapshotter {
             return store
         case .awardsEmpty:
             return FixtureFactory.store(for: .firstRun)
-        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askPanelStory:
+        case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askPanelStory,
+             .reviewNotes:
             let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
             store.setDashboardVisible(true)
             return store
@@ -501,6 +511,13 @@ enum Snapshotter {
         case .askAnswered, .askFailed, .askStopped:
             navigation.openAsk()
             navigation.askModel?.present(turns: askTurns(for: scenario))
+        case .reviewNotes:
+            presentNotes(for: scenario, on: navigation, store: store)
+        case .reviewNotesHistory:
+            navigation.open(tab: .review)
+            if let day = presentNotes(for: scenario, on: navigation, store: store)?.start {
+                navigation.openHistory(day: day)
+            }
         case .settingsActivityRules:
             navigation.settingsSection = .activities
         case .storyReport:
