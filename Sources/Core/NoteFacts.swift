@@ -19,6 +19,9 @@ struct NoteFacts: Equatable {
     /// observations it could use ("Use the call to Mum for a tip"). Empty on a
     /// period, which has no tip.
     var patternOnly: Set<String> = []
+    /// How many sessions a week's or month's "Most time went to" line names, up
+    /// to three; 0 on a day. The model is asked for a different form by it.
+    var namedSessions = 0
 
     /// The lines, then "Observations:" and a bullet for each, then "Context:"
     /// and a bullet for each pattern-only one (a heading is left out when it

@@ -33,11 +33,11 @@ enum ReviewNoteWordChecks: CheckSuite {
             ("a stretch of nine", ["bare 9"]),
             ("zero sessions", ["count 0 session"]),
             ("Forty-Six", ["bare 46"]),
-            // A lone "one" is a pronoun too; it is a number before a unit or a thing counted. Ordinals, "half" and
-            // a word that merely holds a number are not read.
+            // A lone "one" is a pronoun too; it is a number before a unit or a thing counted. Ordinals and a word
+            // that merely holds a number are not read.
             ("no one was there, one hour", ["duration 3600"]),
             ("one of them, one's own", []),
-            ("the second tenth, a half, a stone", []),
+            ("the second tenth, a stone", []),
             ("none here", []),
         ]
         for (text, want) in cases {

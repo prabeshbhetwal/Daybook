@@ -3,8 +3,9 @@ import Foundation
 /// Reads a number written in words one word at a time: "forty-six" is 46 and
 /// "two thousand twenty-six" is 2026. The live probe found the model writing
 /// most of a week's or month's figures this way.
-// ponytail: "and" ends a figure ("one hundred and five" reads as 100 and 5), and "half", "dozen" and ordinals are
-// not read; widen if the probe finds them stating a figure.
+// ponytail: "and" ends a figure ("one hundred and five" reads as 100 and 5), and "dozen" and ordinals are not read;
+// widen if the probe finds them stating a figure. "Half", "quarter", "couple" and "twice" are not read as numbers
+// either, but `NoteFigure` fails a note that writes them.
 struct NoteNumberWords {
     private static let units = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
                                 "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",

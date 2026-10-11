@@ -68,7 +68,7 @@ nothing to look at).
 | Core | `Sources/Core/NoteFactsBuilder.swift` | `NoteFacts.day` and `NoteFacts.period`, the wording and formats of the facts, and the app-rendered figures line. Lists are capped (a day names its top 8 sessions by time, in start order, and counts the rest; a week or month names its top 3 by time). A session left unnamed is called by its kind, as the Story titles it. Split from `NoteFacts` to keep each file under 300 lines. |
 | Core | `Sources/Core/NoteAudit.swift`, `NoteFigure.swift`, `NotePiece.swift`, `NoteNumberWords.swift` | `passes(_ note:, facts:)`: every figure in the story, pattern and tip must appear among the facts' figures, compared by kind and value and not by digits (§2). `NotePiece` cuts a text into numbers, clock times and words; `NoteNumberWords` reads "forty-six" and "two thousand twenty-six"; `NoteFigure.read` types what remains. |
 | App | `Sources/App/ModelGate.swift` | `modelAvailable`: macOS 26 and `availability == .available`, read on every call rather than kept from launch. `AskModel.canAsk` reads it too, so Ask is unchanged. The Settings switch is read by `NoteWriter.isUsable`. |
-| App | `Sources/App/NoteWriter.swift` | `@MainActor ObservableObject`. Publishes each place's note state (writing, written, failed) and keeps the cache and the failed keys. One `LanguageModelSession` per note, with greedy sampling and a `@Generable` form for each kind (`GeneratedNote.swift`: a day's `GeneratedNote { story, pattern, tip }`, a week's or month's `GeneratedPeriodNote { story, pattern }`); the tip is kept on days only. Runs the audit, writes one note at a time, and has a `responder` seam for checks. `NoteWriter+Failure.swift` says which thrown errors would fail the same way again (§4). Remembers the key each published state was written for: `forgetIfStale(_:)` drops a note or failure whose facts have since changed, and `cancelAll()` stops the note being written and drops those waiting. |
+| App | `Sources/App/NoteWriter.swift` | `@MainActor ObservableObject`. Publishes each place's note state (writing, written, failed) and keeps the cache and the failed keys. One `LanguageModelSession` per note, with greedy sampling and a `@Generable` form for each kind (`GeneratedNote.swift`: a day's `GeneratedNote { story, pattern, tip }`, a week's or month's `GeneratedPeriodNote { story, pattern }`, with a `GeneratedSoloPeriodNote` and a `GeneratedPairPeriodNote` for facts that name one or two sessions, chosen by `PeriodForm`); the tip is kept on days only. Runs the audit, writes one note at a time, and has a `responder` seam for checks. `NoteWriter+Failure.swift` says which thrown errors would fail the same way again (§4). Remembers the key each published state was written for: `forgetIfStale(_:)` drops a note or failure whose facts have since changed, and `cancelAll()` stops the note being written and drops those waiting. |
 | App | `Sources/App/SessionStore+Notes.swift` | Builds `NoteFacts` for a History place, for today and for yesterday from the read models those surfaces already publish, and answers whether Wrap up today or the Yesterday notice is offered. `noteEvidence` is the session archive's and the session metadata's revisions, read from `evidenceRevision`, and the daily goal: the cheap value a note on screen is checked against again (§3). The longest stretch of a day, week or month is `storyLongestFocusStretch`, the Story's own; a month's busiest weekday is summed from the per-day projections the period's session totals already read. It publishes no note state (only the redraw after the Yesterday notice is dismissed) and adds no stored property, so `SessionStore` gains no `keep_internals` entry. |
 | App | `Sources/App/MainWindowModel.swift` | `notes`: builds the `NoteWriter` on first read. Today's rail reads it on every redraw, so every Mac that shows the rail holds one, whether or not a note is ever shown. Views reach the writer as `navigation.notes`. |
 | App | `Sources/App/SettingsModel.swift` | `useAppleIntelligence` (default true). It and `yesterdayNoteDismissedDay` are stored in `PersistenceStore`. |
@@ -104,9 +104,17 @@ within two sentences for the story and one each for pattern and tip, and to
 write the tip as one concrete action for the next day built on one of the
 observations, never commenting on less focus or a missed goal. The guides on
 `GeneratedPeriodNote` (a week or month, which has no tip) ask the story to name
-the two or three sessions that took the most time, each with its duration
-exactly as the facts write it, not in order and not added together, and the
-pattern to state the first listed observation with its figures as listed.
+up to three of the sessions that took the most time, as many as the facts name,
+each with its duration in digits exactly as the facts write it, not in order
+and not added together, and the pattern to state the first listed observation
+with its figures as listed. That wording alone padded a period that names fewer
+than three: a one-session week read "You spent 1h on Reading on Wednesday 29
+July 2026 and 1h on Reading on Wednesday 29 July 2026.", and a two-session one
+added "and 11h on Thesis again". Every rewording tried on the fixture still
+padded (one sentence, "each once", "as many as are listed", an example), so the
+facts count the sessions they name (`namedSessions`) and the model is asked for
+a form that gives the sentence to fill: "You spent DURATION on NAME." for one,
+"... and DURATION on NAME." for two, the three-session guide for three.
 
 The tip guide is a deliberate exception to "fixes go in the facts, not the
 prompt", because tone is wording and not a fact. The facts still do the
@@ -120,19 +128,33 @@ The audit weighs figures by kind and value, not by digits (`NoteFigure`):
 
 | Kind | Reads as | Compared as |
 |---|---|---|
-| Duration | "1h 30m", "90 minutes", "1.5 hours", "one hour thirty minutes", "1-hour 30-minute" | seconds; a smaller unit continues a duration only when it follows a larger, so separate figures are never summed |
+| Duration | "1h 30m", "90 minutes", "1.5 hours", "one hour thirty minutes", "1-hour 30-minute" | seconds. Terms joined by a space, a comma or "and", each in a smaller unit than the one before, are one duration and are added: "2h, 30m" is 9000 s, and the facts must hold 9000 s as a single duration. A larger unit after a smaller ("30m, then 1h") or any other word between ("Xcode 1h, Safari 30m") starts a new figure |
 | Clock time | "9:13 am", "9:13am", "9 pm", "21:13" | minute of the day; with no am or pm it reads both ways |
-| Date | "14 November", "6th of October", "Tuesday 6 October 2026" | month and day |
+| Date | "14 November", "6th of October", "Tuesday 6 October 2026" | month and day; a weekday written touching the day ("Tuesday 7 October", "Tue, 7th Oct") is part of it and must be the weekday the facts give that date |
 | Year | a four-digit number from 1900 to 2100 | the year |
 | Count | a number before session(s), day(s), stretch(es), week(s), month(s) | number and noun, "three stretches" = "3 stretches" |
 | Percentage | "40%", "40 percent" | the number |
 | Bare number | any other: a session name's "Q4", "v2", "1.3", "3 of 7" | the number, against bare numbers only |
+| Numberless amount | "an hour", "half an hour", "a couple of hours", "an hour and a half", "one and a half hours", "a quarter of an hour", "Thesis for hours", "a minute", "twice" | never: the words hour, minute (and their short forms), half, quarter, couple, twice and thrice left over with no number before them fail the note |
 
 Every figure in the note must match one the facts hold, of the same kind and
 value. So "9h" fails against a 9:13 start, "seventeen hours forty-one
 minutes" fails against a session count and a duration that are both in the
 facts, and a bare 30 does not pass because the facts hold 30m. A session
 name's digits are facts, and pass when the note quotes the name.
+
+The audit fails closed. A review found that an amount with no number in front
+of it passed unchecked: with a 45m session in the facts, "an hour", "half an
+hour", "a couple of hours", "an hour and a half" and "a quarter of an hour"
+all passed, and "an hour" is the likeliest way for the model to invent a
+duration. Such a wording is now a phrase no fact holds, and the note fails,
+even when the facts hold a duration it could mean. The one excuse is a name:
+the words hour, minute, half and the rest stand when the two words they sit in
+(with the word before, or the word after) are in the facts, so a session
+named "Office hours" or "Half marathon plan" is quoted freely. A weekday beside
+a date was not compared either, so "Tuesday 7 October" passed against
+Wednesday 7 October; it fails now, and a date with no weekday still matches
+any weekday the facts give it.
 
 Where the facts come from, as built:
 
@@ -205,7 +227,7 @@ send a Wrap up today note just written back to its link.
 | Facts change (rename, correction, deletion, a session added) | The facts' text changes, and with it the cache key, so the note is written again, at once if it is on screen (the view checks again when `noteEvidence` moves, §3) and otherwise when next viewed. A note written on request returns to its link instead, since nothing writes it unasked. Changes in app use alone are not watched. |
 | Midnight | Notes are keyed by period and the facts' text. A day's first fact line ends "(so far)" while it is current, so the text, and with it the key, always changes at midnight: today's wrap-up is never carried over, and the finished day's note, in History and in the Yesterday notice, is always written afresh. The Yesterday notice moves to the new yesterday. Done closes the day the notice showed, not whichever day is yesterday when it is pressed after midnight, so the new yesterday is still offered. |
 | Several periods opened quickly | One call at a time. A newer request replaces the one running. A replaced period still on screen is written once the writer is idle; one whose view has closed is dropped. |
-| Figures written as words | Read by the audit as the value they stand for, typed (§2): the probe found the model writing most of a week's or month's figures this way (§6a). A lone "one" counts before a unit or a thing counted ("one hour", "one session"); "half", "dozen", "a quarter of an hour" and ordinals ("tenth") are still not read, and "and" ends a figure (`ponytail:` in `NoteNumberWords`). |
+| Figures written as words | Read by the audit as the value they stand for, typed (§2): the probe found the model writing most of a week's or month's figures this way (§6a). A lone "one" counts before a unit or a thing counted ("one hour", "one session"). "Half", "quarter", "couple" and "twice" are not read as numbers but fail the note (§2); "dozen" and ordinals ("tenth") are still not read, and "and" ends a figure (`ponytail:` in `NoteNumberWords`). |
 
 ## 5. Privacy
 
@@ -239,7 +261,11 @@ model.
 | Most-time list | A week whose sessions are "Budget, then notes" and "Release 1.3" | The list reads other than `name: duration` joined by semicolons, so a comma or a trailing number runs into the figures |
 | Typed figures | Facts written by hand in the builder's wording; notes stating "9h" against a 9:13 start, "13 minutes", "9 sessions", "15 sessions" against a 15 November, "9:15 am", "9:13 pm", "40%", "2 days" against 2 sessions, "5 stretches" against 3, and "seventeen hours forty-one minutes" | A figure whose digits are elsewhere in the facts passes (`ReviewNoteFigureChecks`) |
 | Same figures, other words | The facts' own durations, times, dates and counts in digits, as "1 hour 30 minutes", "90 minutes", "1.5 hours", "1-hour 30-minute", "one hour and thirty minutes", "09:13", "9:13am", "15th November" | A figure the facts hold fails |
-| Duration reading | "1h 30m", "1 hour, 30 minutes", "1h30m", "90 minutes", "ninety minutes" all 5400 s; "Xcode 1h, Safari 30m" and "30m, then 1h" stay two figures | Separate durations are summed, or one duration reads as two |
+| Duration reading | "1h 30m", "1 hour, 30 minutes", "1h30m", "90 minutes", "ninety minutes" all 5400 s, "2h, 30m" 9000 s; "Xcode 1h, Safari 30m" and "30m, then 1h" stay two figures | A duration with a word between its terms is summed, or one duration reads as two |
+| Numberless amounts | Facts with a 45m and a 1h 30m session; notes saying "an hour", "half an hour", "a couple of hours", "an hour and a half", "one and a half hours", "a quarter of an hour", "hours on Thesis", "a few minutes", "a minute", "twice", "a couple of sessions", "the second half of the day" and "an hour" in the tip alone | Any of them passes (`ReviewNoteVagueChecks`) |
+| Wording in the facts | Sessions named "Office hours", "Minute taking" and "Half marathon plan", quoted; the same notes with "an hour" or "half an hour" added | A quoted name fails, or an amount of the note's own is excused by a name |
+| Weekday and date | A week's facts with Wednesday 7 and Tuesday 6 October; "Wednesday 7 October", "Wed 7 Oct", "Wednesday, 7th October", "7 October", "Tue 6 October 2026" pass; "Tuesday 7 October", "Tue 7 Oct", "Thursday, 7th October", "Monday 6 October" and "Tuesday 8 October" fail | A wrong weekday passes, or a right one, or a date without one, fails |
+| Named sessions | A week naming 5, 3, 2 and 1 sessions | The facts name other than min(count, 3), or the form asked for is other than trio, trio, pair, solo |
 | Bare numbers | Names "Q4 plan v2", "Sprint 42 review", "Release 1.3", "2026 tax return" quoted from the facts, against facts without them, and a bare 30 against facts that hold 30m | A name's digits fail when quoted, pass when the name is absent, or a bare number passes on a duration |
 | Probe wording | The live run's week note with its invented total and its digit-named day, against the facts the app now writes | The invented total passes, or the digit-named day fails |
 | Pause in a stretch | A session from 9 to 11 with an hour paused (1h of work), read from a store | The day's longest stretch reads 2h, or differs from the Story's `storyLongestFocusStretch` |
@@ -275,6 +301,9 @@ suites above):
 | Five sessions named in a week's or month's list | Period facts |
 | The store gives no busiest weekday, or the builder leaves it out | Period facts, Period from the store |
 | A blank session name stays blank in a period's totals | Period from the store |
+| Numberless amounts are not read (fix round) | Numberless amounts |
+| A date's weekday is dropped when read (fix round) | Weekday and date |
+| Every period is asked for the three-session form (fix round) | Named sessions |
 
 Live quality: Ask's probe harness gains a `--noteprobe` entry over 20 fixture
 periods. Target: no audit failures, and Sir's read of tone and accuracy.
@@ -438,6 +467,29 @@ What is still weak, honestly:
 - A day with one session and a top app (Sat 3 Oct) still reads the apps line as a second block of work ("then 1 hour 30 minutes in Books"). The figure is in the facts, so the audit cannot see the misreading; the audit checks that a figure is held, not what it measures.
 - Several day tips read "Start the next session with Thesis at 8:00 am for 5 hours": concrete and not a reprimand, but pushy about a duration.
 - The typed audit cannot see a figure attached to the wrong thing, such as the best day's focus given to another day.
+
+### Third run (2026-10-11, after the review's fix round)
+
+The audit now fails closed on amounts with no number and on a weekday that
+does not match its date (§2), and a twenty-first period joined the fixture: a
+week with one session and one name. The same harness, the sources as fixed.
+
+| | Result |
+|---|---|
+| Audit, days | 13 pass, 0 fail |
+| Audit, weeks and months | 8 pass, 0 fail |
+| Notes the stricter audit rejects | 0 of 21: the model wrote every duration in digits, so no numberless amount or wrong weekday reached it (the first run's "Thesis for hours" would be rejected now) |
+| Latency | median 3.2 s, fastest 1.6 s, slowest 6.2 s, total 68 s for 21 notes |
+| Day tips | 0 mild reprimands, 0 nonsense (the same 13 as before) |
+
+The one-session week was the finding. With the three-session guide, reworded
+five ways, the note padded itself ("You spent 1h on Reading on Wednesday 29
+July 2026 and 1h on Reading on Wednesday 29 July 2026."), and a two-session
+week added "and 11h on Thesis again". Giving the sentence's form fixed both:
+"You spent 1h on Reading." and "You spent 11h on Thesis and 6h 36m on Parser."
+A three-session form that gave the sentence to fill was worse than the guide
+for three: it wrote "You spent 11h 41m on Thesis", a figure the facts do not
+hold, which the audit would have dropped.
 
 ## 7. Hand checks
 

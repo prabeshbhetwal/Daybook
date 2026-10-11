@@ -9,12 +9,17 @@ import Foundation
 /// date, year, count or percentage is a bare one, and must be a bare number
 /// the facts hold: a session name's digits ("Q4 plan v2") are such facts, as
 /// long as the note quotes the name.
+///
+/// It fails closed. An amount worded with no number ("an hour", "half an hour",
+/// "a couple of hours", "twice", "Thesis for hours") is a phrase no fact holds,
+/// so the note fails; a weekday written beside a date must be the weekday the
+/// facts give that date, or the note fails.
 enum NoteAudit {
     /// The mentions in the note's story, pattern and tip that no figure in
     /// the facts matches. Each is the readings it has (a time without am or
     /// pm has two).
     static func unmatched(_ note: WrittenNote, facts: NoteFacts) -> [Set<NoteFigure>] {
-        let held = Set(NoteFigure.read(facts.text).joined())
+        let held = NoteFigure.held(in: facts.text)
         return [note.story, note.pattern, note.tip ?? ""]
             .flatMap(NoteFigure.read)
             .filter { $0.isDisjoint(with: held) }

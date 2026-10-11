@@ -10,7 +10,7 @@ enum ReviewNoteFigureChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A figure the facts lack fails the note even when its digits are elsewhere in them", digitsAreNotFigures),
         ("A note quoting the facts' durations, times, dates and counts passes, in digits or in words", factsInOtherWords),
-        ("A duration reads as one value however it is written, and separate durations are not summed", durationReading),
+        ("A duration reads as one value however it is written, and durations with a word between them stay apart", durationReading),
         ("A bare number must be a bare number in the facts, so a session name's digits pass only when quoted", bareNumbers),
         ("The live probe's invented week total fails and its digit-named day passes", probeNotes),
     ]
@@ -69,7 +69,9 @@ enum ReviewNoteFigureChecks: CheckSuite {
             expect(readings(text) == ["duration 5400"], "“\(text)” reads as \(readings(text)), not 1h 30m", &problems)
         }
         expect(readings("1h 30m 15s") == ["duration 5415"], "hours, minutes and seconds: \(readings("1h 30m 15s"))", &problems)
-        // Durations the facts list apart stay apart: a sum is a figure the facts do not hold.
+        // Terms with a smaller unit after a larger are one duration and are added, so "2h, 30m" is 9000 s and the facts
+        // must hold that. Durations with a word between them, or a larger unit after a smaller, stay apart.
+        expect(readings("2h, 30m") == ["duration 9000"], "a comma-joined pair: \(readings("2h, 30m"))", &problems)
         expect(readings("Xcode 1h, Safari 30m") == ["duration 3600", "duration 1800"],
                "two named durations: \(readings("Xcode 1h, Safari 30m"))", &problems)
         expect(readings("Thesis at 2:00 pm, 45m; Mail at 4:00 pm, 15m") == ["clock 840", "duration 2700", "clock 960", "duration 900"],
@@ -78,7 +80,7 @@ enum ReviewNoteFigureChecks: CheckSuite {
                "a longer unit after a shorter is not part of it: \(readings("30m, then 1h"))", &problems)
         expect(readings("09:13 and 21:13") == ["clock 1273 or clock 553", "clock 1273"],
                "a time without am or pm reads both ways: \(readings("09:13 and 21:13"))", &problems)
-        expect(readings("Wednesday 15 November 2023") == ["date 1115", "year 2023"],
+        expect(readings("Wednesday 15 November 2023") == ["date 1115 wednesday", "year 2023"],
                "a date reads as a date and a year: \(readings("Wednesday 15 November 2023"))", &problems)
         expect(readings("3 of 7 days, 40 percent, 2 stretches") == ["bare 3", "count 7 day", "percent 40", "count 2 stretch"],
                "counts and percentages: \(readings("3 of 7 days, 40 percent, 2 stretches"))", &problems)

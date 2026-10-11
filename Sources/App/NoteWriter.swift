@@ -257,7 +257,7 @@ enum NoteState: Equatable {
     // MARK: - The model
 
     /// A fresh session per note: nothing from one period leaks into the next.
-    /// A day and a week or month have a form each (`GeneratedNote.swift`).
+    /// A day and a week or month have a form each, a period's by how many sessions it names (`GeneratedNote.swift`).
     @available(macOS 26, *)
     private static func generate(_ facts: NoteFacts) async throws -> WrittenNote {
         let session = LanguageModelSession(instructions: instructions)
@@ -266,8 +266,7 @@ enum NoteState: Equatable {
             let note = try await session.respond(to: facts.text, generating: GeneratedNote.self, options: options).content
             return WrittenNote(story: note.story, pattern: note.pattern, tip: note.tip)
         case .period:
-            let note = try await session.respond(to: facts.text, generating: GeneratedPeriodNote.self, options: options).content
-            return WrittenNote(story: note.story, pattern: note.pattern, tip: nil)
+            return try await PeriodForm.form(for: facts).write(facts, in: session, options: options)
         }
     }
 

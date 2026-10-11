@@ -131,7 +131,8 @@ extension NoteFacts {
         if let first = input.sessionTotals.first, summary.focused > 0, first.worked / summary.focused > 0.4 {
             observations.append("\(first.name) took \(DurationText.compact(first.worked)) of the \(noun)")
         }
-        return NoteFacts(kind: .period, lines: lines, observations: Array(observations.prefix(5)))
+        return NoteFacts(kind: .period, lines: lines, observations: Array(observations.prefix(5)),
+                         namedSessions: min(input.sessionTotals.count, namedTotalLimit))
     }
 
     /// "4h 10m focus · goal met · 3 sessions"; the goal part is left out when

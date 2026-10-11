@@ -13,6 +13,7 @@ enum ReviewNotePeriodChecks: CheckSuite {
         ("A week's or month's facts name the three sessions with the most time and the observations a note can quote",
          periodObservations),
         ("A month names its busiest weekday and a week does not", busiestWeekday),
+        ("A period's facts count the sessions they name, and each count of one, two or three has its own form", namedSessions),
         ("A week's and a month's longest stretch is the Story's, pause taken out, and a blank session name is its kind's",
          periodFromStore),
     ]
@@ -24,7 +25,11 @@ enum ReviewNotePeriodChecks: CheckSuite {
     }
 
     /// Monday 13 Nov 2023 to Sunday 19 Nov, with a best day on the Tuesday and a weekday that was busiest.
-    private static func input(_ level: HistoryLevel, weekday: NoteWeekday?) -> NotePeriodInput {
+    private static let fiveSessions: [(name: String, worked: TimeInterval)] = [
+        ("Thesis", 40_000), ("Parser", 30_000), ("Email", 12_000), ("Reading", 5_000), ("Misc", 3_000)]
+
+    private static func input(_ level: HistoryLevel, weekday: NoteWeekday?,
+                              totals: [(name: String, worked: TimeInterval)] = fiveSessions) -> NotePeriodInput {
         let monday = calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: SelfTest.base))!
         let tuesday = calendar.date(byAdding: .day, value: 1, to: monday)!
         let end = calendar.date(byAdding: .day, value: 7, to: monday)!
@@ -33,8 +38,7 @@ enum ReviewNotePeriodChecks: CheckSuite {
                                      best: (place: best, focused: 28_800))
         return NotePeriodInput(span: DateInterval(start: monday, end: end), level: level, isCurrent: false,
                                summary: summary,
-                               sessionTotals: [("Thesis", 40_000), ("Parser", 30_000), ("Email", 12_000),
-                                               ("Reading", 5_000), ("Misc", 3_000)],
+                               sessionTotals: totals,
                                goal: 7_200, goalMetDays: 3, previousFocused: 86_400,
                                longestStretch: NoteStretch(name: "Thesis", start: at(8, 0, on: tuesday), worked: 18_000),
                                busiestWeekday: weekday)
@@ -70,6 +74,23 @@ enum ReviewNotePeriodChecks: CheckSuite {
         }
         expect(!month.observations.contains { $0.hasPrefix("Busiest weekday") },
                "a month with one weekday named a busiest weekday: \(month.observations)", &problems)
+        return problems
+    }
+
+    /// A one-session week padded itself in the live run ("You spent 1h on Reading … and 1h on Reading …"), and a
+    /// two-session one padded a third, so the model is asked for the form that fits how many the facts name.
+    private static func namedSessions() -> [String] {
+        guard #available(macOS 26, *) else { return [] }
+        var problems: [String] = []
+        let cases: [(Int, Int, PeriodForm)] = [(5, 3, .trio), (3, 3, .trio), (2, 2, .pair), (1, 1, .solo)]
+        for (count, named, form) in cases {
+            guard let facts = NoteFacts.period(input(.week, weekday: nil, totals: Array(fiveSessions.prefix(count))),
+                                               calendar: calendar) else { return ["a week with sessions produced no facts"] }
+            expect(facts.namedSessions == named, "\(count) sessions: the facts name \(facts.namedSessions), not \(named)", &problems)
+            expect(PeriodForm.form(for: facts) == form, "\(count) sessions: asked for \(PeriodForm.form(for: facts)), not \(form)", &problems)
+        }
+        let day = NoteFacts(kind: .day, lines: ["Day: Wednesday 15 November 2023"], observations: [])
+        expect(day.namedSessions == 0, "a day names no sessions for a period's form", &problems)
         return problems
     }
 
