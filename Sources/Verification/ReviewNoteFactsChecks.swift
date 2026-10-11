@@ -79,8 +79,8 @@ enum ReviewNoteFactsChecks: CheckSuite {
                                       "2 sessions ran as 3 stretches"],
                "observations are not the four rules in order: \(facts.observations)", &problems)
         expect(facts.text == facts.lines.joined(separator: "\n") + "\nObservations:\n- "
-               + facts.observations.map { $0 + NoteFacts.tipMark }.joined(separator: "\n- "),
-               "text is not lines, then Observations:, then bullets that a tip may use: \(facts.text)", &problems)
+               + facts.observations.joined(separator: "\n- "),
+               "text is not lines, then Observations:, then bullets: \(facts.text)", &problems)
         return problems
     }
 

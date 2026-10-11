@@ -257,11 +257,18 @@ enum NoteState: Equatable {
     // MARK: - The model
 
     /// A fresh session per note: nothing from one period leaks into the next.
+    /// A day and a week or month have a form each (`GeneratedNote.swift`).
     @available(macOS 26, *)
     private static func generate(_ facts: NoteFacts) async throws -> WrittenNote {
         let session = LanguageModelSession(instructions: instructions)
-        let reply = try await session.respond(to: facts.text, generating: GeneratedNote.self, options: options)
-        return WrittenNote(story: reply.content.story, pattern: reply.content.pattern, tip: reply.content.tip)
+        switch facts.kind {
+        case .day:
+            let note = try await session.respond(to: facts.text, generating: GeneratedNote.self, options: options).content
+            return WrittenNote(story: note.story, pattern: note.pattern, tip: note.tip)
+        case .period:
+            let note = try await session.respond(to: facts.text, generating: GeneratedPeriodNote.self, options: options).content
+            return WrittenNote(story: note.story, pattern: note.pattern, tip: nil)
+        }
     }
 
     /// Greedy: the same facts give the same note, so a failed audit is not
@@ -281,15 +288,4 @@ enum NoteState: Equatable {
         + "Never total, average or compare figures yourself; use the comparisons the facts give. "
         + "Write in plain Australian English, in the second person, past tense for a finished period and present tense for one marked so far. "
         + "Do not praise or scold."
-}
-
-/// What the model fills in. The audit reads the figures in all three.
-@available(macOS 26, *)
-@Generable struct GeneratedNote {
-    @Guide(description: "At most two sentences on what the person worked on and in what order. Quote session names exactly as written.")
-    var story: String
-    @Guide(description: "One sentence building on exactly one of the listed observations.")
-    var pattern: String
-    @Guide(description: "For a day: one concrete action for the next day, built on one observation marked usable for a tip. Never comment on less focus or a missed goal. For a week or month: empty.")
-    var tip: String
 }

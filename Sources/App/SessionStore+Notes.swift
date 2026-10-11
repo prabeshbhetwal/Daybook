@@ -122,21 +122,37 @@ extension SessionStore {
         let goal = engine.store.dailyGoal
         let today = calendar.startOfDay(for: now())
         var worked: [String: TimeInterval] = [:]
+        var weekdays: [Int: NoteWeekday] = [:]
         var goalMetDays = 0
         var cursor = calendar.startOfDay(for: place.span.start)
         while cursor < place.span.end, cursor <= today {
             let day = storyDayProjection(on: cursor, calendar: calendar)
-            for session in day.focusSessions { worked[session.name, default: 0] += session.worked }
+            // Named as the Story and a day's facts name them: a blank name is its kind's.
+            for session in day.focusSessions {
+                worked[session.workType.sessionTitle(named: session.name), default: 0] += session.worked
+            }
             if goal > 0, day.goalCredit >= goal { goalMetDays += 1 }
+            if day.focused > 0 {
+                let weekday = calendar.component(.weekday, from: cursor)
+                let seen = weekdays[weekday]
+                weekdays[weekday] = NoteWeekday(date: seen?.date ?? cursor, focused: (seen?.focused ?? 0) + day.focused,
+                                                days: (seen?.days ?? 0) + 1)
+            }
             cursor = HistoryTreeBuilder.dayAfter(cursor, calendar: calendar)
         }
         let totals = worked.map { (name: $0.key, worked: $0.value) }
             .sorted { $0.worked != $1.worked ? $0.worked > $1.worked : $0.name < $1.name }
+        // Worth saying only when focus fell on more than one weekday.
+        let busiest = weekdays.count > 1
+            ? weekdays.values.max { $0.focused != $1.focused ? $0.focused < $1.focused : $0.date > $1.date } : nil
+        let longest = storyLongestFocusStretch(in: place.span)
+            .map { NoteStretch(name: $0.name, start: $0.start, worked: $0.seconds) }
         let current = noteIsCurrent(place)
         return NoteFacts.period(NotePeriodInput(span: place.span, level: place.level, isCurrent: current,
                                                 summary: summary, sessionTotals: totals, goal: goal,
                                                 goalMetDays: goalMetDays,
-                                                previousFocused: previousFocused(before: place, isCurrent: current)),
+                                                previousFocused: previousFocused(before: place, isCurrent: current),
+                                                longestStretch: longest, busiestWeekday: busiest),
                                 calendar: calendar)
     }
 

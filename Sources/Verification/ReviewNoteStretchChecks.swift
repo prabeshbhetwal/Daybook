@@ -12,7 +12,7 @@ enum ReviewNoteStretchChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A pause inside a session is not focus: the longest stretch is the work and matches the Story's", pausedStretch),
         ("A session left unnamed is called by its kind in the facts, as the Story calls it", unnamedSession),
-        ("A tip may build on every observation except a drop in focus from the day before", tipObservations),
+        ("A drop in focus from the day before is context for the pattern, not an observation a tip may build on", tipObservations),
     ]
 
     private typealias Fixture = AskLookupChecks.Fixture
@@ -69,10 +69,8 @@ enum ReviewNoteStretchChecks: CheckSuite {
             guard let tuesday = facts(f, back: 1) else { problems.append("Tuesday has no facts"); return }
             expect(tuesday.observations.contains("30m more focus than the day before"),
                    "Tuesday's observations are \(tuesday.observations)", &problems)
-            expect(tuesday.tipObservations == Set(tuesday.observations),
-                   "Tuesday's tip may build on \(tuesday.tipObservations) of \(tuesday.observations)", &problems)
-            expect(tuesday.text.contains("- 30m more focus than the day before" + NoteFacts.tipMark),
-                   "the rise is not marked usable: \(tuesday.text)", &problems)
+            expect(tuesday.patternOnly.isEmpty && !tuesday.text.contains("Context:"),
+                   "Tuesday's rise is kept from the tip: \(tuesday.text)", &problems)
 
             // Wednesday so far has 30m against Tuesday's 1h 30m.
             let early = SessionRecord(name: "Early", workType: .deepWork, start: moment(f, back: 0, 8),
@@ -81,10 +79,10 @@ enum ReviewNoteStretchChecks: CheckSuite {
             guard let wednesday = facts(f, back: 0) else { problems.append("Wednesday has no facts"); return }
             let drop = "1h less focus than the day before"
             expect(wednesday.observations.contains(drop), "Wednesday's observations are \(wednesday.observations)", &problems)
-            expect(wednesday.tipObservations == Set(wednesday.observations).subtracting([drop]),
-                   "Wednesday's tip may build on \(wednesday.tipObservations)", &problems)
-            expect(wednesday.text.hasSuffix("- " + drop) && wednesday.text.components(separatedBy: NoteFacts.tipMark).count == 3,
-                   "the drop should be the one bullet with no mark: \(wednesday.text)", &problems)
+            expect(wednesday.patternOnly == [drop], "Wednesday keeps \(wednesday.patternOnly) from the tip", &problems)
+            expect(wednesday.text.hasSuffix("\nObservations:\n- Longest stretch: 30m in Early, from 8:00 am\n"
+                                            + "- Focus began at 8:00 am with Early\nContext:\n- " + drop),
+                   "the drop should stand alone under Context, after the observations a tip may use: \(wednesday.text)", &problems)
         }
     }
 }

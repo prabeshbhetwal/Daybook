@@ -39,6 +39,10 @@ private func title(_ session: DaySession) -> String {
 /// The most sessions a day's facts name; the rest are counted.
 private let namedSessionLimit = 8
 
+/// The sessions a week's or month's facts name, by time spent. The probe's
+/// week notes totalled "other sessions" when there were more.
+private let namedTotalLimit = 3
+
 extension NoteFacts {
 
     /// The facts for one day, or nil when it has no sessions.
@@ -59,7 +63,7 @@ extension NoteFacts {
         }
 
         var observations: [String] = []
-        var notForTip: Set<String> = []
+        var patternOnly: Set<String> = []
         if let longest = input.longestStretch, longest.worked >= 600 {
             let from = carriesOver(longest.start, calendar) ? "before midnight" : timeOfDay(longest.start, calendar)
             observations.append("Longest stretch: \(DurationText.compact(longest.worked)) in \(longest.name), from \(from)")
@@ -73,14 +77,13 @@ extension NoteFacts {
         if let change = comparison(input.focused, with: input.previousFocused, before: "day") {
             observations.append(change.text)
             // A tip built on a drop in focus reads as a scolding; the pattern may still name it.
-            if change.fell { notForTip.insert(change.text) }
+            if change.fell { patternOnly.insert(change.text) }
         }
         let stretchCount = sessions.reduce(0) { $0 + $1.stretches }
         if stretchCount > input.sessionCount {
             observations.append("\(counted(input.sessionCount, "session")) ran as \(counted(stretchCount, "stretch", plural: "stretches"))")
         }
-        let kept = Array(observations.prefix(4))
-        return NoteFacts(kind: .day, lines: lines, observations: kept, tipObservations: Set(kept).subtracting(notForTip))
+        return NoteFacts(kind: .day, lines: lines, observations: Array(observations.prefix(4)), patternOnly: patternOnly)
     }
 
     /// The facts for one week or month, or nil when History counts no
@@ -101,13 +104,23 @@ extension NoteFacts {
                      + "on \(counted(summary.focusedDays, "day"))"]
         if !input.sessionTotals.isEmpty {
             // "name: duration" joined by semicolons, as the day's list is: a name may hold a comma or end in a number.
-            lines.append("Most time went to: " + input.sessionTotals.prefix(5)
+            lines.append("Most time went to: " + input.sessionTotals.prefix(namedTotalLimit)
                 .map { "\($0.name): \(DurationText.compact($0.worked))" }.joined(separator: "; "))
         }
 
+        // Each is a sentence the note can quote whole, as a day's are.
         var observations: [String] = []
         if let best = summary.best {
             observations.append("Best day: \(longDate(best.place.start, calendar)) with \(DurationText.compact(best.focused))")
+        }
+        if input.level == .month, let busiest = input.busiestWeekday {
+            let name = DateFormats.australian("EEEE", in: calendar.timeZone).string(from: busiest.date)
+            observations.append("Busiest weekday: \(name) with \(DurationText.compact(busiest.focused)) over \(counted(busiest.days, "day"))")
+        }
+        if let longest = input.longestStretch, longest.worked >= 600 {
+            let from = carriesOver(longest.start, calendar) ? "before midnight" : timeOfDay(longest.start, calendar)
+            observations.append("Longest stretch: \(DurationText.compact(longest.worked)) in \(longest.name), "
+                                + "on \(longDate(longest.start, calendar)) from \(from)")
         }
         if let change = comparison(summary.focused, with: input.previousFocused, before: noun) {
             observations.append(change.text)
@@ -118,7 +131,7 @@ extension NoteFacts {
         if let first = input.sessionTotals.first, summary.focused > 0, first.worked / summary.focused > 0.4 {
             observations.append("\(first.name) took \(DurationText.compact(first.worked)) of the \(noun)")
         }
-        return NoteFacts(kind: .period, lines: lines, observations: observations)
+        return NoteFacts(kind: .period, lines: lines, observations: Array(observations.prefix(5)))
     }
 
     /// "4h 10m focus · goal met · 3 sessions"; the goal part is left out when

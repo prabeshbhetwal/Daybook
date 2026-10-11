@@ -8,23 +8,28 @@ struct NoteFacts: Equatable {
 
     let kind: Kind
     let lines: [String]
-    /// Up to four candidate observations, in the order their rules are
-    /// listed. A day always has "Focus began at …"; a period may have none.
+    /// Up to four candidate observations of a day, five of a week or month, in
+    /// the order their rules are listed. A day always has "Focus began at …";
+    /// a period may have none.
     let observations: [String]
-    /// The observations a day's tip may build on. The rest, such as a drop
-    /// from the day before, are for the pattern only: the probe found the tip
-    /// scolding whenever it was handed one. Empty on a period, which has no tip.
-    var tipObservations: Set<String> = []
+    /// The observations kept for the pattern only, such as a drop in focus from
+    /// the day before. The text lists them under "Context:", apart from the
+    /// observations a tip may build on: the probe found the tip scolding
+    /// whenever it was handed a drop, and parroting a mark put beside the
+    /// observations it could use ("Use the call to Mum for a tip"). Empty on a
+    /// period, which has no tip.
+    var patternOnly: Set<String> = []
 
-    static let tipMark = " (usable for a tip)"
-
-    /// The lines, then "Observations:" and a bullet for each (the heading
-    /// is left out when there are none), joined by newlines. A bullet a tip
-    /// may build on says so.
+    /// The lines, then "Observations:" and a bullet for each, then "Context:"
+    /// and a bullet for each pattern-only one (a heading is left out when it
+    /// has none), joined by newlines.
     var text: String {
-        guard !observations.isEmpty else { return lines.joined(separator: "\n") }
-        let bullets = observations.map { "- " + $0 + (tipObservations.contains($0) ? Self.tipMark : "") }
-        return (lines + ["Observations:"] + bullets).joined(separator: "\n")
+        let usable = observations.filter { !patternOnly.contains($0) }
+        let context = observations.filter(patternOnly.contains)
+        var out = lines
+        if !usable.isEmpty { out += ["Observations:"] + usable.map { "- " + $0 } }
+        if !context.isEmpty { out += ["Context:"] + context.map { "- " + $0 } }
+        return out.joined(separator: "\n")
     }
 }
 
@@ -62,8 +67,18 @@ struct NoteDayInput {
     let longestStretch: NoteStretch?
 }
 
+/// The weekday a month's focus went most to: `date` is any day on it, `days`
+/// how many of its days had focus.
+struct NoteWeekday: Equatable {
+    let date: Date
+    let focused: TimeInterval
+    let days: Int
+}
+
 /// What one week or month is described from. `sessionTotals` is busiest
 /// first; `previousFocused` is the period before's focus, 0 when there is none.
+/// `longestStretch` is the Story's own, as a day's; `busiestWeekday` is a
+/// month's, nil when the month's focus fell on one weekday only.
 struct NotePeriodInput {
     let span: DateInterval
     let level: HistoryLevel
@@ -73,4 +88,6 @@ struct NotePeriodInput {
     let goal: TimeInterval
     let goalMetDays: Int
     let previousFocused: TimeInterval
+    var longestStretch: NoteStretch?
+    var busiestWeekday: NoteWeekday?
 }
