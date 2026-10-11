@@ -91,6 +91,7 @@ extension SelfTest {
             + AppUsageJournalChecks.tests
             + DayMacAccountChecks.tests
             + StoreFormHoldChecks.tests
+            + SnapshotStillChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

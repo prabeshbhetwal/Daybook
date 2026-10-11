@@ -57,6 +57,13 @@ final class InstalledAppCatalog: ObservableObject {
         }
     }
 
+    /// Discovers on the calling thread and publishes the result at once.
+    /// Fixtures use it: a still caught a load part way and drew a rule's apps
+    /// by bundle identifier in some runs and by name in others.
+    func refreshNow() {
+        applications = discoverSynchronouslyForVerification()
+    }
+
     func discoverSynchronouslyForVerification() -> [InstalledApplication] {
         Self.deduplicated(discoverStandard() + discoverSpotlight() + observed())
     }
