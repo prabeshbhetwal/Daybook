@@ -175,7 +175,10 @@ the screen.
 
 Durations are written as everywhere in Daybook (`DurationText.compact`: 4h, 1h 12m, 45m).
 New rule: a clock time is never written bare beside a duration. A start reads
-"from 2:00pm", an end "to 3:12pm", an instant "at 11:48pm".
+"from 2:00pm", an end "to 3:12pm", an instant "at 11:48pm". Exactly 0:00 is
+"midnight" wherever a fact words a clock time (`from midnight`, `until
+midnight`, and an hour of the day `from 11pm to midnight`), never 12:00am or
+12am, which the model read as the next morning.
 
 ### `dayEvents`
 
@@ -188,10 +191,10 @@ One day, in time order:
 
 ```
 Fri 9 Oct:
-from 10:40am to 11:05am · away · answered “Meeting”: Counted as focus, 25m
+from 10:40am to 11:05am · away during “Thesis” · answered: Counted as focus, 25m · no reason recorded
 from 12:25pm to 1:10pm · break “Lunch” · 45m
 Mac locked from 12:25pm to 1:10pm
-from 4:10pm to 4:30pm · away · answered “Coffee”: Recorded as a break
+from 4:10pm to 4:30pm · away during “Email” · answered: Recorded as a break · break named “Coffee”
 Mac asleep from 11:48pm until midnight
 No restart or shut down was recorded.
 No crash was recorded.
@@ -210,6 +213,19 @@ Newest 2 of 9 days.
   One day's lines, cut by the cap, end with "…" as part 1's facts do.
 - An unnamed break reads "break". An absence not yet answered reads "away,
   not answered yet".
+- An answer about time away names the session that was running when the user
+  stepped away, as context: `away during “Thesis”`, left out when the session
+  had no name. The receipt records that session, not what the user said; their
+  own words survive only as the name of the break an answer recorded, which
+  the line gives as the Story's row reads it (the record's name now, so a
+  later rename shows): ` · break named “Coffee”`. Every answered line with no
+  such name (counted as focus, left uncounted, or a break left unnamed) ends
+  ` · no reason recorded`, because the on-device model invents a reason from
+  silence. The break an answer made is told by the answer, not as a second break.
+- A break still going has no end: `from 9:13am, 20m so far · break “Lunch”`.
+  Its day is listed in a longer period though the archive does not hold it
+  yet, and only the slice of the day that holds now reads so far; an earlier
+  day it touched reads as ended at midnight.
 - Mac events exist from the event log's first day; a period that starts
   before it adds "The Mac's events are recorded from Thu 8 Oct 2026.", and one
   wholly before it says "No Mac events were recorded before Thu 8 Oct 2026."
@@ -228,9 +244,15 @@ Newest 2 of 9 days.
   down not named, power-off not named, power loss, restart after a problem,
   start-up or macOS update, and “No crash was recorded.” when it holds no
   crash, force quit, power loss or restart after a problem. The model had read
-  a list with no restart in it as a yes. A period wholly before the log, or no
-  log at all, says neither.
+  a list with no restart in it as a yes. A period that begins before the log
+  is covered only from its first day, and the sentences say so: “No restart
+  or shut down was recorded from Thu 8 Oct 2026 on.” and “No crash was
+  recorded from Thu 8 Oct 2026 on.” (the day as the log note says it). A
+  period wholly before the log, or no log at all, says neither.
 - Nothing to tell: "No breaks, time away or Mac events recorded on Friday."
+  Inside the log it is followed by the sentences above: "No breaks, time away
+  or Mac events recorded today. No restart or shut down was recorded. No
+  crash was recorded."
 
 ### `sessionDetail`
 
@@ -248,7 +270,11 @@ Parser · Fri 9 Oct · 1 stretch: from 2:00pm to 3:12pm, 1h 12m · no note · no
 
 - More than ten sessions, or more than the 1 KB cap holds, ends with "Newest
   N of M." naming how many were listed.
-- The running session reads "running from 1:00pm, 1h 30m so far".
+- The running session reads "running from 1:00pm, 1h 30m so far". A session
+  running across midnight is running only on the day that holds now; an
+  earlier day's stretch reads as ended at midnight (`from 11:00pm until
+  midnight, 1h`). A session with no name is told by its category, as the
+  Story tells it.
 - A session none of whose stretches has a note ends with " · no note", and
   one none of whose stretches has a battery reading ends with " · no battery
   reading" (both, in that order, when both are missing). The running stretch
@@ -272,7 +298,8 @@ Current streak: 5 days with at least 1h of focus, since Mon 5 Oct. Longest: 12 d
 Awards earned: Goal, 10 days; Longest stretch. Still to earn: 500 hours focused, 312h so far.
 ```
 
-- With no period, the second line is left out.
+- With no period, the second line is left out. A one-day period reads "met on
+  0 of 1 day".
 - A streak that ended yesterday is still current, as the archive counts it.
 
 ### Part 1's facts, extended
