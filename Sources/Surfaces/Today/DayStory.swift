@@ -125,6 +125,8 @@ struct DayStory: View {
                 if case .moment(.unrecorded(_, let reason)) = item, StoryGapCard.unfolds(reason) {
                     ids.append(item.id)
                 }
+            case .machineRun(let run):
+                ids.append(run.id)
             case .quiet(let run):
                 ids.append("quiet-" + run.id)
                 for moment in run.moments {
@@ -151,12 +153,17 @@ struct DayStory: View {
                     timelineRow(item, isFirst: isFirst, isLast: isLast)
                 case .quiet(let run):
                     quietRow(run, isFirst: isFirst, isLast: isLast)
+                case .machineRun(let run):
+                    storyRow(time: run.pins.first?.event.at ?? store.selectedDay, tint: .secondary,
+                             dotSize: 5.zoomed, pin: run.ruleKind?.pin, isFirst: isFirst, isLast: isLast) {
+                        StoryMachineRunCard(run: run, isOpen: opened.ids.contains(run.id),
+                                            onToggle: { toggle(run.id) })
+                    }
                 }
             }
             if entries.isEmpty { empty }
-            let machineEvents = store.machineEvents(on: projection?.date ?? store.selectedDay)
-            if !machineEvents.isEmpty {
-                DayMachineEvents(events: machineEvents)
+            if let account = store.macAccount(on: projection?.date ?? store.selectedDay) {
+                DayMachineEvents(account: account)
                     .padding(.leading, (showsTimes ? timeColumn : 0) + railColumn)
                     .padding(.top, Tokens.Space.s)
             }

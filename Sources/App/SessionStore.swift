@@ -30,6 +30,8 @@ final class SessionStore: ObservableObject {
     /// bar's Name button and the underline's row meet here. Adopt, Undo and
     /// Stop fold it again.
     @Published var isNamingAutomaticSession = false
+    /// The pinned-activity panel's form and the break-name fields.
+    let openForms = OpenForms()
     var lastPowerState: SessionState = .idle
     var lastPowerRecordID: UUID?
     /// Set on machine wake, consumed by the next power reconcile. Sleep is the

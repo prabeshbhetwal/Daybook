@@ -54,6 +54,15 @@ extension SessionStore {
         return machineEventLog?.events(in: bounds) ?? []
     }
 
+    /// What the Mac did across a day, or the day so far on today; nil when
+    /// it was in use throughout, or nothing was logged.
+    func macAccount(on day: Date) -> DayMacAccount? {
+        guard let bounds = Calendar.current.dateInterval(of: .day, for: day) else { return nil }
+        let span = DateInterval(start: bounds.start, end: min(bounds.end, max(bounds.start, now())))
+        let account = DayMacAccount(span: span, events: machineEvents(on: day))
+        return account.rows.isEmpty ? nil : account
+    }
+
     /// What the Mac's events say happened inside a hole in the day. An away
     /// answer splits a hole and each piece keeps the hole's name, so a piece
     /// beside an answer is read against the whole hole it came from.

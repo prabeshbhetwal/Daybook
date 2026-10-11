@@ -35,6 +35,9 @@ enum StoryStyle {
     static let macOff = Color(lightHex: 0x3A3A3C, darkHex: 0xD1D1D6)
     /// The stripes of time no event explains.
     static let macHatch = Color(lightHex: 0xC4C4CC, darkHex: 0x5A5A5E)
+    /// The Mac in use, on the day's Mac bar: the step nearest the desk, so
+    /// the least ink, yet still a track against the card in dark appearance.
+    static let macInUse = Color(lightHex: 0xFFFFFF, darkHex: 0x434347)
     static let line = Color(light: NSColor.black.withAlphaComponent(0.07),
                             dark: NSColor.white.withAlphaComponent(0.09))
     static var columnInsets: EdgeInsets {

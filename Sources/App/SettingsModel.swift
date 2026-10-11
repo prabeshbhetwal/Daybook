@@ -134,7 +134,8 @@ struct SettingsDiagnostics {
                 + "\(aside.lastPathComponent) and is not shown.")
         }
         if usage.isReadOnly {
-            notes.append("App usage is read-only because its file could not be safely rewritten.")
+            notes.append("App usage is read-only because its file or journal could not be read "
+                + "or safely rewritten.")
         } else if backup != nil {
             notes.append("Older app use was upgraded only after a copy of the original file was kept.")
         }
@@ -322,6 +323,8 @@ final class SettingsModel: ObservableObject {
     /// something else redrew them.
     let installedAppCatalog: InstalledAppCatalog
     private var catalogChanges: AnyCancellable?
+    /// The rule and category forms Settings and the category panel draw.
+    let openForms = OpenForms()
 
     init(store: PersistenceStore,
          isTrackingEnabled: Bool,

@@ -84,6 +84,13 @@ extension SelfTest {
             + AskEntryChecks.tests
             + SessionShapeUnexplainedStopChecks.tests
             + GapUnexplainedStopChecks.tests
+            + SheetQuitChecks.tests
+            + UpdateFormHoldChecks.tests
+            + SessionMetadataJournalChecks.tests
+            + MachineRunCardChecks.tests
+            + AppUsageJournalChecks.tests
+            + DayMacAccountChecks.tests
+            + StoreFormHoldChecks.tests
             + AskSourceOrderChecks.tests
             + AskCatalogueChecks.tests
             + AskLookupLinkChecks.tests

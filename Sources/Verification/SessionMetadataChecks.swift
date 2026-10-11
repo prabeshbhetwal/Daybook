@@ -43,6 +43,14 @@ enum SessionMetadataChecks: CheckSuite {
             .appendingPathComponent("fc-session-metadata-\(UUID().uuidString)", isDirectory: true)
     }
 
+    /// The sidecar and its journal as stored, so a failed write that reached
+    /// either one shows.
+    static func sidecarBytes(in folder: URL) -> [Data?] {
+        ["session-metadata.json", "session-metadata-journal.jsonl"].map {
+            try? Data(contentsOf: folder.appendingPathComponent($0))
+        }
+    }
+
     static func engine(at date: Date, directory: URL, suite: String) -> SessionEngine? {
         guard let defaults = MemoryDefaults.suite(named: suite) else { return nil }
         defaults.removePersistentDomain(forName: suite)
