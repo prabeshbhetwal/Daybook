@@ -213,7 +213,7 @@ enum AskFacts {
     /// What a lookup says about a period that starts after today.
     static func stillToCome(_ range: AskRange) -> String { "\(sentenceStart(range.title)) is still to come." }
 
-    private static func count(_ n: Int, _ noun: String) -> String { n == 1 ? "1 \(noun)" : "\(n) \(noun)s" }
+    static func count(_ n: Int, _ noun: String) -> String { n == 1 ? "1 \(noun)" : "\(n) \(noun)s" }
 
     private static func sentenceStart(_ text: String) -> String { text.prefix(1).uppercased() + text.dropFirst() }
 

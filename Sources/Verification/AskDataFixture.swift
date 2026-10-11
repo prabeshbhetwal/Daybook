@@ -57,9 +57,12 @@ struct AskDataFixture {
         defaults.removePersistentDomain(forName: suite)
     }
 
-    static func with(_ body: @MainActor (AskDataFixture, inout [String]) -> Void) -> [String] {
+    /// `extraBreakDays` adds that many past days before the history, each
+    /// with one unnamed 15-minute break, for checks that need a long record.
+    static func with(extraBreakDays: Int = 0,
+                     _ body: @MainActor (AskDataFixture, inout [String]) -> Void) -> [String] {
         MainActor.assumeIsolated {
-            guard let fixture = make() else { return ["could not build the Ask data fixture"] }
+            guard let fixture = make(extraBreakDays: extraBreakDays) else { return ["could not build the Ask data fixture"] }
             defer { fixture.cleanUp() }
             var problems: [String] = []
             body(fixture, &problems)
@@ -68,7 +71,7 @@ struct AskDataFixture {
     }
 
     @MainActor
-    private static func make() -> AskDataFixture? {
+    private static func make(extraBreakDays: Int) -> AskDataFixture? {
         let clock = TestClock(SelfTest.base)
         let calendar = Calendar.current.forPeriods
         let directories = (0..<4).map { _ in SelfTest.scratchDirectory() }
@@ -96,6 +99,13 @@ struct AskDataFixture {
         let shortBreak = record("Break", .breakTime, at(2, 15, 40), at(2, 15, 55))
         let reading = (1...12).map { record("Reading", .deepWork, october($0, 9), october($0, $0 == 5 ? 14 : 10)) }
         let all = days + [tuesday, thesisA, thesisB, parser, email, lunch, shortBreak] + reading
+        // Written in one go: a thousand appends would rewrite the file a thousand times.
+        let extra = (0..<extraBreakDays).map {
+            SessionRecord(name: "", workType: .breakTime, start: at(40 + $0, 15, 40), end: at(40 + $0, 15, 55),
+                          workSeconds: 900)
+        }
+        let file = directories[0].appendingPathComponent("sessions.json")
+        if !extra.isEmpty, (try? JSONEncoder().encode(extra).write(to: file, options: .atomic)) == nil { return nil }
         let archive = SessionArchive(directory: directories[0], calendar: calendar, now: { clock.value })
         for item in all where archive.append(item) != nil { return nil }
 

@@ -30,6 +30,8 @@ extension SessionStore {
             return askStillToCome(first) ?? askStillToCome(second) ?? AskLookupResult(
                 text: askCompare(first, second, words: words),
                 links: [askPeriodLink(first, role: .compared), askPeriodLink(second, role: .compared)])
+        case let .dayEvents(range):
+            return askStillToCome(range) ?? askDayEvents(range)
         }
     }
 

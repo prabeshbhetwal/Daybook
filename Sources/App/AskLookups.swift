@@ -8,7 +8,7 @@ enum AskLookupCall: Equatable {
 }
 
 /// One lookup Ask offers a model: what the model is told about it, and how the
-/// arguments it sends become a request. The five below are the only lookups;
+/// arguments it sends become a request. The ones below are the only lookups;
 /// each model's adapter reaches them through this type, and none changes anything.
 struct AskLookup {
     let spec: AskLookupSpec
@@ -19,12 +19,12 @@ struct AskLookup {
 }
 
 /// The catalogue, in the order the on-device model has always been offered the
-/// lookups. A period is read by `AskRange.resolving`, in the store's calendar
+/// lookups; those added since come after them. A period is read by `AskRange.resolving`, in the store's calendar
 /// and clock, so a named range, an ISO date or a weekday or month by name
 /// arrives; anything else, and a date the calendar lacks, is answered as such
 /// rather than swapped for another period.
 enum AskLookups {
-    static let all: [AskLookup] = [focusTotals, compareFocus, bestHours, findSessions, appTime]
+    static let all: [AskLookup] = [focusTotals, compareFocus, bestHours, findSessions, appTime, dayEvents]
 
     static func named(_ name: String) -> AskLookup? {
         all.first { $0.spec.name == name }
@@ -129,5 +129,20 @@ enum AskLookups {
             let raw = arguments["range"] ?? ""
             guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
             return .request(.appTime(range, app: text(arguments["app"])))
+        })
+
+    // MARK: - Added since version one
+
+    private static let dayEvents = AskLookup(
+        spec: AskLookupSpec(
+            name: "dayEvents",
+            description: "Lists what happened between sessions in a period: breaks, where the user was and what "
+                + "they answered when asked about time away, and what the Mac did, such as sleep, lock, restart "
+                + "or a crash, with their times.",
+            parameters: [AskParameter(name: "range", description: rangeGuide, required: true)]),
+        read: { arguments, period in
+            let raw = arguments["range"] ?? ""
+            guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
+            return .request(.dayEvents(range))
         })
 }

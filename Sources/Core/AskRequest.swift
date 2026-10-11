@@ -9,6 +9,7 @@ enum AskRequest: Equatable, Sendable {
     case findSessions(words: String, AskRange)
     case appTime(AskRange, app: String?)
     case compare(AskRange, with: AskRange, words: String?)
+    case dayEvents(AskRange)
 
     /// Periods by their titles, so a named month reads `August 2026`, not `2026-08`.
     var provenance: String {
@@ -21,6 +22,7 @@ enum AskRequest: Equatable, Sendable {
         case let .appTime(range, app): return "app time" + (app.map { " for \($0)" } ?? "") + " (\(range.title))"
         case let .compare(first, second, words):
             return "comparison" + Self.matching(words) + " (\(first.title) with \(second.title))"
+        case let .dayEvents(range): return "what happened (\(range.title))"
         }
     }
 
