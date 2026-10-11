@@ -104,10 +104,8 @@ struct AskChatView: View {
             if model.canAsk && model.notice == nil {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     Text("Try asking")
-                        .font(Tokens.Typography.eyebrow)
-                        .textCase(.uppercase)
-                        .kerning(0.8.zoomed)
-                        .foregroundStyle(.secondary)
+                        .font(Tokens.Typography.label)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .accessibilityAddTraits(.isHeader)
                     ForEach(AskModel.examples, id: \.self) { example in
                         Button(example) { send(example) }
@@ -150,14 +148,18 @@ struct AskChatView: View {
     }
 
     /// Stays editable while an answer is worked out; Return does nothing until it is done.
+    /// One line high until the question needs more, then up to four.
     private var field: some View {
-        TextField("Ask about your focus…", text: $text)
+        TextField("Question", text: $text,
+                  prompt: Text("Ask about your focus…").foregroundStyle(StoryStyle.supportingInk), axis: .vertical)
+            .lineLimit(1...4)
             .textFieldStyle(.plain)
             .focused($fieldFocused)
             .onSubmit { send(text) }
             .accessibilityLabel("Question")
             .padding(.horizontal, Tokens.Space.m)
-            .frame(height: FilterChip<EmptyView, EmptyView>.height)
+            .padding(.vertical, Tokens.Space.xs)
+            .frame(minHeight: FilterChip<EmptyView, EmptyView>.height)
             .background(fieldShape.fill(Tokens.Colour.elevated)
                 .shadow(color: StoryStyle.focus.opacity(fieldFocused ? 0.28 : 0), radius: 6.zoomed))
             .overlay(fieldShape.strokeBorder(fieldFocused ? StoryStyle.focus : Tokens.Colour.line,
@@ -192,8 +194,8 @@ struct AskChatView: View {
                 Text("Answered by Apple Intelligence on this Mac. Nothing leaves it.")
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .font(Tokens.Typography.caption)
-            .foregroundStyle(.secondary)
+            .font(Tokens.Typography.body)
+            .foregroundStyle(StoryStyle.supportingInk)
             Spacer(minLength: Tokens.Space.s)
             if showsNewChat, !model.turns.isEmpty {
                 Button("New chat") { model.newChat() }

@@ -7,6 +7,7 @@ enum AskChatSurfaceChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("An answer's sources show five rows, then Show N more", sourcesShowFiveThenMore),
         ("Each place an answer names becomes a link to its source row", mentionsBecomeLinks),
+        ("The spaces inside a linked date do not break, and the rest of the answer is as written", linkedSpacesDoNotBreak),
         ("Links never overlap: a mention inside one already placed gets none", overlappingMentionsKeepTheFirst),
         ("A mention is found by Character offsets, after an emoji or a decomposed accent", offsetsAreCharacters),
         ("A link in an answer opens its source, and any other URL opens nothing", linkURLsOnlyFollowSources),
@@ -50,10 +51,13 @@ enum AskChatSurfaceChecks: CheckSuite {
         AskSource(link: link, mention: words.map { offsets(of: $0, in: answer) })
     }
 
+    /// The spaces inside a link do not break (`AskTurnView.attributed`); read as plain ones.
+    private static func plain(_ text: String) -> String { text.replacingOccurrences(of: "\u{00A0}", with: " ") }
+
     /// The text and target of every link in `text`, in order.
     private static func links(in text: AttributedString) -> [String] {
         text.runs.compactMap { run in
-            run.link.map { "\(String(text[run.range].characters)) -> \($0.absoluteString)" }
+            run.link.map { "\(plain(String(text[run.range].characters))) -> \($0.absoluteString)" }
         }
     }
 
@@ -83,7 +87,7 @@ enum AskChatSurfaceChecks: CheckSuite {
         let sources = [source(Fixture.september, "September 2026", in: answer),
                        source(Fixture.tue15, "Tue 15 Sep", in: answer)]
         let text = AskTurnView.attributed(answer: answer, sources: sources)
-        expect(String(text.characters) == answer, "the answer reads “\(String(text.characters))”", &problems)
+        expect(plain(String(text.characters)) == answer, "the answer reads “\(String(text.characters))”", &problems)
         expect(links(in: text) == ["September 2026 -> daybook-ask://source/0", "Tue 15 Sep -> daybook-ask://source/1"],
                "the links are \(links(in: text))", &problems)
 
@@ -94,6 +98,27 @@ enum AskChatSurfaceChecks: CheckSuite {
                "an unnamed source shifted the links to \(links(in: AskTurnView.attributed(answer: answer, sources: withAnchor)))",
                &problems)
         expect(links(in: AskTurnView.attributed(answer: answer, sources: [])).isEmpty, "no sources made a link", &problems)
+        return problems
+    }
+
+    /// At 140% "Tue 15 Sep" was split across two lines. The spaces inside a link are
+    /// non-breaking; the length, the words and every other space are as written.
+    private static func linkedSpacesDoNotBreak() -> [String] {
+        var problems: [String] = []
+        let answer = "In September 2026, the best day was Tue 15 Sep, with 2h."
+        let sources = [source(Fixture.september, "September 2026", in: answer),
+                       source(Fixture.tue15, "Tue 15 Sep", in: answer)]
+        let text = AskTurnView.attributed(answer: answer, sources: sources)
+        let shown = String(text.characters)
+        expect(shown.count == answer.count && plain(shown) == answer, "the answer reads “\(shown)”", &problems)
+        for run in text.runs {
+            let words = String(text[run.range].characters)
+            if run.link != nil {
+                expect(!words.contains(" ") && words.contains("\u{00A0}"), "the link “\(words)” can still break", &problems)
+            } else {
+                expect(!words.contains("\u{00A0}"), "“\(words)” outside a link cannot break", &problems)
+            }
+        }
         return problems
     }
 

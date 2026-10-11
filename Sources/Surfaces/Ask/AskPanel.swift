@@ -27,6 +27,8 @@ struct AskPanel: View {
             header
             Divider()
             AskChatView(model: model, onFollow: navigation.follow, showsNewChat: false)
+                // The panel is always narrow, so every source sets its role under its label.
+                .environment(\.stacksAskSources, true)
         }
         .background(StoryStyle.rail)
         // Escape with the cursor in the panel closes it, as it closes a sheet.

@@ -3,10 +3,12 @@ import SwiftUI
 /// Where Ask opens, sheet or side panel: the saved choice, its place in
 /// Settings, what changing it does to a panel that is open, and the panel
 /// itself in the window. The chat both places show is checked in
-/// `AskChatSurfaceChecks`, and the panel's place in a squeezed window in
-/// `AskPanelLayoutChecks`; both are listed here.
+/// `AskChatSurfaceChecks`, the panel's place in a squeezed window in
+/// `AskPanelLayoutChecks` and whether its supporting text can be read in
+/// `AskLegibilityChecks`; all are listed here.
 enum AskPanelChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = ownTests + AskChatSurfaceChecks.tests + AskPanelLayoutChecks.tests
+        + AskLegibilityChecks.tests
 
     private static let ownTests: [(String, () -> [String])] = [
         ("Ask opens as a sheet until the side panel is chosen, and the choice is saved", placementSavedDefaultSheet),

@@ -46,11 +46,16 @@ struct AskChromeButton: View {
                minHeight: AccessibilityMetrics.minimumTargetSize)
         .background {
             Capsule().fill(Tokens.Colour.elevated)
-            // Pressed in: the fill a step darker (lighter in the dark).
+            // Pressed in: the fill a step darker (lighter in the dark), and
+            // ringed in the action colour. The fill alone was 1.15:1 against
+            // the resting one, which is what a hover looks like.
             if isActive {
                 Capsule().fill(Tokens.Colour.line)
                     .storyRenderEvidence(.askButtonActive)
             }
+        }
+        .overlay {
+            if isActive { Capsule().strokeBorder(StoryStyle.action, lineWidth: 1.zoomed) }
         }
         .foregroundStyle(.primary)
         .storyRenderEvidence(withWord ? .askButtonWithWord : .askButton)

@@ -49,7 +49,7 @@ struct AskTurnView: View {
         case let .lookingUp(line):
             HStack(spacing: Tokens.Space.s) {
                 ProgressView().controlSize(Tokens.Zoom.controlSize(.small))
-                if let line { Text(line).font(Tokens.Typography.body).foregroundStyle(.secondary) }
+                if let line { Text(line).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk) }
             }
             .accessibilityHidden(true)
         case .answering:
@@ -58,21 +58,30 @@ struct AskTurnView: View {
             prose
             if !turn.sources.isEmpty { AskSourcesView(sources: turn.sources, onFollow: onFollow) }
         case .stopped:
-            if !turn.answer.isEmpty { prose }
+            // What had streamed is dimmed, so a cut-off answer does not read as a finished one.
+            if !turn.answer.isEmpty { prose(dimmed: true) }
             Text("Stopped.")
-                .font(Tokens.Typography.caption)
-                .foregroundStyle(.secondary)
+                .font(Tokens.Typography.body)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
         case let .failed(notice):
             AskNoticeLine(notice: notice, tint: Tokens.Colour.danger, readsAloud: false, openSettings: openSettings)
         }
     }
 
-    private var prose: some View {
+    /// The longest an answer's lines run: about 75 characters at 13 points. The
+    /// sheet is wider than that; the side panel is narrower, so it is unchanged.
+    private static var proseMeasure: CGFloat { 480.zoomed }
+
+    private var prose: some View { prose(dimmed: false) }
+
+    private func prose(dimmed: Bool) -> some View {
         Text(Self.attributed(answer: turn.answer, sources: turn.sources))
             .font(Tokens.Typography.control)
+            .foregroundStyle(dimmed ? AnyShapeStyle(StoryStyle.supportingInk) : AnyShapeStyle(.primary))
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: Self.proseMeasure, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityHidden(true)
     }
@@ -85,21 +94,29 @@ extension AskTurnView {
     /// words overlap a link already placed gets none: a week named by its two
     /// ends and a day inside it, or a day written without a year that names
     /// several. Mentions are Character offsets into `answer`, not UTF-16.
+    /// The spaces inside a link are non-breaking, one Character each as before,
+    /// so a date such as "Tue 15 Sep" is not split across two lines at a large zoom.
     nonisolated static func attributed(answer: String, sources: [AskSource]) -> AttributedString {
-        var text = AttributedString(answer)
-        let length = answer.count
-        var placed: [Range<Int>] = []
+        var characters = Array(answer)
+        var placed: [(url: URL, mention: Range<Int>)] = []
         for (index, source) in sources.enumerated() {
-            guard let mention = source.mention, mention.lowerBound >= 0, mention.upperBound <= length, !mention.isEmpty,
-                  !placed.contains(where: { $0.overlaps(mention) }),
+            guard let mention = source.mention, mention.lowerBound >= 0, mention.upperBound <= characters.count,
+                  !mention.isEmpty, !placed.contains(where: { $0.mention.overlaps(mention) }),
                   let url = URL(string: "\(scheme)://source/\(index)") else { continue }
-            let start = answer.index(answer.startIndex, offsetBy: mention.lowerBound)
-            let end = answer.index(start, offsetBy: mention.count)
+            placed.append((url, mention))
+        }
+        for link in placed {
+            for position in link.mention where characters[position] == " " { characters[position] = "\u{00A0}" }
+        }
+        let spaced = String(characters)
+        var text = AttributedString(spaced)
+        for link in placed {
+            let start = spaced.index(spaced.startIndex, offsetBy: link.mention.lowerBound)
+            let end = spaced.index(start, offsetBy: link.mention.count)
             guard let range = Range(start..<end, in: text) else { continue }
-            text[range].link = url
+            text[range].link = link.url
             text[range].foregroundColor = StoryStyle.action
             text[range].underlineStyle = .single
-            placed.append(mention)
         }
         return text
     }
@@ -144,7 +161,7 @@ struct AskNoticeLine: View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
             Text(notice.text)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.secondary))
+                .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(StoryStyle.supportingInk))
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityHidden(!readsAloud)
             if notice.opensSettings {
