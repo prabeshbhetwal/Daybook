@@ -32,10 +32,12 @@ enum FixtureFactory {
     }
 
     static func installedAppCatalog() -> InstalledAppCatalog {
-        InstalledAppCatalog(discoverStandard: {
+        let catalog = InstalledAppCatalog(discoverStandard: {
             [InstalledApplication(bundleID: "com.example.code", name: "Example Code", url: nil),
              InstalledApplication(bundleID: "com.example.shared", name: "Shared Assistant", url: nil)]
         }, discoverSpotlight: { [] }, observed: { [] })
+        catalog.refreshNow()
+        return catalog
     }
 
     static func activityRuleStore(ambiguous: Bool) -> SessionStore {
@@ -444,7 +446,7 @@ struct GalleryView: View {
             content()
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.panel))
                 .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel)
-                    .strokeBorder(.quaternary))
+                    .strokeBorder(.quaternary)) // ink: quiet, a drawn mark
         }
     }
 }

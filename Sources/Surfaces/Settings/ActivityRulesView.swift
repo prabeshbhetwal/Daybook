@@ -266,7 +266,7 @@ struct ActivityRuleCard: View {
                     } else {
                         Image(systemName: "app.dashed")
                             .resizable()
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .padding(Tokens.Space.xs)
                     }
                 }
@@ -566,7 +566,7 @@ struct InstalledAppPicker: View {
                                         .accessibilityHidden(true)
                                 } else {
                                     Image(systemName: "app.dashed")
-                                        .foregroundStyle(.tertiary)
+                                        .foregroundStyle(StoryStyle.supportingInk)
                                         .frame(width: 22.zoomed, height: 22.zoomed)
                                 }
                                 VStack(alignment: .leading, spacing: 1) {

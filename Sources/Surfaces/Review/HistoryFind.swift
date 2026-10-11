@@ -15,11 +15,12 @@ struct HistoryFindBar: View {
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.rendersStill) private var rendersStill
 
     static let searchableHint = "Searches session names, old names, notes, named breaks, apps, "
         + "categories, dates and times of day. Command F puts the cursor here."
     private static let generalPrompt = "Find anything: a name, note, break, app, category, date or time"
-    private static let exampleSeconds: TimeInterval = 3.5
+    static let exampleSeconds: TimeInterval = 3.5
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
@@ -82,7 +83,7 @@ struct HistoryFindBar: View {
                 }
                 Button { store.setHistoryQuery("") } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
@@ -106,10 +107,10 @@ struct HistoryFindBar: View {
 
     /// While the field waits, it offers things worth typing, taken from the
     /// reader's own record. Typing, it says the general rule; with Reduce
-    /// Motion, it says only that.
+    /// Motion, or in a still image, it says only that.
     @ViewBuilder private var placeholder: some View {
         let lines = [Self.generalPrompt] + examples.map { "Try “\($0)”" }
-        if fieldFocused || reduceMotion || lines.count == 1 {
+        if fieldFocused || reduceMotion || rendersStill || lines.count == 1 {
             promptText(Self.generalPrompt)
         } else {
             TimelineView(.periodic(from: .now, by: Self.exampleSeconds)) { context in
@@ -124,7 +125,7 @@ struct HistoryFindBar: View {
 
     private func promptText(_ text: String) -> some View {
         Text(text)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
             .allowsHitTesting(false)

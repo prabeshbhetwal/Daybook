@@ -162,19 +162,20 @@ if lengths_outside_zoom; then
 fi
 
 # Supporting text takes StoryStyle.supportingInk. The system's secondary ink is
-# 3.8:1 on the light surfaces, under the 4.5:1 text needs, and supporting text
-# kept coming back in it. A line that keeps it on purpose (a drawn mark, a
-# disabled control, display-size type, the menu bar item) says
-# `// ink: quiet, <why>`. Comment lines are skipped.
-secondary_ink_outside_quiet() {
-  grep -rnE '(^|[^A-Za-z0-9_])\.secondary([^A-Za-z0-9_]|$)|Color\.secondary' \
+# 3.8:1 on the light surfaces, under the 4.5:1 text needs, and tertiary and
+# quaternary are paler still; supporting text kept coming back in them. A line
+# that keeps one on purpose (a drawn mark, a disabled control, display-size
+# type, the menu bar item) says `// ink: quiet, <why>`. Comment lines are
+# skipped.
+faint_ink_outside_quiet() {
+  grep -rnE '(^|[^A-Za-z0-9_])\.(secondary|tertiary|quaternary|quinary)([^A-Za-z0-9_]|$)|Color\.(secondary|tertiary|quaternary|quinary)' \
       Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
     | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
     | grep -v 'ink: quiet'
   guard_found "${PIPESTATUS[@]}"
 }
-if secondary_ink_outside_quiet; then
-  echo "error: the lines above use the secondary ink; supporting text takes StoryStyle.supportingInk, or the line says // ink: quiet, <why>" >&2
+if faint_ink_outside_quiet; then
+  echo "error: the lines above use a faint system ink; supporting text takes StoryStyle.supportingInk, or the line says // ink: quiet, <why>" >&2
   exit 1
 fi
 

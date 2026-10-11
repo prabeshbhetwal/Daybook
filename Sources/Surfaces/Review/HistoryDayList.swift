@@ -76,7 +76,7 @@ struct HistoryStripAxis: View {
             ForEach([0, 6, 12, 18], id: \.self) { hour in
                 Text(HistoryHours.label(hour))
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize()
                     .offset(x: geometry.size.width * CGFloat(hour) / 24)
             }
