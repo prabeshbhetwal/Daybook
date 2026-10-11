@@ -17,10 +17,11 @@ extension EnvironmentValues {
 
 extension Snapshotter {
     /// How long the image must stay the same before it is taken, and the
-    /// longest a still waits for that.
+    /// longest a still waits for that. Most settle in well under a second;
+    /// a large soft shadow is blurred in software and takes seconds a frame.
     static let stillFrameInterval: TimeInterval = 0.05
     static let stillFramesUnchanged = 3
-    static let stillWaitLimit: TimeInterval = 6
+    static let stillWaitLimit: TimeInterval = 20
 
     /// Overlay scrollers in every still. With a mouse attached, AppKit swaps
     /// overlay scrollers for ones that take room a second or two after the
@@ -61,7 +62,7 @@ extension Snapshotter {
                 transaction.animation = nil
             })
         let size = host.fittingSize
-        guard size.width > 0, size.height > 0 else { return nil }
+        guard size.width > 0, size.height > 0, size.width.isFinite, size.height.isFinite else { return nil }
         let frame = NSRect(origin: .zero, size: size)
         let window = StillWindow(contentRect: frame, styleMask: [.borderless],
                                  backing: .buffered, defer: false)
@@ -86,7 +87,7 @@ extension Snapshotter {
             unchanged = next == previous ? unchanged + 1 : 0
             previous = next
             if Date() > deadline {
-                FileHandle.standardError.write(Data("\(name) was still changing after \(Int(stillWaitLimit)) s\n".utf8))
+                FileHandle.standardError.write(Data("\(name) had not settled after \(Int(stillWaitLimit)) s\n".utf8))
                 break
             }
         }
@@ -97,12 +98,14 @@ extension Snapshotter {
 
     private static func pointPixels(of view: NSView) -> Data? {
         let size = view.bounds.size
+        let wide = Int(size.width.rounded(.up))
+        // Rows unpadded, so every byte compared is a pixel.
         guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil,
-                                            pixelsWide: Int(size.width.rounded(.up)),
+                                            pixelsWide: wide,
                                             pixelsHigh: Int(size.height.rounded(.up)),
                                             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
                                             isPlanar: false, colorSpaceName: .deviceRGB,
-                                            bytesPerRow: 0, bitsPerPixel: 0),
+                                            bytesPerRow: wide * 4, bitsPerPixel: 32),
               let pixels = bitmap.bitmapData else { return nil }
         bitmap.size = size
         view.cacheDisplay(in: view.bounds, to: bitmap)

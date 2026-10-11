@@ -15,6 +15,7 @@ enum SnapshotStillChecks: CheckSuite {
         ("A settings snapshot names a rule's apps from its first frame", settingsAppsAreNamed),
         ("A still never shows a text field taking focus", stillRefusesTextFocus),
         ("Stills ask AppKit for overlay scrollers whatever is attached", stillScrollersAreOverlay),
+        ("The welcome's ring holds its first breath in a still that settles slowly", coachRingHoldsStill),
     ]
 
     private static func findFieldHoldsStill() -> [String] {
@@ -101,6 +102,37 @@ enum SnapshotStillChecks: CheckSuite {
                    "stills left AppKit to choose its scrollers (AppleShowScrollBars \(shown ?? "unset"))",
                    &problems)
             return problems
+        }
+    }
+
+    private static func coachRingHoldsStill() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let breathing = Snapshotter.stillPNG(of: SlowCoachRing(animated: true), appearance: .light)
+            let still = Snapshotter.stillPNG(of: SlowCoachRing(animated: false), appearance: .light)
+            expect(breathing != nil && breathing == still,
+                   "a still taken after the ring's breath was due drew it mid-breath", &problems)
+            return problems
+        }
+    }
+}
+
+/// The welcome's ring beside a mark that changes 0.6 s in, so the still is
+/// taken after the ring's first breath (0.4 s) was due.
+private struct SlowCoachRing: View {
+    let animated: Bool
+    @State private var late = false
+
+    var body: some View {
+        HStack {
+            CoachRing(rect: CGRect(x: 30, y: 30, width: 60, height: 30),
+                      bounds: CGRect(x: 0, y: 0, width: 120, height: 90), animated: animated)
+                .frame(width: 120, height: 90)
+            (late ? Color(red: 0, green: 1, blue: 0) : Color(red: 1, green: 0, blue: 0))
+                .frame(width: 20, height: 20)
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { late = true }
         }
     }
 }
