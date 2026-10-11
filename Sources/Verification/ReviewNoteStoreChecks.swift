@@ -83,7 +83,7 @@ enum ReviewNoteStoreChecks: CheckSuite {
                    &problems)
             expect(lines.contains { $0.hasPrefix("Focus: \(DurationText.compact(summary.focused)) over \(summary.sessions) sessions") },
                    "History shows \(summary.focused)s over \(summary.sessions), the facts say \(lines)", &problems)
-            expect(lines.contains("Most time went to: Parser 1h 30m, Thesis 1h"), "the week's names are in \(lines)", &problems)
+            expect(lines.contains("Most time went to: Parser: 1h 30m; Thesis: 1h"), "the week's names are in \(lines)", &problems)
             expect(f.store.noteIsCurrent(week), "this week is not current", &problems)
         }
     }

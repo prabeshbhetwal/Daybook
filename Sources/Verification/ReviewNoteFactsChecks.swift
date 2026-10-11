@@ -158,7 +158,7 @@ enum ReviewNoteFactsChecks: CheckSuite {
         expect(facts.kind == .period, "a period's facts have kind period, got \(facts.kind)", &problems)
         expect(facts.lines.first == "Week of Monday 13 November 2023", "week line wrong: \(facts.lines)", &problems)
         expect(facts.lines.contains("Focus: 2h 30m over 2 sessions on 2 days"), "focus line wrong: \(facts.lines)", &problems)
-        expect(facts.lines.contains("Most time went to: Parser 1h 40m, Thesis 50m"),
+        expect(facts.lines.contains("Most time went to: Parser: 1h 40m; Thesis: 50m"),
                "session totals line wrong: \(facts.lines)", &problems)
         expect(facts.observations == ["Best day: Tuesday 14 November 2023 with 1h 30m",
                                       "1h more focus than the week before",

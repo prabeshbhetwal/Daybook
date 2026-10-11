@@ -89,8 +89,9 @@ extension NoteFacts {
                      "Focus: \(DurationText.compact(summary.focused)) over \(counted(summary.sessions, "session")) "
                      + "on \(counted(summary.focusedDays, "day"))"]
         if !input.sessionTotals.isEmpty {
+            // "name: duration" joined by semicolons, as the day's list is: a name may hold a comma or end in a number.
             lines.append("Most time went to: " + input.sessionTotals.prefix(5)
-                .map { "\($0.name) \(DurationText.compact($0.worked))" }.joined(separator: ", "))
+                .map { "\($0.name): \(DurationText.compact($0.worked))" }.joined(separator: "; "))
         }
 
         var observations: [String] = []

@@ -96,6 +96,7 @@ extension SelfTest {
             + ReviewNoteStoreEdgeChecks.tests
             + ReviewNoteWriterStateChecks.tests
             + ReviewNoteFreshnessChecks.tests
+            + ReviewNoteWordChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
