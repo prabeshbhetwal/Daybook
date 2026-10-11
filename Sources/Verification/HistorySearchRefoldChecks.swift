@@ -79,13 +79,17 @@ enum HistorySearchRefoldChecks: CheckSuite {
             f.store.setHistoryQuery("yesterday")
             let before = f.store.historyFilter.span
             var base = Calendar.current
-            base.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+            // A zone whose clock differs from this Mac's at the fixture date, so the check holds in any zone.
+            let los = TimeZone(identifier: "America/Los_Angeles")!
+            let target = los.secondsFromGMT(for: f.clock.value) == base.timeZone.secondsFromGMT(for: f.clock.value)
+                ? TimeZone(identifier: "Asia/Kolkata")! : los
+            base.timeZone = target
             f.store.periodCalendarBase = base
             let la = base.forPeriods
             let today = la.startOfDay(for: f.clock.value)
             let want = DateInterval(start: la.date(byAdding: .day, value: -1, to: today)!, end: today)
             expect(f.store.historyFilter.span == want && want != before,
-                   "yesterday in Los Angeles holds \(String(describing: f.store.historyFilter.span)), not \(want)", &problems)
+                   "yesterday in \(target.identifier) holds \(String(describing: f.store.historyFilter.span)), not \(want)", &problems)
         }
     }
 
