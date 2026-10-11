@@ -215,7 +215,7 @@ struct DayPickerCalendar: View {
                         .weight(isToday || isSelected ? .semibold : .regular)
                         .monospacedDigit())
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)
-                                     : !pickable ? AnyShapeStyle(.quaternary)
+                                     : !pickable ? AnyShapeStyle(.quaternary) // ink: quiet, a day that cannot be picked
                                      : isToday ? AnyShapeStyle(Tokens.Colour.focus)
                                      : AnyShapeStyle(.primary))
                 // The day at a glance: its focused time, or a quiet dot for a

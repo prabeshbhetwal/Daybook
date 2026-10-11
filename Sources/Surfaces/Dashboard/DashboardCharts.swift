@@ -63,7 +63,7 @@ struct RhythmChart: View {
                     ForEach(Array(hours.enumerated()), id: \.element.id) { index, hour in
                         Text(index % labelStep == 0 ? DateFormats.hourLabel(hour.hour) : "")
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity)
                     }

@@ -175,7 +175,7 @@ struct AwayAnswerGrid: View {
         return HStack(spacing: Tokens.Space.s) {
             Image(systemName: "pencil.line")
                 .font(compact ? Tokens.Typography.label : Tokens.Typography.control)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
             TextField("Name it — dinner, a call, a walk", text: $reason.text)
                 .textFieldStyle(.plain)

@@ -70,7 +70,7 @@ struct InsightSection: View {
             Image(systemName: expanded.value ? "info.circle.fill" : "info.circle")
                 .font(Tokens.Typography.control)
                 .foregroundStyle(expanded.value ? AnyShapeStyle(StoryStyle.action)
-                                                : AnyShapeStyle(.tertiary))
+                                                : AnyShapeStyle(StoryStyle.supportingInk))
                 .frame(width: AccessibilityMetrics.minimumTargetSize,
                        height: AccessibilityMetrics.minimumTargetSize)
                 .contentShape(Rectangle())

@@ -57,10 +57,12 @@ placeholder, a state not reached yet such as an award still to earn) is
 it. The system's secondary ink is 3.8:1 on the light surfaces, under the 4.5:1
 text needs; this is 5.3:1 or better in rendered pixels on every surface and
 wash, in both appearances. A dimmed state shows through its words and marks,
-not through ink too pale to read. `.secondary` stays only where nothing is read
-in it: a drawn mark (a dot, a stroke, a fill), a disabled control, display-size
-type and the menu bar item. Each such line says `// ink: quiet` and why;
-`build.sh` fails any other.
+not through ink too pale to read. The system's fainter inks (`.secondary`,
+`.tertiary`, `.quaternary`) stay only where nothing is read in them: a drawn
+mark (a dot, a stroke, a fill, the chevron between History's crumbs), a
+disabled control (a day the calendar cannot pick), display-size type and the
+menu bar item. Each such line says `// ink: quiet` and why; `build.sh` fails
+any other.
 
 ## Components
 

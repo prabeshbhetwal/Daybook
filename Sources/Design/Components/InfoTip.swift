@@ -134,7 +134,7 @@ private struct TipBubble: View {
         .padding(.horizontal, Tokens.Space.m)
         .padding(.vertical, Tokens.Space.s)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Tokens.Radius.control))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control).strokeBorder(.quaternary))
+        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.control).strokeBorder(.quaternary)) // ink: quiet, a drawn mark
         .shadow(color: .black.opacity(0.28), radius: 10.zoomed, y: 3.zoomed)
     }
 }
