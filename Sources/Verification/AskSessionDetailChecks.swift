@@ -10,7 +10,7 @@ import FoundationModels
 enum AskSessionDetailChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A session's stretches are listed with their times, note and power", stretchesListed),
-        ("A stretch with no reading has no battery words, and a note reads as its first line", noReadingNoNote),
+        ("A session says what it lacks, and a note reads as its first line", noReadingNoNote),
         ("A day lists its sessions newest first", dayNewestFirst),
         ("A stretch across midnight is split at midnight", acrossMidnight),
         ("The running session reads as running", runningSession),
@@ -22,6 +22,8 @@ enum AskSessionDetailChecks: CheckSuite {
     ]
 
     private static let monday = AskRange.day(year: 2023, month: 11, day: 13)
+    /// What a session with neither a note nor a battery reading ends with: silence read as a yes.
+    private static let lacks = " \u{00B7} no note \u{00B7} no battery reading"
 
     private static func span(_ record: SessionRecord) -> DateInterval { DateInterval(start: record.start, end: record.end) }
 
@@ -44,12 +46,13 @@ enum AskSessionDetailChecks: CheckSuite {
         AskDataFixture.with { f, problems in
             let want = "Parser \u{00B7} Mon 13 Nov \u{00B7} 1 stretch: from 2:00pm to 3:12pm, 1h 12m"
             let got = f.store.askLookup(.sessionDetail(monday, words: "parser"))
-            expect(got == want, "Parser reads “\(got)”, not “\(want)”", &problems)
+            expect(got == want + lacks, "Parser reads “\(got)”, not “\(want + lacks)”", &problems)
             guard case .saved = f.metadata.saveNote("first line\nsecond line", for: f.parser.id) else {
                 problems.append("the note was not saved"); return
             }
             let noted = f.store.askLookup(.sessionDetail(monday, words: "parser"))
-            expect(noted == want + ", note \u{201C}first line\u{201D}", "a two-line note reads “\(noted)”", &problems)
+            expect(noted == want + ", note \u{201C}first line\u{201D} \u{00B7} no battery reading",
+                   "a two-line note reads “\(noted)”", &problems)
         }
     }
 
@@ -70,9 +73,9 @@ enum AskSessionDetailChecks: CheckSuite {
                                      workSeconds: 7_200)
             guard f.engine.archive.append(late) == nil else { problems.append("Late was not saved"); return }
             let tuesday = f.store.askLookup(.sessionDetail(.day(year: 2023, month: 11, day: 14), words: "late"))
-            expect(tuesday == "Late \u{00B7} Tue 14 Nov \u{00B7} 1 stretch: from 11:00pm to 12:00am, 1h", "Tue reads “\(tuesday)”", &problems)
+            expect(tuesday == "Late \u{00B7} Tue 14 Nov \u{00B7} 1 stretch: from 11:00pm to 12:00am, 1h" + lacks, "Tue reads “\(tuesday)”", &problems)
             let today = f.store.askLookup(.sessionDetail(.today, words: "late"))
-            expect(today == "Late \u{00B7} Wed 15 Nov \u{00B7} 1 stretch: from 12:00am to 1:00am, 1h", "today reads “\(today)”", &problems)
+            expect(today == "Late \u{00B7} Wed 15 Nov \u{00B7} 1 stretch: from 12:00am to 1:00am, 1h" + lacks, "today reads “\(today)”", &problems)
         }
     }
 
@@ -80,7 +83,7 @@ enum AskSessionDetailChecks: CheckSuite {
         AskDataFixture.with { f, problems in
             f.engine.start(workType: .deepWork, intent: "Review")
             f.clock.advance(13 * 60)
-            let want = "Review \u{00B7} Wed 15 Nov \u{00B7} 1 stretch: running from 9:13am, 13m so far"
+            let want = "Review \u{00B7} Wed 15 Nov \u{00B7} 1 stretch: running from 9:13am, 13m so far" + lacks
             let all = f.store.askLookup(.sessionDetail(.today, words: nil))
             expect(all == want, "today reads “\(all)”", &problems)
             let named = f.store.askLookup(.sessionDetail(.thisWeek, words: "review"))
@@ -89,7 +92,7 @@ enum AskSessionDetailChecks: CheckSuite {
             expect(other == "No sessions match \u{201C}thesis\u{201D} today.", "Thesis today reads “\(other)”", &problems)
             f.clock.advance(60)
             let later = f.store.askLookup(.sessionDetail(.today, words: nil))
-            expect(later.hasSuffix("running from 9:13am, 14m so far"), "a minute later it reads “\(later)”", &problems)
+            expect(later.hasSuffix("running from 9:13am, 14m so far" + lacks), "a minute later it reads “\(later)”", &problems)
         }
     }
 

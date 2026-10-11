@@ -23,11 +23,13 @@ extension SessionStore {
             if range.isOneDay || bytes > AskFacts.maximumBytes { cut = !range.isOneDay; break }
         }
         let log = askEventLogStart(before: interval, calendar: calendar)
+        let absences = askEventAbsences(in: interval, beforeLog: log.before)
         // Days not read are counted as candidates; read ones, as listed.
         let total = cut ? days.count - empty : built.count
         let events = built.map { $0.events }
         let shown = range.isOneDay ? built.count
-            : AskFacts.dayEventsShown(events, total: total, logFrom: log.from, beforeLog: log.before)
+            : AskFacts.dayEventsShown(events, total: total, logFrom: log.from, beforeLog: log.before,
+                                    absences: absences)
         let listed = Array(built.prefix(shown))
         let anchor = askPeriodLink(range, role: .whatHappened)
         let places = listed.map { day in
@@ -37,7 +39,7 @@ extension SessionStore {
         }
         return AskLookupResult(
             text: AskFacts.dayEvents(range, days: listed.map { $0.events }, total: total, logFrom: log.from,
-                                     beforeLog: log.before),
+                                     beforeLog: log.before, absences: absences),
             // A day asked about is the anchor itself.
             links: [anchor] + places.filter { $0 != anchor })
     }
@@ -48,6 +50,16 @@ extension SessionStore {
         guard let first = machineEventLog?.events.first?.at else { return (nil, false) }
         let start = calendar.startOfDay(for: first)
         return interval.start < start ? (askDay(start), interval.end <= start) : (nil, false)
+    }
+
+    /// What the Mac's log, read for the interval as the "What the Mac did"
+    /// card reads it, holds no sign of. Nothing is denied for a period before
+    /// the log begins or with no log: it cannot say.
+    private func askEventAbsences(in interval: DateInterval, beforeLog: Bool) -> [String] {
+        guard let log = machineEventLog, !log.events.isEmpty, !beforeLog else { return [] }
+        let kinds = Set(log.events(in: interval).map(\.kind))
+        return (kinds.isDisjoint(with: MachineEvent.Kind.restarts) ? [AskFacts.noRestart] : [])
+            + (kinds.isDisjoint(with: GapAnatomy.found) ? [AskFacts.noCrash] : [])
     }
 
     /// The days of the interval, up to today and newest first, that have
@@ -97,7 +109,8 @@ extension SessionStore {
             breakTime += rest.length
             found.append((rest.start, 0, AskEventItem(
                 kind: .breakTaken(name: rest.name == "Break" ? nil : rest.name),
-                from: askTime(rest.start), to: askTime(rest.end), length: rest.length)))
+                from: askClock(rest.start, on: day, calendar: calendar),
+                to: askClock(rest.end, on: day, calendar: calendar), length: rest.length)))
         }
         for entry in projection.chronology {
             switch entry {
@@ -105,10 +118,10 @@ extension SessionStore {
                 answers += 1
                 found.append((span.start, 1, askAway(.away(
                     answer: receipt.name.isEmpty ? nil : receipt.name, outcome: receipt.title,
-                    credited: receipt.decision == .mergeTime ? receipt.creditedSeconds : nil), span)))
+                    credited: receipt.decision == .mergeTime ? receipt.creditedSeconds : nil), span, on: day)))
             case let .decision(_, span), let .pending(span):
                 pending += 1
-                found.append((span.start, 1, askAway(.pending, span)))
+                found.append((span.start, 1, askAway(.pending, span, on: day)))
             default:
                 continue
             }
@@ -117,8 +130,9 @@ extension SessionStore {
         for row in account?.rows ?? [] {
             found.append((row.span.start, 2, AskEventItem(
                 kind: .mac(title: row.title, uncertain: row.state == .uncertain || row.foundAt != nil,
-                           found: row.foundAt.map(askTime)), from: askTime(row.span.start),
-                to: row.span.duration > 0 ? askTime(row.span.end) : nil, length: nil)))
+                           found: row.foundAt.map(askTime)),
+                from: askClock(row.span.start, on: day, calendar: calendar),
+                to: row.span.duration > 0 ? askClock(row.span.end, on: day, calendar: calendar) : nil, length: nil)))
         }
         guard !found.isEmpty else { return nil }
         let ordered = found.enumerated().sorted {
@@ -130,8 +144,16 @@ extension SessionStore {
                            macSummary: summary?.isEmpty == false ? summary : nil)
     }
 
-    private func askAway(_ kind: AskEventItem.Kind, _ span: DateInterval) -> AskEventItem {
-        AskEventItem(kind: kind, from: askTime(span.start), to: span.duration > 0 ? askTime(span.end) : nil,
-                     length: nil)
+    private func askAway(_ kind: AskEventItem.Kind, _ span: DateInterval, on day: Date) -> AskEventItem {
+        let calendar = periodCalendar
+        return AskEventItem(kind: kind, from: askClock(span.start, on: day, calendar: calendar),
+                            to: span.duration > 0 ? askClock(span.end, on: day, calendar: calendar) : nil, length: nil)
+    }
+
+    /// A clock time on `day`, said “midnight” at the day's own start or end
+    /// (where the day cuts a span) rather than 12:00am, which the model read
+    /// as the next morning.
+    private func askClock(_ date: Date, on day: Date, calendar: Calendar) -> String {
+        date == day || date == calendar.date(byAdding: .day, value: 1, to: day) ? AskFacts.midnight : askTime(date)
     }
 }

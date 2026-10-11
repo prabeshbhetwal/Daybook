@@ -136,9 +136,9 @@ enum AskLookups {
     private static let dayEvents = AskLookup(
         spec: AskLookupSpec(
             name: "dayEvents",
-            description: "Lists what happened between sessions in a period: breaks, where the user was and what "
-                + "they answered when asked about time away, and what the Mac did, such as sleep, lock, restart "
-                + "or a crash, with their times.",
+            description: "Lists what happened between sessions in a period: breaks, time away from the Mac with "
+                + "what the user said they were doing and whether it counted as focus, and what the Mac did, such "
+                + "as sleep, lock, restart or a crash, with their times.",
             parameters: [AskParameter(name: "range", description: rangeGuide, required: true)]),
         read: { arguments, period in
             let raw = arguments["range"] ?? ""

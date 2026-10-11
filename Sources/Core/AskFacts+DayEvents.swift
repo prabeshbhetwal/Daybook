@@ -36,38 +36,48 @@ struct AskEventDay: Equatable {
 }
 
 extension AskFacts {
+    /// The word for a clock time at a day's own start or end, in place of 12:00am.
+    static let midnight = "midnight"
+    /// What the Mac's log did not record in a period it covers. The model read
+    /// a list with no restart in it as a yes, so the silence is said.
+    static let noRestart = "No restart or shut down was recorded."
+    static let noCrash = "No crash was recorded."
+
     /// `days` are newest first and are the days with something to tell;
     /// `total` is how many such days the range holds. `logFrom` is set only
     /// when the range begins before the Mac's event log does: the first day
     /// the log holds, said as `askDay` says it. `beforeLog` is whether the
-    /// range ends before that day. One day lists its items in order; a longer
-    /// range is a line a day, as many whole days as the cap holds, and says
-    /// "Newest N of M days." when it cannot hold them all.
+    /// range ends before that day. `absences` are what the log did not record
+    /// in the period (`noRestart`, `noCrash`), none when it does not cover it.
+    /// One day lists its items in order; a longer range is a line a day, as
+    /// many whole days as the cap holds, and says "Newest N of M days." when
+    /// it cannot hold them all.
     static func dayEvents(_ range: AskRange, days: [AskEventDay], total: Int,
-                          logFrom: String?, beforeLog: Bool) -> String {
-        let note = logNote(logFrom, beforeLog)
+                          logFrom: String?, beforeLog: Bool, absences: [String]) -> String {
+        let notes = [logNote(logFrom, beforeLog)].compactMap { $0 } + absences
         guard !days.isEmpty else {
             return capped("No breaks, time away or Mac events recorded \(range.inPhrase)."
-                          + (note.map { " " + $0 } ?? ""))
+                          + notes.map { " " + $0 }.joined())
         }
         if range.isOneDay {
             let day = days[0]
             let lines = day.items.map(itemLine).joined(separator: "\n")
-            return capped("\(day.label):\n" + lines, keeping: note.map { "\n" + $0 } ?? "")
+            return capped("\(day.label):\n" + lines, keeping: notes.map { "\n" + $0 }.joined())
         }
-        let shown = dayEventsShown(days, total: total, logFrom: logFrom, beforeLog: beforeLog)
-        let parts = listTail(shown, total: total, note: note)
+        let shown = dayEventsShown(days, total: total, logFrom: logFrom, beforeLog: beforeLog, absences: absences)
+        let parts = listTail(shown, total: total, notes: notes)
         return capped(days.prefix(shown).map(dayLine).joined(separator: "\n"), keeping: parts)
     }
 
     /// How many of a longer range's days the cap holds, whole, beside its notes.
-    static func dayEventsShown(_ days: [AskEventDay], total: Int, logFrom: String?, beforeLog: Bool) -> Int {
-        let note = logNote(logFrom, beforeLog)
+    static func dayEventsShown(_ days: [AskEventDay], total: Int, logFrom: String?, beforeLog: Bool,
+                               absences: [String]) -> Int {
+        let notes = [logNote(logFrom, beforeLog)].compactMap { $0 } + absences
         let lines = days.map(dayLine)
         var shown = lines.count
         while shown > 1 {
             let size = lines.prefix(shown).reduce(0) { $0 + $1.utf8.count + 1 } - 1
-                + listTail(shown, total: total, note: note).utf8.count
+                + listTail(shown, total: total, notes: notes).utf8.count
             if size <= maximumBytes { break }
             shown -= 1
         }
@@ -89,10 +99,14 @@ extension AskFacts {
     }
 
     /// `from 12:25pm to 1:10pm · break “Lunch” · 45m`: a clock time is a
-    /// start (“from”), an end (“to”) or an instant (“at”), never bare.
+    /// start (“from”), an end (“to”, or “until” midnight) or an instant
+    /// (“at”), never bare. A Mac row that is certain leads with its title,
+    /// `Mac asleep from 11:48pm until midnight`: after the times, the model
+    /// read “12:00am · Mac asleep” as the Mac going to sleep then.
     private static func itemLine(_ item: AskEventItem) -> String {
-        let when = item.to.map { "from \(item.from) to \($0)" } ?? "at \(item.from)"
+        let when = item.to.map { "from \(item.from) \($0 == midnight ? "until" : "to") \($0)" } ?? "at \(item.from)"
         let what: String
+        if case let .mac(title, false, _) = item.kind { return "\(title) \(when)" }
         switch item.kind {
         case let .breakTaken(name):
             what = "break" + (name.map { " “\($0)”" } ?? "") + (item.length.map { " \u{00B7} " + DurationText.compact($0) } ?? "")
@@ -113,9 +127,8 @@ extension AskFacts {
         logFrom.map { beforeLog ? "No Mac events were recorded before \($0)." : "The Mac's events are recorded from \($0)." }
     }
 
-    /// The lines kept whole after a list: the log note, then how many days it holds.
-    private static func listTail(_ shown: Int, total: Int, note: String?) -> String {
-        [note, shown < total ? "Newest \(shown) of \(total) days." : nil].compactMap { $0 }
-            .map { "\n" + $0 }.joined()
+    /// The lines kept whole after a list: the notes (the log's, what it did not record), then how many days it holds.
+    private static func listTail(_ shown: Int, total: Int, notes: [String]) -> String {
+        (notes + (shown < total ? ["Newest \(shown) of \(total) days."] : [])).map { "\n" + $0 }.joined()
     }
 }

@@ -115,6 +115,14 @@ extension MachineEvent.Kind {
                                         .restartOrShutDown, .powerOffUnknown,
                                         .crashed, .forceQuit, .powerLost, .kernelPanic]
 
+    /// What means the Mac went down and came back, or was turned off: a
+    /// restart or shut down as macOS said it, one worked out afterwards (a
+    /// power cut, a restart after a problem, a start-up, an update) or one it
+    /// would not name. Ask may say "no restart or shut down was recorded" only
+    /// when none of these is in the period.
+    static let restarts: Set<Self> = [.restart, .shutDown, .restartOrShutDown, .powerOffUnknown, .powerLost,
+                                      .kernelPanic, .macStarted, .macOSUpdated]
+
     /// What a hole in the day says when an event explains it, most telling
     /// first: a hole that holds a lock and a sleep was a sleep. An event that
     /// ends a hole rather than causing one — a wake, an unlock, a start — is

@@ -38,12 +38,14 @@ enum AskDayEventsChecks: CheckSuite {
             let lines = [
                 "from 10:40am to 11:05am \(dot) away \(dot) answered “Meeting”: Counted as focus, 25m",
                 "from 12:25pm to 1:10pm \(dot) break “Lunch” \(dot) 45m",
-                "from 12:25pm to 1:10pm \(dot) \(lock.title)",
+                "\(lock.title) from 12:25pm to 1:10pm",
                 "from 3:40pm to 3:55pm \(dot) break \(dot) 15m",
                 "from 4:10pm to 4:30pm \(dot) away \(dot) answered “Coffee”: Recorded as a break",
-                "from 11:48pm to 12:00am \(dot) \(sleep.title)",
+                "\(sleep.title) from 11:48pm until midnight",
             ]
             expectInOrder(text, lines, &problems)
+            expect(text.contains("Mac asleep from 11:48pm until midnight") && text.contains("Mac locked from 12:25pm to 1:10pm"),
+                   "the Mac rows do not lead with their title: \(text)", &problems)
             for row in rows { expect(text.contains(row.title), "the Mac row “\(row.title)” is missing: \(text)", &problems) }
         }
     }
@@ -158,7 +160,9 @@ enum AskDayEventsChecks: CheckSuite {
     private static func nothingToTell() -> [String] {
         AskDataFixture.with { f, problems in
             let text = f.store.askLookup(.dayEvents(.today))
-            expect(text == "No breaks, time away or Mac events recorded today.", "an empty day says “\(text)”", &problems)
+            // Today is inside the log, so what the log did not record is said too.
+            expect(text == "No breaks, time away or Mac events recorded today. No restart or shut down was recorded. "
+                   + "No crash was recorded.", "an empty day says “\(text)”", &problems)
         }
     }
 
@@ -215,9 +219,9 @@ enum AskDayEventsChecks: CheckSuite {
     private static func catalogueEntry() -> [String] {
         guard #available(macOS 26, *) else { return [] }
         var problems: [String] = []
-        let description = "Lists what happened between sessions in a period: breaks, where the user was and what "
-            + "they answered when asked about time away, and what the Mac did, such as sleep, lock, restart "
-            + "or a crash, with their times."
+        let description = "Lists what happened between sessions in a period: breaks, time away from the Mac with "
+            + "what the user said they were doing and whether it counted as focus, and what the Mac did, such as "
+            + "sleep, lock, restart or a crash, with their times."
         let guide = AskLookups.all[0].spec.parameters[0].description
         let want = AskLookupSpec(name: "dayEvents", description: description,
                                  parameters: [AskParameter(name: "range", description: guide, required: true)])

@@ -121,7 +121,7 @@ five are unchanged.
 | 3 | `bestHours` | Part 1's | as part 1 |
 | 4 | `findSessions` | Part 1's | as part 1 |
 | 5 | `appTime` | Part 1's, then: "Also gives the hours of the day it was in front." | as part 1 |
-| 6 | `dayEvents` | "Lists what happened between sessions in a period: breaks, where the user was and what they answered when asked about time away, and what the Mac did, such as sleep, lock, restart or a crash, with their times." | `range` (required; part 1's guide) |
+| 6 | `dayEvents` | "Lists what happened between sessions in a period: breaks, time away from the Mac with what the user said they were doing and whether it counted as focus, and what the Mac did, such as sleep, lock, restart or a crash, with their times." | `range` (required; part 1's guide) |
 | 7 | `sessionDetail` | "Returns the detail of sessions in a period: each working stretch with its start and end, its note and its battery reading, such as whether the Mac was plugged in." | `range` (required; part 1's guide); `words` (optional): "Words from the session's name, such as thesis; leave out for every session" |
 | 8 | `goals` | "Returns the daily goal, progress towards it today, the days a period met it, the current and longest streak, and the awards earned and still to earn." | `range` (optional): part 1's guide + "; leave out for all time" |
 
@@ -157,9 +157,11 @@ One day, in time order:
 Fri 9 Oct:
 from 10:40am to 11:05am · away · answered “Meeting”: Counted as focus, 25m
 from 12:25pm to 1:10pm · break “Lunch” · 45m
-from 12:25pm to 1:10pm · Mac locked
+Mac locked from 12:25pm to 1:10pm
 from 4:10pm to 4:30pm · away · answered “Coffee”: Recorded as a break
-at 11:48pm · Mac went to sleep
+Mac asleep from 11:48pm until midnight
+No restart or shut down was recorded.
+No crash was recorded.
 ```
 
 A longer period, one line per day with anything to tell, newest first:
@@ -178,7 +180,23 @@ Newest 2 of 9 days.
 - Mac events exist from the event log's first day; a period that starts
   before it adds "The Mac's events are recorded from Thu 8 Oct 2026.", and one
   wholly before it says "No Mac events were recorded before Thu 8 Oct 2026."
-- A crash or power loss is told as the card tells it, found at the next start.
+- A Mac row leads with its title and words its times after it: `Mac locked
+  from 12:25pm to 1:10pm`, `Mac asleep from 11:48pm until midnight`, and `Mac
+  woke at 7:52am` for an instant. With the times first, the model read “from
+  11:48pm to 12:00am · Mac asleep” as the Mac going to sleep at 12:00am. A
+  day's own edges read `midnight` instead of 12:00am, “until midnight” for an
+  end and “from midnight” for a start, for breaks and answers too.
+- A crash or power loss is told as the card tells it, found at the next start,
+  and keeps its own shape: `from 8:00am to 8:02am · Daybook crashed · some
+  time in this window; found when Daybook opened at 8:02am`.
+- A period the event log covers (from its first day on) ends, before any
+  “Newest N of M days.”, with what the log did not record: “No restart or shut
+  down was recorded.” when it holds no restart, shut down, restart or shut
+  down not named, power-off not named, power loss, restart after a problem,
+  start-up or macOS update, and “No crash was recorded.” when it holds no
+  crash, force quit, power loss or restart after a problem. The model had read
+  a list with no restart in it as a yes. A period wholly before the log, or no
+  log at all, says neither.
 - Nothing to tell: "No breaks, time away or Mac events recorded on Friday."
 
 ### `sessionDetail`
@@ -192,13 +210,17 @@ first, at most ten.
 
 ```
 Thesis · Fri 9 Oct · 2 stretches: from 9:00am to 10:40am, 1h 40m, battery 82% to 61%, note “chapter three, fixed citations”; from 11:05am to 12:25pm, 1h 20m, plugged in 61% to 88%
-Parser · Fri 9 Oct · 1 stretch: from 2:00pm to 3:12pm, 1h 12m
+Parser · Fri 9 Oct · 1 stretch: from 2:00pm to 3:12pm, 1h 12m · no note · no battery reading
 ```
 
 - More than ten sessions, or more than the 1 KB cap holds, ends with "Newest
   N of M." naming how many were listed.
 - The running session reads "running from 1:00pm, 1h 30m so far".
-- A stretch with no reading has no battery words, as the report shows none.
+- A session none of whose stretches has a note ends with " · no note", and
+  one none of whose stretches has a battery reading ends with " · no battery
+  reading" (both, in that order, when both are missing). The running stretch
+  counts like any other. Silence read as a yes: asked whether it wrote notes
+  or was plugged in, the model answered yes for sessions that had neither.
 - No session: part 1's "No sessions match “…” on Friday." or "No sessions
   recorded on Friday."
 
@@ -310,7 +332,8 @@ when they merge. Each uses `TestClock`, `SelfTest.scratchDirectory()` and
 | Suite | Fails when |
 |---|---|
 | `AskDayEventsChecks` | lines are out of time order; a break, an answer (with its receipt title) or a Mac row is missed or misworded; a longer period is not one line per day, newest first, with "Newest N of M days."; the Mac log's first day is not said for a period that starts before it; sources miss the period or a day |
-| `AskSessionDetailChecks` | a stretch's start, end or work is wrong; a battery reading or note is missed or worded unlike the report; the running session is not "running"; more than ten are listed without "Newest 10 of N." |
+| `AskDayEventsAbsenceChecks` | a Mac row does not lead with its title; a day's edge reads 12:00am instead of midnight; a restart or crash the log holds is denied, or one it lacks is not said; a period before the log, or with no log, denies anything |
+| `AskSessionDetailChecks` | a stretch's start, end or work is wrong; a battery reading or note is missed or worded unlike the report; a session lacking a note or a battery reading does not say so; the running session is not "running"; more than ten are listed without "Newest 10 of N." |
 | `AskGoalsChecks` | progress is read from focus instead of goal credit; days met are not counted against today's goal; the streak is read from the wall clock instead of the store's; an award's title or detail differs from the Awards sheet; the Awards source is missing |
 | `AskFactsExtensionChecks` | work types or a work-type total differ from History; app hours differ from the app lens or the rail; a clock time stands bare beside a duration; a listed session hides its note or battery reading; the all-time streak is missing; any new fact passes 1 KB |
 

@@ -47,11 +47,16 @@ extension AskFacts {
         return shown
     }
 
-    /// `Thesis · Fri 9 Oct · 2 stretches: from 9:00am to 10:40am, 1h 40m, …; from 11:05am to …`.
+    /// `Thesis · Fri 9 Oct · 2 stretches: from 9:00am to 10:40am, 1h 40m, …; from 11:05am to … · no note`.
+    /// What no stretch has is said, `no note` and `no battery reading`: the
+    /// model read a line with neither as “yes, notes” and “yes, plugged in”.
     private static func sessionLine(_ session: AskSessionDetail) -> String {
         let n = session.stretches.count
         let stretches = session.stretches.map(stretchText).joined(separator: "; ")
-        return "\(session.name) \u{00B7} \(session.day) \u{00B7} \(n == 1 ? "1 stretch" : "\(n) stretches"): \(stretches)"
+        let lacks = (session.stretches.contains { $0.note?.isEmpty == false } ? [] : ["no note"])
+            + (session.stretches.contains { $0.power != nil } ? [] : ["no battery reading"])
+        let head = "\(session.name) \u{00B7} \(session.day) \u{00B7} \(n == 1 ? "1 stretch" : "\(n) stretches"): \(stretches)"
+        return ([head] + lacks).joined(separator: " \u{00B7} ")
     }
 
     /// A clock time is a start (“from”), an end (“to”), never bare beside a duration.
