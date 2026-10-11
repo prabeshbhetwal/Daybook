@@ -54,7 +54,7 @@ struct ActivityQuietChoiceView: View {
                 .font(Tokens.Typography.rowTitle)
             Text(Self.explanation)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 ForEach(choice.candidates, id: \.ruleID) { candidate in

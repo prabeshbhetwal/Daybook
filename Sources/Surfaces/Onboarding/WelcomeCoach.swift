@@ -191,7 +191,7 @@ struct WelcomeCoachCard: View {
             // capitals at this size were the hardest line on the card to read.
             Text(FirstRunScript.eyebrow(chapter: progress.chapter, card: progress.card))
                 .font(Tokens.Typography.label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(1)
             Spacer(minLength: Tokens.Space.s)
             Button(listShown.value ? "Close" : "Chapters") { listShown.value.toggle() }
@@ -209,7 +209,7 @@ struct WelcomeCoachCard: View {
             ForEach(FirstRunChapter.allCases) { chapter in
                 Capsule()
                     .fill(chapter.number <= progress.chapter.number
-                          ? StoryStyle.focus : Color.secondary.opacity(0.18))
+                          ? StoryStyle.focus : Color.secondary.opacity(0.18)) // ink: quiet, a drawn mark
                     .frame(height: 3.zoomed)
             }
         }
@@ -230,7 +230,7 @@ struct WelcomeCoachCard: View {
                     HStack(spacing: Tokens.Space.s) {
                         Text("\(chapter.number)")
                             .font(Tokens.Typography.microFigure)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .frame(width: 18.zoomed, alignment: .trailing)
                         Text(chapter.title)
                             .font(Tokens.Typography.body.weight(isCurrent ? .semibold : .regular))
@@ -240,7 +240,7 @@ struct WelcomeCoachCard: View {
                         if seen {
                             Image(systemName: "checkmark")
                                 .font(Tokens.Typography.micro)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(StoryStyle.supportingInk)
                         }
                     }
                     .padding(.vertical, 5.zoomed)
@@ -266,7 +266,7 @@ struct WelcomeCoachCard: View {
                     .foregroundStyle(StoryStyle.successInk)
                 Text(result)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         } else {
@@ -296,12 +296,12 @@ struct WelcomeCoachCard: View {
                                               attention: false, isMet: false) {
                 Image(nsImage: glyph)
                     .renderingMode(.template)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .accessibilityHidden(true)
             }
             Text(text)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Tokens.Space.s)

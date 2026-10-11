@@ -32,7 +32,7 @@ struct DayMachineEvents: View {
         HStack(spacing: Tokens.Space.m) {
             VStack(alignment: .leading, spacing: 2.zoomed) {
                 Text("What the Mac did").font(Tokens.Typography.label)
-                Text(account.summary).font(Tokens.Typography.body).foregroundStyle(.secondary)
+                Text(account.summary).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             }
             Spacer(minLength: Tokens.Space.s)
             if !isOpen {
@@ -40,7 +40,7 @@ struct DayMachineEvents: View {
                     .frame(width: 120.zoomed, height: 5.zoomed)
             }
             Image(systemName: "chevron.right")
-                .font(Tokens.Typography.caption).foregroundStyle(.secondary)
+                .font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
                 .rotationEffect(.degrees(isOpen ? 90 : 0))
         }
         .contentShape(Rectangle())

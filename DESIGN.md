@@ -52,9 +52,15 @@ the day or month shown. Colour never implies goal credit where only focused dura
 is known. Native controls preserve visible keyboard focus.
 
 Supporting text that has to be read (a role under a label, a footer line, a
-placeholder) is `StoryStyle.supportingInk`, the primary ink at 75%. The system's
-secondary ink is 3.9:1 on the light surfaces, under the 4.5:1 text needs;
-this is 5.6:1 or better on every surface Ask draws on, in both appearances.
+placeholder, a state not reached yet such as an award still to earn) is
+`StoryStyle.supportingInk`, the primary ink at 75%, and so is a symbol beside
+it. The system's secondary ink is 3.8:1 on the light surfaces, under the 4.5:1
+text needs; this is 5.3:1 or better in rendered pixels on every surface and
+wash, in both appearances. A dimmed state shows through its words and marks,
+not through ink too pale to read. `.secondary` stays only where nothing is read
+in it: a drawn mark (a dot, a stroke, a fill), a disabled control, display-size
+type and the menu bar item. Each such line says `// ink: quiet` and why;
+`build.sh` fails any other.
 
 ## Components
 

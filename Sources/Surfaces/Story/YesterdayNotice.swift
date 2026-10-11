@@ -37,13 +37,13 @@ struct YesterdayNotice: View {
                     .accessibilityAddTraits(.isHeader)
                 Text(durations: figures)
                     .font(Tokens.Typography.body.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .padding(.top, Tokens.Space.xs)
                 PeriodNote(writer: writer, place: place, evidence: evidence, trigger: .automatic,
                            tipLabel: "For today:",
                            insets: EdgeInsets(top: Tokens.Space.s, leading: 0, bottom: 0, trailing: 0))
                 Button("Done", action: onDone)
-                    .buttonStyle(StoryLinkStyle(tint: .secondary))
+                    .buttonStyle(StoryLinkStyle(tint: StoryStyle.supportingInk))
                     .padding(.top, Tokens.Space.xs)
             }
             .noteCard()

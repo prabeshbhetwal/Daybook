@@ -440,7 +440,7 @@ struct GalleryView: View {
     private func labelled<Content: View>(_ title: String,
                                          @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            Text(title).font(Tokens.Typography.caption).foregroundStyle(.secondary)
+            Text(title).font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
             content()
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.panel))
                 .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel)

@@ -39,7 +39,7 @@ struct StoryDecisionRow: View {
                     .font(Tokens.Typography.rowTitle)
                     .accessibilityAddTraits(.isHeader)
                 Text("\(Tokens.timeRange(range.start, range.end)) · \(Tokens.preciseDuration(range.duration)) is not counted. Later work is unchanged.")
-                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: Tokens.Space.s) {
                     Button("Count as focus") { answer(.mergeTime) }
@@ -54,7 +54,7 @@ struct StoryDecisionRow: View {
                 .accessibilityHint(store.hasUnresolvedAwayDecision ? Self.awayQuestionFirst : "")
                 if let note = StoryDecisionScope.note(visible: range, full: receipt.range) {
                     Text(note)
-                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                 }
             }
             .padding(15.zoomed)
@@ -91,7 +91,7 @@ struct StorySavedActionRow: View {
                     .lineLimit(1)
                     .help(title)
                 Text(Tokens.timeRange(range.start, range.end))
-                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                     .lineLimit(1)
             }
             .accessibilityElement(children: .ignore)
@@ -108,7 +108,7 @@ struct StorySavedActionRow: View {
                 .accessibilityHint(undoBlockReason ?? scopeNote ?? "Reverts only this action; later work is unchanged.")
           }
           if let scopeNote {
-              Text(scopeNote).font(Tokens.Typography.body).foregroundStyle(.secondary)
+              Text(scopeNote).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                   .fixedSize(horizontal: false, vertical: true)
                   .padding(.leading, 22.zoomed)
           }

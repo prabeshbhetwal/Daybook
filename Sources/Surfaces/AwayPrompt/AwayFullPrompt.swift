@@ -36,7 +36,7 @@ private struct FullPromptView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(StoryPressStyle())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .keyboardShortcut(.cancelAction)
                     .accessibilityHint("Keeps the question available for later")
                 }

@@ -28,11 +28,11 @@ struct StoryMachineRunCard: View {
         HStack(spacing: Tokens.Space.m) {
             VStack(alignment: .leading, spacing: 2.zoomed) {
                 Text(run.title).font(Tokens.Typography.label)
-                Text(caption).font(Tokens.Typography.body).foregroundStyle(.secondary)
+                Text(caption).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             }
             Spacer(minLength: Tokens.Space.s)
             Image(systemName: "chevron.right")
-                .font(Tokens.Typography.caption).foregroundStyle(.secondary)
+                .font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
                 .rotationEffect(.degrees(isOpen ? 90 : 0))
         }
         .contentShape(Rectangle())
@@ -51,12 +51,12 @@ struct StoryMachineRunCard: View {
             ForEach(Array(run.pins.enumerated()), id: \.offset) { _, pin in
                 GridRow {
                     Text(Tokens.timeOfDayOnly(pin.event.at))
-                        .font(Tokens.Typography.body.monospacedDigit()).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body.monospacedDigit()).foregroundStyle(StoryStyle.supportingInk)
                         .gridColumnAlignment(.trailing)
                     Text(pin.event.title).font(Tokens.Typography.body)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(pin.event.returnLine(resumed: pin.resumed) ?? "")
-                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                         .gridColumnAlignment(.trailing)
                 }
                 .accessibilityElement(children: .combine)

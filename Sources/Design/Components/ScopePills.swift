@@ -29,7 +29,7 @@ struct ScopePills: View {
                     .padding(.horizontal, Tokens.Space.m)
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                     .foregroundStyle(isSelected ? AnyShapeStyle(Tokens.Colour.onFocus)
-                                                : AnyShapeStyle(Color.secondary))
+                                                : AnyShapeStyle(StoryStyle.supportingInk))
                     // One capsule for the row, matched across pills, so a
                     // change of scope is the capsule sliding to the new word
                     // rather than one pill going out and another coming on.

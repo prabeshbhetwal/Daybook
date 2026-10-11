@@ -41,7 +41,7 @@ struct HistoryAppPicker: View {
             cell(title: "All apps", isSelected: picked == nil, help: "Show every app") {
                 Image(systemName: "app")
                     .frame(width: 20.zoomed, height: 20.zoomed)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             } action: { choose(nil) }
             ScrollView {
                 LazyVGrid(columns: columns, spacing: Tokens.Space.xs) {

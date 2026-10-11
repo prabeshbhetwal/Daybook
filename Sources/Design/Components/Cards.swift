@@ -86,7 +86,7 @@ struct IconButton: View {
                                       : AnyShapeStyle(Tokens.Colour.elevated),
                             in: Circle())
                 .foregroundStyle(prominent ? AnyShapeStyle(Tokens.Colour.focus)
-                                           : AnyShapeStyle(.secondary))
+                                           : AnyShapeStyle(StoryStyle.supportingInk))
         }
         .buttonStyle(PressableStyle())
         .help(help)

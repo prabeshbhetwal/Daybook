@@ -193,7 +193,7 @@ struct CategoriesView: View {
                     Text("What a session is filed under. Rename or re-icon any of them; "
                          + "add your own for work these do not describe.")
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: Tokens.Space.m)
                     Button("New category") {
@@ -247,16 +247,16 @@ struct CategoriesView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(definition.name)
                         .font(Tokens.Typography.rowTitle)
-                        .foregroundStyle(definition.isRetired ? AnyShapeStyle(.secondary)
+                        .foregroundStyle(definition.isRetired ? AnyShapeStyle(StoryStyle.supportingInk)
                                                               : AnyShapeStyle(.primary))
                     Text(rowDetail(definition, edited: isEdited))
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                 }
                 Spacer(minLength: Tokens.Space.s)
                 Image(systemName: "chevron.right")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             .padding(.horizontal, Tokens.Space.s)
             .frame(minHeight: 40.zoomed)
@@ -320,7 +320,7 @@ struct CategoryEditorForm: View {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     Text(isNew ? "New category" : (editor.isBuiltIn ? "Built-in category" : "Your category"))
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                     TextField("Category name", text: $editor.name)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 280.zoomed)
@@ -346,7 +346,7 @@ struct CategoryEditorForm: View {
                 Text("On for things attended rather than done, such as a call or a lecture. "
                      + "Off, watching without typing pauses the clock.")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let message = editor.validationMessage {
@@ -426,7 +426,7 @@ struct CategoryEditorForm: View {
             HStack(spacing: Tokens.Space.s) {
                 Text("Daily goal")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 Picker("Daily goal", selection: $editor.dailyGoal) {
                     Text("None").tag(0.0)
                     ForEach(WorkTypeDefinition.goalOptions, id: \.self) { seconds in
@@ -438,13 +438,13 @@ struct CategoryEditorForm: View {
                 .accessibilityLabel("Daily goal for this category")
                 Text("Its own line under Focus time, beside the day's goal.")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             Toggle("Remind me to take breaks during this category", isOn: $editor.remindsBreaks)
             Text("Off, break reminders wait while a session of this category runs. "
                  + "Meetings starts off: nobody wants to be told to stand up mid-call.")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -464,7 +464,7 @@ struct CategoryEditorForm: View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Text("Colour")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
             HStack(spacing: Tokens.Space.s) {
                 ForEach(WorkTypeHue.selectable, id: \.self) { hue in
@@ -496,7 +496,7 @@ struct CategoryEditorForm: View {
             HStack(spacing: Tokens.Space.s) {
                 Text("Icon")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .accessibilityHidden(true)
                 Picker("Icon kind", selection: $editor.iconMode) {
                     ForEach(CategoryEditorState.IconMode.allCases, id: \.self) { mode in

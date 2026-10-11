@@ -114,6 +114,7 @@ extension SelfTest {
             + AskChatChecks.tests
             + AskFollowChecks.tests
             + AskPanelChecks.tests
+            + SupportingInkChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

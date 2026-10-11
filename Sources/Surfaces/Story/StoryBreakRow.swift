@@ -91,12 +91,12 @@ struct StoryBreakRow: View, Equatable {
             HStack(spacing: Tokens.Space.m) {
                 Text(Self.label(rest.name))
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: Tokens.Space.s)
                 Text(durations: Tokens.preciseDuration(rest.length))
                     .font(Tokens.Typography.body.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 if canName, !nameDraft.isEditing { nameButton }
                 changeMenu
                 if receipt != nil { undoButton }
@@ -174,7 +174,7 @@ struct StoryBreakRow: View, Equatable {
                 .buttonStyle(StoryLinkStyle())
                 .padding(.leading, Tokens.Space.s)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         }
         .padding(.horizontal, Tokens.Space.m)
         .frame(minHeight: 30.zoomed)

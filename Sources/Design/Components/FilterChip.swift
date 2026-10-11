@@ -37,7 +37,7 @@ struct FilterChip<Icon: View, Items: View>: View {
         HStack(spacing: Tokens.Space.xs) {
             icon()
                 .frame(width: 16.zoomed, height: 16.zoomed)
-                .foregroundStyle(isActive ? AnyShapeStyle(ink) : AnyShapeStyle(.secondary))
+                .foregroundStyle(isActive ? AnyShapeStyle(ink) : AnyShapeStyle(StoryStyle.supportingInk))
             Text(title)
                 .font(Tokens.Typography.control)
                 .lineLimit(1)
@@ -45,7 +45,7 @@ struct FilterChip<Icon: View, Items: View>: View {
             if !isActive {
                 Image(systemName: "chevron.down")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
         }
         .padding(.leading, Tokens.Space.m)

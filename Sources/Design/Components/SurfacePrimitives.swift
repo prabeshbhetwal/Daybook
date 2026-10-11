@@ -58,19 +58,19 @@ struct EmptyState: View {
             Image(systemName: icon)
                 .font(Tokens.Typography.headline)
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
             Text(message)
                 .font(Tokens.Typography.rowTitle)
             if let detail {
                 Text(detail)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 96.zoomed)
         .multilineTextAlignment(.center)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(StoryStyle.supportingInk)
         .accessibilityElement(children: .combine)
     }
 }
@@ -89,7 +89,7 @@ struct IntegrityNotice: View {
                 .foregroundStyle(StoryStyle.attentionInk)
             Text(message)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Tokens.Space.s)

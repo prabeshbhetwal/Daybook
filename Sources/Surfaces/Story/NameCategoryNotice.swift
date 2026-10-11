@@ -19,7 +19,7 @@ struct NameCategoryNotice: View {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(Self.movedSentence(moved.tidy))
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button("Undo") { undo(moved.undo) }
@@ -41,7 +41,7 @@ struct NameCategoryNotice: View {
                         .buttonStyle(StoryActionStyle(tint: Tokens.Palette.workType(tidy.target)))
                         .accessibilityHint("Files them under \(tidy.target.displayName). Undo puts them back.")
                     Button("Keep as is") { store.engine.store.nameCategoryKept = tidy.signature; store.refresh() }
-                        .buttonStyle(StoryLinkStyle(tint: .secondary))
+                        .buttonStyle(StoryLinkStyle(tint: StoryStyle.supportingInk))
                         .padding(.leading, Tokens.Space.s)
                 }
             }
