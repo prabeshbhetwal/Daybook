@@ -29,7 +29,8 @@ struct HistoryTree: View {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 // The count is in the field; the headline below adds it up.
                 HistoryFindBar(store: store, focusRequest: navigation.historySearchFocusRequest,
-                               matchCount: searched.map { Self.fieldCount($0, lens: lens) })
+                               matchCount: searched.map { Self.fieldCount($0, lens: lens) },
+                               rescue: navigation.searchRescue)
                     .coachAnchor(.search)
                 // A search replaces the tree, so there is no path to show; and
                 // with nothing open the path is only the headline's own name.

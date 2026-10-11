@@ -10,8 +10,11 @@ struct HistoryFindBar: View {
     let focusRequest: Int
     /// "12 sessions", shown in the field while a search runs.
     var matchCount: String?
+    /// Reads the unread words on Return; nil where there is no store to read.
+    var rescue: SearchRescue?
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.undoManager) private var undoManager
 
     static let searchableHint = "Searches session names, old names, notes, named breaks, apps, "
         + "categories, dates and times of day. Command F puts the cursor here."
@@ -19,6 +22,13 @@ struct HistoryFindBar: View {
     private static let exampleSeconds: TimeInterval = 3.5
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            controls
+            HistorySearchChipRow(store: store, rescue: rescue)
+        }
+    }
+
+    private var controls: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Tokens.Space.s) {
                 field
@@ -56,9 +66,11 @@ struct HistoryFindBar: View {
                     .textFieldStyle(.plain)
                     .focused($fieldFocused)
                     .onExitCommand { fieldFocused = false }
+                    .onSubmit { rescue?.rescue(undoManager: undoManager) }
                     .accessibilityLabel("Find a session")
                     .accessibilityHint(Self.searchableHint)
             }
+            if let rescue { HistoryRescueSpinner(rescue: rescue) }
             if !query.isEmpty {
                 if let matchCount {
                     Text(matchCount)
