@@ -34,11 +34,11 @@ Mac, and uses the on-device model only to rescue phrasings code cannot read.
 
 | Layer | File | Responsibility |
 |---|---|---|
-| Core | `Sources/Core/SearchQuery.swift` (new) | `SearchQuery.parse(_ text:, now:, calendar:, apps:, categories:) -> ParsedSearch`. Finds phrases (§2) by longest match, left to right, skipping quoted text. Returns `span: DateInterval?`, `weekdays: Set<Int>?`, `minLength`/`maxLength: TimeInterval?`, `appBundleID`, `workType`, `leftover: String` and `phrases: [SearchPhrase]` (text range, kind, chip label). Periods go through `AskRange.resolving`; number words through `NoteNumberWords`. Pure; no App types. |
+| Core | `Sources/Core/SearchQuery.swift`, `SearchQueryGrammar.swift`, `SearchQueryPeriods.swift`, `SearchQueryTokens.swift` (new) | `SearchQuery.parse(_ text:, now:, calendar:, apps:, categories:) -> ParsedSearch`. Finds phrases (§2) by longest match, left to right, skipping quoted text. Returns `span: DateInterval?`, `weekdays: Set<Int>?`, `minLength`/`maxLength: TimeInterval?`, `appBundleID`, `workType`, `leftover: String` and `phrases: [SearchPhrase]` (text range, kind, chip label). Named months, days and years go through `AskRange.resolving`; the relative periods (today, last week, N days ago, past weekends, …) are built directly from the period calendar in `SearchQueryPeriods.swift`. Number words go through `NoteNumberWords`. Pure; no App types. |
 | Core | `Sources/Core/HistoryStats.swift` | `HistoryFilter` gains `span`, `weekdays`, `minLength`, `maxLength`; `isActive` counts them; `apply(to:)` honours span and weekdays for the map. |
 | App | `Sources/App/SessionStore+HistoryFind.swift` | `historySearchHits(matching:)` applies span (`holds` on the session-day), weekdays (of the session-day) and length (the session-day's focused seconds, pauses excluded, as its card shows). The empty-filter guard becomes "no filter active". |
-| App | `Sources/App/SessionStore+Review.swift` | `setHistoryQuery(_:)` keeps the raw text in a published `historySearchText`, parses it, and sets the filter (leftover words into `query`; a typed app or category name is held beside the menus' own picks, `historyMenuApp` and `historyMenuWorkType`, and the typed name wins while it is in the text). |
-| App | `Sources/App/SearchRescue.swift` (new) | On Return: if `ModelGate.modelAvailable`, the switch is on, leftover words remain and hits are zero, one greedy `LanguageModelSession` call returns `@Generable struct RescuedSearch { phrases: [String]; keep: [String] }` for the leftover words: phrases in the forms the instructions list, and the typed words worth keeping as search words. Each phrase is parsed on its own; only a phrase the parser reads as exactly one period, weekday or length phrase is kept (an app or category is never taken). Kept words must be a subset of the leftover words: the model can drop words, never add them. Accepted phrases replace the leftover words in the field, beside the kept words (one undoable change); the chip is marked as from Apple Intelligence. A reply with no accepted phrase changes nothing. `responder` seam for checks. |
+| App | `Sources/App/SessionStore+HistoryQuery.swift` | `setHistoryQuery(_:)` and the menu state live here, not in `+Review`. It keeps the raw text in a published `historySearchText`, parses it, and sets the filter (leftover words into `query`; a typed app or category name is held beside the menus' own picks, `historyMenuApp` and `historyMenuWorkType`, and the typed name wins while it is in the text). |
+| App | `Sources/App/SearchRescue.swift` (new) | On Return: if `ModelGate.modelAvailable`, the switch is on, leftover words remain and hits are zero, one greedy `LanguageModelSession` call returns `@Generable struct RescuedSearch { phrases: [String]; keep: [String] }` for the leftover words: phrases in the forms the instructions list, and the typed words worth keeping as search words. Each phrase is parsed on its own; only a phrase the parser reads as exactly one period, weekday or length phrase is kept (an app or category is never taken). Kept words must be a subset of the leftover words: the model can drop words, never add them. Accepted phrases replace the leftover words in the field, beside the kept words (one undoable change); the chip is marked as from Apple Intelligence. A reply with no accepted phrase changes nothing. The wait ends after about 10 s (a sleeping timer, so a model that ignores cancellation cannot hold it), leaving the text untouched and the spinner cleared; editing the text cancels it, and a late reply changes nothing. The rebuilt text is parsed again with the store's own reading and committed only if it reads as the phrases already there, then the model's, then the kept words, so no chip the model made lacks its mark. `responder` seam for checks. |
 | Surfaces | `Sources/Surfaces/History/HistorySearchChips.swift` (new) | The chips row under the search field: label, × button, the app icon or category colour, the Apple Intelligence mark on rescued chips. |
 | Surfaces | the History search field's view | Binds to `historySearchText`, submits Return to `SearchRescue`, places the chips row. |
 
@@ -91,6 +91,7 @@ Case-insensitive, English, any order, mixed with free words. The one exception i
 | Typed app or category | The effective filter is the typed name if one is typed, otherwise the menu's pick; the menus keep their own choice. × on its chip removes the name from the field. Choosing in a menu removes any typed name of that kind from the field, so the text and the menu never disagree. |
 | AI rescue accepted | Only a period, weekday or length phrase is accepted. The leftover words become the accepted phrase text, plus the words the model kept (a subset of the typed ones), in the field, as one undoable change; ⌘Z restores the original. The chip carries the Apple Intelligence mark. |
 | AI rescue rejected, failed or model unusable | Nothing changes; no message. |
+| Typed text read again | The filter is read again from the text, not only when it is typed: when History opens, when the day or the time zone changes (the tree's top moves and History reconciles), and when app names load. So a typed "yesterday" or "this week" follows the clock, and an app name typed before the names loaded becomes a chip. Nothing is published when the reading is unchanged, and the 1 Hz ticker never does it. |
 | Model chooses a valid but wrong phrase | Not detectable by the parser; the chip's exact dates and mark make it visible. Measured by the live probe. |
 
 ## 4. Privacy
@@ -123,6 +124,8 @@ Results: §5a (first run 18 of 20; second run, after the grammar additions,
 20 of 20).
 
 ## 5a. Live probe
+
+### First run
 
 Run 2026-10-12 on macOS 27.2 (build 26B5101f), a MacBook Pro with an Apple M1 Pro,
 through `SearchRescue`'s live path: the real `SystemLanguageModel.default`,
@@ -167,7 +170,7 @@ Valid but wrong, both visible as a marked chip with exact dates:
 - "past fortnight" became "two weeks ago" (30 Oct – 5 Nov); the person meant
   the last 14 days, which "last 2 weeks" would have said.
 
-What the probe also showed:
+What the first run also showed:
 
 - The model often names the right period in words the grammar lacks ("last
   weekend", "since Monday", "last fortnight"); the parser rejects those, and
