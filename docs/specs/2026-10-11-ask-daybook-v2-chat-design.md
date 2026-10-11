@@ -77,6 +77,30 @@ the real lookups, no question has looped, before or after the accuracy pass
 that cannot answer it is the shape that loops, and parts 2 and 3 add exactly
 those questions, so the cap is in code.
 
+### After (2026-10-11)
+
+The same fixture, questions and live model over the finished tree (the chat,
+the gate, the sources and the side panel), in a temporary copy with an
+`--askprobe` entry that drives `AskModel.turns` as the chat does. The
+baseline's log was lost in a restart, so the baseline above was regenerated the
+same day from the tree this work branched from (9424aad) with the same 37 questions;
+every comparison is against that run. Nothing from the probe copy is committed.
+
+| Measure | Result |
+|---|---|
+| Parity, 37 questions, three runs of each build | All 37 answers identical to the baseline in all three pairs, with the same lookups. Only the order of the Used list differs, in 1, 3 and 0 of the 37, always where the model asks two lookups in one step (September and August; this week and last week). FoundationModels may run the two tools at once, and the gate records them as they arrive. One such question asked 12 times: the baseline listed September first 12 times; the finished build 9 times and August first 3, with the same answer every time. Sources the answer does not name follow lookup order, so they swap the same way |
+| Depth, ten follow-ups in one chat | All ten answered; the context did not fill (no retry, no notice). "And in September?" right (120h 18m) and "Which day that month was best?" right (Tue 15 Sep, 9h). Not right on a careful read: "What did I work on that day?" gave Parser 2h 00m (the lookup lists "2:00pm · Parser · 4h"; the model read the start time as a duration, as it did on the baseline); "Did I write any notes?" said none in September (it searched the word "notes"; the 23 September note says "chapter three"); "And the week before?" answered with Mon 14 Sep, one day, and "Which app did I use most then?" followed it |
+| Depth, the same ten three times (30 turns) | The context filled at turn 24. The turn was retried once in a fresh session told the last two finished turns, with no notice, in 7.2 s. The retried "What did I work on that day?" took "that day" to be today although the carried turn said Tue 15 Sep, and the next question, "How long was the longest one?", was answered for today. Turns 11 to 23 repeated earlier questions and were answered from the chat with no lookup. Turn 26 made 5 lookups and a sixth call that met the limit, then answered |
+| Carry after Stop | Stop pressed on a second question: "And in September?" right with one turn carried; "Which day in September was best?" right with two carried. "Which day that month was best?" gave October, twice; the same question after an unrelated answered turn, with no Stop, gave August: an implied "that month" is lost across a gap whether or not a session was dropped |
+| Cap, stub `focusOutlook` as a sixth entry (probe copy only), "What should I change to focus more next week?" | Stub texts that ask for another period ("Outlook unavailable for this period. Try again with a different period."; "Nothing to report. Look up another period."): the turn ended failed with the "Ask kept looking things up…" notice at the eighth call, five real lookups listed, no answer text, 8.9 s and 8.7 s. A stub that said only "it depends on what you want to change" was answered after one call, and "No outlook is available for that period. Try another period." after six (five real, the sixth told the limit), in 30 s |
+| Time per answer, median / maximum | Baseline then finished build. Two runs while other sessions were compiling: 4.5 / 8.1 s then 5.0 / 9.4 s, and 4.5 / 9.5 s then 5.0 / 10.2 s. One run on a quiet machine: 3.6 / 6.4 s then 3.7 / 6.4 s. The finished build is no slower beyond run-to-run spread on a quiet machine; under load it was about 0.5 s slower at the median in both runs, and the cause was not isolated. The probe binaries are unoptimised |
+| Time to the first progress line (finished build) | Median 3.0 s and maximum 5.9 s, median 3.1 s and maximum 8.6 s (busy), median 2.4 s and maximum 3.9 s (quiet); the answer text still arrives at the end, as at baseline. One answer in 37 makes no lookup |
+
+What this leaves open: an implied "that day" or "that month" is not reliably
+carried into a session rebuilt after a full context or Stop, because the
+carried turns are plain text in the instructions. The Parser answer above is
+the regenerated baseline's, word for word, so this part did not cause it.
+
 ## 1. Parts
 
 | Layer | File | Responsibility |
@@ -350,6 +374,8 @@ came from." then "Try asking" and v1's four example questions, each asking itsel
   minimum is held to the screen as today and the reading column narrows; the
   gap cards wrap their subtitle.
 - Settings, Awards and the session report still cover the whole window, panel included.
+  With the side-panel placement, ⌘K over Settings or Awards closes that sheet
+  and opens the panel, so the shortcut always lands in the chat.
 - It starts closed at each launch.
 
 Settings, in the Ask panel of General: **Open Ask in** `Sheet | Side panel`,
