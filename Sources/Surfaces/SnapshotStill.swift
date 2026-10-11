@@ -17,11 +17,13 @@ extension EnvironmentValues {
 
 extension Snapshotter {
     /// How long the image must stay the same before it is taken, and the
-    /// longest a still waits for that. Most settle in well under a second;
-    /// a large soft shadow is blurred in software and takes seconds a frame.
+    /// most frames a still draws waiting for that. Counted in frames, not
+    /// seconds: a large soft shadow is blurred in software at seconds a frame,
+    /// and a busy Mac slows every frame, so a time limit cut stills short by
+    /// how loaded the Mac was. Most settle in under ten frames.
     static let stillFrameInterval: TimeInterval = 0.05
     static let stillFramesUnchanged = 3
-    static let stillWaitLimit: TimeInterval = 20
+    static let stillFrameLimit = 400
 
     /// Overlay scrollers in every still. With a mouse attached, AppKit swaps
     /// overlay scrollers for ones that take room a second or two after the
@@ -85,9 +87,9 @@ extension Snapshotter {
 
         // Compared at one pixel per point: drawing the full-resolution image
         // takes most of a second, and it is drawn once, at the end.
-        let deadline = Date().addingTimeInterval(stillWaitLimit)
         var previous: Data?
         var unchanged = 0
+        var frames = 0
         while unchanged < stillFramesUnchanged {
             RunLoop.current.run(until: Date().addingTimeInterval(stillFrameInterval))
             host.layoutSubtreeIfNeeded()
@@ -95,8 +97,9 @@ extension Snapshotter {
             guard let next = autoreleasepool(invoking: { pointPixels(of: host) }) else { return nil }
             unchanged = next == previous ? unchanged + 1 : 0
             previous = next
-            if Date() > deadline {
-                FileHandle.standardError.write(Data("\(name) had not settled after \(Int(stillWaitLimit)) s\n".utf8))
+            frames += 1
+            if frames == stillFrameLimit {
+                FileHandle.standardError.write(Data("\(name) had not settled after \(frames) frames\n".utf8))
                 break
             }
         }
