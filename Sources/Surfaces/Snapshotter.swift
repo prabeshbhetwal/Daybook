@@ -296,7 +296,10 @@ enum Snapshotter {
         for item in selected {
             let name = item.filename(atZoom: percent)
             let output = directory.appendingPathComponent(name)
-            if render(view(for: item), appearance: item.appearance, to: output) {
+            let wroteOne = autoreleasepool {
+                render(view(for: item), appearance: item.appearance, to: output)
+            }
+            if wroteOne {
                 wrote += 1
                 print("  wrote \(name)")
             } else {

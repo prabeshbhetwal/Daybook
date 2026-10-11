@@ -16,6 +16,7 @@ enum SnapshotStillChecks: CheckSuite {
         ("A still never shows a text field taking focus", stillRefusesTextFocus),
         ("Stills ask AppKit for overlay scrollers whatever is attached", stillScrollersAreOverlay),
         ("The welcome's ring holds its first breath in a still that settles slowly", coachRingHoldsStill),
+        ("Taking stills does not keep the frames drawn while they settle", stillsReleaseFrames),
     ]
 
     private static func findFieldHoldsStill() -> [String] {
@@ -114,6 +115,46 @@ enum SnapshotStillChecks: CheckSuite {
                    "a still taken after the ring's breath was due drew it mid-breath", &problems)
             return problems
         }
+    }
+
+    private static func stillsReleaseFrames() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            _ = Snapshotter.stillPNG(of: Shifting(), appearance: .light)
+            let before = footprint()
+            for _ in 0..<3 { _ = Snapshotter.stillPNG(of: Shifting(), appearance: .light) }
+            let grown = (footprint() - before) / 1_048_576
+            // About 25 frames of 4 MB a still: kept, three stills hold 300 MB.
+            expect(grown < 64, "three stills kept \(grown) MB after they were taken", &problems)
+            return problems
+        }
+    }
+
+    private static func footprint() -> Int64 {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return result == KERN_SUCCESS ? Int64(info.phys_footprint) : 0
+    }
+}
+
+/// A large view whose shade changes every 50 ms for 1.2 s, so a still of it
+/// draws some 25 frames before it settles.
+private struct Shifting: View {
+    @State private var step = 0
+
+    var body: some View {
+        Color(white: Double(step) / 24)
+            .frame(width: 1_200, height: 900)
+            .onAppear {
+                for next in 1...24 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05 * Double(next)) { step = next }
+                }
+            }
     }
 }
 

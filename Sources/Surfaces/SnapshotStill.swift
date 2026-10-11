@@ -50,8 +50,17 @@ extension Snapshotter {
     /// `onAppear`, a scroll anchor and a loaded list land a few run-loop turns
     /// after the first layout, and a fixed short wait caught them in some
     /// runs and not others. Animations are off, so nothing is caught part way.
+    ///
+    /// Drawing keeps every bitmap it draws into until the autorelease pool
+    /// drains, and nothing drained it across a matrix run: six runs held
+    /// 11-22 GB each. Each still, and each frame of it, drains its own.
     static func stillPNG<V: View>(of view: V, appearance: SnapshotAppearance,
                                   name: String = "still") -> Data? {
+        autoreleasepool { settledPNG(of: view, appearance: appearance, name: name) }
+    }
+
+    private static func settledPNG<V: View>(of view: V, appearance: SnapshotAppearance,
+                                            name: String) -> Data? {
         // ImageRenderer substitutes yellow prohibition placeholders for native
         // controls. Host the real AppKit-backed view offscreen instead. This
         // captures our own view, not the user's screen, and needs no permission.
@@ -83,7 +92,7 @@ extension Snapshotter {
             RunLoop.current.run(until: Date().addingTimeInterval(stillFrameInterval))
             host.layoutSubtreeIfNeeded()
             host.displayIfNeeded()
-            guard let next = pointPixels(of: host) else { return nil }
+            guard let next = autoreleasepool(invoking: { pointPixels(of: host) }) else { return nil }
             unchanged = next == previous ? unchanged + 1 : 0
             previous = next
             if Date() > deadline {
