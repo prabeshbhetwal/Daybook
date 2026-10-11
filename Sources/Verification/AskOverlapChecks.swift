@@ -36,7 +36,7 @@ enum AskOverlapChecks: CheckSuite {
                  + "with focus; the longest finished session was Thesis on Tue 14 Nov, 2h."),
                 // The line is dated by a day inside the range, not the day the session began,
                 // and timed from where it enters the range.
-                (.findSessions(words: "thesis", .today), "Wed 15 Nov · Thesis · from 12:00am · 1h"),
+                (.findSessions(words: "thesis", .today), "Wed 15 Nov · Thesis · from midnight · 1h"),
                 (.findSessions(words: "thesis", .yesterday), "Tue 14 Nov · Thesis · from 11:00pm · 1h"),
             ]
             for (request, want) in cases {

@@ -53,10 +53,10 @@ enum AskGoalsChecks: CheckSuite {
                    "this week reads “\(week)”", &problems)
             // 5h of focus but 1h of goal credit: judged on focus it would read 1 of 1.
             let october = f.store.askLookup(.goals(.day(year: 2023, month: 10, day: 5)))
-            expect(october.contains("Thu 5 Oct 2023: met on 0 of 1 days, against today's goal."),
+            expect(october.contains("Thu 5 Oct 2023: met on 0 of 1 day, against today's goal."),
                    "Thu 5 Oct reads “\(october)”", &problems)
             let monday = f.store.askLookup(.goals(.day(year: 2023, month: 11, day: 13)))
-            expect(monday.contains("Mon 13 Nov 2023: met on 1 of 1 days"), "Mon 13 Nov reads “\(monday)”", &problems)
+            expect(monday.contains("Mon 13 Nov 2023: met on 1 of 1 day"), "Mon 13 Nov reads “\(monday)”", &problems)
             // Days before the first recorded one are not counted.
             let all = f.store.askLookup(.goals(.allTime))
             expect(all.contains("All time: met on 1 of 46 days, against today's goal."), "all time reads “\(all)”", &problems)

@@ -73,9 +73,9 @@ enum AskSessionDetailChecks: CheckSuite {
                                      workSeconds: 7_200)
             guard f.engine.archive.append(late) == nil else { problems.append("Late was not saved"); return }
             let tuesday = f.store.askLookup(.sessionDetail(.day(year: 2023, month: 11, day: 14), words: "late"))
-            expect(tuesday == "Late \u{00B7} Tue 14 Nov \u{00B7} 1 stretch: from 11:00pm to 12:00am, 1h" + lacks, "Tue reads “\(tuesday)”", &problems)
+            expect(tuesday == "Late \u{00B7} Tue 14 Nov \u{00B7} 1 stretch: from 11:00pm until midnight, 1h" + lacks, "Tue reads “\(tuesday)”", &problems)
             let today = f.store.askLookup(.sessionDetail(.today, words: "late"))
-            expect(today == "Late \u{00B7} Wed 15 Nov \u{00B7} 1 stretch: from 12:00am to 1:00am, 1h" + lacks, "today reads “\(today)”", &problems)
+            expect(today == "Late \u{00B7} Wed 15 Nov \u{00B7} 1 stretch: from midnight to 1:00am, 1h" + lacks, "today reads “\(today)”", &problems)
         }
     }
 

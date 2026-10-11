@@ -15,7 +15,7 @@ extension SessionStore {
             for case let .session(session) in storyDayProjection(on: day, calendar: calendar).sessions.reversed()
             where wanted[day]?.contains(session.threadID) == true {
                 listed.append((session.threadID, day, AskSessionDetail(
-                    name: session.name, day: askDay(day), stretches: askStretches(of: session, on: day))))
+                    name: session.workType.sessionTitle(named: session.name), day: askDay(day), stretches: askStretches(of: session, on: day))))
                 if listed.count == 10 { everyDayRead = false; break walk }
             }
         }
@@ -48,8 +48,7 @@ extension SessionStore {
             for _ in 0..<HistoryStats.maximumCalendarDaysPerRecord {
                 guard day < last else { break }
                 wanted[day, default: []].insert(engine.activeThreadID)
-                guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
-                day = next
+                day = HistoryTreeBuilder.dayAfter(day, calendar: calendar)
             }
         }
         return wanted
@@ -72,7 +71,9 @@ extension SessionStore {
             let note = askFirstNoteLine(of: id)
             if session.isRunning, engine.state != .idle, id == engine.activeRecordID {
                 let worked = runningThread(on: day, now: now(), calendar: calendar)?.worked ?? span.duration
-                return AskStretchLine(from: askTime(span.start), to: nil, worked: worked, power: power, note: note)
+                // Only the slice that holds now is still going; an earlier day's ended at midnight.
+                return AskStretchLine(from: askTime(span.start), to: calendar.isDate(now(), inSameDayAs: day) ? nil
+                                      : askTime(span.end), worked: worked, power: power, note: note)
             }
             let worked = engine.archive.records.first { $0.id == id }?.workSeconds(on: day, calendar: calendar)
                 ?? span.duration

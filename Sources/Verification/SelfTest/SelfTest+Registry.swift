@@ -120,6 +120,9 @@ extension SelfTest {
             + AskSessionDetailChecks.tests
             + AskGoalsChecks.tests
             + AskDayEventsAbsenceChecks.tests
+            + AskDayEventsAnswerChecks.tests
+            + AskDayEventsWalkChecks.tests
+            + AskSessionDetailNameChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

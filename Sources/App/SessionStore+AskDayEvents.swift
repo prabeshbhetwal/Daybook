@@ -23,7 +23,7 @@ extension SessionStore {
             if range.isOneDay || bytes > AskFacts.maximumBytes { cut = !range.isOneDay; break }
         }
         let log = askEventLogStart(before: interval, calendar: calendar)
-        let absences = askEventAbsences(in: interval, beforeLog: log.before)
+        let absences = askEventAbsences(in: interval, log: log)
         // Days not read are counted as candidates; read ones, as listed.
         let total = cut ? days.count - empty : built.count
         let events = built.map { $0.events }
@@ -54,12 +54,13 @@ extension SessionStore {
 
     /// What the Mac's log, read for the interval as the "What the Mac did"
     /// card reads it, holds no sign of. Nothing is denied for a period before
-    /// the log begins or with no log: it cannot say.
-    private func askEventAbsences(in interval: DateInterval, beforeLog: Bool) -> [String] {
-        guard let log = machineEventLog, !log.events.isEmpty, !beforeLog else { return [] }
+    /// the log begins or with no log: it cannot say. A period that begins
+    /// before the log is denied only from the log's first day on.
+    private func askEventAbsences(in interval: DateInterval, log start: (from: String?, before: Bool)) -> [String] {
+        guard let log = machineEventLog, !log.events.isEmpty, !start.before else { return [] }
         let kinds = Set(log.events(in: interval).map(\.kind))
-        return (kinds.isDisjoint(with: MachineEvent.Kind.restarts) ? [AskFacts.noRestart] : [])
-            + (kinds.isDisjoint(with: GapAnatomy.found) ? [AskFacts.noCrash] : [])
+        return (kinds.isDisjoint(with: MachineEvent.Kind.restarts) ? [AskFacts.noRestart(from: start.from)] : [])
+            + (kinds.isDisjoint(with: GapAnatomy.found) ? [AskFacts.noCrash(from: start.from)] : [])
     }
 
     /// The days of the interval, up to today and newest first, that have
@@ -88,8 +89,13 @@ extension SessionStore {
         if let pending = pendingAwayRange {
             found.formUnion(touched(DateInterval(start: pending.start, end: max(pending.start, pending.end))))
         }
+        // A break still going is not in the archive yet.
+        if engine.state != .idle, engine.activeWorkType == .breakTime {
+            found.formUnion(touched(DateInterval(start: engine.sessionStartDate,
+                                                 end: max(engine.sessionStartDate, now()))))
+        }
         var mac = Set<Date>()
-        for event in machineEventLog?.events ?? [] {
+        for event in machineEventLog?.events(in: interval) ?? [] {
             mac.formUnion(touched(DateInterval(start: event.at, end: max(event.at, event.end))))
         }
         found.formUnion(mac.subtracting(found).filter { macAccount(on: $0) != nil })
@@ -107,21 +113,23 @@ extension SessionStore {
         for case let .rest(rest) in projection.sessions where !answered.contains(rest.id) {
             breaks += 1
             breakTime += rest.length
+            // Only the slice that holds now is still going; an earlier day's ended at midnight.
+            let going = engine.state != .idle && rest.id == engine.activeRecordID && calendar.isDate(now(), inSameDayAs: day)
             found.append((rest.start, 0, AskEventItem(
-                kind: .breakTaken(name: rest.name == "Break" ? nil : rest.name),
-                from: askClock(rest.start, on: day, calendar: calendar),
-                to: askClock(rest.end, on: day, calendar: calendar), length: rest.length)))
+                kind: .breakTaken(name: rest.name == "Break" ? nil : rest.name, running: going),
+                from: askTime(rest.start), to: going ? nil : askTime(rest.end), length: rest.length)))
         }
         for entry in projection.chronology {
             switch entry {
             case let .decision(receipt, span) where receipt.isResolved:
                 answers += 1
                 found.append((span.start, 1, askAway(.away(
-                    answer: receipt.name.isEmpty ? nil : receipt.name, outcome: receipt.title,
-                    credited: receipt.decision == .mergeTime ? receipt.creditedSeconds : nil), span, on: day)))
+                    session: receipt.name.isEmpty ? nil : receipt.name, outcome: receipt.title,
+                    label: breakName(for: receipt),
+                    credited: receipt.decision == .mergeTime ? receipt.creditedSeconds : nil), span)))
             case let .decision(_, span), let .pending(span):
                 pending += 1
-                found.append((span.start, 1, askAway(.pending, span, on: day)))
+                found.append((span.start, 1, askAway(.pending, span)))
             default:
                 continue
             }
@@ -131,8 +139,8 @@ extension SessionStore {
             found.append((row.span.start, 2, AskEventItem(
                 kind: .mac(title: row.title, uncertain: row.state == .uncertain || row.foundAt != nil,
                            found: row.foundAt.map(askTime)),
-                from: askClock(row.span.start, on: day, calendar: calendar),
-                to: row.span.duration > 0 ? askClock(row.span.end, on: day, calendar: calendar) : nil, length: nil)))
+                from: askTime(row.span.start),
+                to: row.span.duration > 0 ? askTime(row.span.end) : nil, length: nil)))
         }
         guard !found.isEmpty else { return nil }
         let ordered = found.enumerated().sorted {
@@ -144,16 +152,8 @@ extension SessionStore {
                            macSummary: summary?.isEmpty == false ? summary : nil)
     }
 
-    private func askAway(_ kind: AskEventItem.Kind, _ span: DateInterval, on day: Date) -> AskEventItem {
-        let calendar = periodCalendar
-        return AskEventItem(kind: kind, from: askClock(span.start, on: day, calendar: calendar),
-                            to: span.duration > 0 ? askClock(span.end, on: day, calendar: calendar) : nil, length: nil)
-    }
-
-    /// A clock time on `day`, said “midnight” at the day's own start or end
-    /// (where the day cuts a span) rather than 12:00am, which the model read
-    /// as the next morning.
-    private func askClock(_ date: Date, on day: Date, calendar: Calendar) -> String {
-        date == day || date == calendar.date(byAdding: .day, value: 1, to: day) ? AskFacts.midnight : askTime(date)
+    private func askAway(_ kind: AskEventItem.Kind, _ span: DateInterval) -> AskEventItem {
+        AskEventItem(kind: kind, from: askTime(span.start), to: span.duration > 0 ? askTime(span.end) : nil,
+                     length: nil)
     }
 }

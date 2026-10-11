@@ -41,7 +41,7 @@ extension AskFacts {
             : "Today so far: \(DurationText.compact(goals.today)), \(goals.todayPercent), not met yet."
         var lines = ["Daily goal: \(DurationText.compact(goals.goal)) of focus during recorded app use. \(progress)"]
         if let period = goals.period {
-            lines.append("\(period.label): met on \(period.met) of \(period.days) days, against today's goal.")
+            lines.append("\(period.label): met on \(period.met) of \(count(period.days, "day")), against today's goal.")
         }
         let minimum = DurationText.compact(goals.streakMinimum)
         let longest = "Longest: \(count(goals.bestStreak, "day"))."

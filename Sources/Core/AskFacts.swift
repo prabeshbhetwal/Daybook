@@ -170,7 +170,9 @@ enum AskFacts {
         // Any ordinary day carries the hour; the label reads only its clock hour.
         let day = Date(timeIntervalSinceReferenceDate: 43_200)
         func label(_ hour: Int) -> String {
-            DateFormats.hourLabel(Calendar.current.date(bySettingHour: hour % 24, minute: 0, second: 0, of: day) ?? day)
+            // Not 12am, which the model read as the next morning (as `askTime` says).
+            if hour % 24 == 0 { return midnight }
+            return DateFormats.hourLabel(Calendar.current.date(bySettingHour: hour % 24, minute: 0, second: 0, of: day) ?? day)
         }
         let spans = top.map { "from \(label($0.offset)) to \(label($0.offset + 1)) (\(DurationText.compact($0.element)))" }
         switch spans.count {

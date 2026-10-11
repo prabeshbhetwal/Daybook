@@ -59,9 +59,9 @@ extension AskFacts {
         return ([head] + lacks).joined(separator: " \u{00B7} ")
     }
 
-    /// A clock time is a start (“from”), an end (“to”), never bare beside a duration.
+    /// A clock time is a start (“from”), an end (“to”, or “until” midnight), never bare beside a duration.
     private static func stretchText(_ stretch: AskStretchLine) -> String {
-        var parts = [stretch.to.map { "from \(stretch.from) to \($0), \(DurationText.compact(stretch.worked))" }
+        var parts = [stretch.to.map { "from \(stretch.from) \(connector(to: $0)) \($0), \(DurationText.compact(stretch.worked))" }
                      ?? "running from \(stretch.from), \(DurationText.compact(stretch.worked)) so far"]
         if let power = stretch.power { parts.append(power) }
         if let note = stretch.note, !note.isEmpty { parts.append("note “\(note.prefix(80))”") }

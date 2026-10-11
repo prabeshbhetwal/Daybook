@@ -79,7 +79,7 @@ enum AskFactsExtensionChecks: CheckSuite {
         ties[0] = 600
         ties[5] = 600
         let tied = AskFacts.hoursPhrase(ties) ?? "nil"
-        expect(tied == "from 12am to 1am (10m), then from 5am to 6am (10m) and from 11pm to 12am (10m)",
+        expect(tied == "from midnight to 1am (10m), then from 5am to 6am (10m) and from 11pm to midnight (10m)",
                "tied hours say “\(tied)”", &problems)
         return problems
     }
@@ -146,7 +146,8 @@ enum AskFactsExtensionChecks: CheckSuite {
                 if case let .decision(receipt, _) = item { return receipt.name }
                 return nil
             }
-            expect(Set(decisions) == ["Meeting", "Coffee"] && decisions.count == 2,
+            // The sessions the engine was asked about them in: the receipt never holds the user's words.
+            expect(Set(decisions) == ["Thesis", "Email"] && decisions.count == 2,
                    "Mon 13 Nov shows the answers \(decisions)", &problems)
             let kinds = f.machineEvents.events.map(\.kind)
             expect(kinds == [.wake, .lock, .unlock, .systemSleep, .wake, .crashed], "the event log holds \(kinds)", &problems)

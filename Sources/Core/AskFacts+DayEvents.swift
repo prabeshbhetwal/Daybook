@@ -4,11 +4,14 @@ import Foundation
 /// worded by the store (`askTime`). `to` is nil for an instant.
 struct AskEventItem: Equatable {
     enum Kind: Equatable {
-        /// A break; nil when it has no name of its own.
-        case breakTaken(name: String?)
-        /// An absence the user answered: the session it was asked about,
-        /// what the answer did, and the time it counted as focus, if any.
-        case away(answer: String?, outcome: String?, credited: TimeInterval?)
+        /// A break; nil when it has no name of its own. `running` is one still
+        /// going: it has no end, and its length is so far.
+        case breakTaken(name: String?, running: Bool)
+        /// An absence the user answered: the session that was running when
+        /// they stepped away (context, never the answer: the user's own words
+        /// survive only as the name of the break they recorded), what the
+        /// answer did, that break's name, and the time it counted as focus.
+        case away(session: String?, outcome: String, label: String?, credited: TimeInterval?)
         /// An absence not answered yet.
         case pending
         /// A stretch or event the Mac's log tells. An uncertain one (a crash)
@@ -38,10 +41,19 @@ struct AskEventDay: Equatable {
 extension AskFacts {
     /// The word for a clock time at a day's own start or end, in place of 12:00am.
     static let midnight = "midnight"
+    /// “to” before a clock time, “until” before midnight: `from 11:48pm until midnight`.
+    static func connector(to time: String) -> String { time == midnight ? "until" : "to" }
     /// What the Mac's log did not record in a period it covers. The model read
-    /// a list with no restart in it as a yes, so the silence is said.
-    static let noRestart = "No restart or shut down was recorded."
-    static let noCrash = "No crash was recorded."
+    /// a list with no restart in it as a yes, so the silence is said. A period
+    /// that begins before the log (`logFrom`, as `dayEvents` takes it) is
+    /// covered only from the log's first day, and the sentence says so: the
+    /// model read a bare one as covering the days before.
+    static func noRestart(from logFrom: String? = nil) -> String {
+        "No restart or shut down was recorded" + (logFrom.map { " from \($0) on" } ?? "") + "."
+    }
+    static func noCrash(from logFrom: String? = nil) -> String {
+        "No crash was recorded" + (logFrom.map { " from \($0) on" } ?? "") + "."
+    }
 
     /// `days` are newest first and are the days with something to tell;
     /// `total` is how many such days the range holds. `logFrom` is set only
@@ -104,15 +116,21 @@ extension AskFacts {
     /// `Mac asleep from 11:48pm until midnight`: after the times, the model
     /// read “12:00am · Mac asleep” as the Mac going to sleep then.
     private static func itemLine(_ item: AskEventItem) -> String {
-        let when = item.to.map { "from \(item.from) \($0 == midnight ? "until" : "to") \($0)" } ?? "at \(item.from)"
+        var when = item.to.map { "from \(item.from) \(connector(to: $0)) \($0)" } ?? "at \(item.from)"
+        if case .breakTaken(_, true) = item.kind, let length = item.length {
+            when = "from \(item.from), \(DurationText.compact(length)) so far"
+        }
         let what: String
         if case let .mac(title, false, _) = item.kind { return "\(title) \(when)" }
         switch item.kind {
-        case let .breakTaken(name):
-            what = "break" + (name.map { " “\($0)”" } ?? "") + (item.length.map { " \u{00B7} " + DurationText.compact($0) } ?? "")
-        case let .away(answer, outcome, credited):
-            what = "away \u{00B7} answered" + (answer.map { " “\($0)”" } ?? "") + (outcome.map { ": \($0)" } ?? "")
+        case let .breakTaken(name, running):
+            what = "break" + (name.map { " “\($0)”" } ?? "")
+                + (running ? "" : item.length.map { " \u{00B7} " + DurationText.compact($0) } ?? "")
+        case let .away(session, outcome, label, credited):
+            // Said when absent: the model invents a reason from silence.
+            what = "away" + (session.map { " during “\($0)”" } ?? "") + " \u{00B7} answered: \(outcome)"
                 + (credited.map { ", " + DurationText.compact($0) } ?? "")
+                + (label.map { " \u{00B7} break named “\($0)”" } ?? " \u{00B7} no reason recorded")
         case .pending:
             what = "away, not answered yet"
         case let .mac(title, uncertain, found):

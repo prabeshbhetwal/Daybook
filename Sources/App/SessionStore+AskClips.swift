@@ -170,9 +170,11 @@ extension SessionStore {
         }
     }
 
-    /// `9:10am`.
+    /// `9:10am`; `midnight` at exactly 0:00, which the model read as 12:00am
+    /// of the next morning. Every clock time a fact words comes through here.
     func askTime(_ date: Date) -> String {
-        askText("h:mma", date).lowercased()
+        let clock = periodCalendar.dateComponents([.hour, .minute], from: date)
+        return clock.hour == 0 && clock.minute == 0 ? AskFacts.midnight : askText("h:mma", date).lowercased()
     }
 
     /// A History row's period: `Tue 14 Nov`, `13 Nov – 19 Nov`, `November 2023`, `2023`.

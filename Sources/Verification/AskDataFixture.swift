@@ -11,9 +11,10 @@ import Foundation
 ///   11:05am-12:25pm, Safari in front, the first with a note and battery
 ///   readings, the second on external power; Parser 2:00-3:12pm with Xcode;
 ///   Email (Admin) 4:30-5:00pm with Mail. Breaks: Lunch 12:25-1:10pm and
-///   one unnamed 3:40-3:55pm. Two answers about time away, which carry no
-///   record of their own: "Meeting" 10:40-11:05am, counted, and "Coffee"
-///   4:10-4:30pm, a break.
+///   one unnamed 3:40-3:55pm. Two answers about time away, recorded by the
+///   engine as it records them (`answer`): 10:40-11:05am to "Thesis", counted
+///   as focus, which leaves no record; and 4:10-4:30pm to "Email", a break
+///   the user named "Coffee", which leaves a break record of that name.
 /// - A Mac event log from Sun 12 Nov: wake, lock and unlock, a sleep, a wake
 ///   and a crash found at the launch on Tue 14.
 /// - Reading, 9:00-10:00am on each of 1-12 Oct 2023, the best streak; Oct 5
@@ -41,6 +42,8 @@ struct AskDataFixture {
     let shortBreak: SessionRecord
     let octFifth: SessionRecord
     let receipts: [AwayDecisionReceipt]
+    /// The break record the "Coffee" answer made.
+    let coffee: SessionRecord
 
     /// A moment `back` days before today, in the store's calendar.
     func moment(_ back: Int, _ hour: Int, _ minute: Int = 0) -> Date {
@@ -50,6 +53,37 @@ struct AskDataFixture {
     private static func moment(_ calendar: Calendar, _ now: Date, _ back: Int, _ hour: Int, _ minute: Int) -> Date {
         let day = calendar.date(byAdding: .day, value: -back, to: calendar.startOfDay(for: now))!
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
+    }
+
+    /// An answer about time away as the engine records it: a session `name`
+    /// begun at `begun`, left at `away`, back at `back` and answered. A scratch
+    /// engine does it; only the receipt it keeps is returned, with the break
+    /// record it made (`insertedRecord`), if any.
+    @MainActor
+    static func answer(_ decision: UserDecision, label: String? = nil, _ name: String, _ type: WorkType,
+                       begun: Date, away: Date, back: Date) -> AwayDecisionReceipt? {
+        let scratch = TestClock(begun)
+        let engine = SelfTest.makeEngine(scratch)
+        engine.start(workType: type, intent: name)
+        scratch.value = away
+        engine.transition(on: .awayBegan(trigger: .screenLock))
+        scratch.value = back
+        engine.transition(on: .awayEnded)
+        guard engine.decide(decision, label: label), let receipt = engine.awayDecisions.last,
+              receipt.range == DateInterval(start: away, end: back) else { return nil }
+        return receipt
+    }
+
+    /// Hands the engine one more answer, as a relaunch hands it the answers
+    /// it kept: the break record it made joins the archive.
+    @MainActor
+    func add(_ receipt: AwayDecisionReceipt) -> Bool {
+        if let record = receipt.insertedRecord, engine.archive.append(record) != nil { return false }
+        var saved = engine.snapshot()
+        saved.awayDecisions = engine.awayDecisions + [receipt]
+        engine.restore(from: saved)
+        store.catchUpWithEngine()
+        return true
     }
 
     func cleanUp() {
@@ -88,17 +122,24 @@ struct AskDataFixture {
                           workSeconds: end.timeIntervalSince(start), threadID: thread)
         }
 
-        let thesisThread = UUID()
+        // The session of the second answer began 10 s before the absence, too short to be recorded.
+        guard let meeting = Self.answer(.mergeTime, "Thesis", .deepWork, begun: at(2, 9), away: at(2, 10, 40),
+                                        back: at(2, 11, 5)),
+              let coffee = Self.answer(.tookBreak, label: "coffee", "Email", .admin,
+                                       begun: at(2, 16, 10).addingTimeInterval(-10), away: at(2, 16, 10),
+                                       back: at(2, 16, 30)),
+              let coffeeBreak = coffee.insertedRecord else { return nil }
+        let thesisThread = meeting.threadID
         let days = [5, 4, 3].map { record("Thesis", .deepWork, at($0, 7), at($0, 8)) }
         let tuesday = record("Thesis", .deepWork, at(1, 7), at(1, 8))
         let thesisA = record("Thesis", .deepWork, at(2, 9), at(2, 10, 40), thread: thesisThread)
         let thesisB = record("Thesis", .deepWork, at(2, 11, 5), at(2, 12, 25), thread: thesisThread)
         let parser = record("Parser", .deepWork, at(2, 14), at(2, 15, 12))
-        let email = record("Email", .admin, at(2, 16, 30), at(2, 17))
+        let email = record("Email", .admin, at(2, 16, 30), at(2, 17), thread: coffee.threadID)
         let lunch = record("Lunch", .breakTime, at(2, 12, 25), at(2, 13, 10))
         let shortBreak = record("Break", .breakTime, at(2, 15, 40), at(2, 15, 55))
         let reading = (1...12).map { record("Reading", .deepWork, october($0, 9), october($0, $0 == 5 ? 14 : 10)) }
-        let all = days + [tuesday, thesisA, thesisB, parser, email, lunch, shortBreak] + reading
+        let all = days + [tuesday, thesisA, thesisB, parser, email, lunch, shortBreak, coffeeBreak] + reading
         // Written in one go: a thousand appends would rewrite the file a thousand times.
         let extra = (0..<extraBreakDays).map {
             SessionRecord(name: "", workType: .breakTime, start: at(40 + $0, 15, 40), end: at(40 + $0, 15, 55),
@@ -148,15 +189,6 @@ struct AskDataFixture {
                           MachineEvent(kind: .wake, at: at(1, 7, 52)),
                           MachineEvent(kind: .crashed, at: at(1, 8), latest: at(1, 8, 2))]) else { return nil }
 
-        let meeting = AwayDecisionReceipt(
-            id: UUID(), range: DateInterval(start: at(2, 10, 40), end: at(2, 11, 5)), name: "Meeting",
-            workType: .deepWork, threadID: thesisThread, sessionStart: thesisA.start, decision: .mergeTime,
-            insertedRecord: nil, creditedSeconds: 1_500)
-        let coffee = AwayDecisionReceipt(
-            id: UUID(), range: DateInterval(start: at(2, 16, 10), end: at(2, 16, 30)), name: "Coffee",
-            workType: .admin, threadID: email.threadID, sessionStart: email.start, decision: .tookBreak,
-            insertedRecord: nil, creditedSeconds: 0)
-
         let engine = SessionEngine(store: PersistenceStore(defaults: defaults), archive: archive,
                                    ownBundleID: "com.example.ask", schedulesDwell: false, now: { clock.value })
         engine.store.streakMinimum = 3_600
@@ -177,6 +209,6 @@ struct AskDataFixture {
                               machineEvents: log, directories: directories, defaults: defaults, suite: suite,
                               tuesdayThesis: tuesday, thesisA: thesisA, thesisB: thesisB, parser: parser,
                               email: email, lunch: lunch, shortBreak: shortBreak, octFifth: reading[4],
-                              receipts: [meeting, coffee])
+                              receipts: [meeting, coffee], coffee: coffeeBreak)
     }
 }

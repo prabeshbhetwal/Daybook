@@ -13,12 +13,16 @@ enum AskDayEventsAbsenceChecks: CheckSuite {
         ("A restart or a crash in the period is not denied", recordedEventsNotDenied),
         ("Before the log, or with no log, nothing is denied", noAbsencesWithoutLog),
         ("The absences stay whole beside the log note and the day count", absencesKeptWhole),
+        ("A period that begins before the log is denied only from the log's first day", absencesFromLogStart),
     ]
 
     private static let monday = AskRange.day(year: 2023, month: 11, day: 13)
     private static let tuesday = AskRange.day(year: 2023, month: 11, day: 14)
     private static let noRestart = "No restart or shut down was recorded."
     private static let noCrash = "No crash was recorded."
+
+    /// As the sentences read for a period that begins before the log (`Sun 12 Nov`).
+    private static func sinceLog(_ sentence: String) -> String { String(sentence.dropLast()) + " from Sun 12 Nov on." }
 
     private static func dayEdgesReadMidnight() -> [String] {
         AskDataFixture.with { f, problems in
@@ -79,8 +83,22 @@ enum AskDayEventsAbsenceChecks: CheckSuite {
         AskDataFixture.with(extraBreakDays: 1_000) { f, problems in
             let text = f.store.askLookup(.dayEvents(.allTime))
             expect(text.utf8.count <= 1_024, "the text is \(text.utf8.count) bytes", &problems)
-            expect(text.contains("The Mac's events are recorded from Sun 12 Nov.\n\(noRestart)\nNewest "),
+            expect(text.contains("The Mac's events are recorded from Sun 12 Nov.\n\(sinceLog(noRestart))\nNewest "),
                    "the tail is not whole: \(text.suffix(160))", &problems)
+        }
+    }
+
+    /// Last week (6 to 12 Nov) begins before the log's first day, Sun 12 Nov, and holds no restart or crash.
+    private static func absencesFromLogStart() -> [String] {
+        AskDataFixture.with { f, problems in
+            let last = f.store.askLookup(.dayEvents(.lastWeek))
+            expect(last.contains(sinceLog(noRestart)) && last.contains(sinceLog(noCrash)),
+                   "last week says: \(last)", &problems)
+            expect(!last.contains(noRestart) && !last.contains(noCrash), "last week denies days before the log: \(last)", &problems)
+            // A whole period inside the log keeps the plain sentences.
+            let inside = f.store.askLookup(.dayEvents(monday))
+            expect(inside.hasSuffix("\n\(noRestart)\n\(noCrash)") && !inside.contains("Nov on."),
+                   "Mon 13 Nov ends “\(inside.suffix(90))”", &problems)
         }
     }
 }

@@ -36,11 +36,11 @@ enum AskDayEventsChecks: CheckSuite {
                   let sleep = rows.first(where: { $0.span.start == f.moment(2, 23, 48) })
             else { problems.append("Mon 13 Nov's Mac rows are \(rows.map(\.title))"); return }
             let lines = [
-                "from 10:40am to 11:05am \(dot) away \(dot) answered “Meeting”: Counted as focus, 25m",
+                "from 10:40am to 11:05am \(dot) away during “Thesis” \(dot) answered: Counted as focus, 25m \(dot) no reason recorded",
                 "from 12:25pm to 1:10pm \(dot) break “Lunch” \(dot) 45m",
                 "\(lock.title) from 12:25pm to 1:10pm",
                 "from 3:40pm to 3:55pm \(dot) break \(dot) 15m",
-                "from 4:10pm to 4:30pm \(dot) away \(dot) answered “Coffee”: Recorded as a break",
+                "from 4:10pm to 4:30pm \(dot) away during “Email” \(dot) answered: Recorded as a break \(dot) break named “Coffee”",
                 "\(sleep.title) from 11:48pm until midnight",
             ]
             expectInOrder(text, lines, &problems)
@@ -152,7 +152,7 @@ enum AskDayEventsChecks: CheckSuite {
             f.store.machineEventLog = nil
             let text = f.store.askLookup(.dayEvents(monday))
             expect(!text.contains("Mac"), "without a log the text speaks of the Mac: \(text)", &problems)
-            expect(text.contains("break “Lunch” \(dot) 45m") && text.contains("answered “Meeting”"),
+            expect(text.contains("break “Lunch” \(dot) 45m") && text.contains("answered: Counted as focus"),
                    "breaks and answers are not listed: \(text)", &problems)
         }
     }
