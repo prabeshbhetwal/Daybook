@@ -74,12 +74,14 @@ the app's CPU use during normal work went from 0.9% to 0.1%.
 
 **Private by construction.** Nothing leaves your Mac unless you want it to.
 Tracking stores app identity and time ranges, never content. The session names,
-intents and notes you write are content, and they are kept on the Mac. Two
+intents and notes you write are content, and they are kept on the Mac. Three
 things can reach another server: the update check asks GitHub for the latest
-version, which you can turn off in Settings, and dictating a note uses Apple's
+version, which you can turn off in Settings; dictating a note uses Apple's
 speech recognition, which runs on the Mac where your language supports that and
-otherwise may send the audio to Apple. Ask Daybook answers with Apple's
-on-device model, and your question, history and answers are not sent anywhere.
+otherwise may send the audio to Apple; and the backups described below, which
+iCloud Drive uploads to your own iCloud account. Ask Daybook answers with
+Apple's on-device model, and your question, history and answers are not sent
+anywhere.
 On a new install, backups are on from the start: every day they are copied
 into iCloud Drive, which uploads them to your own iCloud account when iCloud
 Drive is on, or into a folder you choose; Settings can change how often, or

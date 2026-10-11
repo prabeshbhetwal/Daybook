@@ -308,7 +308,7 @@ Sheet: 640 by 600 points at 100%, shrinking with the window as v1's does
 │  In August 2026 you focused 60h 54m over 63 sessions on    │  answer: prose, not a bubble
 │  21 days. The most focused day was Mon 3 Aug, 4h 30m.      │  named sources are links
 │                                                            │
-│  SOURCES                                                   │
+│  Sources                                                   │
 │  1  ▦ August 2026          Totals                       ›  │  each row a button
 │  2  ▦ Mon 3 Aug            Most focused day             ›  │
 │                                                            │
@@ -329,18 +329,33 @@ came from." then "Try asking" and v1's four example questions, each asking itsel
 - The transcript scrolls and stays at the bottom while an answer streams
   (`defaultScrollAnchor(.bottom)`, macOS 14).
 - The field stays editable while an answer is worked out; ↩ does nothing
-  until it is done. The cursor returns to the field after each answer.
+  until it is done. The cursor returns to the field after an answer only when
+  it was in the field when the question was asked, so a finished answer beside
+  History does not pull it out of History.
 - Source rows: number, glyph (calendar for a day or period, clock for a
-  session), label in the label role, role in the body role and secondary
-  colour, chevron. A row is at least the minimum target size.
+  session), label in the label role and the primary ink, role in the body role
+  and the supporting ink, chevron. A row is at least the minimum target size.
+  The panel always sets the role under the label; the sheet sets it on the
+  label's line when every row's label and role fit there, and under it for the
+  whole list otherwise, so the rows of one list are never of mixed heights.
+- Supporting text (the role, the Sources heading, the footer line, "Stopped.",
+  the field's placeholder) is set in the body role or the label role and in the
+  supporting ink, `.primary` at 75%, which holds 4.5:1 on every surface Ask
+  draws on in both appearances. `.secondary` is 3.9:1 on the light surfaces.
+  A stopped answer's partial text is set in the same ink.
+- The composer is a single line that grows to four as the question is typed;
+  ↩ still asks. In the sheet an answer's prose is held to 480 points (at
+  100%) so its lines stay readable; the panel is narrower than that.
 - The Apple Intelligence glyph stays only on the footer line that names Apple
   Intelligence; the bar button keeps `sparkles`.
 - VoiceOver: a turn is one element, "You asked … Ask answered …"; a source
   row reads "Mon 3 Aug, most focused day. Opens in History."; a finished
   answer is announced with its number of sources.
 - Direction: product register, restrained colour. Tinted neutrals; the
-  action colour only on links, source rows and Send; indigo stays the focus
-  identity; the sparkles gradient only on the bar button. No avatar, no typing
+  action colour only on links in the answer, "Show N more", Send and the bar
+  button while the panel is open; source rows read in the primary ink, so the
+  list does not outweigh the answer, and their chevron says they open; indigo
+  stays the focus identity; the sparkles gradient only on the bar button. No avatar, no typing
   dots, no persona, no emoji, no gradients, no cards inside cards, no em
   dashes in copy. Anchors: Xcode 26's coding assistant (a chat beside the
   work), the native trailing inspector of Finder and Mail, and the Day as a
@@ -355,7 +370,7 @@ came from." then "Try asking" and v1's four example questions, each asking itsel
 │                                │ 300 pt   │──────────────────────────│
 │                                │          │   ╭ How much in August? ╮ │
 │                                │          │ In August 2026 you…       │
-│                                │          │ SOURCES                   │
+│                                │          │ Sources                   │
 │                                │          │ 1 ▦ August 2026   Totals ›│
 │                                │          │ 2 ▦ Mon 3 Aug   Most fo… ›│
 │                                │          │──────────────────────────│
@@ -372,8 +387,11 @@ came from." then "Try asking" and v1's four example questions, each asking itsel
   its leading edge. The same `AskChatView` as the sheet, under a header with
   the title, New chat and a close button.
 - ⌘K and the bar's Ask button open and close it; the button looks pressed
-  while it is open. It opens with the cursor in the field. Escape with the
-  cursor in the panel closes it. Its close button's help is "Close Ask (⌘K)".
+  while it is open (in the action colour, so it does not read as hovered). It
+  opens with the cursor in the field every time it opens, whether or not the
+  chat already has turns and whichever control, such as the bar's activity
+  field, had the cursor before. Escape with the cursor in the panel closes it.
+  Its close button's help is "Close Ask (⌘K)".
 - While it is open the window's minimum width grows by its width (980 to
   1,340 points at 100%). `ZoomWindowFit` grows the window to fit, keeping the
   top-left corner and the screen's bounds, as it does for a zoom step; closing
