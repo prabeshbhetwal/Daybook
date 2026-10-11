@@ -27,6 +27,12 @@ final class AskGate {
     private let onProgress: (String) -> Void
     private let onEnd: () -> Void
 
+    /// The clock and calendar as the answer was asked. The source picker reads
+    /// "today" and "yesterday" against these, not against the moment the answer
+    /// finishes, which can be after midnight.
+    let asked: Date
+    let calendar: Calendar
+
     /// Lookups made while the gate was open, whether or not they were answered.
     private(set) var calls = 0
     /// `AskRequest.provenance` of each real lookup, in call order.
@@ -44,6 +50,8 @@ final class AskGate {
         self.period = period
         self.onProgress = onProgress
         self.onEnd = onEnd
+        asked = store?.now() ?? Date()
+        calendar = store?.periodCalendar ?? Calendar.current.forPeriods
     }
 
     func lookup(name: String, arguments: [String: String]) -> String {

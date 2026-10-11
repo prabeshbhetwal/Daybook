@@ -91,10 +91,10 @@ extension AskModel {
 
     /// Ends the answer in progress as `state`. A failed turn shows its notice
     /// and no half-answer; a stopped one keeps its text. Neither has sources.
-    /// The session is dropped unless `dropsSession` is false, and the last two
-    /// finished turns are carried into the next, so a lookup the answer had
-    /// begun cannot land in an answer of the session that follows.
-    func end(_ state: AskTurnState, dropsSession: Bool = true) {
+    /// However it ends, the session is dropped and the last two finished turns
+    /// of today are carried into the next, so a lookup the answer had begun
+    /// cannot land in an answer of the session that follows.
+    func end(_ state: AskTurnState) {
         guard isAnswering, let id = turns.last?.id else { return }
         let provenance = gate?.provenance ?? []
         closeRun()
@@ -103,17 +103,17 @@ extension AskModel {
             $0.state = state
             $0.provenance = provenance
         }
-        if dropsSession { dropSession(carrying: true) }
+        dropSession(carrying: true)
     }
 
-    /// The model finished: the sources are picked from the answer as it stands.
+    /// The model finished: the sources are picked from the answer as it stands,
+    /// read against the day it was asked on.
     private func complete(_ id: UUID, gate: AskGate) {
-        let calendar = store?.periodCalendar ?? Calendar.current.forPeriods
-        let now = store?.now() ?? Date()
         update(id) {
             $0.state = .answered
             $0.provenance = gate.provenance
-            $0.sources = AskSourcePicker.sources(answer: $0.answer, lookups: gate.lookups, calendar: calendar, now: now)
+            $0.sources = AskSourcePicker.sources(answer: $0.answer, lookups: gate.lookups,
+                                                 calendar: gate.calendar, now: gate.asked)
         }
         closeRun()
     }
@@ -121,7 +121,7 @@ extension AskModel {
     @available(macOS 26, *)
     private func fail(_ error: Error, turn id: UUID, question: String, retrying: Bool) {
         guard Self.isContextFull(error) else {
-            end(.failed(Self.notice(for: error)), dropsSession: false)
+            end(.failed(Self.notice(for: error)))
             return
         }
         if retrying { end(.failed(Self.contextFull)) } else { retry(id, question: question) }

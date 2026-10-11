@@ -6,11 +6,19 @@ import Foundation
 enum AskSourcePicker {
     static let shownAtOnce = 5
 
+    /// What makes two targets one place. A period is its level and first day,
+    /// whatever span it was drawn with: a lookup lists the whole calendar week
+    /// while History's row for it may stop at today or at the first day recorded.
+    private static func place(_ target: AskLink.Target) -> AskLink.Target {
+        guard case .period(let period) = target else { return target }
+        return .period(HistoryPlace(level: period.level, span: DateInterval(start: period.start, duration: 0)))
+    }
+
     /// `lookups`: each lookup's links, its anchor first, in the order the lookups were made.
     /// Every place appears once, at its first place; the caller shows `shownAtOnce` rows.
     static func sources(answer: String, lookups: [[AskLink]], calendar: Calendar, now: Date) -> [AskSource] {
         var seen = Set<AskLink.Target>()
-        let links = lookups.joined().filter { seen.insert($0.target).inserted }
+        let links = lookups.joined().filter { seen.insert(place($0.target)).inserted }
         let reader = AnswerReader(answer, calendar: calendar, now: now)
         let sessions = reader.sessionsToName(among: links)
         let named = links.enumerated().compactMap { index, link -> (index: Int, link: AskLink, mention: Range<Int>)? in
@@ -19,10 +27,12 @@ enum AskSourcePicker {
         }.sorted { ($0.mention.lowerBound, $0.index) < ($1.mention.lowerBound, $1.index) }
 
         var sources = named.map { AskSource(link: $0.link, mention: $0.mention) }
-        var listed = Set(named.map { $0.link.target })
-        for lookup in lookups {
-            guard let anchor = lookup.first(where: { !listed.contains($0.target) }) else { continue }
-            listed.insert(anchor.target)
+        var listed = Set(named.map { place($0.link.target) })
+        // Each lookup's anchor, its first link, when nothing listed is that place.
+        // A lookup whose anchor is listed adds nothing: its other links are not
+        // what the answer rests on.
+        for anchor in lookups.compactMap(\.first) {
+            guard listed.insert(place(anchor.target)).inserted else { continue }
             sources.append(AskSource(link: anchor, mention: nil))
         }
         return sources

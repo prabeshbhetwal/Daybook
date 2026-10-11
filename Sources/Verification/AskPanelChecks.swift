@@ -11,6 +11,8 @@ enum AskPanelChecks: CheckSuite {
     private static let ownTests: [(String, () -> [String])] = [
         ("Ask opens as a sheet until the side panel is chosen, and the choice is saved", placementSavedDefaultSheet),
         ("A panel left open when the choice becomes the sheet closes as Settings closes", placementChangeClosesPanelWhenSettingsClose),
+        ("A panel left open when the choice becomes the sheet is not brought back by choosing the panel again",
+         staleOpenFlagDoesNotReturn),
         ("The side panel adds its own width to the window's minimum", panelWidensMinimum),
         ("A panel's minimum is held to a small screen at a high zoom", panelMinimumHeldToScreen),
         ("A window grows to hold a minimum that grows, and stays on its screen", anchorGrowsWindowWhenBaseGrows),
@@ -92,6 +94,31 @@ enum AskPanelChecks: CheckSuite {
         navigation.openSheet(.awards)
         navigation.closeSheet()
         expect(!navigation.askPanelOpen, "closing Awards opened the panel", &problems)
+    }
+
+    /// Settings left some other way than its close button (a command opens the
+    /// story, or Awards): the panel the choice no longer allows must not wait
+    /// to come back when the panel is chosen again.
+    private static func staleOpenFlagDoesNotReturn() -> [String] {
+        AskLookupChecks.withFixture { f, problems in
+            MainActor.assumeIsolated {
+                let navigation = MainWindowModel(store: f.store)
+                let settings = SettingsModel(store: f.engine.store, isTrackingEnabled: true, onChange: {},
+                                             onTrackingChanged: { _ in })
+                for (way, leave) in [("opening the story", { navigation.open(tab: .story) }),
+                                     ("opening Awards", { navigation.open(tab: .awards) })] {
+                    settings.askPlacement = .panel
+                    navigation.openAsk()
+                    navigation.openSheet(.settings)
+                    settings.askPlacement = .sheet
+                    leave()
+                    settings.askPlacement = .panel
+                    expect(!navigation.askPanelOpen, "after \(way) and choosing the side panel again it opened unasked",
+                           &problems)
+                    navigation.closeSheet()
+                }
+            }
+        }
     }
 
     // MARK: - The panel in the window

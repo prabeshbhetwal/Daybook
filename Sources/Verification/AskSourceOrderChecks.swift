@@ -17,6 +17,8 @@ enum AskSourceOrderChecks: CheckSuite {
         ("Session names match whatever the case or accents", accentsAndCaseIgnored),
         ("Dates the picker cannot read fall back to each lookup's own place", unreadFormatsFallBackToAnchors),
         ("A place two lookups share is listed once, at its first place", sameTargetListedOnce),
+        ("A lookup adds only its anchor, never its other places, however many the answer left unnamed", anchorOnly),
+        ("The whole week and History's clipped week are one place and are listed once", clippedWeekIsTheSamePlace),
         ("The word may names May only when capitalised or written with a year", mayIsMonthOnlyWhenWritten),
     ]
 
@@ -50,6 +52,13 @@ enum AskSourceOrderChecks: CheckSuite {
         static let cafe = AskLink(target: .session(thread: UUID(), day: date(2026, 10, 9)),
                                   label: "Caf\u{00E9} notes \u{00B7} Fri 9 Oct", role: .session, sessionName: "Caf\u{00E9} notes")
         static let all = AskLink(target: .history, label: "All time", role: .totals)
+        static let year = AskLink(
+            target: .period(HistoryPlace(level: .year, span: DateInterval(start: date(2026, 1, 1), end: date(2027, 1, 1)))),
+            label: "2026", role: .totals)
+        /// The same week as `week`, drawn by History to the end of Fri 9 Oct.
+        static let clippedWeek = AskLink(
+            target: .period(HistoryPlace(level: .week, span: DateInterval(start: date(2026, 10, 5), end: date(2026, 10, 10)))),
+            label: "5 Oct \u{2013} 9 Oct", role: .bestWeek)
     }
 
     private static func pick(_ answer: String, _ lookups: [[AskLink]]) -> [AskSource] {
@@ -160,8 +169,26 @@ enum AskSourceOrderChecks: CheckSuite {
 
     private static func sameTargetListedOnce() -> [String] {
         var problems: [String] = []
-        expectOrder("Tue 15 Sep.", [[Fixture.tue15], [Fixture.tue15, Fixture.sep]],
-                    ["Tue 15 Sep", "September 2026 [anchor]"], &problems)
+        expectOrder("Tue 15 Sep.", [[Fixture.tue15], [Fixture.tue15, Fixture.sep]], ["Tue 15 Sep"], &problems)
+        return problems
+    }
+
+    /// Spec section 5: each lookup's anchor when it is not already listed, not its
+    /// first unlisted place. A year total that names only the year does not
+    /// drag in the best day it also returned.
+    private static func anchorOnly() -> [String] {
+        var problems: [String] = []
+        expectOrder("In 2026 you focused 120h 5m.", [[Fixture.year, Fixture.tue15]], ["2026"], &problems)
+        expectOrder("Nothing here is named.", [[Fixture.year, Fixture.tue15], [Fixture.sep, Fixture.fri9]],
+                    ["2026 [anchor]", "September 2026 [anchor]"], &problems)
+        return problems
+    }
+
+    private static func clippedWeekIsTheSamePlace() -> [String] {
+        var problems: [String] = []
+        expectOrder("Nothing here is named.", [[Fixture.week], [Fixture.clippedWeek]], ["5 Oct \u{2013} 11 Oct [anchor]"],
+                    &problems)
+        expectOrder("This week was your best.", [[Fixture.clippedWeek], [Fixture.week]], ["5 Oct \u{2013} 9 Oct"], &problems)
         return problems
     }
 

@@ -17,7 +17,7 @@ enum AskChatEndingChecks: CheckSuite {
     private typealias Gate = AskThreadChecks.Gate
 
     @available(macOS 26, *)
-    private static var fullContext: LanguageModelSession.GenerationError {
+    static var fullContext: LanguageModelSession.GenerationError {
         .exceededContextWindowSize(.init(debugDescription: "probe"))
     }
 

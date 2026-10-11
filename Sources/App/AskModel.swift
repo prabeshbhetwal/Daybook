@@ -33,6 +33,10 @@ import FoundationModels
     private(set) var carried: [AskTurn] = []
     /// The day those turns were asked on, while no session dates them.
     private var carriedDay: Date?
+    /// Where today's turns begin in `turns`: the first one asked since a session
+    /// was dropped for a new day. Earlier turns stay on screen, but they are never
+    /// carried, because their "today" and "yesterday" mean other days now.
+    private var firstTurnToday = 0
     /// Checks only: stands in for the model's session. It gets the question and
     /// a callback for the answer so far, may call `lookup` as a tool would, and
     /// may throw. Nothing in the app sets it.
@@ -72,6 +76,7 @@ import FoundationModels
         closeRun()
         dropSession(carrying: false)
         turns = []
+        firstTurnToday = 0
         notice = nil
     }
 
@@ -109,13 +114,14 @@ import FoundationModels
     func retireStaleSession() {
         guard !isAnswering, let built = sessionDay ?? carriedDay, built != dayStart() else { return }
         dropSession(carrying: false)
+        firstTurnToday = turns.count
     }
 
     /// Forgets the model's session, so a tool still running for it is stale.
-    /// `carrying` keeps the last two finished turns, for the next session to
-    /// be told what was said; without it nothing is carried.
+    /// `carrying` keeps the last two finished turns of today, for the next
+    /// session to be told what was said; without it nothing is carried.
     func dropSession(carrying: Bool) {
-        carried = carrying ? Array(turns.filter { $0.state == .answered }.suffix(2)) : []
+        carried = carrying ? Array(turns.dropFirst(firstTurnToday).filter { $0.state == .answered }.suffix(2)) : []
         carriedDay = carrying ? sessionDay ?? dayStart() : nil
         session = nil
         sessionDay = nil
@@ -136,6 +142,7 @@ import FoundationModels
     func present(turns: [AskTurn]) {
         closeRun()
         self.turns = turns
+        firstTurnToday = 0
     }
 
     // MARK: - The model

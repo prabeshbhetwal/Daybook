@@ -13,7 +13,8 @@ enum AskFollowChecks: CheckSuite {
         ("A renamed session is still found by its thread", renamedSessionStillOpensByThread),
         ("Following a week unfolds History to that week's row, focused", periodUnfoldsToItsRow),
         ("A current week listed with its whole calendar span opens History's own clipped row", currentWeekByStart),
-        ("A past month opens its own row, and a period outside the record opens the top", pastAndOutsidePeriods),
+        ("A period that starts before the record opens its clipped row, and one wholly before it opens the top",
+         pastAndOutsidePeriods),
         ("Following History itself opens it at the top", historyOpensTop),
         ("The sheet closes when a source is followed, the side panel stays", sheetClosesPanelStays),
     ]
@@ -131,21 +132,38 @@ enum AskFollowChecks: CheckSuite {
         }
     }
 
+    /// A lookup lists October 2023 as the whole month and the week of Mon 16 Oct
+    /// as the whole week. The record starts on Tue 17 Oct, so History's rows for
+    /// both begin there; the sources must open those rows, not the top.
     private static func pastAndOutsidePeriods() -> [String] {
         withWindow { f, navigation, problems in
-            // October runs from the first day of the record, Tue 17 Oct.
-            let october = place(f, .month, from: (10, 17), to: (11, 1))
+            let october = place(f, .month, from: (10, 1), to: (11, 1))
+            let octoberRow = place(f, .month, from: (10, 17), to: (11, 1))
             navigation.follow(link(.period(october)))
-            expect(navigation.historyOpen.last == october && navigation.historyFocus == .row(october),
+            expect(navigation.historyOpen.last == octoberRow && navigation.historyFocus == .row(octoberRow),
                    "October opened \(navigation.historyOpen.map(\.id))", &problems)
 
+            let firstWeek = place(f, .week, from: (10, 16), to: (10, 23))
+            let firstWeekRow = place(f, .week, from: (10, 17), to: (10, 23))
+            navigation.follow(link(.period(firstWeek)))
+            expect(navigation.historyOpen.last == firstWeekRow && navigation.historyFocus == .row(firstWeekRow),
+                   "the first week opened \(navigation.historyOpen.map(\.id))", &problems)
+            expect(navigation.historyOpen.map(\.level) == [.month, .week],
+                   "the first week's path is \(navigation.historyOpen.map(\.level))", &problems)
+
+            // Wholly before the record, or ending where it begins: no row, so the top.
             let before = HistoryPlace(level: .month, span: DateInterval(
                 start: f.calendar.date(from: DateComponents(year: 2022, month: 3, day: 1))!,
                 end: f.calendar.date(from: DateComponents(year: 2022, month: 4, day: 1))!))
-            navigation.follow(link(.period(before)))
-            expect(navigation.workspace == .history && navigation.historyOpen.isEmpty,
-                   "a month before the record left \(navigation.historyOpen.map(\.id)) open", &problems)
-            expect(navigation.historyFocus == nil, "the top has focus \(String(describing: navigation.historyFocus))", &problems)
+            let endsAtFirstDay = place(f, .week, from: (10, 10), to: (10, 17))
+            for (what, outside) in [("a month before the record", before), ("a week ending where it begins", endsAtFirstDay)] {
+                navigation.follow(link(.period(firstWeek)))
+                navigation.follow(link(.period(outside)))
+                expect(navigation.workspace == .history && navigation.historyOpen.isEmpty,
+                       "\(what) left \(navigation.historyOpen.map(\.id)) open", &problems)
+                expect(navigation.historyFocus == nil,
+                       "the top has focus \(String(describing: navigation.historyFocus))", &problems)
+            }
         }
     }
 

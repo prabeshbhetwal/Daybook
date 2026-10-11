@@ -177,7 +177,13 @@ struct HistorySessionPick: Hashable {
         historySession?.day ?? historyOpen.last(where: { $0.level == .day })?.start
     }
     /// The sheet over the story, if any. The story itself is always a day.
-    @Published private(set) var sheet: StorySheetKind?
+    @Published private(set) var sheet: StorySheetKind? {
+        // A placement changed in Settings takes effect as Settings comes down,
+        // however it does (a menu command, a link, the close button). Without
+        // this the flag outlived the choice, and choosing the side panel again
+        // showed a panel nobody had asked for.
+        didSet { if askPlacement != .panel { askPanelOpen = false } }
+    }
     /// Whether the reader has put the cursor in the bar's activity field,
     /// by clicking it or by ⌘7. The welcome's first step waits on it.
     @Published private(set) var activityFieldEngaged = false
@@ -199,8 +205,8 @@ struct HistorySessionPick: Hashable {
     /// never used nothing of it exists. Set only in `MainWindowModel+Ask.swift`.
     var askModel: AskModel?
     /// Whether Ask's side panel is open, beside Story and History. It starts
-    /// closed at each launch. Set only in `MainWindowModel+Ask.swift` and by
-    /// `closeSheet()`.
+    /// closed at each launch. Set only in `MainWindowModel+Ask.swift` and when
+    /// `sheet` changes while the choice is not the side panel.
     @Published var askPanelOpen = false
 
     init(opening route: AppTab = .story,
@@ -390,14 +396,17 @@ struct HistorySessionPick: Hashable {
     }
 
     /// A source that names a week, month or year: unfold History down to that
-    /// row and put the keyboard on it. The row is found by its level and its
-    /// first day, not its span, because a current period is listed with its
-    /// whole calendar span while History draws its row only to today. A period
-    /// outside the record has no row, and History opens at the top.
+    /// row and put the keyboard on it. A lookup lists the whole calendar period,
+    /// while History draws its row only from the first day recorded and only to
+    /// today, so the row is the one of that level on the path to the period's
+    /// first recorded day. A period wholly before the record has no row, and
+    /// History opens at the top.
     func openHistory(place: HistoryPlace) {
         guard let store else { return }
-        let path = HistoryTreeBuilder.path(to: place.start, top: store.historyTop(), calendar: SessionStore.historyCalendar)
-        guard let index = path.firstIndex(where: { $0.level == place.level && $0.start == place.start }) else {
+        let top = store.historyTop()
+        let reachable = max(place.start, top.firstDay)
+        let path = HistoryTreeBuilder.path(to: reachable, top: top, calendar: SessionStore.historyCalendar)
+        guard place.span.end > top.firstDay, let index = path.firstIndex(where: { $0.level == place.level }) else {
             navigateHistory(to: nil)
             return
         }
@@ -504,8 +513,6 @@ struct HistorySessionPick: Hashable {
     /// opened it, for a caller that moves focus itself (Ask's side panel).
     func dismissSheet() {
         sheet = nil
-        // A placement changed in Settings takes effect as Settings closes.
-        if askPanelOpen, askPlacement == .sheet { askPanelOpen = false }
     }
 
     func consumeFocusRestorationRequest() {

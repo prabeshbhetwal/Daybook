@@ -7,7 +7,7 @@ import FoundationModels
 /// `responder` seam stands in for it. `AskChatEndingChecks` holds the other
 /// ways an answer ends.
 enum AskChatChecks: CheckSuite {
-    static let tests: [(String, () -> [String])] = ownTests + AskChatEndingChecks.tests
+    static let tests: [(String, () -> [String])] = ownTests + AskChatEndingChecks.tests + AskChatSessionChecks.tests
 
     private static let ownTests: [(String, () -> [String])] = [
         ("A follow-up question adds a turn and leaves the earlier one as it was", followUpAppends),
