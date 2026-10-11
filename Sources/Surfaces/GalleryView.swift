@@ -444,7 +444,7 @@ struct GalleryView: View {
             content()
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.panel))
                 .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.panel)
-                    .strokeBorder(.quaternary))
+                    .strokeBorder(.quaternary)) // ink: quiet, a drawn mark
         }
     }
 }

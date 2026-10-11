@@ -150,7 +150,7 @@ struct StoryBreakRow: View, Equatable {
         HStack(spacing: Tokens.Space.s) {
             Image(systemName: "pencil.line")
                 .font(Tokens.Typography.label)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
             TextField("Name it: dinner, a call, a walk", text: $nameDraft.text)
                 .textFieldStyle(.plain)
