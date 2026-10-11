@@ -179,13 +179,14 @@ struct AskChatView: View {
         DispatchQueue.main.async { fieldFocused = true }
     }
 
-    /// Who answers, under Apple's own mark for it: the one place the
-    /// Apple Intelligence glyph may stand, since it names Apple Intelligence.
+    /// Who answers. The copy says "on-device AI" rather than naming Apple
+    /// Intelligence, so it takes the sparkles: Apple's own glyph may only
+    /// stand beside its name.
     private var footer: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
-            Image(systemName: "apple.intelligence")
+            Image(systemName: "sparkles")
                 .accessibilityHidden(true)
-            Text("Answered by Apple Intelligence on this Mac. Nothing leaves it.")
+            Text("Answered by on-device AI. Nothing leaves this Mac.")
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }

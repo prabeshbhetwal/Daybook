@@ -3,7 +3,7 @@ import SwiftUI
 /// A review note for one place: the model's story and pattern, and a caption
 /// saying where it was written. It draws
 /// nothing while the model is unusable, whatever is still in memory, so
-/// switching Apple Intelligence off hides every note at once.
+/// switching on-device AI off hides every note at once.
 ///
 /// A note is shown whenever the writer holds one for the place, however the
 /// view came to be: an on-request note that was written, or one that failed
@@ -52,7 +52,7 @@ struct PeriodNote: View {
     }
 
     static let failure = "Couldn't write a note for this period."
-    private static let caption = "Apple Intelligence · on this Mac"
+    private static let caption = "On-device AI · nothing leaves this Mac"
 
     private enum Shown {
         case link(String), writing, written(WrittenNote), failure
@@ -81,7 +81,7 @@ struct PeriodNote: View {
                     writer.request(place, requested: true)
                 }
                 .buttonStyle(StoryLinkStyle())
-                .accessibilityHint("Writes a short note with Apple Intelligence on this Mac.")
+                .accessibilityHint("Writes a short note with on-device AI.")
             case .writing?:
                 Text("Writing…").font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             case .written(let note)?:
@@ -106,7 +106,7 @@ struct PeriodNote: View {
             Text(durations: note.paragraph)
                 .font(Tokens.Typography.body)
                 .fixedSize(horizontal: false, vertical: true)
-            Label(Self.caption, systemImage: "apple.intelligence")
+            Label(Self.caption, systemImage: "sparkles")
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(StoryStyle.supportingInk)
         }

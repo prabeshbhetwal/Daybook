@@ -41,7 +41,7 @@ enum NoteState: Equatable {
     private var pending: [Pending] = []
     /// Stands in for the model, in checks and in the gallery's snapshots
     /// (`SnapshotNotes`). It gets the facts and may throw. It stands in for
-    /// the model's availability, never for the Apple Intelligence switch.
+    /// the model's availability, never for the on-device AI switch.
     var responder: (@MainActor (NoteFacts) async throws -> WrittenNote)?
 
     private struct Pending {

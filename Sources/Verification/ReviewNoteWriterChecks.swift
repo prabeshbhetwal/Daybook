@@ -8,7 +8,7 @@ enum ReviewNoteWriterChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A note for unchanged facts is written once and then served from memory", cacheHit),
         ("A note stating a figure the facts lack is never shown", failedAuditHidden),
-        ("Nothing is written when Apple Intelligence is switched off", switchOff),
+        ("Nothing is written when on-device AI is switched off", switchOff),
         ("Switching off mid-write publishes nothing when the answer returns", switchOffMidWrite),
         ("Opening another period cancels the note being written", newerWins),
         ("A note the person asks for while it is being written shows its failure", askedWhileWriting),

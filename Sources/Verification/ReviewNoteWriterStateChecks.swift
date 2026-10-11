@@ -2,7 +2,7 @@ import Foundation
 
 /// What a note's state in the writer answers to once it is published: a note
 /// or failure shown for figures that have since changed is forgotten when its
-/// view asks, and switching Apple Intelligence off stops every note being
+/// view asks, and switching on-device AI off stops every note being
 /// written. Shares the stand-in model and fixture helpers of
 /// `ReviewNoteWriterChecks`.
 enum ReviewNoteWriterStateChecks: CheckSuite {

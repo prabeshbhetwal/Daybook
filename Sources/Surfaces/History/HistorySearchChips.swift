@@ -1,15 +1,15 @@
 import SwiftUI
 
 /// What History's search understood, one chip per phrase in the order typed.
-/// The × takes the phrase out of the field. A phrase Apple Intelligence
-/// supplied leads with its mark. Reads only published values: the parsing
+/// The × takes the phrase out of the field. A phrase the on-device model
+/// supplied leads with the sparkles. Reads only published values: the parsing
 /// happened when the text changed.
 struct HistorySearchChips: View {
     @ObservedObject var store: SessionStore
-    /// Texts marked as Apple Intelligence.
+    /// Texts the on-device model supplied.
     let rescued: Set<String>
 
-    private static let rescuedSuffix = ", from Apple Intelligence"
+    private static let rescuedSuffix = ", suggested by on-device AI"
 
     var body: some View {
         let search = store.historyParsedSearch
@@ -67,7 +67,7 @@ struct HistorySearchChips: View {
     @ViewBuilder private func lead(_ phrase: SearchPhrase, _ search: ParsedSearch, fromModel: Bool) -> some View {
         Group {
             if fromModel {
-                Image(systemName: "apple.intelligence")
+                Image(systemName: "sparkles")
                     .foregroundStyle(StoryStyle.supportingInk)
             } else if phrase.kind == .app, let bundleID = search.appBundleID {
                 AppIcon(bundleID: bundleID, size: 16.zoomed, appName: phrase.label)

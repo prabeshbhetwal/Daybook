@@ -1,11 +1,11 @@
 import Foundation
 
-/// The Apple Intelligence switch and the day the Yesterday notice was dismissed:
+/// The on-device AI switch and the day the Yesterday notice was dismissed:
 /// both live in preferences, so a relaunch (a second store on the same suite)
 /// must read what the first one wrote.
 enum ReviewNoteGateChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
-        ("Apple Intelligence notes are on until the switch is turned off", switchDefaultsOn),
+        ("On-device AI notes are on until the switch is turned off", switchDefaultsOn),
         ("The Yesterday notice remembers the day it was dismissed", dismissedDayPersists),
     ]
 
