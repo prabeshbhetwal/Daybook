@@ -170,14 +170,14 @@ enum AskLookupChecks: CheckSuite {
     private static func findSessionsStaysInRange() -> [String] {
         withFixture { f, problems in
             let cases: [(AskRequest, String)] = [
-                // "thesis" matches the name, so no note is shown with it.
-                (.findSessions(words: "thesis", .thisWeek), "Mon 13 Nov · 9:00am · Thesis · 1h"),
-                (.findSessions(words: "outline", .thisWeek), "Mon 13 Nov · 9:00am · Thesis · 1h · note: chapter two outline"),
-                (.findSessions(words: "thesis", .lastMonth), "Tue 17 Oct · 9:00am · Thesis · 2h"),
+                // Every listed session shows its note, whether or not the words matched it.
+                (.findSessions(words: "thesis", .thisWeek), "Mon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline"),
+                (.findSessions(words: "outline", .thisWeek), "Mon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline"),
+                (.findSessions(words: "thesis", .lastMonth), "Tue 17 Oct · Thesis · from 9:00am · 2h"),
                 (.findSessions(words: "zebra", .thisWeek), "No sessions match “zebra” this week."),
                 // Monday's session sits on the day the last week ends at midnight.
                 (.findSessions(words: "thesis", .lastWeek),
-                 "No sessions match “thesis” last week. In all your history:\nMon 13 Nov · 9:00am · Thesis · 1h\nTue 17 Oct · 9:00am · Thesis · 2h"),
+                 "No sessions match “thesis” last week. In all your history:\nMon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline\nTue 17 Oct · Thesis · from 9:00am · 2h"),
             ]
             for (request, want) in cases {
                 let got = f.store.askLookup(request)

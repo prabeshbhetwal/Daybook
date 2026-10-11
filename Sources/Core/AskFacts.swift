@@ -120,8 +120,9 @@ enum AskFacts {
             return capped("\(none) \(range.inPhrase).", keeping: tail)
         }
         let text = lines.map { line in
-            var text = "\(line.day) · " + (line.time.isEmpty ? "" : "\(line.time) · ")
-                + "\(line.name) · \(DurationText.compact(line.worked))"
+            // “from” marks the time as a start: the model read `2:00pm · Parser · 4h` as 2h 00m.
+            var text = "\(line.day) · \(line.name) · " + (line.time.isEmpty ? "" : "from \(line.time) · ")
+                + DurationText.compact(line.worked)
             if let note = line.note, !note.isEmpty { text += " · note: \(note.prefix(80))" }
             return text
         }

@@ -56,10 +56,25 @@ extension SessionStore {
             let day = clip.days.min() ?? clip.hit.day
             let start = clip.spans.map(\.start).min().map { max($0, day) }
             lines.append(AskSessionLine(day: askDay(day), time: start.map(askTime) ?? "",
-                                        name: clip.hit.name, worked: clip.worked, note: clip.hit.noteSnippet))
+                                        name: clip.hit.name, worked: clip.worked, note: askNote(for: clip.hit)))
             links.append(askSessionLink(thread: clip.hit.threadID, name: clip.hit.name, day: day, role: .session))
         }
         return (lines, links)
+    }
+
+    /// The note line a listed session shows: the line that matched the
+    /// words when there is one, else the first line of the first note saved
+    /// against any stretch of the session, read as `journalNote(for:)` reads it.
+    private func askNote(for hit: HistorySearchHit) -> String? {
+        if let snippet = hit.noteSnippet { return snippet }
+        for id in hit.recordIDs {
+            let line = (metadataArchive.metadata(for: id)?.note ?? "")
+                .split(whereSeparator: \.isNewline)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .first { !$0.isEmpty }
+            if let line { return line }
+        }
+        return nil
     }
 
     // MARK: - Shared

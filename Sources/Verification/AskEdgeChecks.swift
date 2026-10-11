@@ -38,9 +38,9 @@ enum AskEdgeChecks: CheckSuite {
                 (.focusTotals(.yesterday, words: "zeta"), "No sessions match “zeta” yesterday (Tue 14 Nov)."),
                 // The whole record lists it on the day it has work, from midnight.
                 (.findSessions(words: "zeta", .yesterday),
-                 "No sessions match “zeta” yesterday. In all your history:\nWed 15 Nov · 12:00am · Zeta · 30m"),
+                 "No sessions match “zeta” yesterday. In all your history:\nWed 15 Nov · Zeta · from 12:00am · 30m"),
                 (.focusTotals(.today, words: "zeta"), "Sessions matching “zeta” today (Wed 15 Nov): 30m over 1 session on 1 day."),
-                (.findSessions(words: "zeta", .today), "Wed 15 Nov · 12:00am · Zeta · 30m"),
+                (.findSessions(words: "zeta", .today), "Wed 15 Nov · Zeta · from 12:00am · 30m"),
                 (.focusTotals(.today, words: "blip"), "Sessions matching “blip” today (Wed 15 Nov): 5m over 1 session on 1 day."),
                 (.focusTotals(.yesterday, words: "blip"), "No sessions match “blip” yesterday (Tue 14 Nov)."),
             ]
