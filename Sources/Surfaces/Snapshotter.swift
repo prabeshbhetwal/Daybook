@@ -439,7 +439,7 @@ enum Snapshotter {
         case .historySearch:
             let store = FixtureFactory.insightsStore(withEvidence: true)
             store.refreshReview()
-            store.setHistoryQuery("Build")
+            store.setHistoryQuery("Build last week over 30m")
             return store
         case .historyApp:
             let store = FixtureFactory.insightsStore(withEvidence: true)

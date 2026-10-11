@@ -68,9 +68,11 @@ extension SessionStore {
     /// search field does, unless `listingAll` asks for every session.
     func historySearchHits(matching filter: HistoryFilter, limit: Int = 200,
                            listingAll: Bool = false) -> [HistorySearchHit] {
-        let calendar = Calendar.current
+        let calendar = periodCalendar
         let words = SearchWords.words(in: filter.query)
-        guard listingAll || !words.isEmpty || filter.appBundleID != nil || filter.workType != nil else { return [] }
+        guard !filter.noOverlap else { return [] }
+        guard listingAll || !words.isEmpty || filter.appBundleID != nil || filter.workType != nil
+                || filter.hasPhrases else { return [] }
         let formats = ["EEEE d MMMM yyyy", "d/M/yyyy", "h:mm a", "HH:mm"].map { DateFormats.australian($0) }
         let stable = DateFormatter()
         stable.locale = Locale(identifier: "en_US_POSIX")
@@ -102,6 +104,11 @@ extension SessionStore {
             let first = records[0]
             let day = calendar.startOfDay(for: first.start)
             let isBreak = !first.workType.countsAsFocus
+            guard filter.holds(day: day, in: calendar) else { continue }
+            if filter.minLength != nil || filter.maxLength != nil {
+                let worked = records.reduce(0) { $0 + $1.workSeconds }
+                if isBreak || worked < filter.minLength ?? 0 || worked > filter.maxLength ?? .infinity { continue }
+            }
             if isBreak, words.isEmpty, filter.workType != first.workType { continue }
             let used = filter.appBundleID != nil || (!words.isEmpty && !isBreak)
                 ? usage.uniqueUse(within: records.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) })

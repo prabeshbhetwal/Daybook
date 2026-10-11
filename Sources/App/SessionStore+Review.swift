@@ -487,7 +487,8 @@ extension SessionStore {
     var filteredHistoryDays: [HistoryDay] {
         let calendar = Calendar.current
         let filtered = historyFilter.apply(to: historyDays,
-                                           appNamesByBundleID: historyAppNames)
+                                           appNamesByBundleID: historyAppNames,
+                                           calendar: periodCalendar)
         guard let rawStart = historyRangeStart, let rawEnd = historyRangeEnd else {
             return filtered
         }
@@ -511,22 +512,6 @@ extension SessionStore {
 
     func historyAppName(for bundleID: String) -> String {
         historyAppNames[bundleID] ?? bundleID
-    }
-
-    func setHistoryQuery(_ query: String) {
-        historyFilter.query = query
-    }
-
-    func setHistoryApp(_ bundleID: String?) {
-        historyFilter.appBundleID = bundleID
-    }
-
-    func setHistoryWorkType(_ workType: WorkType?) {
-        historyFilter.workType = workType
-    }
-
-    func clearHistoryFilters() {
-        historyFilter = HistoryFilter()
     }
 
     private func maintainHistoryRange(previousNewest: Date?,

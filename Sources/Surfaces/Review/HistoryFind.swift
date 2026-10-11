@@ -10,8 +10,11 @@ struct HistoryFindBar: View {
     let focusRequest: Int
     /// "12 sessions", shown in the field while a search runs.
     var matchCount: String?
+    /// Reads the unread words on Return; nil where there is no store to read.
+    var rescue: SearchRescue?
     @FocusState private var fieldFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.undoManager) private var undoManager
     @Environment(\.rendersStill) private var rendersStill
 
     static let searchableHint = "Searches session names, old names, notes, named breaks, apps, "
@@ -20,6 +23,13 @@ struct HistoryFindBar: View {
     static let exampleSeconds: TimeInterval = 3.5
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            controls
+            HistorySearchChipRow(store: store, rescue: rescue)
+        }
+    }
+
+    private var controls: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Tokens.Space.s) {
                 field
@@ -41,7 +51,7 @@ struct HistoryFindBar: View {
 
     // MARK: Field
 
-    private var query: String { store.historyFilter.query }
+    private var query: String { store.historySearchText }
     private var fieldShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
     }
@@ -57,9 +67,11 @@ struct HistoryFindBar: View {
                     .textFieldStyle(.plain)
                     .focused($fieldFocused)
                     .onExitCommand { fieldFocused = false }
+                    .onSubmit { rescue?.rescue(undoManager: undoManager) }
                     .accessibilityLabel("Find a session")
                     .accessibilityHint(Self.searchableHint)
             }
+            if let rescue { HistoryRescueSpinner(rescue: rescue) }
             if !query.isEmpty {
                 if let matchCount {
                     Text(matchCount)
@@ -211,6 +223,6 @@ struct HistoryFindBar: View {
     }
 
     private var queryBinding: Binding<String> {
-        Binding(get: { store.historyFilter.query }, set: store.setHistoryQuery)
+        Binding(get: { store.historySearchText }, set: store.setHistoryQuery)
     }
 }

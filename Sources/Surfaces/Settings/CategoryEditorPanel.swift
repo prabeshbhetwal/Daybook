@@ -231,7 +231,8 @@ struct ChipFlow: Layout {
         var x: CGFloat = 0, y: CGFloat = 0, lineHeight: CGFloat = 0, widest: CGFloat = 0
         for subview in subviews {
             let size = subview.sizeThatFits(.unspecified)
-            if x > 0, x + size.width > width {
+            // The slack: handed back its own measured width, a line must not wrap on rounding.
+            if x > 0, x + size.width > width + 0.5 {
                 x = 0
                 y += lineHeight + spacing
                 lineHeight = 0

@@ -73,9 +73,30 @@ struct HistoryFilter: Equatable {
     var query = ""
     var appBundleID: String?
     var workType: WorkType?
+    /// Read from phrases typed into the search (`SearchQuery`). The span is
+    /// half-open; weekdays are `Calendar` weekday numbers, 1 = Sunday; lengths
+    /// are focused seconds, both ends included. Disjoint periods set
+    /// `noOverlap`: nothing matches.
+    var span: DateInterval?
+    var noOverlap = false
+    var weekdays: Set<Int>?
+    var minLength: TimeInterval?
+    var maxLength: TimeInterval?
 
-    func apply(to days: [HistoryDay],
-               appNamesByBundleID: [String: String] = [:]) -> [HistoryDay] {
+    /// Whether a typed period, weekday or length narrows the search.
+    var hasPhrases: Bool {
+        span != nil || noOverlap || weekdays != nil || minLength != nil || maxLength != nil
+    }
+
+    /// Whether a day, in `calendar`, is in the periods and on the weekdays asked for.
+    func holds(day: Date, in calendar: Calendar) -> Bool {
+        !noOverlap && (span?.holds(day) ?? true)
+            && (weekdays?.contains(calendar.component(.weekday, from: day)) ?? true)
+    }
+
+    /// Length is a session's figure, so days do not take it.
+    func apply(to days: [HistoryDay], appNamesByBundleID: [String: String] = [:],
+               calendar: Calendar = .current) -> [HistoryDay] {
         let words = SearchWords.words(in: query)
         let descriptive = DateFormatter()
         descriptive.locale = Locale(identifier: "en_AU")
@@ -88,6 +109,7 @@ struct HistoryFilter: Equatable {
         stable.dateFormat = "yyyy-MM-dd"
 
         return days.filter { day in
+            guard holds(day: day.date, in: calendar) else { return false }
             let queryMatches = words.isEmpty
                 || SearchWords.all(words, in: Self.searchText(for: day, appNamesByBundleID: appNamesByBundleID,
                                                               descriptive: descriptive, stable: stable))
@@ -99,7 +121,7 @@ struct HistoryFilter: Equatable {
 
     var isActive: Bool {
         !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || appBundleID != nil || workType != nil
+            || appBundleID != nil || workType != nil || hasPhrases
     }
 
     private static func searchText(for day: HistoryDay,
