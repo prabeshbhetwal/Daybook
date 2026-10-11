@@ -140,6 +140,7 @@ past tense; the model never adds, subtracts or averages. Every figure comes
 from the reader the screen that shows it uses, so an answer cannot differ from
 the screen.
 
+Durations are written as everywhere in Daybook (`DurationText.compact`: 4h, 1h 12m, 45m).
 New rule: a clock time is never written bare beside a duration. A start reads
 "from 2:00pm", an end "to 3:12pm", an instant "at 11:48pm".
 
@@ -164,7 +165,7 @@ at 11:48pm · Mac went to sleep
 A longer period, one line per day with anything to tell, newest first:
 
 ```
-Fri 9 Oct · 2 breaks, 1h 00m · 2 answers about time away · Locked 45m · Asleep 7h 50m
+Fri 9 Oct · 2 breaks, 1h · 2 answers about time away · Locked 45m · Asleep 7h 50m
 Thu 8 Oct · 1 break, 15m · Mac off
 Newest 2 of 9 days.
 ```
@@ -223,9 +224,9 @@ Awards earned: Goal, 10 days; Longest stretch. Still to earn: 500 hours focused,
 
 | Lookup | Adds |
 |---|---|
-| `focusTotals` | "By work type: Deep work 88h 30m, Admin 11h 00m." from History's period categories. Words that name a work type ("deep work", "admin") give that type's total in place of a name search. All time adds "The current streak is 5 days, since Mon 5 Oct." Words that name an app add that app's busiest hours, as `appTime` gives them. Words found in a note add the note's line. |
-| `appTime` | A named app: its busiest hours over the period, from History's app lens: "most in front from 2pm to 3pm (31h 20m), then from 3pm to 4pm (24h 05m) and from 10am to 11am (6h 40m)". No app, one day: the rail's busiest hours that day. No app, a longer period: no hours, as no screen shows them. |
-| `findSessions` | Lines read `Tue 15 Sep · Parser · from 2:00pm · 4h 00m`. Each listed session shows its note's first line, not only a note that matched the words; a matching line still wins over the first. |
+| `focusTotals` | "By work type: Deep work 88h 30m, Admin 11h." from History's period categories. Words that name a work type ("deep work", "admin") already give that type's total: History's search matches a session by its work type's name. All time adds "The current streak is 5 days, since Mon 5 Oct." Words that name an app add that app's busiest hours, as `appTime` gives them. Words found in a note add the note's line. |
+| `appTime` | A named app: its busiest hours over the period, from History's app lens: "most in front from 2pm to 3pm (31h 20m), then from 3pm to 4pm (24h 5m) and from 10am to 11am (6h 40m)". No app, one day: the rail's busiest hours that day. No app, a longer period: no hours, as no screen shows them. |
+| `findSessions` | Lines read `Tue 15 Sep · Parser · from 2:00pm · 4h`. Each listed session shows its note's first line, not only a note that matched the words; a matching line still wins over the first. |
 
 ## 3. Sources
 
@@ -295,7 +296,7 @@ request.
 | # | Probe | Passes when |
 |---|---|---|
 | 1 | The 32 questions about the new data and one question for each of the six misses, through the real lookups | At least 28 of 32 reach the right lookup; no answer states a figure, time, date or name the lookups did not return; each answer's sources include the place it names |
-| 2 | Parity: the 37 baseline questions, three runs | Every answer right; "What did I work on that day?" gives Parser 4h 00m |
+| 2 | Parity: the 37 baseline questions, three runs | Every answer right; "What did I work on that day?" gives Parser 4h |
 | 3 | Depth: part 1's ten follow-ups, three times (30 turns) | The turn where the context fills is recorded; the carried turn is answered rightly |
 | 4 | Speed, on a quiet machine | Median no more than 1 s over part 1's 3.7 s; no answer over 10 s; the share of answers with the extra first lookup recorded |
 
