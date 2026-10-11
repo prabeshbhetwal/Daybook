@@ -7,7 +7,31 @@ import SwiftUI
 enum AskPanelLayoutChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("The panel keeps its width, whole inside the window, when the reading workspace cannot fit beside it", panelKeepsWidthWhenSqueezed),
+        ("The panel and the sheet hold objects, not closures, so the window drawing again does not draw the chat again",
+         panelsHoldNoClosures),
     ]
+
+    /// SwiftUI skips a view's body when its inputs are equal to the last ones. A
+    /// closure is never equal to another, so a view holding one is drawn again
+    /// every time its parent is, which for the window is every second while a
+    /// session runs.
+    private static func panelsHoldNoClosures() -> [String] {
+        var problems: [String] = []
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .idleWithHistory, accurateUsage: true)
+            defer { FixtureFactory.cleanUp() }
+            let navigation = MainWindowModel(store: store)
+            let ask = AskModel(store: store)
+            func closures<V>(in view: V) -> [String] {
+                Mirror(reflecting: view).children.filter { "\(type(of: $0.value))".contains("->") }.map { $0.label ?? "?" }
+            }
+            let panel = closures(in: AskPanel(model: ask, navigation: navigation))
+            expect(panel.isEmpty, "the panel holds closures \(panel), so every redraw of the window redraws the chat", &problems)
+            let sheet = closures(in: AskSheet(model: ask, navigation: navigation))
+            expect(sheet.isEmpty, "the sheet holds closures \(sheet), so every redraw of the window redraws the chat", &problems)
+        }
+        return problems
+    }
 
     /// A workspace whose own content minimum is wider than the room the panel
     /// leaves in a 1000 point window, drawn solid red so its extent is plain in
@@ -29,7 +53,7 @@ enum AskPanelLayoutChecks: CheckSuite {
                 let panel = AskLayout.panelWidth
                 for (what, window) in [("roomy", CGFloat(1_200)), ("squeezed", CGFloat(1_000))] {
                     let frame = StoryWorkspaceChecks.renderFrame(
-                        ReadingWithAskPanel(askModel: ask, onFollow: { _ in }, onClose: {}) {
+                        ReadingWithAskPanel(askModel: ask, navigation: navigation) {
                             Color(red: 1, green: 0, blue: 0).frame(minWidth: 700, maxWidth: .infinity, maxHeight: .infinity)
                         },
                         width: window, height: 400)

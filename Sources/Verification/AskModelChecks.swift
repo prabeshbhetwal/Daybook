@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import FoundationModels
 
@@ -14,6 +15,8 @@ enum AskModelChecks: CheckSuite {
         ("A blank Ask question is ignored", blankQuestionIsIgnored),
         ("Opening Ask twice builds its model once", askModelIsBuiltOnce),
         ("A failed Ask answer changes only its own turn", failedAnswerChangesOnlyItsTurn),
+        ("Whether Ask can answer is read when it opens, asks or starts over, and published only when it changes",
+         availabilityIsPublishedState),
     ]
 
     private static func notice(_ text: String, opensSettings: Bool = false) -> AskNotice {
@@ -127,6 +130,26 @@ enum AskModelChecks: CheckSuite {
             model.ask("   \n ")
             expect(!model.isAnswering, "a blank question started an answer", &problems)
             expect(model.turns.isEmpty && model.notice == nil, "a blank question changed what the sheet shows", &problems)
+        }
+    }
+
+    /// A view that asks Apple's model whether it is there each time it is drawn
+    /// is drawn again for every tick of a running session. The answer is state
+    /// the model keeps, so the views read a stored value.
+    private static func availabilityIsPublishedState() -> [String] {
+        withFixture { f, problems in
+            let model = AskModel(store: f.store)
+            model.responder = { _, show in show("Done.") }
+            var seen: [Bool] = []
+            let watch = model.$canAsk.sink { seen.append($0) }
+            defer { watch.cancel() }
+            expect(model.canAsk == ModelGate.modelAvailable, "Ask opened believing canAsk is \(model.canAsk)", &problems)
+            model.prepare()
+            model.ask("When do I focus best?")
+            InstalledAppCatalog.turnRunLoop(until: { !model.isAnswering }, timeout: 5)
+            model.newChat()
+            expect(seen == [ModelGate.modelAvailable],
+                   "canAsk published \(seen) while Apple's model did not change", &problems)
         }
     }
 

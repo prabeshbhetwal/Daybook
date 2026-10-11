@@ -11,21 +11,26 @@ enum AskLayout {
 /// window level, so it stays when the window moves between Story and History,
 /// and a source opens History right beside the chat. The window gives it its
 /// width (`AskLayout.panelWidth`) and its place; this view only fills it.
+///
+/// It is handed the window's model, not closures. A closure made afresh each
+/// time the window draws is never equal to the last, so the chat was drawn
+/// again on every tick of a running session's clock; two objects are equal
+/// while they are the same, and the chat is drawn when `model` changes.
 struct AskPanel: View {
     @ObservedObject var model: AskModel
-    /// What a source, in the text or in the list, opens.
-    let onFollow: (AskLink) -> Void
-    let onClose: () -> Void
+    /// Where a source, in the text or in the list, opens, and what closes the panel.
+    /// Not observed: the panel reads nothing of it.
+    let navigation: MainWindowModel
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            AskChatView(model: model, onFollow: onFollow, showsNewChat: false)
+            AskChatView(model: model, onFollow: navigation.follow, showsNewChat: false)
         }
         .background(StoryStyle.rail)
         // Escape with the cursor in the panel closes it, as it closes a sheet.
-        .onExitCommand(perform: onClose)
+        .onExitCommand(perform: navigation.closeAskPanel)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Ask Daybook")
         .storyRenderEvidence(.askPanel)
@@ -42,7 +47,7 @@ struct AskPanel: View {
                     .buttonStyle(StoryActionStyle())
                     .fixedSize()
             }
-            IconButton(systemImage: "xmark", help: "Close Ask (⌘K)", action: onClose)
+            IconButton(systemImage: "xmark", help: "Close Ask (⌘K)", action: navigation.closeAskPanel)
         }
         .padding(.horizontal, Tokens.Space.xl)
         .padding(.vertical, Tokens.Space.m)
@@ -56,8 +61,7 @@ struct AskPanel: View {
 /// content minimum wins and pushes the panel past the window's edge.
 struct ReadingWithAskPanel<Workspace: View>: View {
     let askModel: AskModel?
-    let onFollow: (AskLink) -> Void
-    let onClose: () -> Void
+    let navigation: MainWindowModel
     @ViewBuilder let workspace: Workspace
 
     var body: some View {
@@ -68,7 +72,7 @@ struct ReadingWithAskPanel<Workspace: View>: View {
                 .accessibilitySortPriority(1)
             if let askModel {
                 Divider()
-                AskPanel(model: askModel, onFollow: onFollow, onClose: onClose)
+                AskPanel(model: askModel, navigation: navigation)
                     .frame(width: AskLayout.panelWidth)
                     .frame(maxHeight: .infinity)
             }

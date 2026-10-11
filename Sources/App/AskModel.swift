@@ -13,6 +13,10 @@ import FoundationModels
     /// Why Ask cannot answer at all, such as no model on this Mac. An answer
     /// that fails shows its notice on its own turn.
     @Published private(set) var notice: AskNotice?
+    /// Whether the on-device model can be asked now (`ModelGate.modelAvailable`),
+    /// as of the last time Ask checked: `prepare()`, `ask(_:)` and `newChat()`.
+    /// Read from here by the views, since asking Apple's model costs more than a view should.
+    @Published private(set) var canAsk: Bool
 
     private(set) weak var store: SessionStore?
     /// A `LanguageModelSession`, held untyped so this class compiles below macOS 26.
@@ -44,12 +48,22 @@ import FoundationModels
 
     init(store: SessionStore) {
         self.store = store
+        canAsk = ModelGate.modelAvailable
     }
 
     var isAnswering: Bool { turns.last?.state.isInProgress == true }
 
+    /// Reads the check Ask shares with the written notes again. It can change
+    /// while the app runs, so it is read when Ask opens and when a chat starts
+    /// or a question is asked, not each time a view is drawn.
+    func refreshAvailability() {
+        let available = ModelGate.modelAvailable
+        if canAsk != available { canAsk = available }
+    }
+
     /// When the sheet appears: say what is missing, or start the model loading.
     func prepare() {
+        refreshAvailability()
         retireStaleSession()
         guard #available(macOS 26, *) else { notice = Self.needsNewerMacOS; return }
         notice = Self.notice(for: SystemLanguageModel.default.availability)
@@ -59,6 +73,7 @@ import FoundationModels
     func ask(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isAnswering else { return }
+        refreshAvailability()
         retireStaleSession()
         guard #available(macOS 26, *) else { notice = Self.needsNewerMacOS; return }
         if responder == nil, let missing = Self.notice(for: SystemLanguageModel.default.availability) {
@@ -78,6 +93,7 @@ import FoundationModels
         turns = []
         firstTurnToday = 0
         notice = nil
+        refreshAvailability()
     }
 
     /// Changes one turn, for the answer working it out; a turn no longer there is left alone.

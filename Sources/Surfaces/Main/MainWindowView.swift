@@ -67,8 +67,7 @@ struct MainWindowView: View {
                     .transition(Tokens.Motion.transition(Tokens.Motion.slideDown,
                                                          reduceMotion: reduceMotion))
             }
-            ReadingWithAskPanel(askModel: askPanelShown ? navigation.askModel : nil,
-                                onFollow: navigation.follow, onClose: navigation.closeAskPanel) {
+            ReadingWithAskPanel(askModel: askPanelShown ? navigation.askModel : nil, navigation: navigation) {
                 readingWorkspace
             }
         }
@@ -200,7 +199,7 @@ struct MainWindowView: View {
                 case .awards:
                     AwardsView(store: store, scrolls: insightsScrolls)
                 case .ask:
-                    if let ask = navigation.askModel { AskSheet(model: ask, onFollow: navigation.follow) }
+                    if let ask = navigation.askModel { AskSheet(model: ask, navigation: navigation) }
                 }
         }
     }
