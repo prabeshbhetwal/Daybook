@@ -52,12 +52,15 @@ Case-insensitive, English, any order, mixed with free words. The one exception i
 
 | Kind | Phrases | Chip |
 |---|---|---|
-| Period | today, yesterday; this/last week, month, year; the week/month before last; N days/weeks/months ago; last N days/weeks; a month name with or without a year ("September", "Sept 2025"); a day and month with or without a year ("3 October", "3 Oct 2025"); a year ("2025") | `Last week · 6–12 Oct`: the label plus the exact dates |
+| Period | today, yesterday; this/last week, month, year; the week/month before last; N days/weeks/months ago ("back" reads as "ago": "three weeks back"); last N days/weeks; a fortnight (two weeks): last/past fortnight (the 14 days ending today), "a fortnight ago" and "N fortnights ago" (the calendar week 2N weeks back), the fortnight before last (the 14 days before those); past weekends: last weekend, this/the past weekend, the weekend before last (Saturday to Sunday, Monday weeks); a month name with or without a year ("September", "Sept 2025"); a day and month with or without a year ("3 October", "3 Oct 2025"); a year ("2025") | `Last week · 6–12 Oct`: the label plus the exact dates |
 | Weekdays | a plural weekday ("Mondays"), "on Mondays", "Mondays and Fridays", "weekends", "weekdays" | `Mondays`, `Weekends` |
-| Length | over / longer than / more than / at least D; under / shorter than / less than / at most D; between D and D. D: 1h, 1 h, 1 hour, 90m, 90 min, 1h 30m, 1.5h, "an hour", number words | `Over 1h`, `30m–1h` |
+| Length | over / longer than / more than / at least D; under / shorter than / less than / at most D; between D and D. D: 1h, 1 h, 1 hour, 90m, 90 min, 1h 30m, 1.5h, "an hour", "half an hour", "an hour and a half", "two and a half hours", number words | `Over 1h`, `30m–1h` |
 | App | the exact name of an app with recorded use (`historySortedUsage`), multi-word names included, typed with its leading capital ("Notes" is the Notes app; "notes" is a word) | the app's name with its icon |
 | Category | the exact name of a category, typed with its leading capital | the category's name with its colour |
 
+- "Weekends" alone is still the weekday set (Saturdays and Sundays of any
+  week); "last weekend" and the other weekend phrases above are periods.
+  Future weekends ("this weekend", "next weekend") are not phrases.
 - A single weekday ("Monday") is not a phrase: it already matches every
   Monday as a word.
 - A named month or day without a year takes its year from the other period
@@ -116,7 +119,8 @@ Live probe: 20 phrasings outside the grammar ("fortnight before last",
 "first week of September", "the last three Mondays", …) through the rescue.
 Target: at least 18 rescued to the right filter or honestly left alone, every
 rescue visible as a marked chip, none accepted that the parser rejected.
-Results: §5a.
+Results: §5a (first run 18 of 20; second run, after the grammar additions,
+20 of 20).
 
 ## 5a. Live probe
 
@@ -175,8 +179,59 @@ What the probe also showed:
   half" because the parser, not the rescue, read "an hour" first.
 - Row 5 was read by the parser alone and lists a session, so the model is not
   asked.
-- Hand check 5 uses "three weeks back" because "fortnight before last" is
-  rescued wrongly.
+- The first run's hand check 5 used "three weeks back" because "fortnight
+  before last" was rescued wrongly; the second run moved it (§6).
+
+### Second run (after the grammar additions)
+
+Run 2026-10-12 on the same Mac and the same fixture, with the same twenty
+phrasings, after the parser learned fortnights, "back", past weekends and
+half hours (§2). A phrasing the parser now reads in full never reaches the
+model ("not asked" in the Model column); the verdict then judges the parser's
+chip. The model was asked on the other twelve: 0.9–1.4 s each, median 1.0 s;
+the bare "Say OK" took 3.4 s.
+
+| # | Typed | Parser reads | Model said | Field after Return | Verdict |
+|---|---|---|---|---|---|
+| 1 | fortnight before last | Fortnight before last · 19 Oct – 1 Nov | not asked | unchanged | right (parser) |
+| 2 | first week of september | September 2023, "first week of" left | first week of | unchanged | nothing |
+| 3 | the last three mondays | Mondays, "the last three" left | last 3 | unchanged | nothing |
+| 4 | past fortnight | Past fortnight · 2–15 Nov | not asked | unchanged | right (parser) |
+| 5 | a month ago | A month ago · 1–31 Oct | not asked | unchanged | right (parser; the spec's calendar-month meaning) |
+| 6 | this past weekend | This past weekend · 11–12 Nov | not asked | unchanged | right (parser) |
+| 7 | three weeks back | Three weeks back · 23–29 Oct | not asked | unchanged | right (parser) |
+| 8 | early october | October 2023, "early" left | early | unchanged | nothing |
+| 9 | since monday | nothing | since Monday | unchanged | nothing |
+| 10 | the 1st | nothing | 1st | unchanged | nothing |
+| 11 | longer than an hour and a half | Over 1h 30m | not asked | unchanged | right (parser) |
+| 12 | quick ones under ten minutes | Under 10m, "quick ones" left | quick ones | unchanged | nothing |
+| 13 | mornings last week | Last week · 6–12 Nov, "mornings" left | this week mornings | unchanged | nothing |
+| 14 | xmas | nothing | this time of year | unchanged | nothing |
+| 15 | new year's day | nothing | a year; 1 january | 1 january (Sun 1 Jan 2023) | right (model: the latest New Year's Day) |
+| 16 | q3 | nothing | q3 | unchanged | nothing |
+| 17 | the weekend before last | Weekend before last · 4–5 Nov | not asked | unchanged | right (parser) |
+| 18 | last tuesday's sessions | nothing | last tuesday's sessions | unchanged | nothing |
+| 19 | two months back | Two months back · 1–30 Sep | not asked | unchanged | right (parser) |
+| 20 | parser stuff from last fortnight | Last fortnight · 2–15 Nov, "parser stuff from" left | "parser" | unchanged | nothing |
+
+Counts: right 9 (parser 8, model 1), nothing 11, wrong 0, accepted but
+rejected by the parser 0. Right or honestly nothing: 20 of 20, against 18 of
+20 before. The rescue changed the field on 1 of 12 phrasings it was asked,
+and that one was right. The wrong rescues of the first run (rows 1 and 4)
+are gone because the parser reads both phrasings before the model is asked.
+
+What this run shows:
+
+- Of the nine phrasings that ended with a right filter, eight came from the
+  parser alone. Teaching the parser the words the model had been rewriting
+  into ("fortnight", "back", "last weekend", "an hour and a half") did more
+  than the rescue did; the rescue now earns its keep on phrasings like "new
+  year's day" that need a date looked up.
+- Rows 2, 3, 8, 12, 13 and 20 still have a phrase the parser read and some
+  other words left over, no hits, and nothing the model can add; the field
+  stays as typed. "Since Monday", "early October", "first week of", "q3",
+  "xmas" and "the 1st" remain outside the grammar and the model proposes
+  nothing the parser accepts.
 
 ## 6. Hand checks
 
@@ -186,7 +241,7 @@ What the probe also showed:
 | 2 | Type "Thesis on Mondays over 1h" | Three chips; only Monday Thesis sessions over 1h |
 | 3 | Press × on one chip | Its phrase leaves the field; the list widens |
 | 4 | Type `"Xcode"` with quotes | Word search, no app chip |
-| 5 | Type "three weeks back" and press Return (AI Mac) | Field becomes "three weeks ago" with a marked chip; ⌘Z restores ("fortnight before last" is rescued wrongly, §5a) |
+| 5 | Type "new year's day" and press Return (AI Mac) | Field becomes "1 january" with a marked chip (Sun 1 Jan of the latest year); ⌘Z restores (a phrasing only the model rescues, §5a) |
 | 6 | Turn the switch off, repeat 5 | Nothing changes on Return |
 
 ## Out of scope

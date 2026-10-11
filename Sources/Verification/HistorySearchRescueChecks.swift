@@ -47,7 +47,7 @@ enum HistorySearchRescueChecks: CheckSuite {
 
     private static func accepted() -> [String] {
         fixture { f, problems in
-            let text = "Parser fortnight before last"
+            let text = "Parser quarter before last"
             let (rescue, asked) = press(f, text, ["the week before last"], ["Parser"])
             expect(asked.words == [text], "the model was given \(asked.words), not the unread words", &problems)
             expect(f.store.historySearchText == "the week before last Parser",
@@ -71,7 +71,7 @@ enum HistorySearchRescueChecks: CheckSuite {
 
     private static func rejected() -> [String] {
         fixture { f, problems in
-            let text = "Parser fortnight before last"
+            let text = "Parser quarter before last"
             for phrases in [["sometime soon"], ["last week Parser"], ["last week today"], ["Mondays over 1h"], [""]] {
                 let (rescue, asked) = press(f, text, phrases, ["Parser"])
                 expect(asked.words.count == 1, "the model was not asked for \(phrases)", &problems)
@@ -124,13 +124,13 @@ enum HistorySearchRescueChecks: CheckSuite {
                 expect(f.store.historySearchText == expected,
                        "\(what): the field reads “\(f.store.historySearchText)”, not “\(expected)”", &problems)
             }
-            field("Parser fortnight", [], [], is: "Parser fortnight", "no phrase and no words")
-            field("Parser fortnight", [], ["Parser"], is: "Parser fortnight", "words alone")
-            field("Parser fortnight", ["sometime"], ["Parser"], is: "Parser fortnight", "an unread phrase")
-            field("Parser fortnight", ["last week"], ["Invented"], is: "last week", "an invented word")
-            field("Parser fortnight", ["last week"], ["Parser", "Invented"], is: "last week", "one invented word of two")
-            field("Parser fortnight", ["last week"], ["Parser", "Parser"], is: "last week", "a word kept twice")
-            field("Parser fortnight", ["last week"], ["fortnight", "Parser"], is: "last week fortnight Parser",
+            field("Parser quarter", [], [], is: "Parser quarter", "no phrase and no words")
+            field("Parser quarter", [], ["Parser"], is: "Parser quarter", "words alone")
+            field("Parser quarter", ["sometime"], ["Parser"], is: "Parser quarter", "an unread phrase")
+            field("Parser quarter", ["last week"], ["Invented"], is: "last week", "an invented word")
+            field("Parser quarter", ["last week"], ["Parser", "Invented"], is: "last week", "one invented word of two")
+            field("Parser quarter", ["last week"], ["Parser", "Parser"], is: "last week", "a word kept twice")
+            field("Parser quarter", ["last week"], ["quarter", "Parser"], is: "last week quarter Parser",
                   "typed words")
             field("zzzz \"Mondays standup\"", ["last week"], ["\"Mondays standup\""],
                   is: "last week \"Mondays standup\"", "a quoted run")
@@ -166,7 +166,7 @@ enum HistorySearchRescueChecks: CheckSuite {
 
     private static func noNames() -> [String] {
         fixture { f, problems in
-            let text = "notes fortnight"
+            let text = "notes quarter"
             f.store.refreshReview()
             f.store.historyAppNames["com.apple.Notes"] = "Notes"
             let names = f.store.historyAppNames.values.sorted() + [WorkType.breakTime.displayName]
@@ -189,7 +189,7 @@ enum HistorySearchRescueChecks: CheckSuite {
     private static func undo() -> [String] {
         fixture { f, problems in
             let manager = UndoManager()
-            let text = "Parser fortnight before last"
+            let text = "Parser quarter before last"
             let (rescue, _) = press(f, text, undo: manager) { _ in (["the week before last"], ["Parser"]) }
             expect(f.store.historySearchText == "the week before last Parser", "the rescue did not run", &problems)
             expect(manager.canUndo, "the rescue registered no undo", &problems)

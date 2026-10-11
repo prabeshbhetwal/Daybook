@@ -16,48 +16,6 @@ enum HistorySearchQueryChecks: CheckSuite {
         ("Number words read in counts and lengths", numberWords),
     ]
 
-    private static var periods: Calendar { SelfTest.gregorian.forPeriods }
-    private static let apps = ["com.apple.Notes": "Notes", "com.apple.dt.Xcode": "Xcode",
-                               "com.microsoft.VSCode": "Visual Studio Code"]
-
-    private struct Row {
-        var span: DateInterval?
-        var weekdays: Set<Int>?
-        var min: TimeInterval?
-        var max: TimeInterval?
-        var app: String?
-        var type: WorkType?
-        var leftover = ""
-        var labels: [String] = []
-        var noOverlap = false
-    }
-
-    private static func midnight(_ year: Int, _ month: Int, _ day: Int, in calendar: Calendar = periods) -> Date {
-        calendar.startOfDay(for: calendar.date(from: DateComponents(year: year, month: month, day: day))!)
-    }
-
-    /// `[start, end)` from two dates of 2023, or of the years given.
-    private static func span(_ m1: Int, _ d1: Int, _ m2: Int, _ d2: Int, y1: Int = 2023, y2: Int? = nil,
-                             in calendar: Calendar = periods) -> DateInterval {
-        DateInterval(start: midnight(y1, m1, d1, in: calendar), end: midnight(y2 ?? y1, m2, d2, in: calendar))
-    }
-
-    private static func verify(_ text: String, _ row: Row, now: Date = SelfTest.base, calendar: Calendar = periods,
-                               types: [WorkType] = [], _ problems: inout [String]) {
-        let got = SearchQuery.parse(text, now: now, calendar: calendar, apps: apps, categories: types)
-        let tag = "\"\(text)\""
-        expect(got.span == row.span, "\(tag): span \(String(describing: got.span)), not \(String(describing: row.span))",
-               &problems)
-        expect(got.weekdays == row.weekdays, "\(tag): weekdays \(String(describing: got.weekdays)), not \(String(describing: row.weekdays))", &problems)
-        expect(got.minLength == row.min, "\(tag): minLength \(String(describing: got.minLength)), not \(String(describing: row.min))", &problems)
-        expect(got.maxLength == row.max, "\(tag): maxLength \(String(describing: got.maxLength)), not \(String(describing: row.max))", &problems)
-        expect(got.appBundleID == row.app, "\(tag): app \(String(describing: got.appBundleID)), not \(String(describing: row.app))", &problems)
-        expect(got.workType == row.type, "\(tag): category \(String(describing: got.workType?.rawValue))", &problems)
-        expect(got.leftover == row.leftover, "\(tag): leftover \"\(got.leftover)\", not \"\(row.leftover)\"", &problems)
-        expect(got.phrases.map(\.label) == row.labels, "\(tag): chips \(got.phrases.map(\.label)), not \(row.labels)", &problems)
-        expect(got.noOverlap == row.noOverlap, "\(tag): noOverlap \(got.noOverlap), not \(row.noOverlap)", &problems)
-    }
-
     // MARK: Grammar
 
     private static func grammarRows() -> [String] {
@@ -78,6 +36,24 @@ enum HistorySearchQueryChecks: CheckSuite {
             ("3 months ago", Row(span: span(8, 1, 9, 1), labels: ["3 months ago · 1–31 Aug"])),
             ("last 7 days", Row(span: span(11, 9, 11, 16), labels: ["Last 7 days · 9–15 Nov"])),
             ("last 2 weeks", Row(span: span(11, 2, 11, 16), labels: ["Last 2 weeks · 2–15 Nov"])),
+            ("last fortnight", Row(span: span(11, 2, 11, 16), labels: ["Last fortnight · 2–15 Nov"])),
+            ("past fortnight", Row(span: span(11, 2, 11, 16), labels: ["Past fortnight · 2–15 Nov"])),
+            ("the past fortnight", Row(span: span(11, 2, 11, 16), labels: ["Past fortnight · 2–15 Nov"])),
+            ("the fortnight before last", Row(span: span(10, 19, 11, 2), labels: ["Fortnight before last · 19 Oct – 1 Nov"])),
+            ("fortnight before last", Row(span: span(10, 19, 11, 2), labels: ["Fortnight before last · 19 Oct – 1 Nov"])),
+            ("a fortnight ago", Row(span: span(10, 30, 11, 6), labels: ["A fortnight ago · 30 Oct – 5 Nov"])),
+            ("2 fortnights ago", Row(span: span(10, 16, 10, 23), labels: ["2 fortnights ago · 16–22 Oct"])),
+            ("3 days back", Row(span: span(11, 12, 11, 13), labels: ["3 days back · Sun 12 Nov"])),
+            ("a week back", Row(span: span(11, 6, 11, 13), labels: ["A week back · 6–12 Nov"])),
+            ("a fortnight back", Row(span: span(10, 30, 11, 6), labels: ["A fortnight back · 30 Oct – 5 Nov"])),
+            ("a month back", Row(span: span(10, 1, 11, 1), labels: ["A month back · 1–31 Oct"])),
+            ("three weeks back", Row(span: span(10, 23, 10, 30), labels: ["Three weeks back · 23–29 Oct"])),
+            ("two months back", Row(span: span(9, 1, 10, 1), labels: ["Two months back · 1–30 Sep"])),
+            ("last weekend", Row(span: span(11, 11, 11, 13), labels: ["Last weekend · 11–12 Nov"])),
+            ("this past weekend", Row(span: span(11, 11, 11, 13), labels: ["This past weekend · 11–12 Nov"])),
+            ("the past weekend", Row(span: span(11, 11, 11, 13), labels: ["Past weekend · 11–12 Nov"])),
+            ("the weekend before last", Row(span: span(11, 4, 11, 6), labels: ["Weekend before last · 4–5 Nov"])),
+            ("weekend before last", Row(span: span(11, 4, 11, 6), labels: ["Weekend before last · 4–5 Nov"])),
             ("September", Row(span: span(9, 1, 10, 1), labels: ["September 2023"])),
             ("Sept 2022", Row(span: span(9, 1, 10, 1, y1: 2022, y2: 2022), labels: ["September 2022"])),
             ("3 October", Row(span: span(10, 3, 10, 4), labels: ["Tue 3 Oct 2023"])),
@@ -116,6 +92,13 @@ enum HistorySearchQueryChecks: CheckSuite {
             ("at most an hour", Row(max: 3_600, labels: ["Under 1h"])),
             ("between 30m and 1h", Row(min: 1_800, max: 3_600, labels: ["30m–1h"])),
             ("over 1 hour 30 minutes", Row(min: 5_400, labels: ["Over 1h 30m"])),
+            ("longer than an hour and a half", Row(min: 5_400, labels: ["Over 1h 30m"])),
+            ("over a hour and a half", Row(min: 5_400, labels: ["Over 1h 30m"])),
+            ("under half an hour", Row(max: 1_800, labels: ["Under 30m"])),
+            ("at least half hour", Row(min: 1_800, labels: ["Over 30m"])),
+            ("over two and a half hours", Row(min: 9_000, labels: ["Over 2h 30m"])),
+            ("over 2 and a half hour", Row(min: 9_000, labels: ["Over 2h 30m"])),
+            ("over 2 hours and a half", Row(min: 9_000, labels: ["Over 2h 30m"])),
         ]
         for (text, row) in lengthRows { verify(text, row, &problems) }
 
@@ -152,6 +135,26 @@ enum HistorySearchQueryChecks: CheckSuite {
         verify("notes on Mondays and Fridays", Row(weekdays: [2, 6], leftover: "notes",
                                                   labels: ["Mondays, Fridays"]), &problems)
         verify("1 hour ago", Row(leftover: "1 hour ago"), &problems)
+        // A fortnight is two weeks, built through the calendar rather than from the dates above.
+        let tomorrow = periods.date(byAdding: .day, value: 1, to: periods.startOfDay(for: SelfTest.base))!
+        func daysBefore(_ days: Int) -> Date { periods.date(byAdding: .day, value: -days, to: tomorrow)! }
+        let last14 = DateInterval(start: daysBefore(14), end: tomorrow)
+        verify("past fortnight", Row(span: last14, labels: ["Past fortnight · 2–15 Nov"]), &problems)
+        verify("the fortnight before last", Row(span: DateInterval(start: daysBefore(28), end: daysBefore(14)),
+                                               labels: ["Fortnight before last · 19 Oct – 1 Nov"]), &problems)
+        verify("parser stuff from last fortnight", Row(span: last14, leftover: "parser stuff from",
+                                                       labels: ["Last fortnight · 2–15 Nov"]), &problems)
+        // The plural "weekends" is still the weekday set, and a weekend phrase is a period.
+        verify("last weekends", Row(weekdays: [1, 7], leftover: "last", labels: ["Weekends"]), &problems)
+        verify("weekends last weekend", Row(span: span(11, 11, 11, 13), weekdays: [1, 7],
+                                            labels: ["Weekends", "Last weekend · 11–12 Nov"]), &problems)
+        verify("weekend", Row(leftover: "weekend"), &problems)
+        verify("this weekend", Row(leftover: "this weekend"), &problems)
+        verify("a fortnight", Row(leftover: "a fortnight"), &problems)
+        let text = "the weekend before last"
+        let parsed = SearchQuery.parse(text, now: SelfTest.base, calendar: periods, apps: apps, categories: [])
+        expect(parsed.phrases.map(\.kind) == [.period] && parsed.phrases.map { String(text[$0.range]) } == [text],
+               "\"\(text)\" is one period phrase, got \(parsed.phrases.map(\.kind))", &problems)
         return problems
     }
 
@@ -240,6 +243,9 @@ enum HistorySearchQueryChecks: CheckSuite {
             ("Europe/Berlin", [10, 25], "this week", [10, 23], [10, 30], 169, "This week · 23–29 Oct"),
             ("Europe/Berlin", [10, 31], "last week", [10, 23], [10, 30], 169, "Last week · 23–29 Oct"),
             ("Europe/Berlin", [10, 31], "last 7 days", [10, 25], [11, 1], 169, "Last 7 days · 25–31 Oct"),
+            ("Europe/Berlin", [10, 31], "last weekend", [10, 28], [10, 30], 49, "Last weekend · 28–29 Oct"),
+            ("Europe/Berlin", [10, 31], "last fortnight", [10, 18], [11, 1], 337, "Last fortnight · 18–31 Oct"),
+            ("Australia/Sydney", [10, 3], "last weekend", [9, 30], [10, 2], 47, "Last weekend · 30 Sep – 1 Oct"),
         ]
         for item in cases {
             var base = Calendar(identifier: .gregorian)
@@ -273,6 +279,9 @@ enum HistorySearchQueryChecks: CheckSuite {
         verify("twenty one days ago", Row(span: span(10, 25, 10, 26), labels: ["Twenty one days ago · Wed 25 Oct"]), &problems)
         verify("a week ago", Row(span: span(11, 6, 11, 13), labels: ["A week ago · 6–12 Nov"]), &problems)
         verify("last three days", Row(span: span(11, 13, 11, 16), labels: ["Last three days · 13–15 Nov"]), &problems)
+        verify("two fortnights ago", Row(span: span(10, 16, 10, 23), labels: ["Two fortnights ago · 16–22 Oct"]), &problems)
+        verify("twenty one days back", Row(span: span(10, 25, 10, 26), labels: ["Twenty one days back · Wed 25 Oct"]), &problems)
+        verify("over two and a half hours", Row(min: 9_000, labels: ["Over 2h 30m"]), &problems)
         verify("over an hour", Row(min: 3_600, labels: ["Over 1h"]), &problems)
         verify("over one hour", Row(min: 3_600, labels: ["Over 1h"]), &problems)
         verify("under forty minutes", Row(max: 2_400, labels: ["Under 40m"]), &problems)

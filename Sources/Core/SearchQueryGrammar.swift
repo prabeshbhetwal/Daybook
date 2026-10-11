@@ -84,54 +84,6 @@ struct SearchGrammar {
         [relative(t, i), dated(t, i)].compactMap { $0 }.first
     }
 
-    private func relative(_ t: SearchTokens, _ i: Int) -> SearchMatch? {
-        guard let word = t.word(i) else { return nil }
-        func found(_ count: Int, _ interval: DateInterval?) -> SearchMatch? {
-            guard let interval else { return nil }
-            var words = t.phrase(i, count)
-            if words.hasPrefix("the ") { words.removeFirst(4) }
-            return SearchMatch(count: count, effect: .period(.relative(interval, name: words.prefix(1).uppercased() + words.dropFirst())))
-        }
-        func named(_ range: AskRange) -> DateInterval { range.interval(now: now, firstDay: now, calendar: calendar) }
-        switch word {
-        case "today": return found(1, named(.today))
-        case "yesterday": return found(1, named(.yesterday))
-        case "this", "last":
-            let ranges: [String: (AskRange, AskRange)] = ["week": (.thisWeek, .lastWeek), "month": (.thisMonth, .lastMonth),
-                                                          "year": (.thisYear, .lastYear)]
-            if let unit = t.word(i + 1), let pair = ranges[unit] { return found(2, named(word == "this" ? pair.0 : pair.1)) }
-            guard word == "last", let number = t.count(i + 1), let unit = t.word(i + 1 + number.used),
-                  ["day", "days", "week", "weeks"].contains(unit) else { return nil }
-            return found(2 + number.used, rolling(days: number.value * (unit.hasPrefix("week") ? 7 : 1)))
-        case "the", "week", "month":
-            let at = word == "the" ? i + 1 : i
-            guard let unit = t.word(at), unit == "week" || unit == "month", t.word(at + 1) == "before",
-                  t.word(at + 2) == "last" else { return nil }
-            return found(at + 3 - i, shifted(unit == "week" ? .weekOfYear : .month, by: -2))
-        default:
-            guard let number = t.count(i, article: true), let unit = t.word(i + number.used),
-                  t.word(i + number.used + 1) == "ago" else { return nil }
-            let component: [String: Calendar.Component] = ["day": .day, "days": .day, "week": .weekOfYear,
-                                                           "weeks": .weekOfYear, "month": .month, "months": .month]
-            guard let which = component[unit] else { return nil }
-            return found(number.used + 2, shifted(which, by: -number.value))
-        }
-    }
-
-    /// The whole `component` that holds today moved by `offset`.
-    private func shifted(_ component: Calendar.Component, by offset: Int) -> DateInterval? {
-        guard let anchor = calendar.date(byAdding: component, value: offset, to: calendar.startOfDay(for: now)) else { return nil }
-        return calendar.dateInterval(of: component, for: anchor)
-    }
-
-    /// The last `days` days, ending with today's midnight-to-midnight.
-    private func rolling(days: Int) -> DateInterval? {
-        let today = calendar.startOfDay(for: now)
-        guard let from = calendar.date(byAdding: .day, value: 1 - days, to: today),
-              let after = calendar.date(byAdding: .day, value: 1, to: today) else { return nil }
-        return DateInterval(start: calendar.startOfDay(for: from), end: calendar.startOfDay(for: after))
-    }
-
     /// A month, a day and month, or a year, read by `AskRange.resolving`.
     private func dated(_ t: SearchTokens, _ i: Int) -> SearchMatch? {
         let parts = (0..<3).map { t.word(i + $0).flatMap(part) }
@@ -205,7 +157,8 @@ struct SearchGrammar {
         return nil
     }
 
-    /// "1h", "1 h", "90 min", "1h 30m", "1.5h", "an hour", "forty minutes".
+    /// "1h", "1 h", "90 min", "1h 30m", "1.5h", "an hour", "forty minutes",
+    /// "half an hour", "an hour and a half", "two and a half hours".
     private func duration(_ t: SearchTokens, _ i: Int) -> (seconds: TimeInterval, used: Int)? {
         guard let first = component(t, i) else { return nil }
         var seconds = first.seconds
@@ -219,6 +172,10 @@ struct SearchGrammar {
 
     private func component(_ t: SearchTokens, _ i: Int) -> (seconds: TimeInterval, used: Int, isHours: Bool)? {
         guard let word = t.word(i) else { return nil }
+        if word == "half" {
+            let used = t.word(i + 1) == "an" ? 2 : 1
+            return t.word(i + used) == "hour" ? (1_800, used + 1, false) : nil
+        }
         if let joined = word.wholeMatch(of: #/(\d+(?:\.\d+)?)([a-z]+)/#), let amount = Double(joined.1),
            let unit = Self.unitSeconds(String(joined.2)) {
             return (amount * unit, 1, unit == 3_600)
@@ -232,8 +189,23 @@ struct SearchGrammar {
         } else {
             return nil
         }
+        let halved = hasHalf(t, i + used)
+        if halved {
+            amount += 0.5
+            used += 3
+        }
         guard let unitWord = t.word(i + used), let unit = Self.unitSeconds(unitWord) else { return nil }
-        return (amount * unit, used + 1, unit == 3_600)
+        used += 1
+        // "an hour and a half": the half of an hour, but only when no half came before the unit.
+        if unit == 3_600, !halved, hasHalf(t, i + used) {
+            amount += 0.5
+            used += 3
+        }
+        return (amount * unit, used, unit == 3_600)
+    }
+
+    private func hasHalf(_ t: SearchTokens, _ i: Int) -> Bool {
+        t.word(i) == "and" && t.word(i + 1) == "a" && t.word(i + 2) == "half"
     }
 
     private static func unitSeconds(_ unit: String) -> TimeInterval? {
