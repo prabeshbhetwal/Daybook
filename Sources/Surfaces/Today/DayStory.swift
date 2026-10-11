@@ -162,9 +162,8 @@ struct DayStory: View {
                 }
             }
             if entries.isEmpty { empty }
-            let machineEvents = store.machineEvents(on: projection?.date ?? store.selectedDay)
-            if !machineEvents.isEmpty {
-                DayMachineEvents(events: machineEvents)
+            if let account = store.macAccount(on: projection?.date ?? store.selectedDay) {
+                DayMachineEvents(account: account)
                     .padding(.leading, (showsTimes ? timeColumn : 0) + railColumn)
                     .padding(.top, Tokens.Space.s)
             }
