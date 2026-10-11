@@ -14,8 +14,9 @@ import FoundationModels
 
 /// On Return, when the search box lists nothing, reads the unread words with
 /// Apple's on-device model. The model proposes phrases and the parser decides:
-/// only a phrase `SearchQuery` reads as exactly one phrase is taken, so a
-/// misreading by the model cannot become a filter the parser would not make.
+/// only a phrase `SearchQuery` reads as exactly one period, weekday or length
+/// phrase is taken. An app or category is never taken: the person names those
+/// with a capital, and the model is not asked for them.
 /// Taken phrases replace the unread words in the field as one undoable change.
 /// Nothing is stored, and the words leave the Mac nowhere.
 @MainActor final class SearchRescue: ObservableObject {
@@ -79,13 +80,14 @@ import FoundationModels
         rescuedTexts.formUnion(phrases)
     }
 
-    /// The phrases, trimmed, that the parser reads as one phrase and nothing else.
+    /// The phrases, trimmed, that the parser reads as one period, weekday or length phrase and nothing else.
     private func accepted(_ phrases: [String], _ store: SessionStore) -> [String] {
         var taken: [String] = []
         for phrase in phrases.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }) where !taken.contains(phrase) {
             let parsed = SearchQuery.parse(phrase, now: store.now(), calendar: store.periodCalendar,
                                            apps: store.historyAppNames, categories: WorkType.allCases)
-            if parsed.phrases.count == 1, parsed.leftover.isEmpty { taken.append(phrase) }
+            if parsed.phrases.count == 1, parsed.leftover.isEmpty,
+               [.period, .weekdays, .length].contains(parsed.phrases[0].kind) { taken.append(phrase) }
         }
         return taken
     }

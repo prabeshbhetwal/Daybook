@@ -13,6 +13,7 @@ enum HistorySearchRescueChecks: CheckSuite {
         ("A rescue never adds words and never empties a search without a phrase", keptWords),
         ("A failed or outdated reply changes nothing", failedOrStale),
         ("Undo restores the typed text", undo),
+        ("A rescue never takes an app or category name", noNames),
     ]
 
     private typealias Fixture = AskLookupChecks.Fixture
@@ -160,6 +161,28 @@ enum HistorySearchRescueChecks: CheckSuite {
             }
             expect(f.store.historySearchText == "zzzz" && off.rescuedTexts.isEmpty,
                    "a reply after the switch went off changed the field", &problems)
+        }
+    }
+
+    private static func noNames() -> [String] {
+        fixture { f, problems in
+            let text = "notes fortnight"
+            f.store.refreshReview()
+            f.store.historyAppNames["com.apple.Notes"] = "Notes"
+            let names = f.store.historyAppNames.values.sorted() + [WorkType.breakTime.displayName]
+            expect(names.contains("Safari") && names.contains("Notes"), "the fixture names no app: \(names)", &problems)
+            for name in names {
+                let (rescue, asked) = press(f, text, [name], ["notes"])
+                expect(asked.words.count == 1, "the model was not asked for \(name)", &problems)
+                expect(f.store.historySearchText == text && f.store.historyFilter.appBundleID == nil
+                       && f.store.historyFilter.workType == nil,
+                       "\(name) changed the field to “\(f.store.historySearchText)”", &problems)
+                expect(rescue.rescuedTexts.isEmpty, "\(name) was marked: \(rescue.rescuedTexts)", &problems)
+            }
+            // A name beside a real phrase is dropped; the phrase is taken.
+            _ = press(f, text, ["Safari", "last week"], [])
+            expect(f.store.historySearchText == "last week", "a name beside a phrase read “\(f.store.historySearchText)”",
+                   &problems)
         }
     }
 
