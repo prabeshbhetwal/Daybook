@@ -203,7 +203,9 @@ struct MainWindowView: View {
     }
 
     private func sheetBody(_ presented: StorySheetKind) -> some View {
-        StorySheet(title: presented.title, onClose: { navigation.closeSheet() }) {
+        StorySheet(title: presented.title, onClose: { navigation.closeSheet() }, accessory: {
+            if presented == .ask, let ask = navigation.askModel { AskNewChatButton(model: ask) }
+        }) {
                 switch presented {
                 case .settings:
                     SettingsView(model: settings, navigation: navigation,
@@ -289,13 +291,50 @@ struct StoryCanvas: View {
 
 /// A sheet that arrives from under the chrome, over a scrim. Escape and the
 /// close control both dismiss it; nothing behind it is unloaded.
-struct StorySheet<Content: View>: View {
+struct StorySheet<Content: View, Accessory: View>: View {
     let title: String
     let onClose: () -> Void
-    @ViewBuilder let content: Content
+    /// Beside the close control, for the one sheet that has a control of its
+    /// own in its header (Ask's New chat).
+    let accessory: Accessory
+    let content: Content
     /// A rule or category form open inside the sheet. While there is one,
     /// Escape cancels it instead of closing the sheet over its draft.
     @StateObject private var openForm = OpenInlineFormBox()
+
+    init(title: String, onClose: @escaping () -> Void,
+         @ViewBuilder accessory: () -> Accessory, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.onClose = onClose
+        self.accessory = accessory()
+        self.content = content()
+    }
+
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "xmark")
+                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                       height: AccessibilityMetrics.minimumTargetSize)
+        }
+            .buttonStyle(StoryPressStyle())
+            .keyboardShortcut(openForm.value == nil ? .cancelAction : nil)
+            .help("Close \(title)")
+            .accessibilityLabel("Close \(title)")
+            // Behind Close rather than beside it: a stack spaces
+            // even an empty view, and Close moved while a form was open.
+            .background {
+                if let form = openForm.value {
+                    // Escape's owner while a form is open; clicking
+                    // Close still closes the sheet.
+                    Button("Cancel \(form.name)", action: form.cancel)
+                        .keyboardShortcut(.cancelAction)
+                        .frame(width: 0, height: 0)
+                        .opacity(0)
+                        .accessibilityHidden(true)
+                }
+            }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
                 HStack {
@@ -303,28 +342,10 @@ struct StorySheet<Content: View>: View {
                         .font(Tokens.Typography.heading)
                         .accessibilityAddTraits(.isHeader)
                     Spacer(minLength: Tokens.Space.m)
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .frame(width: AccessibilityMetrics.minimumTargetSize,
-                                   height: AccessibilityMetrics.minimumTargetSize)
+                    HStack(spacing: Tokens.Space.s) {
+                        accessory
+                        closeButton
                     }
-                        .buttonStyle(StoryPressStyle())
-                        .keyboardShortcut(openForm.value == nil ? .cancelAction : nil)
-                        .help("Close \(title)")
-                        .accessibilityLabel("Close \(title)")
-                        // Behind Close rather than beside it: a stack spaces
-                        // even an empty view, and Close moved while a form was open.
-                        .background {
-                            if let form = openForm.value {
-                                // Escape's owner while a form is open; clicking
-                                // Close still closes the sheet.
-                                Button("Cancel \(form.name)", action: form.cancel)
-                                    .keyboardShortcut(.cancelAction)
-                                    .frame(width: 0, height: 0)
-                                    .opacity(0)
-                                    .accessibilityHidden(true)
-                            }
-                        }
                 }
                 .padding(.horizontal, Tokens.Space.xl)
                 .padding(.vertical, Tokens.Space.m)
@@ -339,6 +360,14 @@ struct StorySheet<Content: View>: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
         .accessibilityAddTraits(.isModal)
+    }
+}
+
+extension StorySheet where Accessory == EmptyView {
+    /// A sheet whose header holds only its title and Close: Settings, Awards
+    /// and the session report.
+    init(title: String, onClose: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.init(title: title, onClose: onClose, accessory: { EmptyView() }, content: content)
     }
 }
 

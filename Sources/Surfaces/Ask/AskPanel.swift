@@ -37,7 +37,7 @@ struct AskPanel: View {
         VStack(spacing: 0) {
             header
             Divider()
-            AskChatView(model: model, onFollow: navigation.follow, showsNewChat: false)
+            AskChatView(model: model, onFollow: navigation.follow)
                 // The panel is always narrow, so every source sets its role under its label.
                 .environment(\.stacksAskSources, true)
         }
@@ -55,11 +55,7 @@ struct AskPanel: View {
                 .font(Tokens.Typography.heading)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: Tokens.Space.s)
-            if !model.turns.isEmpty {
-                Button("New chat") { model.newChat() }
-                    .buttonStyle(StoryActionStyle())
-                    .fixedSize()
-            }
+            AskNewChatButton(model: model)
             IconButton(systemImage: "xmark", help: "Close Ask (⌘K)", action: navigation.closeAskPanel)
         }
         .padding(.horizontal, Tokens.Space.xl)

@@ -8,9 +8,6 @@ struct AskChatView: View {
     @ObservedObject var model: AskModel
     /// What a source, in the text or in the list, opens.
     let onFollow: (AskLink) -> Void
-    /// Whether the footer carries "New chat". The side panel has its own in
-    /// its header, and one is enough.
-    let showsNewChat: Bool
     /// The field's own text. Emptied once a question starts an answer.
     @State private var text = ""
     @FocusState private var fieldFocused: Bool
@@ -20,10 +17,9 @@ struct AskChatView: View {
     /// the cursor out of History.
     @State private var askedFromField = false
 
-    init(model: AskModel, onFollow: @escaping (AskLink) -> Void, showsNewChat: Bool = true) {
+    init(model: AskModel, onFollow: @escaping (AskLink) -> Void) {
         self.model = model
         self.onFollow = onFollow
-        self.showsNewChat = showsNewChat
     }
 
     /// What Ask says aloud when an answer finishes: the answer, then its sources.
@@ -43,9 +39,8 @@ struct AskChatView: View {
             model.prepare()
             focusField()
         }
-        // A new chat, from the footer or from outside this view (the panel's
-        // header), forgets what was typed and leaves the cursor where the next
-        // question goes.
+        // A new chat, from outside this view (the header's button), forgets
+        // what was typed and leaves the cursor where the next question goes.
         .onChange(of: model.turns.isEmpty) { _, isEmpty in
             guard isEmpty else { return }
             text = ""
@@ -187,20 +182,14 @@ struct AskChatView: View {
     /// Who answers, under Apple's own mark for it: the one place the
     /// Apple Intelligence glyph may stand, since it names Apple Intelligence.
     private var footer: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
-                Image(systemName: "apple.intelligence")
-                    .accessibilityHidden(true)
-                Text("Answered by Apple Intelligence on this Mac. Nothing leaves it.")
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .font(Tokens.Typography.body)
-            .foregroundStyle(StoryStyle.supportingInk)
-            Spacer(minLength: Tokens.Space.s)
-            if showsNewChat, !model.turns.isEmpty {
-                Button("New chat") { model.newChat() }
-                    .buttonStyle(StoryActionStyle())
-            }
+        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
+            Image(systemName: "apple.intelligence")
+                .accessibilityHidden(true)
+            Text("Answered by Apple Intelligence on this Mac. Nothing leaves it.")
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
         }
+        .font(Tokens.Typography.body)
+        .foregroundStyle(StoryStyle.supportingInk)
     }
 }

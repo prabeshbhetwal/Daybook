@@ -5,11 +5,12 @@ import SwiftUI
 /// itself in the window. The chat both places show is checked in
 /// `AskChatSurfaceChecks`, the panel's place in a squeezed window in
 /// `AskPanelLayoutChecks` and whether its supporting text can be read in
-/// `AskLegibilityChecks`, and the sheet it falls back to on a screen too small
-/// for the panel in `AskPanelFallbackChecks`; all are listed here.
+/// `AskLegibilityChecks`, the sheet it falls back to on a screen too small for
+/// the panel in `AskPanelFallbackChecks` and where New chat stands in
+/// `AskNewChatChecks`; all are listed here.
 enum AskPanelChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = ownTests + AskChatSurfaceChecks.tests + AskPanelLayoutChecks.tests
-        + AskLegibilityChecks.tests + AskPanelFallbackChecks.tests
+        + AskLegibilityChecks.tests + AskPanelFallbackChecks.tests + AskNewChatChecks.tests
 
     private static let ownTests: [(String, () -> [String])] = [
         ("Ask opens as a sheet until the side panel is chosen, and the choice is saved", placementSavedDefaultSheet),

@@ -302,7 +302,7 @@ Sheet: 640 by 600 points at 100%, shrinking with the window as v1's does
 (v1 was 520 tall; the transcript needs the room).
 
 ```
-┌─ Ask Daybook ─────────────────────────────────────────── ✕ ┐
+┌─ Ask Daybook ───────────────────────────────── New chat  ✕ ┐
 │                         ╭ How much did I focus in August? ╮│  question: quiet neutral pill, trailing
 │                                                            │
 │  In August 2026 you focused 60h 54m over 63 sessions on    │  answer: prose, not a bubble
@@ -319,13 +319,17 @@ Sheet: 640 by 600 points at 100%, shrinking with the window as v1's does
 │ │ Ask about your focus…                          │         │
 │ ╰────────────────────────────────────────────────╯         │
 │ (Apple Intelligence glyph) Answered by Apple Intelligence  │
-│ on this Mac. Nothing leaves it.                  New chat  │
+│ on this Mac. Nothing leaves it.                            │
 └────────────────────────────────────────────────────────────┘
 ```
 
 Empty chat: "Ask about your focus. Each answer lists the days and sessions it
 came from." then "Try asking" and v1's four example questions, each asking itself.
 
+- New chat is in the header, beside the close button, in the sheet as in the
+  panel (the same button, in the same style): it appears once the chat has a
+  turn, and it empties the chat, the draft included. The footer carries only
+  the line naming who answers.
 - The transcript scrolls and stays at the bottom while an answer streams
   (`defaultScrollAnchor(.bottom)`, macOS 14).
 - The field stays editable while an answer is worked out; ↩ does nothing

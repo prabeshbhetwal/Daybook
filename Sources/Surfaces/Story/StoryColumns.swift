@@ -9,6 +9,7 @@ enum StoryRenderEvidence: String, Hashable {
     case askButtonWithWord
     case askButtonActive
     case askPanel
+    case askNewChat
     case askTranscript
     case askSources
     case historyEmpty
