@@ -18,6 +18,8 @@ extension Snapshotter {
             return [augustTurn, AskTurn(question: "And in September?",
                                         answer: "In September 2026 you focused 52h 10m over 58 sessi",
                                         state: .stopped, provenance: ["focus totals (September 2026)"])]
+        case .askGoals:
+            return [goalsTurn]
         default:
             return []
         }
@@ -80,5 +82,22 @@ extension Snapshotter {
         ]
         return AskTurn(question: "Which was my longest session in September?", answer: answer, state: .answered,
                        provenance: ["find sessions (September 2026)"], sources: sources)
+    }
+
+    /// The goal, the streak and a session, so the list shows a calendar, a rosette and a clock row.
+    private static var goalsTurn: AskTurn {
+        let answer = "This week you met your goal on 3 of 5 days, and your current streak is 5 days, "
+            + "since Fri 10 Nov. You worked on Thesis most."
+        let week = AskLink(target: .period(HistoryPlace(level: .week, span: DateInterval(start: date(2023, 11, 13),
+                                                                                         end: date(2023, 11, 20)))),
+                           label: "This week", role: .dailyGoal)
+        let awards = AskLink(target: .awards, label: "Awards", role: .streakAndAwards)
+        let thesis = AskLink(target: .session(thread: UUID(), day: date(2023, 11, 13)),
+                             label: "Thesis \u{00B7} Mon 13 Nov", role: .stretches, sessionName: "Thesis")
+        return AskTurn(question: "Did I keep my streak going this week?", answer: answer, state: .answered,
+                       provenance: ["daily goal (this week)", "streak and awards"],
+                       sources: [source(week, "This week", in: answer),
+                                 source(awards, "current streak", in: answer),
+                                 source(thesis, "Thesis", in: answer)])
     }
 }
