@@ -77,7 +77,7 @@ struct ActivityChooser: View {
             .menuStyle(.button)
             .buttonStyle(.bordered)
             .controlSize(Tokens.Zoom.controlSize(.large))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityLabel("Choose an activity")

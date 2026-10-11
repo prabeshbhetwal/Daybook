@@ -164,7 +164,7 @@ struct StoryRail: View {
                                                         : AnyShapeStyle(Tokens.Colour.elevated),
                                 in: Circle())
                     .foregroundStyle(arrangement.isArranging ? AnyShapeStyle(Tokens.Colour.onFocus)
-                                                             : AnyShapeStyle(.secondary))
+                                                             : AnyShapeStyle(StoryStyle.supportingInk))
                     .contentShape(Circle())
             }
             .buttonStyle(PressableStyle())
@@ -180,7 +180,7 @@ struct StoryRail: View {
                 }
                 .buttonStyle(StoryPressStyle())
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityLabel("Reset card order")
             }
         }
@@ -228,7 +228,7 @@ struct StoryRail: View {
             if let note = footnote(shownTiles) {
                 Text(note)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -357,12 +357,12 @@ struct StoryRail: View {
                         Text(durations: "counts towards your \(Tokens.duration(goal.goal)) goal"
                              + (goal.isMet ? " · goal met" : ""))
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .fixedSize(horizontal: false, vertical: true)
                     } else {
                         Text("No daily goal set")
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                     }
                 }
                 Spacer(minLength: 0)
@@ -379,7 +379,7 @@ struct StoryRail: View {
                let equation = StoryRailFigures.goalEquation(logged: evidence.focused, counted: goal.achieved) {
                 Text(durations: equation)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .help("Only focus with app use recorded counts towards the goal.")
                     .accessibilityHint("Only focus with app use recorded counts towards the goal.")
@@ -424,7 +424,7 @@ struct StoryRail: View {
                              + (share >= 1 ? " · met" : ""))
                             .font(Tokens.Typography.body.monospacedDigit())
                             .foregroundStyle(share >= 1 ? AnyShapeStyle(StoryStyle.successInk)
-                                                        : AnyShapeStyle(.secondary))
+                                                        : AnyShapeStyle(StoryStyle.supportingInk))
                     }
                     GeometryReader { geometry in
                         Capsule().fill(StoryStyle.line)
@@ -472,7 +472,7 @@ struct StoryRail: View {
                     .font(Tokens.Typography.heading.monospacedDigit())
                 Text("recorded app use")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             if trackedValue > 0 {
                 // Three parts that add up to the figure above: the goal's
@@ -525,11 +525,11 @@ struct StoryRail: View {
                 .frame(width: 10.zoomed, height: 10.zoomed)
             Text(label)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
             Spacer(minLength: Tokens.Space.xs)
             Text(value)
                 .font(Tokens.Typography.label.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(DurationText.spoken(in: "\(label), \(value)"))
@@ -567,7 +567,7 @@ struct StoryRail: View {
             if let peak = rhythmPeak {
                 Text("Most recorded app use: \(peak).")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -597,7 +597,7 @@ struct StoryRail: View {
                 Text(durations: "Last 14 days. A day counts once it has "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 // The word is about 15pt tall. The padding lifts the target
@@ -665,14 +665,14 @@ struct StoryTile<Content: View>: View {
             HStack {
                 Text(title)
                     .font(Tokens.Typography.label)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: Tokens.Space.xs)
                 if let trailing {
                     // Any card may put a duration here; it is spoken in words.
                     Text(durations: trailing)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .lineLimit(1)
                 }
                 if let moves {

@@ -154,7 +154,7 @@ struct DayStory: View {
                 case .quiet(let run):
                     quietRow(run, isFirst: isFirst, isLast: isLast)
                 case .machineRun(let run):
-                    storyRow(time: run.pins.first?.event.at ?? store.selectedDay, tint: .secondary,
+                    storyRow(time: run.pins.first?.event.at ?? store.selectedDay, tint: .secondary, // ink: quiet, a dot on the story's rule
                              dotSize: 5.zoomed, pin: run.ruleKind?.pin, isFirst: isFirst, isLast: isLast) {
                         StoryMachineRunCard(run: run, isOpen: opened.ids.contains(run.id),
                                             onToggle: { toggle(run.id) })
@@ -192,16 +192,16 @@ struct DayStory: View {
         let key = "quiet-" + run.id
         let isOpen = opened.ids.contains(key)
         storyRow(time: run.moments.first?.start ?? store.selectedDay,
-                 tint: .secondary, dotSize: 5.zoomed, isFirst: isFirst, isLast: isLast) {
+                 tint: .secondary, dotSize: 5.zoomed, isFirst: isFirst, isLast: isLast) { // ink: quiet, a dot on the story's rule
             Button { toggle(key) } label: {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                     Text(run.summary)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                     Spacer(minLength: Tokens.Space.xs)
                     Image(systemName: "chevron.down")
                         .font(Tokens.Typography.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
                 .padding(.vertical, 10.zoomed)
@@ -230,7 +230,7 @@ struct DayStory: View {
                 case .entry(let entry):
                     row(entry, isFirst: isFirst, isLast: isLast)
                 case .unrecorded(let span, let reason):
-                    storyRow(time: span.start, tint: .secondary, dotSize: 5.zoomed, pin: reason.pin,
+                    storyRow(time: span.start, tint: .secondary, dotSize: 5.zoomed, pin: reason.pin, // ink: quiet, a dot on the story's rule
                              isFirst: isFirst, isLast: isLast) {
                         StoryGapCard(span: span, reason: reason, anatomy: store.gapAnatomy(of: span),
                                      power: store.ambientPowerSummary(within: span),
@@ -238,7 +238,7 @@ struct DayStory: View {
                                      onToggle: { toggle(item.id) })
                     }
                 case .machine(let event, let resumed):
-                    storyRow(time: event.at, tint: .secondary, dotSize: 5.zoomed, pin: event.kind.pin,
+                    storyRow(time: event.at, tint: .secondary, dotSize: 5.zoomed, pin: event.kind.pin, // ink: quiet, a dot on the story's rule
                              isFirst: isFirst, isLast: isLast) {
                         StoryMachinePin(event: event, resumed: resumed)
                     }
@@ -381,7 +381,7 @@ struct DayStory: View {
               // the small ones.
               Text(Tokens.timeOfDayOnly(time))
                 .font(Tokens.Typography.body.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .frame(width: timeColumn, height: DayStory.dotCentre * 2, alignment: .trailing)
                 .accessibilityHidden(true)
             }
@@ -418,7 +418,7 @@ struct DayStory: View {
                         .foregroundStyle(pin.tint)
                         .frame(width: 17.zoomed, height: 17.zoomed)
                         .background(Circle().fill(StoryStyle.canvas))
-                        .overlay(Circle().strokeBorder(Color.secondary.opacity(0.45), lineWidth: 1))
+                        .overlay(Circle().strokeBorder(Color.secondary.opacity(0.45), lineWidth: 1)) // ink: quiet, a drawn mark
                         .offset(y: dotCentre - 17.zoomed / 2)
                 } else {
                     Circle()
@@ -448,7 +448,7 @@ struct DayStory: View {
                  ? "Start a focus session, or let app recording build the day's story."
                  : "Start a focus session to begin the day's story.")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .padding(.vertical, Tokens.Space.m)
         }
     }
@@ -550,11 +550,11 @@ struct SessionEntryCard: View {
                             }
                             Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
                                 .font(Tokens.Typography.body)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(StoryStyle.supportingInk)
                             if session.stretches > 1 {
                                 Text("· \(session.stretches) stretches")
                                     .font(Tokens.Typography.body)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(StoryStyle.supportingInk)
                                     .help("This session ran as \(session.stretches) separate stretches; "
                                           + "the gaps between them are not counted.")
                             }
@@ -585,7 +585,7 @@ struct SessionEntryCard: View {
                             Image(systemName: editing.value ? "checkmark.circle.fill" : "pencil")
                                 .font(editing.value ? Tokens.Typography.heading : Tokens.Typography.label)
                                 .foregroundStyle(editing.value ? AnyShapeStyle(StoryStyle.action)
-                                                               : AnyShapeStyle(.secondary))
+                                                               : AnyShapeStyle(StoryStyle.supportingInk))
                                 // A full-size target around the same glyph;
                                 // the offset below takes back the extra 3pt
                                 // so the glyph stays where it was.
@@ -619,18 +619,18 @@ struct SessionEntryCard: View {
                             }
                             .font(Tokens.Typography.body.weight(clock == nil ? .regular : .semibold)
                                 .monospacedDigit())
-                            .foregroundStyle(clock == nil ? AnyShapeStyle(.secondary)
+                            .foregroundStyle(clock == nil ? AnyShapeStyle(StoryStyle.supportingInk)
                                                           : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
                             if let powerSummary {
                                 Label(powerSummary.headline, systemImage: powerSummary.symbolName)
-                                    .font(Tokens.Typography.caption).foregroundStyle(.secondary)
+                                    .font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
                             }
                         }
                         // One glyph turned, as History's rows do: the two
                         // glyphs differ in width and moved the time beside them.
                         Image(systemName: "chevron.right")
                             .font(Tokens.Typography.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .rotationEffect(.degrees(isOpen ? 90 : 0))
                     }
                     .padding(StoryStyle.entryInsets(for: density))
@@ -676,7 +676,7 @@ struct SessionEntryCard: View {
                     // than promising recording that will not come.
                     Text(shapeCaption ?? (activity == nil
                                           ? "Recording will appear here as the session continues." : ""))
-                        .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                        .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if showsActivityStrip, let activity {
@@ -729,10 +729,10 @@ struct SessionEntryCard: View {
                 if let prefix {
                     Text(prefix)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                     Text("·")
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                 }
                 Button(title) { openSessionReport(session) }
                     .buttonStyle(StoryLinkStyle())
@@ -756,13 +756,13 @@ struct SessionEntryCard: View {
         if let shape {
             Text(shape)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
         if let shapeCaption {
             Text(shapeCaption)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -770,7 +770,7 @@ struct SessionEntryCard: View {
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
             .font(Tokens.Typography.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .textCase(.uppercase)
             .accessibilityAddTraits(.isHeader)
     }
@@ -837,7 +837,7 @@ struct SessionEntryCard: View {
             // its confirmation, and a note belongs to one stretch.
             if editing.value {
                 Text("Name and category changes apply to all stretches of this session, including other days.")
-                    .font(Tokens.Typography.body).foregroundStyle(.secondary)
+                    .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -863,7 +863,7 @@ struct SessionEntryCard: View {
                 .accessibilityLabel("Session power metadata error. \(error)")
         }
         if let detail = powerSummary?.detail {
-            Text(detail).font(Tokens.Typography.body).foregroundStyle(.secondary)
+            Text(detail).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel("Recorded power context. \(detail)")
         }
@@ -873,7 +873,7 @@ struct SessionEntryCard: View {
                    !metadataStore.expandedNoteEditorIDs.contains(recordID) {
                     HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                         Text(note).font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: Tokens.Space.xs)
                         Button { metadataStore.beginNoteEditing(for: recordID) } label: {
@@ -883,7 +883,7 @@ struct SessionEntryCard: View {
                                        alignment: .trailing)
                                 .contentShape(Rectangle())
                         }
-                            .buttonStyle(StoryPressStyle()).font(Tokens.Typography.body).foregroundStyle(.secondary)
+                            .buttonStyle(StoryPressStyle()).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                             .accessibilityLabel("Edit note for stretch \(noteRecordIDs.firstIndex(of: recordID).map { $0 + 1 } ?? 1)")
                     }
                 }
@@ -913,7 +913,7 @@ struct SessionEntryCard: View {
                                               : Tokens.Colour.elevated,
                                     in: Capsule())
                         .foregroundStyle(isCurrent ? AnyShapeStyle(StoryStyle.workTypeInk(type))
-                                                   : AnyShapeStyle(.secondary))
+                                                   : AnyShapeStyle(StoryStyle.supportingInk))
                         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                         .contentShape(Rectangle())
                 }

@@ -51,6 +51,17 @@ identities; app colours are consistent within
 the day or month shown. Colour never implies goal credit where only focused duration
 is known. Native controls preserve visible keyboard focus.
 
+Supporting text that has to be read (a role under a label, a footer line, a
+placeholder, a state not reached yet such as an award still to earn) is
+`StoryStyle.supportingInk`, the primary ink at 75%, and so is a symbol beside
+it. The system's secondary ink is 3.8:1 on the light surfaces, under the 4.5:1
+text needs; this is 5.3:1 or better in rendered pixels on every surface and
+wash, in both appearances. A dimmed state shows through its words and marks,
+not through ink too pale to read. `.secondary` stays only where nothing is read
+in it: a drawn mark (a dot, a stroke, a fill), a disabled control, display-size
+type and the menu bar item. Each such line says `// ink: quiet` and why;
+`build.sh` fails any other.
+
 ## Components
 
 - History journal: one list, newest first. A month header carries the month's
@@ -87,8 +98,10 @@ Ask is a capsule, not a circle: the sparkles and the word "Ask", because an
 icon alone would leave Ask as hidden as ⌘K. The sparkles take the
 `askSparkles` gradient; Apple's Apple Intelligence glyph may only name
 Apple Intelligence, so it appears only in the Ask sheet's line saying who
-answers. Short of room, the word goes and the sparkles stay. The button is
-absent on a Mac that can never run Ask and when its Settings switch is off.
+answers. Short of room, the word goes and the sparkles stay. While Ask's side
+panel is open the button is pressed in and ringed in the action colour, which
+tells it from a hover. The button is absent on a Mac that can never run Ask and
+when its Settings switch is off.
 
 ## Vocabulary
 

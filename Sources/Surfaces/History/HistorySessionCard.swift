@@ -44,14 +44,14 @@ struct HistorySessionRow: View {
                 Spacer(minLength: Tokens.Space.s)
                 Text(durations: session.isRunning ? "in progress" : Tokens.duration(session.worked))
                     .font(Tokens.Typography.body.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 Image(systemName: "chevron.right")
                     .font(Tokens.Typography.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             Text(subline)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(2)
             if let note, !note.isEmpty {
                 Text("“\(note)”")
@@ -105,14 +105,14 @@ struct HistorySessionRow: View {
                 Text(Tokens.timeOfDayOnly(use.span.end))
             }
             .font(Tokens.Typography.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             HStack(spacing: Tokens.Space.s) {
                 if let bundleID { AppIcon(bundleID: bundleID, size: 16.zoomed, appName: appName ?? "") }
                 Text(durations: Self.figure(use.seconds))
                     .font(Tokens.Typography.label)
                 Text("of this session · \(share)")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             .padding(.top, Tokens.Space.xs)
         }
@@ -154,7 +154,7 @@ struct HistorySessionRow: View {
     private func legend(_ colour: Color, _ label: String) -> some View {
         HStack(spacing: Tokens.Space.xs) {
             RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9.zoomed, height: 9.zoomed)
-            Text(label).font(Tokens.Typography.caption).foregroundStyle(.secondary).lineLimit(1)
+            Text(label).font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk).lineLimit(1)
         }
     }
 

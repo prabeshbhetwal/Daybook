@@ -58,7 +58,7 @@ struct HistoryPathBar: View {
                         .accessibilityHidden(true)
                 }
                 Button(crumb.title) { onSelect(crumb) }
-                    .buttonStyle(StoryLinkStyle(tint: isCurrent ? .primary : .secondary))
+                    .buttonStyle(StoryLinkStyle(tint: isCurrent ? .primary : StoryStyle.supportingInk))
                     .help("Go to \(crumb.title)")
                     .accessibilityLabel(isCurrent ? "\(crumb.title), current place" : "Go to \(crumb.title)")
             }

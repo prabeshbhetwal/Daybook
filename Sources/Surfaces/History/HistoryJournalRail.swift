@@ -118,7 +118,7 @@ struct HistoryRailHeading: View {
             if let detail {
                 Text(durations: detail)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
         }
     }
@@ -179,7 +179,7 @@ struct HistoryPeriodRail: View {
                     if isCurrentMonth, let placed = surface.categories {
                         Text("Where each lands in the day: \(placed.headline).")
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -190,7 +190,7 @@ struct HistoryPeriodRail: View {
                         .font(Tokens.Typography.heading)
                     Text(durations: HistoryHours.note(seconds: window.seconds, phrase: facts.bestWindowPhrase))
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -214,7 +214,7 @@ struct HistoryPeriodRail: View {
                     .font(Tokens.Typography.heading)
                 Text(durations: "\(Tokens.duration(best.focused)) focused")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
         }
     }
@@ -240,7 +240,7 @@ struct HistoryPeriodRail: View {
                         Spacer(minLength: Tokens.Space.s)
                         Text("\(rate.metDays) of \(rate.focusedDays)")
                             .font(Tokens.Typography.body.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                     }
                     GeometryReader { geometry in
                         Capsule().fill(StoryStyle.line)
@@ -265,7 +265,7 @@ struct HistoryPeriodRail: View {
             if tracked > 0 {
                 Text(durations: Self.appUseLine(tracked: tracked))
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
                 StoryAppRow(app: app, rank: index)
@@ -276,7 +276,7 @@ struct HistoryPeriodRail: View {
     @ViewBuilder private func soFar(_ surface: InsightSurface) -> some View {
         Text("This month so far")
             .font(Tokens.Typography.label)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .accessibilityAddTraits(.isHeader)
             .padding(.top, Tokens.Space.s)
         if surface.hasEvidence {
@@ -286,7 +286,7 @@ struct HistoryPeriodRail: View {
         } else {
             Text(InsightSurface.insufficientEvidenceCopy)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -317,7 +317,7 @@ struct HistorySessionRail: View {
                     .font(Tokens.Typography.figure)
                 Text(Tokens.timeRange(session.start, session.end))
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 if session.spans.count > 1 {
                     VStack(alignment: .leading, spacing: 2.zoomed) {
                         Text("\(session.spans.count) stretches")
@@ -325,7 +325,7 @@ struct HistorySessionRail: View {
                         ForEach(Array(session.spans.enumerated()), id: \.offset) { _, span in
                             Text(Tokens.timeRange(span.start, span.end))
                                 .font(Tokens.Typography.body.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(StoryStyle.supportingInk)
                         }
                     }
                 }
@@ -344,7 +344,7 @@ struct HistorySessionRail: View {
                     ForEach(Array(notes.enumerated()), id: \.offset) { _, text in
                         Text(text)
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

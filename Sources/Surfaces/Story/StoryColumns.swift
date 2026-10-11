@@ -7,6 +7,11 @@ enum StoryRenderEvidence: String, Hashable {
     case storyChromeControls
     case askButton
     case askButtonWithWord
+    case askButtonActive
+    case askPanel
+    case askNewChat
+    case askTranscript
+    case askSources
     case historyEmpty
     case historyIntegrityNotice
     case historyPeriodRail
@@ -105,7 +110,7 @@ struct StoryHeadline: View {
             Text(eyebrow.uppercased())
                 .font(Tokens.Typography.eyebrow)
                 .kerning(0.8.zoomed)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
             emphasised
                 .font(Tokens.Typography.headline)
                 .fixedSize(horizontal: false, vertical: true)
@@ -113,7 +118,7 @@ struct StoryHeadline: View {
             if !facts.isEmpty {
                 Text(facts.joined(separator: "  ·  "))
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -186,7 +191,7 @@ struct ProjectedDayStoryColumn: View {
             } else if !facts.isEmpty {
                 Text(facts.joined(separator: "  ·  "))
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             StoryCorrectionNotice(store: store)
@@ -202,7 +207,7 @@ struct ProjectedDayStoryColumn: View {
                                 Text("•").accessibilityHidden(true)
                                 Text(fact)
                                 .font(Tokens.Typography.body)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(StoryStyle.supportingInk)
                                 .fixedSize(horizontal: false, vertical: true)
                             }
                         }

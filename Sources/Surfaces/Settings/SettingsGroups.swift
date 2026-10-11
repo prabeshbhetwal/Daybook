@@ -143,14 +143,14 @@ struct SettingsGroups: View {
                             .accessibilityHidden(true)
                         Text(entry.action)
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(entry.action), \(entry.spoken)")
                 }
                 Text(Self.pauseOrAwayNote)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, Tokens.Space.xs)
             }
@@ -165,7 +165,7 @@ struct SettingsGroups: View {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                 Text("Start or end a session from any app")
                     .font(Tokens.Typography.rowTitle)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 Spacer(minLength: Tokens.Space.m)
                 ShortcutRecorder(shortcut: model.globalShortcut) { model.setGlobalShortcut($0) }
                 if model.globalShortcut != .standard {
@@ -382,7 +382,7 @@ struct SettingsGroups: View {
                                     .font(Tokens.Typography.control)
                                 Text(tier.reason)
                                     .font(Tokens.Typography.body)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(StoryStyle.supportingInk)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -392,7 +392,7 @@ struct SettingsGroups: View {
                     // "Timed from use, not sessions" is the switch's own detail.
                     Text("A short break resets the short timer only; the longer ones keep running.")
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.leading, 26.zoomed)
@@ -765,7 +765,7 @@ struct SettingsGroups: View {
                 if let detail {
                     Text(detail)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -789,7 +789,7 @@ struct SettingsGroups: View {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                     Text(title)
                         .font(Tokens.Typography.rowTitle)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                     Spacer(minLength: Tokens.Space.m)
                     Text(value)
                         .font(Tokens.Typography.body)
@@ -799,7 +799,7 @@ struct SettingsGroups: View {
                 if let detail {
                     Text(detail)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -811,7 +811,7 @@ struct SettingsGroups: View {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text(title)
                     .font(Tokens.Typography.rowTitle)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                 Text(value)
                     .font(Tokens.Typography.rowTitle)
                     .fixedSize(horizontal: false, vertical: true)
@@ -820,7 +820,7 @@ struct SettingsGroups: View {
                 if let detail {
                     Text(detail)
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -841,7 +841,7 @@ struct SettingsGroups: View {
             .accessibilityHint(detail)
             Text(detail)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 22.zoomed)
                 .accessibilityHidden(true)
@@ -888,7 +888,7 @@ struct SettingsGroups: View {
     func explanation(_ text: String) -> some View {
         Text(text)
             .font(Tokens.Typography.body)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(StoryStyle.supportingInk)
             .fixedSize(horizontal: false, vertical: true)
     }
 

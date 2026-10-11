@@ -45,7 +45,9 @@ struct StoryChromeBar: View {
                     .coachAnchor(.sessionControl)
             }
             if showsAsk {
-                AskChromeButton { navigation.openAsk() }
+                AskChromeButton(isActive: navigation.askPanelOpen && navigation.askPlacement == .panel) {
+                    navigation.openAsk()
+                }
             }
             Button { navigation.openSheet(.settings) } label: {
                 Image(systemName: "gearshape")
@@ -58,7 +60,7 @@ struct StoryChromeBar: View {
                     .frame(width: AccessibilityMetrics.minimumTargetSize,
                            height: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.elevated, in: Circle())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
             }
             .buttonStyle(PressableStyle())
             .onHover { gearHovered.value = $0 }
@@ -224,13 +226,13 @@ struct StorySessionControl: View {
                         Divider().frame(height: 12.zoomed)
                         Text("Review away")
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                     } else if store.isPaused {
                         // A dimmer dot was the only sign the clock had stopped.
                         Divider().frame(height: 12.zoomed)
                         Text("Paused")
                             .font(Tokens.Typography.body)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                     }
                 }
                 .lineLimit(1)

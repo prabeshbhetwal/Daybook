@@ -103,7 +103,8 @@ enum AskEntryChecks: CheckSuite {
             model.ask(examples[0])
             InstalledAppCatalog.turnRunLoop(until: { !model.isAnswering }, timeout: 5)
             expect(asked == [examples[0]], "the example asked \(asked)", &problems)
-            expect(model.question == examples[0], "the sheet shows the question “\(model.question)”", &problems)
+            expect(model.turns.last?.question == examples[0],
+                   "the sheet shows the question “\(String(describing: model.turns.last?.question))”", &problems)
         }
         return problems
     }

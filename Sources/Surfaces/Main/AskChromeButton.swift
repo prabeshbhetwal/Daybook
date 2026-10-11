@@ -5,8 +5,11 @@ import SwiftUI
 /// and the word "Ask", and the help tag teaches the key. Apple's own
 /// Apple Intelligence glyph may only name Apple Intelligence, not an app's
 /// feature, so it is kept for the sheet's line about who answers. When the
-/// bar is short of room the word goes and the sparkles stay.
+/// bar is short of room the word goes and the sparkles stay. While Ask's side
+/// panel is open the button looks pressed, and the same press closes it.
 struct AskChromeButton: View {
+    /// Whether the side panel is open.
+    var isActive = false
     let action: () -> Void
 
     /// In the bar when Ask can run on this Mac and the Settings switch is on.
@@ -21,9 +24,10 @@ struct AskChromeButton: View {
             }
         }
         .buttonStyle(PressableStyle())
-        .help("Ask Daybook about your focus (⌘K)")
+        .help(isActive ? "Close Ask (⌘K)" : "Ask Daybook about your focus (⌘K)")
         .accessibilityLabel("Ask Daybook")
-        .accessibilityHint("Ask a question about your focus history")
+        .accessibilityHint(isActive ? "Closes the Ask panel" : "Ask a question about your focus history")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     private func label(withWord: Bool) -> some View {
@@ -40,7 +44,19 @@ struct AskChromeButton: View {
         .padding(.horizontal, withWord ? Tokens.Space.m : 0)
         .frame(minWidth: AccessibilityMetrics.minimumTargetSize,
                minHeight: AccessibilityMetrics.minimumTargetSize)
-        .background(Tokens.Colour.elevated, in: Capsule())
+        .background {
+            Capsule().fill(Tokens.Colour.elevated)
+            // Pressed in: the fill a step darker (lighter in the dark), and
+            // ringed in the action colour. The fill alone was 1.15:1 against
+            // the resting one, which is what a hover looks like.
+            if isActive {
+                Capsule().fill(Tokens.Colour.line)
+                    .storyRenderEvidence(.askButtonActive)
+            }
+        }
+        .overlay {
+            if isActive { Capsule().strokeBorder(StoryStyle.action, lineWidth: 1.zoomed) }
+        }
         .foregroundStyle(.primary)
         .storyRenderEvidence(withWord ? .askButtonWithWord : .askButton)
     }

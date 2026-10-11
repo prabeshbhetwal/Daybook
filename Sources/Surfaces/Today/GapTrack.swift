@@ -48,7 +48,7 @@ struct GapTrack: View {
                     }
                 }
                 .font(Tokens.Typography.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(1)
             }
         }

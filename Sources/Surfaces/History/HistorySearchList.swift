@@ -53,7 +53,7 @@ struct HistorySearchList: View {
                 case .month(let start):
                     Text(HistoryMonthHeader.title(start, in: store.periodCalendar.timeZone))
                         .font(Tokens.Typography.label)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .padding(.top, Tokens.Space.l)
                         .accessibilityAddTraits(.isHeader)
                 case .day(let date, let facts, let items):
@@ -64,7 +64,7 @@ struct HistorySearchList: View {
                         Spacer(minLength: Tokens.Space.s)
                         Text(durations: facts)
                             .font(Tokens.Typography.body.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(StoryStyle.supportingInk)
                     }
                     .padding(.top, Tokens.Space.m)
                     .padding(.bottom, Tokens.Space.s)
@@ -96,7 +96,7 @@ struct HistorySearchList: View {
                         .font(Tokens.Typography.label)
                     Text("in \(appName ?? "the app") outside a session · \(Tokens.timeRange(use.span.start, use.span.end))")
                         .font(Tokens.Typography.body)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.vertical, Tokens.Space.s)
@@ -106,7 +106,7 @@ struct HistorySearchList: View {
             HistorySpineItem(time: "", dot: .hollow(Tokens.Palette.app(rank: 1).opacity(0.5))) {
                 Text(durations: Self.passingLine(use, appName: appName ?? "the app"))
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, Tokens.Space.s)
             }
@@ -118,7 +118,7 @@ struct HistorySearchList: View {
                     Spacer(minLength: Tokens.Space.s)
                     Text(durations: Tokens.duration(rest.length))
                         .font(Tokens.Typography.body.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(StoryStyle.supportingInk)
                 }
                 .padding(.vertical, Tokens.Space.s)
             }
@@ -219,7 +219,7 @@ struct HistorySpineItem<Content: View>: View {
         HStack(alignment: .top, spacing: 0) {
             Text(time)
                 .font(Tokens.Typography.body.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(width: Self.gutter, alignment: .trailing)

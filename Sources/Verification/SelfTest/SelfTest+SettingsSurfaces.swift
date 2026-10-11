@@ -111,7 +111,7 @@ extension SelfTest {
             .openAtLogin, .menuBarTime, .menuBarIcon, .dockIcon, .updateChecks, .updateFrequency,
             .updateInstall, .railApps, .paceWindow, .suggestionWindow, .breakTiers, .quietFold,
             .confirmations, .backupSchedule, .backupRetention, .backupDestination,
-            .agentQuiet, .agentAppInFront, .appsAtWork, .keepAwake, .askButton
+            .agentQuiet, .agentAppInFront, .appsAtWork, .keepAwake, .askButton, .askPlacement
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,

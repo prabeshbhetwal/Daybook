@@ -19,9 +19,10 @@ enum SettingsLayout {
     /// fits it, never one that runs off the edge.
     static func sheetSize(for kind: StorySheetKind, within window: CGSize?) -> CGSize {
         // Ask is a small panel: it shrinks with the window and has no floor,
-        // since its content scrolls.
+        // since its content scrolls. Taller than a form: the transcript
+        // needs the room.
         if kind == .ask {
-            let wanted = CGSize(width: 640.zoomed, height: 520.zoomed)
+            let wanted = CGSize(width: 640.zoomed, height: 600.zoomed)
             guard let window else { return wanted }
             return CGSize(width: min(wanted.width, window.width - windowMargin * 2),
                           height: min(wanted.height, window.height - windowMargin * 2))
@@ -91,7 +92,7 @@ struct SettingsView: View {
         HStack(spacing: Tokens.Space.xs) {
             Image(systemName: "magnifyingglass")
                 .font(Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
             TextField("Search", text: $navigation.settingsQuery)
                 .textFieldStyle(.plain)
@@ -118,7 +119,7 @@ struct SettingsView: View {
                     .accessibilityAddTraits(.isHeader)
                 Text(page.summary)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(sections) { section in

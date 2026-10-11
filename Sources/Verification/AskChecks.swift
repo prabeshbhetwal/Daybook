@@ -287,8 +287,8 @@ enum AskChecks: CheckSuite {
         expect(size.width <= window.width && size.height <= window.height,
                "the Ask sheet is \(size) in a \(window) window", &problems)
         let roomy = SettingsLayout.sheetSize(for: .ask, within: CGSize(width: 1_400, height: 1_000))
-        expect(roomy == CGSize(width: 640.zoomed, height: 520.zoomed),
-               "the Ask sheet is \(roomy) in a roomy window, not 640 × 520", &problems)
+        expect(roomy == CGSize(width: 640.zoomed, height: 600.zoomed),
+               "the Ask sheet is \(roomy) in a roomy window, not 640 × 600", &problems)
         return problems
     }
 }

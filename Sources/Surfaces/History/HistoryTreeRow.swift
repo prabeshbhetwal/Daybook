@@ -164,7 +164,7 @@ struct HistoryTreeRow: View {
             if showsFacts {
                 Text(durations: HistoryRowText.facts(row, today: today))
                     .font(Tokens.Typography.body.monospacedDigit())
-                    .foregroundStyle(row.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(row.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(StoryStyle.supportingInk))
                     .lineLimit(1)
             }
             bars

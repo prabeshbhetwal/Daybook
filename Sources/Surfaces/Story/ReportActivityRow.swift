@@ -19,7 +19,7 @@ struct ReportActivityRow: View {
             let name = interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App")
             Text(name)
                 .font(Tokens.Typography.body)
-                .foregroundStyle(interval.isGap ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                .foregroundStyle(interval.isGap ? AnyShapeStyle(StoryStyle.supportingInk) : AnyShapeStyle(.primary))
                 .lineLimit(1)
                 .help(name)
             Spacer(minLength: Tokens.Space.s)
@@ -41,7 +41,7 @@ struct ReportActivityRow: View {
             if durations { Text(durations: text) } else { Text(text) }
         }
         .font(Tokens.Typography.body.monospacedDigit())
-        .foregroundStyle(.secondary)
+        .foregroundStyle(StoryStyle.supportingInk)
         .lineLimit(1)
     }
 
@@ -54,7 +54,7 @@ struct ReportActivityRow: View {
                 if let power {
                     Image(systemName: power.symbolName)
                         .foregroundStyle(power.symbolName == "bolt.fill" ? AnyShapeStyle(StoryStyle.successInk)
-                                                                         : AnyShapeStyle(.secondary))
+                                                                         : AnyShapeStyle(StoryStyle.supportingInk))
                 }
             }
             Self.column(power?.level ?? "", widest: ["100%"], alignment: .trailing)

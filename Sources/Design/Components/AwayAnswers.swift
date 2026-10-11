@@ -131,7 +131,7 @@ struct AwayAnswerGrid: View {
             header
             Text(note ?? "Not counted. Your session is still running.")
                 .font(compact ? Tokens.Typography.caption : Tokens.Typography.body)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: Tokens.Space.s) {
                 HStack(spacing: Tokens.Space.s) {
@@ -227,7 +227,7 @@ struct AwayAnswerGrid: View {
             if let range {
                 Text(Tokens.timeRange(range.start, range.end))
                     .font(compact ? Tokens.Typography.caption : Tokens.Typography.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)

@@ -6,8 +6,9 @@ import SwiftUI
 /// A view's minimum size follows the zoom by itself, but a window that is
 /// already open stays as large as it was, so a zoom-up leaves it too small for
 /// its content. This anchor grows its window to the new minimum when the zoom
-/// changes, keeping the top-left corner and moving the window back onto the
-/// screen if the growth pushed it off. It never shrinks one.
+/// changes, or when its base grows (a side panel opening), keeping the
+/// top-left corner and moving the window back onto the screen if the growth
+/// pushed it off. It never shrinks one.
 ///
 /// It also reports the visible size of the window's screen, which a view needs
 /// to cap its own minimum (see `minimum(base:screenVisible:)`).
@@ -18,14 +19,20 @@ struct ZoomWindowFit: NSViewRepresentable {
     /// again when the window moves to another.
     let onScreen: (CGSize) -> Void
 
-    /// The content minimum at the current zoom, held to a screen's visible
-    /// size: the one the window is on once it is known (`screenVisible` not
-    /// zero), else the main screen's, else no cap. Read while a view draws.
+    /// The content minimum at the current zoom, held to the screen's visible
+    /// size (see `visible(screenVisible:)`). Read while a view draws.
     static func minimum(base: CGSize, screenVisible: CGSize = .zero) -> CGSize {
-        let visible = screenVisible == .zero
+        InterfaceZoom.windowMinimum(base: base, scale: ZoomModel.shared.scale,
+                                    visible: visible(screenVisible: screenVisible))
+    }
+
+    /// The visible size a view measures its window against: the window's
+    /// screen once it is known (`screenVisible` not zero), else the main
+    /// screen's, else no limit.
+    static func visible(screenVisible: CGSize = .zero) -> CGSize {
+        screenVisible == .zero
             ? NSScreen.main?.visibleFrame.size ?? CGSize(width: CGFloat.infinity, height: CGFloat.infinity)
             : screenVisible
-        return InterfaceZoom.windowMinimum(base: base, scale: ZoomModel.shared.scale, visible: visible)
     }
 
     func makeNSView(context: Context) -> ZoomWindowFitAnchor {
@@ -42,7 +49,16 @@ struct ZoomWindowFit: NSViewRepresentable {
 }
 
 final class ZoomWindowFitAnchor: NSView {
-    var base = CGSize.zero
+    /// A base that grows (a panel opening) grows the window to hold it, as a
+    /// zoom step does. Queued, since the view update that sets this is not the
+    /// place to move a window; the first base, set before the view has a
+    /// window, grows nothing.
+    var base = CGSize.zero {
+        didSet {
+            guard oldValue != .zero, base.width > oldValue.width || base.height > oldValue.height else { return }
+            DispatchQueue.main.async { [weak self] in self?.fit() }
+        }
+    }
     var onScreen: ((CGSize) -> Void)?
     private weak var host: NSWindow?
     private var reported: CGSize?
