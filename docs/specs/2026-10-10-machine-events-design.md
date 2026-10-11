@@ -236,3 +236,16 @@ Not done: such a hole is not named by the event itself, which would need
 `falls(in:)` to reach back to it for the card and the pins as well. The
 session card and the gap share the rule but not the code; one helper can
 replace both once the session-shape branch lands.
+
+## Amendment, 11 October 2026: runs of pins, and the day's Mac card
+
+Sir found the day still read as raw records in two places. The first was a column of identical "Daybook quit by osascript · Daybook back within a minute" pins. The second was the folded "All N Mac events" list, which showed every lock twice (screen and display) and every quit beside its own "Daybook opened". He chose "own card, folds" for the first and "day card at story foot" for the second.
+
+| Question | Decision |
+|---|---|
+| Back-to-back pins | Two or more pins with nothing between them on the story make one card, drawn like a gap card (`StoryMachineRun`, `StoryMachineRunCard`, PR #41). The header gives the event and how many times it happened, or "N Mac events" for a mix, plus the time it covers. Unfolded, it shows one line per event with when Daybook was back. A lone pin stays a line, and Expand all opens the card. |
+| The raw list | Replaced by "What the Mac did" (`DayMacAccount`, Core). The same `GapAnatomy` runs across the whole day, or the day so far on today. Stretches no event explains are the Mac in use: they get no line, and the bar draws them as the plain track, not stripes. The remaining stretches are listed newest first with the gap card's rows (`GapStretchList`, now shared). |
+| Folded summary | Time locked and asleep (a minute or more), then counts taken from the events: Daybook quits, the Mac going off, and stops found afterwards. One kind is named by its own title (with the quitting app); a mix is named generically ("Daybook quit 5 times", "Mac off 2 times"). |
+| When it shows | Only when at least one stretch is away from the desk. A day that only logged launches shows nothing. |
+
+Not done: a start inside the Mac's in-use time (a macOS update with no off stretch around it) gets no line, since the in-use stretches are not listed.
