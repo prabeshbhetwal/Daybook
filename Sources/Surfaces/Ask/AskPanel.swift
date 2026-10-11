@@ -48,3 +48,30 @@ struct AskPanel: View {
         .padding(.vertical, Tokens.Space.m)
     }
 }
+
+/// The reading workspace, and Ask's side panel at its trailing edge when
+/// `askModel` is given. The panel always has `AskLayout.panelWidth`; it is the
+/// workspace that narrows when the window cannot hold both, as a window held to
+/// a small screen at a high zoom cannot. Without `minWidth: 0` the workspace's
+/// content minimum wins and pushes the panel past the window's edge.
+struct ReadingWithAskPanel<Workspace: View>: View {
+    let askModel: AskModel?
+    let onFollow: (AskLink) -> Void
+    let onClose: () -> Void
+    @ViewBuilder let workspace: Workspace
+
+    var body: some View {
+        HStack(spacing: 0) {
+            workspace
+                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .clipped()
+                .accessibilitySortPriority(1)
+            if let askModel {
+                Divider()
+                AskPanel(model: askModel, onFollow: onFollow, onClose: onClose)
+                    .frame(width: AskLayout.panelWidth)
+                    .frame(maxHeight: .infinity)
+            }
+        }
+    }
+}

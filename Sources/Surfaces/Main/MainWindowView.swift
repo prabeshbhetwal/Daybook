@@ -67,18 +67,9 @@ struct MainWindowView: View {
                     .transition(Tokens.Motion.transition(Tokens.Motion.slideDown,
                                                          reduceMotion: reduceMotion))
             }
-            HStack(spacing: 0) {
+            ReadingWithAskPanel(askModel: askPanelShown ? navigation.askModel : nil,
+                                onFollow: navigation.follow, onClose: navigation.closeAskPanel) {
                 readingWorkspace
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .clipped()
-                    .accessibilitySortPriority(1)
-                if askPanelShown, let ask = navigation.askModel {
-                    Divider()
-                    AskPanel(model: ask, onFollow: navigation.follow, onClose: navigation.closeAskPanel)
-                        .frame(width: AskLayout.panelWidth)
-                        .frame(maxHeight: .infinity)
-                        .clipped()
-                }
             }
         }
         .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
