@@ -15,13 +15,15 @@ extension SessionStore {
     /// the menu counts it, the running session's work counts toward today.
     /// The streak runs back from today when today has reached the minimum
     /// itself, else from yesterday, which a streak ending there still keeps.
-    func askStreak() -> (days: Int, since: Date)? {
-        let inFlight = engine.elapsedToday()
-        let days = engine.currentStreak(includingToday: inFlight)
+    /// - Parameter inFlight: the running session's seconds today, read once by
+    ///   a caller that pairs this with another figure; nil reads them here.
+    func askStreak(includingToday inFlight: TimeInterval? = nil) -> (days: Int, since: Date)? {
+        let seconds = inFlight ?? engine.elapsedToday()
+        let days = engine.currentStreak(includingToday: seconds)
         guard days > 0 else { return nil }
         let calendar = periodCalendar
         let today = calendar.startOfDay(for: now())
-        let reached = engine.archive.todayTotal() + inFlight >= engine.archive.streakMinimum
+        let reached = engine.archive.todayTotal() + seconds >= engine.archive.streakMinimum
         guard let last = reached ? today : calendar.date(byAdding: .day, value: -1, to: today),
               let since = calendar.date(byAdding: .day, value: 1 - days, to: last) else { return nil }
         return (days: days, since: since)

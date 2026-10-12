@@ -11,13 +11,16 @@ extension SessionStore {
         let goal = engine.store.dailyGoal
         let today = storyDayProjection(on: calendar.startOfDay(for: now()), calendar: calendar).goalCredit
         let awards = self.awards
-        let streak = askStreak()
+        // One reading of the running session's seconds for the streak and the
+        // best, so the streak cannot pass the best between two reads.
+        let inFlight = engine.elapsedToday()
+        let streak = askStreak(includingToday: inFlight)
         let goals = AskGoals(
             goal: goal, today: today,
             todayPercent: DurationText.percent(GoalProgress(goal: goal, achieved: today, typical: nil).share),
             period: range.map { askGoalPeriod($0, goal: goal) },
             streakDays: streak?.days ?? 0, streakSince: streak.map { askDay($0.since) },
-            streakMinimum: engine.store.streakMinimum, bestStreak: engine.archive.bestStreak(),
+            streakMinimum: engine.store.streakMinimum, bestStreak: engine.bestStreak(includingToday: inFlight),
             earned: awards.filter(\.isEarned).map { AskAwardLine(title: $0.title, detail: $0.detail) },
             toEarn: awards.filter { !$0.isEarned }.map { AskAwardLine(title: $0.title, detail: $0.detail) })
         // An award is named by the words that name Awards, and by its title.
