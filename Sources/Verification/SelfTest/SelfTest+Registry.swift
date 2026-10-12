@@ -129,6 +129,7 @@ extension SelfTest {
             + AskDayEventsAnswerChecks.tests
             + AskDayEventsWalkChecks.tests
             + AskSessionDetailNameChecks.tests
+            + BestStreakChecks.tests
             + HistorySearchWeekdayChecks.tests
     }
 

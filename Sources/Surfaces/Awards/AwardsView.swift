@@ -137,7 +137,8 @@ struct AwardsView: View {
         let days = store.streakDays()
         return SurfacePanel(showsHeader: false) {
             SectionHeader(title: "Streak",
-                          trailing: store.streakBest > 0 ? "best \(store.streakBest) days" : nil)
+                          trailing: store.streakBest > 0
+                              ? "best \(store.streakBest) \(store.streakBest == 1 ? "day" : "days")" : nil)
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                 Text("\(store.streak)")
                     .font(Tokens.Typography.figure)
