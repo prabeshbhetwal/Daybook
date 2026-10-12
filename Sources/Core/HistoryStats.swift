@@ -207,7 +207,7 @@ enum HistoryStats {
                     buckets[cursor] = bucket
                 }
                 guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-                cursor = next
+                cursor = calendar.startOfDay(for: next)
             }
         }
 
@@ -243,7 +243,7 @@ enum HistoryStats {
                     buckets[cursor] = bucket
                 }
                 guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-                cursor = next
+                cursor = calendar.startOfDay(for: next)
             }
         }
 

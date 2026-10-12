@@ -43,7 +43,7 @@ extension SessionStore {
                                              workTypes: [receipt.workType]))
                 }
                 guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
-                day = next
+                day = calendar.startOfDay(for: next)
             }
         }
         return result.sorted { $0.date > $1.date }
@@ -115,7 +115,7 @@ extension SessionStore {
         while cursor < bounds.end && days.count < 40 {
             days.append(cursor)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
+            cursor = calendar.startOfDay(for: next)
         }
         let focusedByDay = days.map { storyFocusedSeconds(on: $0) }
         let activeDays = focusedByDay.filter { $0 > 0 }.count
@@ -232,7 +232,7 @@ extension SessionStore {
                 }
             }
             guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
-            day = next
+            day = calendar.startOfDay(for: next)
         }
         return result.sorted { $0.date > $1.date }
     }
@@ -243,14 +243,14 @@ extension SessionStore {
         let calendar = periodCalendar
         if let first = reviewDays.map(\.date).min(),
            let last = reviewDays.map(\.date).max(),
-           let end = calendar.date(byAdding: .day, value: 1, to: last) {
+           let end = SessionRecord.dayBounds(last, calendar: calendar)?.end {
             return DateInterval(start: first, end: end)
         }
         let anchor = reviewAnchor ?? calendar.startOfDay(for: now())
         let start = calendar.startOfDay(for: anchor)
         let component: Calendar.Component = reviewPeriod == .month ? .month : .weekOfYear
         let interval = calendar.dateInterval(of: component, for: start)
-        let end = interval?.end ?? calendar.date(byAdding: .day, value: 1, to: start) ?? start
+        let end = interval?.end ?? SessionRecord.dayBounds(start, calendar: calendar)?.end ?? start
         return DateInterval(start: interval?.start ?? start, end: end)
     }
 
@@ -299,7 +299,7 @@ extension SessionStore {
         var guardRail = 0
         while cursor < interval.end && guardRail < HistoryStats.maximumCalendarDaysPerRecord {
             guardRail += 1
-            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            guard let nextDay = SessionRecord.dayBounds(cursor, calendar: calendar)?.end else { break }
             let start = max(cursor, interval.start)
             let end = min(nextDay, interval.end)
             if end > start {

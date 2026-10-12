@@ -134,8 +134,9 @@ extension SessionStore {
         let last = min(record.end, interval.end)
         for _ in 0..<HistoryStats.maximumCalendarDaysPerRecord {
             if record.workSeconds(on: day, calendar: calendar) > 0 { days.insert(calendar.startOfDay(for: day)) }
-            guard let next = calendar.date(byAdding: .day, value: 1, to: day), next < last else { break }
-            day = next
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = calendar.startOfDay(for: next)
+            if day >= last { break }
         }
         return days
     }

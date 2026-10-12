@@ -245,6 +245,46 @@ extension SelfTest {
                    .contains("like-for-like previous period") != true,
                "a month with no corresponding previous-month day has no comparison",
                &problems)
+        return problems + midnightMonthComparison()
+    }
+
+    private static func midnightMonthComparison() -> [String] {
+        var problems: [String] = []
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Havana")!
+        let moment = calendar.date(from: DateComponents(year: 2012, month: 4, day: 2, hour: 12))!
+        let first = calendar.dateInterval(of: .month, for: moment)!.start
+        guard calendar.component(.hour, from: first) == 1 else {
+            return ["Havana's April 2012 no longer starts at 01:00; comparison fixture tests nothing"]
+        }
+        let clock = TestClock(moment)
+        let sessions = [3, 4].map { month -> AppUsageSession in
+            let start = calendar.date(from: DateComponents(year: 2012, month: month, day: 2, hour: 9))!
+            return AppUsageSession(bundleID: "org.example.editor", appName: "Editor",
+                                   start: start, end: start.addingTimeInterval(3_600))
+        }
+        let accurateFrom = calendar.date(from: DateComponents(year: 2012, month: 2, day: 1, hour: 12))!
+        let usage = makeUsageArchive(clock, sessions: sessions, accurateFrom: accurateFrom)
+        let preferences = "fc-selftest-midnight-comparison-\(UUID().uuidString)"
+        guard let defaults = MemoryDefaults.suite(named: preferences) else {
+            return ["could not create isolated midnight-comparison preferences"]
+        }
+        defer { MemoryDefaults.remove(named: preferences) }
+        let engine = SessionEngine(
+            store: PersistenceStore(defaults: defaults),
+            archive: makeArchive(clock, records: [], calendar: calendar),
+            ownBundleID: "com.example.self", schedulesDwell: false,
+            now: { clock.value })
+        let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                      idle: .disabled, now: { clock.value })
+        let store = SessionStore(engine: engine, now: { clock.value })
+        store.periodCalendarBase = calendar
+        store.attach(tracker: tracker, usage: usage)
+        store.refreshInsights()
+        let detail = store.insightMonthSurface.continuity?.detail ?? "nil"
+        expect(detail.contains("tracked time matches the like-for-like previous period"),
+               "the second day of a month starting at 01:00 compares with the previous month's second day; "
+                   + "got '\(detail)'", &problems)
         return problems
     }
 }

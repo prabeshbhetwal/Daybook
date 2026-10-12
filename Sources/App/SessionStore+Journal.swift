@@ -83,7 +83,7 @@ enum HistoryJournalBuilder {
             let count = calendar.range(of: .day, in: .month, for: start)?.count ?? 31
             let daily = (0..<count).map { offset -> TimeInterval in
                 guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { return 0 }
-                return worked[date] ?? 0
+                return worked[calendar.startOfDay(for: date)] ?? 0
             }
             result.append(.month(JournalMonth(start: start, focused: daily.reduce(0, +), tracked: 0,
                                               focusedDays: sessions.count, dailyFocus: daily)))
@@ -134,7 +134,8 @@ enum HistoryJournalBuilder {
         var daily: [TimeInterval] = []
         var tracked: TimeInterval = 0
         for offset in 0..<count {
-            let row = calendar.date(byAdding: .day, value: offset, to: start).flatMap { byDate[$0] }
+            let row = calendar.date(byAdding: .day, value: offset, to: start)
+                .flatMap { byDate[calendar.startOfDay(for: $0)] }
             daily.append(row?.focused ?? 0)
             tracked += row?.tracked ?? 0
         }

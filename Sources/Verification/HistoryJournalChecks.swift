@@ -77,6 +77,34 @@ enum HistoryJournalChecks {
         if august.focused != 900 || august.tracked != 1_500 || august.focusedDays != 1 {
             failures.append("August totalled \(august.focused)s focus and \(august.tracked)s app use")
         }
+
+        // Havana began April 2012 at 01:00, so day offsets need canonical keys.
+        var midnight = Calendar(identifier: .gregorian)
+        midnight.timeZone = TimeZone(identifier: "America/Havana")!
+        let anchor = midnight.date(from: DateComponents(year: 2012, month: 4, day: 2, hour: 12))!
+        let start = midnight.dateInterval(of: .month, for: anchor)!.start
+        let day = midnight.startOfDay(for: anchor)
+        if midnight.component(.hour, from: start) != 1 {
+            return failures + ["Havana's April 2012 no longer starts at 01:00; midnight fixture tests nothing"]
+        }
+        let recorded = HistoryDay(date: day, tracked: 1_200, focused: 600, sessions: 1,
+                                  appBundleIDs: [], workTypes: [.deepWork])
+        let april = HistoryJournalBuilder.month(starting: start, days: [recorded], calendar: midnight)
+        if april.focused != 600 || april.tracked != 1_200 || april.focusedDays != 1
+            || april.dailyFocus.count != 30 || april.dailyFocus[1] != 600 {
+            failures.append("a month starting at 01:00 lost its next day's canonical focus/app-use figures")
+        }
+        let hit = HistorySearchHit(id: UUID(), threadID: UUID(), name: "Draft", workType: .deepWork,
+                                   start: anchor, end: anchor.addingTimeInterval(600), worked: 600,
+                                   day: day, noteSnippet: nil, matchedApps: [])
+        guard case .month(let searched)? = HistoryJournalBuilder.entries(
+            matching: [hit], calendar: midnight).first else {
+            return failures + ["a midnight-transition month lost its searched header"]
+        }
+        if searched.focused != 600 || searched.focusedDays != 1
+            || searched.dailyFocus.count != 30 || searched.dailyFocus[1] != 600 {
+            failures.append("a searched month starting at 01:00 disagreed with its day's matched focus")
+        }
         return failures
     }
 

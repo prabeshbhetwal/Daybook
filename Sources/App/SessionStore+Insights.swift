@@ -303,9 +303,8 @@ extension SessionStore {
         let rollup = periodStats.rollup(for: period, containing: moment)
         let today = calendar.startOfDay(for: moment)
         let elapsedDays = rollup.days.filter { $0.date <= today }
-        let firstCompleteAccurateDay = calendar.date(
-            byAdding: .day, value: 1,
-            to: calendar.startOfDay(for: snapshot.accurateFrom))
+        let firstCompleteAccurateDay = SessionRecord.dayBounds(
+            snapshot.accurateFrom, calendar: calendar)?.end
         let authoritativeDays = elapsedDays.filter { day in
             guard let firstCompleteAccurateDay else { return false }
             return day.date >= firstCompleteAccurateDay
@@ -403,16 +402,15 @@ extension SessionStore {
         guard let previousReference = calendar.date(byAdding: .second, value: -1,
                                                     to: currentBounds.start) else { return nil }
         let previousBounds = periodStats.bounds(for: period, containing: previousReference)
-        guard let firstCompleteAccurateDay = calendar.date(
-            byAdding: .day, value: 1,
-            to: calendar.startOfDay(for: snapshot.accurateFrom)),
+        guard let firstCompleteAccurateDay = SessionRecord.dayBounds(
+            snapshot.accurateFrom, calendar: calendar)?.end,
               currentBounds.start >= firstCompleteAccurateDay,
               previousBounds.start >= firstCompleteAccurateDay else { return nil }
 
         let currentDay = calendar.startOfDay(for: moment)
-        let dayOffset = calendar.dateComponents([.day],
-                                                from: currentBounds.start,
-                                                to: currentDay).day ?? 0
+        guard let firstOrdinal = calendar.ordinality(of: .day, in: .era, for: currentBounds.start),
+              let currentOrdinal = calendar.ordinality(of: .day, in: .era, for: currentDay) else { return nil }
+        let dayOffset = currentOrdinal - firstOrdinal
         guard let matchingDay = calendar.date(byAdding: .day, value: dayOffset,
                                               to: previousBounds.start),
               matchingDay < previousBounds.end else { return nil }
@@ -421,7 +419,7 @@ extension SessionStore {
         time.timeZone = calendar.timeZone
         let cutoff = min(
             previousBounds.end,
-            calendar.nextDate(after: matchingDay.addingTimeInterval(-1),
+            calendar.nextDate(after: calendar.startOfDay(for: matchingDay).addingTimeInterval(-1),
                               matching: time,
                               matchingPolicy: .nextTime,
                               repeatedTimePolicy: .first,
@@ -433,7 +431,7 @@ extension SessionStore {
         var visited = 0
         while cursor < cutoff && visited < 40 {
             visited += 1
-            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else {
+            guard let next = SessionRecord.dayBounds(cursor, calendar: calendar)?.end else {
                 break
             }
             if next <= cutoff {

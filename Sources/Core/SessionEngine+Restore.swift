@@ -58,6 +58,7 @@ extension SessionEngine {
         activeRecordID = snapshot.activeRecordID ?? legacyActiveRecordID(for: snapshot,
             pendingDecisionID: original.pendingDecisionID)
         activeWorkType = snapshot.activeWorkType ?? .deepWork
+        activeDetectedApp = snapshot.activeDetectedApp
         activeIsAuto = snapshot.isAuto ?? false
         activeAutomaticAction = snapshot.automaticActivityAction
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []

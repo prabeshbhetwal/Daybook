@@ -151,8 +151,7 @@ struct DashboardStats {
 
     private func bounds(of day: Date) -> (start: Date, end: Date) {
         let start = calendar.startOfDay(for: day)
-        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
-        return (start, end)
+        return SessionRecord.dayBounds(day, calendar: calendar) ?? (start, start)
     }
 
     /// Usage clipped to the day. A session spanning midnight contributes its

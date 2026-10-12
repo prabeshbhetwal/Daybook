@@ -111,7 +111,7 @@ struct DailyGoal {
             // `accurateFrom`, so the next complete calendar day is the first
             // fair historical comparator.
             guard dayStart >= firstAccurateDay else { continue }
-            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+            guard let dayEnd = SessionRecord.dayBounds(dayStart, calendar: calendar)?.end else {
                 continue
             }
             let fullDay = FocusedActiveTime.seconds(
@@ -136,8 +136,7 @@ struct DailyGoal {
     /// following full local day regardless of the migration time.
     private func firstCompleteAccurateDay() -> Date? {
         guard let usageAccurateFrom else { return nil }
-        return calendar.date(byAdding: .day, value: 1,
-                             to: calendar.startOfDay(for: usageAccurateFrom))
+        return SessionRecord.dayBounds(usageAccurateFrom, calendar: calendar)?.end
     }
 
     /// The historical interval ends at today's local wall-clock time. `nextTime`

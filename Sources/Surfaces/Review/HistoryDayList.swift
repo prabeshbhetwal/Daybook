@@ -26,7 +26,7 @@ struct HistoryDayStrip: View {
     private var marks: [Mark] {
         let calendar = Calendar.current
         let dayStart = calendar.startOfDay(for: date)
-        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86_400)
+        let dayEnd = SessionRecord.dayBounds(dayStart, calendar: calendar)?.end ?? dayStart.addingTimeInterval(86_400)
         let total = max(1, dayEnd.timeIntervalSince(dayStart))
         var result: [Mark] = []
         func add(_ id: String, _ start: Date, _ end: Date, _ colour: Color) {
