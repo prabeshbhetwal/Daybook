@@ -75,7 +75,7 @@ characters, so a pasted page cannot pass for another line of the facts.
 A session with no app evidence and no note is not sent to the model and
 gets no suggestion.
 
-**The model's answer.** A `@Generable` choice of `1`, `2`, `3`, `new` or `none`, plus a name that is used only with `new`. The call is greedy and runs once.
+**The model's answer.** A `@Generable` choice of `1`, `2`, `3`, `new` or `none`, plus a name that is used only with `new`. The `choice` is constrained to exactly those five values at generation (`@Guide` with `.anyOf`), so it cannot come back as an earlier name's text or free words (§5a, first run). The call is greedy and runs once.
 
 **What code accepts.**
 
@@ -196,6 +196,62 @@ mix does not fit, and the facts cannot say so.
   three off the screen. A fix belongs in the answer's shape: a closed set for
   `choice` (an enum), not a tolerant reading of free text. It changes the
   schema the model sees, so it is a decision for a later pass, not made here.
+
+### Second run (after constraining the answer)
+
+Run on 2026-10-12, same machine and model, after `choice` was constrained to
+`1`, `2`, `3`, `new` and `none` (ruling S12). The fixture changed in one
+way: the earlier name "Admin", which spells a category and so is never a
+candidate, became "Invoices" with the same app mix. The expectations for the
+rows it touches were written before the run: #5 Invoices; #10 Invoices, with
+none acceptable and Email triage wrong; #17 none, with Invoices acceptable.
+Smoke test 3.7 s. Each question took 0.9–1.2 s except one at 4.1 s; none
+timed out or threw.
+
+| # | Case | Expected | Model's `choice` / `name` | Offered | Verdict |
+|---|---|---|---|---|---|
+| 1 | repeat | Daybook | `1` / Invoices | Daybook | right |
+| 2 | repeat | Thesis | `1` / Thesis | Thesis | right |
+| 3 | repeat | Email triage | `1` / Email triage | Email triage | right |
+| 4 | repeat | Release notes | `1` / Release notes | Release notes | right |
+| 5 | repeat | Invoices | `1` / Invoices | Invoices | right |
+| 6 | repeat | Daybook | `1` / Daybook | Daybook | right |
+| 7 | note | Release notes | `1` / Release notes | Release notes | right |
+| 8 | note | Daybook | `1` / Release notes | Release notes | wrong |
+| 9 | note | Thesis | `1` / Dissertation methods | Thesis | right |
+| 10 | note | Invoices, or none | `1` / Invoices | Invoices | right |
+| 11 | fresh | a landing-page or onboarding name | `1` / designed onboarding screens | nothing | none |
+| 12 | fresh | a podcast name | `1` / Mixed intro | nothing | none |
+| 13 | fresh | an interviews or hiring name | `1` / design candidate interview | nothing | none |
+| 14 | fresh | a 3D or chair name | `1` / modeled chair for furniture | nothing | none |
+| 15 | mixed | none | `1` / Daybook | Daybook | wrong |
+| 16 | mixed | none, or Release notes | `1` / Release notes | Release notes | right |
+| 17 | mixed | none, or Invoices | `1` / Invoices | Invoices | right |
+| 18–20 | no evidence | never asked | not asked | nothing | right |
+
+(The `name` shown is what the model wrote beside `choice`; it is read only
+with `new`.)
+
+**Counts.** 14 right, 4 none, 2 wrong. Right-or-none is 18 of 20 against a
+target of 16, and 0 offered names failed `NameAudit`: the target is met.
+
+**What changed.** `choice` was a valid value in 17 of 17 questions, against 5
+of 17 before, and 10 of the 14 rows that expected a name now get one (4
+before). The cost is that the model answered `1` every time. It never
+declined and never said `new`, so:
+- The four fresh rows (#11–#14) get nothing. With no candidate, `1` resolves
+  to no name, which is safe, but a fresh name is still never offered.
+- Whether a name is offered now rests on the ranking alone. Where a candidate
+  existed, the model took it. That is right when the apps fit (#1–#7, #9,
+  #10) and wrong when they do not: #8 (the note says session engine tests;
+  Release notes ranked above Daybook) and #15 (an even three-way split
+  offered Daybook).
+- #16 and #17 passed on the stated alternatives, not because the model
+  declined.
+
+The two wrong rows are the first two places a fix could go: a ranking that
+puts the name the note points to first, and a stricter threshold for a mixed
+session. Neither is made here.
 
 ## 6. Hand checks
 

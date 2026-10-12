@@ -6,7 +6,8 @@ import FoundationModels
 /// or a name of its own.
 @available(macOS 26, *)
 @Generable struct SuggestedName {
-    @Guide(description: "1, 2 or 3 to reuse that earlier name, new for a fresh name, none when nothing fits.")
+    @Guide(description: "1, 2 or 3 to reuse that earlier name, new for a fresh name, none when nothing fits.",
+           .anyOf(["1", "2", "3", "new", "none"]))
     var choice: String
     @Guide(description: "The fresh name, one to four words, when choice is new. Otherwise empty.")
     var name: String
