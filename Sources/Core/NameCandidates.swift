@@ -36,6 +36,14 @@ struct NameFacts: Equatable {
 /// session. Pure: the caller decides which sessions count as history.
 enum NameCandidates {
     static let threshold = 0.3, categoryBonus = 0.1, limit = 3
+    /// How far the best earlier name must lead the second.
+    static let margin = 0.1
+
+    /// Whether the best earlier name stands clear of the second: with two or
+    /// more candidates, an ambiguous session gets no suggestion.
+    static func isClearLead(_ candidates: [NameCandidate]) -> Bool {
+        candidates.count < 2 || candidates[0].score - candidates[1].score >= margin
+    }
 
     /// Σ over apps of min(share in a, share in b), so 0 to 1; 0 when either
     /// side has no time.

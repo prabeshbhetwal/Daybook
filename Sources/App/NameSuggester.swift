@@ -13,10 +13,25 @@ import FoundationModels
     var name: String
 }
 
+/// The same, for a session with no earlier name to reuse.
+@available(macOS 26, *)
+@Generable struct SuggestedFreshName {
+    @Guide(description: "new for a fresh name, none when the note and the apps do not say what the work was.",
+           .anyOf(["new", "none"]))
+    var choice: String
+    @Guide(description: "The fresh name, one to four words, when choice is new. Otherwise empty.")
+    var name: String
+}
+
 /// A name on offer for an unnamed session, and how to say what it is for.
 struct NameSuggestion: Equatable {
+    /// Where the name came from: one of the person's earlier names, picked by
+    /// the ranking, or a name the model worded itself.
+    enum Source { case earlier, fresh }
+
     let session: DaySession
     let name: String
+    let source: Source
     /// "this morning's 1h 20m session"
     let lead: String
 }
@@ -42,7 +57,8 @@ struct NameSuggestion: Equatable {
     /// The audited name per `NameFacts.cacheKey`; a nil value is a session
     /// the model had nothing for. A changed note makes a new key, asked again.
     // ponytail: never trimmed; an entry is a key and a name, and only two days of sessions add them.
-    private var cache: [String: String?] = [:]
+    private var cache: [String: Answer?] = [:]
+    private typealias Answer = (name: String, source: NameSuggestion.Source)
     /// Keys of names the person took with Name it. If they Undo, the session
     /// is not offered again this run.
     private var accepted: Set<String> = []
@@ -74,12 +90,18 @@ struct NameSuggestion: Equatable {
         for session in store.nameSuggestionTargets() {
             guard let facts = store.nameFacts(for: session), !accepted.contains(facts.cacheKey) else { continue }
             guard let answer = cache[facts.cacheKey] else {
+                // Two earlier names too close to tell apart: no offer, no question.
+                if !NameCandidates.isClearLead(facts.candidates) {
+                    cache.updateValue(nil, forKey: facts.cacheKey)
+                    continue
+                }
                 offer(nil, key: nil)
                 if !isAsking { ask(session, facts) }
                 return
             }
-            if let name = answer {
-                offer(NameSuggestion(session: session, name: name, lead: store.nameSuggestionLead(for: session)),
+            if let answer {
+                offer(NameSuggestion(session: session, name: answer.name, source: answer.source,
+                                     lead: store.nameSuggestionLead(for: session)),
                       key: facts.cacheKey)
                 return
             }
@@ -170,7 +192,9 @@ struct NameSuggestion: Equatable {
                 NameAudit.resolve($0, candidates: facts.candidates, earlierNames: store.earlierSessionNames(),
                                   categories: WorkType.startable, appNames: facts.appNames)
             }
-            cache.updateValue(name, forKey: facts.cacheKey)
+            var source = NameSuggestion.Source.fresh
+            if case .earlier? = choice { source = .earlier }
+            cache.updateValue(name.map { ($0, source) }, forKey: facts.cacheKey)
         }
         refresh()
     }
@@ -187,6 +211,11 @@ struct NameSuggestion: Equatable {
     @available(macOS 26, *)
     private static func generate(_ facts: NameFacts) async throws -> NameChoice {
         let session = LanguageModelSession(instructions: instructions)
+        // With no earlier name to pick, the only answers are a fresh name or none.
+        if facts.candidates.isEmpty {
+            let reply = try await session.respond(to: facts.text, generating: SuggestedFreshName.self, options: options).content
+            return choice(reply.choice, reply.name)
+        }
         let reply = try await session.respond(to: facts.text, generating: SuggestedName.self, options: options).content
         return choice(reply.choice, reply.name)
     }

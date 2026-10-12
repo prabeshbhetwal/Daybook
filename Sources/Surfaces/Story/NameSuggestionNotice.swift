@@ -11,20 +11,7 @@ struct NameSuggestionNotice: View {
     var body: some View {
         if let offer = suggester.current {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                Label {
-                    VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                        Text("Name \(offer.lead) “\(offer.name)”?")
-                            .font(Tokens.Typography.body)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("Suggested by on-device AI")
-                            .font(Tokens.Typography.caption)
-                            .foregroundStyle(StoryStyle.supportingInk)
-                    }
-                } icon: {
-                    Image(systemName: "sparkles")
-                        .foregroundStyle(StoryStyle.supportingInk)
-                        .accessibilityHidden(true)
-                }
+                caption(offer)
                 // Fixed to their words: at 140% the first drew as "Nam…".
                 HStack(spacing: Tokens.Space.s) {
                     Button("Name it") { suggester.accept() }
@@ -38,6 +25,31 @@ struct NameSuggestionNotice: View {
                 }
             }
             .accessibilityElement(children: .contain)
+        }
+    }
+
+    /// The offer and where it came from. An earlier name is the person's own,
+    /// picked by the ranking, so it claims no AI. A fresh one is the model's.
+    @ViewBuilder private func caption(_ offer: NameSuggestion) -> some View {
+        let words = offer.source == .earlier ? "From your earlier names" : "Suggested by on-device AI"
+        let text = VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            Text("Name \(offer.lead) “\(offer.name)”?")
+                .font(Tokens.Typography.body)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(words)
+                .font(Tokens.Typography.caption)
+                .foregroundStyle(StoryStyle.supportingInk)
+        }
+        if offer.source == .fresh {
+            Label {
+                text
+            } icon: {
+                Image(systemName: "sparkles")
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .accessibilityHidden(true)
+            }
+        } else {
+            text
         }
     }
 }

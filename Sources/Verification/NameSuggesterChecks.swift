@@ -3,8 +3,10 @@ import Foundation
 /// What `NameSuggester` offers: the model (here a `responder`, never the live
 /// one) is asked once per session and only the audited answer is shown. The
 /// fixture's "now" is 9:13 am on Wed 15 Nov 2023. Two sessions are unnamed:
-/// A today 7:00–7:30 and B yesterday 14:00–14:45, both in Xcode, and
-/// "Daybook" (Xcode too) is an earlier name, so each has it as candidate 1.
+/// A today 7:00–7:30 in Xcode and B yesterday 14:00–14:45 in Xcode and
+/// Terminal, and "Daybook" (Xcode and Terminal half and half) is an earlier
+/// name, so each has it as candidate 1. A name typed on A (Xcode only) then
+/// trails Daybook for B by more than the margin.
 enum NameSuggesterChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("An earlier name is offered with its lead", offersEarlier),
@@ -36,8 +38,9 @@ enum NameSuggesterChecks: CheckSuite {
             Checks.record(days.at(1, 14), days.at(1, 14, 45), thread: b),
             Checks.record(days.at(3, 9), days.at(3, 10), name: "Daybook"),
         ] }, usage: { days in [
-            Checks.app("Xcode", days.at(0, 7), 25 * 60), Checks.app("Xcode", days.at(1, 14), 40 * 60),
-            Checks.app("Xcode", days.at(3, 9), 50 * 60),
+            Checks.app("Xcode", days.at(0, 7), 25 * 60), Checks.app("Xcode", days.at(1, 14), 20 * 60),
+            Checks.app("Terminal", days.at(1, 14, 20), 20 * 60),
+            Checks.app("Xcode", days.at(3, 9), 25 * 60), Checks.app("Terminal", days.at(3, 9, 25), 25 * 60),
         ] }) { f, _, problems in body(f, a, b, &problems) }
     }
 
