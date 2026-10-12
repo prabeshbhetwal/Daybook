@@ -2,12 +2,14 @@ import Foundation
 
 /// The last review's findings on name suggestions, kept apart from the other
 /// name suites so their numbers hold: what Name it hands back for Undo, a tie
-/// that a later name breaks, and an offer the store refused.
+/// that a later name breaks, an offer the store refused, and an answer kept
+/// after the earlier names were ranked again.
 enum NameFinalFixChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("Name it hands back the rename's correction; Undo with it restores the name and the session is not offered again", nameItUndo),
         ("A session whose earlier names tied is offered once another name breaks the tie", tieBreaks),
         ("A Name it the store refuses leaves the session on offer", refusedStaysOffered),
+        ("A cached name is dropped when renames tie or overturn the earlier names' ranking", rankingChanges),
     ]
 
     private typealias Checks = NameSuggestionStoreChecks
@@ -88,6 +90,46 @@ enum NameFinalFixChecks: CheckSuite {
             expect(s.current?.session.threadID == a && s.current?.name == "Daybook",
                    "after a refusal, offered \(String(describing: s.current)), not the same session again", &problems)
             expect(Checks.target(f, a) != nil, "a refused Name it left the session named", &problems)
+        }
+    }
+
+    /// Today 7:00–7:30 (B) in Xcode and Terminal. "Daybook" used Xcode and
+    /// Mail, so it alone fits B and is offered. Naming yesterday's C, Terminal
+    /// only, "Thesis" brings Thesis within 0.05 of Daybook: a tie. Naming D,
+    /// Xcode and Terminal, "Thesis" too puts Thesis well ahead.
+    private static func rankingChanges() -> [String] {
+        let (b, c, d) = (UUID(), UUID(), UUID())
+        return Checks.withFixture(records: { days in [
+            Checks.record(days.at(0, 7), days.at(0, 7, 30), thread: b),
+            Checks.record(days.at(1, 14), days.at(1, 14, 45), thread: c),
+            Checks.record(days.at(1, 16), days.at(1, 16, 45), thread: d),
+            Checks.record(days.at(3, 9), days.at(3, 11), name: "Daybook"),
+        ] }, usage: { days in [
+            Checks.app("Xcode", days.at(0, 7), 15 * 60), Checks.app("Terminal", days.at(0, 7, 15), 15 * 60),
+            Checks.app("Terminal", days.at(1, 14), 40 * 60),
+            Checks.app("Xcode", days.at(1, 16), 20 * 60), Checks.app("Terminal", days.at(1, 16, 20), 20 * 60),
+            Checks.app("Xcode", days.at(3, 9), 45 * 60), Checks.app("Mail", days.at(3, 9, 45), 55 * 60),
+        ] }) { f, _, problems in
+            let calls = Support.Calls()
+            let s = Support.make(f, calls)
+            Support.run(s)
+            guard s.current?.session.threadID == b, s.current?.name == "Daybook",
+                  let second = Checks.target(f, c), let third = Checks.target(f, d) else {
+                return problems.append("B was not offered Daybook first: \(String(describing: s.current))")
+            }
+            expect(f.store.acceptNameSuggestion("Thesis", for: second), "naming C failed", &problems)
+            Support.run(s)
+            let tied = Checks.target(f, b).flatMap { f.store.nameFacts(for: $0)?.candidates } ?? []
+            expect(tied.count == 2 && !NameCandidates.isClearLead(tied),
+                   "B should tie, got \(tied.map { "\($0.name) \($0.score)" })", &problems)
+            expect(s.current?.session.threadID != b && calls.facts.count == 1,
+                   "B was offered \(String(describing: s.current?.name)) while tied, after \(calls.facts.count) questions",
+                   &problems)
+            expect(f.store.acceptNameSuggestion("Thesis", for: third), "naming D failed", &problems)
+            Support.run(s)
+            expect(s.current?.session.threadID == b && s.current?.name == "Thesis" && calls.facts.count == 2,
+                   "once Thesis led, B was offered \(String(describing: s.current?.name)) after \(calls.facts.count) questions",
+                   &problems)
         }
     }
 }
