@@ -132,6 +132,14 @@ struct StoryRail: View {
         .onChange(of: TodayNoteOffers.cause(store: store, usable: notesUsable), initial: true) {
             if day == nil { noteOffers = TodayNoteOffers(store: store, usable: notesUsable) }
         }
+        // Asking is the rail's to start, not the notice's: the notice draws
+        // nothing until there is an offer, and a view with nothing in it runs
+        // no task. The key moves with the session archive, notes, corrections,
+        // Keep as is and the day; not with the clock or with app use.
+        .task(id: store.nameSuggestionKey) { if day == nil { navigation.nameSuggester?.refresh() } }
+        .onChange(of: store.appleIntelligenceEnabled) { _, enabled in
+            if !enabled { navigation.nameSuggester?.cancelAll() } else if day == nil { navigation.nameSuggester?.refresh() }
+        }
         .onAppear { arrangement.synchronise(settings.storyTileOrder) }
         .onExitCommand { arrangement.escape() }
     }
@@ -390,6 +398,9 @@ struct StoryRail: View {
             // Today's tile only: the tidy-up is about the record as it is now.
             if day == nil {
                 NameCategoryNotice(store: store, settings: settings)
+                if let suggester = navigation.nameSuggester {
+                    NameSuggestionNotice(suggester: suggester, store: store)
+                }
             }
         }
     }

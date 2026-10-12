@@ -75,6 +75,7 @@ final class PersistenceStore {
         static let welcomeLeftAt = "fc.welcomeLeftAt"
         static let globalShortcut = "fc.globalShortcut"
         static let skippedConfirmations = "fc.skippedConfirmations"
+        static let nameSuggestionKept = "fc.nameSuggestionKept"
         static let backupSchedule = "fc.backupSchedule"
         static let backupRetention = "fc.backupRetention"
         static let backupFolder = "fc.backupFolder"
@@ -631,6 +632,13 @@ final class PersistenceStore {
         set { defaults.set(newValue.map(\.rawValue).sorted(), forKey: Key.skippedConfirmations) }
     }
 
+    /// Threads, as UUID strings, whose unnamed session "Keep as is" left
+    /// without a name suggestion.
+    var nameSuggestionKept: Set<String> {
+        get { Set(defaults.array(forKey: Key.nameSuggestionKept) as? [String] ?? []) }
+        set { defaults.set(newValue.sorted(), forKey: Key.nameSuggestionKept) }
+    }
+
     // MARK: - Backups
 
     /// Unrecognised or missing values read as the default, every day.
@@ -877,7 +885,7 @@ final class PersistenceStore {
                     Key.showsMenuBarIcon, Key.dockIconMode, Key.nameCategoryKept,
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
                     Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut, Key.skippedConfirmations,
-                    Key.backupSchedule, Key.backupRetention, Key.backupFolder, Key.backupLog,
+                    Key.nameSuggestionKept, Key.backupSchedule, Key.backupRetention, Key.backupFolder, Key.backupLog,
                     Key.backupOfferPending]
         for key in keys { defaults.removeObject(forKey: key) }
         // And the unreadable values kept aside from those keys, but nothing else.

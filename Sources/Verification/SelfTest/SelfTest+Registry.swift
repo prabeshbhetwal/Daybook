@@ -131,6 +131,13 @@ extension SelfTest {
             + AskSessionDetailNameChecks.tests
             + BestStreakChecks.tests
             + HistorySearchWeekdayChecks.tests
+            + NameSuggestionCoreChecks.tests
+            + NameSuggestionStoreChecks.tests
+            + NameSuggestionStoreChecks.later
+            + NameSuggesterChecks.tests
+            + NameSuggestionNoticeChecks.tests
+            + NameMarginChecks.tests
+            + NameFinalFixChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
