@@ -49,11 +49,15 @@ enum NameCandidates {
     }
 
     /// Σ over apps of min(share in a, share in b), so 0 to 1; 0 when either
-    /// side has no time.
+    /// side has no time. Summed in bundle-ID order: a dictionary's order is
+    /// not promised, and a different order could move the last digits, and
+    /// with them the answer's cache key.
     static func shared(_ a: [String: TimeInterval], _ b: [String: TimeInterval]) -> Double {
-        let totalA = a.values.reduce(0, +), totalB = b.values.reduce(0, +)
+        let appsA = a.sorted { $0.key < $1.key }
+        let totalA = appsA.reduce(0) { $0 + $1.value }
+        let totalB = b.sorted { $0.key < $1.key }.reduce(0) { $0 + $1.value }
         guard totalA > 0, totalB > 0 else { return 0 }
-        return a.reduce(0) { sum, app in
+        return appsA.reduce(0) { sum, app in
             sum + min(app.value / totalA, (b[app.key] ?? 0) / totalB)
         }
     }
