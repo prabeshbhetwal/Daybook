@@ -1,7 +1,7 @@
 # Name suggestions for unnamed sessions
 
 Date: 2026-10-12
-Status: design approved 2026-10-12 in chat; written spec awaiting review
+Status: built; hand checks pending (2026-10-12)
 
 ## Why
 
@@ -24,7 +24,7 @@ order"). It writes one session, and only when the person accepts.
 | Approach | Code ranks earlier names by shared app time and category, and offers the top 3. The on-device model picks one of them, words a fresh name, or declines. Code checks any fresh name before it is shown. |
 | Rejected: code alone for earlier names | Cannot read the note, and it would put a non-AI suggestion on every Mac. |
 | Rejected: the model reads every name | Hard to check, likely to pick a plausible wrong name, and against the shared rule that code offers the candidates. |
-| Which sessions | Ended focus sessions from today and yesterday whose name is empty, focused for at least 10 minutes, and not kept as they are. A session is one thread's stretches on one day, as History shows one card; its day is the day it started, in `periodCalendar`. |
+| Which sessions | Ended focus sessions from today and yesterday whose name is empty, focused for at least 10 minutes, and not kept as they are. A session is one thread's stretches, as History shows one card; its day is the day it started, in `periodCalendar`. A session that crosses midnight is offered once, on the day it started, and its focused time for the 10-minute test is its total across both days. A session that began before yesterday is not offered. |
 | Rejected: any day you open | Older guesses are harder to judge; tidying older history is project 4. |
 | Cadence | One suggestion at a time, newest first: today's sessions, then yesterday's. |
 | Rejected: a batch with "Name all" | One wrong guess rides along with the right ones. |
@@ -69,6 +69,9 @@ Earlier names that fit:
 2. Thesis (usually Pages, Safari; Writing)
 ```
 
+The note is sent as one line, its line breaks collapsed and cut at 200
+characters, so a pasted page cannot pass for another line of the facts.
+
 A session with no app evidence and no note is not sent to the model and
 gets no suggestion.
 
@@ -79,7 +82,7 @@ gets no suggestion.
 | Answer | Result |
 |---|---|
 | `1`–`3` | That candidate's exact text; the model cannot alter it. |
-| `new` | Only if `NameAudit` passes: 1–4 words, at most 30 characters, no digits, no quotes, not a category name, not just an app's name. A fresh name equal to any earlier name, ignoring case, takes the earlier spelling. |
+| `new` | Only if `NameAudit` passes: 1–4 words, at most 30 characters, no digits, no quotes, not a category name, not just an app's name. A fresh name equal to any earlier name, ignoring case, takes the earlier spelling. An apostrophe inside a word counts as a quote, so a fresh name such as "Sir's thesis" is not offered yet; an earlier name with one still can be. |
 | `none`, a failed audit, an error or the timeout | No suggestion for this session; the next session is tried. |
 
 ## 3. The notice
@@ -93,7 +96,8 @@ gets no suggestion.
 ```
 
 - The opening follows the session: "this morning's", "this afternoon's", "this evening's", "yesterday evening's", using `SessionStore.timeOfDay` and the focused time from `DurationText`.
-- VoiceOver reads the mark as "Suggested by on-device AI".
+- A session that started before 05:00 today reads "last night's", as one that started the evening before does; both can show at once, and both are true.
+- VoiceOver reads the caption "Suggested by on-device AI". The sparkles mark is decorative and hidden from it.
 
 **Behaviour.**
 
@@ -103,8 +107,9 @@ gets no suggestion.
 | Undo | The session's name is empty again. It is offered again only after a relaunch or a change to its facts. |
 | Keep as is | The thread is remembered in `fc.nameSuggestionKept`, trimmed to threads that ended in the last two days, and the next session is shown. |
 | Named on its card | The session drops out. |
+| Name it or Keep as is on a stale notice | Each acts only if the session is still unnamed and not kept. Otherwise nothing is written, and the notice moves on. |
 | Switch off, or model unusable | Nothing is drawn, and a call in flight is cancelled. |
-| Model runs | When a session stops unnamed, and when today's Story opens with a qualifying session that has no cached result. Only one call at a time, and never on the 1 Hz ticker. After a relaunch it runs again once, when the Story opens. |
+| Model runs | When a session stops unnamed, and when today's Story opens with a qualifying session that has no cached result. Only one call at a time, and never on the 1 Hz ticker. After a relaunch it runs again once, when the Story opens. The notice asks again on a change to the session archive, the notes, the corrections (a rename on a card), the kept list or the day, and never on the minute-by-minute app-use checkpoint. |
 | No candidates, no evidence, or no answer | That session shows no notice; the next one is tried. |
 
 ## 4. Privacy
@@ -130,6 +135,67 @@ mixed apps, and no evidence. The target is at least 16 right-or-none, with 0
 names that slipped past the audit. Smoke-test the model first with a 60 s
 timeout. A miss is fixed in code (the ranking or the facts), never by
 editing the prompt.
+
+## 5a. Live probe
+
+Run on 2026-10-12 on macOS 27.2 (build 26B5101f), with
+`SystemLanguageModel.default` available. The smoke test (`Say OK`, 60 s
+timeout) answered in 4.2 s. The probe ran `NameSuggester` with no responder
+and a 60 s timeout, over one fixture: five earlier names (Daybook, Thesis,
+Email triage, Release notes, Admin) of four sessions each, with distinct app
+mixes, and 20 unnamed sessions. The expected answers were written before the
+run. Each question took 0.9–2.2 s; none timed out or threw.
+
+"Right" is the expected answer, or a stated alternative. "None" is nothing
+offered where a name was expected: honest, and counted toward the target.
+"Wrong" is a name that does not fit.
+
+| # | Case | Apps and note | Expected | Model's `choice` / `name` | Offered | Verdict |
+|---|---|---|---|---|---|---|
+| 1 | repeat | Xcode 40m, Terminal 15m | Daybook | `1` | Daybook | right |
+| 2 | repeat | Pages 35m, Safari 10m, Zotero 8m | Thesis | `Thesis` | nothing | none |
+| 3 | repeat | Mail 25m, Calendar 5m | Email triage | `1` | Email triage | right |
+| 4 | repeat | Notion 30m, Safari 15m, Terminal 5m | Release notes | `1` | Release notes | right |
+| 5 | repeat | Numbers 20m, Preview 15m, Mail 10m | Admin | `deep work` / `budget review` | nothing | none (no candidate; see below) |
+| 6 | repeat | Xcode 50m, Safari 10m | Daybook | `Daybook` | nothing | none |
+| 7 | note | Safari 30m, Terminal 20m; "wrote the changelog and release summary for the new version" | Release notes | `1` | Release notes | right |
+| 8 | note | Safari 25m, Terminal 20m, Xcode 5m; "fixed the crash in the session engine tests" | Daybook | `Release notes` / `Crash fix in session engine` | nothing | none |
+| 9 | note | Safari 20m, Pages 10m, Terminal 10m; "drafted the methods chapter for my dissertation" | Thesis | `Thesis` | nothing | none |
+| 10 | note | Mail 20m, Numbers 15m; "filed receipts and updated the household budget sheet" | Admin | `Email triage` | nothing | none (no candidate; see below) |
+| 11 | fresh | Figma 40m, Safari 5m; "designed the onboarding screens for the landing page" | a landing-page or onboarding name | `design onboarding screens` / `landing page UX` | nothing | none |
+| 12 | fresh | Logic Pro 50m; "mixed the podcast episode and cut the intro" | a podcast name | `mix intro podcast` / `Podcast Intro Edit` | nothing | none |
+| 13 | fresh | Zoom 30m, Slack 10m; "interviewed candidates for the design role" | an interviews or hiring name | `interviewed candidates for the design role` / `design role interviews` | nothing | none |
+| 14 | fresh | Blender 45m; "modelled the chair for the furniture scene" | a 3D or chair name | `modelled the chair` / `furniture scene` | nothing | none |
+| 15 | mixed | Xcode 15m, Pages 15m, Mail 15m | none | `Daybook` | nothing | right |
+| 16 | mixed | Safari 20m, Terminal 15m, Slack 10m | none, or Release notes | `Release notes` | nothing | right |
+| 17 | mixed | Notion 15m, Numbers 15m, Preview 10m | none, or Admin | `1` | Release notes | wrong |
+| 18–20 | no evidence | no apps, no note | never asked | not asked | nothing | right |
+
+**Counts.** 9 right, 10 none, 1 wrong. Right-or-none is 19 of 20 against a
+target of 16, and 0 offered names failed `NameAudit`: the target is met.
+
+**The wrong row.** #17: the model answered `1` and Release notes was offered
+for a session that was a third Notion and two thirds Numbers and Preview. The
+candidate scored 0.375 shared time plus the category bonus, over the 0.3
+threshold. Its one strong app is the session's biggest, but the rest of the
+mix does not fit, and the facts cannot say so.
+
+**What the target hides.**
+- Admin is a category's name, so it is never an earlier name (§2). The fixture
+  made it one anyway, and #5 and #10 had no candidate to reach. That is a
+  fault in the fixture, not in the code; the rows are scored as none.
+- The model did not follow the form of the answer. In 12 of the 17 questions
+  its `choice` was an earlier name's text or the work in its own words, not
+  `1`, `2`, `3`, `new` or `none`. `NameSuggester.choice` reads all of those as
+  none. Three of those were the right earlier name (#2, #6, #9). So 10 of the
+  14 rows that expected a name gave none, and no fresh name was ever offered
+  (#11–#14 held sensible names in the `name` field).
+- Reading such a `choice` as the earlier name it spells is not a safe fix on
+  its own. It would also have offered Release notes for #8, Email triage for
+  #10 and Daybook for #15, all wrong. The strict reading is what kept those
+  three off the screen. A fix belongs in the answer's shape: a closed set for
+  `choice` (an enum), not a tolerant reading of free text. It changes the
+  schema the model sees, so it is a decision for a later pass, not made here.
 
 ## 6. Hand checks
 
