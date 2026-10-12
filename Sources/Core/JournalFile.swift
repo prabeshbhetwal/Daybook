@@ -72,7 +72,7 @@ struct JournalFile {
                 throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
             }
         } else {
-            dropTailOfFailedWrite()
+            try dropTailOfFailedWrite()
         }
         var ended = line
         ended.append(0x0A)
@@ -90,14 +90,20 @@ struct JournalFile {
     /// Cuts a line left by a failed write whose truncation also failed. In a
     /// running process an unended last line can only be that: a launch has
     /// already ended or cut the one it found.
-    private func dropTailOfFailedWrite() {
-        guard let reader = try? FileHandle(forReadingFrom: url) else { return }
+    private func dropTailOfFailedWrite() throws {
+        let reader = try FileHandle(forReadingFrom: url)
         defer { try? reader.close() }
-        guard let end = try? reader.seekToEnd(), end > 0,
-              (try? reader.seek(toOffset: end - 1)) != nil,
-              let last = try? reader.read(upToCount: 1), last != Data([0x0A]),
-              let data = try? Data(contentsOf: url) else { return }
-        _ = dropTornLine(from: data)
+        let end = try reader.seekToEnd()
+        guard end > 0 else { return }
+        try reader.seek(toOffset: end - 1)
+        guard let last = try reader.read(upToCount: 1), last.count == 1 else {
+            throw CocoaError(.fileReadUnknown, userInfo: [NSFilePathErrorKey: url.path])
+        }
+        guard last != Data([0x0A]) else { return }
+        let data = try Data(contentsOf: url)
+        guard dropTornLine(from: data) else {
+            throw CocoaError(.fileWriteUnknown, userInfo: [NSFilePathErrorKey: url.path])
+        }
     }
 
     /// Writes the newline a cut-short write left off a line that reads.

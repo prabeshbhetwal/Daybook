@@ -1,7 +1,6 @@
 name: Check
 
-# Builds the app and runs every self-check on each push: the same gate as
-# ./build.sh --check locally. It never promotes a bundle or publishes anything.
+# Builds and checks an isolated runner bundle; no release is published.
 on:
   push:
   workflow_dispatch:
@@ -9,12 +8,33 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  regressions:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Select the newest Xcode
+        run: |
+          xcode="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          swift --version
+      - name: Prove the Core regressions fail before the fixes and pass after them
+        run: bash scripts/check-readiness-regressions.sh
+
   check:
+    needs: regressions
     runs-on: macos-26
     timeout-minutes: 30
     steps:
@@ -29,8 +49,51 @@ jobs:
           xcodebuild -version
           swift --version
 
-      # The runner keeps its own time zone and region (UTC, US English). The
-      # self-checks are written to hold in any zone, and running them away
-      # from the Sydney Mac they are written on keeps them to it.
-      - name: Build and run the self-checks
-        run: ./build.sh --check
+      # --test retains this disposable runner's verified bundle for further
+      # self-tests and snapshots. It does not launch the normal app.
+      - name: Build and run the UTC self-checks
+        env:
+          TZ: UTC
+        run: |
+          mkdir -p .build/readiness-evidence
+          ./build.sh --test 2>&1 | tee .build/readiness-evidence/selftest-utc.log
+
+      - name: Run the same self-checks in Sydney and Berlin
+        run: |
+          for zone in Australia/Sydney Europe/Berlin; do
+            TZ="$zone" ./Daybook.app/Contents/MacOS/Daybook --selftest 2>&1 \
+              | tee ".build/readiness-evidence/selftest-${zone##*/}.log"
+          done
+
+      - name: Render Story, History, Settings, and save-failure smoke scenes
+        run: |
+          for scene in storyDay reviewHistorySelection settingsGeneral focusSaveFailure; do
+            FC_SNAPSHOT_ONLY="$scene" ./Daybook.app/Contents/MacOS/Daybook \
+              --snapshot .build/readiness-evidence/snapshots
+          done
+
+      - name: Keep self-test logs and rendered smoke evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: readiness-evidence
+          path: .build/readiness-evidence
+          if-no-files-found: error
+          retention-days: 7
+
+  insight-regression:
+    needs: check
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the newest Xcode
+        run: |
+          xcode="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          swift --version
+      - name: Prove the old month offset fails only its intended regression
+        env:
+          TZ: UTC
+        run: python3 scripts/check-insight-calendar-regression.py

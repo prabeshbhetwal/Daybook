@@ -113,7 +113,7 @@ struct LogAppGroup: Identifiable, Equatable {
         while cursor <= last && result.count < 40 {
             result.append((cursor, totals[cursor] ?? 0))
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
+            cursor = calendar.startOfDay(for: next)
         }
         return result
     }
@@ -170,7 +170,7 @@ struct PeriodStats {
         let start = calendar.startOfDay(for: day)
         switch period {
         case .day:
-            return (start, calendar.date(byAdding: .day, value: 1, to: start) ?? start)
+            return SessionRecord.dayBounds(day, calendar: calendar) ?? (start, start)
         case .week:
             let interval = calendar.dateInterval(of: .weekOfYear, for: start)
             return (interval?.start ?? start, interval?.end ?? start)
@@ -199,7 +199,7 @@ struct PeriodStats {
             guardRail += 1
             total += stats.trackedTotal(for: cursor)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
+            cursor = calendar.startOfDay(for: next)
         }
         return total
     }
@@ -218,7 +218,7 @@ struct PeriodStats {
                                     tracked: stats.trackedTotal(for: cursor),
                                     byWorkType: stats.focusQuality(for: cursor).byWorkType))
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
+            cursor = calendar.startOfDay(for: next)
         }
         return result
     }
@@ -246,7 +246,7 @@ struct PeriodStats {
             entriesByDay[cursor] = dayEntries
             Self.retainNewest(dayEntries, in: &retainedEntries)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
+            cursor = calendar.startOfDay(for: next)
         }
         allEntries.sort { $0.session.start > $1.session.start }
         retainedEntries.sort { $0.session.start > $1.session.start }
@@ -295,7 +295,7 @@ struct PeriodStats {
             visited += 1
             Self.retainNewest(Self.logEntries(on: cursor, stats: stats), in: &entries)
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
+            cursor = calendar.startOfDay(for: next)
         }
         return entries.sorted { $0.session.start > $1.session.start }
     }

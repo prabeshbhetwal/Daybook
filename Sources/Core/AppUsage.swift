@@ -416,11 +416,10 @@ final class AppUsageArchive {
     /// stretch running through midnight is split the way the dashboard already
     /// splits it instead of landing wholly on the later day.
     func totalToday() -> TimeInterval {
-        let start = calendar.startOfDay(for: now())
-        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return 0 }
+        guard let day = SessionRecord.dayBounds(now(), calendar: calendar) else { return 0 }
         return sessions.reduce(0) { total, session in
-            let low = max(session.start, start)
-            let high = min(session.end, end)
+            let low = max(session.start, day.start)
+            let high = min(session.end, day.end)
             return high > low ? total + high.timeIntervalSince(low) : total
         }
     }

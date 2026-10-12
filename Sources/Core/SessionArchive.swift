@@ -354,7 +354,7 @@ final class SessionArchive {
                 let share = record.workSeconds(on: cursor, calendar: calendar)
                 if share > 0 { totals[cursor, default: 0] += share }
                 guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-                cursor = next
+                cursor = calendar.startOfDay(for: next)
             }
         }
         cachedDailyTotals = totals
@@ -370,9 +370,10 @@ final class SessionArchive {
 
         let totals = dailyTotals()
         return (0..<7).reversed().compactMap { offset in
-            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else {
+            guard let candidate = calendar.date(byAdding: .day, value: -offset, to: today) else {
                 return nil
             }
+            let day = calendar.startOfDay(for: candidate)
             // A stored length no session can have (a corrupted file can hold
             // 1e300) draws no bar instead of trapping on every refresh.
             let seconds = DurationText.wholeSeconds(totals[day] ?? 0) ?? 0
@@ -414,14 +415,14 @@ final class SessionArchive {
             guard let yesterday = calendar.date(byAdding: .day, value: -1, to: cursor) else {
                 return 0
             }
-            cursor = yesterday
+            cursor = calendar.startOfDay(for: yesterday)
         }
 
         var streak = 0
         while cursor == today ? qualifies : (totals[cursor] ?? 0) >= streakMinimum {
             streak += 1
             guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = previous
+            cursor = calendar.startOfDay(for: previous)
         }
         cachedCurrentStreak = (today, qualifies, streak)
         return streak

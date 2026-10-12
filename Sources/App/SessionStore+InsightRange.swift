@@ -135,7 +135,7 @@ extension SessionStore {
                            calendar: Calendar = .current) -> InsightRangeFacts {
         let days = periods.flatMap(\.days)
         guard let first = days.map(\.date).min(), let last = days.map(\.date).max(),
-              let rangeEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: last))
+              let rangeEnd = SessionRecord.dayBounds(last, calendar: calendar)?.end
         else { return .empty }
         let rangeStart = calendar.startOfDay(for: first)
         let rows = InsightGridRows(scope: scope, periods: periods, calendar: calendar)

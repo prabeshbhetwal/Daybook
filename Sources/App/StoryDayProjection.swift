@@ -183,7 +183,7 @@ extension SessionStore {
                 visited += 1
                 days.append(storyDayProjection(on: day, calendar: calendar))
                 guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
-                day = next
+                day = calendar.startOfDay(for: next)
             }
             result.append(StoryPeriodProjection(scope: scope, start: bounds.start,
                                                 end: bounds.end, isCurrent: current,

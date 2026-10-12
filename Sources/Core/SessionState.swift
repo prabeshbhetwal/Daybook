@@ -377,9 +377,8 @@ extension SessionRecord {
 
     static func dayBounds(_ day: Date,
                           calendar: Calendar) -> (start: Date, end: Date)? {
-        let start = calendar.startOfDay(for: day)
-        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
-        return (start, end)
+        guard let interval = calendar.dateInterval(of: .day, for: day) else { return nil }
+        return (interval.start, interval.end)
     }
 }
 
@@ -478,6 +477,9 @@ struct PersistedState: Codable, Equatable {
     var threadID: UUID?
     /// Nil in snapshots written before active correction state was durable.
     var activeWorkType: WorkType? = nil
+    /// The app at the session's start, independent of the last foreground app.
+    /// Nil in older snapshots, whose original app cannot be recovered.
+    var activeDetectedApp: String? = nil
     var isAuto: Bool?
     /// Absence banked while an away card was up and not yet applied to a
     /// session. Optional so blobs written before it existed still decode; a

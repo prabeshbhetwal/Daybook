@@ -253,8 +253,7 @@ extension SessionStore {
             + [storyRunningSpan?.start ?? moment, moment]
             + [usage?.takePendingChangeStart()].compactMap { $0 }
         let first = calendar.startOfDay(for: starts.min() ?? moment)
-        let end = calendar.date(byAdding: .day, value: 1,
-                                to: calendar.startOfDay(for: moment)) ?? moment
+        let end = SessionRecord.dayBounds(moment, calendar: calendar)?.end ?? moment
         return DateInterval(start: min(first, end), end: end)
     }
 
@@ -355,7 +354,7 @@ extension SessionStore {
             calendar.isDate($0.date, inSameDayAs: day)
         }) else { return nil }
         let periodDay = reviewDays.first { calendar.isDate($0.date, inSameDayAs: day) }
-        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: day) else { return nil }
+        guard let dayEnd = SessionRecord.dayBounds(day, calendar: calendar)?.end else { return nil }
         let dayInterval = DateInterval(start: day, end: dayEnd)
         let appEntries = reviewAppEntries(on: day, calendar: calendar)
         let focusEntries = reviewFocusEntries(in: dayInterval)

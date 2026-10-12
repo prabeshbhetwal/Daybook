@@ -110,6 +110,7 @@ extension SessionEngine {
         activeThreadID = saved.threadID ?? activeThreadID
         activeRecordID = saved.activeRecordID ?? legacyActiveRecordID(for: saved)
         activeWorkType = saved.activeWorkType ?? .deepWork
+        activeDetectedApp = saved.activeDetectedApp
         activeIsAuto = saved.isAuto ?? false
         activeAutomaticAction = saved.automaticActivityAction
         awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
@@ -141,6 +142,7 @@ extension SessionEngine {
         result.awayReturnedAt = awayReturnedAt
         result.workBeforePendingAway = workBeforePendingAway
         result.activeRecordID = activeRecordID
+        result.activeDetectedApp = activeDetectedApp
         result.automaticActivityAction = activeAutomaticAction
         result.pendingRests = pendingRests.isEmpty ? nil : pendingRests
         return result
