@@ -79,6 +79,21 @@ struct HistorySearchChips: View {
     }
 }
 
+extension HistorySearchChips {
+    /// The hint under "No matching sessions". With chips and unread words it
+    /// names the words, which may be a phrase the box could not read rather
+    /// than words a session should hold.
+    static func emptyDetail(_ search: ParsedSearch) -> String {
+        guard !search.phrases.isEmpty, !search.leftover.isEmpty else {
+            return "Try fewer words, or a session name, an old name, a word from a note, "
+                + "a named break, an app, a category, a date or a time of day."
+        }
+        let one = search.leftover.split(whereSeparator: \.isWhitespace).count == 1
+        return "“\(search.leftover)” was searched as \(one ? "a word" : "words"), and no session that fits the chips has "
+            + (one ? "it. Remove it, or say it another way." : "them. Remove them, or say them another way.")
+    }
+}
+
 /// The chips with the rescue's published marks, or without when there is no rescue.
 struct HistorySearchChipRow: View {
     @ObservedObject var store: SessionStore

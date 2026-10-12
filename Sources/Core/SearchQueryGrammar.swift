@@ -7,6 +7,9 @@ enum SearchPeriod {
     /// A month or day typed without its year: its year waits for the other
     /// periods in the text, and `fallback` is the latest one not in the future.
     case yearless(words: String, fallback: AskRange)
+    /// A weekday typed alone, 1 = Sunday: its day waits for the other periods
+    /// in the text, and `fallback` is the latest one up to today.
+    case weekday(Int, fallback: DateInterval)
 }
 
 /// What one phrase asks for, and how many words it took.
@@ -51,7 +54,7 @@ struct SearchGrammar {
     private enum Part { case day, month, year }
     private static let dateForms: [[Part]] = [[.day, .month, .year], [.month, .day, .year], [.day, .month],
                                               [.month, .day], [.month, .year], [.month], [.year]]
-    private static let weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    static let weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
     private static let overWords = [["over"], ["longer", "than"], ["more", "than"], ["at", "least"]]
     private static let underWords = [["under"], ["shorter", "than"], ["less", "than"], ["at", "most"]]
 
@@ -81,7 +84,7 @@ struct SearchGrammar {
     // MARK: Periods
 
     private func period(_ t: SearchTokens, _ i: Int) -> SearchMatch? {
-        [relative(t, i), dated(t, i)].compactMap { $0 }.first
+        [relative(t, i), weekdayDay(t, i), dated(t, i)].compactMap { $0 }.first
     }
 
     /// A month, a day and month, or a year, read by `AskRange.resolving`.

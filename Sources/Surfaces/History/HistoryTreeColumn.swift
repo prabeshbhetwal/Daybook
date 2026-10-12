@@ -91,9 +91,7 @@ struct HistoryTree: View {
             // An app used only outside sessions has no matching session, but
             // still has a story to tell.
             if let searched, searched.isEmpty, lens?.days.isEmpty ?? true {
-                EmptyState("No matching sessions",
-                           detail: "Try fewer words, or a session name, an old name, a word from a note, "
-                               + "a named break, an app, a category, a date or a time of day.",
+                EmptyState("No matching sessions", detail: HistorySearchChips.emptyDetail(store.historyParsedSearch),
                            icon: "magnifyingglass")
                     .padding(insets)
             } else if isEmptyArchive {

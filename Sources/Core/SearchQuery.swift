@@ -50,14 +50,24 @@ enum SearchQuery {
         var result = ParsedSearch(leftover: leftover.joined(separator: " "), phrases: [])
         // The periods that name their year pin the year of a month or day typed without one.
         let pinned = overlap(found.compactMap { grammar.fixedInterval($0.match) })
+        // Each period's dates and chip. A lone weekday goes last: its day is the
+        // latest inside all the other periods, once their years are settled.
+        var settled: [Int: (interval: DateInterval, label: String)] = [:]
+        for lone in [false, true] {
+            let within = lone ? overlap(Array(settled.values.map(\.interval))) : pinned
+            for (index, item) in found.enumerated() {
+                guard case let .period(period) = item.match.effect, period.isLoneWeekday == lone else { continue }
+                settled[index] = grammar.settle(period, within: within)
+            }
+        }
         var spans: [DateInterval] = []
-        for (first, match) in found {
+        for (index, (first, match)) in found.enumerated() {
             var label = match.label
             switch match.effect {
-            case let .period(period):
-                let settled = grammar.settle(period, within: pinned)
-                spans.append(settled.interval)
-                label = settled.label
+            case .period:
+                guard let period = settled[index] else { break }
+                spans.append(period.interval)
+                label = period.label
             case let .weekdays(days):
                 result.weekdays = (result.weekdays ?? []).union(days)
             case let .length(low, high):
@@ -97,15 +107,19 @@ extension SearchGrammar {
         switch period {
         case let .relative(interval, _): return interval
         case let .named(range): return range.interval(now: now, firstDay: now, calendar: calendar)
-        case .yearless: return nil
+        case .yearless, .weekday: return nil
         }
     }
 
     /// A period's dates and chip. A month or day typed without a year takes it
     /// from `pinned`, the periods that give theirs: the latest occurrence, not
-    /// in the future, that meets them. With none it is the latest not in the future.
+    /// in the future, that meets them. With none it is the latest not in the
+    /// future. A lone weekday is the latest such day that `pinned` holds;
+    /// `parse` passes it the overlap of every other period.
     func settle(_ period: SearchPeriod, within pinned: DateInterval?) -> (interval: DateInterval, label: String) {
         switch period {
+        case let .weekday(day, fallback):
+            return settle(weekday: day, fallback: fallback, within: pinned)
         case let .relative(interval, name):
             return (interval, "\(name) · \(datesLabel(interval))")
         case let .named(range):

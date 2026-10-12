@@ -8,7 +8,7 @@ enum HistorySearchQueryChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("The search box reads periods, weekdays, lengths and names out of free text", grammarRows),
         ("The longest phrase wins and the rest stays as words", longestMatch),
-        ("Quoted words and a single weekday stay words", literalWords),
+        ("Quoted words stay words", literalWords),
         ("Names match only with their own capital", nameCase),
         ("Periods intersect, and disjoint ones say No overlap", intersection),
         ("A week just after midnight on Monday is the week before", mondayMidnight),
@@ -166,8 +166,8 @@ enum HistorySearchQueryChecks: CheckSuite {
         verify("\"Xcode\"", Row(leftover: "\"Xcode\""), &problems)
         verify("\"last week", Row(leftover: "\"last week"), &problems)
         verify("\"over 1h\" over 2h", Row(min: 7_200, leftover: "\"over 1h\"", labels: ["Over 2h"]), &problems)
-        verify("Monday", Row(leftover: "Monday"), &problems)
-        verify("on Monday", Row(leftover: "on Monday"), &problems)
+        // A lone weekday is a day now (`HistorySearchWeekdayChecks`); quoted, it is still a word.
+        verify("\"Monday\"", Row(leftover: "\"Monday\""), &problems)
         return problems
     }
 
