@@ -21,6 +21,8 @@ struct NameSuggestionNotice: View {
                 if let named { confirmation(named) }
                 if let offer = suggester.current { offered(offer) }
             }
+            // The switch turned off: nothing is drawn, the confirmation included.
+            .onChange(of: suggester.stops) { named = nil }
         }
     }
 

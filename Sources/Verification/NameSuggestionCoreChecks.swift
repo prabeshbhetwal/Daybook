@@ -132,6 +132,10 @@ enum NameSuggestionCoreChecks: CheckSuite {
         expect(resolve(.fresh("  Fortnight parser ")) == "Fortnight parser", "a new name is trimmed", &problems)
         expect(resolve(.fresh("podcast mix")) == "Podcast mix" && resolve(.fresh("éclair plan")) == "Éclair plan",
                "a new name starts with a capital, as a break's does", &problems)
+        expect(resolve(.fresh("landing page")) == "Landing page" && resolve(.fresh("x")) == "X",
+               "a lowercase name and a single letter are capitalised", &problems)
+        expect(resolve(.fresh("iOS build")) == "iOS build" && resolve(.fresh("macOS port")) == "macOS port",
+               "a brand's own spelling is not capitalised", &problems)
         expect(resolve(.fresh("Daybook\nparser"), earlier: []) == "Daybook parser",
                "a newline between words becomes one space", &problems)
         expect(resolve(.fresh("Daybook   parser"), earlier: []) == "Daybook parser",

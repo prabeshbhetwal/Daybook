@@ -34,9 +34,10 @@ enum NameSuggestionNoticeChecks: CheckSuite {
             // A note changes the facts, so it must ask again: the key moves with the notes.
             _ = f.metadata.saveNote("planned the week", for: session.recordIDs[0])
             expect(f.store.nameSuggestionKey != first, "a note saved on an offered session did not move the key", &problems)
+            let afterNote = f.store.nameSuggestionKey
             f.store.keepSessionUnnamed(session)
             let afterKeep = f.store.nameSuggestionKey
-            expect(afterKeep != first, "Keep as is did not move the key", &problems)
+            expect(afterKeep != afterNote, "Keep as is did not move the key", &problems)
             expect(f.store.acceptNameSuggestion("Daybook", for: other), "Name it failed", &problems)
             let afterRename = f.store.nameSuggestionKey
             expect(afterRename != afterKeep, "a rename did not move the key", &problems)

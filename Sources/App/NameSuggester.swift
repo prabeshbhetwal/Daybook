@@ -47,6 +47,9 @@ struct NameSuggestion: Equatable {
 @MainActor final class NameSuggester: ObservableObject {
     @Published private(set) var current: NameSuggestion?
     @Published private(set) var isAsking = false
+    /// Counts the stops (switch off, model unusable), which can leave `current`
+    /// as it was (nil): the notice drops what it shows of its own on a change.
+    @Published private(set) var stops = 0
 
     private weak var store: SessionStore?
     /// How long to wait for the model; checks shorten it.
@@ -141,6 +144,7 @@ struct NameSuggestion: Equatable {
     /// For when the switch is turned off: nothing is offered and the question
     /// being asked is no longer waited for.
     func cancelAll() {
+        stops &+= 1
         end(generation)
         offer(nil, key: nil)
     }

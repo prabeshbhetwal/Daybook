@@ -32,6 +32,10 @@ enum NameFinalFixChecks: CheckSuite {
             let yesterday = s.accept()
             expect(yesterday?.correctionID == f.store.lastCorrection?.id && yesterday?.correctionID != done.correctionID,
                    "Name it on yesterday's session returned \(String(describing: yesterday))", &problems)
+            // Switching off with nothing on offer must still tell the notice, which then drops its confirmation.
+            let before = s.stops
+            s.cancelAll()
+            expect(s.stops != before, "stopping the suggester did not change `stops`", &problems)
         }
     }
 

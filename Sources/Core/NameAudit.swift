@@ -38,7 +38,8 @@ enum NameAudit {
     /// The name to offer, or nil. A fresh name that equals an earlier one,
     /// ignoring case, accents and spacing, takes the earlier spelling; any
     /// other starts with a capital, as a break's name does, so the name shown
-    /// is the name saved.
+    /// is the name saved. A first word that already has a capital inside it
+    /// (iOS, macOS, eBay) is a brand's spelling and is left alone.
     static func resolve(_ choice: NameChoice, candidates: [NameCandidate], earlierNames: [String],
                         appNames: [String]) -> String? {
         switch choice {
@@ -48,7 +49,9 @@ enum NameAudit {
             guard accepts(name, appNames: appNames) else { return nil }
             let text = tidy(name)
             let key = SearchWords.fold(text)
-            return earlierNames.first { SearchWords.fold(tidy($0)) == key } ?? text.prefix(1).uppercased() + text.dropFirst()
+            if let earlier = earlierNames.first(where: { SearchWords.fold(tidy($0)) == key }) { return earlier }
+            let brand = text.prefix { $0 != " " }.dropFirst().contains(where: \.isUppercase)
+            return brand ? text : text.prefix(1).uppercased() + text.dropFirst()
         case .none:
             return nil
         }
