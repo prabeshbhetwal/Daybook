@@ -19,12 +19,11 @@ struct NameSuggestionNotice: View {
                         Text("Suggested by on-device AI")
                             .font(Tokens.Typography.caption)
                             .foregroundStyle(StoryStyle.supportingInk)
-                            .accessibilityHidden(true)
                     }
                 } icon: {
                     Image(systemName: "sparkles")
                         .foregroundStyle(StoryStyle.supportingInk)
-                        .accessibilityLabel("Suggested by on-device AI")
+                        .accessibilityHidden(true)
                 }
                 // Fixed to their words: at 140% the first drew as "Nam…".
                 HStack(spacing: Tokens.Space.s) {

@@ -29,12 +29,18 @@ extension SessionStore {
         }.sorted { $0.start > $1.start }
     }
 
-    /// What the notice asks again on: the evidence, the corrections (a rename
-    /// on a card), Keep as is, and the day. Cheap, because a body reads it on
-    /// every tick, and it holds still as the clock moves inside a day.
+    /// What the rail asks again on: the session archive and the notes
+    /// (`evidenceRevision`'s sessions, metadata and day), the corrections (a
+    /// rename on a card), Keep as is, and the day. Cheap, because a body reads
+    /// it on every tick. Not app use: the tracker checkpoints the usage
+    /// archive every minute and on every refresh, so its revisions move
+    /// without anything new to name.
     var nameSuggestionKey: Int {
+        let evidence = evidenceRevision
         var hasher = Hasher()
-        hasher.combine(evidenceRevision)
+        hasher.combine(evidence.sessions)
+        hasher.combine(evidence.metadata)
+        hasher.combine(evidence.day)
         hasher.combine(corrections.count)
         hasher.combine(engine.store.nameSuggestionKept)
         hasher.combine(periodCalendar.startOfDay(for: now()))

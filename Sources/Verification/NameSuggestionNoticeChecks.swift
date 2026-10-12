@@ -22,6 +22,12 @@ enum NameSuggestionNoticeChecks: CheckSuite {
                 f.clock.advance(seconds)
                 expect(f.store.nameSuggestionKey == first, "the key moved after \(seconds) s of the same day", &problems)
             }
+            // The ticker flushes the tracker every minute and every refresh
+            // does too: app use arriving moves the usage revisions, not the key.
+            _ = f.store.usage?.record(AppUsageSession(bundleID: "com.example.safari", appName: "Safari",
+                                                      start: f.clock.value, end: f.clock.value.addingTimeInterval(300)))
+            f.store.refresh()
+            expect(f.store.nameSuggestionKey == first, "the key moved with app use and a refresh", &problems)
             guard let session = Checks.target(f, kept), let other = Checks.target(f, named) else {
                 return problems.append("the sessions are not offered")
             }

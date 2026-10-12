@@ -134,8 +134,8 @@ struct StoryRail: View {
         }
         // Asking is the rail's to start, not the notice's: the notice draws
         // nothing until there is an offer, and a view with nothing in it runs
-        // no task. The key moves with evidence, corrections, Keep as is and the
-        // day, never with the clock.
+        // no task. The key moves with the session archive, notes, corrections,
+        // Keep as is and the day; not with the clock or with app use.
         .task(id: store.nameSuggestionKey) { if day == nil { navigation.nameSuggester?.refresh() } }
         .onChange(of: store.appleIntelligenceEnabled) { _, enabled in
             if !enabled { navigation.nameSuggester?.cancelAll() } else if day == nil { navigation.nameSuggester?.refresh() }
