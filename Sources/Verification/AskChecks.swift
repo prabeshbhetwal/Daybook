@@ -184,7 +184,7 @@ enum AskChecks: CheckSuite {
                                                              worked: 3_600),
                                               AskSessionLine(day: "Mon 13 Nov", time: "9:00am", name: "Thesis",
                                                              worked: 1_800, note: "outline")])
-        expect(lines == "Tue 14 Nov · 2:00pm · Thesis · 1h\nMon 13 Nov · 9:00am · Thesis · 30m · note: outline",
+        expect(lines == "Tue 14 Nov · Thesis · from 2:00pm · 1h\nMon 13 Nov · Thesis · from 9:00am · 30m · note: outline",
                "session lines say “\(lines)”", &problems)
 
         let long = AskFacts.sessions(.thisWeek, words: "x",
@@ -216,7 +216,7 @@ enum AskChecks: CheckSuite {
         let hits = (0..<200).map {
             AskSessionLine(day: "Tue 14 Nov", time: "9:00am", name: "Session \($0)", worked: 3_600, note: note)
         }
-        let lines = (0..<200).map { "Tue 14 Nov · 9:00am · Session \($0) · 1h · note: \(note)" }
+        let lines = (0..<200).map { "Tue 14 Nov · Session \($0) · from 9:00am · 1h · note: \(note)" }
         var kept = 0
         while kept < lines.count, lines[...kept].joined(separator: "\n").utf8.count + ellipsis <= cap { kept += 1 }
         let text = AskFacts.sessions(.thisWeek, words: "session", lines: hits)

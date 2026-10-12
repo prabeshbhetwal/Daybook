@@ -38,9 +38,9 @@ enum AskEdgeChecks: CheckSuite {
                 (.focusTotals(.yesterday, words: "zeta"), "No sessions match “zeta” yesterday (Tue 14 Nov)."),
                 // The whole record lists it on the day it has work, from midnight.
                 (.findSessions(words: "zeta", .yesterday),
-                 "No sessions match “zeta” yesterday. In all your history:\nWed 15 Nov · 12:00am · Zeta · 30m"),
+                 "No sessions match “zeta” yesterday. In all your history:\nWed 15 Nov · Zeta · from midnight · 30m"),
                 (.focusTotals(.today, words: "zeta"), "Sessions matching “zeta” today (Wed 15 Nov): 30m over 1 session on 1 day."),
-                (.findSessions(words: "zeta", .today), "Wed 15 Nov · 12:00am · Zeta · 30m"),
+                (.findSessions(words: "zeta", .today), "Wed 15 Nov · Zeta · from midnight · 30m"),
                 (.focusTotals(.today, words: "blip"), "Sessions matching “blip” today (Wed 15 Nov): 5m over 1 session on 1 day."),
                 (.focusTotals(.yesterday, words: "blip"), "No sessions match “blip” yesterday (Tue 14 Nov)."),
             ]
@@ -80,8 +80,8 @@ enum AskEdgeChecks: CheckSuite {
             f.clock.value = now
 
             let cases: [(AskRequest, String)] = [
-                (.appTime(.today, app: "notes"), "Notes today: 10m in front; used in 0 sessions."),
-                (.appTime(.yesterday, app: "notes"), "Notes yesterday: 30m in front; used in 1 session."),
+                (.appTime(.today, app: "notes"), "Notes today: 10m in front; used in 0 sessions; most in front from 8am to 9am (10m)."),
+                (.appTime(.yesterday, app: "notes"), "Notes yesterday: 30m in front; used in 1 session; most in front from 11pm to midnight (30m)."),
             ]
             for (request, want) in cases {
                 let got = f.store.askLookup(request)
@@ -123,8 +123,8 @@ enum AskEdgeChecks: CheckSuite {
             f.clock.value = now
 
             let cases: [(AskRequest, String)] = [
-                (.appTime(.today, app: "notes"), "Notes today: 40m in front; used in 1 session."),
-                (.appTime(.yesterday, app: "notes"), "Notes yesterday: 10m in front; used in 0 sessions."),
+                (.appTime(.today, app: "notes"), "Notes today: 40m in front; used in 1 session; most in front from midnight to 1am (30m), then from 8am to 9am (10m)."),
+                (.appTime(.yesterday, app: "notes"), "Notes yesterday: 10m in front; used in 0 sessions; most in front from 12pm to 1pm (10m)."),
             ]
             for (request, want) in cases {
                 let got = f.store.askLookup(request)

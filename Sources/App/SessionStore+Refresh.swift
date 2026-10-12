@@ -156,7 +156,7 @@ extension SessionStore {
         publish(\.todayTotal, engine.todayTotal)
         publish(\.sessionsToday, engine.sessionsToday)
         publish(\.longestToday, engine.longestToday)
-        publish(\.streak, engine.archive.currentStreak(includingToday: inFlight))
+        publish(\.streak, engine.currentStreak(includingToday: inFlight))
         publish(\.streakBest, engine.archive.bestStreak())
         publish(\.goal, GoalProgress(goal: engine.store.dailyGoal,
                             achieved: DailyGoal(archive: engine.archive,

@@ -14,7 +14,7 @@ extension EnvironmentValues {
 }
 
 /// The places an answer rests on, in the order a reader can check it by. Each
-/// row opens History at its place. Five show at first and "Show N more" opens
+/// row opens the app where its figure is shown (History, or Awards). Five show at first and "Show N more" opens
 /// the rest. This list is the whole record, reachable by keyboard and
 /// VoiceOver; the links inside the answer's text are only a convenience for
 /// the eye. The rows read in the primary ink and the chevron says they open, so
@@ -36,10 +36,11 @@ struct AskSourcesView: View {
         return (Array(sources.prefix(limit)), sources.count - limit)
     }
 
-    /// "<label>, <role, lowercased>. Opens in History." The row shows its label
-    /// on one line, cut short if it is long, so this carries all of it.
+    /// "<label>, <role, lowercased>. Opens in History." (or "Opens Awards."). The
+    /// row shows its label on one line, cut short if it is long, so this carries all of it.
     nonisolated static func accessibilityLabel(for source: AskSource) -> String {
-        "\(source.link.label), \(source.link.role.rawValue.lowercased()). Opens in History."
+        let opens = source.link.target == .awards ? "Opens Awards." : "Opens in History."
+        return "\(source.link.label), \(source.link.role.rawValue.lowercased()). \(opens)"
     }
 
     var body: some View {
@@ -87,8 +88,8 @@ struct AskSourcesView: View {
     }
 }
 
-/// One source: its number in the list, a calendar for a day or a period or a
-/// clock for a session, its label, why it is listed, and a chevron. `stacked`
+/// One source: its number in the list, a calendar for a day or a period, a
+/// clock for a session or a rosette for Awards, its label, why it is listed, and a chevron. `stacked`
 /// sets the role under the label; otherwise the two share a line.
 private struct AskSourceRow: View {
     let number: Int
@@ -97,8 +98,11 @@ private struct AskSourceRow: View {
     let onFollow: (AskLink) -> Void
 
     private var glyph: String {
-        if case .session = source.link.target { return "clock" }
-        return "calendar"
+        switch source.link.target {
+        case .session: return "clock"
+        case .awards: return "rosette"
+        default: return "calendar"
+        }
     }
 
     private var label: some View {

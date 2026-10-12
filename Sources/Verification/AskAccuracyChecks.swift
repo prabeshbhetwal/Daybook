@@ -52,7 +52,7 @@ enum AskAccuracyChecks: CheckSuite {
                    "October 2023 and last month differ: “\(october)” against “\(last)”", &problems)
 
             let day = f.store.askLookup(.focusTotals(.day(year: 2023, month: 11, day: 13), words: nil))
-            expect(day == "On Mon 13 Nov 2023: 1h focused over 1 session on 1 day; the first session began at 9:00am.",
+            expect(day == "On Mon 13 Nov 2023: 1h focused over 1 session on 1 day; the first session began at 9:00am. By work type: Deep work 1h.",
                    "Mon 13 Nov says “\(day)”", &problems)
 
             let empty = f.store.askLookup(.focusTotals(.year(2022), words: nil))
@@ -72,7 +72,7 @@ enum AskAccuracyChecks: CheckSuite {
     private static func startsAndLongest() -> [String] {
         AskLookupChecks.withFixture { f, problems in
             let yesterday = f.store.askLookup(.focusTotals(.yesterday, words: nil))
-            expect(yesterday == "Yesterday (Tue 14 Nov): 1h 30m focused over 1 session on 1 day; the first session began at 2:00pm.",
+            expect(yesterday == "Yesterday (Tue 14 Nov): 1h 30m focused over 1 session on 1 day; the first session began at 2:00pm. By work type: Deep work 1h 30m.",
                    "yesterday says “\(yesterday)”", &problems)
             let week = f.store.askLookup(.focusTotals(.thisWeek, words: nil))
             expect(week.hasPrefix("This week (13 Nov – 19 Nov): 2h 30m focused over 2 sessions on 2 days, "
@@ -99,7 +99,7 @@ enum AskAccuracyChecks: CheckSuite {
         AskLookupChecks.withFixture { f, problems in
             let got = f.store.askLookup(.focusTotals(.thisWeek, words: "safari"))
             let want = "Sessions matching “safari” this week (13 Nov – 19 Nov): 1h 30m over 1 session on 1 day. "
-                + "Safari itself was in front for 1h this week."
+                + "Safari itself was in front for 1h this week. Most in front from 2pm to 3pm (1h)."
             expect(got == want, "a search for safari says “\(got)”, not “\(want)”", &problems)
             let thesis = f.store.askLookup(.focusTotals(.thisWeek, words: "thesis"))
             expect(!thesis.contains("itself"), "a word that names no app brought an app: “\(thesis)”", &problems)
@@ -110,7 +110,7 @@ enum AskAccuracyChecks: CheckSuite {
         AskLookupChecks.withFixture { f, problems in
             let got = f.store.askLookup(.findSessions(words: "thesis", .lastWeek))
             let want = "No sessions match “thesis” last week. In all your history:\n"
-                + "Mon 13 Nov · 9:00am · Thesis · 1h\nTue 17 Oct · 9:00am · Thesis · 2h"
+                + "Mon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline\nTue 17 Oct · Thesis · from 9:00am · 2h"
             expect(got == want, "a search with nothing last week says “\(got)”, not “\(want)”", &problems)
             let nowhere = f.store.askLookup(.findSessions(words: "zebra", .lastWeek))
             expect(nowhere == "No sessions match “zebra” last week.", "a word found nowhere says “\(nowhere)”",
@@ -133,7 +133,7 @@ enum AskAccuracyChecks: CheckSuite {
             let text = AskFacts.sessionsElsewhere(.today, words: "thesis", lines: lines, matched: 37, sessionRunning: true)
             let tail = " Newest 10 of 37." + AskFacts.runningNote
             expect(text.utf8.count <= AskFacts.maximumBytes && text.hasSuffix(tail)
-                   && text.hasPrefix("No sessions match “thesis” today. In all your history:\nTue 14 Nov · 9:00am · Thesis 0"),
+                   && text.hasPrefix("No sessions match “thesis” today. In all your history:\nTue 14 Nov · Thesis 0 · from 9:00am"),
                    "with \(length)-character notes the widened list reads “…\(text.suffix(80))”", &problems)
         }
         return problems
@@ -148,7 +148,7 @@ enum AskAccuracyChecks: CheckSuite {
             f.engine.start(workType: .deepWork, intent: "Night")
             f.clock.value = today.addingTimeInterval(1_800)
             let list = f.store.askLookup(.findSessions(words: "", .yesterday))
-            expect(list == "Tue 14 Nov · 2:00pm · Parser · 1h 30m" + AskFacts.runningNote,
+            expect(list == "Tue 14 Nov · Parser · from 2:00pm · 1h 30m" + AskFacts.runningNote,
                    "yesterday's list says “\(list)”", &problems)
             let words = f.store.askLookup(.focusTotals(.yesterday, words: "parser"))
             expect(words.hasSuffix(AskFacts.runningNote), "yesterday's word totals say “\(words)”", &problems)

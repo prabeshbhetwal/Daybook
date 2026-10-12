@@ -8,7 +8,7 @@ enum AskLookupCall: Equatable {
 }
 
 /// One lookup Ask offers a model: what the model is told about it, and how the
-/// arguments it sends become a request. The five below are the only lookups;
+/// arguments it sends become a request. The ones below are the only lookups;
 /// each model's adapter reaches them through this type, and none changes anything.
 struct AskLookup {
     let spec: AskLookupSpec
@@ -19,12 +19,12 @@ struct AskLookup {
 }
 
 /// The catalogue, in the order the on-device model has always been offered the
-/// lookups. A period is read by `AskRange.resolving`, in the store's calendar
+/// lookups; those added since come after them. A period is read by `AskRange.resolving`, in the store's calendar
 /// and clock, so a named range, an ISO date or a weekday or month by name
 /// arrives; anything else, and a date the calendar lacks, is answered as such
 /// rather than swapped for another period.
 enum AskLookups {
-    static let all: [AskLookup] = [focusTotals, compareFocus, bestHours, findSessions, appTime]
+    static let all: [AskLookup] = [focusTotals, compareFocus, bestHours, findSessions, appTime, dayEvents, sessionDetail, goals]
 
     static func named(_ name: String) -> AskLookup? {
         all.first { $0.spec.name == name }
@@ -54,7 +54,7 @@ enum AskLookups {
             description: "Returns the focused time, sessions and days in a period, the average on each day with focus, "
                 + "the most focused day, week and month, the longest session and a breakdown; for one day, when the "
                 + "first session began. Optionally only for sessions matching some words. For the most focused day, "
-                + "week or month overall, use all time.",
+                + "week or month overall, use all time. Also gives the time in each work type.",
             parameters: [AskParameter(name: "range", description: rangeGuide, required: true),
                          AskParameter(name: "words", description: wordsGuide, required: false)]),
         read: { arguments, period in
@@ -119,7 +119,8 @@ enum AskLookups {
         spec: AskLookupSpec(
             name: "appTime",
             description: "Returns how long an app such as Safari or Xcode was in front during a period and in how "
-                + "many sessions, or the most-used apps when no app is named. Use it for any question about an app.",
+                + "many sessions, or the most-used apps when no app is named. Use it for any question about an app. "
+                + "Also gives the hours of the day it was in front.",
             parameters: [AskParameter(name: "range", description: rangeGuide, required: true),
                          AskParameter(name: "app",
                                       description: "An app name such as Safari; leave out to list the most-used apps",
@@ -128,5 +129,50 @@ enum AskLookups {
             let raw = arguments["range"] ?? ""
             guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
             return .request(.appTime(range, app: text(arguments["app"])))
+        })
+
+    // MARK: - Added since version one
+
+    private static let dayEvents = AskLookup(
+        spec: AskLookupSpec(
+            name: "dayEvents",
+            description: "Lists what happened between sessions in a period: breaks, time away from the Mac with "
+                + "what the user said they were doing and whether it counted as focus, and what the Mac did, such "
+                + "as sleep, lock, restart or a crash, with their times.",
+            parameters: [AskParameter(name: "range", description: rangeGuide, required: true)]),
+        read: { arguments, period in
+            let raw = arguments["range"] ?? ""
+            guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
+            return .request(.dayEvents(range))
+        })
+
+    private static let sessionDetail = AskLookup(
+        spec: AskLookupSpec(
+            name: "sessionDetail",
+            description: "Returns the detail of sessions in a period: each working stretch with its start and end, "
+                + "its note and its battery reading, such as whether the Mac was plugged in.",
+            parameters: [AskParameter(name: "range", description: rangeGuide, required: true),
+                         AskParameter(name: "words",
+                                      description: "Words from the session's name, such as thesis; leave out for every session",
+                                      required: false)]),
+        read: { arguments, period in
+            let raw = arguments["range"] ?? ""
+            guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
+            return .request(.sessionDetail(range, words: text(arguments["words"])))
+        })
+
+    /// The period is optional, and left out it is all time, which says no
+    /// period line: the goal, today, the streak and the awards are not a period's.
+    private static let goals = AskLookup(
+        spec: AskLookupSpec(
+            name: "goals",
+            description: "Returns the daily goal, progress towards it today, the days a period met it, the current "
+                + "and longest streak, and the awards earned and still to earn.",
+            parameters: [AskParameter(name: "range", description: rangeGuide + "; leave out for all time",
+                                      required: false)]),
+        read: { arguments, period in
+            guard let raw = text(arguments["range"]) else { return .request(.goals(nil)) }
+            guard let range = period(raw) else { return .refusal(AskFacts.noSuchPeriod(raw)) }
+            return .request(.goals(range))
         })
 }

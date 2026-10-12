@@ -29,18 +29,18 @@ enum AskRunningSessionChecks: CheckSuite {
                  "Sessions matching “thesis” this week (13 Nov – 19 Nov): 1h over 1 session on 1 day.", true)
             // A search that finds nothing goes on to the whole record, and says once
             // that it cannot see the session running now.
-            says(.findSessions(words: "thesis", .today), "No sessions match “thesis” today. In all your history:\nMon 13 Nov · 9:00am · Thesis · 1h\nTue 17 Oct · 9:00am · Thesis · 2h", true)
-            says(.findSessions(words: "thesis", .thisWeek), "Mon 13 Nov · 9:00am · Thesis · 1h", true)
-            says(.appTime(.thisWeek, app: "safari"), "Safari this week: 1h in front; used in 1 session.", true)
+            says(.findSessions(words: "thesis", .today), "No sessions match “thesis” today. In all your history:\nMon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline\nTue 17 Oct · Thesis · from 9:00am · 2h", true)
+            says(.findSessions(words: "thesis", .thisWeek), "Mon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline", true)
+            says(.appTime(.thisWeek, app: "safari"), "Safari this week: 1h in front; used in 1 session; most in front from 2pm to 3pm (1h).", true)
             says(.appTime(.today, app: "safari"), "No app called “safari” was used today.", true)
 
             // Ranges that end before today do not hold the session.
             says(.focusTotals(.lastWeek, words: "thesis"), "No sessions match “thesis” last week (6 Nov – 12 Nov).", false)
-            says(.findSessions(words: "thesis", .yesterday), "No sessions match “thesis” yesterday. In all your history:\nMon 13 Nov · 9:00am · Thesis · 1h\nTue 17 Oct · 9:00am · Thesis · 2h", true)
+            says(.findSessions(words: "thesis", .yesterday), "No sessions match “thesis” yesterday. In all your history:\nMon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline\nTue 17 Oct · Thesis · from 9:00am · 2h", true)
             says(.appTime(.lastWeek, app: "safari"), "No app called “safari” was used last week.", false)
 
             // Answers that already count the running session, or take no words, are left alone.
-            says(.focusTotals(.today, words: nil), "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am.", false)
+            says(.focusTotals(.today, words: nil), "Today (Wed 15 Nov): 20m focused over 1 session on 1 day; the first session began at 9:13am. By work type: Deep work 20m.", false)
             says(.appTime(.today, app: nil), "No app use recorded today.", false)
             says(.bestHours(.today), "Not enough focus today to tell; it needs at least 30m.", false)
 

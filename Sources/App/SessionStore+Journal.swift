@@ -218,16 +218,22 @@ extension SessionStore {
     /// says why it matched; otherwise the first line of the note.
     func journalNoteLine(for session: DaySession) -> String? {
         let words = SearchWords.words(in: historyFilter.query)
-        if !words.isEmpty {
-            for id in session.recordIDs {
-                let note = metadataArchive.metadata(for: id)?.note ?? ""
-                if let line = note.split(whereSeparator: \.isNewline)
-                    .map({ $0.trimmingCharacters(in: .whitespaces) })
-                    .first(where: { line in words.contains { SearchWords.fold(line).contains($0) } }) {
-                    return line
-                }
+        if let line = noteLine(in: session.recordIDs, holding: words) { return line }
+        return journalNote(for: session).flatMap { $0.split(whereSeparator: \.isNewline).first.map(String.init) }
+    }
+
+    /// The first line, across the records' notes in order, that holds one of
+    /// the folded `words`; nil when none does.
+    func noteLine(in recordIDs: [UUID], holding words: [String]) -> String? {
+        guard !words.isEmpty else { return nil }
+        for id in recordIDs {
+            let note = metadataArchive.metadata(for: id)?.note ?? ""
+            if let line = note.split(whereSeparator: \.isNewline)
+                .map({ $0.trimmingCharacters(in: .whitespaces) })
+                .first(where: { line in words.contains { SearchWords.fold(line).contains($0) } }) {
+                return line
             }
         }
-        return journalNote(for: session).flatMap { $0.split(whereSeparator: \.isNewline).first.map(String.init) }
+        return nil
     }
 }

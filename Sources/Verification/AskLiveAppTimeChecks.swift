@@ -19,7 +19,7 @@ enum AskLiveAppTimeChecks: CheckSuite {
             f.store.tracker?.appActivated(bundleID: notes, name: "Notes")
             f.clock.advance(5 * 60)
             let first = f.store.askLookup(.appTime(.today, app: "notes"))
-            expect(first == "Notes today: 5m in front; used in 0 sessions.", "after 5m, Ask says “\(first)”", &problems)
+            expect(first == "Notes today: 5m in front; used in 0 sessions; most in front from 9am to 10am (5m).", "after 5m, Ask says “\(first)”", &problems)
             f.store.setHistoryApp(notes)
             f.store.refreshReview()
             SelfTest.expectClose(f.store.historyAppLens()?.total ?? -1, 300, "History's Notes figure after 5m",
@@ -28,7 +28,7 @@ enum AskLiveAppTimeChecks: CheckSuite {
             // Half an hour with no app switch: no revision moves.
             f.clock.advance(30 * 60)
             let second = f.store.askLookup(.appTime(.today, app: "notes"))
-            expect(second == "Notes today: 35m in front; used in 0 sessions.",
+            expect(second == "Notes today: 35m in front; used in 0 sessions; most in front from 9am to 10am (35m).",
                    "half an hour later, with Notes still in front, Ask says “\(second)”", &problems)
             SelfTest.expectClose(f.store.historyAppLens()?.total ?? -1, 2_100,
                                  "History's Notes figure half an hour later", &problems)
