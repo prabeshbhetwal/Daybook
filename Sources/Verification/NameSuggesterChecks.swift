@@ -17,6 +17,7 @@ enum NameSuggesterChecks: CheckSuite {
         ("Keep as is moves to the next session", keepNext),
         ("The note line the model reads is one line of at most 200 characters", noteLine),
         ("The model's answer maps to a choice, and anything unreadable to none", answerMapping),
+        ("Name it or Keep as is on a session named since is not applied", staleOffer),
     ]
 
     private typealias Checks = NameSuggestionStoreChecks
@@ -264,6 +265,34 @@ enum NameSuggesterChecks: CheckSuite {
             let inner = line().map { String($0.dropFirst("Note: “".count).dropLast()) } ?? ""
             expect(inner.count >= 190 && inner.count <= 200 && !inner.contains("\n") && !inner.hasSuffix(" "),
                    "a long note is \(inner.count) characters", &problems)
+        }
+    }
+
+    /// Nothing tells the suggester the store changed: `current` can be stale
+    /// when a button is pressed.
+    private static func staleOffer() -> [String] {
+        pair { f, a, b, problems in
+            guard let first = Checks.target(f, a), let second = Checks.target(f, b) else {
+                return problems.append("both sessions should be offered")
+            }
+            let s = make(f, Calls())
+            run(s)
+            expect(s.current?.session.threadID == a, "today's session was not offered first", &problems)
+            expect(f.store.renameSession(first, to: "Typed"), "the typed name was refused", &problems)
+            let typed = f.store.lastCorrection?.id
+            s.accept()
+            settle(s)
+            let names = f.engine.archive.records.filter { $0.threadID == a }.map(\.name)
+            expect(names == ["Typed"], "Name it left the session named \(names)", &problems)
+            expect(f.store.lastCorrection?.id == typed, "Name it made a second correction", &problems)
+            expect(s.current?.session.threadID == b, "after Name it, offered \(String(describing: s.current))", &problems)
+
+            // Keep as is on a session named since leaves it out of the kept list.
+            expect(f.store.renameSession(second, to: "Other"), "the second typed name was refused", &problems)
+            s.keep()
+            settle(s)
+            expect(f.persistence.nameSuggestionKept.isEmpty, "kept \(f.persistence.nameSuggestionKept)", &problems)
+            expect(s.current == nil, "after Keep as is, offered \(String(describing: s.current))", &problems)
         }
     }
 

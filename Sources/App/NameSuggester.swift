@@ -89,6 +89,7 @@ struct NameSuggestion: Equatable {
     /// Name it. A name the store refuses is not offered again.
     func accept() {
         guard let store, let offered = current, let key = currentKey else { return }
+        guard isTarget(offered.session, store) else { return refresh() }
         if store.acceptNameSuggestion(offered.name, for: offered.session) {
             accepted.insert(key)
         } else {
@@ -100,8 +101,16 @@ struct NameSuggestion: Equatable {
     /// Keep as is.
     func keep() {
         guard let store, let offered = current else { return }
+        guard isTarget(offered.session, store) else { return refresh() }
         store.keepSessionUnnamed(offered.session)
         refresh()
+    }
+
+    /// Whether the session is still one to offer. Nothing watches the store,
+    /// so `current` can be stale: a session named on its card since would be
+    /// renamed over by Name it (`renameSession` goes by thread).
+    private func isTarget(_ session: DaySession, _ store: SessionStore) -> Bool {
+        store.nameSuggestionTargets().contains { $0.threadID == session.threadID }
     }
 
     /// For when the switch is turned off: nothing is offered and the question
@@ -155,7 +164,7 @@ struct NameSuggestion: Equatable {
         let choice = try? await asked(facts)
         guard let store, id == generation else { return }
         end(id)
-        if isUsable, store.nameSuggestionTargets().contains(where: { $0.threadID == session.threadID }) {
+        if isUsable, isTarget(session, store) {
             let name = choice.flatMap {
                 NameAudit.resolve($0, candidates: facts.candidates, earlierNames: store.earlierSessionNames(),
                                   categories: WorkType.startable, appNames: facts.appNames)
