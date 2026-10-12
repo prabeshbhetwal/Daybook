@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Under the category tidy-up on today's tile: an unnamed session the
-/// on-device model has a name for. Name it renames the session (with Undo on
+/// Under the category tidy-up on today's tile: an unnamed session with a name
+/// on offer, one of the person's earlier names or a fresh one the on-device
+/// model worded. Name it renames the session (with Undo on
 /// its card); Keep as is stops the offer for that session. `NameSuggester`
 /// decides what is offered and when it is asked; this only draws the answer,
 /// and draws nothing while there is none.

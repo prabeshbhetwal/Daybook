@@ -22,7 +22,7 @@ order"). It writes one session, and only when the person accepts.
 | Rejected: earlier names only | Never covers new work. |
 | Rejected: fresh names only | Names drift from the person's own words ("Coding in Xcode" against their "Daybook"). |
 | Approach | Code ranks earlier names by shared app time and category, and offers the top 3. With one clear leader, the on-device model is asked to confirm it, and code offers that earlier name. With two close earlier names, nothing is asked and nothing is offered. With none, the model is asked for a fresh name or to decline. Code checks any fresh name before it is shown. In the live probes the model never declined or chose a different earlier name (§5a), so an earlier-name offer comes from the ranking and says so. |
-| Rejected: code alone for earlier names | Cannot read the note, and it would put a non-AI suggestion on every Mac. |
+| Rejected: code alone for fresh names | Code cannot word a fresh name from a note, and the model is the only part that can. As built, earlier-name offers come from the ranking and the model only words fresh names (§5a); they are not called AI. |
 | Rejected: the model reads every name | Hard to check, likely to pick a plausible wrong name, and against the shared rule that code offers the candidates. |
 | Which sessions | Ended focus sessions from today and yesterday whose name is empty, focused for at least 10 minutes, and not kept as they are. A session is one thread's stretches, as History shows one card; its day is the day it started, in `periodCalendar`. A session that crosses midnight is offered once, on the day it started, and its focused time for the 10-minute test is its total across both days. A session that began before yesterday is not offered. |
 | Rejected: any day you open | Older guesses are harder to judge; tidying older history is project 4. |
@@ -132,9 +132,9 @@ offered. Nothing is stored except the threads kept as they are.
 | Ranking | The order, the 0.3 threshold, the category bonus or the recency tie-break is wrong; generic auto names or category-spelled names count; the 60-day edge moves across time zones. |
 | Audit | A digit, a quote, a bare category, a bare app name, more than 4 words or more than 30 characters passes. |
 | Which sessions | A break, the running session, a session under 10 minutes, a named session or a kept one is offered; the order is not newest first; a session just after midnight lands on the wrong day. |
-| Model answer | `1`–`3` alters the candidate's text; a fresh name matching an earlier one keeps the model's spelling; `none` or a timeout shows something; the model is asked with the switch off or with no evidence; a redraw calls it again; an ambiguous session is asked or offered; an earlier-name offer carries the AI caption, or a fresh one does not. |
+| Model answer | `1`–`3` alters the candidate's text; a fresh name matching an earlier one keeps the model's spelling; `none` or a timeout shows something; the model is asked with the switch off or with no evidence; a redraw calls it again; an ambiguous session is asked or offered; an offer's source is wrong (an earlier name's is `earlier`, a fresh name's `fresh`), pinned by check 1033. |
 | Actions | Name it does not rename, Undo does not restore, Keep as is is not remembered or not trimmed, or a session named on its card still shows. |
-| Views | `--snapshot` of the notice breaks at 80% or 140% zoom, light or dark. |
+| Views | `--snapshot` of the two notice scenes breaks at 80% or 140% zoom, light or dark: `storyNameSuggestion` (a fresh name: "Suggested by on-device AI" with the sparkles mark) and `storyNameSuggestionEarlier` ("From your earlier names", no mark). Each scene fails the render unless the suggester has an offer of the expected source before capture. The caption wording itself is read from these renders, not from a check. |
 
 **Live probe.** 20 hand-built sessions, each with the expected answer written
 down first: clear repeats of an earlier name, new work with a telling note,
@@ -302,7 +302,7 @@ question took 0.8–1.0 s.
 Read with care: 4 of the 20 are nothing offered by rule (#8, #9, #10, #15),
 which the earlier runs would have scored as none for #8–#10; and #16 and #17
 are right only as their stated alternatives. Against the earlier
-expectations, the count is 17 right, 3 none, 0 wrong.
+expectations, the count is 18 right, 2 none, 0 wrong (#8 and #9; #10 had none as an acceptable answer).
 
 **Did the model ever decline?** No. On the 9 questions about a candidate
 (#1–#7, #16, #17) it answered `1` every time: never `none`, `2` or `3`. Both

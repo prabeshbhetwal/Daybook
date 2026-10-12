@@ -10,7 +10,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case askEmpty, askAnswered, askFailed, askStopped, askPanelStory, askPanelHistory
     case reviewNotes, reviewNotesHistory
     case storyDay, storyDayEntry
-    case storyShape, storyMeeting, storyLive, storyDecision, storyReport, storyNameSuggestion
+    case storyShape, storyMeeting, storyLive, storyDecision, storyReport, storyNameSuggestion, storyNameSuggestionEarlier
     case welcomeOpening, welcomeStep
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsAutomatic
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
@@ -53,6 +53,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .storyDecision: return "Story — contextual decision and Undo"
         case .storyReport: return "Story — full session report"
         case .storyNameSuggestion: return "Story — name suggestion"
+        case .storyNameSuggestionEarlier: return "Story — name suggestion from earlier names"
         case .welcomeOpening: return "Welcome — what this is"
         case .welcomeStep: return "Welcome — a step waiting on the reader"
         case .settingsGeneral: return "Settings — General"
@@ -131,7 +132,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askPanelStory,
              .reviewNotes,
              .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport, .storyNameSuggestion,
-             .welcomeOpening, .welcomeStep:
+             .storyNameSuggestionEarlier, .welcomeOpening, .welcomeStep:
             return .story
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
@@ -277,6 +278,7 @@ enum Snapshotter {
         }
 
         var wrote = 0
+        setupFailures = 0
         // FC_SNAPSHOT_ONLY=welcomeStep renders one scenario; the matrix is
         // six minutes, and a change to one surface needs one look. Success is
         // judged against what was asked for: measured against the whole
@@ -315,7 +317,7 @@ enum Snapshotter {
             }
         }
         print("\(wrote)/\(selected.count) product snapshots written to \(directory.path)")
-        return wrote == selected.count
+        return wrote == selected.count && setupFailures == 0
     }
 
     static func view(for item: SnapshotRender) -> SnapshotSurface {
@@ -473,8 +475,8 @@ enum Snapshotter {
             return store
         case .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport:
             return FixtureFactory.storyInteractionStore(for: scenario)
-        case .storyNameSuggestion:
-            return nameSuggestionStore()
+        case .storyNameSuggestion, .storyNameSuggestionEarlier:
+            return nameSuggestionStore(earlier: scenario == .storyNameSuggestionEarlier)
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
@@ -541,7 +543,9 @@ enum Snapshotter {
         case .reviewNotes:
             presentNotes(for: scenario, on: navigation, store: store)
         case .storyNameSuggestion:
-            presentNameSuggestion(on: navigation)
+            presentNameSuggestion(on: navigation, expecting: .fresh)
+        case .storyNameSuggestionEarlier:
+            presentNameSuggestion(on: navigation, expecting: .earlier)
         case .reviewNotesHistory:
             navigation.open(tab: .review)
             if let day = presentNotes(for: scenario, on: navigation, store: store)?.start {

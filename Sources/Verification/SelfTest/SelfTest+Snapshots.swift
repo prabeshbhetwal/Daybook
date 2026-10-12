@@ -53,7 +53,7 @@ extension SelfTest {
                 .reviewNotes, .reviewNotesHistory,
                 .storyDay, .storyDayEntry,
                 .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport, .storyNameSuggestion,
-                .welcomeOpening, .welcomeStep,
+                .storyNameSuggestionEarlier, .welcomeOpening, .welcomeStep,
                 .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
                 .settingsActivityRules, .settingsTracking, .settingsAppearance, .settingsData,
                 .settingsUpdates, .settingsAdvanced,

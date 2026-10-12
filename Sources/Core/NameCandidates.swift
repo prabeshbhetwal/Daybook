@@ -40,9 +40,11 @@ enum NameCandidates {
     static let margin = 0.1
 
     /// Whether the best earlier name stands clear of the second: with two or
-    /// more candidates, an ambiguous session gets no suggestion.
+    /// more candidates, an ambiguous session gets no suggestion. The category
+    /// bonus equals the margin, so a lead of exactly 0.1 must count despite
+    /// floating point (0.85 - 0.75 is a hair under 0.1).
     static func isClearLead(_ candidates: [NameCandidate]) -> Bool {
-        candidates.count < 2 || candidates[0].score - candidates[1].score >= margin
+        candidates.count < 2 || candidates[0].score - candidates[1].score >= margin - 1e-9
     }
 
     /// Σ over apps of min(share in a, share in b), so 0 to 1; 0 when either

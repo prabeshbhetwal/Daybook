@@ -36,9 +36,10 @@ struct NameSuggestion: Equatable {
     let lead: String
 }
 
-/// Asks Apple's on-device model what to call each unnamed session, once, and
-/// publishes the first answer that survives `NameAudit` for a session that is
-/// still unnamed. Answers live in memory for this run; the words leave the
+/// Asks Apple's on-device model about each unnamed session that has one clear
+/// earlier name or none, once (a session with two close earlier names is
+/// skipped, and one with no evidence is never asked), and publishes the first
+/// answer that survives `NameAudit` for a session that is still unnamed. Answers live in memory for this run; the words leave the
 /// Mac nowhere. Only the notice starts it, through `refresh()`: the targets
 /// and facts are rebuilt from the archive on every call, so nothing here
 /// runs on the 1 Hz ticker.

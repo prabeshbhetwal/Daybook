@@ -24,6 +24,11 @@ enum NameMarginChecks: CheckSuite {
         expect(NameCandidates.margin == 0.1, "the margin is \(NameCandidates.margin), not 0.1", &problems)
         expect(NameCandidates.isClearLead([candidate("A", 0.9), candidate("B", 0.78)]),
                "a lead of 0.12 should be clear", &problems)
+        let s = 0.75
+        expect(NameCandidates.isClearLead([candidate("A", s + 0.1), candidate("B", s)]),
+               "a lead of exactly 0.1, built as (s + 0.1) - s, should be clear", &problems)
+        expect(!NameCandidates.isClearLead([candidate("A", s + 0.1 - 0.001), candidate("B", s)]),
+               "a lead just under 0.1 should be ambiguous", &problems)
         expect(!NameCandidates.isClearLead([candidate("A", 0.9), candidate("B", 0.85)]),
                "a lead of 0.05 should be ambiguous", &problems)
         expect(!NameCandidates.isClearLead([candidate("A", 0.5), candidate("B", 0.5)]),
