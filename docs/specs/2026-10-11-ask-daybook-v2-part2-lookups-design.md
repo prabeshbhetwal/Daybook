@@ -124,7 +124,7 @@ the user said and whether it counted as focus) and everything ran again.
 | 1. 32 questions about the new data | right lookup reached 26; answers right 25 | right lookup reached 24; answers right 27 | 28 and no invented figure: **not met** |
 | 2. Parity, 37 questions | three runs, identical: Parser read as 4h (fixed); 31 Feb answered "no data"; notes invented for a day with none | one run: 31 Feb refused again; "no notes yesterday" right; Parser read as "4h 30m" | every answer right: **not met** (one figure misread) |
 | 3. Depth, 30 turns | context full at turns 11, 19, 27; every turn answered | full at 17 and 26; turn 26 ended with the "needs more room" notice | recorded |
-| 4. Speed (busy machine, load 8 to 9) | median 4.7 s, max 24.9 s (a carry-over turn) | parity median 4.7 s, max 11.3 s; new questions median 5.9 s, max 14.4 s | a quiet-machine run is owed |
+| 4. Speed (busy machine, load 8 to 9) | median 4.7 s, max 24.9 s (a carry-over turn) | parity median 4.7 s, max 11.3 s; new questions median 5.9 s, max 14.4 s | see the final run |
 
 What the numbers say:
 
@@ -140,6 +140,26 @@ What the numbers say:
   lookups and richer facts take more of the 4,096 tokens. The carry-over is
   invisible except as a slower answer, and it loses implied referents as part
   1 described.
+
+Final run (2026-10-12, after the final review). The review found that the
+fixture's answers about time away were built by hand in a shape the app cannot
+record: the line named the session that was running as if it were what the
+user said. The fixture now records them through the session engine, and an
+away line reads `away · answered: Recorded as a break · named “Coffee”` or
+`… · no reason recorded`. Run again on that fixture:
+
+- New-data questions: 26 of 32 answers right. "Did I stop and restart my
+  Thesis session?" now names its two stretches instead of calling time away a
+  break. "What did I say I was doing
+  while I was away?" no longer invents an answer but leaves out the break's
+  name; it was counted right before only on the hand-built data. "Did I
+  restart the Mac in October?" now opens with "Yes" before saying no restart
+  was recorded. Bar 1 is still **not met**.
+- Speed, on a quiet machine (load 3.8 to 6.4, memory pressure normal): part
+  1's 37 questions median 4.7 s, max 8.2 s, so bar 4 is **met**; 9 of 34
+  answers used more than one lookup. The 32 new-data questions: median 5.6 to
+  5.7 s, max 17.2 to 25.7 s (a "restart in October" answer that made three
+  lookups).
 
 ## 1. The catalogue
 
