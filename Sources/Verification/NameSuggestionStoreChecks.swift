@@ -17,15 +17,16 @@ enum NameSuggestionStoreChecks: CheckSuite {
     ]
 
     /// Moments on the days before "now", in the store's calendar.
-    private struct Days {
+    struct Days {
         let calendar: Calendar
+        var now = SelfTest.base
         func at(_ back: Int, _ hour: Int, _ minute: Int = 0) -> Date {
-            let day = calendar.date(byAdding: .day, value: -back, to: calendar.startOfDay(for: SelfTest.base))!
+            let day = calendar.date(byAdding: .day, value: -back, to: calendar.startOfDay(for: now))!
             return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
         }
     }
 
-    private struct Fixture {
+    struct Fixture {
         let clock: TestClock
         let engine: SessionEngine
         let store: SessionStore
@@ -33,27 +34,27 @@ enum NameSuggestionStoreChecks: CheckSuite {
         let metadata: SessionMetadataArchive
     }
 
-    private static func record(_ start: Date, _ end: Date, _ type: WorkType = .deepWork, name: String = "",
+    static func record(_ start: Date, _ end: Date, _ type: WorkType = .deepWork, name: String = "",
                                thread: UUID = UUID(), auto: Bool = false) -> SessionRecord {
         SessionRecord(name: name, workType: type, start: start, end: end,
                       workSeconds: end.timeIntervalSince(start), threadID: thread, isAuto: auto)
     }
 
-    private static func app(_ name: String, _ start: Date, _ seconds: TimeInterval) -> AppUsageSession {
+    static func app(_ name: String, _ start: Date, _ seconds: TimeInterval) -> AppUsageSession {
         AppUsageSession(bundleID: "com.example.\(name.lowercased())", appName: name,
                         start: start, end: start.addingTimeInterval(seconds))
     }
 
     /// A store over scratch archives and in-memory preferences. `zone` is the
     /// store's calendar base; nil keeps the Mac's.
-    private static func withFixture(zone: TimeZone? = nil, records: (Days) -> [SessionRecord],
-                                    usage: (Days) -> [AppUsageSession] = { _ in [] },
-                                    _ body: @MainActor (Fixture, Days, inout [String]) -> Void) -> [String] {
+    static func withFixture(zone: TimeZone? = nil, now: Date = SelfTest.base, records: (Days) -> [SessionRecord],
+                            usage: (Days) -> [AppUsageSession] = { _ in [] },
+                            _ body: @MainActor (Fixture, Days, inout [String]) -> Void) -> [String] {
         MainActor.assumeIsolated {
             var base = Calendar.current
             if let zone { base.timeZone = zone }
-            let days = Days(calendar: base.forPeriods)
-            let clock = TestClock(SelfTest.base)
+            let days = Days(calendar: base.forPeriods, now: now)
+            let clock = TestClock(now)
             let directories = (0..<3).map { _ in SelfTest.scratchDirectory() }
             directories.forEach { try? FileManager.default.createDirectory(at: $0, withIntermediateDirectories: true) }
             let suite = "fc-selftest-name-suggestion-\(UUID().uuidString)"
@@ -85,7 +86,7 @@ enum NameSuggestionStoreChecks: CheckSuite {
         }
     }
 
-    @MainActor private static func target(_ f: Fixture, _ thread: UUID) -> DaySession? {
+    @MainActor static func target(_ f: Fixture, _ thread: UUID) -> DaySession? {
         f.store.nameSuggestionTargets().first { $0.threadID == thread }
     }
 
@@ -139,11 +140,11 @@ enum NameSuggestionStoreChecks: CheckSuite {
             let line = "Session: Tue 14 Nov, 11:30 pm–12:40 am, 1h 10m focused, category \(WorkType.deepWork.displayName)."
             expect(first == line, "the facts open “\(first ?? "nil")”", &problems)
         }
-        // A session that begins on the stroke of midnight is today's.
+        // A session that begins on the stroke of midnight is today's, and 9 am's "tonight" was hours ago.
         let p = UUID()
         problems += withFixture(records: { days in [record(days.at(0, 0), days.at(0, 0, 20), thread: p)] }) { f, _, problems in
             let lead = target(f, p).map { f.store.nameSuggestionLead(for: $0) }
-            expect(lead == "tonight's 20m session", "00:00–00:20 today reads “\(lead ?? "nil")”", &problems)
+            expect(lead == "last night's 20m session", "00:00–00:20 today reads “\(lead ?? "nil")”", &problems)
         }
         return problems
     }

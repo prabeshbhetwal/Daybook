@@ -9,10 +9,12 @@ extension SessionStore {
 
     /// Today's then yesterday's ended, unnamed focus sessions with worked ≥ 600, not kept, newest first.
     /// A thread on both days, or twice on one, is offered once: from where it
-    /// started, with all of its time on the two days.
+    /// started, with all of its time on the two days. One that began before
+    /// yesterday is not offered: its day is the day it started.
     func nameSuggestionTargets() -> [DaySession] {
         let days = suggestionDays()
         let kept = engine.store.nameSuggestionKept
+        let began = Dictionary(engine.archive.records.map { ($0.id, $0.start) }, uniquingKeysWith: min)
         var threads: [UUID: DaySession] = [:]
         for day in [days.yesterday, days.today] {
             for case .session(let piece) in storyDayProjection(on: day, calendar: periodCalendar).sessions {
@@ -23,6 +25,7 @@ extension SessionStore {
             !$0.isRunning && $0.workType.countsAsFocus && $0.worked >= Self.nameSuggestionMinimumWorked
                 && $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !kept.contains($0.threadID.uuidString)
+                && !$0.recordIDs.contains { began[$0, default: days.yesterday] < days.yesterday }
         }.sorted { $0.start > $1.start }
     }
 
@@ -70,7 +73,9 @@ extension SessionStore {
         let yesterday = session.start < suggestionDays().today
         let words: String
         switch Self.timeOfDay(session.start, calendar: periodCalendar) {
-        case "night": words = yesterday ? "last night's" : "tonight's"
+        // Begun after midnight, 9 am's "tonight" was hours ago: last night's.
+        case "night": words = yesterday || periodCalendar.component(.hour, from: session.start) < 5
+            ? "last night's" : "tonight's"
         case let part: words = yesterday ? "yesterday \(part)'s" : "this \(part)'s"
         }
         return "\(words) \(DurationText.compact(session.worked)) session"
@@ -133,8 +138,9 @@ extension SessionStore {
     /// With the display name of every app they used.
     private func nameHistory() -> (entries: [NameHistoryEntry], appNames: [String: String]) {
         let calendar = periodCalendar
-        guard let from = calendar.date(byAdding: .day, value: -Self.nameHistoryDays,
+        guard let back = calendar.date(byAdding: .day, value: -Self.nameHistoryDays,
                                        to: calendar.startOfDay(for: now())) else { return ([], [:]) }
+        let from = calendar.startOfDay(for: back)   // a day without a midnight lands the step on 01:00
         let rules = Set(engine.store.activityRules.map {
             SearchWords.fold($0.name.trimmingCharacters(in: .whitespacesAndNewlines))
         })

@@ -123,6 +123,7 @@ extension SelfTest {
             + HistorySearchRefoldChecks.tests
             + NameSuggestionCoreChecks.tests
             + NameSuggestionStoreChecks.tests
+            + NameSuggestionStoreChecks.later
     }
 
     /// SelfTest's own checks 1 to 107.
