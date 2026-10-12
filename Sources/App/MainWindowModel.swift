@@ -223,6 +223,14 @@ struct HistorySessionPick: Hashable {
         return noteWriter
     }
 
+    private var rescue: SearchRescue?
+
+    /// History's search rescue, built on first read.
+    var searchRescue: SearchRescue? {
+        if rescue == nil, let store { rescue = SearchRescue(store: store) }
+        return rescue
+    }
+
     init(opening route: AppTab = .story,
          requestedDate: Date? = nil,
          store: SessionStore? = nil) {
@@ -304,6 +312,7 @@ struct HistorySessionPick: Hashable {
     func prepareHistory() {
         guard !historyPrepared else { reconcileHistory(); return }
         historyPrepared = true
+        store?.refoldHistorySearch()
         guard historyOpen.isEmpty, let store else { return }
         historyOpen = HistoryTreeBuilder.pathToToday(top: store.historyTop(), calendar: SessionStore.historyCalendar)
     }
@@ -312,6 +321,8 @@ struct HistorySessionPick: Hashable {
     /// stepped the top up a level: each open place becomes the row now drawn
     /// for it, and a place no longer in the record folds away.
     func reconcileHistory() {
+        // A day or a zone moved: a typed "yesterday" or "this week" moves with it.
+        store?.refoldHistorySearch()
         guard let store, !historyOpen.isEmpty else { return }
         let open = HistoryTreeBuilder.reconcile(open: historyOpen, top: store.historyTop(),
                                                 calendar: SessionStore.historyCalendar)

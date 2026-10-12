@@ -57,8 +57,8 @@ enum ReviewNotePeriodChecks: CheckSuite {
                                       "1h more focus than the month before",
                                       "Goal met on 3 of 4 days with focus"],
                "a month's observations are \(month.observations)", &problems)
-        expect(month.patternOnly.isEmpty && !month.text.contains("Context:"),
-               "a month has no tip, so no observation is kept from one: \(month.text)", &problems)
+        expect(month.text.hasSuffix("\nObservations:\n- " + month.observations.joined(separator: "\n- ")),
+               "a month's observations should follow its lines under one heading: \(month.text)", &problems)
         return problems
     }
 

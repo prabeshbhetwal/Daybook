@@ -43,7 +43,7 @@ enum ReviewNoteGoalChecks: CheckSuite {
                    "a new goal left the note as \(String(describing: writer.state(for: tuesday)))", &problems)
             writer.request(tuesday, requested: true)
             expect(Checks.settle(writer, tuesday) && model.calls == 2
-                   && model.facts.last?.lines.contains("Daily goal: 1h 30m, met: no") == true,
+                   && model.facts.last?.lines.contains("Daily goal: 1h 30m; counted towards it: 1h of focus with hands-on app use; met: no") == true,
                    "the note was not written again for the new goal after \(model.calls) calls", &problems)
         }
     }
@@ -61,7 +61,7 @@ enum ReviewNoteGoalChecks: CheckSuite {
             f.engine.store.dailyGoal = 5_400
             let newGoal = cause()
             expect(newGoal != before, "a new goal left the cause as it was", &problems)
-            expect(offers().yesterdayFigures == "1h 30m focus · goal missed · 1 session",
+            expect(offers().yesterdayFigures == "1h 30m focus · 1h towards 1h 30m goal · 1 session",
                    "yesterday's line at a 1h 30m goal is “\(offers().yesterdayFigures)”", &problems)
 
             // Yesterday corrected: renamed here, as a correction moves the same revisions.

@@ -65,6 +65,7 @@ struct CoachRing: View {
     /// it to tell a ring that does not draw from one that is mid-motion.
     var animated = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.rendersStill) private var rendersStill
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast
     @StateObject private var breathing = BoolBox()
@@ -108,7 +109,8 @@ struct CoachRing: View {
                                value: breathing.value)
             }
             .onAppear {
-                guard animated, !reduceMotion else { return }
+                // A still holds the first breath: it begins on a timer.
+                guard animated, !reduceMotion, !rendersStill else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { breathing.value = true }
             }
             .allowsHitTesting(false)

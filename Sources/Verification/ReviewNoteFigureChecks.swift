@@ -21,8 +21,8 @@ enum ReviewNoteFigureChecks: CheckSuite {
                 "Sessions in order: Parser at 9:13 am, 1h 30m; Thesis at 2:00 pm, 45m"],
         observations: ["Longest stretch: 1h 30m in Parser, from 9:13 am", "2 sessions ran as 3 stretches"])
 
-    private static func note(_ story: String, tip: String? = nil) -> WrittenNote {
-        WrittenNote(story: story, pattern: "Nothing else.", tip: tip)
+    private static func note(_ story: String, pattern: String = "Nothing else.") -> WrittenNote {
+        WrittenNote(story: story, pattern: pattern)
     }
 
     private static func digitsAreNotFigures() -> [String] {
@@ -38,8 +38,8 @@ enum ReviewNoteFigureChecks: CheckSuite {
         for text in invented {
             expect(!NoteAudit.passes(note(text), facts: day), "“\(text)” passed, but its figures are not in the facts", &problems)
         }
-        expect(!NoteAudit.passes(note("Fine.", tip: "Start at 9h tomorrow."), facts: day),
-               "an invented duration in the tip alone should fail the note", &problems)
+        expect(!NoteAudit.passes(note("Fine.", pattern: "Start at 9h tomorrow."), facts: day),
+               "an invented duration in the pattern alone should fail the note", &problems)
         return problems
     }
 
@@ -137,8 +137,8 @@ enum ReviewNoteFigureChecks: CheckSuite {
         let story = "You worked on Q4 plan v2 for 1 hour 30 minutes at 9:00 am, then Sprint 42 review for 1 hour at "
             + "11:00 am, and finally 2026 tax return for 2 hours at 2:00 pm."
         let pattern = "The 2-hour stretch in 2026 tax return at 2:00 pm was the longest focus period of the day."
-        expect(NoteAudit.passes(WrittenNote(story: story, pattern: pattern, tip: nil), facts: digits),
-               "the digit-named day's note failed on \(NoteAudit.unmatched(WrittenNote(story: story, pattern: pattern, tip: nil), facts: digits))",
+        expect(NoteAudit.passes(WrittenNote(story: story, pattern: pattern), facts: digits),
+               "the digit-named day's note failed on \(NoteAudit.unmatched(WrittenNote(story: story, pattern: pattern), facts: digits))",
                &problems)
         return problems
     }

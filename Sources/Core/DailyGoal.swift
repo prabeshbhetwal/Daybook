@@ -128,7 +128,7 @@ struct DailyGoal {
         }
 
         guard reached.count >= FocusConstants.goalMedianMinimumDays else { return nil }
-        return median(of: reached)
+        return reached.median
     }
 
     /// `accurateFrom` is a point within the migration calendar day, not a
@@ -155,10 +155,13 @@ struct DailyGoal {
             direction: .forward) ?? dayEnd
         return min(max(candidate, dayStart), dayEnd)
     }
+}
 
-    private func median(of values: [TimeInterval]) -> TimeInterval {
-        let sorted = values.sorted()
-        let mid = sorted.count / 2
+extension Array where Element == TimeInterval {
+    /// The middle value, or the mean of the middle two; 0 when empty.
+    var median: TimeInterval {
+        guard !isEmpty else { return 0 }
+        let sorted = self.sorted(), mid = sorted.count / 2
         guard sorted.count.isMultiple(of: 2) else { return sorted[mid] }
         return (sorted[mid - 1] + sorted[mid]) / 2
     }

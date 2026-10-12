@@ -221,9 +221,21 @@ enum Snapshotter {
     /// The one made category the Settings — Categories card shows.
     static let fixtureCategoryID = "custom.snapshot.calls"
 
+    /// The data folder every settings card names. Never created: Settings —
+    /// Data prints its path, and a fresh scratch name in each run wrapped that
+    /// line differently in every capture.
+    static let settingsDataDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("fc-gallery-settings", isDirectory: true)
+
     /// The zoom `run` renders at, as a scale; nil leaves the zoom alone, as
     /// the Gallery and the checks need.
     private static var renderZoom: Double?
+
+    /// True while `run` draws PNGs. Its stills never ask the live model for a
+    /// review note: whether it is ready, and when it answers, differ from run
+    /// to run ("Writing…" in some stills of one build). The Gallery and the
+    /// checks leave notes to the model as before.
+    static var rendersStills = false
 
     static let matrix: [SnapshotRender] = SnapshotScenario.allCases.flatMap { scenario in
         scenario.presentations.flatMap { presentation in
@@ -253,6 +265,7 @@ enum Snapshotter {
 
     static func run(directory: URL) -> Bool {
         defer { FixtureFactory.cleanUp() }
+        pinStillScrollers()
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
 
@@ -287,11 +300,15 @@ enum Snapshotter {
         let percent = requested.map { InterfaceZoom.nearestPercent(toScale: $0) }
             ?? InterfaceZoom.defaultPercent
         renderZoom = percent == InterfaceZoom.defaultPercent ? nil : Double(percent) / 100
-        defer { renderZoom = nil }
+        rendersStills = true
+        defer { renderZoom = nil; rendersStills = false }
         for item in selected {
             let name = item.filename(atZoom: percent)
             let output = directory.appendingPathComponent(name)
-            if render(view(for: item), appearance: item.appearance, to: output) {
+            let wroteOne = autoreleasepool {
+                render(view(for: item), appearance: item.appearance, to: output)
+            }
+            if wroteOne {
                 wrote += 1
                 print("  wrote \(name)")
             } else {
@@ -424,7 +441,7 @@ enum Snapshotter {
         case .historySearch:
             let store = FixtureFactory.insightsStore(withEvidence: true)
             store.refreshReview()
-            store.setHistoryQuery("Build")
+            store.setHistoryQuery("Build last week over 30m")
             return store
         case .historyApp:
             let store = FixtureFactory.insightsStore(withEvidence: true)
@@ -492,6 +509,11 @@ enum Snapshotter {
     static func navigation(for scenario: SnapshotScenario,
                                    store: SessionStore) -> MainWindowModel {
         let navigation = MainWindowModel(opening: scenario.tab ?? .story, store: store)
+        if rendersStills {
+            // A note a scenario shows is presented (`presentNotes`); any other
+            // fails as it would with the model not ready, and shows nothing.
+            navigation.notes?.responder = { _ in throw CocoaError(.featureUnsupported) }
+        }
         switch scenario {
         case .reviewHistorySelection, .askPanelHistory:
             navigation.open(tab: .review)
@@ -601,7 +623,7 @@ enum Snapshotter {
                                    symbolName: "phone.fill", hue: .green, countsWhileWatching: true)
             ]
         }
-        let dataDirectory = FixtureFactory.scratchDirectory()
+        let dataDirectory = settingsDataDirectory
         let diagnostics = SettingsDiagnostics(
             usageAccuracyEpoch: Date(timeIntervalSince1970: 1_700_000_000),
             legacyBackupURL: dataDirectory
@@ -630,38 +652,6 @@ enum Snapshotter {
         // stand-in draws them without starting Sparkle or the network.
         model.updater = SnapshotUpdater()
         return model
-    }
-
-    private static func render<V: View>(_ view: V, appearance: SnapshotAppearance,
-                                        to url: URL) -> Bool {
-        // ImageRenderer substitutes yellow prohibition placeholders for native
-        // controls. Host the real AppKit-backed view offscreen instead. This
-        // captures our own view, not the user's screen, and needs no permission.
-        let host = NSHostingView(rootView: view)
-        let size = host.fittingSize
-        guard size.width > 0, size.height > 0 else { return false }
-        let frame = NSRect(origin: .zero, size: size)
-        let window = NSWindow(contentRect: frame, styleMask: [.borderless],
-                              backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
-        window.appearance = NSAppearance(named: appearance == .dark ? .darkAqua : .aqua)
-        window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
-        window.contentView = host
-        host.frame = frame
-        window.orderFront(nil)
-        host.layoutSubtreeIfNeeded()
-        RunLoop.current.run(until: Date().addingTimeInterval(0.015))
-        host.displayIfNeeded()
-        defer { window.orderOut(nil); window.close() }
-        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return false }
-        host.cacheDisplay(in: host.bounds, to: bitmap)
-        guard let png = bitmap.representation(using: .png, properties: [:]) else { return false }
-        do {
-            try png.write(to: url)
-            return true
-        } catch {
-            return false
-        }
     }
 }
 

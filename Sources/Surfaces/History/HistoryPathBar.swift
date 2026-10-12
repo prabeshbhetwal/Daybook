@@ -54,7 +54,7 @@ struct HistoryPathBar: View {
                 if index > 0 {
                     Image(systemName: "chevron.right")
                         .font(Tokens.Typography.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(.tertiary) // ink: quiet, a separator between crumbs
                         .accessibilityHidden(true)
                 }
                 Button(crumb.title) { onSelect(crumb) }

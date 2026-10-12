@@ -94,7 +94,7 @@ keep_internals engine Sources/Core/SessionEngine \
 # savedActivities and state, so those three setters cannot be told apart here.
 keep_internals store Sources/App/SessionStore \
   'LiveFrame|appliedDefaultWorkType|apply|cachedTypical|cachedTypicalMinute|deferredAutomationPending|earliestDayCache|historyAppLensCache|historySearchAppsCache|historySortedUsageCache|idle|lastLiveFrame|lastTrafficRead|pendingWakeActivation|presenceGate|quietSampler|refreshBreak|schedulesTicker|startTicker|stopTicker|tick|ticker|trafficReadPending|updateTicker|watchingCache|workLoad|workTraffic' \
-  'activityAutomationError|breakCountdown|canUndoCorrection|correctionError|dashboardArchiveReadModelGeneration|dashboardReadModelGeneration|elapsed|goal|historyIndexGeneration|isBreakDue|longestToday|nextBreakTier|pendingActivityChoice|pendingAway|pendingAwayRange|previousSession|quickStarts|reviewReadModelGeneration|sessionsToday|streak|streakBest|threadElapsed|todayTotal|trackedToday|weekBars'
+  'activityAutomationError|breakCountdown|canUndoCorrection|correctionError|dashboardArchiveReadModelGeneration|dashboardReadModelGeneration|elapsed|goal|historyIndexGeneration|historyMenuApp|historyMenuWorkType|historyParsedSearch|historySearchText|isBreakDue|longestToday|nextBreakTier|pendingActivityChoice|pendingAway|pendingAwayRange|previousSession|quickStarts|reviewReadModelGeneration|sessionsToday|streak|streakBest|threadElapsed|todayTotal|trackedToday|weekBars'
 
 # What a guard's grep pipeline found: true when its last stage printed a line.
 # grep exits 1 when it finds nothing and 2 when it could not search at all (a
@@ -162,19 +162,41 @@ if lengths_outside_zoom; then
 fi
 
 # Supporting text takes StoryStyle.supportingInk. The system's secondary ink is
-# 3.8:1 on the light surfaces, under the 4.5:1 text needs, and supporting text
-# kept coming back in it. A line that keeps it on purpose (a drawn mark, a
-# disabled control, display-size type, the menu bar item) says
-# `// ink: quiet, <why>`. Comment lines are skipped.
-secondary_ink_outside_quiet() {
-  grep -rnE '(^|[^A-Za-z0-9_])\.secondary([^A-Za-z0-9_]|$)|Color\.secondary' \
+# 3.8:1 on the light surfaces, under the 4.5:1 text needs, and tertiary and
+# quaternary are paler still; supporting text kept coming back in them. A line
+# that keeps one on purpose (a drawn mark, a disabled control, display-size
+# type, the menu bar item) says `// ink: quiet, <why>`. Comment lines are
+# skipped.
+faint_ink_outside_quiet() {
+  grep -rnE '(^|[^A-Za-z0-9_])\.(secondary|tertiary|quaternary|quinary)([^A-Za-z0-9_]|$)|Color\.(secondary|tertiary|quaternary|quinary)' \
       Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
     | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
     | grep -v 'ink: quiet'
   guard_found "${PIPESTATUS[@]}"
 }
-if secondary_ink_outside_quiet; then
-  echo "error: the lines above use the secondary ink; supporting text takes StoryStyle.supportingInk, or the line says // ink: quiet, <why>" >&2
+if faint_ink_outside_quiet; then
+  echo "error: the lines above use a faint system ink; supporting text takes StoryStyle.supportingInk, or the line says // ink: quiet, <why>" >&2
+  exit 1
+fi
+
+# The app's copy says "on-device AI". "Apple Intelligence" is Apple's name for
+# its own feature: a string keeps it only where it sends the person to that
+# switch in System Settings, or as a search word, and says `// name: Apple's`.
+# Apple reserves its apple.intelligence symbol for beside that name, so the app
+# draws sparkles and the symbol appears nowhere in Sources. Comment lines are
+# skipped.
+apple_names_in_copy() {
+  local found=1
+  grep -rnE '"[^"]*Apple Intelligence[^"]*"' Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
+    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
+    | grep -v "name: Apple's"
+  if guard_found "${PIPESTATUS[@]}"; then found=0; fi
+  grep -rn 'apple\.intelligence' Sources --include='*.swift'
+  if guard_found "${PIPESTATUS[@]}"; then found=0; fi
+  return "${found}"
+}
+if apple_names_in_copy; then
+  echo "error: the lines above name Apple Intelligence in the app's copy or draw its symbol; say \"on-device AI\" and use sparkles, or mark a System Settings pointer // name: Apple's" >&2
   exit 1
 fi
 
@@ -469,13 +491,18 @@ if [ "${RUN}" -eq 1 ]; then
   # `open` on a running app only brings it forward: the old process keeps
   # its old code while the new binary sits unused on disk. Quit any running
   # copy, from any folder, the ordinary way so it saves on the way out.
-  osascript -e "quit app id \"${BUNDLE_ID}\"" >/dev/null 2>&1 || true
-  for _ in $(seq 1 100); do
+  # Right after a build the Mac is loaded, and one quit event can arrive late
+  # or not at all (twice on 11 October 2026), so ask again every 2 s. Each
+  # ask runs in the background: osascript waits up to 2 min for a reply.
+  for i in $(seq 1 300); do
     [ -z "$(app_pids)" ] && break
+    if [ $((i % 20)) -eq 1 ]; then
+      osascript -e "quit app id \"${BUNDLE_ID}\"" >/dev/null 2>&1 &
+    fi
     sleep 0.1
   done
   if [ -n "$(app_pids)" ]; then
-    echo "error: a running ${APP_NAME} did not quit within 10s; quit it, then run again" >&2
+    echo "error: a running ${APP_NAME} did not quit within 30s; quit it, then run again" >&2
     exit 1
   fi
   # Launch Services can drop an open that lands while the quit copy is still

@@ -51,7 +51,7 @@ extension SessionStore {
     /// app's use outside every session would not answer them.
     func historyAppLens() -> HistoryAppLens? {
         let filter = historyFilter
-        guard let bundleID = filter.appBundleID, filter.workType == nil,
+        guard let bundleID = filter.appBundleID, filter.workType == nil, !filter.hasPhrases,
               filter.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         let running = historyLensRunning()
         let calendar = Calendar.current

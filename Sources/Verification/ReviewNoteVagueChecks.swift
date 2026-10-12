@@ -16,8 +16,8 @@ enum ReviewNoteVagueChecks: CheckSuite {
         ("A weekday written beside a date must be that date's weekday in the facts", weekdayMatchesDate),
     ]
 
-    private static func note(_ story: String, tip: String? = nil) -> WrittenNote {
-        WrittenNote(story: story, pattern: "Nothing else.", tip: tip)
+    private static func note(_ story: String, pattern: String = "Nothing else.") -> WrittenNote {
+        WrittenNote(story: story, pattern: pattern)
     }
 
     private static let day = NoteFacts(
@@ -38,8 +38,8 @@ enum ReviewNoteVagueChecks: CheckSuite {
         for text in numberless {
             expect(!NoteAudit.passes(note(text), facts: day), "“\(text)” passed, but states an amount with no number", &problems)
         }
-        expect(!NoteAudit.passes(note("Fine.", tip: "Start with an hour of Thesis."), facts: day),
-               "an amount with no number in the tip alone should fail the note", &problems)
+        expect(!NoteAudit.passes(note("Fine.", pattern: "Start with an hour of Thesis."), facts: day),
+               "an amount with no number in the pattern alone should fail the note", &problems)
         // The same amounts with their numbers are the audit's ordinary business.
         for text in ["You worked for 45m on Parser.", "Parser took 45 minutes, then Thesis 1 hour 30 minutes.",
                      "Thesis was your longest stretch at 1h 30m."] {

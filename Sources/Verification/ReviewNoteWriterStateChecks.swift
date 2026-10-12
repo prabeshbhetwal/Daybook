@@ -2,7 +2,7 @@ import Foundation
 
 /// What a note's state in the writer answers to once it is published: a note
 /// or failure shown for figures that have since changed is forgotten when its
-/// view asks, and switching Apple Intelligence off stops every note being
+/// view asks, and switching on-device AI off stops every note being
 /// written. Shares the stand-in model and fixture helpers of
 /// `ReviewNoteWriterChecks`.
 enum ReviewNoteWriterStateChecks: CheckSuite {
@@ -15,7 +15,7 @@ enum ReviewNoteWriterStateChecks: CheckSuite {
 
     private typealias Checks = ReviewNoteWriterChecks
     private static let plain = Checks.plain
-    private static let invented = WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else.", tip: nil)
+    private static let invented = WrittenNote(story: "You focused 9h 59m.", pattern: "Nothing else.")
 
     @MainActor private static func wait(_ condition: () -> Bool) -> Bool {
         InstalledAppCatalog.turnRunLoop(until: condition, timeout: 5)

@@ -164,7 +164,7 @@ struct HistoryTreeRow: View {
             if showsFacts {
                 Text(durations: HistoryRowText.facts(row, today: today))
                     .font(Tokens.Typography.body.monospacedDigit())
-                    .foregroundStyle(row.isEmpty ? AnyShapeStyle(.tertiary) : AnyShapeStyle(StoryStyle.supportingInk))
+                    .foregroundStyle(StoryStyle.supportingInk)
                     .lineLimit(1)
             }
             bars
@@ -227,7 +227,6 @@ struct HistoryTreeRow: View {
         if row.place.level != .year, row.sessions > 0, let writer = navigation.notes {
             PeriodNote(writer: writer, place: row.place, evidence: store.noteEvidence,
                        trigger: store.noteIsCurrent(row.place) ? .onRequest(label: "Write a note") : .automatic,
-                       tipLabel: nil,
                        insets: EdgeInsets(top: Tokens.Space.m, leading: Tokens.Space.s, bottom: Tokens.Space.s,
                                           trailing: HistoryRowLayout.inset))
         }
