@@ -60,7 +60,7 @@ struct NameSuggestion: Equatable {
     var responder: (@MainActor (NameFacts) async throws -> NameChoice)?
 
     /// The audited name per `NameFacts.cacheKey`; a nil value is a session
-    /// the model had nothing for. A changed note makes a new key, asked again.
+    /// the model had nothing for. A changed note or ranking makes a new key, asked again.
     // ponytail: never trimmed; an entry is a key and a name, and only two days of sessions add them.
     private var cache: [String: Answer?] = [:]
     private typealias Answer = (name: String, source: NameSuggestion.Source)

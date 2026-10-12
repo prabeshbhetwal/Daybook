@@ -28,7 +28,8 @@ struct NameFacts: Equatable {
     let candidates: [NameCandidate]
     /// Display names of the session's apps, for `NameAudit`.
     let appNames: [String]
-    /// Changes when the session's facts change, so an answer is asked again.
+    /// Changes when the session's facts or the earlier names' ranking change,
+    /// so an answer is asked again.
     let cacheKey: String
 }
 

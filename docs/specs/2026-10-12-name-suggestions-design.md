@@ -39,7 +39,7 @@ order"). It writes one session, and only when the person accepts.
 | Core | `Sources/Core/NameCandidates.swift` (new) | Pure. From one session's app minutes and category, and every named session in the last 60 days grouped by name, returns earlier names ranked by shared app time (§2). |
 | Core | `Sources/Core/NameAudit.swift` (new) | Pure. Accepts or rejects a fresh name (§2). |
 | App | `Sources/App/SessionStore+NameSuggestion.swift` (new) | Which sessions to offer, in order (§3); their facts; "Name it" through `renameSession`; "Keep as is". |
-| App | `Sources/App/NameSuggester.swift` (new) | `@MainActor` and `ObservableObject`, in the `NoteWriter` shape: one greedy `LanguageModelSession` call per session, a 10 s timeout, cancellation, a `responder` seam for checks, and an in-memory cache keyed by the session's thread ID, end time, category and note. A session with no earlier name is asked a second question whose only answers are `new` and `none`. |
+| App | `Sources/App/NameSuggester.swift` (new) | `@MainActor` and `ObservableObject`, in the `NoteWriter` shape: one greedy `LanguageModelSession` call per session, a 10 s timeout, cancellation, a `responder` seam for checks, and an in-memory cache keyed by the session's thread ID, end time, category, note and earlier-name ranking. A session with no earlier name is asked a second question whose only answers are `new` and `none`. |
 | App | `Sources/App/MainWindowModel.swift` | `nameSuggester`, built on first read like `notes`. |
 | Surfaces | `Sources/Surfaces/Story/NameSuggestionNotice.swift` (new) | The notice in today's rail tile, under `NameCategoryNotice` when both show. Its caption and mark follow the offer's source (§3). |
 
@@ -116,7 +116,7 @@ The first is an earlier name, picked by the ranking: its caption reads "From you
 | Named on its card | The session drops out. |
 | Name it or Keep as is on a stale notice | Each acts only if the session is still unnamed and not kept. Otherwise nothing is written, and the notice moves on. |
 | Switch off, or model unusable | Nothing is drawn, and a call in flight is cancelled. |
-| Model runs | When a session stops unnamed, and when today's Story opens with a qualifying session that has no cached result. Only one call at a time, and never on the 1 Hz ticker. After a relaunch it runs again once, when the Story opens. The notice asks again on a change to the session archive, the notes, the corrections (a rename on a card), the kept list or the day, and never on the minute-by-minute app-use checkpoint. |
+| Model runs | When a session stops unnamed, and when today's Story opens with a qualifying session that has no cached result. Only one call at a time, and never on the 1 Hz ticker. After a relaunch it runs again once, when the Story opens. The notice asks again on a change to the session archive, the notes, the corrections (a rename on a card), the kept list or the day, and never on the minute-by-minute app-use checkpoint. A cached answer is asked again when the earlier names' ranking for that session changes, so a rename elsewhere that ties or overturns it is seen. |
 | Ambiguous, no evidence, or no answer | That session shows no notice; the next one is tried. An ambiguous session is looked at again on each refresh, so a name that later breaks the tie gets it an offer. A model's "none", an error or a timeout is remembered for this run. A session with no candidates but a note or app evidence is asked for a fresh name. |
 
 ## 4. Privacy
