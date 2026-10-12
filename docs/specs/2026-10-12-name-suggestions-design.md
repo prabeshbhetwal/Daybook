@@ -24,11 +24,11 @@ order"). It writes one session, and only when the person accepts.
 | Approach | Code ranks earlier names by shared app time and category, and offers the top 3. With one clear leader, the on-device model is asked to confirm it, and code offers that earlier name. With two close earlier names, nothing is asked and nothing is offered. With none, the model is asked for a fresh name or to decline. Code checks any fresh name before it is shown. In the live probes the model never declined or chose a different earlier name (§5a), so an earlier-name offer comes from the ranking and says so. |
 | Rejected: code alone for fresh names | Code cannot word a fresh name from a note, and the model is the only part that can. As built, earlier-name offers come from the ranking and the model only words fresh names (§5a); they are not called AI. |
 | Rejected: the model reads every name | Hard to check, likely to pick a plausible wrong name, and against the shared rule that code offers the candidates. |
-| Which sessions | Ended focus sessions from today and yesterday whose name is empty, focused for at least 10 minutes, and not kept as they are. A session is one thread's stretches, as History shows one card; its day is the day it started, in `periodCalendar`. A session that crosses midnight is offered once, on the day it started, and its focused time for the 10-minute test is its total across both days. A session that began before yesterday is not offered. |
+| Which sessions | Ended focus sessions from today and yesterday whose name is empty, focused for at least 10 minutes, and not kept as they are. A session is one thread's stretches; its day is the day it started, in `periodCalendar`. A session that crosses midnight is offered once, as the day it started, and its focused time for the 10-minute test is its total across both days. A session that began before yesterday is not offered. |
 | Rejected: any day you open | Older guesses are harder to judge; tidying older history is project 4. |
 | Cadence | One suggestion at a time, newest first: today's sessions, then yesterday's. |
 | Rejected: a batch with "Name all" | One wrong guess rides along with the right ones. |
-| Form | A Story rail notice in the `NameCategoryNotice` pattern: one action ("Name it"), "Keep as is", and Undo through the Story's existing saved-action row. |
+| Form | A Story rail notice in the `NameCategoryNotice` pattern: one action ("Name it"), "Keep as is", and, after Name it, a confirmation with Undo inside the notice (the session may be yesterday's, whose own card is not on today's Story). |
 | Wording | "On-device AI", never "Apple Intelligence", and the `sparkles` mark. Sir decided this app-wide on 2026-10-12; a separate PR renames the shipped wording. `apple.intelligence` is reserved for naming Apple Intelligence itself. Only a fresh name, worded by the model, is called on-device AI and carries the mark; an earlier name reads "From your earlier names" with no mark. |
 | Shared rules | On-device only (`SystemLanguageModel.default`); `ModelGate.modelAvailable` and the "Use on-device AI" switch; nothing drawn on Macs that cannot run it; never on the 1 Hz ticker; no history change until the person accepts. |
 
@@ -83,7 +83,7 @@ gets no suggestion.
 | Answer | Result |
 |---|---|
 | `1`–`3` | That candidate's exact text; the model cannot alter it. |
-| `new` | Only if `NameAudit` passes: 1–4 words, at most 30 characters, no digits, no quotes, not a category name, not just an app's name. A fresh name equal to any earlier name, ignoring case, takes the earlier spelling. An apostrophe inside a word counts as a quote, so a fresh name such as "Sir's thesis" is not offered yet; an earlier name with one still can be. |
+| `new` | Only if `NameAudit` passes: 1–4 words, at most 30 characters, no digits, no quotes, not a category name, not just an app's name. A fresh name equal to any earlier name, ignoring case, takes the earlier spelling; any other starts with a capital letter, so the name shown is the name saved. An apostrophe inside a word counts as a quote, so a fresh name such as "Sir's thesis" is not offered yet; an earlier name with one still can be. |
 | `none`, a failed audit, an error or the timeout | No suggestion for this session; the next session is tried. |
 
 ## 3. The notice
@@ -103,21 +103,21 @@ From your earlier names
 The first is an earlier name, picked by the ranking: its caption reads "From your earlier names" and it has no mark. The second is a fresh name worded by the model: it keeps "Suggested by on-device AI" and the sparkles mark.
 
 - The opening follows the session: "this morning's", "this afternoon's", "this evening's", "yesterday evening's", using `SessionStore.timeOfDay` and the focused time from `DurationText`.
-- A session that started before 05:00 today reads "last night's", as one that started the evening before does; both can show at once, and both are true.
+- A session that started before 05:00 today reads "last night's", as one that started the evening before does. One that started before 05:00 yesterday reads "yesterday's", since that night was two nights ago.
 - VoiceOver reads the caption, whichever it is. The sparkles mark, shown only with a fresh name, is decorative and hidden from it.
 
 **Behaviour.**
 
 | Case | Behaviour |
 |---|---|
-| Name it | `renameSession`, an ordinary correction. The Story's saved-action row shows "Named … · Undo". The notice moves on to the next session. |
-| Undo | The session's name is empty again. It is offered again only after a relaunch or a change to its facts. |
+| Name it | `renameSession`, an ordinary correction. The notice shows "Named “…”" with Undo, above the next offer. It stays until the person acts on that offer or leaves Today. A name the store refuses (say, newer saved history was found) stays on offer. |
+| Undo | In the notice, with the correction taken right after the rename. The session's name is empty again. It is offered again only after a relaunch or a change to its facts. |
 | Keep as is | The thread is remembered in `fc.nameSuggestionKept`, trimmed to threads that ended in the last two days, and the next session is shown. |
 | Named on its card | The session drops out. |
 | Name it or Keep as is on a stale notice | Each acts only if the session is still unnamed and not kept. Otherwise nothing is written, and the notice moves on. |
 | Switch off, or model unusable | Nothing is drawn, and a call in flight is cancelled. |
 | Model runs | When a session stops unnamed, and when today's Story opens with a qualifying session that has no cached result. Only one call at a time, and never on the 1 Hz ticker. After a relaunch it runs again once, when the Story opens. The notice asks again on a change to the session archive, the notes, the corrections (a rename on a card), the kept list or the day, and never on the minute-by-minute app-use checkpoint. |
-| Ambiguous, no evidence, or no answer | That session shows no notice; the next one is tried. A session with no candidates but a note or app evidence is asked for a fresh name. |
+| Ambiguous, no evidence, or no answer | That session shows no notice; the next one is tried. An ambiguous session is looked at again on each refresh, so a name that later breaks the tie gets it an offer. A model's "none", an error or a timeout is remembered for this run. A session with no candidates but a note or app evidence is asked for a fresh name. |
 
 ## 4. Privacy
 
@@ -132,8 +132,8 @@ offered. Nothing is stored except the threads kept as they are.
 | Ranking | The order, the 0.3 threshold, the category bonus or the recency tie-break is wrong; generic auto names or category-spelled names count; the 60-day edge moves across time zones. |
 | Audit | A digit, a quote, a bare category, a bare app name, more than 4 words or more than 30 characters passes. |
 | Which sessions | A break, the running session, a session under 10 minutes, a named session or a kept one is offered; the order is not newest first; a session just after midnight lands on the wrong day. |
-| Model answer | `1`–`3` alters the candidate's text; a fresh name matching an earlier one keeps the model's spelling; `none` or a timeout shows something; the model is asked with the switch off or with no evidence; a redraw calls it again; an ambiguous session is asked or offered; an offer's source is wrong (an earlier name's is `earlier`, a fresh name's `fresh`), pinned by check 1033. |
-| Actions | Name it does not rename, Undo does not restore, Keep as is is not remembered or not trimmed, or a session named on its card still shows. |
+| Model answer | `1`–`3` alters the candidate's text; a fresh name matching an earlier one keeps the model's spelling; `none` or a timeout shows something; the model is asked with the switch off or with no evidence; a redraw calls it again; an ambiguous session is asked or offered; an offer's source is wrong (an earlier name's is `earlier`, a fresh name's `fresh`), pinned by the margin checks (`NameMarginChecks`). |
+| Actions | Name it does not rename or does not hand back its correction, Undo with that correction does not restore, a refused Name it drops the offer, an ambiguous session stays unoffered after another name breaks the tie, Keep as is is not remembered or not trimmed, or a session named on its card still shows. |
 | Views | `--snapshot` of the two notice scenes breaks at 80% or 140% zoom, light or dark: `storyNameSuggestion` (a fresh name: "Suggested by on-device AI" with the sparkles mark) and `storyNameSuggestionEarlier` ("From your earlier names", no mark). Each scene fails the render unless the suggester has an offer of the expected source before capture. The caption wording itself is read from these renders, not from a check. |
 
 **Live probe.** 20 hand-built sessions, each with the expected answer written
@@ -326,7 +326,7 @@ fresh names above are the model's own wording.
 | # | Step | Passes when |
 |---|---|---|
 | 1 | Stop an unnamed 15-minute session that used the apps of an earlier named one | The notice offers that earlier name |
-| 2 | Name it, then Undo | The Story shows "Named … · Undo"; Undo leaves the session unnamed |
+| 2 | Name it, then Undo | The notice shows "Named … · Undo", also for yesterday's session; Undo leaves the session unnamed and it is not offered again |
 | 3 | Keep as is | The next unnamed session is offered; the kept one never returns |
 | 4 | Turn "Use on-device AI" off | No notice is drawn |
 | 5 | Stop an unnamed 15-minute session in apps no earlier name used, with a note that says what the work was | The notice offers a fresh name under "Suggested by on-device AI" with the sparkles mark |
