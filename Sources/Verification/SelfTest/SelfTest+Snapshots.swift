@@ -52,7 +52,7 @@ extension SelfTest {
                 .askEmpty, .askAnswered, .askFailed, .askStopped, .askPanelStory, .askPanelHistory,
                 .reviewNotes, .reviewNotesHistory,
                 .storyDay, .storyDayEntry,
-                .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
+                .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport, .storyNameSuggestion,
                 .welcomeOpening, .welcomeStep,
                 .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
                 .settingsActivityRules, .settingsTracking, .settingsAppearance, .settingsData,

@@ -29,6 +29,18 @@ extension SessionStore {
         }.sorted { $0.start > $1.start }
     }
 
+    /// What the notice asks again on: the evidence, the corrections (a rename
+    /// on a card), Keep as is, and the day. Cheap, because a body reads it on
+    /// every tick, and it holds still as the clock moves inside a day.
+    var nameSuggestionKey: Int {
+        var hasher = Hasher()
+        hasher.combine(evidenceRevision)
+        hasher.combine(corrections.count)
+        hasher.combine(engine.store.nameSuggestionKept)
+        hasher.combine(periodCalendar.startOfDay(for: now()))
+        return hasher.finalize()
+    }
+
     /// The facts for the model, or nil when the session has neither app
     /// evidence nor a note.
     func nameFacts(for session: DaySession) -> NameFacts? {

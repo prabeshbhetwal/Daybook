@@ -10,7 +10,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case askEmpty, askAnswered, askFailed, askStopped, askPanelStory, askPanelHistory
     case reviewNotes, reviewNotesHistory
     case storyDay, storyDayEntry
-    case storyShape, storyMeeting, storyLive, storyDecision, storyReport
+    case storyShape, storyMeeting, storyLive, storyDecision, storyReport, storyNameSuggestion
     case welcomeOpening, welcomeStep
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsAutomatic
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
@@ -52,6 +52,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .storyLive: return "Story — current work first"
         case .storyDecision: return "Story — contextual decision and Undo"
         case .storyReport: return "Story — full session report"
+        case .storyNameSuggestion: return "Story — name suggestion"
         case .welcomeOpening: return "Welcome — what this is"
         case .welcomeStep: return "Welcome — a step waiting on the reader"
         case .settingsGeneral: return "Settings — General"
@@ -129,7 +130,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .awards
         case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askPanelStory,
              .reviewNotes,
-             .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
+             .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport, .storyNameSuggestion,
              .welcomeOpening, .welcomeStep:
             return .story
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
@@ -472,6 +473,8 @@ enum Snapshotter {
             return store
         case .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport:
             return FixtureFactory.storyInteractionStore(for: scenario)
+        case .storyNameSuggestion:
+            return nameSuggestionStore()
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
@@ -511,6 +514,8 @@ enum Snapshotter {
             // A note a scenario shows is presented (`presentNotes`); any other
             // fails as it would with the model not ready, and shows nothing.
             navigation.notes?.responder = { _ in throw CocoaError(.featureUnsupported) }
+            // The same for a name: only the scenario that shows one is answered.
+            navigation.nameSuggester?.responder = { _ in throw CocoaError(.featureUnsupported) }
         }
         switch scenario {
         case .reviewHistorySelection, .askPanelHistory:
@@ -535,6 +540,8 @@ enum Snapshotter {
             navigation.askModel?.present(turns: askTurns(for: scenario))
         case .reviewNotes:
             presentNotes(for: scenario, on: navigation, store: store)
+        case .storyNameSuggestion:
+            presentNameSuggestion(on: navigation)
         case .reviewNotesHistory:
             navigation.open(tab: .review)
             if let day = presentNotes(for: scenario, on: navigation, store: store)?.start {
