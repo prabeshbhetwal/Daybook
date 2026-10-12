@@ -347,6 +347,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             focusedToday: engine.todayTotal,
             sameWeekdayLastWeek: engine.archive.focusedSameWeekdayLastWeek(),
             streak: engine.archive.currentStreak(includingToday: engine.elapsedToday()),
+            // The record before this session, the one it has to beat. The best
+            // the screens show counts the running session, so it is never below
+            // the streak and could never be passed.
             bestStreak: engine.archive.bestStreak(),
             // With no usage the goal's intersection is always zero, which kept
             // `goalReached` and `goalPace` permanently dormant — the one goal

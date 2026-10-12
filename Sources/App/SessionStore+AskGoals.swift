@@ -17,7 +17,7 @@ extension SessionStore {
             todayPercent: DurationText.percent(GoalProgress(goal: goal, achieved: today, typical: nil).share),
             period: range.map { askGoalPeriod($0, goal: goal) },
             streakDays: streak?.days ?? 0, streakSince: streak.map { askDay($0.since) },
-            streakMinimum: engine.store.streakMinimum, bestStreak: engine.archive.bestStreak(),
+            streakMinimum: engine.store.streakMinimum, bestStreak: engine.bestStreak(),
             earned: awards.filter(\.isEarned).map { AskAwardLine(title: $0.title, detail: $0.detail) },
             toEarn: awards.filter { !$0.isEarned }.map { AskAwardLine(title: $0.title, detail: $0.detail) })
         // An award is named by the words that name Awards, and by its title.

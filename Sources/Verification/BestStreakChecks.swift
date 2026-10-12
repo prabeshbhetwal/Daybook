@@ -7,6 +7,8 @@ import Foundation
 /// that session out. Wed 15 Nov 2023, 9:13am; a day counts at 1h.
 enum BestStreakChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
+        ("The best streak counts the running session's work today, as the current streak does",
+         bestCountsRunningSession),
         ("The Awards sheet and Ask give the record being set as the best streak",
          screensShowRecordBeingSet),
     ]
@@ -31,6 +33,43 @@ enum BestStreakChecks: CheckSuite {
         archive.streakMinimum = 3_600
         return SessionEngine(store: store, archive: archive, ownBundleID: "com.example.self",
                              schedulesDwell: false, now: { clock.value })
+    }
+
+    private static func bestCountsRunningSession() -> [String] {
+        var problems: [String] = []
+        let clock = TestClock(SelfTest.base)
+        let suite = "fc-selftest-best-streak-\(UUID().uuidString)"
+        guard let defaults = MemoryDefaults.suite(named: suite) else {
+            return ["could not create isolated preferences suite"]
+        }
+        defer { MemoryDefaults.remove(named: suite) }
+        guard let engine = makeEngine(clock, defaults: defaults) else { return ["could not seed the archive"] }
+
+        engine.start(workType: .deepWork, intent: "Thesis")
+        clock.advance(30 * 60)
+        // Short of the minimum, today has not joined: the streak ending yesterday stands.
+        expect(engine.currentStreak() == 4 && engine.bestStreak() == 4,
+               "half an hour in, the streak and the best should be 4, got "
+               + "\(engine.currentStreak()) and \(engine.bestStreak())", &problems)
+        clock.advance(35 * 60)
+        let current = engine.currentStreak()
+        let best = engine.bestStreak()
+        expect(current == 5, "past the minimum, today should join the streak, got \(current)", &problems)
+        expect(best == 5, "the best should be the 5 days being set, not \(best)", &problems)
+        let withToday = engine.archive.bestStreak(includingToday: engine.elapsedToday())
+        expect(withToday == 5, "the archive's best with today's running work should be 5, got \(withToday)",
+               &problems)
+        // The reward compares the streak with this one: a record the streak
+        // could never pass would never be announced.
+        let toBeat = engine.archive.bestStreak()
+        expect(toBeat == 4, "the record to beat should leave the running session out, got \(toBeat)", &problems)
+
+        expect(engine.stop(), "the session should stop", &problems)
+        let recorded = engine.archive.bestStreak()
+        expect(recorded == 5 && engine.bestStreak() == 5,
+               "once the session is recorded the best should be 5, got \(recorded) and \(engine.bestStreak())",
+               &problems)
+        return problems
     }
 
     private static func screensShowRecordBeingSet() -> [String] {

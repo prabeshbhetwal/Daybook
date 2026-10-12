@@ -36,7 +36,7 @@ extension SessionStore {
             activeDays: historyDays.filter { $0.tracked > 0 }.count,
             totalFocused: totalFocused,
             currentStreak: streak,
-            bestStreak: engine.archive.bestStreak())
+            bestStreak: streakBest)
     }
 
     var awards: [Award] { Awards.all(from: awardFacts) }
