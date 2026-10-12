@@ -36,11 +36,11 @@ enum AskDayEventsChecks: CheckSuite {
                   let sleep = rows.first(where: { $0.span.start == f.moment(2, 23, 48) })
             else { problems.append("Mon 13 Nov's Mac rows are \(rows.map(\.title))"); return }
             let lines = [
-                "from 10:40am to 11:05am \(dot) away during “Thesis” \(dot) answered: Counted as focus, 25m \(dot) no reason recorded",
+                "from 10:40am to 11:05am \(dot) away \(dot) answered: Counted as focus, 25m \(dot) no reason recorded",
                 "from 12:25pm to 1:10pm \(dot) break “Lunch” \(dot) 45m",
                 "\(lock.title) from 12:25pm to 1:10pm",
                 "from 3:40pm to 3:55pm \(dot) break \(dot) 15m",
-                "from 4:10pm to 4:30pm \(dot) away during “Email” \(dot) answered: Recorded as a break \(dot) break named “Coffee”",
+                "from 4:10pm to 4:30pm \(dot) away \(dot) answered: Recorded as a break \(dot) named “Coffee”",
                 "\(sleep.title) from 11:48pm until midnight",
             ]
             expectInOrder(text, lines, &problems)

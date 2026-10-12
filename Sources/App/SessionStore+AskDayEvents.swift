@@ -124,8 +124,7 @@ extension SessionStore {
             case let .decision(receipt, span) where receipt.isResolved:
                 answers += 1
                 found.append((span.start, 1, askAway(.away(
-                    session: receipt.name.isEmpty ? nil : receipt.name, outcome: receipt.title,
-                    label: breakName(for: receipt),
+                    outcome: receipt.title, label: breakName(for: receipt),
                     credited: receipt.decision == .mergeTime ? receipt.creditedSeconds : nil), span)))
             case let .decision(_, span), let .pending(span):
                 pending += 1

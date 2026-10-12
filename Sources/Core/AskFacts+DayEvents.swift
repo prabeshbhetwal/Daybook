@@ -7,11 +7,11 @@ struct AskEventItem: Equatable {
         /// A break; nil when it has no name of its own. `running` is one still
         /// going: it has no end, and its length is so far.
         case breakTaken(name: String?, running: Bool)
-        /// An absence the user answered: the session that was running when
-        /// they stepped away (context, never the answer: the user's own words
-        /// survive only as the name of the break they recorded), what the
-        /// answer did, that break's name, and the time it counted as focus.
-        case away(session: String?, outcome: String, label: String?, credited: TimeInterval?)
+        /// An absence the user answered: what the answer did, the name of the
+        /// break it recorded (the user's own words survive only there), and the
+        /// time it counted as focus. The session running then is not kept, so
+        /// the line cannot read as what the user said.
+        case away(outcome: String, label: String?, credited: TimeInterval?)
         /// An absence not answered yet.
         case pending
         /// A stretch or event the Mac's log tells. An uncertain one (a crash)
@@ -126,11 +126,11 @@ extension AskFacts {
         case let .breakTaken(name, running):
             what = "break" + (name.map { " “\($0)”" } ?? "")
                 + (running ? "" : item.length.map { " \u{00B7} " + DurationText.compact($0) } ?? "")
-        case let .away(session, outcome, label, credited):
+        case let .away(outcome, label, credited):
             // Said when absent: the model invents a reason from silence.
-            what = "away" + (session.map { " during “\($0)”" } ?? "") + " \u{00B7} answered: \(outcome)"
+            what = "away \u{00B7} answered: \(outcome)"
                 + (credited.map { ", " + DurationText.compact($0) } ?? "")
-                + (label.map { " \u{00B7} break named “\($0)”" } ?? " \u{00B7} no reason recorded")
+                + (label.map { " \u{00B7} named “\($0)”" } ?? " \u{00B7} no reason recorded")
         case .pending:
             what = "away, not answered yet"
         case let .mac(title, uncertain, found):

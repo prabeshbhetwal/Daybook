@@ -191,10 +191,10 @@ One day, in time order:
 
 ```
 Fri 9 Oct:
-from 10:40am to 11:05am · away during “Thesis” · answered: Counted as focus, 25m · no reason recorded
+from 10:40am to 11:05am · away · answered: Counted as focus, 25m · no reason recorded
 from 12:25pm to 1:10pm · break “Lunch” · 45m
 Mac locked from 12:25pm to 1:10pm
-from 4:10pm to 4:30pm · away during “Email” · answered: Recorded as a break · break named “Coffee”
+from 4:10pm to 4:30pm · away · answered: Recorded as a break · named “Coffee”
 Mac asleep from 11:48pm until midnight
 No restart or shut down was recorded.
 No crash was recorded.
@@ -213,12 +213,12 @@ Newest 2 of 9 days.
   One day's lines, cut by the cap, end with "…" as part 1's facts do.
 - An unnamed break reads "break". An absence not yet answered reads "away,
   not answered yet".
-- An answer about time away names the session that was running when the user
-  stepped away, as context: `away during “Thesis”`, left out when the session
-  had no name. The receipt records that session, not what the user said; their
-  own words survive only as the name of the break an answer recorded, which
-  the line gives as the Story's row reads it (the record's name now, so a
-  later rename shows): ` · break named “Coffee”`. Every answered line with no
+- An answer about time away reads `away · answered: <receipt title>` and never
+  names the session that was running when the user stepped away: the model
+  read a session name as what the user said. The user's own words survive only
+  as the name of the break an answer recorded, which the line gives as the
+  Story's row reads it (the record's name now, so a later rename shows):
+  ` · named “Coffee”`. Every answered line with no
   such name (counted as focus, left uncounted, or a break left unnamed) ends
   ` · no reason recorded`, because the on-device model invents a reason from
   silence. The break an answer made is told by the answer, not as a second break.
