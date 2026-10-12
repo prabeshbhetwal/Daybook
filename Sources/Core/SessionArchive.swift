@@ -427,11 +427,19 @@ final class SessionArchive {
         return streak
     }
 
-    /// Most-used (work type, intent) pairs from the recent window, most frequent
-    /// first, ties broken by recency. Computed, never configured.
     /// The longest run of qualifying days ever recorded. A streak cannot be
     /// called a record without knowing what the record was.
-    func bestStreak() -> Int {
+    /// - Parameter inFlight: seconds banked by a session that is still running,
+    ///   counted toward today as `currentStreak(includingToday:)` counts them.
+    ///   The run through today is the only one they can lengthen, and that run
+    ///   is the current streak, so the record is never shorter than the streak
+    ///   beside it: the session that set a record read "13 days, best 12".
+    ///   At 0 it is the record finished sessions hold, the one to beat.
+    func bestStreak(includingToday inFlight: TimeInterval = 0) -> Int {
+        max(finishedBestStreak(), currentStreak(includingToday: inFlight))
+    }
+
+    private func finishedBestStreak() -> Int {
         if let cachedBestStreak { return cachedBestStreak }
         // The injected calendar, not `Calendar.current`: an archive built for a
         // test in another time zone was silently bucketing by the host's days.
@@ -466,6 +474,8 @@ final class SessionArchive {
         return workSeconds(on: then)
     }
 
+    /// Most-used (work type, intent) pairs from the recent window, most frequent
+    /// first, ties broken by recency. Computed, never configured.
     func quickStarts(limit: Int) -> [QuickStart] {
         let cutoff = now().addingTimeInterval(-Double(quickStartWindowDays) * 86_400)
         var tally: [String: (item: QuickStart, count: Int, last: Date)] = [:]

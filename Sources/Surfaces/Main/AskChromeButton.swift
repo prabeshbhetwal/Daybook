@@ -2,9 +2,9 @@ import SwiftUI
 
 /// The bar's way into Ask Daybook. ⌘K alone is found only by someone who
 /// already knows it is there, so the bar shows the sparkles assistants use
-/// and the word "Ask", and the help tag teaches the key. Apple's own
-/// Apple Intelligence glyph may only name Apple Intelligence, not an app's
-/// feature, so it is kept for the sheet's line about who answers. When the
+/// and the word "Ask", and the help tag teaches the key. Apple's own glyph
+/// for Apple Intelligence may only stand beside that name, and the app says
+/// "on-device AI" instead, so the app never draws it. When the
 /// bar is short of room the word goes and the sparkles stay. While Ask's side
 /// panel is open the button looks pressed, and the same press closes it.
 struct AskChromeButton: View {

@@ -30,6 +30,12 @@ extension SessionStore {
             return askStillToCome(first) ?? askStillToCome(second) ?? AskLookupResult(
                 text: askCompare(first, second, words: words),
                 links: [askPeriodLink(first, role: .compared), askPeriodLink(second, role: .compared)])
+        case let .dayEvents(range):
+            return askStillToCome(range) ?? askDayEvents(range)
+        case let .sessionDetail(range, words):
+            return askStillToCome(range) ?? askSessionDetail(range, words: words)
+        case let .goals(range):
+            return range.flatMap(askStillToCome) ?? askGoals(range)
         }
     }
 
@@ -96,6 +102,7 @@ extension SessionStore {
                 totals.parts = (level.spokenName, rows.reversed().map { (label: askLabel($0.place), focused: $0.focused) })
             }
         }
+        askAddExtras(range, to: &totals)
         let longest = askLongest(askHits(matching: nil, in: range), into: &totals)
         // With no session in the range the text says only that no focus was recorded.
         return AskLookupResult(text: AskFacts.focusTotals(range, words: nil, totals),
@@ -112,8 +119,10 @@ extension SessionStore {
         // Asked how long Safari was used, the model searched for the word
         // and gave the time of the sessions Safari was used in (probe,
         // 2026-10-10), so words that name an app bring the app's own time.
-        totals.app = askApp(words, among: historySortedUsage().uniqueUse(within: [askInterval(range)]))
-            .map { (name: $0.name, total: $0.total) }
+        let app = askApp(words, among: historySortedUsage().uniqueUse(within: [askInterval(range)]))
+        totals.app = app.map { (name: $0.name, total: $0.total) }
+        totals.appHours = app.flatMap { AskFacts.hoursPhrase(askAppHours(bundleID: $0.id, in: askInterval(range))) }
+        totals.noteLine = askNoteLine(words: words, in: clips)
         return AskLookupResult(
             text: AskFacts.focusTotals(range, words: words, totals, sessionRunning: askSessionIsMissed(range)),
             links: [askPeriodLink(range, role: .totals)] + longest)
@@ -210,7 +219,9 @@ extension SessionStore {
             var ranked: [(name: String, total: TimeInterval)] = []
             for (id, entry) in use { ranked.append((name: historyAppName(for: id), total: entry.total)) }
             ranked.sort { $0.total == $1.total ? $0.name < $1.name : $0.total > $1.total }
-            return AskFacts.appTime(range, app: nil, top: ranked)
+            // A day also says its busiest hours, as the Story rail draws them.
+            let day = askInterval(range).start
+            return AskFacts.appTime(range, app: nil, top: ranked, hours: range.isOneDay ? askRailHours(on: day) : nil)
         }
         let running = askSessionIsMissed(range)
         guard let match = askApp(query, among: use) else {
@@ -225,7 +236,8 @@ extension SessionStore {
         }
         let sessions = Set(used.map(\.hit.threadID)).count
         return AskFacts.appTime(range, app: (query: query, name: match.name, total: match.total, sessions: sessions),
-                                top: [], sessionRunning: running)
+                                top: [], sessionRunning: running,
+                                hours: askAppHours(bundleID: match.id, in: askInterval(range)))
     }
 
     /// The app a name means among those used: "safari." finds Safari, as

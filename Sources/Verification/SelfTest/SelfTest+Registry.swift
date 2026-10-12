@@ -121,6 +121,16 @@ extension SelfTest {
             + HistorySearchFilterChecks.tests
             + HistorySearchRescueChecks.tests
             + HistorySearchRefoldChecks.tests
+            + AskFactsExtensionChecks.tests
+            + AskDayEventsChecks.tests
+            + AskSessionDetailChecks.tests
+            + AskGoalsChecks.tests
+            + AskDayEventsAbsenceChecks.tests
+            + AskDayEventsAnswerChecks.tests
+            + AskDayEventsWalkChecks.tests
+            + AskSessionDetailNameChecks.tests
+            + BestStreakChecks.tests
+            + HistorySearchWeekdayChecks.tests
             + NameSuggestionCoreChecks.tests
             + NameSuggestionStoreChecks.tests
             + NameSuggestionStoreChecks.later

@@ -15,7 +15,13 @@ final class MachineEventLog {
     private let directory: URL
     private let fileURL: URL
     /// Oldest first, by `at`.
-    private(set) var events: [MachineEvent] = []
+    private(set) var events: [MachineEvent] = [] {
+        didSet { reach = events.reduce(into: []) { $0.append(Swift.max($0.last ?? $1.end, $1.end)) } }
+    }
+    /// `reach[i]` is the latest `end` among `events[0...i]`. It never
+    /// decreases, so the first event that can reach back to a time is found by
+    /// search, not by reading every event.
+    private var reach: [Date] = []
     /// The file does not end its last line: a write was cut short. The next
     /// append starts a new line, so it is not joined to the torn bytes.
     private var lastLineOpen = false
@@ -29,9 +35,22 @@ final class MachineEventLog {
     /// The events that overlap `interval`, including one found afterwards
     /// whose window reaches into it.
     func events(in interval: DateInterval) -> [MachineEvent] {
-        // ponytail: a linear scan, about 20,000 events a year; search the
-        // sorted `at` instead if it ever shows in a profile.
-        events.filter { $0.at < interval.end && $0.end >= interval.start }
+        // Searched, not scanned: Ask reads one day at a time across years of events.
+        let first = Self.firstIndex(events.count) { reach[$0] >= interval.start }
+        let last = Self.firstIndex(events.count) { events[$0].at >= interval.end }
+        guard first < last else { return [] }
+        return events[first..<last].filter { $0.end >= interval.start }
+    }
+
+    /// The first index below `count` where `holds` is true, `holds` being
+    /// false and then true; `count` when it never is.
+    private static func firstIndex(_ count: Int, where holds: (Int) -> Bool) -> Int {
+        var low = 0, high = count
+        while low < high {
+            let middle = (low + high) / 2
+            if holds(middle) { high = middle } else { low = middle + 1 }
+        }
+        return low
     }
 
     @discardableResult

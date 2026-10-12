@@ -2,7 +2,7 @@ import Foundation
 
 extension SnapshotScenario {
     /// Drawn with Ask's side panel open, in a window wide enough for it.
-    var showsAskPanel: Bool { self == .askPanelStory || self == .askPanelHistory }
+    var showsAskPanel: Bool { self == .askPanelStory || self == .askPanelHistory || self == .askPanelGoals }
 }
 
 /// The chats the Ask scenarios show: written out, with no model behind them.
@@ -18,6 +18,8 @@ extension Snapshotter {
             return [augustTurn, AskTurn(question: "And in September?",
                                         answer: "In September 2026 you focused 52h 10m over 58 sessi",
                                         state: .stopped, provenance: ["focus totals (September 2026)"])]
+        case .askGoals:
+            return [goalsTurn]
         default:
             return []
         }
@@ -80,5 +82,20 @@ extension Snapshotter {
         ]
         return AskTurn(question: "Which was my longest session in September?", answer: answer, state: .answered,
                        provenance: ["find sessions (September 2026)"], sources: sources)
+    }
+
+    /// The goal, the streak and a session, so the list shows a calendar, a rosette and a clock row. It
+    /// reads the Story it sits over (Mon 12 Oct 2026: a 7 day streak since Tue 6 Oct, 30m of a 4h goal
+    /// today, Refactor the day's session), and its progress line is what a `goals` lookup would give.
+    private static var goalsTurn: AskTurn {
+        let answer = "Your current streak is 7 days, since Tue 6 Oct. Today you have 30m towards your 4h goal."
+        let today = AskLink(target: .day(date(2026, 10, 12)), label: "Today", role: .dailyGoal)
+        let awards = AskLink(target: .awards, label: "Awards", role: .streakAndAwards)
+        let refactor = session("Refactor", 10, 12, label: "Refactor \u{00B7} Mon 12 Oct", role: .stretches)
+        return AskTurn(question: "Did I keep my streak going?", answer: answer, state: .answered,
+                       provenance: [AskRequest.goals(nil).provenance, AskRequest.sessionDetail(.today, words: nil).provenance],
+                       sources: [source(today, "Today", in: answer),
+                                 source(awards, "current streak", in: answer),
+                                 source(refactor, nil, in: answer)])
     }
 }

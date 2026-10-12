@@ -87,6 +87,11 @@ enum HistorySearchChecks {
             if !f.hits("tokenizer banana").isEmpty {
                 failures.append("a word found nowhere still matched")
             }
+            // Six weeks on, the lone weekday is a day chip and still falls on the date beside it.
+            f.time = Calendar.current.date(byAdding: .day, value: 42, to: f.time)!
+            if f.hits("monday 31/8/2026 morning compiler").count != 1 {
+                failures.append("six weeks on, the weekday, date and time of day did not find the session")
+            }
             return failures
         }
     }

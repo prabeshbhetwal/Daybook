@@ -571,7 +571,7 @@ struct SettingsGroups: View {
                 // Without a usable on-device model there is nothing to switch.
                 if ModelGate.modelAvailable {
                     rowDivider
-                    toggleRow("Use Apple Intelligence",
+                    toggleRow("Use on-device AI",
                               detail: "Writes notes and suggestions with Apple's on-device model. "
                                 + "Nothing leaves this Mac.",
                               isOn: $model.useAppleIntelligence)

@@ -179,6 +179,27 @@ if faint_ink_outside_quiet; then
   exit 1
 fi
 
+# The app's copy says "on-device AI". "Apple Intelligence" is Apple's name for
+# its own feature: a string keeps it only where it sends the person to that
+# switch in System Settings, or as a search word, and says `// name: Apple's`.
+# Apple reserves its apple.intelligence symbol for beside that name, so the app
+# draws sparkles and the symbol appears nowhere in Sources. Comment lines are
+# skipped.
+apple_names_in_copy() {
+  local found=1
+  grep -rnE '"[^"]*Apple Intelligence[^"]*"' Sources/App Sources/Design Sources/Surfaces --include='*.swift' \
+    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*//' \
+    | grep -v "name: Apple's"
+  if guard_found "${PIPESTATUS[@]}"; then found=0; fi
+  grep -rn 'apple\.intelligence' Sources --include='*.swift'
+  if guard_found "${PIPESTATUS[@]}"; then found=0; fi
+  return "${found}"
+}
+if apple_names_in_copy; then
+  echo "error: the lines above name Apple Intelligence in the app's copy or draw its symbol; say \"on-device AI\" and use sparkles, or mark a System Settings pointer // name: Apple's" >&2
+  exit 1
+fi
+
 # Checks and review modes keep preferences in memory. A real suite is a
 # domain cfprefsd tracks and writes a plist for; hundreds a run exhausted its
 # file descriptors on 9 October 2026, after which no app on the Mac could

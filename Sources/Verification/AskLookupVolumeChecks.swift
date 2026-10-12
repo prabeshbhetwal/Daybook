@@ -20,7 +20,7 @@ enum AskLookupVolumeChecks: CheckSuite {
             expect(thesis == thesisWant, "all-time thesis says “\(thesis)”, not “\(thesisWant)”", &problems)
 
             let safari = f.store.askLookup(.appTime(.allTime, app: "safari"))
-            let safariWant = "Safari in all your history: 17h 41m in front; used in 1002 sessions."
+            let safariWant = "Safari in all your history: 17h 41m in front; used in 1002 sessions; most in front from 9am to 10am (16h 41m), then from 2pm to 3pm (1h)."
             expect(safari == safariWant, "all-time Safari says “\(safari)”, not “\(safariWant)”", &problems)
         }
         Diagnostics.log("Ask 1,003-session lookups took \(Date().timeIntervalSince(started))s with the fixture")

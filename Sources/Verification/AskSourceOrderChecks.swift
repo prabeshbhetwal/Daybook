@@ -20,6 +20,7 @@ enum AskSourceOrderChecks: CheckSuite {
         ("A lookup adds only its anchor, never its other places, however many the answer left unnamed", anchorOnly),
         ("The whole week and History's clipped week are one place and are listed once", clippedWeekIsTheSamePlace),
         ("The word may names May only when capitalised or written with a year", mayIsMonthOnlyWhenWritten),
+        ("An answer about the streak or an award names the Awards source", streakNamesAwards),
     ]
 
     /// Every date comes from the calendar the picker is given, so the suite
@@ -189,6 +190,34 @@ enum AskSourceOrderChecks: CheckSuite {
         expectOrder("Nothing here is named.", [[Fixture.week], [Fixture.clippedWeek]], ["5 Oct \u{2013} 11 Oct [anchor]"],
                     &problems)
         expectOrder("This week was your best.", [[Fixture.clippedWeek], [Fixture.week]], ["5 Oct \u{2013} 9 Oct"], &problems)
+        return problems
+    }
+
+    /// Awards is named by its words and is never an anchor: unnamed, it is not listed.
+    private static func streakNamesAwards() -> [String] {
+        var problems: [String] = []
+        let september = AskLink(target: Fixture.sep.target, label: "September 2026", role: .dailyGoal)
+        let awards = AskLink(target: .awards, label: "Awards", role: .streakAndAwards,
+                             names: ["streak", "streaks", "award", "awards", "Longest stretch"])
+        let lookups = [[september, awards]]
+
+        let streak = "Your current streak is 5 days."
+        let streakSources = pick(streak, lookups)
+        expect(streakSources.map(\.link.target) == [awards.target, september.target],
+               "\"\(streak)\" lists \(described(streakSources))", &problems)
+        expect(streakSources.first?.mention == offsets(of: "streak", in: streak),
+               "the streak's mention is \(String(describing: streakSources.first?.mention))", &problems)
+
+        let earned = "You earned Longest stretch in September."
+        let earnedSources = pick(earned, lookups)
+        expect(earnedSources.map(\.link.target) == [awards.target, september.target],
+               "\"\(earned)\" lists \(described(earnedSources))", &problems)
+        expect(earnedSources.first?.mention == offsets(of: "Longest stretch", in: earned),
+               "the award's mention is \(String(describing: earnedSources.first?.mention))", &problems)
+
+        let streaky = pick("A streaky month.", lookups)
+        expect(!streaky.contains { $0.link.target == .awards },
+               "\"streaky\" named Awards: \(described(streaky))", &problems)
         return problems
     }
 

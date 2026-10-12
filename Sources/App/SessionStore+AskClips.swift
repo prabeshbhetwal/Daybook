@@ -56,10 +56,21 @@ extension SessionStore {
             let day = clip.days.min() ?? clip.hit.day
             let start = clip.spans.map(\.start).min().map { max($0, day) }
             lines.append(AskSessionLine(day: askDay(day), time: start.map(askTime) ?? "",
-                                        name: clip.hit.name, worked: clip.worked, note: clip.hit.noteSnippet))
+                                        name: clip.hit.name, worked: clip.worked, note: askNote(for: clip.hit)))
             links.append(askSessionLink(thread: clip.hit.threadID, name: clip.hit.name, day: day, role: .session))
         }
         return (lines, links)
+    }
+
+    /// The note line a listed session shows: the line that matched the
+    /// words when there is one, else the first line of the first note saved
+    /// against any stretch of the session, read as `journalNote(for:)` reads it.
+    private func askNote(for hit: HistorySearchHit) -> String? {
+        if let snippet = hit.noteSnippet { return snippet }
+        for id in hit.recordIDs {
+            if let line = askFirstNoteLine(of: id) { return line }
+        }
+        return nil
     }
 
     // MARK: - Shared
@@ -159,9 +170,11 @@ extension SessionStore {
         }
     }
 
-    /// `9:10am`.
+    /// `9:10am`; `midnight` at exactly 0:00, which the model read as 12:00am
+    /// of the next morning. Every clock time a fact words comes through here.
     func askTime(_ date: Date) -> String {
-        askText("h:mma", date).lowercased()
+        let clock = periodCalendar.dateComponents([.hour, .minute], from: date)
+        return clock.hour == 0 && clock.minute == 0 ? AskFacts.midnight : askText("h:mma", date).lowercased()
     }
 
     /// A History row's period: `Tue 14 Nov`, `13 Nov – 19 Nov`, `November 2023`, `2023`.

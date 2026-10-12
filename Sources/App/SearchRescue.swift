@@ -22,7 +22,7 @@ import FoundationModels
 @MainActor final class SearchRescue: ObservableObject {
     @Published private(set) var isRescuing = false
     /// The phrases the model supplied that the field still holds, so their
-    /// chips can carry the Apple Intelligence mark.
+    /// chips can carry the on-device AI mark.
     @Published private(set) var rescuedTexts: Set<String> = []
 
     private weak var store: SessionStore?
@@ -38,7 +38,7 @@ import FoundationModels
     private var applying = false
     /// Stands in for the model in checks: the unread words in, phrases and
     /// kept words out. It stands in for the model's availability, never for
-    /// the Apple Intelligence switch.
+    /// the on-device AI switch.
     var responder: (@MainActor (String) async throws -> (phrases: [String], keep: [String]))?
 
     init(store: SessionStore) {

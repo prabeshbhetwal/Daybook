@@ -17,6 +17,7 @@ enum AskFollowChecks: CheckSuite {
          pastAndOutsidePeriods),
         ("Following History itself opens it at the top", historyOpensTop),
         ("The sheet closes when a source is followed, the side panel stays", sheetClosesPanelStays),
+        ("The Awards source opens the Awards sheet in either placement", awardsOpensSheet),
     ]
 
     private typealias Fixture = AskLookupChecks.Fixture
@@ -176,6 +177,37 @@ enum AskFollowChecks: CheckSuite {
             expect(navigation.workspace == .history && navigation.sheet == nil && navigation.historyOpen.isEmpty,
                    "History opened \(navigation.workspace), sheet \(String(describing: navigation.sheet)), "
                    + "\(navigation.historyOpen.count) rows open", &problems)
+        }
+    }
+
+    private static func awardsOpensSheet() -> [String] {
+        withWindow { f, navigation, problems in
+            let awards = AskLink(target: .awards, label: "Awards", role: .streakAndAwards, names: ["streak"])
+            let preferences = f.engine.store
+
+            preferences.askPlacement = .sheet
+            navigation.openAsk()
+            let model = navigation.askModel
+            let turns = model?.turns.count
+            navigation.follow(awards)
+            expect(navigation.sheet == .awards && !navigation.askPanelOpen && navigation.askModel === model
+                       && model?.turns.count == turns,
+                   "from the sheet, Awards opened sheet \(String(describing: navigation.sheet)), "
+                   + "panel \(navigation.askPanelOpen)", &problems)
+            navigation.closeSheet()
+
+            preferences.askPlacement = .panel
+            navigation.openAsk()
+            expect(navigation.askPanelOpen, "the panel did not open", &problems)
+            navigation.follow(awards)
+            expect(navigation.sheet == .awards && navigation.askPanelOpen,
+                   "from the panel, Awards opened sheet \(String(describing: navigation.sheet)), "
+                   + "panel \(navigation.askPanelOpen)", &problems)
+
+            let label = AskSourcesView.accessibilityLabel(for: AskSource(link: awards, mention: nil))
+            expect(label == "Awards, streak and awards. Opens Awards.", "Awards reads \"\(label)\"", &problems)
+            let day = AskSourcesView.accessibilityLabel(for: AskSource(link: link(.day(date(f, 11, 13))), mention: nil))
+            expect(day.hasSuffix("Opens in History."), "a day reads \"\(day)\"", &problems)
         }
     }
 

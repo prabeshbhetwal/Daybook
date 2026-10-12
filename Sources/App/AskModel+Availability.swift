@@ -20,7 +20,7 @@ extension AskModel {
         return notice(for: SystemLanguageModel.default.availability)?.text ?? readyStatus
     }
 
-    nonisolated static let readyStatus = "Ready. Apple Intelligence answers on this Mac, and nothing leaves it."
+    nonisolated static let readyStatus = "Ready. On-device AI answers on this Mac, and nothing leaves it."
 
     /// What the empty sheet offers to ask: one of each kind of answer the
     /// tools give, each one the probe of 2026-10-10 answered rightly.

@@ -10,10 +10,15 @@ extension SessionStore {
     func askPeriodLink(_ range: AskRange, role: AskSourceRole) -> AskLink {
         // The last 30 days sits at month level in History's breakdown but is no month.
         guard let level = range.level, range != .last30Days else {
-            let title = range.title.prefix(1).uppercased() + range.title.dropFirst()
-            return AskLink(target: .history, label: askDates(range).map { "\(title) (\($0))" } ?? title, role: role)
+            return AskLink(target: .history, label: askTitled(range), role: role)
         }
         return askPlaceLink(HistoryPlace(level: level, span: askInterval(range)), role: role)
+    }
+
+    /// A range by its title and the dates it covers: `This week (13 Nov – 19 Nov)`, `All time`.
+    func askTitled(_ range: AskRange) -> String {
+        let title = range.title.prefix(1).uppercased() + range.title.dropFirst()
+        return askDates(range).map { "\(title) (\($0))" } ?? title
     }
 
     /// A History row's place: a day opens as the day, a longer row as a period.

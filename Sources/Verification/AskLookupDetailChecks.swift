@@ -33,7 +33,7 @@ enum AskLookupDetailChecks: CheckSuite {
             expect(lines.count == 10, "the list has \(lines.count) lines, not 10", &problems)
 
             let few = f.store.askLookup(.findSessions(words: "thesis", .thisWeek))
-            expect(few == "Mon 13 Nov · 9:00am · Thesis · 1h", "one match says “\(few)”", &problems)
+            expect(few == "Mon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline", "one match says “\(few)”", &problems)
         }
     }
 
@@ -56,7 +56,7 @@ enum AskLookupDetailChecks: CheckSuite {
         AskLookupChecks.withFixture { f, problems in
             for words in ["", "   ", " \n\t "] {
                 let got = f.store.askLookup(.findSessions(words: words, .thisWeek))
-                expect(got == "Tue 14 Nov · 2:00pm · Parser · 1h 30m\nMon 13 Nov · 9:00am · Thesis · 1h",
+                expect(got == "Tue 14 Nov · Parser · from 2:00pm · 1h 30m\nMon 13 Nov · Thesis · from 9:00am · 1h · note: chapter two outline",
                        "words “\(words)” say “\(got)”", &problems)
             }
             let none = f.store.askLookup(.findSessions(words: "", .lastWeek))

@@ -51,6 +51,19 @@ extension SessionEngine {
         archive.todayTotal() + elapsedToday()
     }
 
+    /// The current streak as the menu publishes it: the running session's work
+    /// today counts toward today, so the number does not read 0 mid-session.
+    func currentStreak(includingToday inFlight: TimeInterval? = nil) -> Int {
+        archive.currentStreak(includingToday: inFlight ?? elapsedToday())
+    }
+
+    /// The best streak as every screen shows it beside the current one: the
+    /// running session's work today counts here too, so a record being set
+    /// reads as the record rather than one day past it.
+    func bestStreak(includingToday inFlight: TimeInterval? = nil) -> Int {
+        archive.bestStreak(includingToday: inFlight ?? elapsedToday())
+    }
+
     /// The running session's work that belongs to today. A session begun before
     /// midnight must not donate last night's hours to this morning's goal bar —
     /// that is how a session left open across a night showed "18h 51m of 4h,

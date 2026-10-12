@@ -24,7 +24,8 @@ extension AskModel {
         case .unavailable(.deviceNotEligible):
             return AskNotice(text: "This Mac can't run Apple's on-device model.", opensSettings: false)
         case .unavailable(.appleIntelligenceNotEnabled):
-            return AskNotice(text: "Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri.",
+            // The switch is Apple's, so the line uses its name in System Settings.
+            return AskNotice(text: "Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri.", // name: Apple's
                              opensSettings: true)
         case .unavailable(.modelNotReady):
             return AskNotice(text: "The on-device model is still downloading. Try again shortly.", opensSettings: false)

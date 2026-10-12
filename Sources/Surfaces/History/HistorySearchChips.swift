@@ -1,15 +1,15 @@
 import SwiftUI
 
 /// What History's search understood, one chip per phrase in the order typed.
-/// The × takes the phrase out of the field. A phrase Apple Intelligence
-/// supplied leads with its mark. Reads only published values: the parsing
+/// The × takes the phrase out of the field. A phrase the on-device model
+/// supplied leads with the sparkles. Reads only published values: the parsing
 /// happened when the text changed.
 struct HistorySearchChips: View {
     @ObservedObject var store: SessionStore
-    /// Texts marked as Apple Intelligence.
+    /// Texts the on-device model supplied.
     let rescued: Set<String>
 
-    private static let rescuedSuffix = ", from Apple Intelligence"
+    private static let rescuedSuffix = ", suggested by on-device AI"
 
     var body: some View {
         let search = store.historyParsedSearch
@@ -67,7 +67,7 @@ struct HistorySearchChips: View {
     @ViewBuilder private func lead(_ phrase: SearchPhrase, _ search: ParsedSearch, fromModel: Bool) -> some View {
         Group {
             if fromModel {
-                Image(systemName: "apple.intelligence")
+                Image(systemName: "sparkles")
                     .foregroundStyle(StoryStyle.supportingInk)
             } else if phrase.kind == .app, let bundleID = search.appBundleID {
                 AppIcon(bundleID: bundleID, size: 16.zoomed, appName: phrase.label)
@@ -76,6 +76,25 @@ struct HistorySearchChips: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+extension HistorySearchChips {
+    /// The hint under "No matching sessions". Periods that do not overlap
+    /// rule out every session whatever the words; otherwise, with chips and
+    /// unread words, it names the words, which may be a phrase the box could
+    /// not read rather than words a session should hold.
+    static func emptyDetail(_ search: ParsedSearch) -> String {
+        if search.noOverlap {
+            return "The dates in the chips do not overlap, so no session fits them all. Remove one of them."
+        }
+        guard !search.phrases.isEmpty, !search.leftover.isEmpty else {
+            return "Try fewer words, or a session name, an old name, a word from a note, "
+                + "a named break, an app, a category, a date or a time of day."
+        }
+        let one = search.leftover.split(whereSeparator: \.isWhitespace).count == 1
+        return "“\(search.leftover)” was searched as \(one ? "a word" : "words"), and no session that fits the chips has "
+            + (one ? "it. Remove it, or say it another way." : "them. Remove them, or say them another way.")
     }
 }
 

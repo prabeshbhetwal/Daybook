@@ -72,6 +72,13 @@ even when closed, and the hidden menu bar panel alone was costing about 45 ms
 of work each second. Closed windows and panels now rest until shown again, and
 the app's CPU use during normal work went from 0.9% to 0.1%.
 
+**Ask, with its sources.** Press Cmd-K and ask in plain words. Ask can answer
+about focus totals and the best days, weeks and months, sessions and their
+stretches, breaks, time away and what the Mac did in between, notes, work
+types, app hours, the daily goal, the streak and awards. Every answer lists
+where it came from, and each source opens that place in the app: a day, a
+session, a period of History, or Awards.
+
 **Private by construction.** Nothing leaves your Mac unless you want it to.
 Tracking stores app identity and time ranges, never content. The session names,
 intents and notes you write are content, and they are kept on the Mac. Three
