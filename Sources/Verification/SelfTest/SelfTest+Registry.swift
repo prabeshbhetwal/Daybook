@@ -124,6 +124,7 @@ extension SelfTest {
             + NameSuggestionCoreChecks.tests
             + NameSuggestionStoreChecks.tests
             + NameSuggestionStoreChecks.later
+            + NameSuggesterChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

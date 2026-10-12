@@ -231,6 +231,15 @@ struct HistorySessionPick: Hashable {
         return rescue
     }
 
+    private var nameSuggesterStore: NameSuggester?
+
+    /// The unnamed-session name suggester, built on first read. Nothing in it
+    /// runs until the notice asks for a refresh.
+    var nameSuggester: NameSuggester? {
+        if nameSuggesterStore == nil, let store { nameSuggesterStore = NameSuggester(store: store) }
+        return nameSuggesterStore
+    }
+
     init(opening route: AppTab = .story,
          requestedDate: Date? = nil,
          store: SessionStore? = nil) {

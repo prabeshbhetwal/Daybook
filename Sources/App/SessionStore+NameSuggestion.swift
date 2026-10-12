@@ -34,7 +34,7 @@ extension SessionStore {
     func nameFacts(for session: DaySession) -> NameFacts? {
         let apps = appUse(historySortedUsage(), within: session.spans)
             .sorted { ($0.value.total, $1.value.name) > ($1.value.total, $0.value.name) }
-        let note = journalNote(for: session)
+        let note = journalNote(for: session).map(Self.nameNote)
         guard !apps.isEmpty || note != nil else { return nil }
         let history = nameHistory()
         let candidates = NameCandidates.rank(
@@ -107,6 +107,13 @@ extension SessionStore {
     }
 
     // MARK: - Helpers
+
+    /// A note as one line of at most 200 characters, so a pasted page or a
+    /// line break cannot pass for another line of the facts.
+    private static func nameNote(_ note: String) -> String {
+        String(note.split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(200))
+            .trimmingCharacters(in: .whitespaces)
+    }
 
     private func suggestionDays() -> (yesterday: Date, today: Date) {
         let calendar = periodCalendar
