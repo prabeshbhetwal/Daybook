@@ -193,8 +193,9 @@ enum NameSuggestionStoreChecks: CheckSuite {
             expect(facts.text == want, "the facts read:\n\(facts.text)", &problems)
             expect(facts.appNames == ["Xcode", "Safari", "Terminal"], "app names \(facts.appNames)", &problems)
             expect(facts.candidates.map(\.name) == ["Daybook", "Thesis"], "candidates \(facts.candidates)", &problems)
-            let key = "\(s)|\(session.end)|\(WorkType.deepWork.id)|fixed parser for fortnight"
-            expect(facts.cacheKey == key, "cache key \(facts.cacheKey)", &problems)
+            // Then the ranking, so a rename elsewhere that changes it asks again.
+            let key = "\(s)|\(session.end)|\(WorkType.deepWork.id)|fixed parser for fortnight|Daybook="
+            expect(facts.cacheKey.hasPrefix(key) && facts.cacheKey.contains(",Thesis="), "cache key \(facts.cacheKey)", &problems)
         }
     }
 

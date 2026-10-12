@@ -3,13 +3,15 @@ import Foundation
 /// The last review's findings on name suggestions, kept apart from the other
 /// name suites so their numbers hold: what Name it hands back for Undo, a tie
 /// that a later name breaks, an offer the store refused, and an answer kept
-/// after the earlier names were ranked again.
+/// after the earlier names were ranked again, and a key that reads the same
+/// on every call.
 enum NameFinalFixChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("Name it hands back the rename's correction; Undo with it restores the name and the session is not offered again", nameItUndo),
         ("A session whose earlier names tied is offered once another name breaks the tie", tieBreaks),
         ("A Name it the store refuses leaves the session on offer", refusedStaysOffered),
         ("A cached name is dropped when renames tie or overturn the earlier names' ranking", rankingChanges),
+        ("The facts' key reads the same on every call, whatever order the apps are summed in", stableKey),
     ]
 
     private typealias Checks = NameSuggestionStoreChecks
@@ -130,6 +132,31 @@ enum NameFinalFixChecks: CheckSuite {
             expect(s.current?.session.threadID == b && s.current?.name == "Thesis" && calls.facts.count == 2,
                    "once Thesis led, B was offered \(String(describing: s.current?.name)) after \(calls.facts.count) questions",
                    &problems)
+        }
+    }
+
+    /// Five apps with fractional seconds, against names with three and four:
+    /// sums whose result hangs on the order the apps are added in.
+    private static func stableKey() -> [String] {
+        let b = UUID()
+        return Checks.withFixture(records: { days in [
+            Checks.record(days.at(0, 7), days.at(0, 8), thread: b),
+            Checks.record(days.at(3, 9), days.at(3, 11), name: "Daybook"),
+            Checks.record(days.at(4, 9), days.at(4, 11), name: "Thesis"),
+        ] }, usage: { days in [
+            Checks.app("Xcode", days.at(0, 7), 601.3), Checks.app("Terminal", days.at(0, 7, 11), 437.7),
+            Checks.app("Safari", days.at(0, 7, 20), 523.9), Checks.app("Mail", days.at(0, 7, 30), 311.1),
+            Checks.app("Notes", days.at(0, 7, 40), 289.4),
+            Checks.app("Xcode", days.at(3, 9), 1201.7), Checks.app("Terminal", days.at(3, 9, 25), 733.3),
+            Checks.app("Safari", days.at(3, 9, 40), 911.9), Checks.app("Mail", days.at(3, 10), 401.1),
+            Checks.app("Safari", days.at(4, 9), 1500.3), Checks.app("Notes", days.at(4, 9, 30), 700.7),
+            Checks.app("Terminal", days.at(4, 9, 45), 333.3),
+        ] }) { f, _, problems in
+            guard let session = Checks.target(f, b) else { return problems.append("the session is not offered") }
+            let facts = (0..<50).compactMap { _ in f.store.nameFacts(for: session) }
+            expect(facts.first?.candidates.count == 2, "candidates \(String(describing: facts.first?.candidates))", &problems)
+            let keys = Set(facts.map(\.cacheKey))
+            expect(facts.count == 50 && keys.count == 1, "50 calls gave \(keys.count) keys: \(keys.sorted())", &problems)
         }
     }
 }

@@ -173,7 +173,9 @@ enum NameSuggesterChecks: CheckSuite {
             run(s)
             expect(Checks.target(f, a) != nil && s.current?.session.threadID == b,
                    "after Undo, offered \(String(describing: s.current)), not left on yesterday's", &problems)
-            expect(calls.facts.count == 2, "Undo asked again: \(calls.facts.count) times", &problems)
+            // Yesterday's is asked again: Undo took today's out of Daybook's sessions.
+            let asked = calls.facts.filter { $0.cacheKey.hasPrefix("\(a)|") }.count
+            expect(asked == 1, "Undo asked about today's session again: \(asked) times", &problems)
 
             // A change to its facts is a new key: offered again.
             guard let session = Checks.target(f, a) else { return problems.append("the session is not offered") }
