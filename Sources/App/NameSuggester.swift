@@ -64,11 +64,12 @@ struct NameSuggestion: Equatable {
     // ponytail: never trimmed; an entry is a key and a name, and only two days of sessions add them.
     private var cache: [String: Answer?] = [:]
     private typealias Answer = (name: String, source: NameSuggestion.Source)
-    /// Keys of names the person took with Name it. If they Undo, the session
-    /// is not offered again this run.
+    /// `NameFacts.sessionKey` of each session named with Name it. If they Undo,
+    /// the session is not offered again this run: a rename elsewhere that moves
+    /// the ranking does not bring it back, a change to its own facts does.
     private var accepted: Set<String> = []
-    /// The key `current` was published for.
-    private var currentKey: String?
+    /// The facts `current` was published for.
+    private var currentFacts: NameFacts?
     /// Which question is under way, counted up whenever one starts or ends: a
     /// reply or a timer from an earlier one finds it is not current and does nothing.
     private var generation = 0
@@ -93,23 +94,23 @@ struct NameSuggestion: Equatable {
     func refresh() {
         guard isUsable, let store else { return cancelAll() }
         for session in store.nameSuggestionTargets() {
-            guard let facts = store.nameFacts(for: session), !accepted.contains(facts.cacheKey) else { continue }
+            guard let facts = store.nameFacts(for: session), !accepted.contains(facts.sessionKey) else { continue }
             guard let answer = cache[facts.cacheKey] else {
                 // Two earlier names too close to tell apart: no offer, no question,
                 // and nothing cached, so a later name that breaks the tie is seen.
                 if !NameCandidates.isClearLead(facts.candidates) { continue }
-                offer(nil, key: nil)
+                offer(nil, facts: nil)
                 if !isAsking { ask(session, facts) }
                 return
             }
             if let answer {
                 offer(NameSuggestion(session: session, name: answer.name, source: answer.source,
                                      lead: store.nameSuggestionLead(for: session)),
-                      key: facts.cacheKey)
+                      facts: facts)
                 return
             }
         }
-        offer(nil, key: nil)
+        offer(nil, facts: nil)
     }
 
     /// Name it. Returns the name and the rename's correction, for the notice's
@@ -117,11 +118,11 @@ struct NameSuggestion: Equatable {
     /// saved history was found, say) stays on offer, to try again.
     @discardableResult
     func accept() -> (name: String, correctionID: UUID)? {
-        guard let store, let offered = current, let key = currentKey else { return nil }
+        guard let store, let offered = current, let facts = currentFacts else { return nil }
         guard isTarget(offered.session, store) else { refresh(); return nil }
         let done = store.acceptNameSuggestion(offered.name, for: offered.session)
             ? store.lastCorrection.map { (offered.name, $0.id) } : nil
-        if done != nil { accepted.insert(key) }
+        if done != nil { accepted.insert(facts.sessionKey) }
         refresh()
         return done
     }
@@ -146,12 +147,12 @@ struct NameSuggestion: Equatable {
     func cancelAll() {
         stops &+= 1
         end(generation)
-        offer(nil, key: nil)
+        offer(nil, facts: nil)
     }
 
-    private func offer(_ suggestion: NameSuggestion?, key: String?) {
+    private func offer(_ suggestion: NameSuggestion?, facts: NameFacts?) {
         if current != suggestion { current = suggestion }
-        currentKey = key
+        currentFacts = facts
     }
 
     // MARK: - Asking
