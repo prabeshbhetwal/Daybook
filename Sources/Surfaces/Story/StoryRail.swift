@@ -399,7 +399,7 @@ struct StoryRail: View {
             if day == nil {
                 NameCategoryNotice(store: store, settings: settings)
                 if let suggester = navigation.nameSuggester {
-                    NameSuggestionNotice(suggester: suggester)
+                    NameSuggestionNotice(suggester: suggester, store: store)
                 }
             }
         }

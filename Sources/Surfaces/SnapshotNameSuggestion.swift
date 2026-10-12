@@ -38,7 +38,7 @@ extension Snapshotter {
     /// caption (or nothing), so it fails the render.
     static func presentNameSuggestion(on navigation: MainWindowModel, expecting source: NameSuggestion.Source) {
         guard let suggester = navigation.nameSuggester else { return reportMissingSuggestion("no suggester") }
-        suggester.responder = { _ in source == .fresh ? .fresh("Release notes") : .earlier(1) }
+        suggester.responder = { _ in source == .fresh ? .fresh("Podcast mix") : .earlier(1) }
         suggester.refresh()
         _ = InstalledAppCatalog.turnRunLoop(until: { !suggester.isAsking }, timeout: 5)
         guard let offer = suggester.current, offer.source == source else {

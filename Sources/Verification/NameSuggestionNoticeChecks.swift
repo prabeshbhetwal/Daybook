@@ -31,6 +31,9 @@ enum NameSuggestionNoticeChecks: CheckSuite {
             guard let session = Checks.target(f, kept), let other = Checks.target(f, named) else {
                 return problems.append("the sessions are not offered")
             }
+            // A note changes the facts, so it must ask again: the key moves with the notes.
+            _ = f.metadata.saveNote("planned the week", for: session.recordIDs[0])
+            expect(f.store.nameSuggestionKey != first, "a note saved on an offered session did not move the key", &problems)
             f.store.keepSessionUnnamed(session)
             let afterKeep = f.store.nameSuggestionKey
             expect(afterKeep != first, "Keep as is did not move the key", &problems)

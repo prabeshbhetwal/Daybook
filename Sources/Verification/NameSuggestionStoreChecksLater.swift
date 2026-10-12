@@ -48,7 +48,8 @@ extension NameSuggestionStoreChecks {
                 expect(offered.map(\.threadID) == [late, early],
                        "Oct \(day): offered \(offered.map { "\($0.start) \($0.worked)s" })", &problems)
                 let leads = offered.map { f.store.nameSuggestionLead(for: $0) }
-                expect(leads == Array(repeating: "last night's 30m session", count: 2),
+                // 23:00 yesterday is last night's; 00:15 yesterday was two nights ago.
+                expect(leads == ["last night's 30m session", "yesterday's 30m session"],
                        "Oct \(day): leads read \(leads)", &problems)
                 let names = f.store.earlierSessionNames()
                 expect(names == ["Recent"], "Oct \(day): within 60 days of local midnight: \(names)", &problems)

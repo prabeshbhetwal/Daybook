@@ -15,7 +15,6 @@ enum NameSuggestionCoreChecks: CheckSuite {
     ]
 
     private static let base = Date(timeIntervalSince1970: 1_700_000_000)
-    private static let categories = WorkType.builtIn
     private static let appNames = ["Xcode", "Safari"]
 
     private static func earlier(_ name: String, workType: WorkType = .deepWork, daysAgo: Int = 0,
@@ -103,7 +102,7 @@ enum NameSuggestionCoreChecks: CheckSuite {
     private static func auditRows() -> [String] {
         var problems: [String] = []
         func accepts(_ name: String) -> Bool {
-            NameAudit.accepts(name, categories: categories, appNames: appNames)
+            NameAudit.accepts(name, appNames: appNames)
         }
         expect(accepts("Daybook parser"), "a short plain name passes", &problems)
         expect(accepts("  Thesis \n"), "surrounding space is ignored", &problems)
@@ -114,8 +113,6 @@ enum NameSuggestionCoreChecks: CheckSuite {
         for name in rejected {
             expect(!accepts(name), "\"\(name)\" is rejected", &problems)
         }
-        expect(NameAudit.accepts("Deep work", categories: [], appNames: []),
-               "only the categories passed in are refused", &problems)
         return problems
     }
 
@@ -124,8 +121,7 @@ enum NameSuggestionCoreChecks: CheckSuite {
         let candidates = [NameCandidate(name: "Daybook", score: 0.9, usualWorkType: .deepWork, usualApps: ["xcode"]),
                           NameCandidate(name: "Thesis", score: 0.5, usualWorkType: .learning, usualApps: ["pages"])]
         func resolve(_ choice: NameChoice, earlier: [String] = ["Daybook"]) -> String? {
-            NameAudit.resolve(choice, candidates: candidates, earlierNames: earlier,
-                              categories: categories, appNames: appNames)
+            NameAudit.resolve(choice, candidates: candidates, earlierNames: earlier, appNames: appNames)
         }
         expect(resolve(.earlier(1)) == "Daybook", "1 is the first candidate's exact text", &problems)
         expect(resolve(.earlier(2)) == "Thesis", "2 is the second candidate's exact text", &problems)
@@ -134,6 +130,8 @@ enum NameSuggestionCoreChecks: CheckSuite {
         expect(resolve(.fresh("daybook")) == "Daybook", "a fresh name equal to an earlier one takes its spelling", &problems)
         expect(resolve(.fresh("Dáybook")) == "Daybook", "accents do not separate them either", &problems)
         expect(resolve(.fresh("  Fortnight parser ")) == "Fortnight parser", "a new name is trimmed", &problems)
+        expect(resolve(.fresh("podcast mix")) == "Podcast mix" && resolve(.fresh("éclair plan")) == "Éclair plan",
+               "a new name starts with a capital, as a break's does", &problems)
         expect(resolve(.fresh("Daybook\nparser"), earlier: []) == "Daybook parser",
                "a newline between words becomes one space", &problems)
         expect(resolve(.fresh("Daybook   parser"), earlier: []) == "Daybook parser",

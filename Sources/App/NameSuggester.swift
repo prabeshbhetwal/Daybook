@@ -37,12 +37,13 @@ struct NameSuggestion: Equatable {
 }
 
 /// Asks Apple's on-device model about each unnamed session that has one clear
-/// earlier name or none, once (a session with two close earlier names is
-/// skipped, and one with no evidence is never asked), and publishes the first
-/// answer that survives `NameAudit` for a session that is still unnamed. Answers live in memory for this run; the words leave the
-/// Mac nowhere. Only the notice starts it, through `refresh()`: the targets
-/// and facts are rebuilt from the archive on every call, so nothing here
-/// runs on the 1 Hz ticker.
+/// earlier name or none, once. A session with two close earlier names is
+/// skipped until one pulls ahead, and one with no evidence is never asked.
+/// Publishes the first answer that survives `NameAudit` for a session that is
+/// still unnamed. Answers live in memory for this run, and the words leave
+/// the Mac nowhere. Only the notice starts it, through `refresh()`: the
+/// targets and facts are rebuilt from the archive on every call, so nothing
+/// here runs on the 1 Hz ticker.
 @MainActor final class NameSuggester: ObservableObject {
     @Published private(set) var current: NameSuggestion?
     @Published private(set) var isAsking = false
@@ -51,8 +52,8 @@ struct NameSuggestion: Equatable {
     /// How long to wait for the model; checks shorten it.
     var timeout: Duration = .seconds(10)
     /// Stands in for the model in checks: the facts in, the model's choice
-    /// out. It stands in for the model's availability, never for the Apple
-    /// Intelligence switch.
+    /// out. It stands in for the model's availability, never for the on-device
+    /// AI switch.
     var responder: (@MainActor (NameFacts) async throws -> NameChoice)?
 
     /// The audited name per `NameFacts.cacheKey`; a nil value is a session
@@ -91,11 +92,9 @@ struct NameSuggestion: Equatable {
         for session in store.nameSuggestionTargets() {
             guard let facts = store.nameFacts(for: session), !accepted.contains(facts.cacheKey) else { continue }
             guard let answer = cache[facts.cacheKey] else {
-                // Two earlier names too close to tell apart: no offer, no question.
-                if !NameCandidates.isClearLead(facts.candidates) {
-                    cache.updateValue(nil, forKey: facts.cacheKey)
-                    continue
-                }
+                // Two earlier names too close to tell apart: no offer, no question,
+                // and nothing cached, so a later name that breaks the tie is seen.
+                if !NameCandidates.isClearLead(facts.candidates) { continue }
                 offer(nil, key: nil)
                 if !isAsking { ask(session, facts) }
                 return
@@ -110,16 +109,18 @@ struct NameSuggestion: Equatable {
         offer(nil, key: nil)
     }
 
-    /// Name it. A name the store refuses is not offered again.
-    func accept() {
-        guard let store, let offered = current, let key = currentKey else { return }
-        guard isTarget(offered.session, store) else { return refresh() }
-        if store.acceptNameSuggestion(offered.name, for: offered.session) {
-            accepted.insert(key)
-        } else {
-            cache.updateValue(nil, forKey: key)
-        }
+    /// Name it. Returns the name and the rename's correction, for the notice's
+    /// Undo; nil when nothing was renamed. A name the store refused (newer
+    /// saved history was found, say) stays on offer, to try again.
+    @discardableResult
+    func accept() -> (name: String, correctionID: UUID)? {
+        guard let store, let offered = current, let key = currentKey else { return nil }
+        guard isTarget(offered.session, store) else { refresh(); return nil }
+        let done = store.acceptNameSuggestion(offered.name, for: offered.session)
+            ? store.lastCorrection.map { (offered.name, $0.id) } : nil
+        if done != nil { accepted.insert(key) }
         refresh()
+        return done
     }
 
     /// Keep as is.
@@ -191,7 +192,7 @@ struct NameSuggestion: Equatable {
         if isUsable, isTarget(session, store) {
             let name = choice.flatMap {
                 NameAudit.resolve($0, candidates: facts.candidates, earlierNames: store.earlierSessionNames(),
-                                  categories: WorkType.startable, appNames: facts.appNames)
+                                  appNames: facts.appNames)
             }
             var source = NameSuggestion.Source.fresh
             if case .earlier? = choice { source = .earlier }

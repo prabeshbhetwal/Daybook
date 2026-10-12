@@ -85,15 +85,19 @@ extension SessionStore {
                          cacheKey: "\(session.threadID)|\(session.end)|\(session.workType.id)|\(note ?? "")")
     }
 
-    /// "this morning's 1h 20m session", "yesterday evening's 45m session", "last night's 2h session"
+    /// "this morning's 1h 20m session", "yesterday evening's 45m session", "last night's 2h session",
+    /// and "yesterday's 30m session" for one begun after midnight yesterday
     func nameSuggestionLead(for session: DaySession) -> String {
         // Half-open: a session begun on the stroke of midnight is today's.
         let yesterday = session.start < suggestionDays().today
         let words: String
         switch Self.timeOfDay(session.start, calendar: periodCalendar) {
         // Begun after midnight, 9 am's "tonight" was hours ago: last night's.
-        case "night": words = yesterday || periodCalendar.component(.hour, from: session.start) < 5
-            ? "last night's" : "tonight's"
+        // Begun after midnight yesterday, that night was two nights ago.
+        case "night":
+            let afterMidnight = periodCalendar.component(.hour, from: session.start) < 5
+            words = yesterday && afterMidnight ? "yesterday's"
+                : yesterday || afterMidnight ? "last night's" : "tonight's"
         case let part: words = yesterday ? "yesterday \(part)'s" : "this \(part)'s"
         }
         return "\(words) \(DurationText.compact(session.worked)) session"

@@ -119,9 +119,10 @@ enum NameSuggestionStoreChecks: CheckSuite {
     }
 
     private static func midnightLead() -> [String] {
-        let (m, a, d, i) = (UUID(), UUID(), UUID(), UUID())
+        let (m, a, d, i, e) = (UUID(), UUID(), UUID(), UUID(), UUID())
         var problems = withFixture(records: { days in [
             record(days.at(1, 23, 30), days.at(0, 0, 40), thread: m),
+            record(days.at(1, 2), days.at(1, 2, 30), thread: e),   // began after midnight yesterday
             record(days.at(0, 7), days.at(0, 8, 20), thread: a),
             record(days.at(1, 14), days.at(1, 14, 45), thread: d),
             record(days.at(1, 18), days.at(1, 20), thread: i),
@@ -131,9 +132,10 @@ enum NameSuggestionStoreChecks: CheckSuite {
                    "the midnight session is offered once", &problems)
             expect(night.start == days.at(1, 23, 30) && night.worked == 4_200,
                    "it starts yesterday at 23:30 with 1h 10m, got \(night.start), \(night.worked)s", &problems)
-            let leads = [m, a, d, i].compactMap { target(f, $0) }.map { f.store.nameSuggestionLead(for: $0) }
+            let leads = [m, a, d, i, e].compactMap { target(f, $0) }.map { f.store.nameSuggestionLead(for: $0) }
             let want = ["last night's 1h 10m session", "this morning's 1h 20m session",
-                        "yesterday afternoon's 45m session", "yesterday evening's 2h session"]
+                        "yesterday afternoon's 45m session", "yesterday evening's 2h session",
+                        "yesterday's 30m session"]
             expect(leads == want, "leads read \(leads)", &problems)
             _ = f.metadata.saveNote("late fix", for: night.recordIDs[0])
             let first = f.store.nameFacts(for: night)?.text.components(separatedBy: "\n").first

@@ -25,29 +25,30 @@ enum NameAudit {
 
     /// 1 to `maxWords` words, at most `maxCharacters` characters, no digits or
     /// quote marks, and neither a category's name nor exactly an app's name.
-    static func accepts(_ name: String, categories: [WorkType], appNames: [String]) -> Bool {
+    static func accepts(_ name: String, appNames: [String]) -> Bool {
         let text = tidy(name)
         let words = text.split(separator: " ").count
         guard (1...maxWords).contains(words), text.count <= maxCharacters,
               !text.contains(where: \.isNumber),
               text.rangeOfCharacter(from: quotes) == nil else { return false }
         let key = SearchWords.fold(text)
-        return !categories.contains { SearchWords.fold($0.displayName) == key }
-            && !appNames.contains { SearchWords.fold($0) == key }
+        return SessionNaming.category(named: text) == nil && !appNames.contains { SearchWords.fold($0) == key }
     }
 
     /// The name to offer, or nil. A fresh name that equals an earlier one,
-    /// ignoring case, accents and spacing, takes the earlier spelling.
+    /// ignoring case, accents and spacing, takes the earlier spelling; any
+    /// other starts with a capital, as a break's name does, so the name shown
+    /// is the name saved.
     static func resolve(_ choice: NameChoice, candidates: [NameCandidate], earlierNames: [String],
-                        categories: [WorkType], appNames: [String]) -> String? {
+                        appNames: [String]) -> String? {
         switch choice {
         case .earlier(let number):
             return candidates.indices.contains(number - 1) ? candidates[number - 1].name : nil
         case .fresh(let name):
-            guard accepts(name, categories: categories, appNames: appNames) else { return nil }
+            guard accepts(name, appNames: appNames) else { return nil }
             let text = tidy(name)
             let key = SearchWords.fold(text)
-            return earlierNames.first { SearchWords.fold(tidy($0)) == key } ?? text
+            return earlierNames.first { SearchWords.fold(tidy($0)) == key } ?? text.prefix(1).uppercased() + text.dropFirst()
         case .none:
             return nil
         }
