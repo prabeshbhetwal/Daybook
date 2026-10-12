@@ -8,7 +8,7 @@ extension SearchPeriod {
 }
 
 extension SearchGrammar {
-    /// One weekday as one day: "last Tuesday" or "this past Tuesday", the
+    /// One weekday as one day: "last Tuesday" or "(this) past Tuesday", the
     /// latest before today, so a week ago on a Tuesday; "this Tuesday", this
     /// week's, which may be still to come; "the Tuesday before last", the one
     /// before last Tuesday; and
@@ -26,9 +26,10 @@ extension SearchGrammar {
             let name = (word == "last" ? "Last " : "This ") + Self.title(day)
             return found(2, name, wholeDay(word == "last" ? -lastBack(day) : thisWeek(day)))
         }
-        // "this past Tuesday", like "this past weekend", is last Tuesday.
-        if word == "this", t.word(i + 1) == "past", let day = Self.weekday(t.word(i + 2), abbreviated: true) {
-            return found(3, "This past " + Self.title(day), wholeDay(-lastBack(day)))
+        // "this past Tuesday", "the past Tuesday" and "past Tuesday", like the past weekend, are last Tuesday.
+        let past = word == "past" ? i : (word == "this" || word == "the") && t.word(i + 1) == "past" ? i + 1 : nil
+        if let past, let day = Self.weekday(t.word(past + 1), abbreviated: true) {
+            return found(past + 2 - i, (word == "this" ? "This past " : "Past ") + Self.title(day), wholeDay(-lastBack(day)))
         }
         let at = word == "the" || word == "on" ? i + 1 : i
         if let day = Self.weekday(t.word(at), abbreviated: true), t.word(at + 1) == "before", t.word(at + 2) == "last" {
@@ -84,8 +85,8 @@ extension SearchGrammar {
     }
 
     /// The whole day `offset` days from `date`'s day, earlier when negative.
-    /// Counted from noon, which every day has, so a clock change at midnight
-    /// cannot move it into the day before or after.
+    /// Counted from noon, which every day has, as `AskRange.interval` finds a
+    /// named day.
     private func wholeDay(_ offset: Int, from date: Date? = nil) -> DateInterval? {
         guard let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date ?? now),
               let moved = calendar.date(byAdding: .day, value: offset, to: noon) else { return nil }

@@ -80,10 +80,14 @@ struct HistorySearchChips: View {
 }
 
 extension HistorySearchChips {
-    /// The hint under "No matching sessions". With chips and unread words it
-    /// names the words, which may be a phrase the box could not read rather
-    /// than words a session should hold.
+    /// The hint under "No matching sessions". Periods that do not overlap
+    /// rule out every session whatever the words; otherwise, with chips and
+    /// unread words, it names the words, which may be a phrase the box could
+    /// not read rather than words a session should hold.
     static func emptyDetail(_ search: ParsedSearch) -> String {
+        if search.noOverlap {
+            return "The dates in the chips do not overlap, so no session fits them all. Remove one of them."
+        }
         guard !search.phrases.isEmpty, !search.leftover.isEmpty else {
             return "Try fewer words, or a session name, an old name, a word from a note, "
                 + "a named break, an app, a category, a date or a time of day."

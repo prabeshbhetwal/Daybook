@@ -52,7 +52,7 @@ Case-insensitive, English, any order, mixed with free words. The one exception i
 
 | Kind | Phrases | Chip |
 |---|---|---|
-| Period | today, yesterday; this/last week, month, year; the week/month before last; N days/weeks/months ago ("back" reads as "ago": "three weeks back"); last N days/weeks; a fortnight (two weeks): last/past fortnight (the 14 days ending today), "a fortnight ago" and "N fortnights ago" (the calendar week 2N weeks back), the fortnight before last (the 14 days before those); past weekends: last weekend, this/the past weekend, the weekend before last (Saturday to Sunday, Monday weeks); a month name with or without a year ("September", "Sept 2025"); a day and month with or without a year ("3 October", "3 Oct 2025"); a year ("2025"); one weekday as a day (§7): last Tuesday, this past Tuesday, this Tuesday, the Tuesday before last, Tuesday or on Tuesday | `Last week · 6–12 Oct`, `Last Tuesday · Tue 6 Oct`: the label plus the exact dates |
+| Period | today, yesterday; this/last week, month, year; the week/month before last; N days/weeks/months ago ("back" reads as "ago": "three weeks back"); last N days/weeks; a fortnight (two weeks): last/past fortnight (the 14 days ending today), "a fortnight ago" and "N fortnights ago" (the calendar week 2N weeks back), the fortnight before last (the 14 days before those); past weekends: last weekend, this/the past weekend, the weekend before last (Saturday to Sunday, Monday weeks); a month name with or without a year ("September", "Sept 2025"); a day and month with or without a year ("3 October", "3 Oct 2025"); a year ("2025"); one weekday as a day (§7): last Tuesday, (this, the) past Tuesday, this Tuesday, the Tuesday before last, Tuesday or on Tuesday; a day as the search text writes it, `d/M/yyyy` ("31/8/2026") | `Last week · 6–12 Oct`, `Last Tuesday · Tue 6 Oct`: the label plus the exact dates |
 | Weekdays | a plural weekday ("Mondays"), "on Mondays", "Mondays and Fridays", "weekends", "weekdays" | `Mondays`, `Weekends` |
 | Length | over / longer than / more than / at least D; under / shorter than / less than / at most D; between D and D. D: 1h, 1 h, 1 hour, 90m, 90 min, 1h 30m, 1.5h, "an hour", "half an hour", "an hour and a half", "two and a half hours", number words | `Over 1h`, `30m–1h` |
 | App | the exact name of an app with recorded use (`historySortedUsage`), multi-word names included, typed with its leading capital ("Notes" is the Notes app; "notes" is a word) | the app's name with its icon |
@@ -263,15 +263,16 @@ Tuesday", "this tuesday" and "tuesday before last" were all left as words.
 
 | Question | Decision |
 |---|---|
-| "last Tuesday", "this past Tuesday" | The latest Tuesday strictly before today: on a Tuesday, a week ago; on a Wednesday, yesterday. Chip `Last Tuesday · Tue 6 Oct`. |
+| "last Tuesday", "(this, the) past Tuesday" | The latest Tuesday strictly before today: on a Tuesday, a week ago; on a Wednesday, yesterday. Chip `Last Tuesday · Tue 6 Oct`. |
 | "Tuesday", "on Tuesday" | The latest Tuesday up to today, today included: on a Tuesday it is today, as Ask's `AskRange.resolving("tuesday")` reads it. Chip `Tuesday · Tue 13 Oct`. |
 | A lone weekday beside other periods | It falls inside them: the latest such day they hold, once a month or day typed without a year has taken its year. "Tuesday last week" is last week's Tuesday, "Monday 5 October" the 5th, "on Monday October" the last Monday of October. With none inside ("Tuesday 5 October", a Monday) the periods do not overlap. |
 | "this Tuesday" | This week's Tuesday. Weeks run from Monday, as History's do, so this Sunday is still to come during the week and lists nothing until it has passed. |
 | "Tuesday before last" | The Tuesday a week before last Tuesday; "the" may lead. |
+| Numeric dates | `d/M/yyyy` ("31/8/2026"), the form History's search text already holds for each day, is that day, chip `Mon 31 Aug 2026`. Before, it matched as a word; now a weekday beside it falls on it, so "monday 31/8/2026" finds that Monday in any later week. A date the calendar lacks ("31/2/2026") or another order ("8/31/2026") stays a word. |
 | Abbreviations | After "last" or "this" and before "before last", three letters name the weekday ("last tue", "this thurs"). Alone only the whole name does: "wed", "sat" and "sun" stay ordinary words, and "tues" and "thurs", like "Tuesdays", stay every Tuesday or Thursday. "Tuesday's" reads as Tuesday, so the live probe's row 18 (§5a) now gives a chip. |
 | Recurring weekdays | Unchanged: "Tuesdays", "on Tuesdays" and "Mondays and Fridays" are weekday sets, not days. |
 | How a day is found | The calendar day holding noon that many days away, so a 23- or 25-hour day keeps its length and a clock change at midnight cannot move it. |
-| Empty search | With chips shown and leftover words that find nothing, the hint under "No matching sessions" names the words: “banana split” was searched as words, and no session that fits the chips has them. Remove them, or say them another way. Without chips, or with no leftover words, the hint is as before. |
+| Empty search | When the periods do not overlap, the hint under "No matching sessions" says so: The dates in the chips do not overlap, so no session fits them all. Remove one of them. Otherwise, with chips shown and leftover words that find nothing, it names the words: “banana split” was searched as words, and no session that fits the chips has them. Remove them, or say them another way. Without chips, or with no leftover words, the hint is as before. |
 | Rescue | Unchanged. It still runs on Return when words are left over and nothing is listed; a weekday phrase the parser reads leaves no words for it. |
 
 What changes for a typed word: a lone weekday used to search as a word and
@@ -280,17 +281,24 @@ lists every Monday, and `"Monday"` in quotes searches the word.
 
 Not done:
 
-- "next Tuesday" (future periods stay out of scope) and "since Tuesday".
+- "next Tuesday" (future periods stay out of scope): "next" stays a word
+  beside the latest Tuesday, and the empty search names it. "since Tuesday"
+  likewise.
 - Two lone weekdays together: "Tuesday and Thursday" reads as two days that
   do not overlap.
-- A date the grammar does not read stays as words, so in "monday 31/8/2026"
-  the weekday narrows the list to the latest Monday and finds that session
-  only in the week of 31 August.
+- A date the grammar does not read stays as words: in "Monday 5th of
+  October", "5th of" stays words and the Monday is October's latest.
+- An app or category named like a weekday ("Monday") is read as the day, as
+  a month name is read as the month; pick it from the menu instead.
+- `d/M` without a year stays a word.
 - The rescue's instructions still offer the model only plural weekdays, and
   the live probe (§5a) was not run again.
 
-Checks: `HistorySearchWeekdayChecks`, five suites appended to
+Checks: `HistorySearchWeekdayChecks`, six suites appended to
 `registeredTests`, each failing on the parser before this change.
+`HistorySearchChecks` "Search finds a session by every word…" also searches
+"monday 31/8/2026 morning compiler" six weeks after the session, which a
+lone weekday that ignored the date beside it would fail.
 `HistorySearchQueryChecks` "Quoted words stay words" (formerly "Quoted words
 and a single weekday stay words") lost its two rows that pinned a lone
 weekday as a word.

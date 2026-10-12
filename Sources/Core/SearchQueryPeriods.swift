@@ -58,6 +58,16 @@ extension SearchGrammar {
         }
     }
 
+    /// A day written as History's search text writes it, `d/M/yyyy`
+    /// ("31/8/2026"), so a weekday typed beside it falls on it. Nil for a date
+    /// the calendar lacks, which stays a word.
+    func numericDay(_ t: SearchTokens, _ i: Int) -> SearchMatch? {
+        guard let parts = t.word(i)?.wholeMatch(of: #/(\d{1,2})/(\d{1,2})/(\d{4})/#),
+              let day = Int(parts.1), let month = Int(parts.2), let year = Int(parts.3),
+              let range = AskRange(rawValue: String(format: "%04d-%02d-%02d", year, month, day)) else { return nil }
+        return SearchMatch(count: 1, effect: .period(.named(range)))
+    }
+
     /// The whole `component` that holds today moved by `offset`.
     func shifted(_ component: Calendar.Component, by offset: Int) -> DateInterval? {
         guard let anchor = calendar.date(byAdding: component, value: offset, to: calendar.startOfDay(for: now)) else { return nil }

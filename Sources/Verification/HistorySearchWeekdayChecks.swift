@@ -13,16 +13,19 @@ enum HistorySearchWeekdayChecks: CheckSuite {
         ("This Tuesday is this week's, and Tuesday before last the one before last Tuesday", thisAndBeforeLast),
         ("Weekday days hold on every day of the week, in any zone and across daylight saving", everyDayAndZone),
         ("With chips and nothing found, the empty search names the words it searched for", unreadWordsHint),
+        ("A weekday beside a d/M/yyyy date falls on that date, weeks later too", numericDate),
     ]
 
     private typealias Row = HistorySearchQueryChecks.Row
 
     private static func day(_ month: Int, _ day: Int, year: Int = 2023) -> DateInterval {
-        HistorySearchQueryChecks.span(month, day, month, day + 1, y1: year)
+        let calendar = HistorySearchQueryChecks.periods
+        let start = HistorySearchQueryChecks.midnight(year, month, day)
+        return DateInterval(start: start, end: calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: start)!))
     }
 
-    private static func verify(_ rows: [(String, Row)], _ problems: inout [String]) {
-        for (text, row) in rows { HistorySearchQueryChecks.verify(text, row, &problems) }
+    private static func verify(_ rows: [(String, Row)], now: Date = SelfTest.base, _ problems: inout [String]) {
+        for (text, row) in rows { HistorySearchQueryChecks.verify(text, row, now: now, &problems) }
     }
 
     private static func lastWeekday() -> [String] {
@@ -38,6 +41,8 @@ enum HistorySearchWeekdayChecks: CheckSuite {
             ("last Monday", Row(span: day(11, 13), labels: ["Last Monday · Mon 13 Nov"])),
             ("this past Tuesday", Row(span: day(11, 14), labels: ["This past Tuesday · Tue 14 Nov"])),
             ("this past Wednesday", Row(span: day(11, 8), labels: ["This past Wednesday · Wed 8 Nov"])),
+            ("the past Tuesday", Row(span: day(11, 14), labels: ["Past Tuesday · Tue 14 Nov"])),
+            ("past tue", Row(span: day(11, 14), labels: ["Past Tuesday · Tue 14 Nov"])),
             ("last tue", Row(span: day(11, 14), labels: ["Last Tuesday · Tue 14 Nov"])),
             ("last tues", Row(span: day(11, 14), labels: ["Last Tuesday · Tue 14 Nov"])),
             ("last thurs", Row(span: day(11, 9), labels: ["Last Thursday · Thu 9 Nov"])),
@@ -174,6 +179,29 @@ enum HistorySearchWeekdayChecks: CheckSuite {
         expect(word.contains("“fortnightly” was searched as a word"), "chips and one unread word: \(word)", &problems)
         expect(!general.contains("searched as"), "no chips: the general hint, not \(general)", &problems)
         expect(detail("over 1h") == general, "chips and no words: the general hint, not \(detail("over 1h"))", &problems)
+        // Periods that do not overlap rule everything out: the words are not to blame.
+        for text in ["Tuesday and Thursday", "last week this week"] {
+            let apart = detail(text)
+            expect(apart.contains("do not overlap") && !apart.contains("searched as"), "\(text): \(apart)", &problems)
+        }
+        return problems
+    }
+
+    /// History's search text holds each day as `d/M/yyyy`, so "monday
+    /// 31/8/2026" found that session as words; it still does weeks later,
+    /// with the weekday falling on the date. "Now" is Monday 12 October 2026.
+    private static func numericDate() -> [String] {
+        var problems: [String] = []
+        let now = HistorySearchQueryChecks.periods.date(from: DateComponents(year: 2026, month: 10, day: 12, hour: 9, minute: 13))!
+        verify([
+            ("monday 31/8/2026 morning compiler", Row(span: day(8, 31, year: 2026), leftover: "morning compiler",
+                                                      labels: ["Monday · Mon 31 Aug", "Mon 31 Aug 2026"])),
+            ("31/8/2026", Row(span: day(8, 31, year: 2026), labels: ["Mon 31 Aug 2026"])),
+            ("3/4/2026", Row(span: day(4, 3, year: 2026), labels: ["Fri 3 Apr 2026"])),
+            ("tuesday 31/8/2026", Row(labels: ["Tuesday · Tue 6 Oct", "Mon 31 Aug 2026"], noOverlap: true)),
+            ("31/2/2026", Row(leftover: "31/2/2026")),
+            ("8/31/2026", Row(leftover: "8/31/2026")),
+        ], now: now, &problems)
         return problems
     }
 }

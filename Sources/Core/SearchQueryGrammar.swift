@@ -84,7 +84,7 @@ struct SearchGrammar {
     // MARK: Periods
 
     private func period(_ t: SearchTokens, _ i: Int) -> SearchMatch? {
-        [relative(t, i), weekdayDay(t, i), dated(t, i)].compactMap { $0 }.first
+        [relative(t, i), weekdayDay(t, i), numericDay(t, i), dated(t, i)].compactMap { $0 }.first
     }
 
     /// A month, a day and month, or a year, read by `AskRange.resolving`.
