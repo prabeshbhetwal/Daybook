@@ -113,6 +113,9 @@ extension SessionStore {
             // A running session shows its own category; while idle, the one the
             // user picked for the next session stays picked.
             if engine.state != .idle { workType = engine.activeWorkType }
+            // A rename in the session's card claims it; the Name row it left
+            // open has nothing left to ask, and must not hold an update.
+            if isNamingAutomaticSession && !isAutoSession { isNamingAutomaticSession = false }
             automaticActivityRecord = engine.activeAutomaticAction.map {
                 AutomaticActivityRecord(action: $0, resultingRecordID: engine.activeRecordID)
             }

@@ -279,7 +279,12 @@ extension SessionStore {
                 case .workType(let type): title = "Changed to \(type.displayName)"
                 case .removed: title = "Session removed"
                 }
-                notices.append(.correction(correction.id, title, DateInterval(start: entry.start, end: max(entry.start, end))))
+                // A session's notice stands when the correction was made. A
+                // break's replaces the break's row, so keeps its span, as does
+                // one from an older journal or another day.
+                var range = DateInterval(start: entry.start, end: max(entry.start, end))
+                if case .session = entry, let at = correction.madeAt, day.holds(at) { range = DateInterval(start: at, duration: 0) }
+                notices.append(.correction(correction.id, title, range))
                 if case .rest = entry { moments.removeAll { $0.id == match.id } }
             }
         }

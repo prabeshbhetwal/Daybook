@@ -140,6 +140,7 @@ extension SelfTest {
             + NameFinalFixChecks.tests
             + MidnightDayChecks.tests
             + RecoveryAuditChecks.tests
+            + RenameAndReportChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

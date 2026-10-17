@@ -80,6 +80,12 @@ struct StorySavedActionRow: View {
     var scopeNote: String?
     let undo: () -> Void
 
+    /// A span for what the action covered; one time for a correction, which
+    /// happened at a moment.
+    private var when: String {
+        range.duration > 0 ? Tokens.timeRange(range.start, range.end) : DateFormats.clockTime(range.start)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
           HStack(spacing: 10.zoomed) {
@@ -90,12 +96,12 @@ struct StorySavedActionRow: View {
                 Text(title).font(Tokens.Typography.label)
                     .lineLimit(1)
                     .help(title)
-                Text(Tokens.timeRange(range.start, range.end))
+                Text(when)
                     .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                     .lineLimit(1)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(title), \(Tokens.timeRange(range.start, range.end))")
+            .accessibilityLabel("\(title), \(when)")
             Spacer(minLength: Tokens.Space.s)
             Button("Undo", action: undo)
                 .buttonStyle(StoryLinkStyle())

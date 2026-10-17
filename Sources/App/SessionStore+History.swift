@@ -535,7 +535,7 @@ extension SessionStore {
             publishCorrectionError("Enter a session name before saving the correction.")
             return false
         }
-        return applyCorrection(threadID: session.threadID, correction: .rename(trimmed))
+        return applyCorrection(threadID: session.threadID, correction: .rename(trimmed), claims: true)
     }
 
     /// The name a recorded break carries now, or nil while it is still the
@@ -568,7 +568,7 @@ extension SessionStore {
     /// what happened.
     @discardableResult
     func setWorkType(_ workType: WorkType, for session: DaySession) -> Bool {
-        applyCorrection(threadID: session.threadID, correction: .workType(workType))
+        applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true)
     }
 
     /// The same, by thread, for corrections made outside a session's card:
@@ -669,8 +669,8 @@ extension SessionStore {
             }
         }
         switch retry {
-        case .correction(let threadID, let correction):
-            return applyCorrection(threadID: threadID, correction: correction)
+        case .correction(let threadID, let correction, let claims):
+            return applyCorrection(threadID: threadID, correction: correction, claims: claims)
         case .undo(let state):
             return undo(state)
         case .awayUndo(let id):
@@ -735,7 +735,9 @@ extension SessionStore {
         return "Undo affects this field in all \(count) stretches of the session, including any on other days. Timing and other fields are unchanged."
     }
 
-    private func applyCorrection(threadID: UUID, correction: SessionCorrection) -> Bool {
+    /// `claims`: made in the session's own card, so a running automatic
+    /// session becomes the person's (see `stageActiveCorrection`).
+    private func applyCorrection(threadID: UUID, correction: SessionCorrection, claims: Bool = false) -> Bool {
         guard engine.prepareCorrection() else {
             publishCorrectionError(engine.awayDecisionError); return false
         }
@@ -790,12 +792,13 @@ extension SessionStore {
                                threadID: threadID, correction: correction,
                                archiveSnapshot: archiveSnapshot,
                                originalFields: originalFields,
-                               archiveRecordIDs: archiveRecordIDs)
-        engine.stageActiveCorrection(correction, threadID: threadID)
+                               archiveRecordIDs: archiveRecordIDs,
+                               madeAt: now())
+        engine.stageActiveCorrection(correction, threadID: threadID, claims: claims)
         guard engine.commitCorrection(before: before, removing: removed, adding: added,
                                       fields: corrections + [receipt]) else {
             publishCorrectionError(engine.awayDecisionError)
-            correctionRetry = .correction(threadID: threadID, correction: correction)
+            correctionRetry = .correction(threadID: threadID, correction: correction, claims: claims)
             return false
         }
         publishCanUndoCorrection(true)

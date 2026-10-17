@@ -1,7 +1,7 @@
 import Foundation
 
 enum SessionCorrectionRetry {
-    case correction(threadID: UUID, correction: SessionCorrection)
+    case correction(threadID: UUID, correction: SessionCorrection, claims: Bool = false)
     case undo(SessionStoreCorrectionState)
     case awayUndo(UUID)
     case awayDecision(UserDecision, label: String?, reviewing: Bool, expectedID: UUID)
@@ -24,7 +24,7 @@ enum SessionCorrectionRetry {
         case .undo(let correction):
             return transaction.fieldsBefore.contains { $0.id == correction.id }
                 && !transaction.fieldsAfter.contains { $0.id == correction.id }
-        case .correction(let thread, let correction):
+        case .correction(let thread, let correction, _):
             return transaction.fieldsAfter.contains { receipt in
                 receipt.threadID == thread && receipt.correction == correction
                     && !transaction.fieldsBefore.contains { $0.id == receipt.id }

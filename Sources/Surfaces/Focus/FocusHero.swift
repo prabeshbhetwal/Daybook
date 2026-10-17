@@ -690,8 +690,8 @@ struct FocusHero: View {
     }
 
     private var automaticAdoptButton: some View {
-        FocusActionButton(title: store.startWouldContinue ? "Adopt session" : "Start new",
-                          symbol: store.startWouldContinue
+        FocusActionButton(title: store.automaticCorrectionAdopts ? "Save" : "Start new",
+                          symbol: store.automaticCorrectionAdopts
                               ? "checkmark" : "arrow.triangle.branch") {
             store.applyAutomaticSessionCorrection()
         }

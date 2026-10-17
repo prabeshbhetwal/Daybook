@@ -121,6 +121,15 @@ extension SessionStore {
         return true
     }
 
+    /// Whether the automatic row's button keeps this session, renamed in
+    /// place, rather than starting a new one: decided exactly as
+    /// `applyAutomaticSessionCorrection` decides it. The label used to ask
+    /// whether the typed name matched, so a new name read "Start new" over
+    /// a button that only renamed.
+    var automaticCorrectionAdopts: Bool {
+        engine.wouldAdopt(workType: SessionNaming.resolve(name: intent, workType: workType).workType)
+    }
+
     /// The Focus correction controls sit at the App boundary because declared
     /// Away owns a coordinator side effect as well as an engine transition.
     /// Resume tracking first, exactly as `I'm back` does, then preserve the

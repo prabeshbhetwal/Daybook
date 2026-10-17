@@ -53,7 +53,7 @@ enum CorrectionRetention {
             }
             return SessionStoreCorrectionState(id: field.id, sequence: field.sequence, threadID: field.threadID,
                 correction: field.correction, archiveSnapshot: snapshot, originalFields: field.originalFields,
-                archiveRecordIDs: remaining)
+                archiveRecordIDs: remaining, madeAt: field.madeAt)
         }
         return (result, retainedFields)
     }

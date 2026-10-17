@@ -794,9 +794,11 @@ struct SessionEntryCard: View {
                         actionButton("Start again", action: onStartNewSession)
                             .help("Starts a fresh session with this name and category.")
                     }
-                    if let recordID = noteTargetID, let metadataStore {
-                        actionButton(metadataStore.sessionMetadata(for: recordID)?.note == nil
-                                     ? "Add note" : "Edit note") {
+                    // A written note carries its own Edit beside it; a second
+                    // "Edit note" here opened the same editor.
+                    if let recordID = noteTargetID, let metadataStore,
+                       metadataStore.sessionMetadata(for: recordID)?.note == nil {
+                        actionButton("Add note") {
                             metadataStore.beginNoteEditing(for: recordID)
                         }
                     }

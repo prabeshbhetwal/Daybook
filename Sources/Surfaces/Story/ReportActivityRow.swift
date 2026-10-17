@@ -7,6 +7,8 @@ struct ReportActivityRow: View {
     let interval: RecordedActivity.Interval
     let colourRank: Int
     let power: PowerReading?
+    /// What a gap row says: why it is there where the Story knows.
+    var gapTitle = "Not recorded"
 
     var body: some View {
         HStack(spacing: Tokens.Space.s) {
@@ -16,7 +18,7 @@ struct ReportActivityRow: View {
                 .frame(width: 8.zoomed, height: 8.zoomed)
             Self.column(Tokens.timeRange(interval.start, interval.end),
                         widest: ["12:00 am – 12:00 am", "12:00 pm – 12:00 pm"], alignment: .leading)
-            let name = interval.isGap ? "Not recorded" : (interval.appName ?? interval.bundleID ?? "App")
+            let name = interval.isGap ? gapTitle : (interval.appName ?? interval.bundleID ?? "App")
             Text(name)
                 .font(Tokens.Typography.body)
                 .foregroundStyle(interval.isGap ? AnyShapeStyle(StoryStyle.supportingInk) : AnyShapeStyle(.primary))
@@ -64,5 +66,27 @@ struct ReportActivityRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(power?.spoken ?? "")
         .accessibilityHidden(power == nil)
+    }
+}
+
+extension SessionReport {
+    /// A gap shorter than this is not listed. An app in front for under
+    /// `AppUsageConstants.minimumSegment` is Cmd-Tab noise and not recorded,
+    /// so each quick switch left a "Not recorded" row of a few seconds. The
+    /// gap still counts as unrecorded in every total above the list.
+    static let shortestListedGap: TimeInterval = 60
+
+    /// Every recorded visit, and every gap of a minute or more, in order.
+    var listedIntervals: [RecordedActivity.Interval] { Self.listing(intervals) }
+
+    static func listing(_ intervals: [RecordedActivity.Interval]) -> [RecordedActivity.Interval] {
+        intervals.filter { !$0.isGap || $0.duration >= shortestListedGap }
+    }
+
+    static func gapReasons(_ intervals: [RecordedActivity.Interval], store: SessionStore,
+                           day: Date) -> [String: StoryGapReason] {
+        let gaps = intervals.filter(\.isGap)
+        let reasons = store.gapReasons(for: gaps.map { DateInterval(start: $0.start, end: $0.end) }, on: day)
+        return Dictionary(zip(gaps.map(\.id), reasons), uniquingKeysWith: { first, _ in first })
     }
 }
