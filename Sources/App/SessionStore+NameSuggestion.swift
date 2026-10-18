@@ -82,9 +82,10 @@ extension SessionStore {
         }
         // The ranking is in the key: a rename elsewhere can tie or overturn it.
         let ranking = candidates.map { "\($0.name)=\($0.score)" }.joined(separator: ",")
+        let sessionKey = "\(session.threadID)|\(session.end)|\(session.workType.id)|\(note ?? "")"
         return NameFacts(text: lines.joined(separator: "\n"), candidates: candidates,
                          appNames: apps.map(\.value.name),
-                         cacheKey: "\(session.threadID)|\(session.end)|\(session.workType.id)|\(note ?? "")|\(ranking)")
+                         sessionKey: sessionKey, cacheKey: "\(sessionKey)|\(ranking)")
     }
 
     /// "this morning's 1h 20m session", "yesterday evening's 45m session", "last night's 2h session",
