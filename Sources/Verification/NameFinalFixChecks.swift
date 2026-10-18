@@ -3,8 +3,8 @@ import Foundation
 /// The last review's findings on name suggestions, kept apart from the other
 /// name suites so their numbers hold: what Name it hands back for Undo, a tie
 /// that a later name breaks, an offer the store refused, and an answer kept
-/// after the earlier names were ranked again, and a key that reads the same
-/// on every call.
+/// after the earlier names were ranked again, a key that reads the same on
+/// every call, and an undone name a rename elsewhere does not bring back.
 enum NameFinalFixChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("Name it hands back the rename's correction; Undo with it restores the name and the session is not offered again", nameItUndo),
@@ -12,6 +12,7 @@ enum NameFinalFixChecks: CheckSuite {
         ("A Name it the store refuses leaves the session on offer", refusedStaysOffered),
         ("A cached name is dropped when renames tie or overturn the earlier names' ranking", rankingChanges),
         ("The facts' key reads the same on every call, whatever order the apps are summed in", stableKey),
+        ("A name undone after Name it is not offered again when a rename elsewhere moves the ranking", undoSurvivesRanking),
     ]
 
     private typealias Checks = NameSuggestionStoreChecks
@@ -157,6 +158,48 @@ enum NameFinalFixChecks: CheckSuite {
             expect(facts.first?.candidates.count == 2, "candidates \(String(describing: facts.first?.candidates))", &problems)
             let keys = Set(facts.map(\.cacheKey))
             expect(facts.count == 50 && keys.count == 1, "50 calls gave \(keys.count) keys: \(keys.sorted())", &problems)
+        }
+    }
+
+    /// Today 7:00–7:30 (B) in Xcode and Terminal; "Daybook" used Xcode and
+    /// Mail, so it alone fits B. Yesterday's C used Terminal only. B is named
+    /// Daybook and undone; naming C "Daybook" then gives Daybook Terminal time,
+    /// which raises its score for B while it stays the only candidate.
+    private static func undoSurvivesRanking() -> [String] {
+        let (b, c) = (UUID(), UUID())
+        return Checks.withFixture(records: { days in [
+            Checks.record(days.at(0, 7), days.at(0, 7, 30), thread: b),
+            Checks.record(days.at(1, 14), days.at(1, 14, 45), thread: c),
+            Checks.record(days.at(3, 9), days.at(3, 11), name: "Daybook"),
+        ] }, usage: { days in [
+            Checks.app("Xcode", days.at(0, 7), 15 * 60), Checks.app("Terminal", days.at(0, 7, 15), 15 * 60),
+            Checks.app("Terminal", days.at(1, 14), 40 * 60),
+            Checks.app("Xcode", days.at(3, 9), 45 * 60), Checks.app("Mail", days.at(3, 9, 45), 55 * 60),
+        ] }) { f, _, problems in
+            let calls = Support.Calls()
+            let s = Support.make(f, calls)
+            Support.run(s)
+            guard s.current?.session.threadID == b, s.current?.name == "Daybook" else {
+                return problems.append("B was not offered Daybook first: \(String(describing: s.current))")
+            }
+            guard let done = s.accept() else { return problems.append("Name it on B failed") }
+            Support.settle(s)
+            expect(f.store.undoCorrection(expectedID: done.correctionID), "Undo failed", &problems)
+            guard let first = Checks.target(f, b), let second = Checks.target(f, c),
+                  let before = f.store.nameFacts(for: first) else {
+                return problems.append("Undo did not put B back on offer")
+            }
+            expect(f.store.acceptNameSuggestion("Daybook", for: second), "naming C failed", &problems)
+            let after = Checks.target(f, b).flatMap { f.store.nameFacts(for: $0) }
+            expect(after?.cacheKey != before.cacheKey && after?.sessionKey == before.sessionKey
+                       && after.map { NameCandidates.isClearLead($0.candidates) } == true,
+                   "naming C should move B's ranking only, with Daybook still clear: \(String(describing: after?.cacheKey))",
+                   &problems)
+            Support.run(s)
+            let asked = calls.facts.filter { $0.sessionKey == before.sessionKey }.count
+            expect(s.current?.session.threadID != b && asked == 1,
+                   "after Undo and a rename elsewhere, B was offered \(String(describing: s.current?.name)) after \(asked) questions",
+                   &problems)
         }
     }
 }

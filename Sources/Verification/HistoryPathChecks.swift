@@ -65,15 +65,16 @@ enum HistoryPathChecks {
             let navigation = MainWindowModel(store: store)
             navigation.open(tab: .review)
             var problems: [String] = []
-            let start = navigation.historyOpen
-            guard start.count >= 2 else { return ["the fixture did not open History two levels deep"] }
-            if let day = store.historyDays.first(where: { $0.sessions > 0 })?.date,
-               let thread = store.journalThreads(on: day, only: nil).first {
-                navigation.selectHistory(session: thread, on: day)
-            } else {
-                problems.append("the fixture has no day with a session to pick")
+            guard let day = store.historyDays.first(where: { $0.sessions > 0 })?.date,
+                  let thread = store.journalThreads(on: day, only: nil).first else {
+                return ["the fixture has no day with a session to pick"]
             }
+            // The fixture's two weeks end today, so they can sit in one month
+            // (History's top) or span two (the year): measured after a day is
+            // open, the path is two deep either way, on any date.
+            navigation.selectHistory(session: thread, on: day)
             let open = navigation.historyOpen
+            guard open.count >= 2 else { return ["picking a session did not open History two levels deep"] }
             navigation.navigateHistory(to: open[0])
             if navigation.historyOpen != [open[0]] {
                 problems.append("a place on the path left \(navigation.historyOpen.count) rows open, not 1")

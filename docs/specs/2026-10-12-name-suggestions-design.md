@@ -111,7 +111,7 @@ The first is an earlier name, picked by the ranking: its caption reads "From you
 | Case | Behaviour |
 |---|---|
 | Name it | `renameSession`, an ordinary correction. The notice shows "Named “…”" with Undo, above the next offer. It stays until the person acts on that offer or leaves Today. A name the store refuses (say, newer saved history was found) stays on offer. |
-| Undo | In the notice, with the correction taken right after the rename. The session's name is empty again. It is offered again only after a relaunch or a change to its facts. |
+| Undo | In the notice, with the correction taken right after the rename. The session's name is empty again. It is offered again only after a relaunch or a change to its own facts (its end, category or note); a rename elsewhere that moves the earlier names' ranking does not bring it back. |
 | Keep as is | The thread is remembered in `fc.nameSuggestionKept`, trimmed to threads that ended in the last two days, and the next session is shown. |
 | Named on its card | The session drops out. |
 | Name it or Keep as is on a stale notice | Each acts only if the session is still unnamed and not kept. Otherwise nothing is written, and the notice moves on. |
