@@ -776,7 +776,11 @@ extension SessionStore {
         guard archiveSnapshot != nil || activeChanged else {
             publishCorrectionError(nil)
             correctionRetry = nil
-            return false
+            // Saving the name or category it already has still claims it.
+            guard claims, activeBefore != nil, engine.activeIsAuto else { return false }
+            engine.claim()
+            refresh()
+            return true
         }
 
         guard let originalFields = activeBefore ?? archiveSnapshot?.fields.first.map({
