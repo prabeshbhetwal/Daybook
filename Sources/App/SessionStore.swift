@@ -277,6 +277,12 @@ final class SessionStore: ObservableObject {
     /// Input since the planned end, told apart from a glance at the screen.
     /// Only `tickBreak` feeds it.
     var sustained = SustainedActivity()
+    /// The last break whose end was settled (credited, announced), so each is
+    /// settled once however many ways there are to end one.
+    var lastSettledBreak: UUID?
+    /// Set when the ticker could not save the end of a break: it does not try
+    /// again before then.
+    var breakEndRetryAfter: Date?
     /// The user declared themselves away. The coordinator suspends the usage
     /// tracker, which the engine cannot reach from `Core`.
     var onAwayBegan: (() -> Void)?

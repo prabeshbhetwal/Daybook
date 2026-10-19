@@ -67,7 +67,8 @@ extension SessionStore {
               record.acceptsUndo(for: expectedRecordID),
               engine.activeRecordID == expectedRecordID,
               engine.activeIsAuto, !hasUnresolvedAwayDecision else { return false }
-        endBreakIfNeeded()
+        // A break the session is paused for is recorded by the discard, which
+        // leaves the invented stretch out of history.
         guard engine.discard() else {
             activityAutomationError = engine.awayDecisionError
                 ?? "The automatic activity could not be undone. Current work was preserved."
@@ -112,8 +113,6 @@ extension SessionStore {
     @discardableResult
     func undoAutoSession(resumeTracking: Bool = false) -> Bool {
         guard isAutoSession, !hasUnresolvedAwayDecision else { return false }
-        // A discard beside a live break would leave the break with no session.
-        endBreakIfNeeded()
         let origin = (engine.activeThreadID, engine.sessionStartDate)
         let discarded = engine.discard()
         if let error = engine.awayDecisionError {

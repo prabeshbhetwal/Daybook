@@ -19,40 +19,45 @@ extension SessionStore {
         guard engine.startBreak(length: planned, label: label) else { return }
         let moment = now()
         sustained.reset()
+        breakEndRetryAfter = nil
         if let prompt { breakLog.setOutcome(.started, for: prompt.id, at: moment) }
         markRecentPromptStarted(except: prompt?.id, at: moment)
-        breakRemaining = engine.activeBreak?.remaining(at: moment) ?? 0
         publishBreakChange()
         onBreakBegan?()
     }
 
-    /// End break, Resume and Done. The break is recorded at the length it had,
-    /// and it is a rest that counts.
+    /// End break, Resume and Done. The break is recorded at the length it had;
+    /// `refresh` settles its end, like any other end of a break.
     func endBreak() {
         guard isOnBreak else { return }
-        guard let end = engine.endBreak() else {
+        guard engine.endBreak() != nil else {
             // The stretch the break paused could not be saved; the break stands.
             publishCorrectionError(engine.awayDecisionError)
-            publishBreakChange()
             return
         }
-        afterBreakEnded(end)
+        publishBreakChange()
     }
 
     /// Every action that starts, stops or replaces a session ends the break
     /// first: the engine leaves one alone, and a session beside a running
     /// break, or a break with no session left, is not a state to be in.
-    func endBreakIfNeeded() {
-        if isOnBreak { endBreak() }
+    /// False when the break could not be ended; it and its error stay, and
+    /// the caller does nothing more.
+    @discardableResult
+    func endBreakIfNeeded() -> Bool {
+        guard isOnBreak else { return true }
+        endBreak()
+        return !isOnBreak
     }
 
-    /// +5 min.
+    /// +5 min: five minutes more than there are left, and five from now when
+    /// the break is already over by more than that.
     func extendBreak() {
-        guard isOnBreak else { return }
+        guard let brk = engine.activeBreak else { return }
+        let overdue = min(brk.remaining(at: now()), 0)
         // The engine re-arms the break-over prompt itself.
-        engine.extendBreak(by: BreakLength.extra)
+        engine.extendBreak(by: BreakLength.extra - overdue)
         sustained.reset()
-        breakRemaining = engine.activeBreak?.remaining(at: now()) ?? 0
         publishBreakChange()
     }
 
@@ -85,17 +90,20 @@ extension SessionStore {
     /// Once a tick, in this order: a break nobody came back to ends at its
     /// cap; the time left is published; the planned end is announced until it
     /// has reached the screen; and input after it, told apart from a glance,
-    /// ends the break where that input began.
+    /// ends the break where that input began. An end that cannot be saved is
+    /// reported, and tried again every few seconds rather than every second.
     func tickBreak() {
         guard let brk = engine.activeBreak else {
-            if breakRemaining != 0 { breakRemaining = 0 }
-            return
-        }
-        if let end = engine.expireBreakIfOutgrown() {
-            afterBreakEnded(end)
+            syncBreakRemaining()
             return
         }
         let moment = now()
+        let mayEnd = breakEndRetryAfter.map { moment >= $0 } ?? true
+        if mayEnd, moment >= brk.capEnd(longAwayCap: engine.store.longAwayCap) {
+            if engine.expireBreakIfOutgrown() != nil { publishBreakChange() }
+            else { breakEndFailed(at: moment) }
+            return
+        }
         let remaining = brk.remaining(at: moment)
         breakRemaining = remaining
         guard remaining <= 0 else { return }
@@ -106,27 +114,55 @@ extension SessionStore {
         // Input counts only where a person could have made it: a wake resets
         // the idle clock with nobody there, and a locked screen has no one in
         // front of it.
-        guard !screenLocked, !presenceGate.isAwaitingConfirmation,
+        guard mayEnd, !screenLocked, !presenceGate.isAwaitingConfirmation,
               idle.idleSeconds() <= 1,
               let began = sustained.record(activeAt: moment) else { return }
         sustained.reset()
-        guard let end = engine.endBreak(at: began) else {
-            publishBreakChange()
-            return
-        }
-        afterBreakEnded(end)
+        if engine.endBreak(at: began) != nil { publishBreakChange() }
+        else { breakEndFailed(at: moment) }
     }
 
-    /// A rest that counted: every reminder starts again from its end.
-    func afterBreakEnded(_ end: Date) {
+    private func breakEndFailed(at moment: Date) {
+        breakEndRetryAfter = moment.addingTimeInterval(TimeInterval(SessionStore.breakCheckSeconds))
+        publishCorrectionError(engine.awayDecisionError)
+    }
+
+    // MARK: - After a break
+
+    /// Runs once for each break that ends, whichever way it ended: here, on
+    /// the ticker, or inside the engine (a session adopted by Start, a
+    /// discarded one). `refresh` calls it, and so every path that ends a
+    /// break and refreshes settles it.
+    func settleEndedBreak() {
+        guard let ended = engine.lastEndedBreak, ended.id != lastSettledBreak else { return }
+        lastSettledBreak = ended.id
+        afterBreakEnded(ended)
+    }
+
+    /// Only a rest that was recorded is a rest that counts: every reminder
+    /// starts again from the end of a break that lasted long enough to be
+    /// written down, and a glance at Start break and End break restarts none.
+    func afterBreakEnded(_ ended: EndedBreak) {
         // A session that goes on is told where the person is. With none, there
         // is nothing to tell, and a work app in front must not start one.
         if engine.state == .running { feedFrontmostApplication() }
-        engine.store.breakClock.credit(at: end)
+        if ended.end.timeIntervalSince(ended.start) >= engine.store.minimumRecordedSession {
+            engine.store.breakClock.credit(at: ended.end)
+        }
         sustained.reset()
-        breakRemaining = 0
-        publishBreakChange()
+        if breakEndRetryAfter != nil {
+            breakEndRetryAfter = nil
+            publishCorrectionError(nil)
+        }
         onBreakEnded?()
+    }
+
+    /// The time left on the break under way, from the engine, wherever the
+    /// store learns of it: a break restored at launch has some before the
+    /// ticker's first second.
+    func syncBreakRemaining() {
+        let left = engine.activeBreak?.remaining(at: now()) ?? 0
+        if breakRemaining != left { breakRemaining = left }
     }
 
     // MARK: - Private
@@ -137,12 +173,13 @@ extension SessionStore {
         apply(engine.state)
     }
 
-    /// A reminder shown a moment ago and left unanswered, then a break begun by
-    /// hand: the break is the answer.
+    /// A reminder shown a moment ago and not answered or only put off, then a
+    /// break begun by hand: the break is the answer.
     private func markRecentPromptStarted(except taken: UUID?, at moment: Date) {
         guard let recent = breakLog.prompts.last, recent.id != taken,
               moment.timeIntervalSince(recent.shown) <= Self.answeredWithin,
-              recent.outcome == nil || recent.outcome == .unanswered else { return }
+              recent.outcome == nil || recent.outcome == .unanswered || recent.outcome == .later
+        else { return }
         breakLog.setOutcome(.started, for: recent.id, at: moment)
     }
 

@@ -80,14 +80,13 @@ extension SessionEngine {
             // A refusal from an earlier try must not outlive a retry that works.
             awayDecisionError = nil
             guard archiveCurrentSession(endingAt: brk.start) else { return nil }
-            recordStartedBreak(brk, endingAt: moment)
+            closeBreak(brk, at: moment)
             beginFreshSession()
             activeThreadID = thread
             sessionStartDate = moment
         } else {
-            recordStartedBreak(brk, endingAt: moment)
+            closeBreak(brk, at: moment)
         }
-        activeBreak = nil
         persist()
         return moment
     }
@@ -106,10 +105,18 @@ extension SessionEngine {
             awayDecisionError = nil
             guard endAbsentSession().applied else { return nil }
         }
-        recordStartedBreak(brk, endingAt: capEnd)
-        activeBreak = nil
+        closeBreak(brk, at: capEnd)
         persist()
         return capEnd
+    }
+
+    /// Writes the break down and marks it over. Every end goes through here,
+    /// including a discard of the session it paused, so `lastEndedBreak` hears
+    /// of each.
+    func closeBreak(_ brk: ActiveBreak, at end: Date) {
+        recordStartedBreak(brk, endingAt: end)
+        activeBreak = nil
+        lastEndedBreak = EndedBreak(id: brk.id, start: brk.start, end: end)
     }
 
     /// Writes a started break down at the length it really had, if that is at

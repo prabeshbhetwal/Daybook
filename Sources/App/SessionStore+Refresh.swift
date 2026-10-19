@@ -91,6 +91,10 @@ extension SessionStore {
 
     /// Recomputes everything the surfaces display. One pass over each archive.
     func refresh() {
+        // A break may have ended anywhere in the engine since the last pass;
+        // credit it before the figures below are worked out.
+        settleEndedBreak()
+        syncBreakRemaining()
         withRefreshTransaction {
             // Fold the in-flight stretch in first, or the frontmost app always looks
             // idle in its own menu.

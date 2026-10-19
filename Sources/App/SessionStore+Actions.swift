@@ -12,7 +12,7 @@ extension SessionStore {
     @discardableResult
     func performSessionHotKeyAction() -> SessionHotKeyActionResult {
         guard !hasUnresolvedAwayDecision else { return .showAwayDecision }
-        endBreakIfNeeded()
+        guard endBreakIfNeeded() else { return .saveFailed }
         if engine.state == .idle {
             // The category the picker shows, as the Start button would use.
             guard replaceSession(workType: workType, intent: "") else { return .saveFailed }
@@ -32,8 +32,7 @@ extension SessionStore {
     /// one when the work type differs. Background recording is unaffected
     /// either way: app usage is captured all day regardless of sessions.
     func start() {
-        guard !hasUnresolvedAwayDecision else { return }
-        endBreakIfNeeded()
+        guard !hasUnresolvedAwayDecision, endBreakIfNeeded() else { return }
         // A name spelled like a category is that category (see SessionNaming).
         (intent, workType) = SessionNaming.resolve(name: intent, workType: workType)
         if engine.wouldAdopt(workType: workType, intent: intent) {
@@ -50,8 +49,7 @@ extension SessionStore {
     }
 
     func startQuick(_ quick: QuickStart) {
-        guard !hasUnresolvedAwayDecision else { return }
-        endBreakIfNeeded()
+        guard !hasUnresolvedAwayDecision, endBreakIfNeeded() else { return }
         let (name, type) = SessionNaming.resolve(name: quick.name, workType: quick.workType)
         workType = type
         if engine.wouldAdopt(workType: type, intent: name) {
@@ -127,7 +125,8 @@ extension SessionStore {
         guard !hasUnresolvedAwayDecision else { return }
         // The break is recorded and the stretch it paused closed before the
         // session is: stopping beside a live break left it running, alone.
-        endBreakIfNeeded()
+        // If that cannot be saved the break and its error stay as they are.
+        guard endBreakIfNeeded() else { return }
         isNamingAutomaticSession = false
         let thread = engine.activeThreadID, start = engine.sessionStartDate
         engine.stop()
@@ -152,7 +151,7 @@ extension SessionStore {
     @discardableResult
     func replaceSession(workType: WorkType, intent: String, threadID: UUID = UUID(), isAuto: Bool = false) -> Bool {
         // Whichever way a session starts, a break under way is over first.
-        endBreakIfNeeded()
+        guard endBreakIfNeeded() else { return false }
         let origin = (engine.activeThreadID, engine.sessionStartDate)
         let started = engine.start(workType: workType, intent: intent, threadID: threadID, isAuto: isAuto)
         let retry = SessionCorrectionRetry.ending(threadID: origin.0, sessionStart: origin.1)

@@ -72,8 +72,9 @@ extension SessionStore {
     /// unclean exit can lose.
     private static let flushEverySeconds = 60
 
-    /// How often continuous use is re-checked against the break thresholds.
-    private static let breakCheckSeconds = 5
+    /// How often continuous use is re-checked against the break thresholds,
+    /// and a break whose end could not be saved is tried again.
+    static let breakCheckSeconds = 5
 
     /// Presence is categorical for the engine: once the gate confirms input,
     /// its age must not be reinterpreted as continued quiet. The tracker still

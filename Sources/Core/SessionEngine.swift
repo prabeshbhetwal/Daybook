@@ -39,6 +39,9 @@ final class SessionEngine {
     /// paused a session (`.paused(.onBreak)`) or began with none running
     /// (`.idle`). Only `SessionEngine+Break` sets it.
     var activeBreak: ActiveBreak?
+    /// The break that ended last, from this launch. Set wherever a break ends,
+    /// so the store can tell each end from the others by its id.
+    var lastEndedBreak: EndedBreak?
     var awayInterval: (start: Date, trigger: AwayTrigger)?
     /// Absence that ended while the away card was up. D10 records but never
     /// resolves an away interval during a decision, and `apply` used to drop it

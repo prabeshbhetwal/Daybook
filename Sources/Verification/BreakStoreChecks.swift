@@ -20,12 +20,36 @@ enum BreakStoreChecks: CheckSuite {
         ("The ticker runs through a break, and +5 min brings the over prompt back", tickerAndExtend),
         ("Only a reminder that reached the screen is logged; eyes are counted by day", loggingFollowsDelivery),
         ("A break begun after a reminder answers it, and takes the length it asks for", startAnswersReminder),
+        ("Stepping away is ignored on a break, and back is End break", awayIsIgnoredOnBreak),
+        ("Every way a break ends restarts the reminders once", everyEndIsSettledOnce),
+        ("A break too short to be recorded restarts no reminder", shortBreakCreditsNothing),
+        ("+5 min in deep overtime gives five minutes from now", extendFromOvertime),
+        ("An end that cannot be saved is reported and tried again every five seconds", failedEndIsReportedAndRetried),
+        ("A break nobody came back to ends at its cap, is recorded there, and counts as a rest", capEndIsSettled),
+        ("A break that cannot be ended is not walked away from by Stop", refusedEndStopsStop),
+        ("A Continue that is refused leaves the break alone", refusedContinueKeepsBreak),
+        ("A break restored at launch has its time left before the first tick", restoredBreakIsSeeded),
+        ("A break begun after a Later answers the reminder it put off", laterThenStartAnswers),
     ]
 
     /// A value a check changes after the store has been handed a closure over it.
     final class Box<Value> {
         var value: Value
         init(_ value: Value) { self.value = value }
+    }
+
+    /// The archive's door: shut for the next `refuseNext` writes, or for all
+    /// of them while `refuses`. `attempts` counts the writes it turned away.
+    final class Gate {
+        var refuses = false
+        var refuseNext = 0
+        var attempts = 0
+
+        func answer() -> String? {
+            if refuseNext > 0 { refuseNext -= 1 } else if !refuses { return nil }
+            attempts += 1
+            return "You don't have permission to save."
+        }
     }
 
     /// The app in front, as the store's seam reads it.
@@ -40,6 +64,9 @@ enum BreakStoreChecks: CheckSuite {
         /// Seconds since the last input; nobody is at the keys unless a check says so.
         let idle: Box<TimeInterval>
         let front: Box<Front?>
+        let gate: Gate
+        /// Whether any app is running, for the Continue that needs one.
+        let appRunning: Box<Bool>
         let suite: String
 
         func close() { MemoryDefaults.remove(named: suite) }
@@ -57,37 +84,64 @@ enum BreakStoreChecks: CheckSuite {
         }
 
         var breaks: [SessionRecord] { engine.archive.records.filter { $0.workType == .breakTime } }
+
+        /// The rule-driven start of an automatic session, as the detector sends it.
+        func autoAction(generation: UInt64 = 1) -> ActivityAutomaticAction {
+            ActivityRuleChecks.action(rule: ActivityRuleChecks.codingID, name: "Coding", type: .deepWork,
+                                      start: clock.value.addingTimeInterval(-120), end: clock.value,
+                                      version: persistence.activityRuleVersion, generation: generation)
+        }
     }
 
     /// `prepare` runs on the engine before the store is built, because the
     /// store reads the engine's state once when it starts and afterwards
     /// hears of engine changes on a later pass of the run loop.
     @MainActor
-    static func make(ticker: Bool = false,
+    static func make(ticker: Bool = false, rules: Bool = false,
                      prepare: (SessionEngine, TestClock) -> Void = { _, _ in }) -> Fixture? {
         let suite = "fc-selftest-break-store-\(UUID().uuidString)"
         guard let defaults = MemoryDefaults.suite(named: suite) else { return nil }
         let clock = TestClock(SelfTest.base)
-        let archive = SessionArchive(directory: SelfTest.scratchDirectory(), now: { clock.value })
+        let gate = Gate()
+        let archive = SessionArchive(directory: SelfTest.scratchDirectory(), now: { clock.value },
+                                     writeOverride: { _ in gate.answer() })
         let persistence = PersistenceStore(defaults: defaults)
+        if rules {
+            persistence.activityRules = ActivityRuleChecks.rules
+            persistence.activityRuleAutomationEnabled = true
+        }
         let engine = SessionEngine(store: persistence, archive: archive, ownBundleID: "com.test",
                                    schedulesDwell: false, now: { clock.value })
         prepare(engine, clock)
         let idle = Box<TimeInterval>(600)
         let front = Box<Front?>(nil)
-        let store = SessionStore(engine: engine, schedulesTicker: ticker, now: { clock.value },
+        let appRunning = Box<Bool>(false)
+        let store = SessionStore(engine: engine, schedulesTicker: ticker,
+                                 applicationIsRunning: { _ in appRunning.value },
+                                 activateApplication: { _, _ in }, now: { clock.value },
                                  idle: IdleMonitor(idleSeconds: { idle.value }),
                                  frontmostApplication: { front.value })
         let usage = AppUsageArchive(directory: SelfTest.scratchDirectory(), now: { clock.value })
         store.usage = usage
         return Fixture(store: store, engine: engine, clock: clock, persistence: persistence,
-                       usage: usage, idle: idle, front: front, suite: suite)
+                       usage: usage, idle: idle, front: front, gate: gate, appRunning: appRunning,
+                       suite: suite)
     }
 
     /// A session of 20 minutes, already running when the store starts.
     static let running: (SessionEngine, TestClock) -> Void = { engine, clock in
         engine.start(workType: .deepWork, intent: "Parser")
         clock.advance(1_200)
+    }
+
+    /// The same, but the app's own guess. Ownership lives in the saved state;
+    /// starting never keeps it.
+    static let autoRunning: (SessionEngine, TestClock) -> Void = { engine, clock in
+        engine.start(workType: .deepWork, intent: "Detected")
+        clock.advance(1_200)
+        var snapshot = engine.snapshot()
+        snapshot.isAuto = true
+        engine.restore(from: snapshot)
     }
 
     // MARK: - Brief checks
@@ -131,6 +185,17 @@ enum BreakStoreChecks: CheckSuite {
                    "an automatic start leaves the break alone, got \(f.engine.state)", &problems)
             f.store.endBreak()
             expect(!f.store.automationWaits, "automation goes on once the break is over", &problems)
+
+            // The rules' start waits too: on a break with no session behind it,
+            // where nothing else would stop a session starting beside it.
+            guard let g = make(rules: true) else { return problems + ["could not create isolated preferences"] }
+            defer { g.close() }
+            g.store.startBreak()
+            expect(g.store.applyAutomaticActivity(g.autoAction()) == nil && g.engine.state == .idle,
+                   "an activity rule starts nothing beside a break, got \(g.engine.state)", &problems)
+            g.store.endBreak()
+            expect(g.store.applyAutomaticActivity(g.autoAction(generation: 2)) != nil && g.engine.state == .running,
+                   "and starts the session once the break is over", &problems)
             return problems
         }
     }
@@ -186,9 +251,14 @@ enum BreakStoreChecks: CheckSuite {
             guard let f = make(prepare: running) else { return ["could not create isolated preferences"] }
             defer { f.close() }
             expect(f.persistence.breakClock.floors.isEmpty, "no rest is credited yet", &problems)
+            var began = 0, ended = 0
+            f.store.onBreakBegan = { began += 1 }
+            f.store.onBreakEnded = { ended += 1 }
             f.store.startBreak()
+            expect(began == 1 && ended == 0, "starting announces the break once, got \(began)", &problems)
             f.clock.advance(120)
             f.store.endBreak()
+            expect(began == 1 && ended == 1, "ending announces the end once, got \(ended)", &problems)
             let floors = f.persistence.breakClock.floors
             expect(floors.count == BreakTier.allCases.count, "every tier restarts, got \(floors.count)", &problems)
             expect(Set(floors.values) == [f.clock.value], "each restarts at the end of the break", &problems)

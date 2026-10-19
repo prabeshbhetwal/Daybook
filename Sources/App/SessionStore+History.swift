@@ -412,12 +412,12 @@ extension SessionStore {
     /// launched — reopening an app the user deliberately closed would be worse
     /// than doing nothing.
     func continueThread(_ thread: ThreadSummary) {
-        endBreakIfNeeded()
         let records = engine.archive.records
         let index = ContinuationPolicy.Index(records: records)
         guard !hasUnresolvedAwayDecision, !thread.isRunning,
               let canonical = canonicalRecord(for: thread, index: index),
-              index.isEligible(canonical, active: runningThread(), now: now()) else { return }
+              index.isEligible(canonical, active: runningThread(), now: now()),
+              endBreakIfNeeded() else { return }
         let primary = threadApps(thread).primary?.bundleID
         guard replaceSession(workType: canonical.workType, intent: canonical.name,
                              threadID: canonical.threadID) else { return }
@@ -431,9 +431,9 @@ extension SessionStore {
     /// labelled with it. Refuses when the app is not running — there is nothing
     /// to continue.
     func continueApp(_ summary: AppUsageSummary) {
-        endBreakIfNeeded()
         guard !hasUnresolvedAwayDecision,
-              isRunning(bundleID: summary.bundleID) else { return }
+              isRunning(bundleID: summary.bundleID),
+              endBreakIfNeeded() else { return }
         guard replaceSession(workType: engine.categories.suggestedWorkType(for: summary.bundleID),
                              intent: summary.appName) else { return }
         activateApplication(summary.bundleID, false)
@@ -903,11 +903,11 @@ extension SessionStore {
     /// record — it starts a new one on the same thread, so a long gap is never
     /// rendered as worked time.
     func continueSession(_ session: DaySession) {
-        endBreakIfNeeded()
         guard !hasUnresolvedAwayDecision, !session.isRunning,
               let canonical = canonicalRecord(for: session),
               ContinuationPolicy.isEligible(canonical, records: engine.archive.records,
-                                            active: runningThread(), now: now()) else { return }
+                                            active: runningThread(), now: now()),
+              endBreakIfNeeded() else { return }
         guard replaceSession(workType: canonical.workType, intent: canonical.name,
                              threadID: canonical.threadID) else { return }
         refresh()

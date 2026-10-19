@@ -54,6 +54,16 @@ struct ActiveBreak: Codable, Equatable {
     func capEnd(longAwayCap: TimeInterval) -> Date { plannedEnd.addingTimeInterval(longAwayCap) }
 }
 
+/// The break that ended last, however it ended: by the person, by input after
+/// its planned end, by its cap, or by the session it paused being discarded.
+/// The engine ends breaks in several places and the store hears of each from
+/// this, so a rest is credited once per break and never missed.
+struct EndedBreak: Equatable {
+    let id: UUID
+    let start: Date
+    let end: Date
+}
+
 enum BreakLength {
     static let standard: TimeInterval = 300
     static let choices: [TimeInterval] = [300, 600, 900, 1_800]

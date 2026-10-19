@@ -8,6 +8,9 @@ extension SessionStore {
     /// Unlike Pause this also stops background recording — a paused session
     /// still leaves you sitting at the Mac, being away does not.
     func markAway() {
+        // The engine ignores it on a break, and the tracker would be suspended
+        // for nothing: it carries on through a break.
+        guard !isOnBreak else { return }
         engine.transition(on: .markedAway)
         onAwayBegan?()
         refresh()
@@ -17,6 +20,9 @@ extension SessionStore {
     /// app-activation path; this is the explicit version for coming back to a
     /// Mac that was left on a session that has no work app to return to.
     func endAway() {
+        // On a break this would end it by the engine's back door and resume a
+        // tracker that was never suspended.
+        guard !isOnBreak else { return endBreak() }
         engine.transition(on: .manualResume)
         if applyLongAwayResult(resumeTracking: true) != false { onAwayEnded?() }
         refresh()

@@ -102,10 +102,15 @@ extension SessionEngine {
     /// Ends a session without writing a record. Used only to undo the app's own
     /// automatic start — a guess the user rejected is not history, and keeping
     /// it would put a session in the archive that never happened.
+    ///
+    /// A break the session was paused for goes down as a break, at the length
+    /// it had; the stretch it paused is the guess being rejected and is not
+    /// archived.
     @discardableResult
     func discard() -> Bool {
         guard state != .idle else { return true }
         let before = snapshot()
+        let onBreak = state == .paused(reason: .onBreak) ? activeBreak : nil
         awayDecisionError = nil
         cancelDwell()
         pauseStartDate = nil
@@ -118,11 +123,14 @@ extension SessionEngine {
         activeIsAuto = false
         activeAutomaticAction = nil
         state = .idle
+        // Out of the terminal checkpoint, which a refused save rolls back.
+        if onBreak != nil { activeBreak = nil }
         if decisionHistory.requiresTerminalCheckpoint,
            !commitCorrection(before: before, operation: .discardStretch), state != .idle {
             onStateChanged?(state)
             return false
         }
+        if let brk = onBreak { closeBreak(brk, at: max(brk.start, now())) }
         persist()
         onStateChanged?(state)
         return true

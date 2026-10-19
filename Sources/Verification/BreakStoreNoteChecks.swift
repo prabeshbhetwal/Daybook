@@ -6,25 +6,47 @@ extension BreakStoreChecks {
     static func undoEndsBreak() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            guard let f = make(prepare: { engine, clock in
-                engine.start(workType: .deepWork, intent: "Detected")
-                clock.advance(1_200)
-                // Ownership lives in the saved state; starting never keeps it.
-                var snapshot = engine.snapshot()
-                snapshot.isAuto = true
-                engine.restore(from: snapshot)
-            }) else { return ["could not create isolated preferences"] }
-            defer { f.close() }
-            expect(f.store.isAutoSession, "the session is the app's own", &problems)
-            f.store.startBreak()
-            f.clock.advance(100)
-            expect(f.store.undoAutoSession(), "Undo works on a session with a break on it", &problems)
-            expect(f.engine.activeBreak == nil && !f.store.isOnBreak && f.engine.state == .idle,
-                   "no break is left standing without its session", &problems)
-            expect(f.breaks.count == 1 && f.breaks.first?.workSeconds == 100,
-                   "the break is recorded once, at its real length", &problems)
-            expect(!f.engine.archive.records.contains { $0.workType != .breakTime && $0.workSeconds < 30 },
-                   "and leaves no empty stretch", &problems)
+            for route in ["Undo", "the naming row's Undo", "Retry", "an activity rule's Undo"] {
+                guard let f = make(rules: route == "an activity rule's Undo",
+                                   prepare: route == "an activity rule's Undo" ? { _, _ in } : autoRunning)
+                else { return problems + ["could not create isolated preferences"] }
+                defer { f.close() }
+                var ended = 0
+                f.store.onBreakEnded = { ended += 1 }
+                var owner: AutomaticActivityRecord?
+                if route == "an activity rule's Undo" {
+                    f.clock.advance(120)
+                    owner = f.store.applyAutomaticActivity(f.autoAction())
+                    f.clock.advance(1_200)
+                }
+                f.store.startBreak()
+                expect(f.store.isAutoSession, "\(route): the session is the app's own", &problems)
+                f.clock.advance(100)
+                var undone = false
+                switch route {
+                case "Undo": undone = f.store.undoAutoSession()
+                case "the naming row's Undo":
+                    f.store.undoAutomaticSessionCorrection()
+                    undone = f.engine.state == .idle
+                case "Retry":
+                    f.store.correctionRetry = .discarding(threadID: f.engine.activeThreadID,
+                                                          sessionStart: f.engine.sessionStartDate,
+                                                          resumeTracking: false)
+                    undone = f.store.retryLastCorrection()
+                default:
+                    undone = owner.map { f.store.undoAutomaticActivity(expectedRecordID: $0.resultingRecordID) } ?? false
+                }
+                expect(undone && f.engine.state == .idle, "\(route) works on a session with a break on it", &problems)
+                expect(f.engine.activeBreak == nil && !f.store.isOnBreak,
+                       "\(route): no break is left standing without its session", &problems)
+                expect(f.breaks.count == 1 && f.breaks.first?.workSeconds == 100,
+                       "\(route): the break is recorded once, at its real length", &problems)
+                expect(f.engine.archive.records.allSatisfy { $0.workType == .breakTime },
+                       "\(route): the invented session leaves nothing in history, got "
+                       + "\(f.engine.archive.records.filter { $0.workType != .breakTime }.map(\.name))", &problems)
+                expect(ended == 1 && f.persistence.breakClock.floors.count == BreakTier.allCases.count,
+                       "\(route): the rest counts, once, got \(ended)", &problems)
+            }
             return problems
         }
     }
@@ -157,9 +179,10 @@ extension BreakStoreChecks {
             expect(f.store.breakRemaining == -3, "overtime counts as negative time left", &problems)
 
             f.store.extendBreak()
-            expect(f.store.activeBreak?.plannedLength == 600 && f.store.activeBreak?.overNoticed == false
-                   && f.store.breakRemaining == 297, "+5 min adds five minutes and re-arms the prompt", &problems)
-            f.clock.advance(297)
+            // Three seconds over: five minutes from now, not from the old end.
+            expect(f.store.activeBreak?.plannedLength == 603 && f.store.activeBreak?.overNoticed == false
+                   && f.store.breakRemaining == 300, "+5 min gives five minutes and re-arms the prompt", &problems)
+            f.clock.advance(300)
             f.store.runTick()
             expect(over == 4, "the prompt comes back at the new end, got \(over)", &problems)
 
