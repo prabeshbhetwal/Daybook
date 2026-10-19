@@ -9,6 +9,11 @@ enum BreakClockChecks: CheckSuite {
         ("Skip restarts that reminder only", skipLeavesOtherTiers),
         ("A taken break restarts every reminder", creditResetsAll),
         ("The reminder clock survives a relaunch", clockPersists),
+        ("A Later that has run out brings the reminder back once", expiredLaterReturnsOnce),
+        ("A Later does not outlive the break it was pressed for", laterEndsWithItsRun),
+        ("A clock value from the future does not silence a reminder", futureValuesIgnored),
+        ("Skipping the long break does not restart it", skipLeavesLongGuard),
+        ("A damaged Later count cannot crash", damagedCountIsClamped),
     ]
 
     private static let start = SelfTest.base
@@ -97,8 +102,9 @@ enum BreakClockChecks: CheckSuite {
         clock.skip(.cognitive, at: at(95))
         expect(clock.snooze == nil, "skipping a tier clears its Later", &problems)
         let eval = BreakReminder.evaluate([stretch(0, 96)], now: at(96), last: nil, clock: clock)
-        expect(eval.due != .cognitive, "cognitive restarted", &problems)
-        expect(eval.due == .ultradian, "the long break still counts the whole run", &problems)
+        expect(eval.due == .ultradian,
+               "cognitive restarted and the long break still counts the whole run, got "
+               + "\(String(describing: eval.due))", &problems)
         expect((eval.prompt?.worked ?? 0) >= 95 * 60, "ultradian still counts the whole run", &problems)
 
         // Skipping the 20-minute reminder leaves the 50-minute one alone.
@@ -165,6 +171,105 @@ enum BreakClockChecks: CheckSuite {
         reopened.breakClock = clock
         reopened.removeAll()
         expect(reopened.breakClock == BreakClock(), "erasing everything clears it", &problems)
+        return problems
+    }
+
+    // MARK: - Fix round 1
+
+    private static func expiredLaterReturnsOnce() -> [String] {
+        var problems: [String] = []
+        var clock = BreakClock()
+        clock.later(.cognitive, at: at(55))
+        // 1 Hz from the end of the Later, rewriting the notice after each prompt.
+        var last: BreakNotice? = BreakNotice(tier: .cognitive, at: at(55))
+        var shown = 0
+        for second in 0..<120 {
+            let minute = 65 + Double(second) / 60
+            let eval = BreakReminder.evaluate([stretch(0, minute)], now: at(minute), last: last,
+                                              clock: clock)
+            if eval.prompt != nil {
+                shown += 1
+                last = BreakNotice(tier: .cognitive, at: at(minute))
+            }
+        }
+        expect(shown == 1, "the returned reminder shows once in two minutes, got \(shown)", &problems)
+        return problems
+    }
+
+    private static func laterEndsWithItsRun() -> [String] {
+        var problems: [String] = []
+        var clock = BreakClock()
+        clock.later(.cognitive, at: at(55))
+        clock.later(.cognitive, at: at(65))
+        // An hour's rest, then a new 51-minute run.
+        let run = [stretch(0, 80), stretch(140, 191)]
+        let said = BreakNotice(tier: .cognitive, at: at(190))
+        let quiet = BreakReminder.evaluate(run, now: at(191), last: said, clock: clock)
+        expect(quiet.due == .cognitive, "the new run is due", &problems)
+        expect(quiet.prompt == nil, "an old Later does not bypass the repeat guard", &problems)
+        let fresh = BreakReminder.evaluate(run, now: at(191), last: nil, clock: clock).prompt
+        expect(fresh?.canLater == true, "the new break can be put off again", &problems)
+
+        // Nothing due at all: the old Later says nothing about a new, shallower break.
+        let micro = BreakReminder.evaluate([stretch(0, 80), stretch(160, 185)], now: at(185),
+                                           last: nil, clock: clock).prompt
+        expect(micro?.tier == .micro && micro?.canLater == true,
+               "a stale deeper Later does not touch a new eye break", &problems)
+        return problems
+    }
+
+    private static func futureValuesIgnored() -> [String] {
+        var problems: [String] = []
+        let run = [stretch(0, 55)]
+        let far = Date(timeIntervalSinceReferenceDate: 1e300)
+        for floor in [at(115), at(55 + 60 * 24 * 365), far] {
+            var clock = BreakClock()
+            clock.floors[.cognitive] = floor
+            clock.floors[.micro] = floor
+            let eval = BreakReminder.evaluate(run, now: at(55), last: nil, clock: clock)
+            expect(eval.due == .cognitive && eval.prompt?.tier == .cognitive,
+                   "a floor from the future is ignored, got \(String(describing: eval.due))",
+                   &problems)
+        }
+        for until in [at(55 + 31), at(55 + 60 * 24 * 365), far] {
+            var clock = BreakClock()
+            clock.snooze = BreakSnooze(tier: .cognitive, until: until, count: 1)
+            expect(BreakReminder.evaluate(run, now: at(55), last: nil, clock: clock)
+                    .prompt?.tier == .cognitive,
+                   "a Later that ends too far ahead is ignored", &problems)
+        }
+        var real = BreakClock()
+        real.later(.cognitive, at: at(55))
+        expect(BreakReminder.evaluate(run, now: at(55), last: nil, clock: real).prompt == nil,
+               "a real Later still holds", &problems)
+        return problems
+    }
+
+    private static func skipLeavesLongGuard() -> [String] {
+        var problems: [String] = []
+        var clock = BreakClock()
+        clock.skip(.ultradian, at: at(95))
+        expect(clock.floors[.ultradian] == nil, "no floor is set", &problems)
+        let eval = BreakReminder.evaluate([stretch(0, 96)], now: at(96), last: nil, clock: clock)
+        expect(eval.due == .ultradian, "the long break is still due after Skip", &problems)
+        return problems
+    }
+
+    private static func damagedCountIsClamped() -> [String] {
+        var problems: [String] = []
+        let json = "{\"tier\":1,\"until\":0,\"count\":\(Int.max)}"
+        guard var snooze = try? JSONDecoder().decode(BreakSnooze.self, from: Data(json.utf8)) else {
+            return ["the damaged Later should still decode"]
+        }
+        snooze.until = at(55)
+        var clock = BreakClock()
+        clock.snooze = snooze
+        clock.later(.cognitive, at: at(55))
+        expect(clock.snooze?.count == BreakClock.maxLaters + 1, "the count is clamped", &problems)
+        let prompt = BreakReminder.evaluate([stretch(0, 66)], now: at(66), last: nil,
+                                            clock: clock).prompt
+        expect(prompt?.tier == .cognitive && prompt?.canLater == false,
+               "no further Later is offered", &problems)
         return problems
     }
 }

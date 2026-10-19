@@ -31,15 +31,50 @@ struct BreakClock: Codable, Equatable {
     }
 
     /// Restarts that reminder only. Records no rest.
+    ///
+    /// The long-stretch guard is the exception: it resets on a rest that
+    /// counted and on nothing else, so skipping it does nothing.
     mutating func skip(_ tier: BreakTier, at moment: Date) {
+        guard tier != .ultradian else { return }
         floors[tier] = moment
         if snooze?.tier == tier { snooze = nil }
     }
 
     mutating func later(_ tier: BreakTier, at moment: Date) {
-        let length = tier == .ultradian ? Self.stretchGuardLaterLength : Self.laterLength
-        let count = snooze?.tier == tier ? (snooze?.count ?? 0) + 1 : 1
-        snooze = BreakSnooze(tier: tier, until: moment.addingTimeInterval(length), count: count)
+        // Clamped first: a damaged stored count must not overflow the `+ 1`.
+        let count = snooze?.tier == tier ? min(snooze?.count ?? 0, Self.maxLaters) + 1 : 1
+        snooze = BreakSnooze(tier: tier, until: moment.addingTimeInterval(Self.length(of: tier)),
+                             count: count)
+    }
+
+    static func length(of tier: BreakTier) -> TimeInterval {
+        tier == .ultradian ? stretchGuardLaterLength : laterLength
+    }
+
+    /// No Later is longer than this.
+    static let longestLater: TimeInterval = 1_800
+
+    /// What can be believed at `now`. A floor in the future, or a Later that
+    /// ends further ahead than any Later lasts, comes from a clock that ran
+    /// ahead or a damaged value, and would silence a reminder for as long as
+    /// it stays wrong.
+    func sanitized(now: Date) -> BreakClock {
+        var kept = self
+        kept.floors = floors.filter { $0.value <= now }
+        if let held = snooze, held.until.timeIntervalSince(now) > Self.longestLater {
+            kept.snooze = nil
+        }
+        return kept
+    }
+
+    /// A Later is for the break that was due when it was pressed. It does not
+    /// apply when that tier is no longer due, or when the run now due began
+    /// after the Later — a rest came between, and this is a new break.
+    mutating func dropStaleSnooze(due: BreakTier?, runStart: Date?) {
+        guard let held = snooze else { return }
+        let pressed = held.until.addingTimeInterval(-Self.length(of: held.tier))
+        if let due, due >= held.tier, let runStart, runStart <= pressed { return }
+        snooze = nil
     }
 
     /// A Later belongs to a break that is still due. Once nothing is due, or

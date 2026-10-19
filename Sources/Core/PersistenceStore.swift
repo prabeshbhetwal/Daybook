@@ -28,6 +28,8 @@ final class PersistenceStore {
         static let breakLength = "fc.breakLength"
         static let lastBreakNotice = "fc.lastBreakNotice"
         static let breakClock = "fc.breakClock"
+        /// No longer read or written; erased so an older build's value goes.
+        static let retiredWorkInterval = "fc.workInterval"
         static let lastBreakTier = "fc.lastBreakTier"
         static let longAwayCap = "fc.longAwayCap"
         static let fullPromptAfter = "fc.fullPromptAfter"
@@ -872,7 +874,7 @@ final class PersistenceStore {
                     Key.rewardsEnabled, Key.hapticsEnabled, Key.rewardLog, Key.learning,
                     Key.useAppleIntelligence, Key.yesterdayNoteDismissedDay,
                     Key.logGrouping,
-                    Key.remindersDisabled, Key.breakLength, Key.breakClock,
+                    Key.remindersDisabled, Key.retiredWorkInterval, Key.breakLength, Key.breakClock,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
                     Key.storyTileOrderRawValue,

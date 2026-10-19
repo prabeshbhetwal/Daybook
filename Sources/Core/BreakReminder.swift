@@ -212,15 +212,22 @@ struct BreakReminder {
                          last: BreakNotice?,
                          tiers: [BreakTier] = BreakTier.allCases,
                          clock: BreakClock = BreakClock()) -> Evaluation {
+        // Floors and a Later that cannot be genuine are dropped here, not
+        // left to the caller: see `BreakClock.sanitized`.
+        var clock = clock.sanitized(now: now)
         let ordered = latestRun(stretches, now: now,
                                 reaching: tiers.map(\.restGap).max() ?? 0)
         var done: [BreakTier: TimeInterval] = [:]
+        var began: [BreakTier: Date] = [:]
         for tier in tiers {
-            done[tier] = worked(sorted: BreakClock.clip(ordered, at: clock.floors[tier]),
-                                now: now, restingAtLeast: tier.restGap)
+            let found = run(sorted: BreakClock.clip(ordered, at: clock.floors[tier]),
+                            now: now, restingAtLeast: tier.restGap)
+            done[tier] = found.seconds
+            began[tier] = found.start
         }
         let due = tiers.reversed()
             .first { (done[$0] ?? 0) >= $0.workThreshold }
+        clock.dropStaleSnooze(due: due, runStart: clock.snooze.flatMap { began[$0.tier] })
 
         // Written out rather than chained: the inferred tuple type defeats the
         // type checker inside a `map`/`min` pipeline.
@@ -282,14 +289,25 @@ struct BreakReminder {
     private static func worked(sorted ordered: [AppUsageSession],
                                now: Date,
                                restingAtLeast rest: TimeInterval) -> TimeInterval {
+        run(sorted: ordered, now: now, restingAtLeast: rest).seconds
+    }
+
+    /// The work behind `worked` and when that unbroken run began, nil when
+    /// there is none.
+    private static func run(sorted ordered: [AppUsageSession],
+                            now: Date,
+                            restingAtLeast rest: TimeInterval)
+        -> (seconds: TimeInterval, start: Date?) {
         var total: TimeInterval = 0
         var boundary = now
+        var start: Date?
         for stretch in ordered {
             if boundary.timeIntervalSince(stretch.end) >= rest { break }
             total += stretch.seconds
             boundary = stretch.start
+            start = stretch.start
         }
-        return total
+        return (total, start)
     }
 
     private static func prompt(ordered: [AppUsageSession],
@@ -308,7 +326,9 @@ struct BreakReminder {
             afterLater = tier == snooze.tier
             laters = afterLater ? snooze.count : 0
         }
-        if let last, !afterLater {
+        // Only a notice older than the Later's end is overridden by it. One
+        // written since — the prompt it brought back — is the repeat guard's.
+        if let last, !(afterLater && last.at < (clock.snooze?.until ?? .distantPast)) {
             let since = now.timeIntervalSince(last.at)
             if since < minimumSpacing { return nil }
             if tier <= last.tier, since < tier.workThreshold { return nil }
