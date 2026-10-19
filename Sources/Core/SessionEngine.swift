@@ -35,6 +35,10 @@ final class SessionEngine {
     var currentAppBundleID: String?
 
     var pauseStartDate: Date?
+    /// The timed break the person started and has not ended, whether it
+    /// paused a session (`.paused(.onBreak)`) or began with none running
+    /// (`.idle`). Only `SessionEngine+Break` sets it.
+    var activeBreak: ActiveBreak?
     var awayInterval: (start: Date, trigger: AwayTrigger)?
     /// Absence that ended while the away card was up. D10 records but never
     /// resolves an away interval during a decision, and `apply` used to drop it

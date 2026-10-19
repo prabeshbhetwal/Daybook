@@ -121,6 +121,7 @@ extension SessionEngine {
         activeDetectedApp = saved.activeDetectedApp
         activeIsAuto = saved.isAuto ?? false
         activeAutomaticAction = saved.automaticActivityAction
+        activeBreak = saved.activeBreak
         awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
         correctionGeneration = saved.correctionGeneration ?? 0
         liveCorrectionGeneration = liveGeneration(of: saved)
@@ -153,6 +154,7 @@ extension SessionEngine {
         result.activeDetectedApp = activeDetectedApp
         result.automaticActivityAction = activeAutomaticAction
         result.pendingRests = pendingRests.isEmpty ? nil : pendingRests
+        result.activeBreak = activeBreak
         return result
     }
 }

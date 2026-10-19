@@ -1,0 +1,113 @@
+import Foundation
+
+extension SessionEngine {
+    // MARK: - Timed breaks
+
+    /// Begins a break of `length` seconds. Refused (false) while one is
+    /// already under way, while the away question waits, and while the session
+    /// is paused because nobody was here (away, idle, asleep): those are
+    /// absences with their own accounting, not a break anyone started.
+    ///
+    /// A running session pauses as `.onBreak`; the pause it was already in
+    /// (Pause, a break app, a film) is left first, the way Resume leaves it.
+    /// With no session the break stands alone and nothing starts. It does
+    /// not emit `onStateChanged`: the caller refreshes, as for a transition.
+    @discardableResult
+    func startBreak(length: TimeInterval, label: String? = nil) -> Bool {
+        guard activeBreak == nil, length.isFinite, length > 0 else { return false }
+        switch state {
+        case .awaitingUserDecision: return false
+        case .paused(.away), .paused(.idle), .paused(.systemSleep): return false
+        case .paused:
+            // Not `transition(on:)`: that would announce a running state that
+            // lasts no time. A refused save leaves the pause standing.
+            _ = transitionFromPaused(on: .manualResume)
+            guard state == .running else { return false }
+        case .idle, .running: break
+        }
+        let began = now()
+        let typed = label?.trimmingCharacters(in: .whitespacesAndNewlines)
+        activeBreak = ActiveBreak(start: began, plannedEnd: began.addingTimeInterval(length),
+                                  label: typed?.isEmpty == false ? typed : nil,
+                                  threadID: state == .running ? activeThreadID : nil)
+        if state == .running { enterPause(reason: .onBreak) }
+        persist()
+        return true
+    }
+
+    /// Adds time to the break. The break-over prompt is due again at the new
+    /// end, so it is no longer noticed.
+    func extendBreak(by seconds: TimeInterval) {
+        guard var brk = activeBreak, seconds.isFinite, seconds > 0 else { return }
+        brk.plannedEnd = brk.plannedEnd.addingTimeInterval(seconds)
+        brk.overNoticed = false
+        activeBreak = brk
+        persist()
+    }
+
+    /// Records that the break-over prompt has been shown.
+    func markBreakOverNoticed() {
+        guard var brk = activeBreak, !brk.overNoticed else { return }
+        brk.overNoticed = true
+        activeBreak = brk
+        persist()
+    }
+
+    /// Ends the break at `end` (default now), clamped to the break's own span,
+    /// and returns the end used. Nil, with the break kept, when there is none
+    /// or the stretch it paused could not be saved.
+    ///
+    /// The stretch closes where the break began and, like `endDeclaredAway`,
+    /// work goes on as a new stretch on the same thread, its clock starting at
+    /// `end`. With no session behind the break nothing resumes. Emits nothing:
+    /// the caller refreshes, as for a transition.
+    @discardableResult
+    func endBreak(at end: Date? = nil) -> Date? {
+        guard let brk = activeBreak else { return nil }
+        let moment = max(brk.start, min(end ?? now(), now()))
+        if case .paused(.onBreak) = state {
+            let thread = activeThreadID
+            guard archiveCurrentSession(endingAt: brk.start) else { return nil }
+            recordStartedBreak(brk, endingAt: moment)
+            beginFreshSession()
+            activeThreadID = thread
+            sessionStartDate = moment
+        } else {
+            recordStartedBreak(brk, endingAt: moment)
+        }
+        activeBreak = nil
+        persist()
+        return moment
+    }
+
+    /// Ends a break nobody came back to: `longAwayCap` after its planned end,
+    /// not at the moment this notices. Returns that end; nil when the break is
+    /// not yet due. The session it paused ends as any long absence ends it,
+    /// archived where the break began, and the engine goes idle. A refused
+    /// save keeps the break and tries again on the next call.
+    @discardableResult
+    func expireBreakIfOutgrown() -> Date? {
+        guard let brk = activeBreak else { return nil }
+        let capEnd = brk.capEnd(longAwayCap: store.longAwayCap)
+        guard now() >= capEnd else { return nil }
+        if case .paused(.onBreak) = state {
+            guard endAbsentSession().applied else { return nil }
+        }
+        recordStartedBreak(brk, endingAt: capEnd)
+        activeBreak = nil
+        persist()
+        return capEnd
+    }
+
+    /// Writes a started break down at the length it really had, if that is at
+    /// least the shortest recorded session. Under the break's own id, so a
+    /// break written twice is one record.
+    func recordStartedBreak(_ brk: ActiveBreak, endingAt end: Date) {
+        let length = end.timeIntervalSince(brk.start)
+        guard length >= store.minimumRecordedSession else { return }
+        saveRests(adding: SessionRecord(id: brk.id, name: brk.label ?? "Break", workType: .breakTime,
+                                        start: brk.start, end: end, workSeconds: length,
+                                        threadID: UUID(), breakOrigin: .started,
+                                        plannedLength: brk.plannedLength))
+    }
+}

@@ -3,6 +3,15 @@ import Foundation
 extension SessionEngine {
     /// §3.1 rows for `.paused`. The `.watching` rows come first and win.
     func transitionFromPaused(on event: SessionEvent) -> Bool? {
+        // A break the person started ends only by their say-so (or its own
+        // cap, judged by `expireBreakIfOutgrown`). A work app in front,
+        // input, a lock, a film, Pause and the rest leave it as it is, so
+        // glancing at Slack is still a break and no row below can resume it.
+        if case .paused(.onBreak) = state {
+            guard event == .manualResume else { return false }
+            guard endBreak() != nil else { onStateChanged?(state); return nil }
+            return false
+        }
         var forceEmit = false
         switch (state, event) {
 

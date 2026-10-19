@@ -44,8 +44,9 @@ extension SessionEngine {
             recordApp(bundleID: bundleID, name: name)
             // Only the explicitly enabled legacy heuristic owns activation-
             // based starts. Rule automation waits for its evidenced deadline;
-            // all-off records foreground use without starting focus.
-            if store.automationMode == .legacyHeuristic,
+            // all-off records foreground use without starting focus. A break
+            // with no session is not an absence: nothing starts under it.
+            if store.automationMode == .legacyHeuristic, activeBreak == nil,
                categories.category(for: bundleID) == .work { beginFreshSession() }
         case (.idle, .resetSession):
             beginFreshSession()

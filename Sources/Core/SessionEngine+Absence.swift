@@ -12,12 +12,14 @@ extension SessionEngine {
         return interval(from: began) >= store.longAwayCap
     }
 
-    /// Whether a pause says nobody is at the session. Two do not: a break app
-    /// the user is looking at, and something on screen they are watching.
-    /// Both end with the user's own next move, not with the cap.
+    /// Whether a pause says nobody is at the session. Three do not: a break app
+    /// the user is looking at, something on screen they are watching, and a
+    /// break they started. The first two end with the user's own next move,
+    /// not with the cap; a break has a cap of its own, which counts from its
+    /// planned end (`expireBreakIfOutgrown`).
     static func pauseMeansNobodyHere(_ reason: PauseReason) -> Bool {
         switch reason {
-        case .distractionApp, .watching: return false
+        case .distractionApp, .watching, .onBreak: return false
         case .manual, .away, .idle, .systemSleep, .extendedBreak: return true
         }
     }

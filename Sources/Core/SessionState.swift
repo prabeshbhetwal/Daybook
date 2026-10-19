@@ -38,6 +38,10 @@ enum PauseReason: Equatable {
     /// work either outside Meetings and Learning, so the clock stops quietly
     /// and the stretch is written down as "Watching".
     case watching
+    /// A break the person started, timed by `ActiveBreak`. Only the person
+    /// ends it (End break, Resume, Start, Stop) or the break's own cap does:
+    /// a work app in front, input, a lock or an automatic rule leave it alone.
+    case onBreak
 
     var displayName: String {
         switch self {
@@ -48,6 +52,7 @@ enum PauseReason: Equatable {
         case .away: return "Away"
         case .idle: return "Paused (idle)"
         case .watching: return "Watching"
+        case .onBreak: return "On a break"
         }
     }
 }
@@ -514,6 +519,9 @@ struct PersistedState: Codable, Equatable {
     /// Rests the archive refused, still to be saved under these ids. Nil in
     /// snapshots written before they were kept, and whenever none wait.
     var pendingRests: [SessionRecord]? = nil
+    /// The break under way, if any. Nil in snapshots written before breaks
+    /// could be started, and whenever none is.
+    var activeBreak: ActiveBreak? = nil
 }
 
 extension PersistedState {
@@ -552,6 +560,7 @@ extension PersistedState {
             case .away: reason = "away"
             case .idle: reason = "idle"
             case .watching: reason = "watching"
+            case .onBreak: reason = "onBreak"
             case .distractionApp(let id):
                 reason = "distractionApp"
                 bundleID = id
@@ -583,7 +592,8 @@ extension PersistedState {
                   shadowAway: shadowAway)
     }
 
-    /// Rehydrates the pause reason; unknown values fall back to `.manual`.
+    /// Rehydrates the pause reason; unknown values fall back to `.manual`, and
+    /// so does a break pause with no break to go with it.
     var restoredPauseReason: PauseReason {
         switch pauseReason {
         case "distractionApp": return .distractionApp(bundleID: pauseBundleID ?? "")
@@ -592,6 +602,7 @@ extension PersistedState {
         case "away": return .away
         case "idle": return .idle
         case "watching": return .watching
+        case "onBreak": return activeBreak == nil ? .manual : .onBreak
         default: return .manual
         }
     }

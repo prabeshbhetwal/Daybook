@@ -61,6 +61,11 @@ extension SessionEngine {
         activeDetectedApp = snapshot.activeDetectedApp
         activeIsAuto = snapshot.isAuto ?? false
         activeAutomaticAction = snapshot.automaticActivityAction
+        // A break keeps its start and planned end across a relaunch. Whatever
+        // way this returns, one that outgrew its cap while the app was closed
+        // ends there, as it would have ended had the app been running.
+        activeBreak = snapshot.activeBreak
+        defer { if expireBreakIfOutgrown() != nil { onStateChanged?(state) } }
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
         correctionGeneration = snapshot.correctionGeneration ?? 0
         liveCorrectionGeneration = liveGeneration(of: snapshot)
@@ -104,7 +109,11 @@ extension SessionEngine {
         let absentSince = [presentWhilePaused ? nil : snapshot.pauseStart, snapshot.awayStart, snapshot.savedAt]
             .compactMap { $0 }.min() ?? snapshot.savedAt
         let left = min(snapshot.pauseStart ?? absentSince, absentSince)
-        let leftPastCap = snapshot.kind != .idle && interval(from: absentSince) >= store.longAwayCap
+        // A break is not measured from the last save: it is judged by its own
+        // cap, from its planned end, once this returns.
+        let onBreak = snapshot.kind == .paused && snapshot.restoredPauseReason == .onBreak
+        let leftPastCap = snapshot.kind != .idle && !onBreak
+            && interval(from: absentSince) >= store.longAwayCap
         // A saved answer to the question is replayed below first, so its
         // records stand, and its successor is ended after it.
         let answerSaved = snapshot.kind == .awaiting && archive.records.contains {

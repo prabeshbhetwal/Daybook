@@ -6,6 +6,16 @@ enum BreakTakingChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A break record written before origins existed still reads", oldRecordDecodes),
         ("Away, Watching and answered breaks say where they came from", restsAreTagged),
+        ("Starting a break pauses the session and times it", startPausesRunning),
+        ("Ending a break records its real length and resumes the thread", endRecordsAndResumes),
+        ("A break with no session records itself and starts nothing", idleBreakRecordsOnly),
+        ("A work app in front does not end a break", workAppDoesNotEndBreak),
+        ("No session starts by itself while a break runs", idleBreakBlocksLegacyStart),
+        ("A break survives a relaunch", breakSurvivesRelaunch),
+        ("A forgotten break ends at the long-away cap", forgottenBreakEndsAtCap),
+        ("A relaunch past the cap ends the break there", restorePastCapExpires),
+        ("A break across midnight is one record", breakAcrossMidnight),
+        ("A break is refused while an away question waits", refusedWhileDeciding),
     ]
 
     private static func oldRecordDecodes() -> [String] {
