@@ -32,6 +32,8 @@ struct SessionReport {
     /// Each visit's power reading, by interval id, only where it changed.
     let powerChanges: [String: PowerReading]
     let appColourIndices: [String: Int]
+    /// Why each listed gap is there, by interval id.
+    var gapReasons: [String: StoryGapReason] = [:]
 
     var title: String { session.workType.sessionTitle(named: session.name) }
     var apps: [AppRank] { detail.apps }
@@ -94,7 +96,9 @@ struct SessionReport {
                                  across: detail.activity.intervals,
                                  in: store.powerObservations(for: session.recordIDs)),
                              appColourIndices: colourIndices(apps: detail.apps,
-                                                             dayIndices: store.storyAppColourIndices))
+                                                             dayIndices: store.storyAppColourIndices),
+                             gapReasons: gapReasons(listing(detail.activity.intervals), store: store,
+                                                    day: session.start))
     }
 
     /// The day's palette names its busiest apps; anything below that shares
@@ -347,12 +351,14 @@ struct SessionReportView: View {
             // Latest first: the reader opens a report to see where it ended.
             // The chart above stays left-to-right in time.
             VStack(spacing: 0) {
-                ForEach(Array(report.intervals.reversed().enumerated()), id: \.element.id) { index, interval in
+                let listed = report.listedIntervals
+                ForEach(Array(listed.reversed().enumerated()), id: \.element.id) { index, interval in
                     ReportActivityRow(interval: interval,
                                       colourRank: interval.bundleID.flatMap { report.appColourIndices[$0] }
                                           ?? Tokens.Palette.distinctAppColourCount,
-                                      power: report.power(for: interval))
-                    if index < report.intervals.count - 1 { Divider() }
+                                      power: report.power(for: interval),
+                                      gapTitle: report.gapReasons[interval.id]?.title ?? "Not recorded")
+                    if index < listed.count - 1 { Divider() }
                 }
             }
         }

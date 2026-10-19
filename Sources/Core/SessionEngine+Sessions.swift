@@ -102,6 +102,15 @@ extension SessionEngine {
         persist()
     }
 
+    /// Claims the running automatic session as it stands: no rename, no
+    /// resume. The person confirmed its name or category in its card.
+    func claim() {
+        guard state != .idle, activeIsAuto else { return }
+        activeIsAuto = false
+        activeAutomaticAction = nil
+        persist()
+    }
+
     @discardableResult
     func start(workType: WorkType, intent: String, threadID: UUID = UUID(),
                isAuto: Bool = false) -> Bool {

@@ -47,6 +47,14 @@ extension SessionStore {
             }
     }
 
+    /// Why each gap in a day's recording is there, by the Story's own rule,
+    /// so a session report says "No input" where the day's hole card does.
+    func gapReasons(for gaps: [DateInterval], on day: Date) -> [StoryGapReason] {
+        let usage = effectiveUsageSnapshot?.sessions(touching: day) ?? []
+        let events = machineEvents(on: day), logStart = machineEventLog?.events.first?.at
+        return gaps.map { StoryChronology.gapReason(for: $0, usage: usage, events: events, eventLogStart: logStart) }
+    }
+
     /// The machine events of a day, oldest first, including one found
     /// afterwards whose window reaches into it.
     func machineEvents(on day: Date) -> [MachineEvent] {

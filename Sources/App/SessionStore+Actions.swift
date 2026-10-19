@@ -61,9 +61,6 @@ extension SessionStore {
         refresh()
     }
 
-    /// Drives the Start button's label, so the button says what it will do.
-    var startWouldContinue: Bool { engine.wouldAdopt(workType: workType, intent: intent) }
-
     // MARK: - Saved activities
 
     /// Recent names not already pinned, for the menu's second group.
