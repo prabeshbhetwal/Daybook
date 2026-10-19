@@ -7,7 +7,7 @@ import Foundation
 ///
 /// Ordered by depth, and evaluated deepest-first, so a due ultradian reset is
 /// never reported as a stretch break.
-enum BreakTier: Int, CaseIterable, Comparable {
+enum BreakTier: Int, CaseIterable, Comparable, Codable {
 
     /// 20-minute mark. Musculoskeletal and visual strain — the 20-20-20 rule.
     case micro = 0
@@ -105,6 +105,11 @@ enum BreakTier: Int, CaseIterable, Comparable {
 
 /// A break that has come due, with the words to say about it.
 struct BreakPrompt: Equatable {
+    /// Which showing this is. A prompt that comes back after a Later is a new
+    /// one, so a surface can tell it from the one it already dismissed.
+    /// `==` therefore compares ids too: two independently built prompts are
+    /// never equal.
+    let id: UUID = UUID()
     let tier: BreakTier
     /// Continuous work behind it. The real figure, not the tier's threshold —
     /// a reminder that fires late must not claim you have worked less than you
@@ -115,6 +120,8 @@ struct BreakPrompt: Equatable {
     /// How much of the stretch that app took, 0…1. Decides whether the app
     /// can carry the figure or only colour it.
     var appShare: Double = 1
+    /// False once this break has been put off as often as it may be.
+    var canLater = true
 
     var title: String { tier.title }
 
@@ -203,12 +210,14 @@ struct BreakReminder {
     static func evaluate(_ stretches: [AppUsageSession],
                          now: Date,
                          last: BreakNotice?,
-                         tiers: [BreakTier] = BreakTier.allCases) -> Evaluation {
+                         tiers: [BreakTier] = BreakTier.allCases,
+                         clock: BreakClock = BreakClock()) -> Evaluation {
         let ordered = latestRun(stretches, now: now,
                                 reaching: tiers.map(\.restGap).max() ?? 0)
         var done: [BreakTier: TimeInterval] = [:]
         for tier in tiers {
-            done[tier] = worked(sorted: ordered, now: now, restingAtLeast: tier.restGap)
+            done[tier] = worked(sorted: BreakClock.clip(ordered, at: clock.floors[tier]),
+                                now: now, restingAtLeast: tier.restGap)
         }
         let due = tiers.reversed()
             .first { (done[$0] ?? 0) >= $0.workThreshold }
@@ -230,7 +239,8 @@ struct BreakReminder {
         }
         return Evaluation(due: due, next: next,
                           prompt: prompt(ordered: ordered, now: now, last: last,
-                                         due: due, worked: done[due ?? .micro] ?? 0))
+                                         due: due, worked: done[due ?? .micro] ?? 0,
+                                         clock: clock))
     }
 
     /// How far back the walks below are expected to reach. A person rests
@@ -286,16 +296,28 @@ struct BreakReminder {
                                now: Date,
                                last: BreakNotice?,
                                due: BreakTier?,
-                               worked: TimeInterval) -> BreakPrompt? {
+                               worked: TimeInterval,
+                               clock: BreakClock) -> BreakPrompt? {
         guard let tier = due else { return nil }
-        if let last {
+        // A Later holds back its own tier and the shallower ones; once it
+        // runs out the break comes straight back, whatever was said last.
+        var laters = 0
+        var afterLater = false
+        if let snooze = clock.snooze {
+            if tier <= snooze.tier, now < snooze.until { return nil }
+            afterLater = tier == snooze.tier
+            laters = afterLater ? snooze.count : 0
+        }
+        if let last, !afterLater {
             let since = now.timeIntervalSince(last.at)
             if since < minimumSpacing { return nil }
             if tier <= last.tier, since < tier.workThreshold { return nil }
         }
-        let leader = dominant(ordered, now: now, within: tier.restGap)
+        let leader = dominant(BreakClock.clip(ordered, at: clock.floors[tier]),
+                              now: now, within: tier.restGap)
         return BreakPrompt(tier: tier, worked: worked,
-                           appName: leader?.name, appShare: leader?.share ?? 0)
+                           appName: leader?.name, appShare: leader?.share ?? 0,
+                           canLater: laters < BreakClock.maxLaters)
     }
 
     // The three below are conveniences over `evaluate`, not second copies of it.

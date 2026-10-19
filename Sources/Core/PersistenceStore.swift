@@ -25,9 +25,9 @@ final class PersistenceStore {
         static let menuApps = "fc.menuApps"
         static let trackingDisabled = "fc.trackingDisabled"
         static let remindersDisabled = "fc.remindersDisabled"
-        static let workInterval = "fc.workInterval"
         static let breakLength = "fc.breakLength"
         static let lastBreakNotice = "fc.lastBreakNotice"
+        static let breakClock = "fc.breakClock"
         static let lastBreakTier = "fc.lastBreakTier"
         static let longAwayCap = "fc.longAwayCap"
         static let fullPromptAfter = "fc.fullPromptAfter"
@@ -472,14 +472,6 @@ final class PersistenceStore {
         set { defaults.set(!newValue, forKey: Key.remindersDisabled) }
     }
 
-    var workInterval: TimeInterval {
-        get {
-            let stored = defaults.double(forKey: Key.workInterval)
-            return stored > 0 ? stored : FocusConstants.defaultWorkInterval
-        }
-        set { defaults.set(newValue, forKey: Key.workInterval) }
-    }
-
     var breakLength: TimeInterval {
         get {
             let stored = defaults.double(forKey: Key.breakLength)
@@ -732,6 +724,20 @@ final class PersistenceStore {
         }
     }
 
+    /// What was skipped, taken or put off, so a relaunch does not undo it.
+    var breakClock: BreakClock {
+        get { decode(BreakClock.self, forKey: Key.breakClock) ?? BreakClock() }
+        set {
+            guard newValue != BreakClock() else {
+                defaults.removeObject(forKey: Key.breakClock)
+                return
+            }
+            if let data = try? encoder.encode(newValue) {
+                defaults.set(data, forKey: Key.breakClock)
+            }
+        }
+    }
+
     /// Day, Week or Month. Unrecognised or missing values read as Day.
     var trackingPeriod: TrackingPeriod {
         get {
@@ -866,7 +872,7 @@ final class PersistenceStore {
                     Key.rewardsEnabled, Key.hapticsEnabled, Key.rewardLog, Key.learning,
                     Key.useAppleIntelligence, Key.yesterdayNoteDismissedDay,
                     Key.logGrouping,
-                    Key.remindersDisabled, Key.workInterval, Key.breakLength,
+                    Key.remindersDisabled, Key.breakLength, Key.breakClock,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
                     Key.storyTileOrderRawValue,
