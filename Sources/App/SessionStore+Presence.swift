@@ -187,35 +187,41 @@ extension SessionStore {
     /// breaks. It is operational state machinery, not a cosmetic title timer.
     func startTicker() {
         guard ticker == nil else { return }
-        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.tick += 1
-            self.observeIdle()
-            // Nothing else writes the open stretch to disk on a schedule, so a
-            // crash, a Force Quit or a `kill` took everything since the last app
-            // switch with it — `applicationWillTerminate` does not run for any
-            // of those. Bounded to a minute now, instead of unbounded.
-            if self.tick % SessionStore.flushEverySeconds == 0 {
-                if self.tracker?.openSeconds(
-                    exceeds: TimeInterval(SessionStore.flushEverySeconds)) == true {
-                    self.tracker?.flush()
-                }
-                // The engine's snapshot has the same problem: `savedAt` is the
-                // last app switch, and a relaunch reads everything since it as
-                // an absence. A heartbeat bounds that to a minute too.
-                if self.engine.state != .idle { self.engine.persist() }
-            }
-            // Breaks are timed from continuous use, which nothing else observes
-            // on a schedule: staying inside one app posts no notification, so a
-            // check driven only by refreshes never fired for exactly the person
-            // this feature exists for. Every few seconds is enough for a
-            // countdown shown in minutes, and keeps the archive walk off 1 Hz.
-            if self.tick % SessionStore.breakCheckSeconds == 0 { self.refreshBreak() }
-            self.updateTimeDrivenFigures()
-        }
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.runTick() }
         timer.tolerance = 0.25
         RunLoop.main.add(timer, forMode: .common)
         ticker = timer
+    }
+
+    /// One second of the ticker's work. The timer calls it; a check calls it
+    /// with its clock moved on, so what runs here is what runs in the app.
+    func runTick() {
+        tick += 1
+        observeIdle()
+        // A break under way is timed, ended and announced from here, after the
+        // idle reading above has told the presence gate what it needs to know.
+        tickBreak()
+        // Nothing else writes the open stretch to disk on a schedule, so a
+        // crash, a Force Quit or a `kill` took everything since the last app
+        // switch with it — `applicationWillTerminate` does not run for any
+        // of those. Bounded to a minute now, instead of unbounded.
+        if tick % SessionStore.flushEverySeconds == 0 {
+            if tracker?.openSeconds(
+                exceeds: TimeInterval(SessionStore.flushEverySeconds)) == true {
+                tracker?.flush()
+            }
+            // The engine's snapshot has the same problem: `savedAt` is the
+            // last app switch, and a relaunch reads everything since it as
+            // an absence. A heartbeat bounds that to a minute too.
+            if engine.state != .idle { engine.persist() }
+        }
+        // Breaks are timed from continuous use, which nothing else observes
+        // on a schedule: staying inside one app posts no notification, so a
+        // check driven only by refreshes never fired for exactly the person
+        // this feature exists for. Every few seconds is enough for a
+        // countdown shown in minutes, and keeps the archive walk off 1 Hz.
+        if tick % SessionStore.breakCheckSeconds == 0 { refreshBreak() }
+        updateTimeDrivenFigures()
     }
 
     func stopTicker() {

@@ -412,6 +412,7 @@ extension SessionStore {
     /// launched — reopening an app the user deliberately closed would be worse
     /// than doing nothing.
     func continueThread(_ thread: ThreadSummary) {
+        endBreakIfNeeded()
         let records = engine.archive.records
         let index = ContinuationPolicy.Index(records: records)
         guard !hasUnresolvedAwayDecision, !thread.isRunning,
@@ -430,6 +431,7 @@ extension SessionStore {
     /// labelled with it. Refuses when the app is not running — there is nothing
     /// to continue.
     func continueApp(_ summary: AppUsageSummary) {
+        endBreakIfNeeded()
         guard !hasUnresolvedAwayDecision,
               isRunning(bundleID: summary.bundleID) else { return }
         guard replaceSession(workType: engine.categories.suggestedWorkType(for: summary.bundleID),
@@ -901,6 +903,7 @@ extension SessionStore {
     /// record — it starts a new one on the same thread, so a long gap is never
     /// rendered as worked time.
     func continueSession(_ session: DaySession) {
+        endBreakIfNeeded()
         guard !hasUnresolvedAwayDecision, !session.isRunning,
               let canonical = canonicalRecord(for: session),
               ContinuationPolicy.isEligible(canonical, records: engine.archive.records,

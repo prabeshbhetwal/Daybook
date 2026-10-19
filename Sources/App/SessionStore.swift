@@ -19,6 +19,9 @@ final class SessionStore: ObservableObject {
     let metadataArchive: SessionMetadataArchive
     /// Readings taken while idle. A quiet block of the story reads its span.
     let ambientPower: AmbientPowerLog
+    /// Every break reminder shown and what became of it, and the rhythm each
+    /// day. Beside the sessions, as the readings above are.
+    let breakLog: BreakLog
     let powerMonitor: PowerSourceMonitoring?
     @Published var sessionNoteDrafts: [UUID: String] = [:]
     @Published var sessionNoteErrors: [UUID: String] = [:]
@@ -258,9 +261,22 @@ final class SessionStore: ObservableObject {
     @Published var isBreakDue = false
     /// Which kind of break is coming next, so the countdown can name it.
     @Published var nextBreakTier: BreakTier?
-    /// Raised when a break becomes due. The coordinator shows the HUD and posts
-    /// the notification; the prompt already carries its own words.
-    var onBreakDue: ((BreakPrompt) -> Void)?
+    /// Raised when a break becomes due. The coordinator shows the HUD or posts
+    /// the notification; the prompt already carries its own words. True when
+    /// the reminder reached the screen, which is the only kind the log keeps.
+    var onBreakDue: ((BreakPrompt) -> Bool)?
+    /// Time left on the break under way; negative once it is up, which is how
+    /// far over it has gone. Zero when none is.
+    @Published var breakRemaining: TimeInterval = 0
+    /// The planned time is up. True when the break-over HUD reached the
+    /// screen; until then it is offered again each second.
+    var onBreakOver: ((ActiveBreak) -> Bool)?
+    /// A break began or ended, however it did.
+    var onBreakBegan: (() -> Void)?
+    var onBreakEnded: (() -> Void)?
+    /// Input since the planned end, told apart from a glance at the screen.
+    /// Only `tickBreak` feeds it.
+    var sustained = SustainedActivity()
     /// The user declared themselves away. The coordinator suspends the usage
     /// tracker, which the engine cannot reach from `Core`.
     var onAwayBegan: (() -> Void)?
@@ -356,6 +372,10 @@ final class SessionStore: ObservableObject {
     /// Real HID idle in the product; tests inject `.disabled` so a fixture's
     /// open stretch is not trimmed by however long the build Mac sat untouched.
     let idle: IdleMonitor
+    /// The app in front, read when a break ends: the engine drops app
+    /// activations during one, and the session that goes on has to be told.
+    /// Self-tests hand the store a fixed answer.
+    let frontmostApplication: () -> (bundleID: String?, name: String)?
     /// Who holds the display awake right now: something watched — a video, a
     /// call, a presentation — or a keep-awake app. Set by the coordinator from
     /// powerd's assertion list; the default is neither.
@@ -416,6 +436,7 @@ final class SessionStore: ObservableObject {
          schedulesTicker: Bool = true,
          metadataArchive: SessionMetadataArchive? = nil,
          ambientPower: AmbientPowerLog? = nil,
+         breakLog: BreakLog? = nil,
          powerMonitor: PowerSourceMonitoring? = nil,
          applicationIsRunning: @escaping (String) -> Bool = {
              !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty
@@ -428,8 +449,14 @@ final class SessionStore: ObservableObject {
                  .activate(options: ignoringOtherApps ? ignoreOtherApps : [])
          },
          now: @escaping () -> Date = Date.init,
-         idle: IdleMonitor = IdleMonitor()) {
+         idle: IdleMonitor = IdleMonitor(),
+         frontmostApplication: @escaping () -> (bundleID: String?, name: String)? = {
+             NSWorkspace.shared.frontmostApplication.map {
+                 (bundleID: $0.bundleIdentifier, name: $0.localizedName ?? "Unknown")
+             }
+         }) {
         self.idle = idle
+        self.frontmostApplication = frontmostApplication
         self.engine = engine
         self.workType = engine.store.defaultWorkType
         self.appliedDefaultWorkType = engine.store.defaultWorkType
@@ -440,6 +467,8 @@ final class SessionStore: ObservableObject {
             ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
         self.ambientPower = ambientPower
             ?? AmbientPowerLog(directory: engine.archive.dataDirectoryURL)
+        self.breakLog = breakLog
+            ?? BreakLog(directory: engine.archive.dataDirectoryURL)
         self.powerMonitor = powerMonitor
         let recoveredObservations = engine.store.pendingPowerObservations
         let recoveredTransferError = engine.store.pendingPowerMetadataError

@@ -30,7 +30,7 @@ extension SessionStore {
 
     @discardableResult
     func applyAutomaticActivity(_ action: ActivityAutomaticAction) -> AutomaticActivityRecord? {
-        guard !hasUnresolvedAwayDecision,
+        guard !automationWaits,
               engine.store.automationMode == .activityRules,
               engine.store.activityRuleVersion == action.ruleVersion,
               engine.store.activityRuleCooldownUntil.map({ now() >= $0 }) ?? true,
@@ -67,6 +67,7 @@ extension SessionStore {
               record.acceptsUndo(for: expectedRecordID),
               engine.activeRecordID == expectedRecordID,
               engine.activeIsAuto, !hasUnresolvedAwayDecision else { return false }
+        endBreakIfNeeded()
         guard engine.discard() else {
             activityAutomationError = engine.awayDecisionError
                 ?? "The automatic activity could not be undone. Current work was preserved."
@@ -92,11 +93,17 @@ extension SessionStore {
         return pendingAway != nil
     }
 
+    /// Whether the detector and the activity rules may start or switch
+    /// anything: not while an away question waits for the person, and not
+    /// while they are on a break. `hasUnresolvedAwayDecision` stays what it
+    /// was, because the manual actions and the surfaces read it too.
+    var automationWaits: Bool { hasUnresolvedAwayDecision || isOnBreak }
+
     /// Starts a session on the detector's behalf, backdated to when the
     /// qualifying stretch actually began.
     func startAutomatically(workType: WorkType, name: String, backdatedTo: Date,
                             because: String) {
-        guard !hasUnresolvedAwayDecision else { return }
+        guard !automationWaits else { return }
         guard replaceSession(workType: workType, intent: name, isAuto: true) else { return }
         engine.backdate(to: backdatedTo)
         refresh()
@@ -105,6 +112,8 @@ extension SessionStore {
     @discardableResult
     func undoAutoSession(resumeTracking: Bool = false) -> Bool {
         guard isAutoSession, !hasUnresolvedAwayDecision else { return false }
+        // A discard beside a live break would leave the break with no session.
+        endBreakIfNeeded()
         let origin = (engine.activeThreadID, engine.sessionStartDate)
         let discarded = engine.discard()
         if let error = engine.awayDecisionError {

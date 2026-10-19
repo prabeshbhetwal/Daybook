@@ -8,7 +8,10 @@ extension SessionStore {
     /// Continuous computer use, session or not: the case that hurts is grinding
     /// for hours without ever pressing Start.
     func refreshBreak() {
-        guard let usageSnapshot = effectiveUsageSnapshot,
+        // A break being taken is the answer to a reminder, and nothing is due
+        // while one runs.
+        guard !isOnBreak,
+              let usageSnapshot = effectiveUsageSnapshot,
               engine.store.remindersEnabled,
               remindersPausedByCategory == nil else {
             breakCountdown = 0
@@ -16,17 +19,41 @@ extension SessionStore {
             nextBreakTier = nil
             return
         }
-        let moment = Date()
+        let moment = now()
+        let tiers = BreakTier.allCases.filter(engine.store.enabledBreakTiers.contains)
+        let kept = engine.store.breakClock
         let result = BreakReminder.evaluate(usageSnapshot.sessions, now: moment,
                                             last: engine.store.lastBreakNotice,
-                                            tiers: BreakTier.allCases.filter(engine.store.enabledBreakTiers.contains))
+                                            tiers: tiers, clock: kept)
+        // `evaluate` ignores a Later that belongs to a break that is over, but
+        // only in its own copy. The drop is made here too, or the next Later of
+        // a new run would be counted on top of the old ones.
+        if kept.snooze != nil, result.clock.snooze == nil {
+            var cleared = kept
+            cleared.snooze = nil
+            engine.store.breakClock = cleared
+        }
+        breakLog.noteRhythm(BreakRhythmSnapshot.fromTiers(Set(tiers)), on: moment)
         breakCountdown = result.next?.seconds ?? 0
         nextBreakTier = result.next?.tier
         isBreakDue = result.due != nil
 
         guard let prompt = result.prompt else { return }
         engine.store.lastBreakNotice = BreakNotice(tier: prompt.tier, at: moment)
-        onBreakDue?(prompt)
+        // Only a reminder that reached the screen is a reminder shown.
+        if onBreakDue?(prompt) == true { logShown(prompt, at: moment) }
+    }
+
+    /// Eyes prompts are counted by day; every other kind is listed, under the
+    /// id of this showing. A prompt that returns after a Later is a new one.
+    private func logShown(_ prompt: BreakPrompt, at moment: Date) {
+        guard prompt.tier != .micro else {
+            breakLog.noteEyesPrompt(at: moment)
+            return
+        }
+        let overdue = max(0, prompt.worked - prompt.tier.workThreshold)
+        breakLog.recordShown(BreakPromptEntry(id: prompt.id, kind: BreakPromptKind.of(prompt.tier),
+                                              due: moment.addingTimeInterval(-overdue), shown: moment))
     }
 
     // Settings are written by `SettingsModel`; these are the read side the

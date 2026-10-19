@@ -26,6 +26,10 @@ extension SessionEngine {
             guard state == .running else { return false }
         case .idle, .running: break
         }
+        // What `transition(on:)` does before any event: a new moment, so the
+        // result of an earlier long absence is not shown again beside the break.
+        transitionRevision &+= 1
+        lastLongAwayTransition = nil
         let began = now()
         let typed = label?.trimmingCharacters(in: .whitespacesAndNewlines)
         activeBreak = ActiveBreak(start: began, plannedEnd: began.addingTimeInterval(planned),

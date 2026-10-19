@@ -145,6 +145,7 @@ extension SelfTest {
             + BreakTakingChecks.tests
             + BreakClockChecks.tests
             + BreakLogChecks.tests
+            + BreakStoreChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

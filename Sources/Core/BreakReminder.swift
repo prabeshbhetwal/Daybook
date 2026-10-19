@@ -205,6 +205,10 @@ struct BreakReminder {
         let due: BreakTier?
         let next: (tier: BreakTier, seconds: TimeInterval)?
         let prompt: BreakPrompt?
+        /// The clock the answer was worked from: the one passed in, less the
+        /// floors and the Later that could not be believed. A caller that keeps
+        /// the clock compares it with its own to keep what was dropped dropped.
+        let clock: BreakClock
     }
 
     static func evaluate(_ stretches: [AppUsageSession],
@@ -247,7 +251,8 @@ struct BreakReminder {
         return Evaluation(due: due, next: next,
                           prompt: prompt(ordered: ordered, now: now, last: last,
                                          due: due, worked: done[due ?? .micro] ?? 0,
-                                         clock: clock))
+                                         clock: clock),
+                          clock: clock)
     }
 
     /// How far back the walks below are expected to reach. A person rests

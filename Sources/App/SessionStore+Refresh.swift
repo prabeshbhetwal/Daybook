@@ -79,6 +79,9 @@ extension SessionStore {
     /// lock and sleep, which is when `suspend()` closes the stretch.
     private var ticks: Bool {
         if tracker?.isObserving == true { return true }
+        // A break counts down, and ends, on this ticker, with a session
+        // paused beneath it or none at all.
+        if isOnBreak { return true }
         return engine.state != .idle && !engine.state.isPaused
     }
 

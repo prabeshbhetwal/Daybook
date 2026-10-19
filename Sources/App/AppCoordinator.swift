@@ -201,7 +201,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             store.presentActivityChoice(nil)
         }
 
-        if engine.store.automationMode == .legacyHeuristic && !decisionPending {
+        // Nor does it evaluate on a break: its `.resume` is `.manualResume`, which
+        // ends one, and it would time work that is not happening. The reset
+        // below drops whatever it had counted.
+        if engine.store.automationMode == .legacyHeuristic && !decisionPending && !store.isOnBreak {
             // `state != .idle` rather than `state.isRunning`: a session the
             // detector paused is still its session, and reporting it as gone
             // would make the detector discard the pause it is timing.
@@ -212,10 +215,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                              enginePaused: engine.state.isPaused)
             apply(decision)
         } else if engine.store.automationMode != .activityRules {
-            // Nothing evaluates while disabled or while a decision is pending,
-            // so a qualifying run frozen at switch-off would fire the instant it
-            // is switched back on, backdated arbitrarily far — in the pending
-            // case, across the very gap the user is being asked about.
+            // Nothing evaluates while disabled, while a decision is pending or
+            // while on a break, so a qualifying run frozen at switch-off would
+            // fire the instant it is switched back on, backdated arbitrarily
+            // far — in the pending case, across the very gap the user is being
+            // asked about.
             detector.reset()
         }
         evaluateRewards(score: score, at: moment, usageSnapshot: usageSnapshot)
@@ -247,6 +251,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         if screenLocked { presence = .locked }
         else if machineSleeping { presence = .sleeping }
         else if case .paused(reason: .away) = engine.state { presence = .away }
+        // A break is stepping away: no rule starts or switches anything under it.
+        else if store.isOnBreak { presence = .away }
         else { presence = .present }
         let snapshot = store.effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage, tracker: tracker)
         let coverage = Self.recentCoverage(snapshot.sessions, endingAt: moment)
@@ -646,7 +652,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // or declared away — the notification, which survives in Notification
         // Centre until you are back. Both at once said the same thing twice.
         store.onBreakDue = { [weak self] prompt in
-            guard let self else { return }
+            guard let self else { return false }
             let away: Bool
             if case .paused(reason: .away) = self.engine.state { away = true } else { away = false }
             let reachesScreen = AppCoordinator.breakReminderReachesScreen(
@@ -656,7 +662,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                 away: away)
             guard reachesScreen else {
                 self.notifier.postBreakReminder(title: prompt.title, body: prompt.body)
-                return
+                return false
             }
             Task { @MainActor in
                 self.hud.show(title: prompt.title,
@@ -668,6 +674,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                 // notification above and no pulse.
                 self.haptics.play(.breakDue)
             }
+            return true
         }
     }
 
