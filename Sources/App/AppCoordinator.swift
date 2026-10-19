@@ -560,7 +560,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // Launched behind a lock, nothing is in front of anyone: seeding the
         // frontmost app would record usage nobody is producing.
         if AppCoordinator.permitsInitialUsageSeed(screenLocked: screenLocked,
-                                                  displayAsleep: displayAsleep),
+                                                  displayAsleep: displayAsleep,
+                                                  onBreak: store.isOnBreak),
            let frontmost = NSWorkspace.shared.frontmostApplication {
             foregroundGeneration &+= 1
             engine.transition(on: .appActivated(bundleID: frontmost.bundleIdentifier,
@@ -575,6 +576,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // about themselves.
         PurposeMap.declaredCategory = { AppCategoryReader.shared.category(for: $0) }
         store.attach(tracker: tracker, usage: usage)
+        // A break restored at launch is still a break: nothing records until it ends.
+        if store.isOnBreak { tracker.suspend() }
         store.onDeferredAutomationReady = { [weak self] in self?.scheduleAutomation() }
         store.onAutomationStateChanged = { [weak self] in self?.scheduleAutomation() }
         store.onActivityChoiceSelected = { [weak self] ruleID in
@@ -661,8 +664,12 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self.showBreakReminder(prompt) }
             return true
         }
+        // The person must also be back at the keys: a break is over while they
+        // may be across the room, and a prompt nobody saw is not delivered.
         store.onBreakOver = { [weak self] brk in
-            guard let self, self.breakReachesScreen else { return false }
+            guard let self, AppCoordinator.breakOverReachesPerson(
+                reachesScreen: self.breakReachesScreen,
+                idleSeconds: self.densityIdle.idleSeconds()) else { return false }
             MainActor.assumeIsolated { self.showBreakOver(brk) }
             return true
         }
@@ -678,8 +685,19 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             away: away)
     }
 
+    /// What a button does. `prompt` is the reminder it answers, if it is one.
+    private func answerBreak(_ action: BreakHUDAction, prompt: BreakPrompt?) {
+        switch action {
+        case .start: store.startBreak(from: prompt)
+        case .later: if let prompt { store.laterBreak(prompt) }
+        case .skip: if let prompt { store.skipBreak(prompt) }
+        case .resume, .done: store.endBreak()
+        case .extend: store.extendBreak()
+        }
+    }
+
     /// The eyes tier stays the buttonless reward HUD; the others answer with
-    /// buttons. Each button's name picks what it does.
+    /// buttons.
     @MainActor private func showBreakReminder(_ prompt: BreakPrompt) {
         let copy = BreakHUDCopy.reminder(prompt)
         if prompt.tier == .micro {
@@ -687,13 +705,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                      symbolName: prompt.tier.symbolName,
                      duration: FocusConstants.breakHUDSeconds, undo: nil)
         } else {
-            let buttons = copy.buttons.enumerated().map { index, title in
-                BreakHUDButton(title: title, isPrimary: index == 0) { [weak self] in
-                    switch title {
-                    case "Start break": self?.store.startBreak(from: prompt)
-                    case "Skip": self?.store.skipBreak(prompt)
-                    default: self?.store.laterBreak(prompt)
-                    }
+            let buttons = copy.buttons.enumerated().map { index, choice in
+                BreakHUDButton(title: choice.title, isPrimary: index == 0) { [weak self] in
+                    self?.answerBreak(choice.action, prompt: prompt)
                 }
             }
             breakHUD.show(BreakHUDContent(
@@ -710,17 +724,14 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         let pausedOnIt = brk.threadID != nil && brk.threadID == engine.activeThreadID
             && engine.state == .paused(reason: .onBreak)
         let copy = BreakHUDCopy.breakOver(threadName: pausedOnIt ? store.activeIntent : nil)
+        let buttons = copy.buttons.enumerated().map { index, choice in
+            BreakHUDButton(title: choice.title, isPrimary: index == 0) { [weak self] in
+                self?.answerBreak(choice.action, prompt: nil)
+            }
+        }
         breakHUD.show(BreakHUDContent(
             title: copy.title, detail: copy.detail, symbolName: "cup.and.saucer.fill",
-            buttons: [
-                BreakHUDButton(title: copy.buttons[0], isPrimary: true) { [weak self] in
-                    self?.store.endBreak()
-                },
-                BreakHUDButton(title: copy.buttons[1], isPrimary: false) { [weak self] in
-                    self?.store.extendBreak()
-                },
-            ],
-            duration: FocusConstants.breakHUDSeconds, onTimeout: nil))
+            buttons: buttons, duration: FocusConstants.breakHUDSeconds, onTimeout: nil))
         if engine.store.breakOverSound { NSSound(named: "Tink")?.play() }
     }
 
@@ -830,9 +841,11 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     /// Pure launch policy kept at the lifecycle seam so sleep/lock combinations
     /// can be verified without manipulating the real display in a headless run.
+    /// A break restored at launch seeds nothing either: no one is working.
     static func permitsInitialUsageSeed(screenLocked: Bool,
-                                        displayAsleep: Bool) -> Bool {
-        !screenLocked && !displayAsleep
+                                        displayAsleep: Bool,
+                                        onBreak: Bool = false) -> Bool {
+        !screenLocked && !displayAsleep && !onBreak
     }
 
     /// Whether a break reminder shown on this display would be seen. When it
@@ -843,6 +856,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                                            machineSleeping: Bool,
                                            away: Bool) -> Bool {
         !screenLocked && !displayAsleep && !machineSleeping && !away
+    }
+
+    /// Whether the break-over prompt would be seen by someone: the screen is
+    /// reachable and a hand has touched the keys or pointer in the last 10 s.
+    /// Otherwise it waits, and is shown when the person is back.
+    static func breakOverReachesPerson(reachesScreen: Bool, idleSeconds: TimeInterval) -> Bool {
+        reachesScreen && idleSeconds <= 10
     }
 
     /// Once per process, before the store exists: locked or asleep at launch

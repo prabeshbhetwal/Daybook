@@ -134,7 +134,7 @@ struct BreakPrompt: Equatable {
     /// "mostly"; anything less names the Mac.
     ///
     /// The title already says what to do and for how long, so the body says
-    /// only why now. "Stretch" stays: a notification shows no reason text.
+    /// only why now. "Stretch" stays: the buttoned reminders show this body and nothing else.
     var body: String {
         let spent = BreakPrompt.phrase(worked)
         switch tier {

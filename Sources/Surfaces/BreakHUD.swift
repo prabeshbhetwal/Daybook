@@ -1,6 +1,11 @@
 import SwiftUI
 import AppKit
 
+/// What a button does. The words are the copy's; the doing is the caller's.
+enum BreakHUDAction: Equatable {
+    case start, later, skip, resume, extend, done
+}
+
 struct BreakHUDButton {
     let title: String
     let isPrimary: Bool
@@ -21,24 +26,26 @@ struct BreakHUDContent {
 /// without a screen. A button's position here is its position in the row; the
 /// coordinator pairs each with what it does.
 enum BreakHUDCopy {
-    static func reminder(_ prompt: BreakPrompt) -> (title: String, detail: String, buttons: [String]) {
-        var buttons = ["Start break"]
+    typealias Choice = (title: String, action: BreakHUDAction)
+
+    static func reminder(_ prompt: BreakPrompt) -> (title: String, detail: String, buttons: [Choice]) {
+        var buttons: [Choice] = [("Start break", .start)]
         switch prompt.tier {
         case .micro: buttons = []
         case .cognitive:
-            if prompt.canLater { buttons.append("Later") }
-            buttons.append("Skip")
+            if prompt.canLater { buttons.append(("Later", .later)) }
+            buttons.append(("Skip", .skip))
         case .ultradian:
             // The long-stretch prompt is put off for 15 minutes, never skipped.
-            if prompt.canLater { buttons.append("Remind me in 15 min") }
+            if prompt.canLater { buttons.append(("Remind me in 15 min", .later)) }
         }
         return (prompt.title, prompt.body, buttons)
     }
 
     /// `threadName` is the session the break paused, or nil when none was.
-    static func breakOver(threadName: String?) -> (title: String, detail: String, buttons: [String]) {
+    static func breakOver(threadName: String?) -> (title: String, detail: String, buttons: [Choice]) {
         ("Break's over", threadName.map { "Back to \($0)?" } ?? "",
-         [threadName == nil ? "Done" : "Resume", "+5 min"])
+         [threadName == nil ? ("Done", .done) : ("Resume", .resume), ("+5 min", .extend)])
     }
 }
 
@@ -108,6 +115,9 @@ final class BreakHUD {
     private var generation = 0
     /// What to run if the content on screen goes away unanswered.
     private var pendingTimeout: (() -> Void)?
+    /// Cleared by `show`, set by the first press: the panel is still under the
+    /// pointer while it fades, and a second click must not answer twice.
+    private var answered = false
     private var zoomFollower: ZoomFollower?
 
     init() {
@@ -142,6 +152,8 @@ final class BreakHUD {
         generation += 1
         let thisGeneration = generation
         dismissWorkItem?.cancel()
+        answered = false
+        panel.ignoresMouseEvents = false
         model.content = content
         pendingTimeout = content.onTimeout
         reposition()
@@ -155,7 +167,7 @@ final class BreakHUD {
                 panel.animator().alphaValue = 1
             }
         }
-        Announcement.post([content.title, content.detail].filter { !$0.isEmpty }.joined(separator: ". "))
+        Announcement.post(Self.spoken(content))
         // VoiceOver cannot move into a panel that is never key: a listener
         // hears it once and needs time to act elsewhere.
         let shownFor = NSWorkspace.shared.isVoiceOverEnabled ? content.duration * 3 : content.duration
@@ -172,7 +184,15 @@ final class BreakHUD {
 
     /// Takes the HUD away without running its timeout: whoever calls it has
     /// already dealt with what it asked.
+    /// What VoiceOver says. The buttons cannot be reached from a panel that is
+    /// never key, so a listener is told where they can be answered.
+    static func spoken(_ content: BreakHUDContent) -> String {
+        let said = RewardHUD.spoken(title: content.title, detail: content.detail, hasUndo: false)
+        return content.buttons.isEmpty ? said : said + " To answer, open Daybook from the menu bar."
+    }
+
     func dismiss() {
+        panel.ignoresMouseEvents = true
         generation += 1
         pendingTimeout = nil
         dismissWorkItem?.cancel()
@@ -180,7 +200,10 @@ final class BreakHUD {
         fadeOutAndOrderOut(generation: generation)
     }
 
-    private func pressed(_ button: BreakHUDButton) {
+    /// The first press answers; any later one, while the panel fades, is ignored.
+    func pressed(_ button: BreakHUDButton) {
+        guard !answered else { return }
+        answered = true
         dismiss()
         button.action()
     }

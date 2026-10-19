@@ -261,8 +261,8 @@ final class SessionStore: ObservableObject {
     @Published var isBreakDue = false
     /// Which kind of break is coming next, so the countdown can name it.
     @Published var nextBreakTier: BreakTier?
-    /// Raised when a break becomes due. The coordinator shows the HUD or posts
-    /// the notification; the prompt already carries its own words. True when
+    /// Raised when a break becomes due. The coordinator shows the HUD; the
+    /// prompt already carries its own words. True when
     /// the reminder reached the screen, which is the only kind the log keeps.
     var onBreakDue: ((BreakPrompt) -> Bool)?
     /// Time left on the break under way; negative once it is up, which is how

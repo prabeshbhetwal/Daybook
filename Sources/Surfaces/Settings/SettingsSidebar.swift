@@ -168,7 +168,7 @@ extension SettingsSection {
                     "Count a coding app in front as you being here",
                     "Count a keep-awake app as you being here",
                     "Let your agent tell Daybook when it works", "Remind me to take breaks",
-                    "After 20 minutes"]
+                    "Play a sound when a break is over", "After 20 minutes"]
         case .automatic:
             return ["Guess sessions from the app in front", "End a paused automatic session after",
                     "Celebrate milestones", "Haptic feedback", "Try haptic feedback"]
@@ -199,7 +199,7 @@ extension SettingsSection {
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
         case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .agentQuiet,
-                            .appsAtWork, .agentAppInFront, .keepAwake, .reminders, .breakTiers]
+                            .appsAtWork, .agentAppInFront, .keepAwake, .reminders, .breakOverSound, .breakTiers]
         case .automatic: return [.automaticSessions, .automaticGap, .rewards, .haptics]
         case .activities: return [.activityRuleAutomation, .activityRules]
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]

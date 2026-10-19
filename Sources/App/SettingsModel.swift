@@ -13,6 +13,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case longAwayCap
     case fullPromptAfter
     case reminders
+    case breakOverSound
     case automaticSessions
     case activityRuleAutomation
     case activityRules
@@ -63,6 +64,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .longAwayCap: return \SettingsModel.longAwayCap
         case .fullPromptAfter: return \SettingsModel.fullPromptAfter
         case .reminders: return \SettingsModel.remindersEnabled
+        case .breakOverSound: return \SettingsModel.breakOverSound
         case .automaticSessions: return \SettingsModel.autoSessionsEnabled
         case .activityRuleAutomation: return \SettingsModel.activityRuleAutomationEnabled
         case .activityRules: return \SettingsModel.activityRules
