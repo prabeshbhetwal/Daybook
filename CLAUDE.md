@@ -107,7 +107,7 @@ open-ended bug hunt over an area, use the `probe-hunter` agent.
 ## Live data
 
 `~/Library/Application Support/Daybook/` (`sessions.json`,
-`app-usage.json`) and the `com.prabesh.daybook` defaults domain are the
+`app-usage.json`, `break-log.json`) and the `com.prabesh.daybook` defaults domain are the
 user's real history. `.claude/hooks/guard-live-data.py` blocks Claude from
 changing them. `FC_LIVE_DATA_OK=1` in a command lets one through; use it only
 when the user has asked for that exact change. After editing the guard, run

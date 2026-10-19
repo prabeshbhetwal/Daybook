@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """PreToolUse guard: Claude may read Daybook's live data, never change it.
 
-The live data is the user's real history: sessions.json and app-usage.json in
-Application Support, and the app's own preferences domain. Checks and probes
+The live data is the user's real history: sessions.json, app-usage.json and
+break-log.json in Application Support, and the app's own preferences domain. Checks and probes
 use a scratch archive and an in-memory `MemoryDefaults` suite instead.
 The self-test suites (`com.prabesh.daybook.selftest.*`) are not live data and
 are not guarded. Until the October 2026 rename the app was FocusContinuity;
@@ -149,6 +149,8 @@ def check():
         f"mv {data} /tmp/old",
         f"echo '{{}}' > {data}/app-usage.json",
         f"cp /tmp/a.json {data}/sessions.json",
+        f"echo '{{}}' > {data}/break-log.json",
+        f"rm {data}/break-log.json",
         f"cd /tmp && rm -rf {data}",
         f"sed -i '' s/a/b/ {data}/sessions.json",
         "find ~/Library/Application\\ Support -name '*.json' -delete",

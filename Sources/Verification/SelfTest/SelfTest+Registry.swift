@@ -144,6 +144,7 @@ extension SelfTest {
             + CardClaimChecks.tests
             + BreakTakingChecks.tests
             + BreakClockChecks.tests
+            + BreakLogChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
