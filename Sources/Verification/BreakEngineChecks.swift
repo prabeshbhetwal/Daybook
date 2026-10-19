@@ -28,6 +28,16 @@ extension BreakTakingChecks {
                       schedulesDwell: false, now: { clock.value })
     }
 
+    /// An engine whose archive refuses writes while `refuses` says so.
+    static func gatedEngine(_ clock: TestClock, refuses: @escaping () -> Bool) -> SessionEngine {
+        let store = PersistenceStore(defaults: MemoryDefaults.suite(named: SelfTest.suiteName) ?? .standard)
+        store.removeAll()
+        let archive = SessionArchive(directory: SelfTest.scratchDirectory(), now: { clock.value },
+                                     writeOverride: { _ in refuses() ? "You don't have permission to save." : nil })
+        return SessionEngine(store: store, archive: archive, ownBundleID: FocusConstants.bundleIdentifier,
+                             schedulesDwell: false, now: { clock.value })
+    }
+
     static func startPausesRunning() -> [String] {
         var problems: [String] = []
         let clock = TestClock(SelfTest.base)
@@ -183,6 +193,59 @@ extension BreakTakingChecks {
         declared.start(workType: .deepWork, intent: "Parser"); away.advance(600)
         declared.transition(on: .markedAway)
         expect(!declared.startBreak(length: 300), "refused while away", &problems)
+        return problems
+    }
+
+    static func retryClearsRefusal() -> [String] {
+        var problems: [String] = []
+        var refuses = false
+        let clock = TestClock(SelfTest.base)
+        let engine = gatedEngine(clock) { refuses }
+        engine.start(workType: .deepWork, intent: "Parser"); clock.advance(600)
+        engine.startBreak(length: 300); clock.advance(400)
+        refuses = true
+        expect(engine.endBreak() == nil && engine.state == .paused(reason: .onBreak)
+                && engine.activeBreak != nil, "a refused save keeps the break", &problems)
+        expect(engine.awayDecisionError != nil, "and says why", &problems)
+        refuses = false
+        expect(engine.endBreak() != nil && engine.state == .running, "the retry ends it", &problems)
+        expect(engine.awayDecisionError == nil, "and the refusal is not left behind", &problems)
+
+        var refusesExpiry = false
+        let late = TestClock(SelfTest.base)
+        let forgotten = gatedEngine(late) { refusesExpiry }
+        forgotten.start(workType: .deepWork, intent: "Parser"); late.advance(600)
+        forgotten.startBreak(length: 300)
+        late.advance(300 + forgotten.store.longAwayCap + 60)
+        refusesExpiry = true
+        expect(forgotten.expireBreakIfOutgrown() == nil && forgotten.activeBreak != nil,
+               "a refused save keeps the expired break to retry", &problems)
+        expect(forgotten.awayDecisionError != nil, "and says why", &problems)
+        refusesExpiry = false
+        expect(forgotten.expireBreakIfOutgrown() != nil && forgotten.state == .idle,
+               "the retry ends it", &problems)
+        expect(forgotten.awayDecisionError == nil, "and the refusal is not left behind", &problems)
+        return problems
+    }
+
+    static func breakLengthIsCapped() -> [String] {
+        var problems: [String] = []
+        let clock = TestClock(SelfTest.base)
+        let engine = SelfTest.makeEngine(clock)
+        engine.start(workType: .deepWork, intent: "Parser"); clock.advance(600)
+        expect(engine.startBreak(length: 1e300), "an absurd length is taken as the longest", &problems)
+        expect(engine.activeBreak?.plannedLength == BreakLength.maximum, "a day at most", &problems)
+        engine.extendBreak(by: .greatestFiniteMagnitude)
+        engine.extendBreak(by: .greatestFiniteMagnitude)
+        expect(engine.activeBreak?.plannedLength == BreakLength.maximum, "extending cannot pass it", &problems)
+        expect(engine.store.loadState()?.activeBreak == engine.activeBreak,
+               "and the break still saves", &problems)
+
+        let nearDay = SelfTest.makeEngine(TestClock(SelfTest.base))
+        nearDay.startBreak(length: BreakLength.maximum - 300)
+        nearDay.extendBreak(by: BreakLength.extra)
+        nearDay.extendBreak(by: BreakLength.extra)
+        expect(nearDay.activeBreak?.plannedLength == BreakLength.maximum, "plus five minutes stops at a day", &problems)
         return problems
     }
 }

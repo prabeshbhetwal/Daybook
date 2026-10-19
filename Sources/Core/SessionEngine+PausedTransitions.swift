@@ -7,7 +7,8 @@ extension SessionEngine {
         // cap, judged by `expireBreakIfOutgrown`). A work app in front,
         // input, a lock, a film, Pause and the rest leave it as it is, so
         // glancing at Slack is still a break and no row below can resume it.
-        if case .paused(.onBreak) = state {
+        // A break pause with no break to go with it is a plain pause.
+        if case .paused(.onBreak) = state, activeBreak != nil {
             guard event == .manualResume else { return false }
             guard endBreak() != nil else { onStateChanged?(state); return nil }
             return false

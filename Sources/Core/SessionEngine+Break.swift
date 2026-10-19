@@ -15,6 +15,7 @@ extension SessionEngine {
     @discardableResult
     func startBreak(length: TimeInterval, label: String? = nil) -> Bool {
         guard activeBreak == nil, length.isFinite, length > 0 else { return false }
+        let planned = min(length, BreakLength.maximum)
         switch state {
         case .awaitingUserDecision: return false
         case .paused(.away), .paused(.idle), .paused(.systemSleep): return false
@@ -27,7 +28,7 @@ extension SessionEngine {
         }
         let began = now()
         let typed = label?.trimmingCharacters(in: .whitespacesAndNewlines)
-        activeBreak = ActiveBreak(start: began, plannedEnd: began.addingTimeInterval(length),
+        activeBreak = ActiveBreak(start: began, plannedEnd: began.addingTimeInterval(planned),
                                   label: typed?.isEmpty == false ? typed : nil,
                                   threadID: state == .running ? activeThreadID : nil)
         if state == .running { enterPause(reason: .onBreak) }
@@ -35,11 +36,16 @@ extension SessionEngine {
         return true
     }
 
-    /// Adds time to the break. The break-over prompt is due again at the new
-    /// end, so it is no longer noticed.
+    /// Adds time to the break, up to `BreakLength.maximum` in all. The
+    /// break-over prompt is due again at the new end, so it is no longer
+    /// noticed.
     func extendBreak(by seconds: TimeInterval) {
         guard var brk = activeBreak, seconds.isFinite, seconds > 0 else { return }
-        brk.plannedEnd = brk.plannedEnd.addingTimeInterval(seconds)
+        // The sum is clamped, not just the input: two huge extensions would
+        // add up to infinity, which no snapshot can store.
+        let length = min(brk.plannedLength + seconds, BreakLength.maximum)
+        guard length > brk.plannedLength else { return }
+        brk.plannedEnd = brk.start.addingTimeInterval(length)
         brk.overNoticed = false
         activeBreak = brk
         persist()
@@ -67,6 +73,8 @@ extension SessionEngine {
         let moment = max(brk.start, min(end ?? now(), now()))
         if case .paused(.onBreak) = state {
             let thread = activeThreadID
+            // A refusal from an earlier try must not outlive a retry that works.
+            awayDecisionError = nil
             guard archiveCurrentSession(endingAt: brk.start) else { return nil }
             recordStartedBreak(brk, endingAt: moment)
             beginFreshSession()
@@ -91,6 +99,7 @@ extension SessionEngine {
         let capEnd = brk.capEnd(longAwayCap: store.longAwayCap)
         guard now() >= capEnd else { return nil }
         if case .paused(.onBreak) = state {
+            awayDecisionError = nil
             guard endAbsentSession().applied else { return nil }
         }
         recordStartedBreak(brk, endingAt: capEnd)

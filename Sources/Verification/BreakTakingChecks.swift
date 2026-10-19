@@ -16,6 +16,12 @@ enum BreakTakingChecks: CheckSuite {
         ("A relaunch past the cap ends the break there", restorePastCapExpires),
         ("A break across midnight is one record", breakAcrossMidnight),
         ("A break is refused while an away question waits", refusedWhileDeciding),
+        ("A refused end of a break leaves no stale error once retried", retryClearsRefusal),
+        ("A break that was already recorded does not come back after a relaunch", recordedBreakStaysEnded),
+        ("A break pause with no break can still be resumed", breakPauseWithoutBreakResumes),
+        ("A break cannot be planned for more than a day", breakLengthIsCapped),
+        ("A break pause counts as someone being here", breakPauseIsPresence),
+        ("A correction checkpoint taken during a break restores the break", correctionCheckpointKeepsBreak),
     ]
 
     private static func oldRecordDecodes() -> [String] {

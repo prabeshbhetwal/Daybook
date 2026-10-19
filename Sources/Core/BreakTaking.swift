@@ -59,4 +59,8 @@ enum BreakLength {
     static let choices: [TimeInterval] = [300, 600, 900, 1_800]
     /// What "+5 min" adds.
     static let extra: TimeInterval = 300
+    /// The longest a break can be planned for, however it was asked for or
+    /// extended. A day is longer than any break; an unbounded length reaches
+    /// infinity, which no snapshot can store.
+    static let maximum: TimeInterval = 86_400
 }

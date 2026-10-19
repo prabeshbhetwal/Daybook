@@ -1,6 +1,7 @@
 import Foundation
 
-/// The engine's break across a relaunch, past its cap and over midnight.
+/// The engine's break across a relaunch, past its cap, over midnight, and as
+/// the correction checkpoints and recovery paths find it.
 /// Registered through `BreakTakingChecks.tests`.
 extension BreakTakingChecks {
     static func breakSurvivesRelaunch() -> [String] {
@@ -122,6 +123,96 @@ extension BreakTakingChecks {
         if let first = rest.first {
             expect(!calendar.isDate(first.start, inSameDayAs: first.end), "which does cross it", &problems)
         }
+        return problems
+    }
+
+    static func recordedBreakStaysEnded() -> [String] {
+        var problems: [String] = []
+
+        // Killed after the break was written and before the state was: the
+        // relaunch restores the snapshot from before it ended.
+        let clock = TestClock(SelfTest.base)
+        let engine = SelfTest.makeEngine(clock)
+        engine.start(workType: .deepWork, intent: "Parser"); clock.advance(600)
+        engine.startBreak(length: 300)
+        let beforeEnd = engine.snapshot()
+        clock.advance(400)
+        engine.endBreak()
+        let back = relaunched(engine, clock)
+        back.restore(from: beforeEnd)
+        expect(back.activeBreak == nil && back.state == .idle, "an ended break is not live again", &problems)
+        expect(breaks(in: back).count == 1 && back.store.loadState()?.activeBreak == nil,
+               "and it is on record once", &problems)
+
+        // Preferences lost: the journal's checkpoint, written while the break
+        // was ending, is what a launch finds. A full history makes ending
+        // write that checkpoint.
+        let late = TestClock(SelfTest.base)
+        let directory = SelfTest.scratchDirectory()
+        let seed = SessionArchive(directory: directory, now: { late.value }, capacity: 2)
+        for hours in [4.0, 3.0] {
+            let start = SelfTest.base.addingTimeInterval(-hours * 3_600)
+            seed.append(SessionRecord(name: "Earlier", workType: .deepWork, start: start,
+                                      end: start.addingTimeInterval(1_200), workSeconds: 1_200))
+        }
+        let store = PersistenceStore(defaults: MemoryDefaults.suite(named: SelfTest.suiteName) ?? .standard)
+        store.removeAll()
+        let ended = SessionEngine(store: store, archive: SessionArchive(directory: directory, now: { late.value },
+                                                                       capacity: 2),
+                                  ownBundleID: FocusConstants.bundleIdentifier, schedulesDwell: false,
+                                  now: { late.value })
+        ended.start(workType: .deepWork, intent: "Parser"); late.advance(600)
+        ended.startBreak(length: 300); late.advance(400)
+        ended.endBreak()
+        expect(ended.decisionHistory.document.checkpoint != nil, "ending a break wrote the checkpoint", &problems)
+        store.removeAll()
+        let launched = SessionEngine(store: store, archive: SessionArchive(directory: directory, now: { late.value }),
+                                     ownBundleID: FocusConstants.bundleIdentifier, schedulesDwell: false,
+                                     now: { late.value })
+        guard let checkpoint = launched.launchSnapshot() else {
+            return problems + ["the journal should still hold a checkpoint"]
+        }
+        launched.restore(from: checkpoint)
+        expect(launched.activeBreak == nil && launched.state == .idle,
+               "a break in the journal's checkpoint is not live again", &problems)
+        expect(breaks(in: launched).count == 1, "and it is on record once", &problems)
+        return problems
+    }
+
+    static func breakPauseWithoutBreakResumes() -> [String] {
+        var problems: [String] = []
+        let clock = TestClock(SelfTest.base)
+        let stuck = SelfTest.makeEngine(clock)
+        stuck.start(workType: .deepWork, intent: "Parser"); clock.advance(600)
+        stuck.startBreak(length: 300)
+        // No call leaves a break pause without its break; this forces that
+        // state to see that nothing is trapped in it.
+        stuck.activeBreak = nil
+        stuck.transition(on: .manualResume)
+        expect(stuck.state == .running, "Resume leaves a break pause that has no break", &problems)
+        return problems
+    }
+
+    static func breakPauseIsPresence() -> [String] {
+        var problems: [String] = []
+        expect(!SessionEngine.pauseMeansNobodyHere(.onBreak), "a break has a cap of its own", &problems)
+        expect(SessionEngine.pauseMeansNobodyHere(.manual), "and a pause still does not", &problems)
+        return problems
+    }
+
+    static func correctionCheckpointKeepsBreak() -> [String] {
+        var problems: [String] = []
+        let clock = TestClock(SelfTest.base)
+        let engine = SelfTest.makeEngine(clock)
+        engine.start(workType: .deepWork, intent: "Parser"); clock.advance(600)
+        engine.startBreak(length: 300)
+        guard let original = engine.activeBreak else { return ["the break should have started"] }
+        expect(engine.commitCorrection(before: engine.snapshot()), "a correction mid-break commits", &problems)
+        // A copy of the app that has not seen it adopts the newer checkpoint.
+        let other = relaunched(engine, clock)
+        expect(!other.prepareCorrection(), "the newer checkpoint is loaded, not corrected over", &problems)
+        expect(other.state == .paused(reason: .onBreak) && other.activeBreak == original,
+               "with the break it was taken in", &problems)
         return problems
     }
 }

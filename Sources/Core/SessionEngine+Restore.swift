@@ -63,7 +63,14 @@ extension SessionEngine {
         activeAutomaticAction = snapshot.automaticActivityAction
         // A break keeps its start and planned end across a relaunch. Whatever
         // way this returns, one that outgrew its cap while the app was closed
-        // ends there, as it would have ended had the app been running.
+        // ends there, as it would have ended had the app been running. One
+        // already on record was ended: only the write of the state that said
+        // so was lost, or this is the journal's checkpoint, taken while it
+        // ended. It is not live again. Cleared on the snapshot too, which is
+        // where its pause reason is read from.
+        if let ended = snapshot.activeBreak, archive.records.contains(where: { $0.id == ended.id }) {
+            snapshot.activeBreak = nil
+        }
         activeBreak = snapshot.activeBreak
         defer { if expireBreakIfOutgrown() != nil { onStateChanged?(state) } }
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
