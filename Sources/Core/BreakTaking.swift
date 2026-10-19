@@ -64,3 +64,31 @@ enum BreakLength {
     /// infinity, which no snapshot can store.
     static let maximum: TimeInterval = 86_400
 }
+
+/// Tells work that resumed after a break from a glance at the screen. Fed one
+/// call per second that had input, once the planned end has passed.
+struct SustainedActivity: Equatable {
+    static let window: TimeInterval = 90
+    static let required = 60
+
+    /// Whole-second marks of active seconds still inside the window, oldest first.
+    private var marks: [Date] = []
+
+    /// Returns the first active second of a window holding `required` active
+    /// seconds, which is where a break's end is backdated to. Repeat calls within
+    /// the same whole second count once.
+    mutating func record(activeAt moment: Date) -> Date? {
+        let second = Date(timeIntervalSinceReferenceDate: moment.timeIntervalSinceReferenceDate.rounded(.down))
+        if !marks.contains(second) {
+            marks.append(second)
+        }
+        let cutoff = second.addingTimeInterval(-Self.window)
+        marks.removeAll { $0 < cutoff }
+        guard marks.count >= Self.required else { return nil }
+        return marks.first
+    }
+
+    mutating func reset() {
+        marks.removeAll()
+    }
+}

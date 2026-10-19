@@ -22,6 +22,7 @@ enum BreakTakingChecks: CheckSuite {
         ("A break cannot be planned for more than a day", breakLengthIsCapped),
         ("A break pause counts as someone being here", breakPauseIsPresence),
         ("A correction checkpoint taken during a break restores the break", correctionCheckpointKeepsBreak),
+        ("A minute of work after a break is noticed, a glance is not", sustainedActivity),
     ]
 
     private static func oldRecordDecodes() -> [String] {
@@ -97,6 +98,49 @@ enum BreakTakingChecks: CheckSuite {
         watch.transition(on: .idleObserved(seconds: 2))
         let watching = watch.archive.records.first { $0.name == "Watching" }
         expect(watching?.breakOrigin == .watching, "watching is .watching", &problems)
+        return problems
+    }
+
+    private static func sustainedActivity() -> [String] {
+        var problems: [String] = []
+        let start = SelfTest.base
+
+        // 59 active seconds spread over 90 are one short; the 60th, at 89 s,
+        // closes the stretch and is backdated to the first active second.
+        var spread = SustainedActivity()
+        var early: Date?
+        for i in 0..<59 {
+            early = spread.record(activeAt: start.addingTimeInterval(TimeInterval(i * 90 / 59)))
+        }
+        expect(early == nil, "59 active seconds are not yet sustained", &problems)
+        let closing = spread.record(activeAt: start.addingTimeInterval(89))
+        expect(closing == start, "backdated to the first active second", &problems)
+
+        // 60 active seconds every other second span 120 s, so the window
+        // never holds 60 of them.
+        var glances = SustainedActivity()
+        var reached = false
+        for k in 0..<60 {
+            if glances.record(activeAt: start.addingTimeInterval(TimeInterval(k * 2))) != nil {
+                reached = true
+            }
+        }
+        expect(!reached, "every other second over 120 s is a glance", &problems)
+
+        // Sub-second moments in one whole second count once.
+        var repeated = SustainedActivity()
+        var repeatReached = false
+        for n in 0..<60 {
+            if repeated.record(activeAt: start.addingTimeInterval(TimeInterval(n) / 1_000)) != nil {
+                repeatReached = true
+            }
+        }
+        expect(!repeatReached, "repeats within one second count once", &problems)
+
+        var cleared = SustainedActivity()
+        _ = cleared.record(activeAt: start)
+        cleared.reset()
+        expect(cleared == SustainedActivity(), "reset clears everything", &problems)
         return problems
     }
 }
