@@ -34,14 +34,19 @@ final class SessionCommandState: ObservableObject {
     struct Snapshot: Equatable {
         let mode: FocusSurfaceMode
         let isAway: Bool
-        /// Whether Take a break would begin one; End Break needs no such check.
-        let canTakeBreak: Bool
+        /// The hero's own question: is a Take a break control shown?
+        let offersTakeBreak: Bool
 
         init(_ store: SessionStore) {
-            mode = store.focusSurfaceComposition.mode
+            let composition = store.focusSurfaceComposition
+            mode = composition.mode
             isAway = store.isAway
-            canTakeBreak = store.canTakeBreak
+            offersTakeBreak = composition.offersTakeBreak
         }
+
+        /// The item is enabled exactly where the hero shows its button, and
+        /// while a break runs, where it ends it.
+        var takeBreakEnabled: Bool { mode == .onBreak || offersTakeBreak }
     }
 
     @Published private(set) var snapshot: Snapshot
@@ -89,7 +94,7 @@ struct SessionCommands: Commands {
                 if store.isOnBreak { store.endBreak() } else { store.startBreak() }
             }
             .keyboardShortcut(SessionShortcut.takeBreak.shortcut)
-            .disabled(!isOnBreak && !state.snapshot.canTakeBreak)
+            .disabled(!state.snapshot.takeBreakEnabled)
             Divider()
             // A break stops with the session it paused, or alone.
             Button("Stop") { store.stop() }

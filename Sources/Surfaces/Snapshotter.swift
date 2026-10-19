@@ -3,6 +3,7 @@ import AppKit
 
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure
+    case focusAutomatic, focusOnBreak
     case todayHistory, todayHistoryExpanded
     case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
     case insightsEnough, insightsEmpty
@@ -26,6 +27,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusPaused: return "Focus — paused"
         case .focusAwaitingDecision: return "Focus — awaiting decision"
         case .focusSaveFailure: return "Focus — answer not saved"
+        case .focusAutomatic: return "Focus — automatic session, naming open"
+        case .focusOnBreak: return "Focus — on a break"
         case .todayHistory: return "Today — history"
         case .todayHistoryExpanded: return "Today — history expanded recap"
         case .reviewHistorySelection: return "History — a day open"
@@ -106,7 +109,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     var presentations: [SnapshotPresentation] {
         switch self {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
-             .activityRuleAmbiguity, .activityRuleAutomatic:
+             .focusAutomatic, .focusOnBreak, .activityRuleAmbiguity, .activityRuleAutomatic:
             return [.minimum, .comfortable, .popover]
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
             return [.compact]
@@ -120,7 +123,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     var tab: AppTab? {
         switch self {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
-             .activityRuleAmbiguity, .activityRuleAutomatic:
+             .focusAutomatic, .focusOnBreak, .activityRuleAmbiguity, .activityRuleAutomatic:
             return .focus
         case .todayHistory, .todayHistoryExpanded:
             return .today
@@ -425,6 +428,15 @@ enum Snapshotter {
             return FixtureFactory.store(for: .needsResolution)
         case .focusSaveFailure:
             return FixtureFactory.failingDecisionStore()
+        case .focusAutomatic:
+            // The widest the row gets: Name pressed, so the naming row is open.
+            let store = FixtureFactory.store(for: .automatic)
+            store.isNamingAutomaticSession = true
+            return store
+        case .focusOnBreak:
+            let store = FixtureFactory.store(for: .running)
+            store.startBreak()
+            return store
         case .activityRuleAmbiguity:
             return FixtureFactory.activityRuleStore(ambiguous: true)
         case .activityRuleAutomatic:

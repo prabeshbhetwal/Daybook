@@ -147,6 +147,7 @@ extension SelfTest {
             + BreakLogChecks.tests
             + BreakStoreChecks.tests
             + BreakSurfaceChecks.tests
+            + BreakDisplayChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

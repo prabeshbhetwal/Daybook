@@ -20,6 +20,46 @@ struct FocusBreakButtons: View {
     }
 }
 
+/// Take a break: a click starts the default five minutes, and the arrow beside
+/// it offers 5, 10, 15 and 30. The Session menu's item is the default only.
+struct FocusTakeBreakMenu: View {
+    @ObservedObject var store: SessionStore
+    /// The cup alone, for the window's bar.
+    var compact = false
+
+    private var minutes: Int { Int(BreakLength.standard / 60) }
+
+    var body: some View {
+        HStack(spacing: Tokens.Space.xs) {
+            FocusActionButton(title: "Take a break", symbol: "cup.and.saucer", iconOnly: compact) {
+                store.startBreak()
+            }
+            .help("Starts a \(minutes) minute break (\(SessionShortcut.takeBreak.glyphs))")
+            .accessibilityHint("Starts a \(minutes) minute break")
+            Menu {
+                ForEach(BreakChoice.options, id: \.length) { option in
+                    Button(option.title) { store.startBreak(length: option.length) }
+                        .accessibilityLabel(option.spoken)
+                }
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(Tokens.Typography.label)
+                    .padding(.horizontal, Tokens.Space.xs)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    .background(Tokens.Colour.elevated,
+                                in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+                    .foregroundStyle(.primary)
+            }
+            .menuStyle(.button)
+            .buttonStyle(PressableStyle())
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Choose how long")
+            .accessibilityLabel("Choose break length")
+        }
+    }
+}
+
 /// What the break is, under its time: the label the person typed, and where
 /// the session paused beneath it will go back to.
 private func breakSubtitle(_ store: SessionStore) -> String {

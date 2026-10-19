@@ -44,7 +44,7 @@ extension SelfTest {
             var problems: [String] = []
             let required: [SnapshotScenario] = [
                 .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision,
-                .focusSaveFailure,
+                .focusSaveFailure, .focusAutomatic, .focusOnBreak,
                 .todayHistory, .todayHistoryExpanded,
                 .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse,
                 .insightsEnough, .insightsEmpty,

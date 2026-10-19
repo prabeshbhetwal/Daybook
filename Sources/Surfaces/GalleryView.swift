@@ -7,6 +7,7 @@ enum FixtureState: String {
     case idleWithHistory
     case running
     case paused
+    case automatic
     case needsResolution
 }
 
@@ -155,6 +156,14 @@ enum FixtureFactory {
             engine.start(workType: .deepWork, intent: "Refactor the parser")
             clock.value = clock.value.addingTimeInterval(1_500)
             engine.transition(on: .manualPause)
+        case .automatic:
+            seedWeek()
+            engine.start(workType: .deepWork, intent: "Refactor the parser")
+            clock.value = clock.value.addingTimeInterval(2_712)
+            // Starting never keeps ownership; the saved state does.
+            var snapshot = engine.snapshot()
+            snapshot.isAuto = true
+            engine.restore(from: snapshot)
         case .needsResolution:
             seedWeek()
             engine.start(workType: .deepWork, intent: "Refactor the parser")

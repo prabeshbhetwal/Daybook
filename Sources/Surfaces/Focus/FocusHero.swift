@@ -73,13 +73,19 @@ struct FocusSurfaceComposition: Equatable {
     let mode: FocusSurfaceMode
     let showsContinuationSection: Bool
     let showsAutomaticSessionControls: Bool
+    /// Whether a Take a break control is offered: idle, running or paused by
+    /// hand, and only where the engine would accept a break. The hero's
+    /// button and the Session menu's item both read this, so they agree.
+    /// Watching is left out: a film is not a stretch to interrupt.
+    let offersTakeBreak: Bool
 
     /// A break comes first: it is shown with or without a session, and the
     /// engine does not begin one while the away question waits.
     init(state: SessionState,
          hasPendingDecision: Bool,
          isAutomatic: Bool,
-         isOnBreak: Bool = false) {
+         isOnBreak: Bool = false,
+         canTakeBreak: Bool = false) {
         mode = isOnBreak ? .onBreak
             : hasPendingDecision ? .awaitingDecision : FocusSurfaceMode(state: state)
         showsContinuationSection = mode.showsOrdinaryControls
@@ -88,6 +94,7 @@ struct FocusSurfaceComposition: Equatable {
             && mode != .idle
             && mode != .onBreak
             && mode.showsOrdinaryControls
+        offersTakeBreak = canTakeBreak && (mode == .idle || mode == .running || mode == .paused)
     }
 }
 
@@ -98,7 +105,8 @@ extension SessionStore {
         FocusSurfaceComposition(state: state,
                                 hasPendingDecision: hasUnresolvedAwayDecision,
                                 isAutomatic: isAutoSession,
-                                isOnBreak: isOnBreak)
+                                isOnBreak: isOnBreak,
+                                canTakeBreak: canTakeBreak)
     }
 
     var focusOperationFailure: FocusOperationFailureState? {
@@ -413,7 +421,7 @@ struct FocusHero: View {
             .help(resumeHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
-            if mode == .paused { takeBreakButton }
+            takeBreakButton
             automaticNameButton
         case .idle, .awaitingDecision, .onBreak:
             EmptyView()
@@ -628,7 +636,7 @@ struct FocusHero: View {
                 controls()
             }
             // Its own row: Pause, Away and Stop already fill the popover's.
-            if mode == .running || mode == .paused { takeBreakButton }
+            takeBreakButton
             goalSupport
             if composition.showsAutomaticSessionControls {
                 automaticControls
@@ -854,12 +862,12 @@ struct FocusHero: View {
         "Stops counting focus and app use until you're back (\(SessionShortcut.stepAway.glyphs))"
     }
 
-    /// A secondary action wherever a break may begin: idle, running and
-    /// paused by hand. Not offered where the engine would refuse it.
+    /// A secondary action wherever a break may begin: the composition says
+    /// where, and the Session menu's item asks the same question.
     @ViewBuilder private var takeBreakButton: some View {
-        if store.canTakeBreak {
-            FocusActionButton(title: "Take a break", symbol: "cup.and.saucer") { store.startBreak() }
-                .help("Starts a \(Int(BreakLength.standard / 60)) minute break (\(SessionShortcut.takeBreak.glyphs))")
+        // In the window's bar there is no room for the word.
+        if composition.offersTakeBreak {
+            FocusTakeBreakMenu(store: store, compact: chromePart == .row || isStrip)
         }
     }
 
@@ -920,24 +928,50 @@ struct FocusActionButton: View {
     /// What VoiceOver says when the title reads badly aloud ("+5 min").
     var spoken: String?
     var prominent = false
+    /// The symbol alone, where the row has no room for the word; the label
+    /// VoiceOver reads is the same.
+    var iconOnly = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: symbol)
-                .font(Tokens.Typography.body.weight(prominent ? .semibold : .regular))
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.horizontal, Tokens.Space.m)
-                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                .background(prominent ? AnyShapeStyle(Tokens.Colour.focus)
-                                      : AnyShapeStyle(Tokens.Colour.elevated),
-                            in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                                 style: .continuous))
-                .foregroundStyle(prominent ? AnyShapeStyle(Tokens.Colour.onFocus)
-                                           : AnyShapeStyle(.primary))
+            FocusActionLabel(title: title, symbol: symbol, prominent: prominent, iconOnly: iconOnly)
         }
         .buttonStyle(PressableStyle())
         .accessibilityLabel(spoken ?? title)
+    }
+}
+
+private struct IconOnlyIf: ViewModifier {
+    let iconOnly: Bool
+    init(_ iconOnly: Bool) { self.iconOnly = iconOnly }
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if iconOnly { content.labelStyle(.iconOnly) } else { content }
+    }
+}
+
+/// The word-and-symbol pill of a Focus action, for a button or a menu.
+struct FocusActionLabel: View {
+    let title: String
+    let symbol: String
+    var prominent = false
+    var iconOnly = false
+
+    var body: some View {
+        Label(title, systemImage: symbol)
+            .modifier(IconOnlyIf(iconOnly))
+            .font(Tokens.Typography.body.weight(prominent ? .semibold : .regular))
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, iconOnly ? Tokens.Space.s : Tokens.Space.m)
+            .frame(minWidth: iconOnly ? AccessibilityMetrics.minimumTargetSize : nil,
+                   minHeight: AccessibilityMetrics.minimumTargetSize)
+            .background(prominent ? AnyShapeStyle(Tokens.Colour.focus)
+                                  : AnyShapeStyle(Tokens.Colour.elevated),
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
+                                             style: .continuous))
+            .foregroundStyle(prominent ? AnyShapeStyle(Tokens.Colour.onFocus)
+                                       : AnyShapeStyle(.primary))
     }
 }

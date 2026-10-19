@@ -32,3 +32,22 @@ enum BreakCountdown {
         return "Break over by \(minutes(Int(-remaining / 60)))"
     }
 }
+
+/// The lengths the Take a break menu offers: `BreakLength.choices`, each named
+/// for the menu and for VoiceOver. A click on the button itself takes the
+/// default, `BreakLength.standard`.
+enum BreakChoice {
+    struct Option: Equatable {
+        let length: TimeInterval
+        let title: String
+        let spoken: String
+    }
+
+    static var options: [Option] {
+        BreakLength.choices.map { length in
+            let minutes = Int(length / 60)
+            return Option(length: length, title: "\(minutes) minutes",
+                          spoken: "Take a \(minutes)-minute break")
+        }
+    }
+}
