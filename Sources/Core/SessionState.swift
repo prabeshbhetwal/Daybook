@@ -338,7 +338,10 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         // Records written before auto sessions existed were all started by hand.
         isAuto = try container.decodeIfPresent(Bool.self, forKey: .isAuto) ?? false
         pausedSpans = try container.decodeIfPresent([DateInterval].self, forKey: .pausedSpans)
-        breakOrigin = try container.decodeIfPresent(BreakOrigin.self, forKey: .breakOrigin)
+        // Read as a name, then looked up: an origin a later build adds is not
+        // one this build knows, and must not make the whole list unreadable.
+        breakOrigin = try container.decodeIfPresent(String.self, forKey: .breakOrigin)
+            .flatMap(BreakOrigin.init(rawValue:))
         plannedLength = try container.decodeIfPresent(TimeInterval.self, forKey: .plannedLength)
     }
 }

@@ -166,9 +166,9 @@ enum BreakDisplayChecks: CheckSuite {
                "the menu offers BreakLength.choices", &problems)
         expect(options.map(\.title) == ["5 minutes", "10 minutes", "15 minutes", "30 minutes"],
                "titled in minutes, got \(options.map(\.title))", &problems)
-        expect(options.map(\.spoken) == ["Take a 5-minute break", "Take a 10-minute break",
-                                         "Take a 15-minute break", "Take a 30-minute break"],
-               "and spoken, got \(options.map(\.spoken))", &problems)
+        expect(options.map(\.spoken) == ["5 minutes, take a break", "10 minutes, take a break",
+                                         "15 minutes, take a break", "30 minutes, take a break"],
+               "and spoken beginning with the words on the control, got \(options.map(\.spoken))", &problems)
         expect(options.first?.length == BreakLength.standard, "the first is the default a click takes", &problems)
         return problems
     }

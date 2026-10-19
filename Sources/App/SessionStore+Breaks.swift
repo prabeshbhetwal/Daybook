@@ -39,9 +39,13 @@ extension SessionStore {
         isBreakDue = result.due != nil
 
         guard let prompt = result.prompt else { return }
+        // Only a reminder that reached the screen is a reminder given: logged,
+        // and written down so it is not repeated for the whole of its tier. One
+        // that could not be shown (the screen out of reach, or no one listening
+        // yet at launch) is asked again at the next pass.
+        guard onBreakDue?(prompt) == true else { return }
         engine.store.lastBreakNotice = BreakNotice(tier: prompt.tier, at: moment)
-        // Only a reminder that reached the screen is a reminder shown.
-        if onBreakDue?(prompt) == true { logShown(prompt, at: moment) }
+        logShown(prompt, at: moment)
     }
 
     /// Eyes prompts are counted by day; every other kind is listed, under the

@@ -131,14 +131,15 @@ extension BreakStoreChecks {
     static func loggingFollowsDelivery() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            // Raised but not shown (the notification path): not logged, still noticed.
+            // Raised but not shown (the screen was out of reach): not logged, and not
+            // written down as said either, so it is asked again.
             guard let missed = makeDue() else { return ["could not create isolated preferences"] }
             defer { missed.close() }
             missed.store.onBreakDue = { _ in false }
             missed.store.refresh()
             expect(missed.store.breakLog.prompts.isEmpty, "a reminder that did not reach the screen is not logged", &problems)
-            expect(missed.persistence.lastBreakNotice?.tier == .cognitive,
-                   "but it is still the last thing said", &problems)
+            expect(missed.persistence.lastBreakNotice == nil,
+                   "and it is not the last thing said", &problems)
 
             guard let seen = makeDue() else { return problems + ["could not create isolated preferences"] }
             defer { seen.close() }

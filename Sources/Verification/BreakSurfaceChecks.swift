@@ -94,12 +94,12 @@ enum BreakSurfaceChecks: CheckSuite {
                 title: "Take 5 minutes", detail: "You have been in Xcode for 50m.", symbolName: "",
                 buttons: [BreakHUDButton(title: "Skip", isPrimary: false) {}], duration: 12, onTimeout: nil))
             expect(withDetail == "Take 5 minutes. You have been in Xcode for 50m. "
-                    + "To answer, open Daybook from the menu bar.",
+                    + "You can also take or end a break from Daybook in the menu bar.",
                    "got \(withDetail)", &problems)
             let noDetail = BreakHUD.spoken(BreakHUDContent(
                 title: "Break's over", detail: "", symbolName: "",
                 buttons: [BreakHUDButton(title: "Done", isPrimary: true) {}], duration: 12, onTimeout: nil))
-            expect(noDetail == "Break's over. To answer, open Daybook from the menu bar.",
+            expect(noDetail == "Break's over. You can also take or end a break from Daybook in the menu bar.",
                    "an empty detail left a stray stop, got \(noDetail)", &problems)
             return problems
         }

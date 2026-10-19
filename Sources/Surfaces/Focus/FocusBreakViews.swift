@@ -11,8 +11,8 @@ struct FocusBreakButtons: View {
                 .help(store.isIdle
                       ? "Ends the break (\(SessionShortcut.takeBreak.glyphs))"
                       : "Ends the break and goes back to your session (\(SessionShortcut.takeBreak.glyphs))")
-            FocusActionButton(title: "+\(Int(BreakLength.extra / 60)) min", symbol: "plus",
-                              spoken: "Add \(Int(BreakLength.extra / 60)) minutes to the break") {
+            FocusActionButton(title: BreakChoice.extend.title, symbol: "plus",
+                              spoken: BreakChoice.extend.spoken) {
                 store.extendBreak()
             }
             .help("Adds \(Int(BreakLength.extra / 60)) minutes to the break")
@@ -45,7 +45,8 @@ struct FocusTakeBreakMenu: View {
                 Image(systemName: "chevron.down")
                     .font(Tokens.Typography.label)
                     .padding(.horizontal, Tokens.Space.xs)
-                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                    .frame(minWidth: AccessibilityMetrics.minimumTargetSize,
+                           minHeight: AccessibilityMetrics.minimumTargetSize)
                     .background(Tokens.Colour.elevated,
                                 in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
                     .foregroundStyle(.primary)

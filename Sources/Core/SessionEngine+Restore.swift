@@ -71,6 +71,11 @@ extension SessionEngine {
         if let ended = snapshot.activeBreak, archive.records.contains(where: { $0.id == ended.id }) {
             snapshot.activeBreak = nil
         }
+        // A break no one could have taken (dates that are not dates, a plan
+        // past a day) is dropped: kept, it would never end on its own.
+        if let saved = snapshot.activeBreak, !saved.isCredible {
+            snapshot.activeBreak = nil
+        }
         activeBreak = snapshot.activeBreak
         defer { if expireBreakIfOutgrown() != nil { onStateChanged?(state) } }
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []

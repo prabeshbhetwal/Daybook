@@ -652,8 +652,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self?.tracker.suspend()
             MainActor.assumeIsolated { self?.breakHUD.dismiss() }
         }
+        // The store has already started recording again, or left the app
+        // waiting for the person if no one ended the break.
         store.onBreakEnded = { [weak self] in
-            self?.resumeTracking()
+            self?.store.refresh()
             MainActor.assumeIsolated { self?.breakHUD.dismiss() }
         }
         // Shown only where it would be seen. Away from the screen nothing is

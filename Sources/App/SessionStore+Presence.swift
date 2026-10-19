@@ -32,7 +32,9 @@ extension SessionStore {
         var releasesAutomation = false
         withRefreshTransaction {
             presenceGate.confirm(at: moment)
-            tracker?.confirmPresence(at: moment)
+            // A break records nothing, whoever is at the keys: the app in front
+            // starts to record when the break ends.
+            if !isOnBreak { tracker?.confirmPresence(at: moment) }
             if let pendingWakeActivation {
                 engine.transition(on: .appActivated(bundleID: pendingWakeActivation.bundleID,
                                                     name: pendingWakeActivation.name))
@@ -59,7 +61,13 @@ extension SessionStore {
                 tracker?.prepareToResume(bundleID: bundleID, name: name)
                 pendingWakeActivation = (bundleID, name)
             } else {
-                tracker?.appActivated(bundleID: bundleID, name: name)
+                // The same during a break: the app only waits as the one to
+                // record when it ends.
+                if isOnBreak {
+                    tracker?.prepareToResume(bundleID: bundleID, name: name)
+                } else {
+                    tracker?.appActivated(bundleID: bundleID, name: name)
+                }
                 engine.transition(on: .appActivated(bundleID: bundleID, name: name))
                 _ = applyLongAwayResult()
                 delivered = true

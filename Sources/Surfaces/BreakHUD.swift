@@ -182,15 +182,17 @@ final class BreakHUD {
         DispatchQueue.main.asyncAfter(deadline: .now() + shownFor, execute: workItem)
     }
 
-    /// Takes the HUD away without running its timeout: whoever calls it has
-    /// already dealt with what it asked.
     /// What VoiceOver says. The buttons cannot be reached from a panel that is
-    /// never key, so a listener is told where they can be answered.
+    /// never key, so a listener is told where a break can be taken or ended:
+    /// the menu bar offers those two, not the reminder's Later or Skip.
     static func spoken(_ content: BreakHUDContent) -> String {
         let said = RewardHUD.spoken(title: content.title, detail: content.detail, hasUndo: false)
-        return content.buttons.isEmpty ? said : said + " To answer, open Daybook from the menu bar."
+        guard !content.buttons.isEmpty else { return said }
+        return said + " You can also take or end a break from Daybook in the menu bar."
     }
 
+    /// Takes the HUD away without running its timeout: whoever calls it has
+    /// already dealt with what it asked.
     func dismiss() {
         panel.ignoresMouseEvents = true
         generation += 1

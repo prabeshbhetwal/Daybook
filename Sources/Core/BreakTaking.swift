@@ -52,6 +52,19 @@ struct ActiveBreak: Codable, Equatable {
     /// The latest a break with nobody back is recorded to: the planned end
     /// plus the same cap that ends a session nobody returns to.
     func capEnd(longAwayCap: TimeInterval) -> Date { plannedEnd.addingTimeInterval(longAwayCap) }
+
+    /// Whether a saved break describes one that could have been taken: both
+    /// dates real, the plan no shorter than nothing and no longer than a break
+    /// can be planned for. A snapshot that says otherwise is damaged, and a
+    /// break built from it would never end on its own and would trap the
+    /// countdown on every launch.
+    var isCredible: Bool {
+        guard start.timeIntervalSinceReferenceDate.isFinite,
+              plannedEnd.timeIntervalSinceReferenceDate.isFinite else { return false }
+        // A second of slack: a plan of exactly a day, written as two dates, can
+        // come back a rounding error over.
+        return (0...BreakLength.maximum + 1).contains(plannedLength)
+    }
 }
 
 /// The break that ended last, however it ended: by the person, by input after
@@ -62,6 +75,9 @@ struct EndedBreak: Equatable {
     let id: UUID
     let start: Date
     let end: Date
+    /// False for a break that ran out its cap, or was found past it at launch:
+    /// nobody pressed anything, so it shows no one is at the Mac.
+    var byPerson = true
 }
 
 enum BreakLength {

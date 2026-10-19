@@ -113,18 +113,18 @@ extension SessionEngine {
             awayDecisionError = nil
             guard endAbsentSession().applied else { return nil }
         }
-        closeBreak(brk, at: capEnd)
+        closeBreak(brk, at: capEnd, byPerson: false)
         persist()
         return capEnd
     }
 
     /// Writes the break down and marks it over. Every end goes through here,
     /// including a discard of the session it paused, so `lastEndedBreak` hears
-    /// of each.
-    func closeBreak(_ brk: ActiveBreak, at end: Date) {
+    /// of each. `byPerson` is false for the end nobody made: the cap.
+    func closeBreak(_ brk: ActiveBreak, at end: Date, byPerson: Bool = true) {
         recordStartedBreak(brk, endingAt: end)
         activeBreak = nil
-        lastEndedBreak = EndedBreak(id: brk.id, start: brk.start, end: end)
+        lastEndedBreak = EndedBreak(id: brk.id, start: brk.start, end: end, byPerson: byPerson)
     }
 
     /// Writes a started break down at the length it really had, if that is at

@@ -111,19 +111,22 @@ extension SessionStore {
         let remaining = brk.remaining(at: moment)
         breakRemaining = remaining
         guard remaining <= 0 else { return }
+        // Neither the prompt nor input counts where no one could be: a wake
+        // resets the idle clock with nobody there, and a locked screen has no
+        // one in front of it.
+        guard !screenLocked, !presenceGate.isAwaitingConfirmation else { return }
         if !brk.overNoticed, onBreakOver?(brk) == true {
             engine.markBreakOverNoticed()
             publishBreakChange()
         }
-        // Input counts only where a person could have made it: a wake resets
-        // the idle clock with nobody there, and a locked screen has no one in
-        // front of it.
-        guard mayEnd, !screenLocked, !presenceGate.isAwaitingConfirmation,
-              idle.idleSeconds() <= 1,
+        guard mayEnd, idle.idleSeconds() <= 1,
               let began = sustained.record(activeAt: moment) else { return }
-        sustained.reset()
-        if engine.endBreak(at: began) != nil { publishBreakChange() }
-        else { breakEndFailed(at: moment) }
+        // Reset only by an end that was saved: a refused one keeps the window
+        // it met, and is tried again on the five-second gate.
+        if engine.endBreak(at: began) != nil {
+            sustained.reset()
+            publishBreakChange()
+        } else { breakEndFailed(at: moment) }
     }
 
     private func breakEndFailed(at moment: Date) {
@@ -158,7 +161,19 @@ extension SessionStore {
             breakEndRetryAfter = nil
             publishCorrectionError(nil)
         }
+        resumeTrackingAfterBreak(ended)
         onBreakEnded?()
+    }
+
+    /// Recording starts again with the app in front. The person who ended the
+    /// break is at the Mac, which is as good as an unlock. A break that ran out
+    /// its cap, or was found past it at launch, ended with nobody there: the
+    /// app waits, as after a wake, for the gate's own sign of a return.
+    private func resumeTrackingAfterBreak(_ ended: EndedBreak) {
+        if let front = frontmostApplication() {
+            prepareTrackingResume(bundleID: front.bundleID, name: front.name)
+        }
+        if ended.byPerson { _ = confirmPresence(at: now()) }
     }
 
     /// The time left on the break under way, from the engine, wherever the
