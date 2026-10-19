@@ -1,7 +1,6 @@
 import ServiceManagement
 import SwiftUI
 import AppKit
-import UserNotifications
 import Combine
 
 /// Exhaustive identifiers for rows that can mutate behaviour. Each case maps
@@ -516,6 +515,11 @@ final class SettingsModel: ObservableObject {
         set { write { store.remindersEnabled = newValue } }
     }
 
+    var breakOverSound: Bool {
+        get { store.breakOverSound }
+        set { write { store.breakOverSound = newValue } }
+    }
+
     var useAppleIntelligence: Bool {
         get { store.useAppleIntelligence }
         set { write { store.useAppleIntelligence = newValue } }
@@ -643,30 +647,10 @@ final class SettingsModel: ObservableObject {
 
     func openLoginItemsSettings() { SMAppService.openSystemSettingsLoginItems() }
 
-    /// The user declined notifications for the app, so a break reminder shows
-    /// on screen but never reaches Notification Centre.
-    @Published private(set) var notificationsDenied = false
-
-    /// Reads again what only System Settings changes: login-item approval and
-    /// notification permission. Called when the page opens and whenever the
-    /// app comes back to the front.
+    /// Reads again what only System Settings changes: login-item approval.
+    /// Called when the page opens and whenever the app comes back to the front.
     func refreshSystemStatus() {
         objectWillChange.send()
-        // Only an app bundle has a notification centre; asking from the bare
-        // self-test binary raises instead of answering.
-        guard Bundle.main.bundleURL.pathExtension == "app" else { return }
-        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
-            let denied = settings.authorizationStatus == .denied
-            DispatchQueue.main.async {
-                guard let self, self.notificationsDenied != denied else { return }
-                self.notificationsDenied = denied
-            }
-        }
-    }
-
-    func openNotificationSettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") else { return }
-        NSWorkspace.shared.open(url)
     }
 
     var menuBarShowsTime: Bool {

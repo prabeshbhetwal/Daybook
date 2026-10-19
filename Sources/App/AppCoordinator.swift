@@ -10,7 +10,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private let monitor = EventMonitor()
     /// Why recording stopped and started again: sleep, lock, quit, crash.
     private let machineEvents = MachineEventRecorder()
-    private let notifier = Notifier()
     let usage = AppUsageArchive()
     private(set) lazy var tracker = AppUsageTracker(
         archive: usage,
@@ -72,9 +71,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     private(set) lazy var firstRun = FirstRunCoach { [weak self] in
         self?.engine.store.hasOnboarded = true
         self?.engine.store.welcomeLeftAt = nil
-        // Asked when the welcome ends rather than at launch, where the
-        // system's prompt landed on the first card with nothing to say why.
-        self?.notifier.requestAuthorization()
     }
 
     /// Opening the app again while it runs, from Finder, Spotlight or the
@@ -116,6 +112,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// Lazy because `RewardHUD` is main-actor isolated and this delegate is
     /// not; every access below is already on the main thread.
     @MainActor private lazy var hud = RewardHUD()
+    /// Break reminders and the break-over moment, which carry buttons.
+    @MainActor private lazy var breakHUD = BreakHUD()
     /// Holds the `--preview-away card` window so it is not released.
     @MainActor private var previewWindow: NSWindow?
     /// Whether the screen is locked, as the notifications have told us. A
@@ -535,8 +533,6 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             hasSessionHistory: !engine.archive.records.isEmpty,
             hasUsageHistory: !usage.sessions.isEmpty,
             forced: CommandLine.arguments.contains("--onboarding")) else {
-            // No welcome to read first, so the system's question can come now.
-            notifier.requestAuthorization()
             return
         }
         firstRun.begin()
@@ -647,35 +643,85 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // idle trim, which only notices three minutes after the fact.
         store.onAwayBegan = { [weak self] in self?.tracker.suspend() }
         store.onAwayEnded = { [weak self] in self?.resumeTracking() }
-        // One channel per moment. At the screen, the HUD: it can interrupt a
-        // stretch of work and never takes focus. Away from it — locked, asleep
-        // or declared away — the notification, which survives in Notification
-        // Centre until you are back. Both at once said the same thing twice.
+        // Like an away, a break stops background recording: nothing should
+        // accrue as app use while the person is on one.
+        store.onBreakBegan = { [weak self] in
+            self?.tracker.suspend()
+            MainActor.assumeIsolated { self?.breakHUD.dismiss() }
+        }
+        store.onBreakEnded = { [weak self] in
+            self?.resumeTracking()
+            MainActor.assumeIsolated { self?.breakHUD.dismiss() }
+        }
+        // Shown only where it would be seen. Away from the screen nothing is
+        // shown and the store asks again: the log keeps what reached it, and
+        // a reminder that waited is not stale when the person is back.
         store.onBreakDue = { [weak self] prompt in
-            guard let self else { return false }
-            let away: Bool
-            if case .paused(reason: .away) = self.engine.state { away = true } else { away = false }
-            let reachesScreen = AppCoordinator.breakReminderReachesScreen(
-                screenLocked: self.screenLocked,
-                displayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0,
-                machineSleeping: self.machineSleeping,
-                away: away)
-            guard reachesScreen else {
-                self.notifier.postBreakReminder(title: prompt.title, body: prompt.body)
-                return false
-            }
-            Task { @MainActor in
-                self.hud.show(title: prompt.title,
-                              detail: prompt.body + " " + prompt.tier.reason,
-                              symbolName: prompt.tier.symbolName,
-                              duration: FocusConstants.breakHUDSeconds,
-                              undo: nil)
-                // With the HUD only: a locked, asleep or away Mac got the
-                // notification above and no pulse.
-                self.haptics.play(.breakDue)
-            }
+            guard let self, self.breakReachesScreen else { return false }
+            MainActor.assumeIsolated { self.showBreakReminder(prompt) }
             return true
         }
+        store.onBreakOver = { [weak self] brk in
+            guard let self, self.breakReachesScreen else { return false }
+            MainActor.assumeIsolated { self.showBreakOver(brk) }
+            return true
+        }
+    }
+
+    private var breakReachesScreen: Bool {
+        let away: Bool
+        if case .paused(reason: .away) = engine.state { away = true } else { away = false }
+        return AppCoordinator.breakReminderReachesScreen(
+            screenLocked: screenLocked,
+            displayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0,
+            machineSleeping: machineSleeping,
+            away: away)
+    }
+
+    /// The eyes tier stays the buttonless reward HUD; the others answer with
+    /// buttons. Each button's name picks what it does.
+    @MainActor private func showBreakReminder(_ prompt: BreakPrompt) {
+        let copy = BreakHUDCopy.reminder(prompt)
+        if prompt.tier == .micro {
+            hud.show(title: copy.title, detail: copy.detail + " " + prompt.tier.reason,
+                     symbolName: prompt.tier.symbolName,
+                     duration: FocusConstants.breakHUDSeconds, undo: nil)
+        } else {
+            let buttons = copy.buttons.enumerated().map { index, title in
+                BreakHUDButton(title: title, isPrimary: index == 0) { [weak self] in
+                    switch title {
+                    case "Start break": self?.store.startBreak(from: prompt)
+                    case "Skip": self?.store.skipBreak(prompt)
+                    default: self?.store.laterBreak(prompt)
+                    }
+                }
+            }
+            breakHUD.show(BreakHUDContent(
+                title: copy.title, detail: copy.detail, symbolName: prompt.tier.symbolName,
+                buttons: buttons, duration: FocusConstants.breakHUDSeconds,
+                onTimeout: { [weak self] in self?.store.breakPromptUnanswered(prompt) }))
+        }
+        haptics.play(.breakDue)
+    }
+
+    /// Names the session the break paused, if one is paused on it; otherwise
+    /// the person has nothing to go back to and the button says Done.
+    @MainActor private func showBreakOver(_ brk: ActiveBreak) {
+        let pausedOnIt = brk.threadID != nil && brk.threadID == engine.activeThreadID
+            && engine.state == .paused(reason: .onBreak)
+        let copy = BreakHUDCopy.breakOver(threadName: pausedOnIt ? store.activeIntent : nil)
+        breakHUD.show(BreakHUDContent(
+            title: copy.title, detail: copy.detail, symbolName: "cup.and.saucer.fill",
+            buttons: [
+                BreakHUDButton(title: copy.buttons[0], isPrimary: true) { [weak self] in
+                    self?.store.endBreak()
+                },
+                BreakHUDButton(title: copy.buttons[1], isPrimary: false) { [weak self] in
+                    self?.store.extendBreak()
+                },
+            ],
+            duration: FocusConstants.breakHUDSeconds, onTimeout: nil))
+        if engine.store.breakOverSound { NSSound(named: "Tink")?.play() }
     }
 
     /// `--preview-away quick|full|card|past`: shows the away prompt, or the main
@@ -790,8 +836,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     }
 
     /// Whether a break reminder shown on this display would be seen. When it
-    /// would, the HUD alone carries it; when it would not, the notification
-    /// alone does. Pure so the four absences can be verified headless.
+    /// would not, nothing is shown and the store asks again later. Pure so the
+    /// four absences can be verified headless.
     static func breakReminderReachesScreen(screenLocked: Bool,
                                            displayAsleep: Bool,
                                            machineSleeping: Bool,

@@ -212,9 +212,9 @@ extension SelfTest {
         return problems
     }
 
-    /// A due break is said once: on the HUD when someone can see this display,
-    /// as a notification when they cannot. Any one absence is enough to send
-    /// it to Notification Centre instead.
+    /// A due break shows only at the screen. Any one of the four absences is
+    /// enough to keep it off the HUD; the store then asks again until the
+    /// person is back.
     static func testBreakReminderUsesOneChannel() -> [String] {
         var problems: [String] = []
         let cases: [(locked: Bool, asleep: Bool, sleeping: Bool, away: Bool, expected: Bool, label: String)] = [
@@ -229,7 +229,7 @@ extension SelfTest {
                 screenLocked: item.locked, displayAsleep: item.asleep,
                 machineSleeping: item.sleeping, away: item.away)
             expect(actual == item.expected,
-                   "break reminder channel for \(item.label) expected HUD=\(item.expected), got \(actual)",
+                   "break reminder for \(item.label) expected reaches-screen=\(item.expected), got \(actual)",
                    &problems)
         }
         return problems

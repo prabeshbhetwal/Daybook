@@ -146,6 +146,7 @@ extension SelfTest {
             + BreakClockChecks.tests
             + BreakLogChecks.tests
             + BreakStoreChecks.tests
+            + BreakSurfaceChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
@@ -301,7 +302,7 @@ extension SelfTest {
              testGlanceStaysToday),
             ("A second absence during the away card is never work",
              testShadowAwayIsNotWork),
-            ("A due break is said once: HUD when present, notification when not",
+            ("A due break shows only at the screen; away, it waits",
              testBreakReminderUsesOneChannel),
         ]
     }

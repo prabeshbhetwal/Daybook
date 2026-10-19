@@ -356,15 +356,9 @@ struct SettingsGroups: View {
                           detail: "A notice after a long stretch of continuous use, timed from your typing "
                             + "and clicking rather than from sessions.",
                           isOn: $model.remindersEnabled)
-                // Declined notifications drop the Notification Centre copy
-                // without a word; nothing is added while they are allowed.
-                if model.remindersEnabled && model.notificationsDenied {
-                    systemSettingsRow("Notifications are off, so a reminder shows on screen but not in "
-                                      + "Notification Centre.",
-                                      button: "Open Notification Settings") {
-                        model.openNotificationSettings()
-                    }
-                }
+                toggleRow("Play a sound when a break is over",
+                          detail: "A short tone with the \"Break's over\" prompt.",
+                          isOn: $model.breakOverSound)
                 // Each tier is its own switch: someone who finds the
                 // twenty-minute nudge too frequent keeps the longer two.
                 VStack(alignment: .leading, spacing: Tokens.Space.s) {
