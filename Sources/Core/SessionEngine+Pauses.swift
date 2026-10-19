@@ -104,7 +104,7 @@ extension SessionEngine {
         if absence >= store.minimumRecordedSession {
             saveRests(adding: SessionRecord(name: "Away", workType: .breakTime,
                                             start: began, end: now(), workSeconds: absence,
-                                            threadID: UUID()))
+                                            threadID: UUID(), breakOrigin: .away))
         }
         beginFreshSession()
         activeThreadID = thread
@@ -145,7 +145,7 @@ extension SessionEngine {
             if watched >= store.breakThreshold {
                 saveRests(adding: SessionRecord(name: "Watching", workType: .breakTime,
                                                 start: began, end: end, workSeconds: watched,
-                                                threadID: UUID()))
+                                                threadID: UUID(), breakOrigin: .watching))
             }
         }
         pauseStartDate = nil

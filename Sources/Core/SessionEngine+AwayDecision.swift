@@ -56,7 +56,8 @@ extension SessionEngine {
                away >= store.minimumRecordedSession {
                 let record = SessionRecord(id: decisionID, name: breakName, workType: .breakTime,
                     start: awayStarted, end: awayStarted.addingTimeInterval(away),
-                    workSeconds: away, threadID: decisionID)
+                    workSeconds: away, threadID: decisionID,
+                    breakOrigin: .answered)
                 breakRecord = record
                 additions.append(record)
             }

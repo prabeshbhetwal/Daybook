@@ -285,6 +285,11 @@ struct SessionRecord: Codable, Equatable, Identifiable {
     /// Known non-counting intervals inside this record. Nil preserves the
     /// legacy even-spread estimate for records written before this existed.
     var pausedSpans: [DateInterval]?
+    /// Where a rest came from. Nil on work and on rests written before origins
+    /// existed.
+    var breakOrigin: BreakOrigin?
+    /// The length a started break was planned for. Nil for every other record.
+    var plannedLength: TimeInterval?
 
     init(id: UUID = UUID(),
          name: String,
@@ -295,7 +300,9 @@ struct SessionRecord: Codable, Equatable, Identifiable {
          detectedApp: String? = nil,
          threadID: UUID = UUID(),
          isAuto: Bool = false,
-         pausedSpans: [DateInterval]? = nil) {
+         pausedSpans: [DateInterval]? = nil,
+         breakOrigin: BreakOrigin? = nil,
+         plannedLength: TimeInterval? = nil) {
         self.id = id
         self.name = name
         self.workType = workType
@@ -306,6 +313,8 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         self.threadID = threadID
         self.isAuto = isAuto
         self.pausedSpans = pausedSpans
+        self.breakOrigin = breakOrigin
+        self.plannedLength = plannedLength
     }
 
     /// Records written before threads existed remain one single-segment thread
@@ -324,6 +333,8 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         // Records written before auto sessions existed were all started by hand.
         isAuto = try container.decodeIfPresent(Bool.self, forKey: .isAuto) ?? false
         pausedSpans = try container.decodeIfPresent([DateInterval].self, forKey: .pausedSpans)
+        breakOrigin = try container.decodeIfPresent(BreakOrigin.self, forKey: .breakOrigin)
+        plannedLength = try container.decodeIfPresent(TimeInterval.self, forKey: .plannedLength)
     }
 }
 
