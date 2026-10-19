@@ -60,6 +60,15 @@ enum BreakTakingChecks: CheckSuite {
         let answered = asked.archive.records.first { $0.workType == .breakTime }
         expect(answered?.breakOrigin == .answered, "answered break is .answered", &problems)
 
+        // Undo, then answering "It was a break" again, is the same answer.
+        if asked.undoAwayDecision(), asked.reviseAwayDecision(.tookBreak) {
+            let revised = asked.archive.records.first { $0.workType == .breakTime }
+            expect(revised?.breakOrigin == .answered,
+                   "a break re-answered after Undo is .answered", &problems)
+        } else {
+            problems.append("Undo then re-answering as a break should save")
+        }
+
         // Behind a film for longer than the break threshold.
         let watchClock = TestClock(SelfTest.base)
         let watch = SelfTest.makeEngine(watchClock)

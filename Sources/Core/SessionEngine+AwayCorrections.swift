@@ -117,7 +117,8 @@ extension SessionEngine {
                 name: decision == .mergeTime ? receipt.name : trimmed.isEmpty ? "Break" : trimmed,
                 workType: decision == .mergeTime ? receipt.workType : .breakTime,
                 start: receipt.range.start, end: receipt.range.end, workSeconds: receipt.range.duration,
-                threadID: decision == .mergeTime ? receipt.threadID : receipt.id)
+                threadID: decision == .mergeTime ? receipt.threadID : receipt.id,
+                breakOrigin: decision == .tookBreak ? .answered : nil)
         }
         if let error = validateDecisionEffects(record.map { [$0] } ?? []) {
             awayDecisionError = error; return false

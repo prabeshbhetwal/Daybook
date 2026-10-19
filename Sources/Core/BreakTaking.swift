@@ -4,9 +4,10 @@ import Foundation
 /// from rests the app wrote down about an absence, so a later view can say
 /// which was a decision and which was an observation.
 enum BreakOrigin: String, Codable, Equatable {
-    /// Begun on purpose, from the menu bar or a break prompt's Take.
+    /// A break begun with Start break or Take a break, including pressing
+    /// Start on a break prompt.
     case started
-    /// Begun from a break prompt the app raised.
+    /// A rest taken by leaving after a break prompt, without pressing Start.
     case prompted
     /// An absence the person answered "It was a break".
     case answered
