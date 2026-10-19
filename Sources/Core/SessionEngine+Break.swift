@@ -3,6 +3,18 @@ import Foundation
 extension SessionEngine {
     // MARK: - Timed breaks
 
+    /// Whether a break may begin now: none is under way, the away question is
+    /// not waiting, and the session is not paused because nobody was here.
+    /// The popover and the Session menu ask this to offer Take a break only
+    /// where `startBreak` would accept it.
+    var canStartBreak: Bool {
+        guard activeBreak == nil else { return false }
+        switch state {
+        case .awaitingUserDecision, .paused(.away), .paused(.idle), .paused(.systemSleep): return false
+        case .paused, .idle, .running: return true
+        }
+    }
+
     /// Begins a break of `length` seconds. Refused (false) while one is
     /// already under way, while the away question waits, and while the session
     /// is paused because nobody was here (away, idle, asleep): those are
@@ -14,17 +26,13 @@ extension SessionEngine {
     /// not emit `onStateChanged`: the caller refreshes, as for a transition.
     @discardableResult
     func startBreak(length: TimeInterval, label: String? = nil) -> Bool {
-        guard activeBreak == nil, length.isFinite, length > 0 else { return false }
+        guard canStartBreak, length.isFinite, length > 0 else { return false }
         let planned = min(length, BreakLength.maximum)
-        switch state {
-        case .awaitingUserDecision: return false
-        case .paused(.away), .paused(.idle), .paused(.systemSleep): return false
-        case .paused:
+        if case .paused = state {
             // Not `transition(on:)`: that would announce a running state that
             // lasts no time. A refused save leaves the pause standing.
             _ = transitionFromPaused(on: .manualResume)
             guard state == .running else { return false }
-        case .idle, .running: break
         }
         // What `transition(on:)` does before any event: a new moment, so the
         // result of an earlier long absence is not shown again beside the break.

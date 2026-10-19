@@ -104,7 +104,7 @@ extension SelfTest {
 
         let expectedControls: Set<SettingsControlKey> = [
             .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,
-            .reminders, .breakOverSound, .activityRuleAutomation, .activityRules,
+            .reminders, .breakOverSound, .menuBarShowsBreakCountdown, .activityRuleAutomation, .activityRules,
             .automaticSessions, .automaticGap, .rewards, .haptics, .appleIntelligence, .sessionsPerApp,
             .usageRecording, .appearance, .density, .zoom, .timelineLabels, .entryDetails,
             .idlePause, .streakMinimum, .minimumSession, .continueWindow, .defaultCategory,

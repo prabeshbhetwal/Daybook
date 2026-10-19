@@ -13,23 +13,37 @@ struct MenuBarDisplay: Equatable {
     let isMet: Bool
     /// The elapsed minutes beside the ring, or nil when none are shown.
     let time: String?
+    /// A break is under way, with a session or without one.
+    let isOnBreak: Bool
+    /// The break's time left beside the cup, or nil when the setting hides it
+    /// (or no break is running). It changes once a minute until the last.
+    let breakText: String?
     let accessibilityLabel: String
 
     static let progressSteps = 1_000.0
 
+    /// `breakRemaining` is nil unless a break is under way. The break takes
+    /// the place of the session's time: a paused session's frozen minutes
+    /// beside a cup would read as the break's.
     init(state: SessionState, elapsed: TimeInterval, needsAttention: Bool,
-         goal: GoalProgress, showsTime: Bool) {
+         goal: GoalProgress, showsTime: Bool,
+         breakRemaining: TimeInterval? = nil, showsBreakCountdown: Bool = true) {
         isIdle = state == .idle
         isPaused = state.isPaused
         self.needsAttention = needsAttention
         progress = (min(1, max(0, goal.share)) * Self.progressSteps).rounded() / Self.progressSteps
         isMet = goal.isMet
-        time = !isIdle && showsTime ? Tokens.duration(elapsed) : nil
+        isOnBreak = breakRemaining != nil
+        time = !isIdle && showsTime && breakRemaining == nil ? Tokens.duration(elapsed) : nil
+        breakText = breakRemaining.flatMap { showsBreakCountdown ? Self.breakText(remaining: $0) : nil }
         // Says what the glyph shows: the waiting dot, the pause mark and a
         // met goal were drawn but never spoken.
         var spoken = ["Daybook"]
         if needsAttention { spoken.append("Away question waiting") }
-        if isIdle {
+        if let breakRemaining {
+            let left = BreakCountdown.spoken(remaining: breakRemaining)
+            spoken.append(breakRemaining > 0 ? "On a break, \(left)" : left)
+        } else if isIdle {
             spoken.append("\(DurationText.percent(goal.share, spoken: true)) "
                           + "of today's goal, no session running")
         } else {
@@ -49,7 +63,15 @@ struct MenuBarDisplay: Equatable {
                   elapsed: store.elapsed,
                   needsAttention: store.pendingAway != nil,
                   goal: store.goal,
-                  showsTime: store.menuBarShowsTime)
+                  showsTime: store.menuBarShowsTime,
+                  breakRemaining: store.isOnBreak ? store.breakRemaining : nil,
+                  showsBreakCountdown: store.menuBarShowsBreakCountdown)
+    }
+
+    /// "5m" while more than a minute is left, "45s" in the last, "Over", then
+    /// "+3m". The rules are `BreakCountdown`'s, shared with the break card.
+    static func breakText(remaining: TimeInterval) -> String {
+        BreakCountdown.text(remaining: remaining)
     }
 }
 

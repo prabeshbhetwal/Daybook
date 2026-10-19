@@ -221,6 +221,8 @@ struct SettingsGroups: View {
         KeyEntry(keys: SessionShortcut.pauseOrResume.glyphs, spoken: "Option-Command-P",
                  action: "Pause or resume"),
         KeyEntry(keys: SessionShortcut.stepAway.glyphs, spoken: "Option-Command-A", action: "Away"),
+        KeyEntry(keys: SessionShortcut.takeBreak.glyphs, spoken: "Option-Command-B",
+                 action: "Take a break, or end it"),
         KeyEntry(keys: SessionShortcut.stop.glyphs, spoken: "Option-Command-S", action: "Stop the session"),
         KeyEntry(keys: "⌘1", spoken: "Command-1", action: "The day's story"),
         KeyEntry(keys: "⌘2", spoken: "Command-2", action: "History"),
@@ -359,6 +361,10 @@ struct SettingsGroups: View {
                 toggleRow("Play a sound when a break is over",
                           detail: "A short tone with the \"Break's over\" prompt.",
                           isOn: $model.breakOverSound)
+                toggleRow("Show break countdown in the menu bar",
+                          detail: "Off, the menu bar shows only the cup while a break is under way.",
+                          isOn: $model.menuBarShowsBreakCountdown)
+                    .disabled(!model.showsMenuBarIcon)
                 // Each tier is its own switch: someone who finds the
                 // twenty-minute nudge too frequent keeps the longer two.
                 VStack(alignment: .leading, spacing: Tokens.Space.s) {

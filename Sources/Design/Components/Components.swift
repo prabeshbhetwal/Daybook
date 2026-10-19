@@ -329,13 +329,21 @@ struct MenuBarLabelView: View {
 }
 
 /// The menu bar's ambient state: a goal ring always, elapsed while a session
-/// runs, a pause mark when paused, a dot when a question is waiting.
+/// runs, a pause mark when paused, a dot when a question is waiting. On a
+/// break the cup and the time left take the ring's and the clock's place.
 struct MenuBarLabel: View {
     let display: MenuBarDisplay
 
     var body: some View {
         HStack(spacing: 4) { // zoom: fixed, the menu bar is the system's
-            if let glyph = MenuBarGlyph.image(progress: display.progress,
+            if display.isOnBreak {
+                // The `.breakTime` category's own symbol.
+                Image(systemName: "cup.and.saucer.fill")
+                if let breakText = display.breakText {
+                    Text(breakText)
+                        .font(Tokens.Typography.menuBar)
+                }
+            } else if let glyph = MenuBarGlyph.image(progress: display.progress,
                                               paused: display.isPaused,
                                               attention: display.needsAttention,
                                               isMet: display.isMet) {
@@ -348,7 +356,8 @@ struct MenuBarLabel: View {
                     .font(Tokens.Typography.menuBar)
             }
         }
-        .foregroundStyle(display.isPaused ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)) // ink: quiet, the system menu bar's own paused look
+        // Not dimmed on a break: the cup is the mark, and the countdown is read.
+        .foregroundStyle(display.isPaused && !display.isOnBreak ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)) // ink: quiet, the system menu bar's own paused look
     }
 }
 

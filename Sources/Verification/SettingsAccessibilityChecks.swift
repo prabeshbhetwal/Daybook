@@ -66,7 +66,7 @@ enum SettingsAccessibilityChecks {
             failures.append("the taken state does not say another app has the keys")
         }
         let listed = Set(SettingsGroups.windowKeys.map(\.keys))
-        for shortcut in [SessionShortcut.start, .pauseOrResume, .stepAway, .stop]
+        for shortcut in [SessionShortcut.start, .pauseOrResume, .stepAway, .takeBreak, .stop]
             where !listed.contains(shortcut.glyphs) {
             failures.append("\(shortcut.glyphs) answers a Session command but is not listed")
         }

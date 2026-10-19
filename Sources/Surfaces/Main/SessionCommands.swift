@@ -8,6 +8,7 @@ enum SessionShortcut {
     case start
     case pauseOrResume
     case stepAway
+    case takeBreak
     case stop
 
     var shortcut: KeyboardShortcut { KeyboardShortcut(key, modifiers: [.command, .option]) }
@@ -20,6 +21,7 @@ enum SessionShortcut {
         case .start: return "n"
         case .pauseOrResume: return "p"
         case .stepAway: return "a"
+        case .takeBreak: return "b"
         case .stop: return "s"
         }
     }
@@ -32,10 +34,13 @@ final class SessionCommandState: ObservableObject {
     struct Snapshot: Equatable {
         let mode: FocusSurfaceMode
         let isAway: Bool
+        /// Whether Take a break would begin one; End Break needs no such check.
+        let canTakeBreak: Bool
 
         init(_ store: SessionStore) {
             mode = store.focusSurfaceComposition.mode
             isAway = store.isAway
+            canTakeBreak = store.canTakeBreak
         }
     }
 
@@ -66,6 +71,7 @@ struct SessionCommands: Commands {
 
     private var mode: FocusSurfaceMode { state.snapshot.mode }
     private var isLive: Bool { mode == .running || mode == .paused || mode == .watching }
+    private var isOnBreak: Bool { mode == .onBreak }
 
     var body: some Commands {
         CommandMenu("Session") {
@@ -78,10 +84,17 @@ struct SessionCommands: Commands {
             Button("Away") { store.markAway() }
                 .keyboardShortcut(SessionShortcut.stepAway.shortcut)
                 .disabled(mode != .running)
+            // One item, like Pause and Resume: it ends the break it started.
+            Button(isOnBreak ? "End Break" : "Take a Break") {
+                if store.isOnBreak { store.endBreak() } else { store.startBreak() }
+            }
+            .keyboardShortcut(SessionShortcut.takeBreak.shortcut)
+            .disabled(!isOnBreak && !state.snapshot.canTakeBreak)
             Divider()
+            // A break stops with the session it paused, or alone.
             Button("Stop") { store.stop() }
                 .keyboardShortcut(SessionShortcut.stop.shortcut)
-                .disabled(!isLive)
+                .disabled(!isLive && !isOnBreak)
         }
     }
 

@@ -61,7 +61,7 @@ enum SessionAccessibilityChecks {
     }
 
     private static func sessionShortcutsDistinct() -> [String] {
-        let all: [SessionShortcut] = [.start, .pauseOrResume, .stepAway, .stop]
+        let all: [SessionShortcut] = [.start, .pauseOrResume, .stepAway, .takeBreak, .stop]
         let glyphs = all.map(\.glyphs)
         var failures: [String] = []
         if Set(glyphs).count != glyphs.count {

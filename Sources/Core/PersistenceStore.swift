@@ -27,6 +27,7 @@ final class PersistenceStore {
         static let remindersDisabled = "fc.remindersDisabled"
         static let breakLength = "fc.breakLength"
         static let breakOverSound = "fc.breakOverSound"
+        static let menuBarShowsBreakCountdown = "fc.menuBarShowsBreakCountdown"
         static let lastBreakNotice = "fc.lastBreakNotice"
         static let breakClock = "fc.breakClock"
         /// No longer read or written; erased so an older build's value goes.
@@ -481,6 +482,13 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.breakOverSound) }
     }
 
+    /// Whether the menu bar counts a break down beside the cup. On unless
+    /// turned off; off, the cup alone says a break is under way.
+    var menuBarShowsBreakCountdown: Bool {
+        get { defaults.object(forKey: Key.menuBarShowsBreakCountdown) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.menuBarShowsBreakCountdown) }
+    }
+
     var breakLength: TimeInterval {
         get {
             let stored = defaults.double(forKey: Key.breakLength)
@@ -881,7 +889,7 @@ final class PersistenceStore {
                     Key.rewardsEnabled, Key.hapticsEnabled, Key.rewardLog, Key.learning,
                     Key.useAppleIntelligence, Key.yesterdayNoteDismissedDay,
                     Key.logGrouping,
-                    Key.remindersDisabled, Key.retiredWorkInterval, Key.breakLength, Key.breakOverSound, Key.breakClock,
+                    Key.remindersDisabled, Key.retiredWorkInterval, Key.breakLength, Key.breakOverSound, Key.menuBarShowsBreakCountdown, Key.breakClock,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
                     Key.storyTileOrderRawValue,

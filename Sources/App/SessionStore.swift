@@ -86,6 +86,8 @@ final class SessionStore: ObservableObject {
     /// Mirrors the preference so the menu bar label, which observes the
     /// store, redraws when it changes.
     @Published var menuBarShowsTime = true
+    /// The same for the break countdown beside the menu bar's cup.
+    @Published var menuBarShowsBreakCountdown = true
 
     /// Total tracked computer time today — distinct from `todayTotal`, which is
     /// focused-session time.
@@ -469,6 +471,7 @@ final class SessionStore: ObservableObject {
         engine.archive.streakMinimum = engine.store.streakMinimum
         engine.archive.quickStartWindowDays = engine.store.suggestionWindowDays
         self.menuBarShowsTime = engine.store.menuBarShowsTime
+        self.menuBarShowsBreakCountdown = engine.store.menuBarShowsBreakCountdown
         self.metadataArchive = metadataArchive
             ?? SessionMetadataArchive(directory: engine.archive.dataDirectoryURL)
         self.ambientPower = ambientPower

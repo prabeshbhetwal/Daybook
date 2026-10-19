@@ -11,6 +11,12 @@ enum BreakSurfaceChecks: CheckSuite {
         ("A break prompt tells VoiceOver where to answer it", spokenLine),
         ("Break-over sound is on until turned off, and erasing data restores it", breakOverSoundSetting),
         ("A break restored at launch seeds no app use", launchOnBreakSeedsNothing),
+        ("The menu bar counts a break down by the minute, then the second", menuBarBreakText),
+        ("The menu bar shows a break even with no session", menuBarIdleBreak),
+        ("A break is spoken by the minute and reads the same in words and on screen", breakCountdownSpoken),
+        ("A break is a Focus mode of its own, with or without a session", breakIsAFocusMode),
+        ("Take a break is offered only where a break can begin", takeABreakOnlyWhereItCanBegin),
+        ("The menu bar countdown is on until turned off, and erasing data restores it", menuBarCountdownSetting),
     ]
 
     private static func cognitive(canLater: Bool) -> BreakPrompt {
@@ -126,6 +132,128 @@ enum BreakSurfaceChecks: CheckSuite {
         settings.breakOverSound = false
         store.removeAll()
         expect(store.breakOverSound, "erasing all data restores the default", &problems)
+        return problems
+    }
+
+    private static func menuBarBreakText() -> [String] {
+        var problems: [String] = []
+        expect(MenuBarDisplay.breakText(remaining: 299) == "5m", "rounds up minutes", &problems)
+        expect(MenuBarDisplay.breakText(remaining: 61) == "2m" && MenuBarDisplay.breakText(remaining: 60) == "60s",
+               "seconds in the last minute", &problems)
+        expect(MenuBarDisplay.breakText(remaining: -30) == "Over" && MenuBarDisplay.breakText(remaining: -200) == "+3m",
+               "overtime", &problems)
+        expect(MenuBarDisplay.breakText(remaining: 300) == "5m" && MenuBarDisplay.breakText(remaining: 0) == "Over"
+               && MenuBarDisplay.breakText(remaining: -60) == "+1m", "the edges of each rule", &problems)
+        return problems
+    }
+
+    private static func menuBarIdleBreak() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let f = BreakStoreChecks.make() else { return ["could not create isolated preferences"] }
+            defer { f.close() }
+            expect(!MenuBarDisplay(f.store).isOnBreak, "no break, no cup", &problems)
+            f.store.startBreak()
+            var display = MenuBarDisplay(f.store)
+            expect(display.isOnBreak && display.breakText == "5m",
+                   "an idle store on a break shows 5m, got \(display.breakText ?? "nil")", &problems)
+            expect(display.time == nil, "the frozen session time is not shown beside the cup", &problems)
+            f.persistence.menuBarShowsBreakCountdown = false
+            f.store.refresh()
+            display = MenuBarDisplay(f.store)
+            expect(display.isOnBreak && display.breakText == nil,
+                   "with the countdown off the cup stays and the time goes", &problems)
+            return problems
+        }
+    }
+
+    private static func breakCountdownSpoken() -> [String] {
+        var problems: [String] = []
+        func label(_ remaining: TimeInterval) -> String {
+            MenuBarDisplay(state: .idle, elapsed: 0, needsAttention: false,
+                           goal: GoalProgress(goal: 14_400, achieved: 0, typical: nil),
+                           showsTime: true, breakRemaining: remaining).accessibilityLabel
+        }
+        expect(label(299).contains("On a break, 5 minutes left"), "minutes left, got \(label(299))", &problems)
+        expect(label(299) == label(241) && label(45) == label(5),
+               "the label holds still inside a minute", &problems)
+        expect(label(45).contains("On a break, under a minute left"), "the last minute", &problems)
+        expect(label(100).contains("2 minutes left") && label(60.5).contains("2 minutes left"),
+               "rounds up like the text", &problems)
+        expect(label(-30).contains("Break over") && !label(-30).contains("On a break"), "just over", &problems)
+        expect(label(-200).contains("Break over by 3 minutes"), "overtime, got \(label(-200))", &problems)
+        expect(label(-70).contains("Break over by 1 minute") && !label(-70).contains("1 minutes"),
+               "one minute is singular", &problems)
+        expect(BreakCountdown.cardText(remaining: 299) == "5m left" && BreakCountdown.cardText(remaining: 45) == "45s left",
+               "the card counts down like the menu bar", &problems)
+        expect(BreakCountdown.cardText(remaining: -10) == "Break over"
+               && BreakCountdown.cardText(remaining: -200) == "+3m over", "and counts overtime", &problems)
+        return problems
+    }
+
+    private static func breakIsAFocusMode() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            func mode(_ state: SessionState, auto: Bool = false, onBreak: Bool = true) -> FocusSurfaceComposition {
+                FocusSurfaceComposition(state: state, hasPendingDecision: false, isAutomatic: auto, isOnBreak: onBreak)
+            }
+            expect(mode(.idle).mode == .onBreak && mode(.paused(reason: .onBreak)).mode == .onBreak
+                   && mode(.running).mode == .onBreak, "idle, paused and running all show the break", &problems)
+            expect(mode(.running, onBreak: false).mode == .running, "no break, no break mode", &problems)
+            expect(FocusSurfaceMode(state: .paused(reason: .onBreak)) == .onBreak, "the pause reason maps to it", &problems)
+            expect(FocusSurfaceMode.onBreak.primaryPrompt == "On a break" && FocusSurfaceMode.onBreak.primaryAction == nil,
+                   "named, and with no Pause or Resume of its own", &problems)
+            expect(!mode(.paused(reason: .onBreak), auto: true).showsAutomaticSessionControls,
+                   "no automatic-session form on a break card", &problems)
+            guard let f = BreakStoreChecks.make(prepare: BreakStoreChecks.running) else {
+                return problems + ["could not create isolated preferences"]
+            }
+            defer { f.close() }
+            f.store.startBreak()
+            expect(f.store.focusSurfaceComposition.mode == .onBreak, "the store composes a break", &problems)
+            f.store.endBreak()
+            expect(f.store.focusSurfaceComposition.mode == .running, "and the session is back when it ends", &problems)
+            return problems
+        }
+    }
+
+    private static func takeABreakOnlyWhereItCanBegin() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let idle = BreakStoreChecks.make(),
+                  let running = BreakStoreChecks.make(prepare: BreakStoreChecks.running) else {
+                return ["could not create isolated preferences"]
+            }
+            defer { idle.close(); running.close() }
+            expect(idle.store.canTakeBreak && running.store.canTakeBreak, "idle and running may", &problems)
+            running.store.startBreak()
+            expect(!running.store.canTakeBreak, "not while one is under way", &problems)
+            running.store.endBreak()
+            running.store.markAway()
+            expect(running.store.isAway && !running.store.canTakeBreak,
+                   "not while away, as the engine refuses", &problems)
+            return problems
+        }
+    }
+
+    private static func menuBarCountdownSetting() -> [String] {
+        var problems: [String] = []
+        guard let defaults = MemoryDefaults.suite(named: "fc-selftest-menu-bar-countdown") else {
+            return ["could not create isolated defaults"]
+        }
+        defer { MemoryDefaults.remove(named: "fc-selftest-menu-bar-countdown") }
+        let store = PersistenceStore(defaults: defaults)
+        expect(store.menuBarShowsBreakCountdown, "a fresh store shows the countdown", &problems)
+        let settings = SettingsModel(store: store, isTrackingEnabled: true,
+                                     onChange: {}, onTrackingChanged: { _ in })
+        settings.menuBarShowsBreakCountdown = false
+        expect(!PersistenceStore(defaults: defaults).menuBarShowsBreakCountdown,
+               "turning it off is saved", &problems)
+        expect(!SettingsModel(store: store, isTrackingEnabled: true, onChange: {},
+                              onTrackingChanged: { _ in }).menuBarShowsBreakCountdown,
+               "turning it off survives a reload of Settings", &problems)
+        store.removeAll()
+        expect(store.menuBarShowsBreakCountdown, "erasing all data restores the default", &problems)
         return problems
     }
 

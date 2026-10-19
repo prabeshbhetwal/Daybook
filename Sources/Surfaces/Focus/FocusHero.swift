@@ -19,6 +19,10 @@ enum FocusSurfaceMode: Equatable {
     case paused
     case watching
     case awaitingDecision
+    /// A break is under way, with a session paused under it or none at all.
+    /// `FocusSurfaceComposition` chooses it from the store, since an idle
+    /// engine on a break is still `SessionState.idle`.
+    case onBreak
 
     init(state: SessionState) {
         switch state {
@@ -26,6 +30,8 @@ enum FocusSurfaceMode: Equatable {
             self = .idle
         case .running:
             self = .running
+        case .paused(reason: .onBreak):
+            self = .onBreak
         case .paused(reason: .watching):
             self = .watching
         case .paused:
@@ -42,6 +48,7 @@ enum FocusSurfaceMode: Equatable {
         case .paused: return "Ready to continue?"
         case .watching: return "Watching quietly"
         case .awaitingDecision: return "What happened while you were away?"
+        case .onBreak: return "On a break"
         }
     }
 
@@ -50,7 +57,9 @@ enum FocusSurfaceMode: Equatable {
         case .idle: return .start
         case .running: return .pause
         case .paused, .watching: return .resume
-        case .awaitingDecision: return nil
+        // End break and +5 min are the break card's own; Pause and Resume
+        // have nothing to pause.
+        case .awaitingDecision, .onBreak: return nil
         }
     }
 
@@ -65,13 +74,19 @@ struct FocusSurfaceComposition: Equatable {
     let showsContinuationSection: Bool
     let showsAutomaticSessionControls: Bool
 
+    /// A break comes first: it is shown with or without a session, and the
+    /// engine does not begin one while the away question waits.
     init(state: SessionState,
          hasPendingDecision: Bool,
-         isAutomatic: Bool) {
-        mode = hasPendingDecision ? .awaitingDecision : FocusSurfaceMode(state: state)
+         isAutomatic: Bool,
+         isOnBreak: Bool = false) {
+        mode = isOnBreak ? .onBreak
+            : hasPendingDecision ? .awaitingDecision : FocusSurfaceMode(state: state)
         showsContinuationSection = mode.showsOrdinaryControls
+        // The break card is not a place to name or discard a session.
         showsAutomaticSessionControls = isAutomatic
             && mode != .idle
+            && mode != .onBreak
             && mode.showsOrdinaryControls
     }
 }
@@ -82,7 +97,8 @@ extension SessionStore {
     var focusSurfaceComposition: FocusSurfaceComposition {
         FocusSurfaceComposition(state: state,
                                 hasPendingDecision: hasUnresolvedAwayDecision,
-                                isAutomatic: isAutoSession)
+                                isAutomatic: isAutoSession,
+                                isOnBreak: isOnBreak)
     }
 
     var focusOperationFailure: FocusOperationFailureState? {
@@ -234,6 +250,8 @@ struct FocusHero: View {
                 idleRowLead
                     .transition(Tokens.Motion.transition(
                         .opacity.combined(with: .scale(scale: 0.96)), reduceMotion: reduceMotion))
+            } else if mode == .onBreak {
+                FocusBreakRowLead(store: store)
             } else {
                 liveRowLead
             }
@@ -281,6 +299,8 @@ struct FocusHero: View {
                 pausedBody
             case .watching:
                 watchingBody
+            case .onBreak:
+                FocusBreakBody(store: store, compact: compact)
             case .awaitingDecision:
                 EmptyView()
             }
@@ -298,7 +318,9 @@ struct FocusHero: View {
     private var stripRow: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             HStack(spacing: Tokens.Space.l) {
-                if mode == .idle { idleRowLead } else { liveRowLead }
+                if mode == .idle { idleRowLead }
+                else if mode == .onBreak { FocusBreakRowLead(store: store) }
+                else { liveRowLead }
                 Spacer(minLength: Tokens.Space.m)
                 if showsGoal { goalSupport }
             }
@@ -329,6 +351,7 @@ struct FocusHero: View {
             .fixedSize()
             .matchedGeometryEffect(id: "primary", in: primaryPill)
             .help(startHelp)
+        takeBreakButton
     }
 
     @ViewBuilder private var liveRowLead: some View {
@@ -379,6 +402,7 @@ struct FocusHero: View {
                 .help(awayHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
+            takeBreakButton
             automaticNameButton
         case .paused, .watching:
             FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
@@ -389,8 +413,9 @@ struct FocusHero: View {
             .help(resumeHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
+            if mode == .paused { takeBreakButton }
             automaticNameButton
-        case .idle, .awaitingDecision:
+        case .idle, .awaitingDecision, .onBreak:
             EmptyView()
         }
     }
@@ -412,7 +437,8 @@ struct FocusHero: View {
         case .watching:
             return "The focus clock is paused while you watch. "
                 + "This time is recorded as Watching, not focus."
-        case .idle, .awaitingDecision: return nil
+        // The break row names itself; there is nothing more to say under it.
+        case .idle, .awaitingDecision, .onBreak: return nil
         }
     }
 
@@ -485,6 +511,7 @@ struct FocusHero: View {
                         .help(startHelp)
                     }
                 }
+                takeBreakButton
                 // A note about what happens after an action the reader has not
                 // taken yet belongs on the page that has room to explain, not
                 // under the button in a 340pt panel.
@@ -600,6 +627,8 @@ struct FocusHero: View {
             HStack(spacing: Tokens.Space.s) {
                 controls()
             }
+            // Its own row: Pause, Away and Stop already fill the popover's.
+            if mode == .running || mode == .paused { takeBreakButton }
             goalSupport
             if composition.showsAutomaticSessionControls {
                 automaticControls
@@ -825,6 +854,15 @@ struct FocusHero: View {
         "Stops counting focus and app use until you're back (\(SessionShortcut.stepAway.glyphs))"
     }
 
+    /// A secondary action wherever a break may begin: idle, running and
+    /// paused by hand. Not offered where the engine would refuse it.
+    @ViewBuilder private var takeBreakButton: some View {
+        if store.canTakeBreak {
+            FocusActionButton(title: "Take a break", symbol: "cup.and.saucer") { store.startBreak() }
+                .help("Starts a \(Int(BreakLength.standard / 60)) minute break (\(SessionShortcut.takeBreak.glyphs))")
+        }
+    }
+
     private var stopHelp: String {
         "Ends this session and records it. A stretch under "
             + "\(Int(store.engine.store.minimumRecordedSession)) seconds is not kept "
@@ -876,9 +914,11 @@ private struct FocusOperationFailure: View {
 /// A word-labelled action keeps the Focus panel understandable without relying
 /// on tooltip-only icon controls. Only the state-appropriate primary action is
 /// filled; Away and Stop remain quiet secondary choices.
-private struct FocusActionButton: View {
+struct FocusActionButton: View {
     let title: String
     let symbol: String
+    /// What VoiceOver says when the title reads badly aloud ("+5 min").
+    var spoken: String?
     var prominent = false
     let action: () -> Void
 
@@ -898,6 +938,6 @@ private struct FocusActionButton: View {
                                            : AnyShapeStyle(.primary))
         }
         .buttonStyle(PressableStyle())
-        .accessibilityLabel(title)
+        .accessibilityLabel(spoken ?? title)
     }
 }

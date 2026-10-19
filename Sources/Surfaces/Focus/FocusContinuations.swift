@@ -196,19 +196,22 @@ private struct FocusContinuationLabel: View {
     }
 }
 
-/// A break reminder is supporting context, never a competing card.
+/// A break reminder is supporting context, never a competing card. While a
+/// break runs the hero is the break, and this line has nothing to add.
 struct FocusBreakLine: View {
     @ObservedObject var store: SessionStore
 
     var body: some View {
-        Label(store.breakLabel,
-              systemImage: store.isBreakDue ? "figure.walk" : "eye")
-            .font(Tokens.Typography.body)
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(store.isBreakDue
-                             ? AnyShapeStyle(StoryStyle.attentionInk)
-                             : AnyShapeStyle(StoryStyle.supportingInk))
-            .lineLimit(1)
-            .accessibilityLabel("Break status: \(store.breakLabel)")
+        if !store.isOnBreak {
+            Label(store.breakLabel,
+                  systemImage: store.isBreakDue ? "figure.walk" : "eye")
+                .font(Tokens.Typography.body)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(store.isBreakDue
+                                 ? AnyShapeStyle(StoryStyle.attentionInk)
+                                 : AnyShapeStyle(StoryStyle.supportingInk))
+                .lineLimit(1)
+                .accessibilityLabel("Break status: \(store.breakLabel)")
+        }
     }
 }

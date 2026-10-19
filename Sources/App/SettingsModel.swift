@@ -14,6 +14,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case fullPromptAfter
     case reminders
     case breakOverSound
+    case menuBarShowsBreakCountdown
     case automaticSessions
     case activityRuleAutomation
     case activityRules
@@ -65,6 +66,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .fullPromptAfter: return \SettingsModel.fullPromptAfter
         case .reminders: return \SettingsModel.remindersEnabled
         case .breakOverSound: return \SettingsModel.breakOverSound
+        case .menuBarShowsBreakCountdown: return \SettingsModel.menuBarShowsBreakCountdown
         case .automaticSessions: return \SettingsModel.autoSessionsEnabled
         case .activityRuleAutomation: return \SettingsModel.activityRuleAutomationEnabled
         case .activityRules: return \SettingsModel.activityRules
@@ -520,6 +522,11 @@ final class SettingsModel: ObservableObject {
     var breakOverSound: Bool {
         get { store.breakOverSound }
         set { write { store.breakOverSound = newValue } }
+    }
+
+    var menuBarShowsBreakCountdown: Bool {
+        get { store.menuBarShowsBreakCountdown }
+        set { write { store.menuBarShowsBreakCountdown = newValue } }
     }
 
     var useAppleIntelligence: Bool {

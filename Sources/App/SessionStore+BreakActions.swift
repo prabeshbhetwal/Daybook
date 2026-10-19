@@ -8,6 +8,10 @@ extension SessionStore {
     var isOnBreak: Bool { engine.activeBreak != nil }
     var activeBreak: ActiveBreak? { engine.activeBreak }
 
+    /// Whether Take a break would begin one. The buttons and the Session menu
+    /// offer it only then, so none is pressed to be refused in silence.
+    var canTakeBreak: Bool { engine.canStartBreak && !hasUnresolvedAwayDecision }
+
     /// Begins a break. `length` defaults to the reminder's own, never less
     /// than five minutes; a break begun from the menu is five. Refused while
     /// the away question waits or the session is paused because nobody was

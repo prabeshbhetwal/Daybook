@@ -197,6 +197,7 @@ extension SessionStore {
         engine.archive.streakMinimum = engine.store.streakMinimum
         engine.archive.quickStartWindowDays = engine.store.suggestionWindowDays
         publish(\.menuBarShowsTime, engine.store.menuBarShowsTime)
+        publish(\.menuBarShowsBreakCountdown, engine.store.menuBarShowsBreakCountdown)
         // Only while idle: during a session the picker shows that session's
         // category, and a new default waits until the session ends.
         let defaultWorkType = engine.store.defaultWorkType
