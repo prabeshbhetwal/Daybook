@@ -78,8 +78,11 @@ struct BreakRhythm: Equatable {
         }
     }
 
-    /// Flow's break after a stretch of work: a fifth of it, from 5 to 20 minutes.
+    /// Flow's break after a stretch of work: a fifth of it in whole minutes
+    /// (a half rounds up), from 5 to 20. Whole, because the offer reads "9
+    /// minutes" and counts down from there; `BreakCycles.flowRun` credits a
+    /// gap with this same figure, so the two cannot disagree.
     static func flowSuggestion(after stretch: TimeInterval) -> TimeInterval {
-        min(max(stretch / 5, flowShortest), flowLongest)
+        min(max((stretch / 300).rounded() * 60, flowShortest), flowLongest)
     }
 }

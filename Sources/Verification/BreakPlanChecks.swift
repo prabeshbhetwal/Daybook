@@ -136,8 +136,8 @@ enum BreakPlanChecks: CheckSuite {
                && long.prompt?.title == "Step away for 20 minutes",
                "Flow at 200 minutes offers the longest break", &problems)
         let ninety = eval(91, flow).prompt
-        expect(ninety?.breakLength == 1_092 && ninety?.title == "Step away for 18 minutes",
-               "and at 91 a fifth of the stretch", &problems)
+        expect(ninety?.breakLength == 1_080 && ninety?.title == "Step away for 18 minutes",
+               "and at 91 a fifth of the stretch, in whole minutes", &problems)
         let hour = eval(60, flow)
         expect(hour.due == nil || hour.due == .micro, "Flow has no main break at an hour", &problems)
         expect(hour.breakLength == 720, "Start break suggests 12 minutes after an hour", &problems)

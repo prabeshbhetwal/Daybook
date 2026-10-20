@@ -56,6 +56,10 @@ struct BreakRhythmSnapshot: Codable, Equatable {
     var workMinutes: Int?
     var breakMinutes: Int?
     var eyes: Bool
+    /// The guard as configured, not when it comes: the guard actually comes at
+    /// `BreakPlan.workLength(.ultradian)` (ruling 3), later than this when it
+    /// is set at or past the rhythm's work block. Phase 4 must re-apply that
+    /// rule when it reads the figure.
     var guardMinutes: Int?
     var override: String?
     var preset: String?

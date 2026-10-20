@@ -30,6 +30,8 @@ final class PersistenceStore {
         static let menuBarShowsBreakCountdown = "fc.menuBarShowsBreakCountdown"
         static let lastBreakNotice = "fc.lastBreakNotice"
         static let lastBreakWork = "fc.lastBreakWork"
+        /// The `fc.lastBreakNotice` the stored work length was written with.
+        static let lastBreakWorkAt = "fc.lastBreakWorkAt"
         static let breakClock = "fc.breakClock"
         static let breakSchedule = "fc.breakSchedule"
         static let breakEyes = "fc.breakEyes"
@@ -726,13 +728,23 @@ final class PersistenceStore {
             let tier = (defaults.object(forKey: Key.lastBreakTier) as? Int)
                 .flatMap(BreakTier.init(rawValue:)) ?? .ultradian
             // Absent is "unknown" (a notice from a build that did not keep it).
+            // The length counts only beside the notice it was written with: a
+            // phase-1 build rewrites the notice and tier but never the length,
+            // so after a downgrade and upgrade the stored one is an older
+            // notice's, and pairing it with this one would skip a repeat hold.
+            let writtenAt = defaults.object(forKey: Key.lastBreakWorkAt) as? Double
             return BreakNotice(tier: tier, at: Date(timeIntervalSince1970: stored),
-                               work: defaults.object(forKey: Key.lastBreakWork) as? Double)
+                               work: writtenAt == stored ? defaults.object(forKey: Key.lastBreakWork) as? Double : nil)
         }
         set {
             defaults.set(newValue?.at.timeIntervalSince1970 ?? 0, forKey: Key.lastBreakNotice)
-            if let work = newValue?.work { defaults.set(work, forKey: Key.lastBreakWork) }
-            else { defaults.removeObject(forKey: Key.lastBreakWork) }
+            if let notice = newValue, let work = notice.work {
+                defaults.set(work, forKey: Key.lastBreakWork)
+                defaults.set(notice.at.timeIntervalSince1970, forKey: Key.lastBreakWorkAt)
+            } else {
+                defaults.removeObject(forKey: Key.lastBreakWork)
+                defaults.removeObject(forKey: Key.lastBreakWorkAt)
+            }
             defaults.set(newValue?.tier.rawValue ?? BreakTier.ultradian.rawValue,
                          forKey: Key.lastBreakTier)
         }
@@ -939,7 +951,8 @@ final class PersistenceStore {
                     Key.useAppleIntelligence, Key.yesterdayNoteDismissedDay,
                     Key.logGrouping,
                     Key.remindersDisabled, Key.retiredWorkInterval, Key.autoSessionPauseLimit, Key.breakOverSound, Key.menuBarShowsBreakCountdown, Key.breakClock,
-                    Key.lastBreakNotice, Key.lastBreakTier, Key.lastBreakWork, Key.longAwayCap,
+                    Key.lastBreakNotice, Key.lastBreakTier, Key.lastBreakWork, Key.lastBreakWorkAt,
+                    Key.longAwayCap,
                     Key.breakSchedule, Key.breakEyes, Key.breakGuard, Key.breakGuardMinutes,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
                     Key.storyTileOrderRawValue,

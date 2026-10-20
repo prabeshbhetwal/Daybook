@@ -124,9 +124,9 @@ extension SettingsGroups {
         rowDivider
         overrideRow("Dates", .range)
         if model.breakOverridePlan(.range) != .usual {
-            preferenceRow("From") { datePicker("From", $model.breakRangeFrom, .date) }
+            preferenceRow("From") { datePicker("Dates from", $model.breakRangeFrom, .date) }
                 .padding(.leading, Tokens.Space.l)
-            preferenceRow("To") { datePicker("To", $model.breakRangeTo, .date) }
+            preferenceRow("To") { datePicker("Dates to", $model.breakRangeTo, .date) }
                 .padding(.leading, Tokens.Space.l)
         }
         explanation(Self.overridesFootnote)
@@ -145,11 +145,14 @@ extension SettingsGroups {
     }
 
     /// A date or time picker working in the model's calendar and zone, so it
-    /// shows the day and minute that are stored.
+    /// shows the day and minute that are stored. `title` is what VoiceOver
+    /// reads, so it names the panel as well as the end ("Dates from", not
+    /// "From" twice).
     private func datePicker(_ title: String, _ selection: Binding<Date>,
                             _ components: DatePickerComponents) -> some View {
         DatePicker(title, selection: selection, displayedComponents: components)
             .labelsHidden()
+            .accessibilityLabel(title)
             .environment(\.calendar, model.pickerCalendar)
             .environment(\.timeZone, model.pickerCalendar.timeZone)
     }
@@ -181,9 +184,9 @@ extension SettingsGroups {
                     + "overnight, such as 22:00 to 06:00.",
                   isOn: $model.workingHoursEnabled)
         if model.workingHoursEnabled {
-            preferenceRow("From") { datePicker("From", $model.workingHoursFrom, .hourAndMinute) }
+            preferenceRow("From") { datePicker("Working hours from", $model.workingHoursFrom, .hourAndMinute) }
                 .padding(.leading, Tokens.Space.l)
-            preferenceRow("To") { datePicker("To", $model.workingHoursTo, .hourAndMinute) }
+            preferenceRow("To") { datePicker("Working hours to", $model.workingHoursTo, .hourAndMinute) }
                 .padding(.leading, Tokens.Space.l)
         }
     }
@@ -196,8 +199,8 @@ extension SettingsGroups {
                   isOn: $model.breakEyes)
         rowDivider
         toggleRow("Long-stretch guard",
-                  detail: "One clearer prompt after an unbroken stretch, whatever the rhythm. With a longer "
-                    + "work block it comes 15 minutes after that block.",
+                  detail: Self.guardDetail(pickedMinutes: model.breakGuardMinutes,
+                                           comesAfter: model.guardComesAfter),
                   isOn: $model.breakGuardEnabled)
         preferenceRow("Guard comes after") {
             Picker("Guard comes after", selection: $model.breakGuardMinutes) {
@@ -210,6 +213,16 @@ extension SettingsGroups {
         }
         .padding(.leading, Tokens.Space.l)
         .disabled(!model.breakGuardEnabled)
+    }
+
+    /// What the Long-stretch guard row says. The second sentence names the
+    /// time the guard really comes only when it is not the one the picker
+    /// shows: a guard set at or past the rhythm's work block waits until 15
+    /// minutes after that block.
+    static func guardDetail(pickedMinutes: Int, comesAfter: TimeInterval?) -> String {
+        let base = "One clearer prompt after an unbroken stretch, whatever the rhythm."
+        guard let comesAfter, comesAfter != TimeInterval(pickedMinutes * 60) else { return base }
+        return base + " With your usual rhythm it comes after \(Tokens.duration(comesAfter))."
     }
 
     /// 60 to 180 minutes in quarter hours, and the stored value when it is

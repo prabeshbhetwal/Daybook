@@ -124,8 +124,9 @@ beside this plan.
    `fc.breakGuard`, `fc.breakSchedule`), until it is first written, reads its
    value from `fc.breakTiersDisabled`; the first write fixes it. Nothing
    writes the old key any more, so the result cannot change under the person,
-   no marker key is needed, and a downgrade then upgrade follows their latest
-   phase-1 choice. Each tier maps on its own. [A phase-1 build after a
+   no marker key is needed, and after a downgrade and upgrade, a key phase 2
+   has already written keeps phase 2's value; one it never wrote still follows
+   the phase-1 choice. Each tier maps on its own. [A phase-1 build after a
    downgrade does not see phase-2 choices.]
 6. **Overrides: one per kind (today, this week, this month, dates), each
    stored as calendar days.** The narrowest span covering the day wins; a tie

@@ -394,11 +394,10 @@ final class SettingsModel: ObservableObject {
             .sink { [weak self] _ in self?.objectWillChange.send() }
         clockChanges = NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
             .merge(with: NotificationCenter.default.publisher(for: .NSCalendarDayChanged))
-            .sink { [weak self] note in
-                // The system keeps the zone it first read until told it changed.
-                if note.name == .NSSystemTimeZoneDidChange { NSTimeZone.resetSystemTimeZone() }
-                self?.announceClockChange()
-            }
+            // The zone is not reset here: that would move every
+            // `Calendar.current` mid-run while the archive keeps the calendar
+            // it captured at launch, and two "today" figures would disagree.
+            .sink { [weak self] _ in self?.announceClockChange() }
     }
 
     private func announceClockChange() {
@@ -436,7 +435,7 @@ final class SettingsModel: ObservableObject {
         onResumeWelcome?(chapter)
     }
 
-    func write(_ body: () -> Void) {
+    private func write(_ body: () -> Void) {
         objectWillChange.send()
         body()
         onChange()

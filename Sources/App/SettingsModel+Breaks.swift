@@ -92,6 +92,19 @@ extension SettingsModel {
         }
     }
 
+    // MARK: - Long-stretch guard
+
+    /// Unbroken use after which the guard comes under the usual rhythm; nil
+    /// while it is off. Not always the picker's figure: a guard set at or past
+    /// the rhythm's work block comes 15 minutes after that block
+    /// (`BreakPlan.workLength`, ruling 3).
+    var guardComesAfter: TimeInterval? {
+        guard breakGuardEnabled else { return nil }
+        let usual = BreakPlan(rhythm: BreakRhythm(breakSchedule.rhythm, custom: breakSchedule.custom),
+                              eyes: false, guardLength: TimeInterval(breakGuardMinutes * 60), override: nil)
+        return usual.workLength(.ultradian)
+    }
+
     // MARK: - Working hours
 
     private static let defaultWorkingHours = WorkingHours(fromMinute: 8 * 60, toMinute: 18 * 60)
