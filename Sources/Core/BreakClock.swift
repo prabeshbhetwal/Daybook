@@ -33,10 +33,11 @@ struct BreakClock: Codable, Equatable {
     mutating func credit(at moment: Date) {
         for tier in BreakTier.allCases { floors[tier] = moment }
         snooze = nil
-        // A day back from this rest, not from the newest credit: one stored
-        // from a clock that ran far ahead must not push every real rest out.
+        // Only the day up to this rest is kept. A credit dated later comes from
+        // a clock that ran ahead, and must not use up the places real rests need.
         let horizon = moment.addingTimeInterval(-BreakReminder.runLookback)
-        credits = Array((credits + [moment]).filter { $0 >= horizon }.sorted().suffix(Self.maxCredits))
+        let recent = (credits + [moment]).filter { $0 >= horizon && $0 <= moment }
+        credits = Array(recent.sorted().suffix(Self.maxCredits))
     }
 
     /// Restarts that reminder only. Records no rest.
@@ -50,8 +51,9 @@ struct BreakClock: Codable, Equatable {
     }
 
     mutating func later(_ tier: BreakTier, at moment: Date) {
-        // Clamped first: a damaged stored count must not overflow the `+ 1`.
-        let count = snooze?.tier == tier ? min(snooze?.count ?? 0, Self.maxLaters) + 1 : 1
+        // Clamped first, at both ends: a damaged stored count must not overflow
+        // the `+ 1`, nor leave a negative one that gives more than the most.
+        let count = snooze?.tier == tier ? min(max(snooze?.count ?? 0, 0), Self.maxLaters) + 1 : 1
         snooze = BreakSnooze(tier: tier, until: moment.addingTimeInterval(Self.length(of: tier)),
                              count: count)
     }
@@ -121,6 +123,8 @@ extension BreakClock {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         floors = try values.decode([BreakTier: Date].self, forKey: .floors)
         snooze = try values.decodeIfPresent(BreakSnooze.self, forKey: .snooze)
-        credits = try values.decodeIfPresent([Date].self, forKey: .credits) ?? []
+        // The rests are a convenience: absent, null or unreadable reads as none,
+        // and must not cost the floors and the Later.
+        credits = (try? values.decode([Date].self, forKey: .credits)) ?? []
     }
 }

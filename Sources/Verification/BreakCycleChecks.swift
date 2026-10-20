@@ -163,13 +163,20 @@ enum BreakCycleChecks: CheckSuite {
         } else {
             problems.append("a build without credits could not read a clock that has them")
         }
-        object.removeValue(forKey: "credits")
-        if let stripped = try? JSONSerialization.data(withJSONObject: object),
-           let read = try? JSONDecoder().decode(BreakClock.self, from: stripped) {
-            expect(read.credits.isEmpty && read.floors == clock.floors && read.snooze == clock.snooze,
-                   "a clock stored without credits has none", &problems)
-        } else {
-            problems.append("a clock stored without credits could not be read")
+        // Absent, empty-valued or damaged: the rests read as none, and the floors and
+        // the Later are not lost with them.
+        let variants: [(String, Any?)] = [("stored without credits", nil), ("stored with a null", NSNull()),
+                                          ("stored with a list of text", ["x"]),
+                                          ("stored with an object", [String: Any]())]
+        for (label, value) in variants {
+            object["credits"] = value
+            if let stripped = try? JSONSerialization.data(withJSONObject: object),
+               let read = try? JSONDecoder().decode(BreakClock.self, from: stripped) {
+                expect(read.credits.isEmpty && read.floors == clock.floors && read.snooze == clock.snooze,
+                       "a clock \(label) has no credits and keeps its floors and Later", &problems)
+            } else {
+                problems.append("a clock \(label) could not be read")
+            }
         }
 
         var trimmed = BreakClock()
@@ -181,15 +188,22 @@ enum BreakCycleChecks: CheckSuite {
         expect(many.credits.count == BreakClock.maxCredits && many.credits.first == at(80)
                && many.credits.last == at(390), "at most 32 stay, the newest of them", &problems)
         var unordered = BreakClock()
-        unordered.credit(at: at(100))
-        unordered.credit(at: at(50))
-        expect(unordered.credits == [at(50), at(100)], "and they stay in order", &problems)
+        unordered.credits = [at(100), at(20)]
+        unordered.credit(at: at(150))
+        expect(unordered.credits == [at(20), at(100), at(150)], "and they stay in order, got "
+               + "\(unordered.credits.count)", &problems)
 
         var ahead = BreakClock()
         ahead.credit(at: at(50))
         ahead.credit(at: at(500))
         expect(ahead.sanitized(now: at(100)).credits == [at(50)], "a credit in the future is not believed",
                &problems)
+        // Forty credits dated a year ahead do not use up the places a real rest needs.
+        var skewed = BreakClock()
+        skewed.credits = (0..<40).map { at(525_600 + Double($0)) }
+        skewed.credit(at: at(10))
+        expect(skewed.credits == [at(10)] && skewed.sanitized(now: at(20)).credits == [at(10)],
+               "a real rest is kept beside a crowd of future ones, got \(skewed.credits.count)", &problems)
 
         var damaged = BreakClock()
         damaged.snooze = BreakSnooze(tier: .cognitive, until: at(10), count: -3)
