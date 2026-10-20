@@ -23,7 +23,9 @@ enum BreakPromptOutcome: String, Codable {
 
 /// One reminder that was shown, how often it was put off, and how it ended.
 struct BreakPromptEntry: Codable, Equatable, Identifiable {
-    let id: UUID
+    /// The latest showing's id: a reminder that returns after a Later is the
+    /// same row under the new showing's id.
+    var id: UUID
     let kind: BreakPromptKind
     let due: Date
     let shown: Date
@@ -33,6 +35,12 @@ struct BreakPromptEntry: Codable, Equatable, Identifiable {
     // Phase 3: a reminder held back while the person was busy.
     var heldSeconds: TimeInterval?
     var holdReasons: [String]?
+    /// When the latest showing came, if it was not the first (a reminder that
+    /// returned after a Later). `shown` stays the first showing.
+    var lastShown: Date?
+
+    /// The newest moment this reminder was in front of the person.
+    var latestShowing: Date { lastShown ?? shown }
 }
 
 /// The break rhythm in force on one day. `preset` is a `BreakPreset` raw value
@@ -101,9 +109,21 @@ final class BreakLog {
         load()
     }
 
+    /// A reminder that comes back after a Later is the same reminder: the
+    /// newest row, if it is of this kind and was put off, takes the new
+    /// showing's id and waits for its answer again. Its Later count, `due` and
+    /// `shown` stay, so one reminder is one row however often it is put off.
     @discardableResult
     func recordShown(_ entry: BreakPromptEntry) -> String? {
         guard !prompts.contains(where: { $0.id == entry.id }) else { return nil }
+        if let index = prompts.indices.last, prompts[index].kind == entry.kind,
+           prompts[index].outcome == .later {
+            prompts[index].id = entry.id
+            prompts[index].outcome = nil
+            prompts[index].outcomeAt = nil
+            prompts[index].lastShown = entry.shown
+            return commit(at: entry.shown)
+        }
         prompts.append(entry)
         prompts.sort { $0.shown < $1.shown }
         return commit(at: entry.shown)
@@ -111,7 +131,7 @@ final class BreakLog {
 
     @discardableResult
     func setOutcome(_ outcome: BreakPromptOutcome, for id: UUID, at moment: Date) -> String? {
-        guard let index = prompts.firstIndex(where: { $0.id == id }) else { return nil }
+        guard let index = prompts.firstIndex(where: { $0.id == id }) else { return unknown(id) }
         prompts[index].outcome = outcome
         prompts[index].outcomeAt = moment
         return commit(at: moment)
@@ -121,11 +141,18 @@ final class BreakLog {
     /// the answer that follows.
     @discardableResult
     func noteLater(for id: UUID, at moment: Date) -> String? {
-        guard let index = prompts.firstIndex(where: { $0.id == id }) else { return nil }
+        guard let index = prompts.firstIndex(where: { $0.id == id }) else { return unknown(id) }
         prompts[index].laterCount += 1
         prompts[index].outcome = .later
         prompts[index].outcomeAt = moment
         return commit(at: moment)
+    }
+
+    /// An answer for a reminder the log does not hold (it aged out, or never
+    /// reached the log): nothing changes, and the log says so once.
+    private func unknown(_ id: UUID) -> String? {
+        Diagnostics.log("break log: no reminder \(id) to answer")
+        return nil
     }
 
     /// The rhythm in force on `moment`'s day, as `calendar` counts days (the

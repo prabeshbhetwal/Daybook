@@ -8,9 +8,13 @@ extension SessionStore {
     var isOnBreak: Bool { engine.activeBreak != nil }
     var activeBreak: ActiveBreak? { engine.activeBreak }
 
-    /// Whether Take a break would begin one. The buttons and the Session menu
-    /// offer it only then, so none is pressed to be refused in silence.
-    var canTakeBreak: Bool { engine.canStartBreak && !hasUnresolvedAwayDecision }
+    /// Whether Take a break would begin one. The buttons, the Session menu and
+    /// the reminder offer it only then, so none is pressed to be refused in
+    /// silence. Watching is left out: a film is not a stretch to interrupt,
+    /// though the engine would take a break from one.
+    var canTakeBreak: Bool {
+        engine.canStartBreak && !hasUnresolvedAwayDecision && engine.state != .paused(reason: .watching)
+    }
 
     /// `length` raised to the shortest recorded session, so a break that was
     /// taken is recorded and credited. The raise stops at the longest that
@@ -26,9 +30,11 @@ extension SessionStore {
     /// Eyes glance, which offers thirty seconds, and a break begun from the
     /// menu take the length the rhythm in force suggests. Never shorter than
     /// the shortest recorded session, or the break would be neither recorded
-    /// nor credited. Refused while the away question waits or the session is
-    /// paused because nobody was here, as the engine refuses.
+    /// nor credited. Refused wherever `canTakeBreak` is false: while the away
+    /// question waits, while the session is paused because nobody was here,
+    /// and while watching, so a Start pressed on an old reminder does nothing.
     func startBreak(length: TimeInterval? = nil, label: String? = nil, from prompt: BreakPrompt? = nil) {
+        guard canTakeBreak else { return }
         let planned = recordableBreakLength(length
             ?? prompt.map { $0.kind == .eyes ? suggestedBreakLength : $0.breakLength }
             ?? suggestedBreakLength)
@@ -208,7 +214,7 @@ extension SessionStore {
     /// break begun by hand: the break is the answer.
     private func markRecentPromptStarted(except taken: UUID?, at moment: Date) {
         guard let recent = breakLog.prompts.last, recent.id != taken,
-              moment.timeIntervalSince(recent.shown) <= Self.answeredWithin,
+              moment.timeIntervalSince(recent.latestShowing) <= Self.answeredWithin,
               recent.outcome == nil || recent.outcome == .unanswered || recent.outcome == .later
         else { return }
         breakLog.setOutcome(.started, for: recent.id, at: moment)

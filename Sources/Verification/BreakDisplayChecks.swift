@@ -185,7 +185,6 @@ enum BreakDisplayChecks: CheckSuite {
             expect(offers(.idle) && offers(.running), "idle and running offer it", &problems)
             expect(offers(.paused(reason: .manual)) && offers(.paused(reason: .distractionApp(bundleID: "com.test"))),
                    "so do a pause by hand and a pause by a break app", &problems)
-            expect(!offers(.paused(reason: .watching)), "watching does not, in the hero or the menu", &problems)
             expect(!offers(.running, decision: true) && !offers(.awaitingUserDecision(away: 1_200, lastApp: "Xcode")),
                    "an away question waiting does not", &problems)
             expect(!offers(.paused(reason: .onBreak), onBreak: true) && !offers(.idle, onBreak: true),
@@ -215,15 +214,16 @@ enum BreakDisplayChecks: CheckSuite {
             running.store.endBreak()
             running.store.markAway()
             agree("away", expecting: false, enabled: false)
-            // The engine would take a break from a film, but the hero shows no
-            // button there, so the menu must not offer one either.
+            // The engine would take a break from a film, but the store says no,
+            // so neither the hero nor the menu offers one.
             guard let film = BreakStoreChecks.make(prepare: { engine, clock in
                 BreakStoreChecks.running(engine, clock)
                 engine.transition(on: .watchingObserved(seconds: 20 * 60))
             }) else { return problems + ["could not create isolated preferences"] }
             defer { film.close() }
             expect(film.store.state == .paused(reason: .watching), "the fixture is watching", &problems)
-            expect(film.store.canTakeBreak, "the engine would accept a break from a film", &problems)
+            expect(film.engine.canStartBreak && !film.store.canTakeBreak,
+                   "the engine would accept a break from a film, the store does not", &problems)
             agree("watching", expecting: false, enabled: false, in: film.store)
             guard let idle = BreakStoreChecks.make() else { return problems + ["could not create isolated preferences"] }
             defer { idle.close() }

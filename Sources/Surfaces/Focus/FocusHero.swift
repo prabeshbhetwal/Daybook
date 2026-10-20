@@ -73,10 +73,10 @@ struct FocusSurfaceComposition: Equatable {
     let mode: FocusSurfaceMode
     let showsContinuationSection: Bool
     let showsAutomaticSessionControls: Bool
-    /// Whether a Take a break control is offered: idle, running or paused by
-    /// hand, and only where the engine would accept a break. The hero's
-    /// button and the Session menu's item both read this, so they agree.
-    /// Watching is left out: a film is not a stretch to interrupt.
+    /// Whether a Take a break control is offered: wherever the store says a
+    /// break may begin (`canTakeBreak`, which leaves out watching), and not on
+    /// the away question or the break card. The hero's button and the Session
+    /// menu's item both read this, so they agree.
     let offersTakeBreak: Bool
 
     /// A break comes first: it is shown with or without a session, and the
@@ -94,7 +94,7 @@ struct FocusSurfaceComposition: Equatable {
             && mode != .idle
             && mode != .onBreak
             && mode.showsOrdinaryControls
-        offersTakeBreak = canTakeBreak && (mode == .idle || mode == .running || mode == .paused)
+        offersTakeBreak = canTakeBreak && mode.showsOrdinaryControls && mode != .onBreak
     }
 }
 

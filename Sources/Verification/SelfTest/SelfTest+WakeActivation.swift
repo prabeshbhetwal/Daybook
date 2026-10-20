@@ -227,7 +227,7 @@ extension SelfTest {
         for item in cases {
             let actual = AppCoordinator.breakReminderReachesScreen(
                 screenLocked: item.locked, displayAsleep: item.asleep,
-                machineSleeping: item.sleeping, away: item.away)
+                machineSleeping: item.sleeping, away: item.away, awaitingPresence: false)
             expect(actual == item.expected,
                    "break reminder for \(item.label) expected reaches-screen=\(item.expected), got \(actual)",
                    &problems)

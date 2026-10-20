@@ -5,6 +5,10 @@ import Combine
 extension SessionStore {
     var hasScheduledTicker: Bool { ticker != nil }
 
+    /// A wake or a lock has passed and no one has shown they are at the Mac
+    /// yet. Read-only, for the coordinator: a reminder waits for the person.
+    var isAwaitingPresence: Bool { presenceGate.isAwaitingConfirmation }
+
     /// Wakes are machine events. Keep sampling on the existing ticker, but do
     /// not let the HID reset count as a return.
     func noteMachineWake() {

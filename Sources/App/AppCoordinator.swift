@@ -684,7 +684,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             screenLocked: screenLocked,
             displayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0,
             machineSleeping: machineSleeping,
-            away: away)
+            away: away,
+            awaitingPresence: store.isAwaitingPresence)
     }
 
     /// What a button does. `prompt` is the reminder it answers, if it is one.
@@ -701,7 +702,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// The eyes tier stays the buttonless reward HUD; the others answer with
     /// buttons.
     @MainActor private func showBreakReminder(_ prompt: BreakPrompt) {
-        let copy = BreakHUDCopy.reminder(prompt)
+        let copy = BreakHUDCopy.reminder(prompt, canStart: store.canTakeBreak)
         if prompt.tier == .micro {
             hud.show(title: copy.title, detail: copy.detail + " " + prompt.tier.reason,
                      symbolName: prompt.tier.symbolName,
@@ -851,13 +852,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     }
 
     /// Whether a break reminder shown on this display would be seen. When it
-    /// would not, nothing is shown and the store asks again later. Pure so the
-    /// four absences can be verified headless.
+    /// would not, nothing is shown and the store asks again later. After a
+    /// wake nobody has yet shown they are back, so it waits for them too. Pure
+    /// so the five absences can be verified headless.
     static func breakReminderReachesScreen(screenLocked: Bool,
                                            displayAsleep: Bool,
                                            machineSleeping: Bool,
-                                           away: Bool) -> Bool {
-        !screenLocked && !displayAsleep && !machineSleeping && !away
+                                           away: Bool,
+                                           awaitingPresence: Bool) -> Bool {
+        !screenLocked && !displayAsleep && !machineSleeping && !away && !awaitingPresence
     }
 
     /// Whether the break-over prompt would be seen by someone: the screen is

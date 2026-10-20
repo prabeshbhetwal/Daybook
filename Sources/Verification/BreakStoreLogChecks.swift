@@ -113,11 +113,10 @@ extension BreakStoreChecks {
                    "and it comes back with one Later still to give", &problems)
 
             let log = f.store.breakLog.prompts
-            expect(log.count == 5 && Set(log.map(\.id)).count == 5,
-                   "every showing is its own entry, got \(log.count)", &problems)
-            expect(log.first { $0.id == first.id }?.laterCount == 1
-                   && log.first { $0.id == fourth.id }?.laterCount == 1,
-                   "each entry keeps the Later pressed on it", &problems)
+            // A reminder put off and back is one entry, under its latest showing's id.
+            expect(log.map(\.id) == [shown[2].id, shown[4].id],
+                   "one entry for each run's reminder, got \(log.count)", &problems)
+            expect(log.map(\.laterCount) == [2, 1], "each keeps the Laters pressed on it", &problems)
 
             // A rest that is taken restarts the count the same way.
             f.store.startBreak(length: 300)

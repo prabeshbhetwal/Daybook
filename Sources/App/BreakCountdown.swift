@@ -24,7 +24,8 @@ enum BreakCountdown {
     }
 
     /// The same, as the break card prints it.
-    static func cardText(remaining: TimeInterval) -> String {
+    static func cardText(remaining unchecked: TimeInterval) -> String {
+        let remaining = bounded(unchecked)
         if remaining > 0 { return "\(text(remaining: remaining)) left" }
         if remaining > -60 { return "Break over" }
         return "\(text(remaining: remaining)) over"

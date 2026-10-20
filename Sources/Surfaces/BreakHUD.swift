@@ -28,8 +28,10 @@ struct BreakHUDContent {
 enum BreakHUDCopy {
     typealias Choice = (title: String, action: BreakHUDAction)
 
-    static func reminder(_ prompt: BreakPrompt) -> (title: String, detail: String, buttons: [Choice]) {
-        var buttons: [Choice] = [("Start break", .start)]
+    /// `canStart` is false where a break would be refused (watching): the
+    /// reminder then keeps only its Later and Skip.
+    static func reminder(_ prompt: BreakPrompt, canStart: Bool = true) -> (title: String, detail: String, buttons: [Choice]) {
+        var buttons: [Choice] = canStart ? [("Start break", .start)] : []
         switch prompt.tier {
         case .micro: buttons = []
         case .cognitive:
