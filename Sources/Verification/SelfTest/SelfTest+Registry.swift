@@ -159,6 +159,7 @@ extension SelfTest {
             + BreakRhythmStoreChecks.tests
             + BreakRhythmLogChecks.tests
             + BreakRhythmLengthChecks.tests
+            + BreakSettingsPageChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

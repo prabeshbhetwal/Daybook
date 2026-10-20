@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// The eight logical sections keep control ownership precise; five pages make
+/// The twelve logical sections keep control ownership precise; eight pages make
 /// the native sheet small enough to read without a second, unreachable pane.
 enum SettingsPage: String, CaseIterable, Identifiable {
     case general
     case sessions
     case activities
-    case awayAndBreaks
+    case away
+    case breaks
     case recording
     case privacy
     case about
@@ -18,7 +19,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .general: return "General"
         case .sessions: return "Sessions"
         case .activities: return "Activities"
-        case .awayAndBreaks: return "Away & Breaks"
+        case .away: return "Away"
+        case .breaks: return "Breaks"
         case .recording: return "Recording"
         case .privacy: return "Privacy"
         case .about: return "About & Updates"
@@ -30,7 +32,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .general: return "gearshape"
         case .sessions: return "target"
         case .activities: return "app.badge.checkmark"
-        case .awayAndBreaks: return "moon.zzz"
+        case .away: return "moon.zzz"
+        case .breaks: return "cup.and.saucer"
         case .recording: return "rectangle.stack.badge.play"
         case .privacy: return "lock.shield"
         case .about: return "arrow.down.circle"
@@ -44,7 +47,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .general: return .grey
         case .sessions: return .blue
         case .activities: return .purple
-        case .awayAndBreaks: return .indigo
+        case .away: return .indigo
+        case .breaks: return .pink
         case .recording: return .orange
         case .privacy: return .green
         case .about: return .teal
@@ -55,7 +59,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     /// darker hues; on grey, orange and green it fell to 2 to 2.9:1, so those
     /// take a near-black glyph.
     var glyphColour: Color {
-        [.grey, .orange, .green, .teal].contains(hue) ? Color(white: 0.06) : .white
+        [.grey, .orange, .green, .teal, .pink].contains(hue) ? Color(white: 0.06) : .white
     }
 
     /// The page `delta` rows away in `pages`, or nil past either end: a
@@ -71,7 +75,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .general: return "Starting at login, where Daybook shows (menu bar and Dock), and Ask Daybook."
         case .sessions: return "Your goal, your categories, and what starts a session by itself."
         case .activities: return "Rules that start and name a session from the apps you are in."
-        case .awayAndBreaks: return "What happens when you step away, and when to be reminded to rest."
+        case .away: return "What happens when you step away, and what counts as you being here."
+        case .breaks: return "When to be reminded to rest, and how your breaks are spaced."
         case .recording: return "What is recorded about the apps you use."
         case .privacy: return "Where your data lives."
         case .about: return "The version you have, and how it stays up to date."
@@ -83,7 +88,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .general: return [.general, .appearance]
         case .sessions: return [.focus, .categories, .automatic]
         case .activities: return [.activities]
-        case .awayAndBreaks: return [.away]
+        case .away: return [.away]
+        case .breaks: return [.breaks]
         case .recording: return [.tracking]
         case .privacy: return [.data]
         case .about: return [.updates, .advanced]
@@ -95,7 +101,8 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .general, .appearance: self = .general
         case .focus, .categories, .automatic: self = .sessions
         case .activities: self = .activities
-        case .away: self = .awayAndBreaks
+        case .away: self = .away
+        case .breaks: self = .breaks
         case .tracking: self = .recording
         case .data: self = .privacy
         case .updates, .advanced: self = .about
@@ -121,7 +128,8 @@ extension SettingsSection {
         case .general: return "General"
         case .focus: return "Focus sessions"
         case .categories: return "Categories"
-        case .away: return "Away and breaks"
+        case .away: return "Away"
+        case .breaks: return "Breaks"
         case .automatic: return "Automatic and rewards"
         case .activities: return "Activity rules"
         case .tracking: return "Tracking and apps"
@@ -138,6 +146,7 @@ extension SettingsSection {
         case .focus: return "target"
         case .categories: return "tag"
         case .away: return "moon.zzz"
+        case .breaks: return "cup.and.saucer"
         case .automatic: return "wand.and.stars"
         case .activities: return "app.badge.checkmark"
         case .tracking: return "rectangle.stack.badge.play"
@@ -167,9 +176,13 @@ extension SettingsSection {
                     "Notice apps working for you by themselves",
                     "Count a coding app in front as you being here",
                     "Count a keep-awake app as you being here",
-                    "Let your agent tell Daybook when it works", "Remind me to take breaks",
-                    "Play a sound when a break is over", "Show break countdown in the menu bar",
-                    "After 20 minutes"]
+                    "Let your agent tell Daybook when it works"]
+        case .breaks:
+            return ["Remind me to take breaks", "Rhythm", "Long break every", "Long break length",
+                    "Weekday plan", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+                    "Usual rhythm", "No reminders", "Overrides", "Today", "This week", "This month", "Dates",
+                    "Working hours", "Eyes", "Long-stretch guard", "Guard comes after",
+                    "Play a sound when a break is over", "Show break countdown in the menu bar"]
         case .automatic:
             return ["Guess sessions from the app in front", "End a paused automatic session after",
                     "Celebrate milestones", "Haptic feedback", "Try haptic feedback"]
@@ -200,7 +213,9 @@ extension SettingsSection {
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
         case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .agentQuiet,
-                            .appsAtWork, .agentAppInFront, .keepAwake, .reminders, .breakOverSound, .menuBarShowsBreakCountdown, .breakTiers]
+                            .appsAtWork, .agentAppInFront, .keepAwake]
+        case .breaks: return [.reminders, .breakRhythm, .breakWeekdays, .breakOverrides, .workingHours, .breakEyes,
+                              .breakGuard, .breakOverSound, .menuBarShowsBreakCountdown]
         case .automatic: return [.automaticSessions, .automaticGap, .rewards, .haptics]
         case .activities: return [.activityRuleAutomation, .activityRules]
         case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
@@ -232,6 +247,7 @@ extension SettingsControlKey {
         case .agentQuiet: return ["AI", "Agent", "Claude", "Codex", "Cursor", "Gemini", "Antigravity", "Hooks",
                                    "Render", "Export", "Build"]
         case .keepAwake: return ["Keep awake", "Caffeine", "Caffeinate", "Amphetamine", "KeepingYouAwake"]
+        case .breakRhythm: return BreakPreset.allCases.map(\.title)
         case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
         case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]
         // Rows say "on-device AI"; Apple's name for its model still finds them.

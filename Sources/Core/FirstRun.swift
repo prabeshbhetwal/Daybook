@@ -370,7 +370,7 @@ enum FirstRunScript {
                      + "in without asking.",
                  note: "How long an absence has to be before it asks, and when it "
                      + "gives you the full card rather than the quick one, are both in "
-                     + "Settings under Away & Breaks.")
+                     + "Settings under Away.")
         ]),
 
         Chapter(id: .automation, cards: [
@@ -442,7 +442,7 @@ enum FirstRunScript {
             Card(sentence: "Everything adjustable is behind the gear.",
                  body: "General for login and the menu bar. Sessions for your "
                      + "daily goal, categories and thresholds. Activities for the rules. "
-                     + "Away & Breaks for when it asks. Recording for what is watched "
+                     + "Away for when it asks, Breaks for when to rest. Recording for what is watched "
                      + "and which apps count as work.",
                  anchor: .settings),
             Card(sentence: "Your record is yours.",

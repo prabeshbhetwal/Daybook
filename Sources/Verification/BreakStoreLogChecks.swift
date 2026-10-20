@@ -153,7 +153,12 @@ extension BreakStoreChecks {
                    "and the day's rhythm", &problems)
 
             // Eyes are counted by day, not listed.
-            guard let eyes = make(prepare: { engine, _ in engine.store.enabledBreakTiers = [.micro] }) else {
+            guard let eyes = make(prepare: { engine, _ in
+                // Only Eyes on: the guard off and no main rhythm on any weekday.
+                engine.store.breakEyes = true
+                engine.store.breakGuardEnabled = false
+                engine.store.breakSchedule.weekdays = Array(repeating: .off, count: 7)
+            }) else {
                 return problems + ["could not create isolated preferences"]
             }
             defer { eyes.close() }

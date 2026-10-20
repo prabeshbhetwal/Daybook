@@ -54,7 +54,7 @@ extension SelfTest {
                 .storyDay, .storyDayEntry,
                 .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport, .storyNameSuggestion,
                 .storyNameSuggestionEarlier, .welcomeOpening, .welcomeStep,
-                .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
+                .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsBreaks, .settingsAutomatic,
                 .settingsActivityRules, .settingsTracking, .settingsAppearance, .settingsData,
                 .settingsUpdates, .settingsAdvanced,
                 .activityRuleAmbiguity, .activityRuleAutomatic,

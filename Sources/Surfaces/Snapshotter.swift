@@ -13,7 +13,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case storyDay, storyDayEntry
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport, storyNameSuggestion, storyNameSuggestionEarlier
     case welcomeOpening, welcomeStep
-    case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsAutomatic
+    case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsBreaks, settingsAutomatic
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned
@@ -64,7 +64,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsGeneral: return "Settings — General"
         case .settingsFocus: return "Settings — Focus sessions"
         case .settingsCategories: return "Settings — Categories"
-        case .settingsAway: return "Settings — Away and breaks"
+        case .settingsAway: return "Settings — Away"
+        case .settingsBreaks: return "Settings — Breaks"
         case .settingsAutomatic: return "Settings — Automatic and rewards"
         case .settingsTracking: return "Settings — Tracking and apps"
         case .settingsAppearance: return "Settings — Appearance"
@@ -88,6 +89,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsFocus: return .focus
         case .settingsCategories: return .categories
         case .settingsAway: return .away
+        case .settingsBreaks: return .breaks
         case .settingsAutomatic: return .automatic
         case .settingsTracking: return .tracking
         case .settingsAppearance: return .appearance
@@ -139,7 +141,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
              .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport, .storyNameSuggestion,
              .storyNameSuggestionEarlier, .welcomeOpening, .welcomeStep:
             return .story
-        case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
+        case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsBreaks, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return .settings
@@ -491,7 +493,7 @@ enum Snapshotter {
             return FixtureFactory.storyInteractionStore(for: scenario)
         case .storyNameSuggestion, .storyNameSuggestionEarlier:
             return nameSuggestionStore(earlier: scenario == .storyNameSuggestionEarlier)
-        case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsAutomatic,
+        case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsBreaks, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return FixtureFactory.store(for: .running)
@@ -640,6 +642,9 @@ enum Snapshotter {
             ]
             persistence.activityRuleAutomationEnabled = true
         }
+        if item.scenario == .settingsBreaks {
+            persistence.breakSchedule = breaksSchedule(calendar: Calendar.current.forPeriods)
+        }
         if item.scenario == .settingsCategories {
             persistence.workTypeDefinitions = [
                 WorkTypeDefinition(id: Snapshotter.fixtureCategoryID, name: "Client calls",
@@ -665,7 +670,8 @@ enum Snapshotter {
                                   replayWelcome: {},
                                   diagnostics: diagnostics,
                                   dataDirectory: dataDirectory,
-                                  installedAppCatalog: FixtureFactory.installedAppCatalog())
+                                  installedAppCatalog: FixtureFactory.installedAppCatalog(),
+                                  now: { settingsNow })
         if item.scenario.showsAskPanel { persistence.askPlacement = .panel }
         model.interfaceDensity = density
         if let renderZoom { model.interfaceZoom = renderZoom }

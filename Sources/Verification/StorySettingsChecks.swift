@@ -15,14 +15,15 @@ enum StorySettingsChecks {
             (.general, [.general, .appearance]),
             (.sessions, [.focus, .categories, .automatic]),
             (.activities, [.activities]),
-            (.awayAndBreaks, [.away]),
+            (.away, [.away]),
+            (.breaks, [.breaks]),
             (.recording, [.tracking]),
             (.privacy, [.data]),
             (.about, [.updates, .advanced])
         ]
-        if SettingsPage.allCases.map(\.title) != ["General", "Sessions", "Activities", "Away & Breaks", "Recording",
-                                                  "Privacy", "About & Updates"] {
-            failures.append("Settings did not expose the seven page groups in their required order")
+        if SettingsPage.allCases.map(\.title) != ["General", "Sessions", "Activities", "Away", "Breaks",
+                                                  "Recording", "Privacy", "About & Updates"] {
+            failures.append("Settings did not expose the eight page groups in their required order")
         }
         for (page, sections) in expectedPages where page.sections != sections {
             failures.append("\(page.title) no longer contains its intended logical settings sections")

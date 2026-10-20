@@ -76,6 +76,7 @@ final class PersistenceStore {
         static let dockIconMode = "fc.dockIconMode"
         static let paceWindowDays = "fc.paceWindowDays"
         static let suggestionWindowDays = "fc.suggestionWindowDays"
+        // Phase 1's reminder switches. Read through `legacyDisabledBreakTiers`; nothing writes it.
         static let breakTiersDisabled = "fc.breakTiersDisabled"
         static let quietFold = "fc.quietFold"
         static let nameCategoryKept = "fc.nameCategoryKept"
@@ -619,19 +620,6 @@ final class PersistenceStore {
             return stored > 0 ? stored : FocusConstants.quickStartWindowDays
         }
         set { defaults.set(max(1, newValue), forKey: Key.suggestionWindowDays) }
-    }
-
-    /// The break reminder tiers that are on. Stored as the ones turned off,
-    /// so a build that adds a tier ships it on.
-    var enabledBreakTiers: Set<BreakTier> {
-        get {
-            let off = Set((defaults.array(forKey: Key.breakTiersDisabled) as? [Int] ?? []).compactMap(BreakTier.init(rawValue:)))
-            return Set(BreakTier.allCases).subtracting(off)
-        }
-        set {
-            let off = Set(BreakTier.allCases).subtracting(newValue).map(\.rawValue).sorted()
-            defaults.set(off, forKey: Key.breakTiersDisabled)
-        }
     }
 
     /// The confirmations "Don't ask again" turned off. Stored as the ones off,

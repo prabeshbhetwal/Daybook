@@ -27,6 +27,7 @@ struct SettingsGroups: View {
         case .focus: focus
         case .categories: categories
         case .away: away
+        case .breaks: breaks
         case .automatic: automatic
         case .activities: activities
         case .tracking: tracking
@@ -352,51 +353,6 @@ struct SettingsGroups: View {
             }
 
             agentsPanel
-
-            SurfacePanel(title: "Breaks", layout: layout) {
-                toggleRow("Remind me to take breaks",
-                          detail: "A notice after a long stretch of continuous use, timed from your typing "
-                            + "and clicking rather than from sessions.",
-                          isOn: $model.remindersEnabled)
-                toggleRow("Play a sound when a break is over",
-                          detail: "A short tone with the \"Break's over\" prompt.",
-                          isOn: $model.breakOverSound)
-                toggleRow("Show break countdown in the menu bar",
-                          detail: "Off, the menu bar shows only the cup while a break is under way.",
-                          isOn: $model.menuBarShowsBreakCountdown)
-                    .disabled(!model.showsMenuBarIcon)
-                // Each tier is its own switch: someone who finds the
-                // twenty-minute nudge too frequent keeps the longer two.
-                VStack(alignment: .leading, spacing: Tokens.Space.s) {
-                    ForEach(BreakTier.allCases, id: \.rawValue) { tier in
-                        Toggle(isOn: Binding(
-                            get: { model.enabledBreakTiers.contains(tier) },
-                            set: { on in
-                                var tiers = model.enabledBreakTiers
-                                if on { tiers.insert(tier) } else { tiers.remove(tier) }
-                                model.enabledBreakTiers = tiers
-                            })) {
-                            VStack(alignment: .leading, spacing: 2.zoomed) {
-                                Text("After \(Int(tier.workThreshold / 60)) minutes, "
-                                     + "\(BreakPrompt.phrase(tier.breakLength)) off")
-                                    .font(Tokens.Typography.control)
-                                Text(tier.reason)
-                                    .font(Tokens.Typography.body)
-                                    .foregroundStyle(StoryStyle.supportingInk)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                        .toggleStyle(.checkbox)
-                        .disabled(!model.remindersEnabled)
-                    }
-                    // "Timed from use, not sessions" is the switch's own detail.
-                    Text("A short break resets the short timer only; the longer ones keep running.")
-                        .font(Tokens.Typography.body)
-                        .foregroundStyle(StoryStyle.supportingInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.leading, 26.zoomed)
-            }
         }
         .onAppear(perform: model.refreshSystemStatus)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in

@@ -13,6 +13,12 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case longAwayCap
     case fullPromptAfter
     case reminders
+    case breakRhythm
+    case breakWeekdays
+    case breakOverrides
+    case workingHours
+    case breakEyes
+    case breakGuard
     case breakOverSound
     case menuBarShowsBreakCountdown
     case automaticSessions
@@ -50,7 +56,6 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case railApps
     case paceWindow
     case suggestionWindow
-    case breakTiers
     case quietFold
     case confirmations
     case backupSchedule
@@ -65,6 +70,12 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .longAwayCap: return \SettingsModel.longAwayCap
         case .fullPromptAfter: return \SettingsModel.fullPromptAfter
         case .reminders: return \SettingsModel.remindersEnabled
+        case .breakRhythm: return \SettingsModel.breakRhythm
+        case .breakWeekdays: return \SettingsModel.breakWeekdayPlans
+        case .breakOverrides: return \SettingsModel.breakOverrides
+        case .workingHours: return \SettingsModel.workingHoursEnabled
+        case .breakEyes: return \SettingsModel.breakEyes
+        case .breakGuard: return \SettingsModel.breakGuardEnabled
         case .breakOverSound: return \SettingsModel.breakOverSound
         case .menuBarShowsBreakCountdown: return \SettingsModel.menuBarShowsBreakCountdown
         case .automaticSessions: return \SettingsModel.autoSessionsEnabled
@@ -102,7 +113,6 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .railApps: return \SettingsModel.railAppCount
         case .paceWindow: return \SettingsModel.paceWindowDays
         case .suggestionWindow: return \SettingsModel.suggestionWindowDays
-        case .breakTiers: return \SettingsModel.enabledBreakTiers
         case .quietFold: return \SettingsModel.quietFold
         case .confirmations: return \SettingsModel.skippedConfirmations
         case .backupSchedule: return \SettingsModel.backupSchedule
@@ -289,6 +299,10 @@ final class SettingsModel: ObservableObject {
     /// that build a model without one.
     private let haptics: HapticPlayer?
     private let onChange: () -> Void
+    /// The moment and the calendar the break rows work dates out in, read on
+    /// each use so a changed time zone is followed. Checks hand in their own.
+    let currentDate: () -> Date
+    let currentCalendar: () -> Calendar
     private let onTrackingChanged: (Bool) -> Void
     private let onAppearanceChanged: (AppearancePreference) -> Void
     private let onPresenceChanged: () -> Void
@@ -349,8 +363,12 @@ final class SettingsModel: ObservableObject {
          trashBackup: @escaping (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) },
          backupWork: @escaping (@escaping () -> Void) -> Void = { DispatchQueue.global(qos: .utility).async(execute: $0) },
          installedAppCatalog: InstalledAppCatalog = InstalledAppCatalog(),
-         haptics: HapticPlayer? = nil) {
+         haptics: HapticPlayer? = nil,
+         now: @escaping () -> Date = Date.init,
+         calendar: @escaping () -> Calendar = { Calendar.current.forPeriods }) {
         self.store = store
+        self.currentDate = now
+        self.currentCalendar = calendar
         self.haptics = haptics
         self.trackingEnabled = isTrackingEnabled
         self.onChange = onChange
@@ -400,7 +418,7 @@ final class SettingsModel: ObservableObject {
         onResumeWelcome?(chapter)
     }
 
-    private func write(_ body: () -> Void) {
+    func write(_ body: () -> Void) {
         objectWillChange.send()
         body()
         onChange()
@@ -727,9 +745,27 @@ final class SettingsModel: ObservableObject {
         set { write { store.suggestionWindowDays = newValue } }
     }
 
-    var enabledBreakTiers: Set<BreakTier> {
-        get { store.enabledBreakTiers }
-        set { write { store.enabledBreakTiers = newValue } }
+    /// The rhythm, weekday plans, overrides and working hours as one value;
+    /// `SettingsModel+Breaks` reads and writes the parts. Here because the
+    /// store is private to this file.
+    var breakSchedule: BreakSchedule {
+        get { store.breakSchedule }
+        set { write { store.breakSchedule = newValue } }
+    }
+
+    var breakEyes: Bool {
+        get { store.breakEyes }
+        set { write { store.breakEyes = newValue } }
+    }
+
+    var breakGuardEnabled: Bool {
+        get { store.breakGuardEnabled }
+        set { write { store.breakGuardEnabled = newValue } }
+    }
+
+    var breakGuardMinutes: Int {
+        get { store.breakGuardMinutes }
+        set { write { store.breakGuardMinutes = newValue } }
     }
 
     var quietFold: Int {

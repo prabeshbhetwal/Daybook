@@ -89,11 +89,11 @@ extension SelfTest {
     static func testSettingsGroupsContainOnlyBackedControls() -> [String] {
         var problems: [String] = []
         let expectedTitles = [
-            "General", "Focus sessions", "Categories", "Away and breaks", "Automatic and rewards",
+            "General", "Focus sessions", "Categories", "Away", "Breaks", "Automatic and rewards",
             "Activity rules", "Tracking and apps", "Appearance", "Data and privacy", "Updates", "Advanced"
         ]
         expect(SettingsSection.allCases.map(\.title) == expectedTitles,
-               "all eleven Settings groups retain their approved order and titles", &problems)
+               "all twelve Settings groups retain their approved order and titles", &problems)
         expect(SettingsSection.allCases.allSatisfy {
             !$0.symbol.isEmpty && !$0.controlLabels.isEmpty
         }, "every Settings group exposes a symbol and searchable control labels", &problems)
@@ -104,12 +104,13 @@ extension SelfTest {
 
         let expectedControls: Set<SettingsControlKey> = [
             .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,
-            .reminders, .breakOverSound, .menuBarShowsBreakCountdown, .activityRuleAutomation, .activityRules,
+            .reminders, .breakRhythm, .breakWeekdays, .breakOverrides, .workingHours, .breakEyes, .breakGuard,
+            .breakOverSound, .menuBarShowsBreakCountdown, .activityRuleAutomation, .activityRules,
             .automaticSessions, .automaticGap, .rewards, .haptics, .appleIntelligence, .sessionsPerApp,
             .usageRecording, .appearance, .density, .zoom, .timelineLabels, .entryDetails,
             .idlePause, .streakMinimum, .minimumSession, .continueWindow, .defaultCategory,
             .openAtLogin, .menuBarTime, .menuBarIcon, .dockIcon, .updateChecks, .updateFrequency,
-            .updateInstall, .railApps, .paceWindow, .suggestionWindow, .breakTiers, .quietFold,
+            .updateInstall, .railApps, .paceWindow, .suggestionWindow, .quietFold,
             .confirmations, .backupSchedule, .backupRetention, .backupDestination,
             .agentQuiet, .agentAppInFront, .appsAtWork, .keepAwake, .askButton, .askPlacement
         ]

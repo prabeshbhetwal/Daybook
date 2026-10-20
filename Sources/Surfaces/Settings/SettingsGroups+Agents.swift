@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Settings → Away & Breaks → Apps working for you: what quiet means while
+/// Settings → Away → Apps working for you: what quiet means while
 /// an agent, a render or a build works, and how Daybook can tell. Written for someone who has
 /// never heard of a hook.
 extension SettingsGroups {
