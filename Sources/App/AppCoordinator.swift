@@ -102,7 +102,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     // MARK: - Automatic sessions and rewards
 
-    private var detector = AutoSessionDetector(breakLength: FocusConstants.defaultBreakLength)
+    private var detector = AutoSessionDetector(autoSessionPauseLimit: FocusConstants.defaultAutoSessionPauseLimit)
     private lazy var activityAutomation = ActivityAutomation(
         scheduler: MainActivityDeadlineScheduler(),
         input: { [weak self] in self?.activityRuleInput() ?? ActivityRuleInput.disabled },
@@ -185,7 +185,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
         // Rebuilt each pass so a break length changed in settings takes effect
         // rather than being frozen at whatever it was on first use.
-        detector.breakLength = engine.store.breakLength
+        detector.autoSessionPauseLimit = engine.store.autoSessionPauseLimit
         // Learned per app: sessions the user keeps make the app quicker to
         // start for that app, sessions they undo make it slower.
         detector.startThreshold = PurposeLearner(signals: engine.store.autoStartLearning)

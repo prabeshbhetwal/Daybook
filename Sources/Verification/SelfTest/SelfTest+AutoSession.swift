@@ -12,7 +12,7 @@ extension SelfTest {
         let highScore = makeFocusScore(0.8, purpose: .coding, explanation: "Warp 5m")
 
         // Starts only after sustained qualification, not on a single high reading.
-        var detector = AutoSessionDetector(breakLength: 600)
+        var detector = AutoSessionDetector(autoSessionPauseLimit: 600)
         var d = detector.evaluate(score: highScore, at: t0, sessionRunning: false, sessionWasAutoStarted: false,
                           enginePaused: false)
         expect(d == .none, "a single high reading is not enough to start", &problems)
@@ -35,7 +35,7 @@ extension SelfTest {
         }
 
         // A dip below threshold resets the run — verified with a fresh detector.
-        var resetter = AutoSessionDetector(breakLength: 600)
+        var resetter = AutoSessionDetector(autoSessionPauseLimit: 600)
         _ = resetter.evaluate(score: highScore, at: t0, sessionRunning: false, sessionWasAutoStarted: false,
                           enginePaused: false)
         let lowScore = makeFocusScore(0.2, explanation: "idle")
@@ -48,7 +48,7 @@ extension SelfTest {
         expect(afterDip == .none, "a dip below threshold resets the qualifying run", &problems)
 
         // A hand-started session is never touched, whatever the score does.
-        var handsOff = AutoSessionDetector(breakLength: 600)
+        var handsOff = AutoSessionDetector(autoSessionPauseLimit: 600)
         let untouched1 = handsOff.evaluate(score: lowScore, at: t0, sessionRunning: true, sessionWasAutoStarted: false,
                           enginePaused: false)
         expect(untouched1 == .none, "a hand-started session is never paused", &problems)
@@ -59,8 +59,8 @@ extension SelfTest {
         expect(untouched2 == .none, "a hand-started session is never ended either", &problems)
 
         // Media/low score pauses rather than ends, and a pause that outlives
-        // breakLength ends at the moment the pause began.
-        var running = AutoSessionDetector(breakLength: 600)
+        // autoSessionPauseLimit ends at the moment the pause began.
+        var running = AutoSessionDetector(autoSessionPauseLimit: 600)
         _ = running.evaluate(score: highScore, at: t0, sessionRunning: false, sessionWasAutoStarted: false,
                           enginePaused: false)
         let started = running.evaluate(score: highScore, at: t0.addingTimeInterval(300),
@@ -93,7 +93,7 @@ extension SelfTest {
         let stillPaused = running.evaluate(score: mediaScore, at: pauseMoment.addingTimeInterval(300),
                                            sessionRunning: true, sessionWasAutoStarted: true,
                                            enginePaused: true)
-        expect(stillPaused == .none, "a pause shorter than breakLength does not end the session", &problems)
+        expect(stillPaused == .none, "a pause shorter than autoSessionPauseLimit does not end the session", &problems)
 
         // Outlives the break length: ends, backdated to when the pause began.
         let endMoment = pauseMoment.addingTimeInterval(601)
@@ -104,7 +104,7 @@ extension SelfTest {
             expect(at == pauseMoment,
                   "end is backdated to when the pause began, not the timeout moment", &problems)
         } else {
-            problems.append("expected .end once the pause outlived breakLength, got \(ended)")
+            problems.append("expected .end once the pause outlived autoSessionPauseLimit, got \(ended)")
         }
 
         return problems
@@ -114,7 +114,7 @@ extension SelfTest {
 
     static func testAutoSessionHysteresis() -> [String] {
         var problems: [String] = []
-        var detector = AutoSessionDetector(breakLength: 600)
+        var detector = AutoSessionDetector(autoSessionPauseLimit: 600)
         let t0 = base
         // Both readings sit strictly between autoStopThreshold (0.35) and
         // autoStartThreshold (0.65) — the flapping zone. Alternate across far
@@ -135,7 +135,7 @@ extension SelfTest {
             moment = moment.addingTimeInterval(30)
         }
         // 200 * 30s = 6000s (100 minutes), comfortably past autoStartDwell (300s),
-        // autoMinRunDwell (180s), and the 600s breakLength used elsewhere.
+        // autoMinRunDwell (180s), and the 600s autoSessionPauseLimit used elsewhere.
         return problems
     }
 

@@ -445,8 +445,8 @@ struct SettingsGroups: View {
                 preferenceRow("End a paused automatic session after",
                               detail: "Come back sooner and it picks up where it left off.") {
                     ThresholdControl(label: "End a paused automatic session after",
-                                     selection: $model.breakLength,
-                                     options: FocusConstants.breakLengthOptions, allowsNever: true)
+                                     selection: $model.autoSessionPauseLimit,
+                                     options: FocusConstants.autoSessionPauseLimitOptions, allowsNever: true)
                 }
                 rowDivider
                 toggleRow("Celebrate milestones",

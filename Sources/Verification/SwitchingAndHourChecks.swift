@@ -196,7 +196,7 @@ enum SwitchingAndHourChecks: CheckSuite {
             2.0 / 15, "Warp, Xcode, Warp in blocks of ten segments is two app changes", &problems)
 
         // The reason an automatic session gives is that same text.
-        var detector = AutoSessionDetector(breakLength: 600)
+        var detector = AutoSessionDetector(autoSessionPauseLimit: 600)
         _ = detector.evaluate(score: steady, at: SelfTest.base, sessionRunning: false,
                               sessionWasAutoStarted: false, enginePaused: false)
         let decision = detector.evaluate(

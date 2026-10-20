@@ -22,7 +22,7 @@ enum AutoDecision: Equatable {
 /// thresholds plus minimum dwell times, both encoded in `FocusConstants`.
 struct AutoSessionDetector {
 
-    var breakLength: TimeInterval
+    var autoSessionPauseLimit: TimeInterval
     /// Set per evaluation from `PurposeLearner`, so the app can be slower to
     /// start for an app whose sessions the user keeps rejecting. Defaults to the
     /// shared constant until enough answers exist to move it.
@@ -55,8 +55,8 @@ struct AutoSessionDetector {
     /// without this the same session reappears and the "no" means nothing.
     private var suppressedUntil: Date?
 
-    init(breakLength: TimeInterval) {
-        self.breakLength = breakLength
+    init(autoSessionPauseLimit: TimeInterval) {
+        self.autoSessionPauseLimit = autoSessionPauseLimit
     }
 
     mutating func reset() {
@@ -189,7 +189,7 @@ struct AutoSessionDetector {
             return .none
         }
 
-        guard moment.timeIntervalSince(pausedAt) > breakLength else {
+        guard moment.timeIntervalSince(pausedAt) > autoSessionPauseLimit else {
             return .none
         }
 

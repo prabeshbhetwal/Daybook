@@ -25,7 +25,7 @@ final class PersistenceStore {
         static let menuApps = "fc.menuApps"
         static let trackingDisabled = "fc.trackingDisabled"
         static let remindersDisabled = "fc.remindersDisabled"
-        static let breakLength = "fc.breakLength"
+        static let autoSessionPauseLimit = "fc.breakLength"
         static let breakOverSound = "fc.breakOverSound"
         static let menuBarShowsBreakCountdown = "fc.menuBarShowsBreakCountdown"
         static let lastBreakNotice = "fc.lastBreakNotice"
@@ -489,12 +489,12 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.menuBarShowsBreakCountdown) }
     }
 
-    var breakLength: TimeInterval {
+    var autoSessionPauseLimit: TimeInterval {
         get {
-            let stored = defaults.double(forKey: Key.breakLength)
-            return stored > 0 ? stored : FocusConstants.defaultBreakLength
+            let stored = defaults.double(forKey: Key.autoSessionPauseLimit)
+            return stored > 0 ? stored : FocusConstants.defaultAutoSessionPauseLimit
         }
-        set { defaults.set(newValue, forKey: Key.breakLength) }
+        set { defaults.set(newValue, forKey: Key.autoSessionPauseLimit) }
     }
 
     /// Quiet at the keyboard for this long pauses a running session.
@@ -889,7 +889,7 @@ final class PersistenceStore {
                     Key.rewardsEnabled, Key.hapticsEnabled, Key.rewardLog, Key.learning,
                     Key.useAppleIntelligence, Key.yesterdayNoteDismissedDay,
                     Key.logGrouping,
-                    Key.remindersDisabled, Key.retiredWorkInterval, Key.breakLength, Key.breakOverSound, Key.menuBarShowsBreakCountdown, Key.breakClock,
+                    Key.remindersDisabled, Key.retiredWorkInterval, Key.autoSessionPauseLimit, Key.breakOverSound, Key.menuBarShowsBreakCountdown, Key.breakClock,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
                     Key.storyTileOrderRawValue,

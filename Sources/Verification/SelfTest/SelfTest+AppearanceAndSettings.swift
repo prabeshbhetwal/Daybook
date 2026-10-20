@@ -155,8 +155,8 @@ extension SelfTest {
         expectClose(store.breakThreshold, 1_800, "ask-me-after writes through", &problems)
         model.longAwayCap = 2 * 3_600
         expectClose(store.longAwayCap, 2 * 3_600, "end-after writes through", &problems)
-        model.breakLength = 15 * 60
-        expectClose(store.breakLength, 15 * 60, "auto-session gap writes through", &problems)
+        model.autoSessionPauseLimit = 15 * 60
+        expectClose(store.autoSessionPauseLimit, 15 * 60, "auto-session gap writes through", &problems)
         model.menuSessionCount = 7
         expect(store.menuSessionCount == 7, "sessions per app writes through", &problems)
         model.fullPromptAfter = 3_600

@@ -676,10 +676,10 @@ enum FocusConstants {
     static let defaultMenuApps = 4
     /// Break reminders: work this long continuously, then take this long off.
     static let defaultWorkInterval: TimeInterval = 50 * 60
-    static let defaultBreakLength: TimeInterval = 10 * 60
+    static let defaultAutoSessionPauseLimit: TimeInterval = 10 * 60
     /// Up to an hour: lunch is a break, and the old 15-minute ceiling could not
     /// describe one.
-    static let breakLengthOptions: [TimeInterval] = [
+    static let autoSessionPauseLimitOptions: [TimeInterval] = [
         5 * 60, 10 * 60, 15 * 60, 20 * 60, 30 * 60, 45 * 60, 60 * 60
     ]
     /// A short day must not render as one block on a one-hour axis.

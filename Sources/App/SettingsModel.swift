@@ -70,7 +70,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .automaticSessions: return \SettingsModel.autoSessionsEnabled
         case .activityRuleAutomation: return \SettingsModel.activityRuleAutomationEnabled
         case .activityRules: return \SettingsModel.activityRules
-        case .automaticGap: return \SettingsModel.breakLength
+        case .automaticGap: return \SettingsModel.autoSessionPauseLimit
         case .rewards: return \SettingsModel.rewardsEnabled
         case .haptics: return \SettingsModel.hapticsEnabled
         case .appleIntelligence: return \SettingsModel.useAppleIntelligence
@@ -550,9 +550,9 @@ final class SettingsModel: ObservableObject {
         set { write { store.fullPromptAfter = newValue > 0 ? newValue : nil } }
     }
 
-    var breakLength: TimeInterval {
-        get { store.breakLength }
-        set { write { store.breakLength = newValue } }
+    var autoSessionPauseLimit: TimeInterval {
+        get { store.autoSessionPauseLimit }
+        set { write { store.autoSessionPauseLimit = newValue } }
     }
 
     var idlePauseThreshold: TimeInterval {

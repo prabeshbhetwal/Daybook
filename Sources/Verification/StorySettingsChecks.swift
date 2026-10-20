@@ -78,7 +78,7 @@ enum StorySettingsChecks {
         settings.fullPromptAfter = FocusConstants.fullPromptAfterOptions.last ?? 0
         settings.remindersEnabled = false
         settings.autoSessionsEnabled = false
-        settings.breakLength = FocusConstants.breakLengthOptions.last ?? settings.breakLength
+        settings.autoSessionPauseLimit = FocusConstants.autoSessionPauseLimitOptions.last ?? settings.autoSessionPauseLimit
         settings.rewardsEnabled = false
         settings.menuSessionCount = 10
         settings.appearancePreference = .dark
@@ -94,7 +94,7 @@ enum StorySettingsChecks {
             || reloaded.fullPromptAfter != settings.fullPromptAfter
             || reloaded.remindersEnabled != settings.remindersEnabled
             || reloaded.autoSessionsEnabled != settings.autoSessionsEnabled
-            || reloaded.breakLength != settings.breakLength
+            || reloaded.autoSessionPauseLimit != settings.autoSessionPauseLimit
             || reloaded.rewardsEnabled != settings.rewardsEnabled
             || reloaded.menuSessionCount != 10
             || reloaded.appearancePreference != .dark || reloaded.interfaceDensity != .compact

@@ -132,7 +132,7 @@ extension SelfTest {
     /// double-counting hours into the day's total.
     static func testNoStaleQualifyingRun() -> [String] {
         var problems: [String] = []
-        var detector = AutoSessionDetector(breakLength: 600)
+        var detector = AutoSessionDetector(autoSessionPauseLimit: 600)
         let high = makeFocusScore(0.8, purpose: .coding, explanation: "Warp 5m")
         let t0 = base
 
