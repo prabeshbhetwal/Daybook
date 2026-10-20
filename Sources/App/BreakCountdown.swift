@@ -62,6 +62,13 @@ enum BreakChoice {
         }
     }
 
+    /// "a 5-minute", "an 8-minute": how Take a break names the length it
+    /// starts. The article follows how the number is said; the lengths on
+    /// offer reach 60, where only 8, 11 and 18 begin with a vowel sound.
+    static func startPhrase(minutes: Int) -> String {
+        "\([8, 11, 18].contains(minutes) ? "an" : "a") \(minutes)-minute"
+    }
+
     /// The "+5 min" button: its text, and what VoiceOver says, which begins
     /// with that text.
     static var extend: (title: String, spoken: String) {

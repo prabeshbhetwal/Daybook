@@ -35,8 +35,8 @@ struct FocusTakeBreakMenu: View {
             FocusActionButton(title: "Take a break", symbol: "cup.and.saucer", iconOnly: compact) {
                 store.startBreak()
             }
-            .help("Starts a \(minutes) minute break (\(SessionShortcut.takeBreak.glyphs))")
-            .accessibilityHint("Starts a \(minutes) minute break")
+            .help("Starts \(BreakChoice.startPhrase(minutes: minutes)) break (\(SessionShortcut.takeBreak.glyphs))")
+            .accessibilityHint("Starts \(BreakChoice.startPhrase(minutes: minutes)) break")
             Menu {
                 ForEach(BreakChoice.options, id: \.length) { option in
                     Button(option.title) { store.startBreak(length: option.length) }

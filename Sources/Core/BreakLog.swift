@@ -75,6 +75,8 @@ final class BreakLog {
 
     static let fileName = "break-log.json"
     static let retentionDays = 400
+    /// A day's rhythm whose save was refused is tried again after this long.
+    static let retryAfterRefusal: TimeInterval = 60
 
     private let directory: URL
     private let fileURL: URL
@@ -85,6 +87,10 @@ final class BreakLog {
     /// Why the file on disk could not be read. It may be the only copy of the
     /// log, so while this is set nothing is written over it.
     private var loadFailure: String?
+    /// Set while the last save was refused: the moment from which a rhythm
+    /// that was noted but never reached the disk is written again. Given by
+    /// the caller's moments, so the log needs no clock of its own.
+    private var retryAfter: Date?
 
     init(directory: URL = SessionArchive.defaultDirectory, calendar: Calendar = .current,
          writeOverride: ((Data) -> String?)? = nil) {
@@ -122,13 +128,18 @@ final class BreakLog {
         return commit(at: moment)
     }
 
-    /// The rhythm in force on `moment`'s day. A day already holding this
-    /// rhythm is not written again.
+    /// The rhythm in force on `moment`'s day, as `calendar` counts days (the
+    /// log's own if none is given). A day already holding this rhythm is not
+    /// written again, unless the last save was refused: then it is, once a
+    /// minute, until the disk takes it.
     @discardableResult
-    func noteRhythm(_ rhythm: BreakRhythmSnapshot, on moment: Date) -> String? {
-        let day = calendar.startOfDay(for: moment)
+    func noteRhythm(_ rhythm: BreakRhythmSnapshot, on moment: Date, calendar: Calendar? = nil) -> String? {
+        let day = (calendar ?? self.calendar).startOfDay(for: moment)
         if let index = days.firstIndex(where: { $0.day == day }) {
-            guard days[index].rhythm != rhythm else { return nil }
+            guard days[index].rhythm != rhythm else {
+                guard let retryAfter, moment >= retryAfter else { return nil }
+                return commit(at: moment)
+            }
             days[index].rhythm = rhythm
         } else {
             days.append(BreakDay(day: day, rhythm: rhythm, eyesPrompts: 0))
@@ -137,12 +148,12 @@ final class BreakLog {
         return commit(at: moment)
     }
 
-    /// An eyes prompt on `moment`'s day. A day nobody noted a rhythm for yet
-    /// starts from the latest earlier rhythm, or one that records only that
-    /// Eyes was on.
+    /// An eyes prompt on `moment`'s day, as `calendar` counts days (the log's
+    /// own if none is given). A day nobody noted a rhythm for yet starts from
+    /// the latest earlier rhythm, or one that records only that Eyes was on.
     @discardableResult
-    func noteEyesPrompt(at moment: Date) -> String? {
-        let day = calendar.startOfDay(for: moment)
+    func noteEyesPrompt(at moment: Date, calendar: Calendar? = nil) -> String? {
+        let day = (calendar ?? self.calendar).startOfDay(for: moment)
         if let index = days.firstIndex(where: { $0.day == day }) {
             days[index].eyesPrompts += 1
         } else {
@@ -182,18 +193,26 @@ final class BreakLog {
             let data = try JSONEncoder().encode(Document(version: 1, prompts: prompts, days: days))
             if let writeOverride {
                 if let error = writeOverride(data) {
-                    Diagnostics.log("break log not saved: \(error)")
-                    return error
+                    return refused(error, logging: "break log not saved: \(error)", at: moment)
                 }
             } else {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 try data.write(to: fileURL, options: .atomic)
             }
+            retryAfter = nil
             return nil
         } catch {
             let message = "The break log could not be saved: \(error.localizedDescription)"
-            Diagnostics.log(message)
-            return message
+            return refused(message, logging: message, at: moment)
         }
+    }
+
+    /// A save the disk turned away. The next rhythm note after a minute tries
+    /// again; only the first refusal of a run is logged, so a disk that stays
+    /// away does not fill the log.
+    private func refused(_ message: String, logging line: String, at moment: Date) -> String {
+        if retryAfter == nil { Diagnostics.log(line) }
+        retryAfter = moment.addingTimeInterval(Self.retryAfterRefusal)
+        return message
     }
 }

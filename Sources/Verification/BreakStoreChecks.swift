@@ -96,11 +96,12 @@ enum BreakStoreChecks: CheckSuite {
     /// `prepare` runs on the engine before the store is built, because the
     /// store reads the engine's state once when it starts and afterwards
     /// hears of engine changes on a later pass of the run loop. `calendar`
-    /// is the one the store works its days out in, and the break log keys
-    /// them by.
+    /// is the one the store works its days out in; the break log is built on
+    /// it too unless `logCalendar` says otherwise (a Mac whose zone changed
+    /// since the log was made).
     @MainActor
     static func make(ticker: Bool = false, rules: Bool = false, calendar: Calendar? = nil,
-                     prepare: (SessionEngine, TestClock) -> Void = { _, _ in }) -> Fixture? {
+                     logCalendar: Calendar? = nil, prepare: (SessionEngine, TestClock) -> Void = { _, _ in }) -> Fixture? {
         let suite = "fc-selftest-break-store-\(UUID().uuidString)"
         guard let defaults = MemoryDefaults.suite(named: suite) else { return nil }
         let clock = TestClock(SelfTest.base)
@@ -119,7 +120,7 @@ enum BreakStoreChecks: CheckSuite {
         let front = Box<Front?>(nil)
         let appRunning = Box<Bool>(false)
         let store = SessionStore(engine: engine, schedulesTicker: ticker,
-                                 breakLog: calendar.map { BreakLog(directory: engine.archive.dataDirectoryURL, calendar: $0) },
+                                 breakLog: (logCalendar ?? calendar).map { BreakLog(directory: engine.archive.dataDirectoryURL, calendar: $0) },
                                  applicationIsRunning: { _ in appRunning.value },
                                  activateApplication: { _, _ in }, now: { clock.value },
                                  idle: IdleMonitor(idleSeconds: { idle.value }),

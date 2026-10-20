@@ -18,22 +18,32 @@ extension SessionStore {
     /// for hours without ever pressing Start.
     func refreshBreak() {
         let moment = now()
+        let calendar = periodCalendar
         let plan = currentBreakPlan(at: moment)
         // Written before anything can return: a day with reminders off, a break
         // running, tracking off or a category asking for quiet still had a
-        // rhythm ("off" is one), and the log must hold it.
-        breakLog.noteRhythm(remindersEnabled ? plan.snapshot : .off, on: moment)
-        // Published when this returns, whichever way, and only when changed.
-        var suggested = plan.rhythm?.breakLength ?? BreakLength.standard
-        var outsideHours = false
-        defer {
-            if suggestedBreakLength != suggested { suggestedBreakLength = suggested }
-            if isOutsideWorkingHours != outsideHours { isOutsideWorkingHours = outsideHours }
+        // rhythm ("off" is one), and the log must hold it. Days are counted in
+        // the calendar read now, as the plan's are, so a zone change moves both.
+        breakLog.noteRhythm(remindersEnabled ? plan.snapshot : .off, on: moment, calendar: calendar)
+        // The evaluation is worked out in every state: Take a break starts at
+        // the length it names (Flow's suggestion, the long break when it is
+        // next) whether or not a reminder may speak. Only the code below the
+        // guards acts on it.
+        let kept = engine.store.breakClock
+        let evaluated = effectiveUsageSnapshot.map {
+            BreakReminder.evaluate($0.sessions, now: moment, last: engine.store.lastBreakNotice,
+                                   plan: plan, clock: kept)
         }
+        let suggested = recordableBreakLength(evaluated?.breakLength ?? plan.rhythm?.breakLength
+                                              ?? BreakLength.standard)
+        if suggestedBreakLength != suggested { suggestedBreakLength = suggested }
+        // Published when this returns, whichever way, and only when changed.
+        var outsideHours = false
+        defer { if isOutsideWorkingHours != outsideHours { isOutsideWorkingHours = outsideHours } }
         // A break being taken is the answer to a reminder, and nothing is due
         // while one runs.
         guard !isOnBreak,
-              let usageSnapshot = effectiveUsageSnapshot,
+              let result = evaluated,
               remindersEnabled,
               remindersPausedByCategory == nil else {
             silenceBreakReminders()
@@ -42,15 +52,11 @@ extension SessionStore {
         // Outside the working hours nothing speaks. The clocks go on counting
         // work, so a stretch begun before the window opens is due at its start.
         if let hours = engine.store.breakSchedule.workingHours,
-           !hours.contains(moment, calendar: periodCalendar) {
+           !hours.contains(moment, calendar: calendar) {
             outsideHours = true
             silenceBreakReminders()
             return
         }
-        let kept = engine.store.breakClock
-        let result = BreakReminder.evaluate(usageSnapshot.sessions, now: moment,
-                                            last: engine.store.lastBreakNotice,
-                                            plan: plan, clock: kept)
         // `evaluate` ignores a Later that belongs to a break that is over, but
         // only in its own copy. The drop is made here too, or the next Later of
         // a new run would be counted on top of the old ones.
@@ -59,7 +65,6 @@ extension SessionStore {
             cleared.snooze = nil
             engine.store.breakClock = cleared
         }
-        suggested = result.breakLength
         breakCountdown = result.next?.seconds ?? 0
         nextBreakTier = result.next?.tier
         isBreakDue = result.due != nil
@@ -86,7 +91,7 @@ extension SessionStore {
     /// Not private so a check can hand it a prompt that no phase-1 plan raises.
     func logShown(_ prompt: BreakPrompt, at moment: Date) {
         guard prompt.kind != .eyes else {
-            breakLog.noteEyesPrompt(at: moment)
+            breakLog.noteEyesPrompt(at: moment, calendar: periodCalendar)
             return
         }
         let overdue = max(0, prompt.worked - prompt.threshold)

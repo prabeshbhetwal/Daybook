@@ -12,6 +12,16 @@ extension SessionStore {
     /// offer it only then, so none is pressed to be refused in silence.
     var canTakeBreak: Bool { engine.canStartBreak && !hasUnresolvedAwayDecision }
 
+    /// `length` raised to the shortest recorded session, so a break that was
+    /// taken is recorded and credited. The raise stops at the longest that
+    /// setting offers: a stored value outside the picker (edited by hand) must
+    /// not plan a day-long break or none at all. Nothing or less is returned
+    /// as it is, for the engine to refuse.
+    func recordableBreakLength(_ length: TimeInterval) -> TimeInterval {
+        let ceiling = FocusConstants.minimumRecordedSessionOptions.max() ?? 0
+        return length > 0 ? max(length, min(engine.store.minimumRecordedSession, ceiling)) : length
+    }
+
     /// Begins a break. `length` defaults to the length the reminder offered; an
     /// Eyes glance, which offers thirty seconds, and a break begun from the
     /// menu take the length the rhythm in force suggests. Never shorter than
@@ -19,11 +29,9 @@ extension SessionStore {
     /// nor credited. Refused while the away question waits or the session is
     /// paused because nobody was here, as the engine refuses.
     func startBreak(length: TimeInterval? = nil, label: String? = nil, from prompt: BreakPrompt? = nil) {
-        let wanted = length
+        let planned = recordableBreakLength(length
             ?? prompt.map { $0.kind == .eyes ? suggestedBreakLength : $0.breakLength }
-            ?? suggestedBreakLength
-        // Nothing or less is left for the engine to refuse.
-        let planned = wanted > 0 ? max(wanted, engine.store.minimumRecordedSession) : wanted
+            ?? suggestedBreakLength)
         guard engine.startBreak(length: planned, label: label) else { return }
         let moment = now()
         sustained.reset()

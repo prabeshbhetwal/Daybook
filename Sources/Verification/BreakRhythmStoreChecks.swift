@@ -19,7 +19,7 @@ enum BreakRhythmStoreChecks: CheckSuite {
 
     // MARK: - Fixtures
 
-    private static let berlin: Calendar = {
+    static let berlin: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Europe/Berlin")!
         calendar.firstWeekday = 2
@@ -27,23 +27,24 @@ enum BreakRhythmStoreChecks: CheckSuite {
     }()
 
     /// A moment in October 2026, Berlin time. The 21st is a Wednesday.
-    private static func oct(_ day: Int, _ hour: Int, _ minute: Int, _ second: Int = 0) -> Date {
+    static func oct(_ day: Int, _ hour: Int, _ minute: Int, _ second: Int = 0) -> Date {
         berlin.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour, minute: minute, second: second))!
     }
 
-    private static func minutes(_ count: Double) -> TimeInterval { count * 60 }
+    static func minutes(_ count: Double) -> TimeInterval { count * 60 }
 
-    /// A store working in Berlin whose clock stands at `moment`.
+    /// A store working in Berlin whose clock stands at `moment`; its break log
+    /// counts days in `logCalendar` if that is given.
     @MainActor
-    private static func make(at moment: Date) -> BreakStoreChecks.Fixture? {
-        guard let f = BreakStoreChecks.make(calendar: berlin) else { return nil }
+    static func make(at moment: Date, logCalendar: Calendar? = nil) -> BreakStoreChecks.Fixture? {
+        guard let f = BreakStoreChecks.make(calendar: berlin, logCalendar: logCalendar) else { return nil }
         f.clock.value = moment
         return f
     }
 
     /// The schedule as a settings change would leave it.
     @MainActor
-    private static func save(_ f: BreakStoreChecks.Fixture, _ change: (inout BreakSchedule) -> Void) {
+    static func save(_ f: BreakStoreChecks.Fixture, _ change: (inout BreakSchedule) -> Void) {
         var schedule = f.persistence.breakSchedule
         change(&schedule)
         f.persistence.breakSchedule = schedule
@@ -51,13 +52,13 @@ enum BreakRhythmStoreChecks: CheckSuite {
 
     /// One unbroken stretch of use.
     @MainActor
-    private static func use(_ f: BreakStoreChecks.Fixture, from start: Date, to end: Date) {
+    static func use(_ f: BreakStoreChecks.Fixture, from start: Date, to end: Date) {
         f.usage.record(AppUsageSession(bundleID: "com.a", appName: "Alpha", start: start, end: end))
     }
 
     /// The prompts the store raises, which all reach the screen.
     @MainActor
-    private static func collect(_ f: BreakStoreChecks.Fixture) -> BreakStoreChecks.Box<[BreakPrompt]> {
+    static func collect(_ f: BreakStoreChecks.Fixture) -> BreakStoreChecks.Box<[BreakPrompt]> {
         let shown = BreakStoreChecks.Box<[BreakPrompt]>([])
         f.store.onBreakDue = { shown.value.append($0); return true }
         return shown
@@ -65,7 +66,7 @@ enum BreakRhythmStoreChecks: CheckSuite {
 
     /// The preset the log holds for the latest day.
     @MainActor
-    private static func preset(_ f: BreakStoreChecks.Fixture) -> String? {
+    static func preset(_ f: BreakStoreChecks.Fixture) -> String? {
         f.store.breakLog.days.last?.rhythm.preset
     }
 
@@ -227,17 +228,9 @@ enum BreakRhythmStoreChecks: CheckSuite {
     private static func startBreakUsesRhythmLength() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            /// What Start break plans after a refresh under `change`, in seconds.
             @MainActor func planned(_ change: (inout BreakSchedule) -> Void, work: Double = 0,
-                                    minimumSession: TimeInterval? = nil, length: TimeInterval? = nil) -> TimeInterval? {
-                guard let f = make(at: oct(21, 10, 0)) else { return nil }
-                defer { f.close() }
-                save(f, change)
-                if let minimumSession { f.persistence.minimumRecordedSession = minimumSession }
-                if work > 0 { use(f, from: oct(21, 10, 0).addingTimeInterval(-minutes(work)), to: oct(21, 10, 0)) }
-                f.store.refresh()
-                f.store.startBreak(length: length)
-                return f.store.activeBreak?.plannedLength
+                         minimumSession: TimeInterval? = nil, length: TimeInterval? = nil) -> TimeInterval? {
+                BreakRhythmLengthChecks.begin(change, work: work, minimumSession: minimumSession, length: length)?.planned
             }
             let deep = planned({ $0.rhythm = .deepWork })
             expect(deep == 900, "Deep work begins 15 minutes, got \(String(describing: deep))", &problems)
