@@ -192,9 +192,12 @@ extension SessionStore {
     /// Recording starts again with the app in front. The person who ended the
     /// break is at the Mac, which is as good as an unlock, from `ended.end`:
     /// input that ended a break was backdated to where it began, and the use
-    /// since then is recorded. A break that ran out its cap, or was found past
-    /// it at launch, ended with nobody there: the app waits, as after a wake,
-    /// for the gate's own sign of a return.
+    /// since then is recorded. The tracker records nothing during a break, so
+    /// that window is credited whole to the app in front when it ends, even if
+    /// the person began in another: bounded by the 90 s window, and better than
+    /// losing it. A break that ran out its cap, or was found past it at launch,
+    /// ended with nobody there: the app waits, as after a wake, for the gate's
+    /// own sign of a return.
     private func resumeTrackingAfterBreak(_ ended: EndedBreak) {
         if let front = frontmostApplication() {
             prepareTrackingResume(bundleID: front.bundleID, name: front.name)

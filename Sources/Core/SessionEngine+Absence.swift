@@ -27,10 +27,10 @@ extension SessionEngine {
     /// Ends a session whose absence outgrew the cap, archived where the absence
     /// began — the same shape as the lock path in `resolve(away:)`. `elapsed`
     /// already subtracts the live pause, so the record's work is exactly what
-    /// was done before they left.
-    func endAbsentSession() -> LongAwayTransitionOutcome {
+    /// was done before they left. `rest` is written in the same edit.
+    func endAbsentSession(alongside rest: SessionRecord? = nil) -> LongAwayTransitionOutcome {
         let began = pauseStartDate
-        guard archiveCurrentSession(endingAt: began) else {
+        guard archiveCurrentSession(endingAt: began, alongside: rest) else {
             return .refused(awayDecisionError ?? "The terminal checkpoint could not be saved.")
         }
         cancelDwell()

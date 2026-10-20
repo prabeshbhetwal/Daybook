@@ -36,6 +36,8 @@ extension SessionEngine {
         // stays, for the store to show.
         let outgrown = absenceOutgrewCap()
         if outgrown {
+            // A refusal from an earlier try must not outlive a retry that works.
+            awayDecisionError = nil
             guard completeLongAway(intent: .endOnly).outcome.applied else { return false }
         } else if case .paused = state {
             // Not `transition(on:)`: that would announce a running state that
@@ -96,7 +98,9 @@ extension SessionEngine {
             let thread = activeThreadID
             // A refusal from an earlier try must not outlive a retry that works.
             awayDecisionError = nil
-            guard archiveCurrentSession(endingAt: brk.start) else { return nil }
+            // The break goes down with the stretch it paused, in one write.
+            guard archiveCurrentSession(endingAt: brk.start,
+                                        alongside: startedBreakRecord(brk, endingAt: moment)) else { return nil }
             closeBreak(brk, at: moment)
             beginFreshSession()
             activeThreadID = thread
@@ -120,7 +124,7 @@ extension SessionEngine {
         guard now() >= capEnd else { return nil }
         if case .paused(.onBreak) = state {
             awayDecisionError = nil
-            guard endAbsentSession().applied else { return nil }
+            guard endAbsentSession(alongside: startedBreakRecord(brk, endingAt: capEnd)).applied else { return nil }
         }
         closeBreak(brk, at: capEnd, byPerson: false)
         persist()
@@ -138,13 +142,21 @@ extension SessionEngine {
 
     /// Writes a started break down at the length it really had, if that is at
     /// least the shortest recorded session. Under the break's own id, so a
-    /// break written twice is one record.
+    /// break written twice is one record, and one that went down with its
+    /// stretch (`archiveCurrentSession(alongside:)`) is skipped here.
     func recordStartedBreak(_ brk: ActiveBreak, endingAt end: Date) {
+        if let record = startedBreakRecord(brk, endingAt: end) { saveRests(adding: record) }
+    }
+
+    /// The record a break ending at `end` leaves: nil when it was shorter than
+    /// the shortest recorded session, which is how restore knows a break with
+    /// its stretch on record and none of its own ended too soon to be written.
+    func startedBreakRecord(_ brk: ActiveBreak, endingAt end: Date) -> SessionRecord? {
         let length = end.timeIntervalSince(brk.start)
-        guard length >= store.minimumRecordedSession else { return }
-        saveRests(adding: SessionRecord(id: brk.id, name: brk.label ?? "Break", workType: .breakTime,
-                                        start: brk.start, end: end, workSeconds: length,
-                                        threadID: UUID(), breakOrigin: .started,
-                                        plannedLength: brk.plannedLength))
+        guard length >= store.minimumRecordedSession else { return nil }
+        return SessionRecord(id: brk.id, name: brk.label ?? "Break", workType: .breakTime,
+                             start: brk.start, end: end, workSeconds: length,
+                             threadID: UUID(), breakOrigin: .started,
+                             plannedLength: brk.plannedLength)
     }
 }

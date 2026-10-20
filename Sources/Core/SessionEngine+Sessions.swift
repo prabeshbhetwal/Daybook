@@ -1,7 +1,12 @@
 import Foundation
 
 extension SessionEngine {
-    func archiveCurrentSession(endingAt endMoment: Date? = nil) -> Bool {
+    /// Writes the session's record and returns to the caller whether it is
+    /// safe to go on. `rest` is a break record the same ending writes: it lands
+    /// in the same edit as the stretch, so a kill leaves both or neither.
+    /// Written apart, a kill between them left a stretch on record and a break
+    /// that restore could not tell from one too short to be written.
+    func archiveCurrentSession(endingAt endMoment: Date? = nil, alongside rest: SessionRecord? = nil) -> Bool {
         guard state != .idle else { return true }
         // A start immediately followed by a stop is a misclick, not a session.
         // Nine such records sit in the shipped archive inflating the day's
@@ -25,7 +30,7 @@ extension SessionEngine {
                                      threadID: activeThreadID,
                                      isAuto: activeIsAuto,
                                      pausedSpans: trustedPausedSpans(until: end))
-        let additions = record.map { [$0] } ?? []
+        let additions = (record.map { [$0] } ?? []) + (rest.map { [$0] } ?? [])
         if decisionHistory.requiresTerminalCheckpoint || awayDecisions.contains(where: {
             $0.creditedSeconds > 0 && $0.threadID == activeThreadID && $0.sessionStart == sessionStartDate
         }) || !archive.capacityRetirements(adding: additions).isEmpty {
@@ -58,9 +63,9 @@ extension SessionEngine {
             correctionGeneration += 1
             liveCorrectionGeneration = correctionGeneration
             synchroniseCommittedCorrectionMetadata()
-        } else if let record, let error = archive.append(record) {
+        } else if !additions.isEmpty, let error = archive.edit(adding: additions, allowsEviction: true) {
             awayDecisionError = error
-            return archive.records.contains(record)
+            return additions.allSatisfy { archive.records.contains($0) }
         }
         // A rest refused earlier is retried with each stretch archived here.
         saveRests()

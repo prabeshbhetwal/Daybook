@@ -101,7 +101,7 @@ extension SessionEngine {
         // The break restore would drop is not brought back by a checkpoint, and
         // the pause it paused follows, as at launch.
         var saved = checkpoint
-        saved.activeBreak = restorableBreak(saved.activeBreak)
+        saved.activeBreak = restorableBreak(in: saved)
         switch saved.kind {
         case .idle: state = .idle
         case .running: state = .running

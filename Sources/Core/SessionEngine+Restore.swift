@@ -68,7 +68,7 @@ extension SessionEngine {
         // so was lost, or this is the journal's checkpoint, taken while it
         // ended. It is not live again. Cleared on the snapshot too, which is
         // where its pause reason is read from.
-        snapshot.activeBreak = restorableBreak(snapshot.activeBreak)
+        snapshot.activeBreak = restorableBreak(in: snapshot)
         activeBreak = snapshot.activeBreak
         defer { if expireBreakIfOutgrown() != nil { onStateChanged?(state) } }
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
@@ -89,13 +89,12 @@ extension SessionEngine {
         // the session could never end. The saved record is the ending: finish it.
         if snapshot.kind == .running || snapshot.kind == .paused,
            archive.records.contains(where: { $0.id == activeRecordID }) {
-            // A break's stretch is saved first when it ends, and a break too
-            // short to be recorded leaves no record to say so. This one ended
-            // unless the cap ended it, which the `defer` above settles.
-            if snapshot.kind == .paused, snapshot.restoredPauseReason == .onBreak,
-               let brk = activeBreak, now() < brk.capEnd(longAwayCap: store.longAwayCap) {
-                activeBreak = nil
-            }
+            // A break's stretch goes down in one edit with the break's own
+            // record, so a stretch on record under a break pause with no
+            // record of its own means the break ended too soon to be written.
+            // It is not live again, whatever its cap: that would record a
+            // twenty-second break as hours of rest.
+            if snapshot.kind == .paused, snapshot.restoredPauseReason == .onBreak { activeBreak = nil }
             activeIsAuto = false
             activeAutomaticAction = nil
             pauseStartDate = nil
@@ -245,6 +244,15 @@ extension SessionEngine {
         guard let saved, saved.isCredible,
               !archive.records.contains(where: { $0.id == saved.id }) else { return nil }
         return saved
+    }
+
+    /// The break a saved state brings back. The idle checkpoint an ending
+    /// journals is taken with the break still in it, and its pause reason says
+    /// the pause that ended was a break's: that break ended with it, recorded
+    /// or too short to be.
+    func restorableBreak(in saved: PersistedState) -> ActiveBreak? {
+        if saved.kind == .idle, saved.restoredPauseReason == .onBreak { return nil }
+        return restorableBreak(saved.activeBreak)
     }
 
     /// Stable migration for snapshots written before `activeRecordID`. A

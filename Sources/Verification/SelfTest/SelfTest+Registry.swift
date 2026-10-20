@@ -164,6 +164,7 @@ extension SelfTest {
             + BreakCarryOverChecks.tests
             + BreakCarryOverFixChecks.tests
             + BreakRestoreCarryOverChecks.tests
+            + BreakEndAtomicChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

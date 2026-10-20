@@ -58,13 +58,14 @@ enum BreakRestoreCarryOverChecks: CheckSuite {
         expect(back.store.loadState()?.activeBreak == nil && BreakTakingChecks.breaks(in: back).isEmpty,
                "and nothing of it is saved or recorded", &problems)
 
-        // Left until past its own cap, it is the cap that ends it, as before.
+        // Found past its own cap it is still dropped: it ended at twenty
+        // seconds, and the cap would write it down as hours of rest.
         let cap = engine.store.longAwayCap
         clock.advance(300 + cap)
         let late = BreakTakingChecks.relaunched(engine, clock)
         late.restore(from: beforeEnd)
-        expect(late.activeBreak == nil && BreakTakingChecks.breaks(in: late).count == 1,
-               "found past its cap it is recorded there, once", &problems)
+        expect(late.activeBreak == nil && BreakTakingChecks.breaks(in: late).isEmpty,
+               "found past its cap it is dropped, not recorded as a long rest", &problems)
         return problems
     }
 
