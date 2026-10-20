@@ -103,12 +103,17 @@ struct BreakPrompt: Equatable {
 struct BreakNotice: Equatable {
     let tier: BreakTier
     let at: Date
+    /// The tier's work length when it was said. A notice raised under another
+    /// rhythm is not the new rhythm's to wait for; nil (a notice from a build
+    /// that did not keep it) is taken to belong to whatever rhythm is in force.
+    var work: TimeInterval? = nil
 }
 
 extension BreakReminder {
     /// The prompt for the tier now due, or nil while it is held back: a Later
     /// holds back its own tier and the shallower ones, and a tier that was
-    /// said recently waits for its own work length before it repeats.
+    /// said recently waits for its own work length before it repeats (unless
+    /// it was said under a different rhythm, whose length is no longer the plan's).
     ///
     /// The prompt carries the plan's numbers, so what it says is what Start
     /// break does. `longBreak` is the length of the long break when the next
@@ -131,7 +136,8 @@ extension BreakReminder {
         if let last, !(afterLater && last.at < (clock.snooze?.until ?? .distantPast)) {
             let since = now.timeIntervalSince(last.at)
             if since < minimumSpacing { return nil }
-            if tier <= last.tier, since < work { return nil }
+            let sameRhythm = last.work.map { $0 == (plan.workLength(last.tier) ?? last.tier.workThreshold) } ?? true
+            if tier <= last.tier, since < work, sameRhythm { return nil }
         }
         // The apps are read from the run the figure counted: Flow's run is
         // not the span since the last long gap, so it is cut where it began.

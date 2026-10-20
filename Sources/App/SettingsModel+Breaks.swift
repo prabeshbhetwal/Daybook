@@ -7,14 +7,20 @@ import Foundation
 extension SettingsModel {
     private var calendar: Calendar { currentCalendar() }
 
+    /// The calendar the date and time pickers work in, so what they show is
+    /// the day and minute the model stores, whatever calendar the Mac uses.
+    var pickerCalendar: Calendar { calendar }
+
     var breakRhythm: BreakPreset {
         get { breakSchedule.rhythm }
         set { breakSchedule.rhythm = newValue }
     }
 
-    /// The Custom rhythm's numbers; a write is kept inside their ranges.
+    /// The Custom rhythm's numbers, inside their ranges whatever is stored (a
+    /// damaged value must not give the rows a range that cannot exist); a write
+    /// is kept inside them too.
     var customRhythm: CustomRhythm {
-        get { breakSchedule.custom }
+        get { breakSchedule.custom.clamped() }
         set { breakSchedule.custom = newValue.clamped() }
     }
 

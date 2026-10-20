@@ -342,6 +342,9 @@ final class SettingsModel: ObservableObject {
     /// something else redrew them.
     let installedAppCatalog: InstalledAppCatalog
     private var catalogChanges: AnyCancellable?
+    /// The break rows read today from the clock; this republishes when it
+    /// jumps (a new zone, a new day), which nothing else would announce.
+    private var clockChanges: AnyCancellable?
     /// The rule and category forms Settings and the category panel draw.
     let openForms = OpenForms()
 
@@ -389,6 +392,21 @@ final class SettingsModel: ObservableObject {
         self.installedAppCatalog = installedAppCatalog
         catalogChanges = installedAppCatalog.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
+        clockChanges = NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
+            .merge(with: NotificationCenter.default.publisher(for: .NSCalendarDayChanged))
+            .sink { [weak self] note in
+                // The system keeps the zone it first read until told it changed.
+                if note.name == .NSSystemTimeZoneDidChange { NSTimeZone.resetSystemTimeZone() }
+                self?.announceClockChange()
+            }
+    }
+
+    private func announceClockChange() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.objectWillChange.send() }
+            return
+        }
+        objectWillChange.send()
     }
 
     /// Whether the welcome can be shown again. Absent outside the running

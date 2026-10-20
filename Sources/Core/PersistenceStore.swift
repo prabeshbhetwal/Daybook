@@ -29,6 +29,7 @@ final class PersistenceStore {
         static let breakOverSound = "fc.breakOverSound"
         static let menuBarShowsBreakCountdown = "fc.menuBarShowsBreakCountdown"
         static let lastBreakNotice = "fc.lastBreakNotice"
+        static let lastBreakWork = "fc.lastBreakWork"
         static let breakClock = "fc.breakClock"
         static let breakSchedule = "fc.breakSchedule"
         static let breakEyes = "fc.breakEyes"
@@ -724,10 +725,14 @@ final class PersistenceStore {
             // is what actually reports absence.
             let tier = (defaults.object(forKey: Key.lastBreakTier) as? Int)
                 .flatMap(BreakTier.init(rawValue:)) ?? .ultradian
-            return BreakNotice(tier: tier, at: Date(timeIntervalSince1970: stored))
+            // Absent is "unknown" (a notice from a build that did not keep it).
+            return BreakNotice(tier: tier, at: Date(timeIntervalSince1970: stored),
+                               work: defaults.object(forKey: Key.lastBreakWork) as? Double)
         }
         set {
             defaults.set(newValue?.at.timeIntervalSince1970 ?? 0, forKey: Key.lastBreakNotice)
+            if let work = newValue?.work { defaults.set(work, forKey: Key.lastBreakWork) }
+            else { defaults.removeObject(forKey: Key.lastBreakWork) }
             defaults.set(newValue?.tier.rawValue ?? BreakTier.ultradian.rawValue,
                          forKey: Key.lastBreakTier)
         }
@@ -934,7 +939,7 @@ final class PersistenceStore {
                     Key.useAppleIntelligence, Key.yesterdayNoteDismissedDay,
                     Key.logGrouping,
                     Key.remindersDisabled, Key.retiredWorkInterval, Key.autoSessionPauseLimit, Key.breakOverSound, Key.menuBarShowsBreakCountdown, Key.breakClock,
-                    Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
+                    Key.lastBreakNotice, Key.lastBreakTier, Key.lastBreakWork, Key.longAwayCap,
                     Key.breakSchedule, Key.breakEyes, Key.breakGuard, Key.breakGuardMinutes,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
                     Key.storyTileOrderRawValue,

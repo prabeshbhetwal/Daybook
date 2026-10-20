@@ -75,7 +75,7 @@ extension SessionStore {
         // that could not be shown (the screen out of reach, or no one listening
         // yet at launch) is asked again at the next pass.
         guard onBreakDue?(prompt) == true else { return }
-        engine.store.lastBreakNotice = BreakNotice(tier: prompt.tier, at: moment)
+        engine.store.lastBreakNotice = BreakNotice(tier: prompt.tier, at: moment, work: prompt.threshold)
         logShown(prompt, at: moment)
     }
 

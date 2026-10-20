@@ -60,7 +60,7 @@ extension SettingsGroups {
         rowDivider
         preferenceRow("Break") { minutesStepper("Break", \.breakMinutes, 1...30, step: 1) }
         rowDivider
-        preferenceRow("Long break every", detail: "Every this many breaks, one is the long one.") {
+        preferenceRow("Long break every", detail: Self.longBreakDetail(every: custom.longEvery)) {
             Picker("Long break every", selection: customBinding(\.longEvery)) {
                 Text("Off").tag(Int?.none)
                 ForEach(2...8, id: \.self) { Text("\($0) breaks").tag(Int?.some($0)) }
@@ -124,17 +124,34 @@ extension SettingsGroups {
         rowDivider
         overrideRow("Dates", .range)
         if model.breakOverridePlan(.range) != .usual {
-            preferenceRow("From") {
-                DatePicker("From", selection: $model.breakRangeFrom, displayedComponents: .date).labelsHidden()
-            }
-            .padding(.leading, Tokens.Space.l)
-            preferenceRow("To") {
-                DatePicker("To", selection: $model.breakRangeTo, displayedComponents: .date).labelsHidden()
-            }
-            .padding(.leading, Tokens.Space.l)
+            preferenceRow("From") { datePicker("From", $model.breakRangeFrom, .date) }
+                .padding(.leading, Tokens.Space.l)
+            preferenceRow("To") { datePicker("To", $model.breakRangeTo, .date) }
+                .padding(.leading, Tokens.Space.l)
         }
-        explanation("These set the weekday plan aside for a while. Where more than one covers a day, "
-                    + "the shortest wins.")
+        explanation(Self.overridesFootnote)
+    }
+
+    static let overridesFootnote = "These set the weekday plan aside for a while. Where more than one covers a "
+        + "day, the one covering the fewest days wins."
+
+    /// What the Long break every row says about the chosen number: "Every 3rd
+    /// break is the long one." (the picker offers 2 to 8, so only 2nd and 3rd
+    /// are not "th").
+    static func longBreakDetail(every: Int?) -> String {
+        guard let every else { return "Off, every break is the same length." }
+        let ordinal = every == 2 ? "2nd" : every == 3 ? "3rd" : "\(every)th"
+        return "Every \(ordinal) break is the long one."
+    }
+
+    /// A date or time picker working in the model's calendar and zone, so it
+    /// shows the day and minute that are stored.
+    private func datePicker(_ title: String, _ selection: Binding<Date>,
+                            _ components: DatePickerComponents) -> some View {
+        DatePicker(title, selection: selection, displayedComponents: components)
+            .labelsHidden()
+            .environment(\.calendar, model.pickerCalendar)
+            .environment(\.timeZone, model.pickerCalendar.timeZone)
     }
 
     private func overrideRow(_ title: String, _ kind: BreakOverrideKind) -> some View {
@@ -164,16 +181,10 @@ extension SettingsGroups {
                     + "overnight, such as 22:00 to 06:00.",
                   isOn: $model.workingHoursEnabled)
         if model.workingHoursEnabled {
-            preferenceRow("From") {
-                DatePicker("From", selection: $model.workingHoursFrom, displayedComponents: .hourAndMinute)
-                    .labelsHidden()
-            }
-            .padding(.leading, Tokens.Space.l)
-            preferenceRow("To") {
-                DatePicker("To", selection: $model.workingHoursTo, displayedComponents: .hourAndMinute)
-                    .labelsHidden()
-            }
-            .padding(.leading, Tokens.Space.l)
+            preferenceRow("From") { datePicker("From", $model.workingHoursFrom, .hourAndMinute) }
+                .padding(.leading, Tokens.Space.l)
+            preferenceRow("To") { datePicker("To", $model.workingHoursTo, .hourAndMinute) }
+                .padding(.leading, Tokens.Space.l)
         }
     }
 
