@@ -20,11 +20,11 @@ extension SessionStore {
             return
         }
         let moment = now()
-        let tiers = BreakTier.allCases.filter(engine.store.enabledBreakTiers.contains)
+        let plan = BreakPlan(tiers: engine.store.enabledBreakTiers)
         let kept = engine.store.breakClock
         let result = BreakReminder.evaluate(usageSnapshot.sessions, now: moment,
                                             last: engine.store.lastBreakNotice,
-                                            tiers: tiers, clock: kept)
+                                            plan: plan, clock: kept)
         // `evaluate` ignores a Later that belongs to a break that is over, but
         // only in its own copy. The drop is made here too, or the next Later of
         // a new run would be counted on top of the old ones.
@@ -33,7 +33,7 @@ extension SessionStore {
             cleared.snooze = nil
             engine.store.breakClock = cleared
         }
-        breakLog.noteRhythm(BreakRhythmSnapshot.fromTiers(Set(tiers)), on: moment)
+        breakLog.noteRhythm(plan.snapshot, on: moment)
         breakCountdown = result.next?.seconds ?? 0
         nextBreakTier = result.next?.tier
         isBreakDue = result.due != nil
@@ -51,12 +51,12 @@ extension SessionStore {
     /// Eyes prompts are counted by day; every other kind is listed, under the
     /// id of this showing. A prompt that returns after a Later is a new one.
     private func logShown(_ prompt: BreakPrompt, at moment: Date) {
-        guard prompt.tier != .micro else {
+        guard prompt.kind != .eyes else {
             breakLog.noteEyesPrompt(at: moment)
             return
         }
-        let overdue = max(0, prompt.worked - prompt.tier.workThreshold)
-        breakLog.recordShown(BreakPromptEntry(id: prompt.id, kind: BreakPromptKind.of(prompt.tier),
+        let overdue = max(0, prompt.worked - prompt.threshold)
+        breakLog.recordShown(BreakPromptEntry(id: prompt.id, kind: prompt.kind,
                                               due: moment.addingTimeInterval(-overdue), shown: moment))
     }
 

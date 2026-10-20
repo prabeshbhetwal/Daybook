@@ -114,11 +114,14 @@ struct BreakSchedule: Codable, Equatable {
     /// An override whose plan is `.usual` changes nothing and is ignored.
     func override(on date: Date, calendar: Calendar) -> BreakOverride? {
         let today = CalendarDay(date, calendar: calendar)
+        // Counted by day number, not by the time between two midnights: a day
+        // that skips midnight starts at 01:00 and would fall a day short.
+        func dayNumber(_ day: CalendarDay) -> Int? {
+            day.start(in: calendar).flatMap { calendar.ordinality(of: .day, in: .era, for: $0) }
+        }
         func length(_ o: BreakOverride) -> Int {
-            guard let from = o.first.start(in: calendar), let to = o.last.start(in: calendar) else {
-                return Int.max
-            }
-            return (calendar.dateComponents([.day], from: from, to: to).day ?? Int.max - 1) + 1
+            guard let from = dayNumber(o.first), let to = dayNumber(o.last) else { return Int.max }
+            return to - from + 1
         }
         func order(_ o: BreakOverride) -> Int { BreakOverrideKind.allCases.firstIndex(of: o.kind) ?? 0 }
         return overrides

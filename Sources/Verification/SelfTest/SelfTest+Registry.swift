@@ -150,6 +150,8 @@ extension SelfTest {
             + BreakDisplayChecks.tests
             + BreakSeamChecks.tests
             + BreakRhythmChecks.tests
+            + BreakPlanChecks.tests
+            + BreakSnapshotChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

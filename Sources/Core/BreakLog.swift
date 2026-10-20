@@ -35,24 +35,27 @@ struct BreakPromptEntry: Codable, Equatable, Identifiable {
     var holdReasons: [String]?
 }
 
-/// The break rhythm in force on one day.
+/// The break rhythm in force on one day. `preset` is a `BreakPreset` raw value
+/// or "off" (no main rhythm that day); nil means a phase-1 build wrote it, from
+/// the three switches alone.
 struct BreakRhythmSnapshot: Codable, Equatable {
     var workMinutes: Int?
     var breakMinutes: Int?
     var eyes: Bool
     var guardMinutes: Int?
     var override: String?
+    var preset: String?
+    var longEvery: Int?
+    var longMinutes: Int?
+
+    /// No main rhythm, no Eyes, no guard.
+    static let off = BreakRhythmSnapshot(eyes: false, preset: "off")
 
     /// The rhythm the three old reminder tiers amount to (spec §1 migration):
     /// the cognitive tier is a 50/5 rhythm, the micro tier the eyes prompt and
     /// the ultradian tier a 90-minute guard.
     static func fromTiers(_ enabled: Set<BreakTier>) -> BreakRhythmSnapshot {
-        let cognitive = enabled.contains(.cognitive)
-        return BreakRhythmSnapshot(workMinutes: cognitive ? 50 : nil,
-                                   breakMinutes: cognitive ? 5 : nil,
-                                   eyes: enabled.contains(.micro),
-                                   guardMinutes: enabled.contains(.ultradian) ? 90 : nil,
-                                   override: nil)
+        BreakPlan(tiers: enabled).snapshot
     }
 }
 
@@ -142,7 +145,8 @@ final class BreakLog {
     }
 
     /// An eyes prompt on `moment`'s day. A day nobody noted a rhythm for yet
-    /// starts from the latest earlier rhythm, or none.
+    /// starts from the latest earlier rhythm, or one that records only that
+    /// Eyes was on.
     @discardableResult
     func noteEyesPrompt(at moment: Date) -> String? {
         let day = calendar.startOfDay(for: moment)
@@ -150,7 +154,7 @@ final class BreakLog {
             days[index].eyesPrompts += 1
         } else {
             let inherited = days.last(where: { $0.day < day })?.rhythm
-                ?? BreakRhythmSnapshot(eyes: false)
+                ?? BreakRhythmSnapshot(eyes: true)
             days.append(BreakDay(day: day, rhythm: inherited, eyesPrompts: 1))
             days.sort { $0.day < $1.day }
         }

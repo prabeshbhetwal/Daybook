@@ -19,8 +19,35 @@ struct BreakPrompt: Equatable {
     var appShare: Double = 1
     /// False once this break has been put off as often as it may be.
     var canLater = true
+    /// The long break that closes a Pomodoro cycle rather than the usual one.
+    var isLong = false
+    /// The continuous work the plan that raised this prompt asks before it
+    /// comes due. Nil reads as the tier's own threshold.
+    var dueAfterWork: TimeInterval? = nil
+    /// The break this prompt offers. Nil reads as the tier's own length, which
+    /// is Eyes' thirty seconds.
+    var offeredBreak: TimeInterval? = nil
 
-    var title: String { tier.title }
+    /// Which kind of reminder this is, for the log.
+    var kind: BreakPromptKind { isLong ? .long : .of(tier) }
+    /// The work it came due after; back-dates `due` in the log.
+    var threshold: TimeInterval { dueAfterWork ?? tier.workThreshold }
+    var breakLength: TimeInterval { offeredBreak ?? tier.breakLength }
+
+    /// Eyes keeps its fixed wording. The others name the break they offer, in
+    /// whole minutes.
+    var title: String {
+        switch kind {
+        case .eyes: return tier.title
+        case .main, .long: return "Take \(BreakPrompt.minutes(breakLength))"
+        case .stretchGuard: return "Step away for \(BreakPrompt.minutes(breakLength))"
+        }
+    }
+
+    private static func minutes(_ seconds: TimeInterval) -> String {
+        let whole = max(1, Int((seconds / 60).rounded()))
+        return whole == 1 ? "1 minute" : "\(whole) minutes"
+    }
 
     /// The figure is continuous time at the Mac. It belongs to an app only
     /// when the app had nearly all of it: "You have been in Vorssaint for
@@ -76,4 +103,50 @@ struct BreakPrompt: Equatable {
 struct BreakNotice: Equatable {
     let tier: BreakTier
     let at: Date
+}
+
+extension BreakReminder {
+    /// The prompt for the tier now due, or nil while it is held back: Eyes
+    /// stays quiet when a main break or the guard is due or within
+    /// `BreakPlan.eyesQuietBefore`; a Later holds back its own tier and the
+    /// shallower ones; and a tier that was said recently waits for its own
+    /// work length before it repeats.
+    ///
+    /// `left` is the work each reminder in the plan still needs. The prompt
+    /// carries the plan's numbers, so what it says is what Start break does.
+    static func prompt(for tier: BreakTier, run: BreakRun, plan: BreakPlan,
+                       left: [BreakTier: TimeInterval], ordered: [AppUsageSession],
+                       now: Date, last: BreakNotice?, clock: BreakClock) -> BreakPrompt? {
+        if tier == .micro,
+           left.contains(where: { $0.key != .micro && $0.value <= BreakPlan.eyesQuietBefore }) {
+            return nil
+        }
+        let work = plan.workLength(tier) ?? tier.workThreshold
+        // A Later holds back its own tier and the shallower ones; once it
+        // runs out the break comes straight back, whatever was said last.
+        var laters = 0
+        var afterLater = false
+        if let snooze = clock.snooze {
+            if tier <= snooze.tier, now < snooze.until { return nil }
+            afterLater = tier == snooze.tier
+            laters = afterLater ? snooze.count : 0
+        }
+        // Only a notice older than the Later's end is overridden by it. One
+        // written since — the prompt it brought back — is the repeat guard's.
+        if let last, !(afterLater && last.at < (clock.snooze?.until ?? .distantPast)) {
+            let since = now.timeIntervalSince(last.at)
+            if since < minimumSpacing { return nil }
+            if tier <= last.tier, since < work { return nil }
+        }
+        // The apps are read from the run the figure counted: Flow's run is
+        // not the span since the last long gap, so it is cut where it began.
+        var stretches = BreakClock.clip(ordered, at: clock.floors[tier])
+        if plan.isFlow, tier == .ultradian { stretches = BreakClock.clip(stretches, at: run.start) }
+        let leader = dominant(stretches, now: now, within: plan.rest(tier))
+        return BreakPrompt(tier: tier, worked: run.seconds,
+                           appName: leader?.name, appShare: leader?.share ?? 0,
+                           canLater: laters < BreakClock.maxLaters,
+                           dueAfterWork: work,
+                           offeredBreak: plan.offeredBreak(for: tier, worked: run.seconds))
+    }
 }

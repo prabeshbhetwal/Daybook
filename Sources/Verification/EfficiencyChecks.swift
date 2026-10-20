@@ -221,7 +221,12 @@ enum EfficiencyChecks {
     private static func breakCheckReadsLatestRun() -> [String] {
         var problems: [String] = []
         let now = noon()
-        let rest = BreakTier.allCases.map(\.restGap).max() ?? 0
+        // The plan's rest rule: Eyes restarts at the idle cutoff, the other two
+        // at a credited rest, which Steady makes five minutes.
+        func restGap(_ tier: BreakTier) -> TimeInterval {
+            tier == .micro ? AppUsageTracker.idleCutoff : (BreakPlan.standard.creditGap ?? 0)
+        }
+        let rest = BreakTier.allCases.map(restGap).max() ?? 0
         func run(from start: Date, gap: TimeInterval, restEvery: Int?) -> [AppUsageSession] {
             var stretches: [AppUsageSession] = []
             var moment = start
@@ -250,7 +255,7 @@ enum EfficiencyChecks {
             let result = BreakReminder.evaluate(stretches, now: now, last: nil)
             var done: [BreakTier: TimeInterval] = [:]
             for tier in BreakTier.allCases {
-                done[tier] = BreakReminder.worked(stretches, now: now, restingAtLeast: tier.restGap)
+                done[tier] = BreakReminder.worked(stretches, now: now, restingAtLeast: restGap(tier))
             }
             let due = BreakTier.allCases.reversed().first { (done[$0] ?? 0) >= $0.workThreshold }
             var next: (tier: BreakTier, seconds: TimeInterval)?
@@ -266,7 +271,7 @@ enum EfficiencyChecks {
                 problems.append("\(name): next break differs from a full sort")
             }
             if let due {
-                let leader = BreakReminder.dominant(stretches, now: now, within: due.restGap)
+                let leader = BreakReminder.dominant(stretches, now: now, within: restGap(due))
                 if result.prompt?.worked != done[due] || result.prompt?.appName != leader?.name
                     || result.prompt?.appShare != (leader?.share ?? 0) {
                     problems.append("\(name): the prompt differs from a full sort")

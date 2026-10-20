@@ -62,7 +62,8 @@ enum BreakLogChecks: CheckSuite {
         expect(log.days.first?.day == calendar.startOfDay(for: base), "the day is keyed by its start", &problems)
         expect(writes == 2, "the change is written, got \(writes) writes", &problems)
         expect(BreakRhythmSnapshot.fromTiers([.cognitive, .ultradian]) ==
-               BreakRhythmSnapshot(workMinutes: 50, breakMinutes: 5, eyes: false, guardMinutes: 90, override: nil),
+               BreakRhythmSnapshot(workMinutes: 50, breakMinutes: 5, eyes: false, guardMinutes: 90, override: nil,
+                                   preset: "steady"),
                "tiers map as the spec's migration table", &problems)
         log.noteEyesPrompt(at: base)
         log.noteEyesPrompt(at: base.addingTimeInterval(1_200))

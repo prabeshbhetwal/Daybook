@@ -151,6 +151,20 @@ enum BreakRhythmChecks: CheckSuite {
         expect(wide.override(on: day(28, in: cal), calendar: cal)?.kind == .month,
                "a 61-day range loses to the month", &problems)
 
+        // Sao Paulo skipped midnight on 4 November 2018 and started that day
+        // at 01:00: a range beginning there is still seven days when it runs
+        // to the 10th, so it ties the week and the earlier kind wins.
+        let paulo = calendar("America/Sao_Paulo")
+        func paulistano(_ d: Int) -> Date {
+            paulo.date(from: DateComponents(year: 2018, month: 11, day: d, hour: 12))!
+        }
+        var skipped = BreakSchedule()
+        skipped.setOverride(.range, plan: .preset(.flow), covering: paulistano(4),
+                            through: paulistano(10), calendar: paulo)
+        skipped.setOverride(.week, plan: .preset(.deepWork), covering: paulistano(7), calendar: paulo)
+        expect(skipped.override(on: paulistano(7), calendar: paulo)?.kind == .week,
+               "a range that starts on a day without a midnight counts that day", &problems)
+
         s.setOverride(.week, plan: .usual, covering: day(21, in: cal), calendar: cal)
         expect(!s.overrides.contains { $0.kind == .week } && look(24).1 == .month,
                "usual removes the kind's override", &problems)

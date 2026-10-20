@@ -119,15 +119,15 @@ enum BreakClockChecks: CheckSuite {
         skipped.skip(.cognitive, at: at(55))
         let pair: [BreakTier] = [.micro, .cognitive]
         expect(BreakReminder.evaluate([stretch(0, 100)], now: at(100), last: nil,
-                                      tiers: pair, clock: skipped).due == .micro,
+                                      plan: BreakPlan(tiers: Set(pair)), clock: skipped).due == .micro,
                "45 minutes after a skip it is not yet due again", &problems)
         expect(BreakReminder.evaluate([stretch(0, 106)], now: at(106), last: nil,
-                                      tiers: pair, clock: skipped).due == .cognitive,
+                                      plan: BreakPlan(tiers: Set(pair)), clock: skipped).due == .cognitive,
                "51 minutes after a skip it is due again", &problems)
 
         // A stretch that straddles the floor counts only from the floor.
         let straddle = BreakReminder.evaluate([stretch(0, 60)], now: at(60), last: nil,
-                                              tiers: [.micro], clock: micro)
+                                              plan: BreakPlan(tiers: [.micro]), clock: micro)
         expect(straddle.next?.tier == .micro, "clipped work counts from the floor", &problems)
         expect(abs((straddle.next?.seconds ?? 0) - 15 * 60) < 1,
                "five minutes of 20 gone, got \(String(describing: straddle.next?.seconds))", &problems)

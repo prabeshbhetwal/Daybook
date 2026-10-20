@@ -12,13 +12,13 @@ extension SessionStore {
     /// offer it only then, so none is pressed to be refused in silence.
     var canTakeBreak: Bool { engine.canStartBreak && !hasUnresolvedAwayDecision }
 
-    /// Begins a break. `length` defaults to the reminder's own, never less
-    /// than five minutes; a break begun from the menu is five. Refused while
-    /// the away question waits or the session is paused because nobody was
-    /// here, as the engine refuses.
+    /// Begins a break. `length` defaults to the length the reminder offered; an
+    /// Eyes glance, which offers thirty seconds, and a break begun from the
+    /// menu are five minutes. Refused while the away question waits or the
+    /// session is paused because nobody was here, as the engine refuses.
     func startBreak(length: TimeInterval? = nil, label: String? = nil, from prompt: BreakPrompt? = nil) {
         let planned = length
-            ?? prompt.map { max($0.tier.breakLength, BreakLength.standard) }
+            ?? prompt.map { $0.kind == .eyes ? BreakLength.standard : $0.breakLength }
             ?? BreakLength.standard
         guard engine.startBreak(length: planned, label: label) else { return }
         let moment = now()

@@ -55,7 +55,6 @@ struct BreakRhythm: Equatable {
     let longEvery: Int?
     let longLength: TimeInterval?
 
-    static let flowShare = 0.2
     static let flowShortest: TimeInterval = 300
     static let flowLongest: TimeInterval = 1_200
 
@@ -81,6 +80,6 @@ struct BreakRhythm: Equatable {
 
     /// Flow's break after a stretch of work: a fifth of it, from 5 to 20 minutes.
     static func flowSuggestion(after stretch: TimeInterval) -> TimeInterval {
-        min(max(stretch * flowShare, flowShortest), flowLongest)
+        min(max(stretch / 5, flowShortest), flowLongest)
     }
 }

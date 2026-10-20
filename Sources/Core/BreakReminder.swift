@@ -1,27 +1,35 @@
 import Foundation
 
-/// The three kinds of fatigue continuous computer work produces, each with its
-/// own onset time and its own recovery cost. They are not a single "take a
-/// break" rule at three sizes: a thirty-second look-away genuinely fixes eye
-/// strain and genuinely does nothing for a brain ninety minutes into a task.
+/// The three reminders. Each stands for a kind of fatigue continuous computer
+/// work produces, with its own onset and its own recovery cost: a thirty-second
+/// look-away genuinely fixes eye strain and genuinely does nothing for a brain
+/// ninety minutes into a task.
 ///
-/// Ordered by depth, and evaluated deepest-first, so a due ultradian reset is
-/// never reported as a stretch break.
+/// The cases are slots in a `BreakPlan`: `.micro` is Eyes, `.cognitive` the
+/// main rhythm and `.ultradian` the long-stretch guard. The numbers on the
+/// tier itself are Steady's defaults, and the fallbacks a prompt uses when it
+/// carries none of its own; the reminder engine reads a plan's numbers
+/// instead.
+///
+/// Ordered by depth, and evaluated deepest-first, so a due guard is never
+/// reported as a stretch break. The raw values are stored with the reminder
+/// clock and the last notice.
 enum BreakTier: Int, CaseIterable, Comparable, Codable {
 
-    /// 20-minute mark. Musculoskeletal and visual strain — the 20-20-20 rule.
+    /// Eyes: visual and musculoskeletal strain, the 20-20-20 rule.
     case micro = 0
-    /// 50-minute mark. Cognitive load; attention degrades and needs a reset.
+    /// The main rhythm: cognitive load; attention degrades and needs a reset.
     case cognitive = 1
-    /// 90-minute mark. The ultradian trough, where the body starts drawing on
-    /// reserves and analytical efficiency falls away.
+    /// The guard: a long stretch with no real break, where the body starts
+    /// drawing on reserves and analytical efficiency falls away.
     case ultradian = 2
 
     static func < (lhs: BreakTier, rhs: BreakTier) -> Bool {
         lhs.rawValue < rhs.rawValue
     }
 
-    /// Continuous work that brings this tier due.
+    /// Continuous work that brings this tier due under Steady and the standard
+    /// guard.
     var workThreshold: TimeInterval {
         switch self {
         case .micro: return 20 * 60
@@ -30,7 +38,7 @@ enum BreakTier: Int, CaseIterable, Comparable, Codable {
         }
     }
 
-    /// Rest this tier prescribes.
+    /// Rest this tier prescribes under Steady and the standard guard.
     var breakLength: TimeInterval {
         switch self {
         case .micro: return 30
@@ -39,8 +47,9 @@ enum BreakTier: Int, CaseIterable, Comparable, Codable {
         }
     }
 
-    /// The gap in recorded use that resets this tier's clock, which is *not* the
-    /// same as the rest it prescribes.
+    /// The gap in recorded use that resets this tier's clock under the phase-1
+    /// rule, which is *not* the same as the rest it prescribes. A plan's
+    /// `rest(_:)` is what the reminder engine uses now.
     ///
     /// Using `breakLength` directly made the twenty-minute tier unreachable, and
     /// the whole feature silently dead. Two reasons. Looking away from the
@@ -131,35 +140,42 @@ struct BreakReminder {
         /// floors and the Later that could not be believed. A caller that keeps
         /// the clock compares it with its own to keep what was dropped dropped.
         let clock: BreakClock
+        /// What Start break would begin with right now.
+        let breakLength: TimeInterval
     }
 
+    /// What is due and what to say about it, under `plan`: every length and
+    /// rest comes from the plan, none from the tier.
+    ///
+    /// Eyes (`.micro`) restarts after a gap at the idle cutoff; the main
+    /// rhythm (`.cognitive`) and the guard (`.ultradian`) after a credited
+    /// rest, or under Flow after a gap that reaches the suggestion for the
+    /// work before it. Skip and Later live in the clock.
     static func evaluate(_ stretches: [AppUsageSession],
                          now: Date,
                          last: BreakNotice?,
-                         tiers: [BreakTier] = BreakTier.allCases,
+                         plan: BreakPlan = .standard,
                          clock: BreakClock = BreakClock()) -> Evaluation {
         // Floors and a Later that cannot be genuine are dropped here, not
         // left to the caller: see `BreakClock.sanitized`.
         var clock = clock.sanitized(now: now)
-        let ordered = latestRun(stretches, now: now,
-                                reaching: tiers.map(\.restGap).max() ?? 0)
-        var done: [BreakTier: TimeInterval] = [:]
-        var began: [BreakTier: Date] = [:]
+        let tiers = plan.tiers
+        let ordered = latestRun(stretches, now: now, reaching: plan.reach)
+        var counted: [BreakTier: BreakRun] = [:]
+        var left: [BreakTier: TimeInterval] = [:]
         for tier in tiers {
-            let found = run(sorted: BreakClock.clip(ordered, at: clock.floors[tier]),
-                            now: now, restingAtLeast: tier.restGap)
-            done[tier] = found.seconds
-            began[tier] = found.start
+            let found = count(tier, plan: plan, ordered: ordered, clock: clock, now: now)
+            counted[tier] = found
+            left[tier] = max(0, (plan.workLength(tier) ?? 0) - found.seconds)
         }
-        let due = tiers.reversed()
-            .first { (done[$0] ?? 0) >= $0.workThreshold }
-        clock.dropStaleSnooze(due: due, runStart: clock.snooze.flatMap { began[$0.tier] })
+        let due = tiers.reversed().first { left[$0] == 0 }
+        clock.dropStaleSnooze(due: due, runStart: clock.snooze.flatMap { counted[$0.tier]?.start })
 
         // Written out rather than chained: the inferred tuple type defeats the
         // type checker inside a `map`/`min` pipeline.
         var next: (tier: BreakTier, seconds: TimeInterval)?
         for tier in tiers {
-            let remaining: TimeInterval = max(0, tier.workThreshold - (done[tier] ?? 0))
+            let remaining: TimeInterval = left[tier] ?? 0
             guard let best = next else {
                 next = (tier: tier, seconds: remaining)
                 continue
@@ -170,11 +186,27 @@ struct BreakReminder {
                 next = (tier: tier, seconds: remaining)
             }
         }
-        return Evaluation(due: due, next: next,
-                          prompt: prompt(ordered: ordered, now: now, last: last,
-                                         due: due, worked: done[due ?? .micro] ?? 0,
-                                         clock: clock),
-                          clock: clock)
+        // Flow suggests its break from the guard's run, whether or not the
+        // guard itself is on.
+        let flowWork = plan.isFlow
+            ? (counted[.ultradian] ?? count(.ultradian, plan: plan, ordered: ordered, clock: clock, now: now)).seconds
+            : 0
+        var shown: BreakPrompt?
+        if let tier = due, let found = counted[tier] {
+            shown = prompt(for: tier, run: found, plan: plan, left: left, ordered: ordered,
+                           now: now, last: last, clock: clock)
+        }
+        return Evaluation(due: due, next: next, prompt: shown, clock: clock,
+                          breakLength: plan.breakLength(flowWork: flowWork))
+    }
+
+    /// What `tier` has counted since its floor, up to the first gap that
+    /// restarts it. The guard under Flow follows Flow's own rest rule.
+    private static func count(_ tier: BreakTier, plan: BreakPlan, ordered: [AppUsageSession],
+                              clock: BreakClock, now: Date) -> BreakRun {
+        let mine = BreakClock.clip(ordered, at: clock.floors[tier])
+        if tier == .ultradian, plan.isFlow { return BreakCycles.flowRun(mine, now: now) }
+        return run(sorted: mine, now: now, restingAtLeast: plan.rest(tier))
     }
 
     /// How far back the walks below are expected to reach. A person rests
@@ -223,8 +255,7 @@ struct BreakReminder {
     /// there is none.
     private static func run(sorted ordered: [AppUsageSession],
                             now: Date,
-                            restingAtLeast rest: TimeInterval)
-        -> (seconds: TimeInterval, start: Date?) {
+                            restingAtLeast rest: TimeInterval) -> BreakRun {
         var total: TimeInterval = 0
         var boundary = now
         var start: Date?
@@ -235,36 +266,6 @@ struct BreakReminder {
             start = stretch.start
         }
         return (total, start)
-    }
-
-    private static func prompt(ordered: [AppUsageSession],
-                               now: Date,
-                               last: BreakNotice?,
-                               due: BreakTier?,
-                               worked: TimeInterval,
-                               clock: BreakClock) -> BreakPrompt? {
-        guard let tier = due else { return nil }
-        // A Later holds back its own tier and the shallower ones; once it
-        // runs out the break comes straight back, whatever was said last.
-        var laters = 0
-        var afterLater = false
-        if let snooze = clock.snooze {
-            if tier <= snooze.tier, now < snooze.until { return nil }
-            afterLater = tier == snooze.tier
-            laters = afterLater ? snooze.count : 0
-        }
-        // Only a notice older than the Later's end is overridden by it. One
-        // written since — the prompt it brought back — is the repeat guard's.
-        if let last, !(afterLater && last.at < (clock.snooze?.until ?? .distantPast)) {
-            let since = now.timeIntervalSince(last.at)
-            if since < minimumSpacing { return nil }
-            if tier <= last.tier, since < tier.workThreshold { return nil }
-        }
-        let leader = dominant(BreakClock.clip(ordered, at: clock.floors[tier]),
-                              now: now, within: tier.restGap)
-        return BreakPrompt(tier: tier, worked: worked,
-                           appName: leader?.name, appShare: leader?.share ?? 0,
-                           canLater: laters < BreakClock.maxLaters)
     }
 
     // The three below are conveniences over `evaluate`, not second copies of it.
