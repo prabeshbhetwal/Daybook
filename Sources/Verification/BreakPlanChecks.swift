@@ -88,17 +88,23 @@ enum BreakPlanChecks: CheckSuite {
 
     private static func eyesQuietNearMainBreak() -> [String] {
         var problems: [String] = []
+        // Quiet means off for this answer: not due, not the next, and no prompt.
         let pomodoro = eval(21, plan(.pomodoro))
-        expect(pomodoro.due == .micro && pomodoro.prompt == nil,
-               "Pomodoro at 21 minutes: Eyes is due, but the main break is 4 minutes off", &problems)
+        expect(pomodoro.due == nil && pomodoro.prompt == nil && pomodoro.next?.tier == .cognitive
+               && pomodoro.next?.seconds == 240,
+               "Pomodoro at 21 minutes: the main break is 4 minutes off, so Eyes is not due and the countdown names it",
+               &problems)
         expect(eval(41).prompt?.tier == .micro, "Steady at 41 minutes: the main break is 9 off, Eyes shows", &problems)
         let said = BreakNotice(tier: .micro, at: at(46).addingTimeInterval(-1_300))
-        expect(eval(46, last: said).prompt == nil, "Steady at 46 minutes: 4 off, Eyes stays quiet", &problems)
-        expect(eval(46, last: said).due == .micro, "though Eyes is still due", &problems)
+        let steady = eval(46, last: said)
+        expect(steady.prompt == nil && steady.due == nil && steady.next?.tier == .cognitive
+               && steady.next?.seconds == 240, "Steady at 46 minutes: 4 off, Eyes is out of the way", &problems)
 
         let noMain = plan(nil)
         expect(eval(80, noMain).prompt?.tier == .micro && eval(86, noMain).prompt == nil,
                "the guard 4 minutes off quiets Eyes as well", &problems)
+        expect(eval(86, noMain).due == nil && eval(86, noMain).next?.tier == .ultradian,
+               "and the countdown names the guard", &problems)
         return problems
     }
 
@@ -254,9 +260,9 @@ enum BreakPlanChecks: CheckSuite {
         expect(eval(11, tiny).prompt?.title == "Take 1 minute", "one minute reads as one minute", &problems)
 
         let wide = plan(.custom, guardMinutes: 60, custom: CustomRhythm(workMinutes: 180, breakMinutes: 30))
-        expect(eval(61, wide).due == .ultradian && eval(59, wide).due == .micro,
+        expect(eval(61, wide).due == .ultradian && eval(50, wide).due == .micro,
                "a guard shorter than the block comes first", &problems)
-        expect(eval(59, wide).prompt == nil, "and quiets Eyes before it", &problems)
+        expect(eval(59, wide).due == nil && eval(59, wide).prompt == nil, "and quiets Eyes before it", &problems)
 
         var schedule = BreakSchedule()
         schedule.rhythm = .custom

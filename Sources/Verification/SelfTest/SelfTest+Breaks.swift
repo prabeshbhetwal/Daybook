@@ -110,15 +110,16 @@ extension SelfTest {
         // three-minute idle cutoff the usage archive cannot tell rest from
         // recording noise, so nothing shorter is allowed to reset a clock.
         expectClose(BreakReminder.worked(continuous, now: now,
-                                         restingAtLeast: BreakTier.micro.restGap),
+                                         restingAtLeast: BreakPlan.standard.rest(.micro)),
                     53 * 60, "a two-minute gap is not observable rest", &problems)
-        expect(BreakTier.micro.restGap == AppUsageTracker.idleCutoff,
+        expect(BreakPlan.standard.rest(.micro) == AppUsageTracker.idleCutoff,
                "the shallow tier resets at the idle cutoff, not its own 30s",
                &problems)
         expect(BreakReminder.dueTier(continuous, now: now) == .cognitive,
                "53 continuous minutes is a cognitive reset", &problems)
 
-        // A 12 minute gap clears the cognitive tier but not the ultradian one.
+        // A 12 minute gap is a credited rest (five minutes under Steady), so it
+        // clears the cognitive tier and the guard alike.
         let rested = [stretch(90, 40), stretch(28, 0)]
         expectClose(BreakReminder.worked(rested, now: now,
                                          restingAtLeast: BreakTier.cognitive.breakLength),

@@ -106,21 +106,15 @@ struct BreakNotice: Equatable {
 }
 
 extension BreakReminder {
-    /// The prompt for the tier now due, or nil while it is held back: Eyes
-    /// stays quiet when a main break or the guard is due or within
-    /// `BreakPlan.eyesQuietBefore`; a Later holds back its own tier and the
-    /// shallower ones; and a tier that was said recently waits for its own
-    /// work length before it repeats.
+    /// The prompt for the tier now due, or nil while it is held back: a Later
+    /// holds back its own tier and the shallower ones, and a tier that was
+    /// said recently waits for its own work length before it repeats.
     ///
-    /// `left` is the work each reminder in the plan still needs. The prompt
-    /// carries the plan's numbers, so what it says is what Start break does.
+    /// The prompt carries the plan's numbers, so what it says is what Start
+    /// break does.
     static func prompt(for tier: BreakTier, run: BreakRun, plan: BreakPlan,
-                       left: [BreakTier: TimeInterval], ordered: [AppUsageSession],
-                       now: Date, last: BreakNotice?, clock: BreakClock) -> BreakPrompt? {
-        if tier == .micro,
-           left.contains(where: { $0.key != .micro && $0.value <= BreakPlan.eyesQuietBefore }) {
-            return nil
-        }
+                       ordered: [AppUsageSession], now: Date, last: BreakNotice?,
+                       clock: BreakClock) -> BreakPrompt? {
         let work = plan.workLength(tier) ?? tier.workThreshold
         // A Later holds back its own tier and the shallower ones; once it
         // runs out the break comes straight back, whatever was said last.

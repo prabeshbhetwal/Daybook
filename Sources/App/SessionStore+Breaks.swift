@@ -50,7 +50,8 @@ extension SessionStore {
 
     /// Eyes prompts are counted by day; every other kind is listed, under the
     /// id of this showing. A prompt that returns after a Later is a new one.
-    private func logShown(_ prompt: BreakPrompt, at moment: Date) {
+    /// Not private so a check can hand it a prompt that no phase-1 plan raises.
+    func logShown(_ prompt: BreakPrompt, at moment: Date) {
         guard prompt.kind != .eyes else {
             breakLog.noteEyesPrompt(at: moment)
             return

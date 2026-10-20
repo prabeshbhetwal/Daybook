@@ -47,25 +47,6 @@ enum BreakTier: Int, CaseIterable, Comparable, Codable {
         }
     }
 
-    /// The gap in recorded use that resets this tier's clock under the phase-1
-    /// rule, which is *not* the same as the rest it prescribes. A plan's
-    /// `rest(_:)` is what the reminder engine uses now.
-    ///
-    /// Using `breakLength` directly made the twenty-minute tier unreachable, and
-    /// the whole feature silently dead. Two reasons. Looking away from the
-    /// screen for thirty seconds produces no gap at all — the app is still
-    /// frontmost, so nothing is recorded differently. And below the idle cutoff
-    /// the data is pure noise: an archive of ordinary use is full of one- to
-    /// twelve-second holes where a sub-minimum segment was dropped or a system
-    /// process took the foreground. A thirty-second reset tripped on those
-    /// constantly, so "continuous work" never accumulated past a few minutes.
-    ///
-    /// Three minutes is the shortest gap this app can actually observe, because
-    /// that is when idle trimming starts cutting stretches short.
-    var restGap: TimeInterval {
-        max(breakLength, AppUsageTracker.idleCutoff)
-    }
-
     var title: String {
         switch self {
         case .micro: return "Look away for 30 seconds"
@@ -168,13 +149,21 @@ struct BreakReminder {
             counted[tier] = found
             left[tier] = max(0, (plan.workLength(tier) ?? 0) - found.seconds)
         }
-        let due = tiers.reversed().first { left[$0] == 0 }
+        // Eyes keeps out of the way of a main break or the guard that is due or
+        // about to be: for this answer it counts as off, neither due nor next.
+        var live = tiers
+        if tiers.contains(.micro), tiers.contains(where: {
+            $0 != .micro && (left[$0] ?? .infinity) <= BreakPlan.eyesQuietBefore
+        }) {
+            live.removeAll { $0 == .micro }
+        }
+        let due = live.reversed().first { left[$0] == 0 }
         clock.dropStaleSnooze(due: due, runStart: clock.snooze.flatMap { counted[$0.tier]?.start })
 
         // Written out rather than chained: the inferred tuple type defeats the
         // type checker inside a `map`/`min` pipeline.
         var next: (tier: BreakTier, seconds: TimeInterval)?
-        for tier in tiers {
+        for tier in live {
             let remaining: TimeInterval = left[tier] ?? 0
             guard let best = next else {
                 next = (tier: tier, seconds: remaining)
@@ -193,7 +182,7 @@ struct BreakReminder {
             : 0
         var shown: BreakPrompt?
         if let tier = due, let found = counted[tier] {
-            shown = prompt(for: tier, run: found, plan: plan, left: left, ordered: ordered,
+            shown = prompt(for: tier, run: found, plan: plan, ordered: ordered,
                            now: now, last: last, clock: clock)
         }
         return Evaluation(due: due, next: next, prompt: shown, clock: clock,

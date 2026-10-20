@@ -152,6 +152,7 @@ extension SelfTest {
             + BreakRhythmChecks.tests
             + BreakPlanChecks.tests
             + BreakSnapshotChecks.tests
+            + BreakPlanStoreChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

@@ -118,8 +118,9 @@ enum BreakClockChecks: CheckSuite {
         var skipped = BreakClock()
         skipped.skip(.cognitive, at: at(55))
         let pair: [BreakTier] = [.micro, .cognitive]
+        // Five minutes short of due, Eyes keeps quiet too, so nothing is due.
         expect(BreakReminder.evaluate([stretch(0, 100)], now: at(100), last: nil,
-                                      plan: BreakPlan(tiers: Set(pair)), clock: skipped).due == .micro,
+                                      plan: BreakPlan(tiers: Set(pair)), clock: skipped).due == nil,
                "45 minutes after a skip it is not yet due again", &problems)
         expect(BreakReminder.evaluate([stretch(0, 106)], now: at(106), last: nil,
                                       plan: BreakPlan(tiers: Set(pair)), clock: skipped).due == .cognitive,

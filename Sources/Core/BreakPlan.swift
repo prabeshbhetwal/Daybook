@@ -77,7 +77,11 @@ struct BreakPlan: Equatable {
         return max(rhythm?.breakLength ?? BreakLength.standard, AppUsageTracker.idleCutoff)
     }
 
-    /// The gap that restarts `tier`'s count. Eyes restarts at the idle cutoff.
+    /// The gap that restarts `tier`'s count. Eyes restarts at the idle cutoff,
+    /// not at its own thirty seconds: looking away leaves no gap in the record
+    /// (the app is still frontmost), and below the cutoff the record is full
+    /// of one- to twelve-second holes, so a shorter reset would never let work
+    /// add up. Three minutes is the shortest gap this app can observe.
     func rest(_ tier: BreakTier) -> TimeInterval {
         tier == .micro ? AppUsageTracker.idleCutoff : (creditGap ?? BreakRhythm.flowLongest)
     }
