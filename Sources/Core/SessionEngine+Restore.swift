@@ -68,14 +68,7 @@ extension SessionEngine {
         // so was lost, or this is the journal's checkpoint, taken while it
         // ended. It is not live again. Cleared on the snapshot too, which is
         // where its pause reason is read from.
-        if let ended = snapshot.activeBreak, archive.records.contains(where: { $0.id == ended.id }) {
-            snapshot.activeBreak = nil
-        }
-        // A break no one could have taken (dates that are not dates, a plan
-        // past a day) is dropped: kept, it would never end on its own.
-        if let saved = snapshot.activeBreak, !saved.isCredible {
-            snapshot.activeBreak = nil
-        }
+        snapshot.activeBreak = restorableBreak(snapshot.activeBreak)
         activeBreak = snapshot.activeBreak
         defer { if expireBreakIfOutgrown() != nil { onStateChanged?(state) } }
         awayDecisions = snapshot.awayDecisions ?? snapshot.awayDecision.map { [$0] } ?? []
@@ -96,6 +89,13 @@ extension SessionEngine {
         // the session could never end. The saved record is the ending: finish it.
         if snapshot.kind == .running || snapshot.kind == .paused,
            archive.records.contains(where: { $0.id == activeRecordID }) {
+            // A break's stretch is saved first when it ends, and a break too
+            // short to be recorded leaves no record to say so. This one ended
+            // unless the cap ended it, which the `defer` above settles.
+            if snapshot.kind == .paused, snapshot.restoredPauseReason == .onBreak,
+               let brk = activeBreak, now() < brk.capEnd(longAwayCap: store.longAwayCap) {
+                activeBreak = nil
+            }
             activeIsAuto = false
             activeAutomaticAction = nil
             pauseStartDate = nil
@@ -234,6 +234,17 @@ extension SessionEngine {
         if case .awaitingUserDecision(let away, let app) = state {
             onNeedsDecision?(away, app)
         }
+    }
+
+    /// The saved break worth bringing back, from a launch or a correction's
+    /// checkpoint alike. One no one could have taken (dates that are not
+    /// dates, a plan past a day) is dropped: kept, it would never end on its
+    /// own. So is one already on record, which ended: only the write of the
+    /// state that said so was lost, or the checkpoint was taken while it ended.
+    func restorableBreak(_ saved: ActiveBreak?) -> ActiveBreak? {
+        guard let saved, saved.isCredible,
+              !archive.records.contains(where: { $0.id == saved.id }) else { return nil }
+        return saved
     }
 
     /// Stable migration for snapshots written before `activeRecordID`. A

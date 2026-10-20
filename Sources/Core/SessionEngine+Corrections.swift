@@ -97,7 +97,11 @@ extension SessionEngine {
 
     /// Restore a transaction checkpoint without inventing a new presence event
     /// or replaying the ordinary launch/away transition.
-    func applyExactCorrectionState(_ saved: PersistedState) {
+    func applyExactCorrectionState(_ checkpoint: PersistedState) {
+        // The break restore would drop is not brought back by a checkpoint, and
+        // the pause it paused follows, as at launch.
+        var saved = checkpoint
+        saved.activeBreak = restorableBreak(saved.activeBreak)
         switch saved.kind {
         case .idle: state = .idle
         case .running: state = .running

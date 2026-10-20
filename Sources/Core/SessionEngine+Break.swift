@@ -21,14 +21,23 @@ extension SessionEngine {
     /// absences with their own accounting, not a break anyone started.
     ///
     /// A running session pauses as `.onBreak`; the pause it was already in
-    /// (Pause, a break app, a film) is left first, the way Resume leaves it.
+    /// (Pause, a break app, a film) is left first, the way Resume leaves it,
+    /// unless it outgrew `longAwayCap`: that session ends where the person left.
     /// With no session the break stands alone and nothing starts. It does
     /// not emit `onStateChanged`: the caller refreshes, as for a transition.
     @discardableResult
     func startBreak(length: TimeInterval, label: String? = nil) -> Bool {
         guard canStartBreak, length.isFinite, length > 0 else { return false }
         let planned = min(length, BreakLength.maximum)
-        if case .paused = state {
+        // A pause nobody has been at since before the cap is no stretch to
+        // resume: that session ended where the person left, as any long
+        // absence ends it, and the break stands alone. Resuming it would start
+        // a new session for the break to pause. The result of that ending
+        // stays, for the store to show.
+        let outgrown = absenceOutgrewCap()
+        if outgrown {
+            guard completeLongAway(intent: .endOnly).outcome.applied else { return false }
+        } else if case .paused = state {
             // Not `transition(on:)`: that would announce a running state that
             // lasts no time. A refused save leaves the pause standing.
             _ = transitionFromPaused(on: .manualResume)
@@ -37,7 +46,7 @@ extension SessionEngine {
         // What `transition(on:)` does before any event: a new moment, so the
         // result of an earlier long absence is not shown again beside the break.
         transitionRevision &+= 1
-        lastLongAwayTransition = nil
+        if !outgrown { lastLongAwayTransition = nil }
         let began = now()
         let typed = label?.trimmingCharacters(in: .whitespacesAndNewlines)
         activeBreak = ActiveBreak(start: began, plannedEnd: began.addingTimeInterval(planned),

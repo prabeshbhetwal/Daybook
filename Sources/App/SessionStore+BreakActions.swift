@@ -190,14 +190,16 @@ extension SessionStore {
     }
 
     /// Recording starts again with the app in front. The person who ended the
-    /// break is at the Mac, which is as good as an unlock. A break that ran out
-    /// its cap, or was found past it at launch, ended with nobody there: the
-    /// app waits, as after a wake, for the gate's own sign of a return.
+    /// break is at the Mac, which is as good as an unlock, from `ended.end`:
+    /// input that ended a break was backdated to where it began, and the use
+    /// since then is recorded. A break that ran out its cap, or was found past
+    /// it at launch, ended with nobody there: the app waits, as after a wake,
+    /// for the gate's own sign of a return.
     private func resumeTrackingAfterBreak(_ ended: EndedBreak) {
         if let front = frontmostApplication() {
             prepareTrackingResume(bundleID: front.bundleID, name: front.name)
         }
-        if ended.byPerson { _ = confirmPresence(at: now()) }
+        if ended.byPerson { _ = confirmPresence(at: ended.end) }
     }
 
     /// The time left on the break under way, from the engine, wherever the
