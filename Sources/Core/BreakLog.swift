@@ -50,13 +50,6 @@ struct BreakRhythmSnapshot: Codable, Equatable {
 
     /// No main rhythm, no Eyes, no guard.
     static let off = BreakRhythmSnapshot(eyes: false, preset: "off")
-
-    /// The rhythm the three old reminder tiers amount to (spec §1 migration):
-    /// the cognitive tier is a 50/5 rhythm, the micro tier the eyes prompt and
-    /// the ultradian tier a 90-minute guard.
-    static func fromTiers(_ enabled: Set<BreakTier>) -> BreakRhythmSnapshot {
-        BreakPlan(tiers: enabled).snapshot
-    }
 }
 
 /// One day: its rhythm, and how many eyes prompts it showed.

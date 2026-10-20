@@ -23,8 +23,8 @@ enum BreakSnapshotChecks: CheckSuite {
         expect(flow.workMinutes == nil && flow.breakMinutes == nil && flow.preset == "flow",
                "Flow has no fixed numbers", &problems)
         expect(BreakRhythmSnapshot.off == BreakRhythmSnapshot(eyes: false, preset: "off"), "off is off", &problems)
-        expect(BreakRhythmSnapshot.fromTiers(Set(BreakTier.allCases)) == BreakPlan.standard.snapshot
-               && BreakRhythmSnapshot.fromTiers([]) == BreakRhythmSnapshot(eyes: false, preset: "off"),
+        expect(BreakPlan(tiers: Set(BreakTier.allCases)).snapshot == BreakPlan.standard.snapshot
+               && BreakPlan(tiers: []).snapshot == BreakRhythmSnapshot(eyes: false, preset: "off"),
                "the phase-1 switches read through the plan", &problems)
         // An Eyes prompt on a day nothing was noted for says Eyes was on.
         let log = BreakLog(directory: SelfTest.scratchDirectory(), writeOverride: { _ in nil })

@@ -14,12 +14,16 @@ extension SessionStore {
 
     /// Begins a break. `length` defaults to the length the reminder offered; an
     /// Eyes glance, which offers thirty seconds, and a break begun from the
-    /// menu are five minutes. Refused while the away question waits or the
-    /// session is paused because nobody was here, as the engine refuses.
+    /// menu take the length the rhythm in force suggests. Never shorter than
+    /// the shortest recorded session, or the break would be neither recorded
+    /// nor credited. Refused while the away question waits or the session is
+    /// paused because nobody was here, as the engine refuses.
     func startBreak(length: TimeInterval? = nil, label: String? = nil, from prompt: BreakPrompt? = nil) {
-        let planned = length
-            ?? prompt.map { $0.kind == .eyes ? BreakLength.standard : $0.breakLength }
-            ?? BreakLength.standard
+        let wanted = length
+            ?? prompt.map { $0.kind == .eyes ? suggestedBreakLength : $0.breakLength }
+            ?? suggestedBreakLength
+        // Nothing or less is left for the engine to refuse.
+        let planned = wanted > 0 ? max(wanted, engine.store.minimumRecordedSession) : wanted
         guard engine.startBreak(length: planned, label: label) else { return }
         let moment = now()
         sustained.reset()

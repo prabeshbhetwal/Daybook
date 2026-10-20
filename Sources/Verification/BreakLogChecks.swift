@@ -50,8 +50,8 @@ enum BreakLogChecks: CheckSuite {
         var writes = 0
         let log = BreakLog(directory: SelfTest.scratchDirectory(),
                            writeOverride: { _ in writes += 1; return nil })
-        let a = BreakRhythmSnapshot.fromTiers([.cognitive])
-        let b = BreakRhythmSnapshot.fromTiers([.micro, .cognitive])
+        let a = BreakPlan(tiers: [.cognitive]).snapshot
+        let b = BreakPlan(tiers: [.micro, .cognitive]).snapshot
         log.noteRhythm(a, on: base)
         log.noteRhythm(a, on: base)
         expect(log.days.count == 1, "one day after the same rhythm twice, got \(log.days.count)", &problems)
@@ -61,7 +61,7 @@ enum BreakLogChecks: CheckSuite {
         expect(log.days.first?.rhythm == b, "the day holds the new rhythm", &problems)
         expect(log.days.first?.day == calendar.startOfDay(for: base), "the day is keyed by its start", &problems)
         expect(writes == 2, "the change is written, got \(writes) writes", &problems)
-        expect(BreakRhythmSnapshot.fromTiers([.cognitive, .ultradian]) ==
+        expect(BreakPlan(tiers: [.cognitive, .ultradian]).snapshot ==
                BreakRhythmSnapshot(workMinutes: 50, breakMinutes: 5, eyes: false, guardMinutes: 90, override: nil,
                                    preset: "steady"),
                "tiers map as the spec's migration table", &problems)
@@ -77,12 +77,12 @@ enum BreakLogChecks: CheckSuite {
         let old = entry(shown: daysBefore(401))
         let recent = entry(shown: daysBefore(399))
         log.recordShown(old)
-        log.noteRhythm(BreakRhythmSnapshot.fromTiers([.micro]), on: daysBefore(401))
+        log.noteRhythm(BreakPlan(tiers: [.micro]).snapshot, on: daysBefore(401))
         log.recordShown(recent)
-        log.noteRhythm(BreakRhythmSnapshot.fromTiers([.micro]), on: daysBefore(399))
+        log.noteRhythm(BreakPlan(tiers: [.micro]).snapshot, on: daysBefore(399))
         // Retention counts from the moment of the write, so today's write is
         // what lets the 401-day-old entries go.
-        log.noteRhythm(BreakRhythmSnapshot.fromTiers([.micro]), on: base)
+        log.noteRhythm(BreakPlan(tiers: [.micro]).snapshot, on: base)
         expect(log.prompts.map(\.id).contains(old.id) == false,
                "a prompt 401 days old is dropped on the next write", &problems)
         expect(log.prompts.map(\.id).contains(recent.id), "a prompt 399 days old is kept", &problems)
@@ -100,7 +100,7 @@ enum BreakLogChecks: CheckSuite {
         try? garbage.write(to: file)
         let log = BreakLog(directory: directory)
         expect(log.recordShown(entry(shown: base)) != nil, "a write over an unreadable log is refused", &problems)
-        expect(log.noteRhythm(BreakRhythmSnapshot.fromTiers([.micro]), on: base) != nil,
+        expect(log.noteRhythm(BreakPlan(tiers: [.micro]).snapshot, on: base) != nil,
                "a rhythm write over an unreadable log is refused", &problems)
         expect((try? Data(contentsOf: file)) == garbage, "the unreadable file is unchanged", &problems)
         return problems

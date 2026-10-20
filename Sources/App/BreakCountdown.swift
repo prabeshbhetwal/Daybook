@@ -45,7 +45,7 @@ enum BreakCountdown {
 
 /// The lengths the Take a break menu offers: `BreakLength.choices`, each named
 /// for the menu and for VoiceOver. A click on the button itself takes the
-/// default, `BreakLength.standard`.
+/// default, `SessionStore.suggestedBreakLength`.
 enum BreakChoice {
     struct Option: Equatable {
         let length: TimeInterval

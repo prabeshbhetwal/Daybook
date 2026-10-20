@@ -20,14 +20,15 @@ struct FocusBreakButtons: View {
     }
 }
 
-/// Take a break: a click starts the default five minutes, and the arrow beside
-/// it offers 5, 10, 15 and 30. The Session menu's item is the default only.
+/// Take a break: a click starts the length the rhythm in force suggests (five
+/// minutes under Steady), and the arrow beside it offers 5, 10, 15 and 30. The
+/// Session menu's item is the default only.
 struct FocusTakeBreakMenu: View {
     @ObservedObject var store: SessionStore
     /// The cup alone, for the window's bar.
     var compact = false
 
-    private var minutes: Int { Int(BreakLength.standard / 60) }
+    private var minutes: Int { Int((store.suggestedBreakLength / 60).rounded()) }
 
     var body: some View {
         HStack(spacing: Tokens.Space.xs) {

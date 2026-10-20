@@ -149,7 +149,7 @@ extension BreakStoreChecks {
             expect(seen.store.breakLog.prompts.count == 1 && entry?.kind == .main, "a shown reminder is logged", &problems)
             expect(entry.map { $0.shown.timeIntervalSince($0.due) } == 300,
                    "with the moment it fell due, five minutes before", &problems)
-            expect(seen.store.breakLog.days.first?.rhythm == BreakRhythmSnapshot.fromTiers(Set(BreakTier.allCases)),
+            expect(seen.store.breakLog.days.first?.rhythm == BreakPlan(tiers: Set(BreakTier.allCases)).snapshot,
                    "and the day's rhythm", &problems)
 
             // Eyes are counted by day, not listed.
@@ -162,7 +162,7 @@ extension BreakStoreChecks {
             eyes.store.refresh()
             expect(eyes.store.breakLog.prompts.isEmpty && eyes.store.breakLog.days.first?.eyesPrompts == 1,
                    "an eyes prompt is counted for the day and not listed", &problems)
-            expect(eyes.store.breakLog.days.first?.rhythm == BreakRhythmSnapshot.fromTiers([.micro]), "under the rhythm then in force", &problems)
+            expect(eyes.store.breakLog.days.first?.rhythm == BreakPlan(tiers: [.micro]).snapshot, "under the rhythm then in force", &problems)
             return problems
         }
     }

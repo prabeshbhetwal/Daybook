@@ -263,6 +263,11 @@ final class SessionStore: ObservableObject {
     @Published var isBreakDue = false
     /// Which kind of break is coming next, so the countdown can name it.
     @Published var nextBreakTier: BreakTier?
+    /// The length Start break begins with: the rhythm's break, Flow's
+    /// suggestion for the work behind it, or the long break when it is next.
+    @Published var suggestedBreakLength: TimeInterval = BreakLength.standard
+    /// Reminders are quiet only because the clock is outside the working hours.
+    @Published var isOutsideWorkingHours = false
     /// Raised when a break becomes due. The coordinator shows the HUD; the
     /// prompt already carries its own words. True when
     /// the reminder reached the screen, which is the only kind the log keeps.
