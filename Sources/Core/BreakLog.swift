@@ -6,6 +6,12 @@ import Foundation
 enum BreakPromptKind: String, Codable {
     case eyes, main, long, stretchGuard
 
+    /// Every kind a reminder of `tier` is logged as: the main tier also raises
+    /// the long break.
+    static func kinds(of tier: BreakTier) -> [BreakPromptKind] {
+        tier == .cognitive ? [.main, .long] : [of(tier)]
+    }
+
     static func of(_ tier: BreakTier) -> BreakPromptKind {
         switch tier {
         case .micro: return .eyes
@@ -109,14 +115,16 @@ final class BreakLog {
         load()
     }
 
-    /// A reminder that comes back after a Later is the same reminder: the
-    /// newest row, if it is of this kind and was put off, takes the new
-    /// showing's id and waits for its answer again. Its Later count, `due` and
-    /// `shown` stay, so one reminder is one row however often it is put off.
+    /// A reminder that comes back after a Later is the same reminder: when
+    /// `returning` (the caller knows this showing is the break that was put
+    /// off, not a later one), the newest row of this kind, if it was put off,
+    /// takes the new showing's id and waits for its answer again. Its Later
+    /// count, `due` and `shown` stay, so one reminder is one row however often
+    /// it is put off. Any other showing is a row of its own.
     @discardableResult
-    func recordShown(_ entry: BreakPromptEntry) -> String? {
+    func recordShown(_ entry: BreakPromptEntry, returning: Bool = false) -> String? {
         guard !prompts.contains(where: { $0.id == entry.id }) else { return nil }
-        if let index = prompts.indices.last, prompts[index].kind == entry.kind,
+        if returning, let index = prompts.lastIndex(where: { $0.kind == entry.kind }),
            prompts[index].outcome == .later {
             prompts[index].id = entry.id
             prompts[index].outcome = nil
@@ -146,6 +154,22 @@ final class BreakLog {
         prompts[index].outcome = .later
         prompts[index].outcomeAt = moment
         return commit(at: moment)
+    }
+
+    /// A reminder put off whose break ended without it coming back (a rest
+    /// arrived, or the run it belonged to ended): the newest row of each kind
+    /// still in `later` is `credited`, so a later reminder starts a row of its own.
+    @discardableResult
+    func closeLater(of kinds: [BreakPromptKind], at moment: Date) -> String? {
+        var changed = false
+        for kind in kinds {
+            guard let index = prompts.lastIndex(where: { $0.kind == kind }),
+                  prompts[index].outcome == .later else { continue }
+            prompts[index].outcome = .credited
+            prompts[index].outcomeAt = moment
+            changed = true
+        }
+        return changed ? commit(at: moment) : nil
     }
 
     /// An answer for a reminder the log does not hold (it aged out, or never

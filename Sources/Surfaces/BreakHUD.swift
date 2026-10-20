@@ -20,6 +20,9 @@ struct BreakHUDContent {
     let duration: TimeInterval
     /// Runs when the HUD goes away with no button pressed.
     let onTimeout: (() -> Void)?
+    /// Whether VoiceOver is told the menu bar can take or end a break. False
+    /// where Take a break is not on offer, so it names nothing that is off.
+    var mentionsMenuBar = true
 }
 
 /// The words on the break HUD, apart from the panel so they are checked
@@ -78,13 +81,15 @@ private struct BreakHUDView: View {
                             .lineLimit(6)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    HStack(spacing: Tokens.Space.s) {
-                        ForEach(Array(content.buttons.enumerated()), id: \.offset) { _, button in
-                            Button(button.title) { onButton(button) }
-                                .buttonStyle(StoryActionStyle(tint: button.isPrimary ? StoryStyle.action : nil))
+                    if !content.buttons.isEmpty {
+                        HStack(spacing: Tokens.Space.s) {
+                            ForEach(Array(content.buttons.enumerated()), id: \.offset) { _, button in
+                                Button(button.title) { onButton(button) }
+                                    .buttonStyle(StoryActionStyle(tint: button.isPrimary ? StoryStyle.action : nil))
+                            }
                         }
+                        .padding(.top, Tokens.Space.xs)
                     }
-                    .padding(.top, Tokens.Space.xs)
                 }
                 Spacer(minLength: 0)
             }
@@ -189,7 +194,7 @@ final class BreakHUD {
     /// the menu bar offers those two, not the reminder's Later or Skip.
     static func spoken(_ content: BreakHUDContent) -> String {
         let said = RewardHUD.spoken(title: content.title, detail: content.detail, hasUndo: false)
-        guard !content.buttons.isEmpty else { return said }
+        guard !content.buttons.isEmpty, content.mentionsMenuBar else { return said }
         return said + " You can also take or end a break from Daybook in the menu bar."
     }
 

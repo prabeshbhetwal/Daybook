@@ -34,11 +34,15 @@ extension SessionStore {
     /// question waits, while the session is paused because nobody was here,
     /// and while watching, so a Start pressed on an old reminder does nothing.
     func startBreak(length: TimeInterval? = nil, label: String? = nil, from prompt: BreakPrompt? = nil) {
-        guard canTakeBreak else { return }
         let planned = recordableBreakLength(length
             ?? prompt.map { $0.kind == .eyes ? suggestedBreakLength : $0.breakLength }
             ?? suggestedBreakLength)
-        guard engine.startBreak(length: planned, label: label) else { return }
+        guard canTakeBreak, engine.startBreak(length: planned, label: label) else {
+            // The reminder was pressed and nothing began (a film started while
+            // it was up): it is spent, so the log says no one answered it.
+            if let prompt { breakPromptUnanswered(prompt) }
+            return
+        }
         let moment = now()
         sustained.reset()
         breakEndRetryAfter = nil
@@ -173,6 +177,8 @@ extension SessionStore {
         if engine.state == .running { feedFrontmostApplication() }
         if ended.end.timeIntervalSince(ended.start) >= engine.store.minimumRecordedSession {
             engine.store.breakClock.credit(at: ended.end)
+            // A Later still open when the rest came: the reminder will not return.
+            breakLog.closeLater(of: [.main, .long, .stretchGuard], at: ended.end)
         }
         sustained.reset()
         if breakEndRetryAfter != nil {

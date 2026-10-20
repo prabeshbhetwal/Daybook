@@ -678,14 +678,10 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     }
 
     private var breakReachesScreen: Bool {
-        let away: Bool
-        if case .paused(reason: .away) = engine.state { away = true } else { away = false }
-        return AppCoordinator.breakReminderReachesScreen(
-            screenLocked: screenLocked,
+        AppCoordinator.breakReminderReachesScreen(
+            store: store, screenLocked: screenLocked,
             displayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0,
-            machineSleeping: machineSleeping,
-            away: away,
-            awaitingPresence: store.isAwaitingPresence)
+            machineSleeping: machineSleeping)
     }
 
     /// What a button does. `prompt` is the reminder it answers, if it is one.
@@ -702,21 +698,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// The eyes tier stays the buttonless reward HUD; the others answer with
     /// buttons.
     @MainActor private func showBreakReminder(_ prompt: BreakPrompt) {
-        let copy = BreakHUDCopy.reminder(prompt, canStart: store.canTakeBreak)
         if prompt.tier == .micro {
+            let copy = BreakHUDCopy.reminder(prompt)
             hud.show(title: copy.title, detail: copy.detail + " " + prompt.tier.reason,
                      symbolName: prompt.tier.symbolName,
                      duration: FocusConstants.breakHUDSeconds, undo: nil)
         } else {
-            let buttons = copy.buttons.enumerated().map { index, choice in
-                BreakHUDButton(title: choice.title, isPrimary: index == 0) { [weak self] in
-                    self?.answerBreak(choice.action, prompt: prompt)
-                }
-            }
-            breakHUD.show(BreakHUDContent(
-                title: copy.title, detail: copy.detail, symbolName: prompt.tier.symbolName,
-                buttons: buttons, duration: FocusConstants.breakHUDSeconds,
-                onTimeout: { [weak self] in self?.store.breakPromptUnanswered(prompt) }))
+            breakHUD.show(AppCoordinator.breakReminderContent(prompt, store: store) { [weak self] action in
+                self?.answerBreak(action, prompt: prompt)
+            })
         }
         haptics.play(.breakDue)
     }

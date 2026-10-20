@@ -64,6 +64,8 @@ extension SessionStore {
             var cleared = kept
             cleared.snooze = nil
             engine.store.breakClock = cleared
+            // The break it put off is over and never came back.
+            if let tier = kept.snooze?.tier { breakLog.closeLater(of: BreakPromptKind.kinds(of: tier), at: moment) }
         }
         breakCountdown = result.next?.seconds ?? 0
         nextBreakTier = result.next?.tier
@@ -76,7 +78,9 @@ extension SessionStore {
         // yet at launch) is asked again at the next pass.
         guard onBreakDue?(prompt) == true else { return }
         engine.store.lastBreakNotice = BreakNotice(tier: prompt.tier, at: moment, work: prompt.threshold)
-        logShown(prompt, at: moment)
+        // The evaluation has dropped a Later that no longer applies, so one
+        // left on this tier is the one this showing answers.
+        logShown(prompt, at: moment, returning: result.clock.snooze?.tier == prompt.tier)
     }
 
     /// Nothing is due, counting down or named while reminders cannot speak.
@@ -87,16 +91,18 @@ extension SessionStore {
     }
 
     /// Eyes prompts are counted by day; every other kind is listed, under the
-    /// id of this showing. A prompt that returns after a Later is a new one.
+    /// id of this showing. A prompt that returns after a Later is a new
+    /// showing of the same row (`returning`).
     /// Not private so a check can hand it a prompt that no phase-1 plan raises.
-    func logShown(_ prompt: BreakPrompt, at moment: Date) {
+    func logShown(_ prompt: BreakPrompt, at moment: Date, returning: Bool = false) {
         guard prompt.kind != .eyes else {
             breakLog.noteEyesPrompt(at: moment, calendar: periodCalendar)
             return
         }
         let overdue = max(0, prompt.worked - prompt.threshold)
         breakLog.recordShown(BreakPromptEntry(id: prompt.id, kind: prompt.kind,
-                                              due: moment.addingTimeInterval(-overdue), shown: moment))
+                                              due: moment.addingTimeInterval(-overdue), shown: moment),
+                           returning: returning)
     }
 
     // Settings are written by `SettingsModel`; these are the read side the

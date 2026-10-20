@@ -35,7 +35,7 @@ enum BreakCarryOverChecks: CheckSuite {
         let first = entry(shown: at(0)), back = entry(shown: at(10))
         log.recordShown(first)
         log.noteLater(for: first.id, at: at(1))
-        expect(log.recordShown(back) == nil, "the returned reminder is saved", &problems)
+        expect(log.recordShown(back, returning: true) == nil, "the returned reminder is saved", &problems)
         expect(log.prompts.count == 1, "one row, got \(log.prompts.count)", &problems)
         let row = log.prompts.first
         expect(row?.id == back.id, "it takes the new showing's id", &problems)
@@ -49,7 +49,7 @@ enum BreakCarryOverChecks: CheckSuite {
 
         log.noteLater(for: back.id, at: at(11))
         expect(log.prompts.first?.laterCount == 2, "a second Later counts on the same row", &problems)
-        log.recordShown(entry(shown: at(21)))
+        log.recordShown(entry(shown: at(21)), returning: true)
         log.setOutcome(.started, for: log.prompts.last?.id ?? UUID(), at: at(22))
         expect(log.prompts.count == 1 && log.prompts.first?.outcome == .started
                && log.prompts.first?.laterCount == 2, "and the answer lands on it", &problems)
@@ -58,7 +58,7 @@ enum BreakCarryOverChecks: CheckSuite {
         expect(log.prompts.count == 2, "an answered reminder is never reused, got \(log.prompts.count)", &problems)
         let guardEntry = entry(shown: at(70), kind: .stretchGuard)
         log.noteLater(for: log.prompts.last?.id ?? UUID(), at: at(61))
-        log.recordShown(guardEntry)
+        log.recordShown(guardEntry, returning: true)
         expect(log.prompts.count == 3, "nor by another kind, got \(log.prompts.count)", &problems)
 
         var logged: [String] = []
@@ -83,7 +83,7 @@ enum BreakCarryOverChecks: CheckSuite {
             let back = BreakPrompt(tier: .cognitive, worked: 60 * 60, appName: nil)
             f.store.logShown(first, at: at(0))
             f.store.breakLog.noteLater(for: first.id, at: at(1))
-            f.store.logShown(back, at: at(10))
+            f.store.logShown(back, at: at(10), returning: true)
             f.go(toMinute: 18)
             f.store.startBreak()
             expect(f.store.breakLog.prompts.count == 1, "one row, got \(f.store.breakLog.prompts.count)", &problems)

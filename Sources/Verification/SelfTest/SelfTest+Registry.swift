@@ -162,6 +162,7 @@ extension SelfTest {
             + BreakSettingsPageChecks.tests
             + BreakSettingsFixChecks.tests
             + BreakCarryOverChecks.tests
+            + BreakCarryOverFixChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
