@@ -87,8 +87,9 @@ struct BreakPlan: Equatable {
     }
 
     /// The longest rest in play, so the latest run is read as far as any count
-    /// here can reach.
-    var reach: TimeInterval { creditGap ?? BreakRhythm.flowLongest }
+    /// here can reach: the Pomodoro count reads back to a rest as long as the
+    /// long break.
+    var reach: TimeInterval { max(creditGap ?? BreakRhythm.flowLongest, rhythm?.longLength ?? 0) }
 
     /// The break a prompt for `tier` offers after `worked`; nil for Eyes, which
     /// keeps its own thirty seconds.

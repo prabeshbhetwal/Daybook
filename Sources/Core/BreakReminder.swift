@@ -180,13 +180,16 @@ struct BreakReminder {
         let flowWork = plan.isFlow
             ? (counted[.ultradian] ?? count(.ultradian, plan: plan, ordered: ordered, clock: clock, now: now)).seconds
             : 0
+        // Pomodoro's long break, once enough cycles are behind.
+        let longBreak = BreakCycles.longBreakNext(plan: plan, ordered: ordered, now: now,
+                                                  credits: clock.credits)
         var shown: BreakPrompt?
         if let tier = due, let found = counted[tier] {
             shown = prompt(for: tier, run: found, plan: plan, ordered: ordered,
-                           now: now, last: last, clock: clock)
+                           now: now, last: last, clock: clock, longBreak: longBreak)
         }
         return Evaluation(due: due, next: next, prompt: shown, clock: clock,
-                          breakLength: plan.breakLength(flowWork: flowWork))
+                          breakLength: longBreak ?? plan.breakLength(flowWork: flowWork))
     }
 
     /// What `tier` has counted since its floor, up to the first gap that

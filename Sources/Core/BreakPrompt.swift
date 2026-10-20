@@ -111,10 +111,11 @@ extension BreakReminder {
     /// said recently waits for its own work length before it repeats.
     ///
     /// The prompt carries the plan's numbers, so what it says is what Start
-    /// break does.
+    /// break does. `longBreak` is the length of the long break when the next
+    /// main break is it; the main prompt then becomes that break.
     static func prompt(for tier: BreakTier, run: BreakRun, plan: BreakPlan,
                        ordered: [AppUsageSession], now: Date, last: BreakNotice?,
-                       clock: BreakClock) -> BreakPrompt? {
+                       clock: BreakClock, longBreak: TimeInterval? = nil) -> BreakPrompt? {
         let work = plan.workLength(tier) ?? tier.workThreshold
         // A Later holds back its own tier and the shallower ones; once it
         // runs out the break comes straight back, whatever was said last.
@@ -137,10 +138,12 @@ extension BreakReminder {
         var stretches = BreakClock.clip(ordered, at: clock.floors[tier])
         if plan.isFlow, tier == .ultradian { stretches = BreakClock.clip(stretches, at: run.start) }
         let leader = dominant(stretches, now: now, within: plan.rest(tier))
+        let long = tier == .cognitive ? longBreak : nil
         return BreakPrompt(tier: tier, worked: run.seconds,
                            appName: leader?.name, appShare: leader?.share ?? 0,
                            canLater: laters < BreakClock.maxLaters,
+                           isLong: long != nil,
                            dueAfterWork: work,
-                           offeredBreak: plan.offeredBreak(for: tier, worked: run.seconds))
+                           offeredBreak: long ?? plan.offeredBreak(for: tier, worked: run.seconds))
     }
 }

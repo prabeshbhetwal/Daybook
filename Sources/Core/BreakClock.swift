@@ -18,8 +18,13 @@ struct BreakClock: Codable, Equatable {
     /// Work before a tier's floor no longer counts towards that tier.
     var floors: [BreakTier: Date] = [:]
     var snooze: BreakSnooze?
+    /// Every rest that counted, oldest first, kept for a day and 32 at most.
+    /// Usage cannot show a break ended early (a gap shorter than the rhythm's
+    /// break), so the Pomodoro count reads these beside the gaps.
+    var credits: [Date] = []
 
     static let maxLaters = 2
+    static let maxCredits = 32
     static let laterLength: TimeInterval = 600
     /// The long-stretch prompt is the one hardest to ignore, so it waits longer.
     static let stretchGuardLaterLength: TimeInterval = 900
@@ -28,6 +33,10 @@ struct BreakClock: Codable, Equatable {
     mutating func credit(at moment: Date) {
         for tier in BreakTier.allCases { floors[tier] = moment }
         snooze = nil
+        // A day back from this rest, not from the newest credit: one stored
+        // from a clock that ran far ahead must not push every real rest out.
+        let horizon = moment.addingTimeInterval(-BreakReminder.runLookback)
+        credits = Array((credits + [moment]).filter { $0 >= horizon }.sorted().suffix(Self.maxCredits))
     }
 
     /// Restarts that reminder only. Records no rest.
@@ -54,15 +63,20 @@ struct BreakClock: Codable, Equatable {
     /// No Later is longer than this.
     static let longestLater: TimeInterval = 1_800
 
-    /// What can be believed at `now`. A floor in the future, or a Later that
-    /// ends further ahead than any Later lasts, comes from a clock that ran
-    /// ahead or a damaged value, and would silence a reminder for as long as
-    /// it stays wrong.
+    /// What can be believed at `now`. A floor or a credit in the future, or a
+    /// Later that ends further ahead than any Later lasts, comes from a clock
+    /// that ran ahead or a damaged value, and would silence a reminder for as
+    /// long as it stays wrong. A Later's count stays between none and the most.
     func sanitized(now: Date) -> BreakClock {
         var kept = self
         kept.floors = floors.filter { $0.value <= now }
-        if let held = snooze, held.until.timeIntervalSince(now) > Self.longestLater {
-            kept.snooze = nil
+        kept.credits = credits.filter { $0 <= now }
+        if let held = snooze {
+            if held.until.timeIntervalSince(now) > Self.longestLater {
+                kept.snooze = nil
+            } else {
+                kept.snooze?.count = min(max(held.count, 0), Self.maxLaters)
+            }
         }
         return kept
     }
@@ -95,5 +109,18 @@ struct BreakClock: Codable, Equatable {
             kept.start = max(stretch.start, floor)
             return kept
         }
+    }
+}
+
+/// `credits` was added after the first release: a clock stored without it reads
+/// as having none, and a build that does not know it ignores it.
+extension BreakClock {
+    private enum CodingKeys: String, CodingKey { case floors, snooze, credits }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        floors = try values.decode([BreakTier: Date].self, forKey: .floors)
+        snooze = try values.decodeIfPresent(BreakSnooze.self, forKey: .snooze)
+        credits = try values.decodeIfPresent([Date].self, forKey: .credits) ?? []
     }
 }
