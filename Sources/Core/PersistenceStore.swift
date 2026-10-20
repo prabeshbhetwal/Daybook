@@ -30,6 +30,10 @@ final class PersistenceStore {
         static let menuBarShowsBreakCountdown = "fc.menuBarShowsBreakCountdown"
         static let lastBreakNotice = "fc.lastBreakNotice"
         static let breakClock = "fc.breakClock"
+        static let breakSchedule = "fc.breakSchedule"
+        static let breakEyes = "fc.breakEyes"
+        static let breakGuard = "fc.breakGuard"
+        static let breakGuardMinutes = "fc.breakGuardMinutes"
         /// No longer read or written; erased so an older build's value goes.
         static let retiredWorkInterval = "fc.workInterval"
         static let lastBreakTier = "fc.lastBreakTier"
@@ -755,6 +759,58 @@ final class PersistenceStore {
         }
     }
 
+    /// The tiers phase 1 turned off, as `fc.breakTiersDisabled` holds them. Read
+    /// only: the rhythm settings below borrow from it until they are first
+    /// written, and nothing here writes or removes it, so a build that still
+    /// reads it after a downgrade sees its own last choice.
+    var legacyDisabledBreakTiers: Set<BreakTier> {
+        Set((defaults.array(forKey: Key.breakTiersDisabled) as? [Int] ?? []).compactMap(BreakTier.init(rawValue:)))
+    }
+
+    /// The rhythm, weekday plans, overrides and working hours. Until first
+    /// written it is the default rhythm, with every weekday off if the
+    /// cognitive tier was; an unreadable value is kept aside and reads the same.
+    var breakSchedule: BreakSchedule {
+        get {
+            if let stored = decode(BreakSchedule.self, forKey: Key.breakSchedule) { return stored }
+            var schedule = BreakSchedule()
+            if legacyDisabledBreakTiers.contains(.cognitive) {
+                schedule.weekdays = Array(repeating: .off, count: 7)
+            }
+            return schedule
+        }
+        set {
+            if let data = try? encoder.encode(newValue) { defaults.set(data, forKey: Key.breakSchedule) }
+        }
+    }
+
+    /// The Eyes glance. On unless the micro tier was off, until first written.
+    var breakEyes: Bool {
+        get { defaults.object(forKey: Key.breakEyes) as? Bool ?? !legacyDisabledBreakTiers.contains(.micro) }
+        set { defaults.set(newValue, forKey: Key.breakEyes) }
+    }
+
+    /// The long-stretch guard. On unless the ultradian tier was off, until
+    /// first written.
+    var breakGuardEnabled: Bool {
+        get { defaults.object(forKey: Key.breakGuard) as? Bool ?? !legacyDisabledBreakTiers.contains(.ultradian) }
+        set { defaults.set(newValue, forKey: Key.breakGuard) }
+    }
+
+    /// Minutes of unbroken use before the guard speaks, kept inside
+    /// `BreakPlan.guardRange` whatever is stored.
+    var breakGuardMinutes: Int {
+        get {
+            guard defaults.object(forKey: Key.breakGuardMinutes) != nil else { return BreakPlan.defaultGuardMinutes }
+            return Self.guardClamped(defaults.integer(forKey: Key.breakGuardMinutes))
+        }
+        set { defaults.set(Self.guardClamped(newValue), forKey: Key.breakGuardMinutes) }
+    }
+
+    private static func guardClamped(_ minutes: Int) -> Int {
+        min(max(minutes, BreakPlan.guardRange.lowerBound), BreakPlan.guardRange.upperBound)
+    }
+
     /// Day, Week or Month. Unrecognised or missing values read as Day.
     var trackingPeriod: TrackingPeriod {
         get {
@@ -891,6 +947,7 @@ final class PersistenceStore {
                     Key.logGrouping,
                     Key.remindersDisabled, Key.retiredWorkInterval, Key.autoSessionPauseLimit, Key.breakOverSound, Key.menuBarShowsBreakCountdown, Key.breakClock,
                     Key.lastBreakNotice, Key.lastBreakTier, Key.longAwayCap,
+                    Key.breakSchedule, Key.breakEyes, Key.breakGuard, Key.breakGuardMinutes,
                     Key.fullPromptAfter, Key.period, Key.defaultAppTabRawValue,
                     Key.storyTileOrderRawValue,
                     Key.expandsEntryDetails,
