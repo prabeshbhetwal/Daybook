@@ -725,7 +725,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         breakHUD.show(BreakHUDContent(
             title: copy.title, detail: copy.detail, symbolName: "cup.and.saucer.fill",
             buttons: buttons, duration: FocusConstants.breakHUDSeconds, onTimeout: nil))
-        if engine.store.breakOverSound { NSSound(named: "Tink")?.play() }
+        if engine.store.breakOverSound { NSSound(named: FocusConstants.breakOverSoundName)?.play() }
     }
 
     /// `--preview-away quick|full|card|past`: shows the away prompt, or the main

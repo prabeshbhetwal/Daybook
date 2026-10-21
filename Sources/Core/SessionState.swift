@@ -646,6 +646,9 @@ enum FocusConstants {
     /// A break prompt stays up longer than a congratulation: it asks for
     /// something, and carries a reason worth reading before it goes.
     static let breakHUDSeconds: TimeInterval = 12
+    /// The system sound the "Break's over" prompt plays, and Settings plays
+    /// when asked to let you hear it first.
+    static let breakOverSoundName = "Tink"
     /// Sessions shorter than this are never written. A misclick is not history.
     static let minimumRecordedSession: TimeInterval = 30
     /// D9 — selectable extended-break thresholds, in seconds.

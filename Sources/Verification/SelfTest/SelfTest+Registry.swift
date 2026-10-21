@@ -167,6 +167,7 @@ extension SelfTest {
             + BreakEndAtomicChecks.tests
             + BreakFinalFixChecks.tests
             + CorrectionNoticeChecks.tests
+            + BreakSoundChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

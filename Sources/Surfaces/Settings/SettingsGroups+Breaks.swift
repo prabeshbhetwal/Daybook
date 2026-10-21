@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Settings → Breaks: when to be reminded to rest, and how the breaks are
@@ -17,9 +18,20 @@ extension SettingsGroups {
             SurfacePanel(title: "Eyes and long stretches", layout: layout) { addOnRows }
                 .disabled(!on)
             SurfacePanel(title: "When a break ends", layout: layout) {
-                toggleRow("Play a sound when a break is over",
-                          detail: "A short tone with the \"Break's over\" prompt.",
-                          isOn: $model.breakOverSound)
+                HStack(alignment: .top, spacing: Tokens.Space.m) {
+                    toggleRow("Play a sound when a break is over",
+                              detail: "A short tone with the \"Break's over\" prompt.",
+                              isOn: $model.breakOverSound)
+                    Spacer(minLength: Tokens.Space.m)
+                    // Works with the switch off too: hearing it is how you decide.
+                    Button {
+                        NSSound(named: FocusConstants.breakOverSoundName)?.play()
+                    } label: {
+                        Label("Play", systemImage: "play.fill")
+                    }
+                    .fixedSize()
+                    .accessibilityLabel("Play the break-over sound")
+                }
                 toggleRow("Show break countdown in the menu bar",
                           detail: "Off, the menu bar shows only the cup while a break is under way.",
                           isOn: $model.menuBarShowsBreakCountdown)
