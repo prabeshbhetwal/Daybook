@@ -114,8 +114,7 @@ extension SessionStore {
         // History kept read-only refuses every write, so a retry can only
         // fail again; the message itself says where to look instead.
         return FocusOperationFailureState(message: correctionError,
-                                          hasOriginBoundRetry: correctionRetry != nil
-                                              && !engine.archive.isReadOnly)
+                                          hasOriginBoundRetry: canRetryCorrection)
     }
 
     /// Executes the tested state-to-primary-action contract. The hero's
@@ -905,6 +904,11 @@ private struct FocusOperationFailure: View {
                 .fixedSize(horizontal: false, vertical: true)
             if failure.hasOriginBoundRetry {
                 Button("Retry saving") { store.retryLastCorrection() }
+                    .buttonStyle(StoryLinkStyle())
+                    .font(Tokens.Typography.label)
+                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+            } else {
+                Button("Dismiss") { store.dismissCorrectionError() }
                     .buttonStyle(StoryLinkStyle())
                     .font(Tokens.Typography.label)
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)

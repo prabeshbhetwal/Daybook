@@ -279,8 +279,14 @@ struct StoryCorrectionNotice: View {
         if let error = Self.visibleError(in: store) {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 Text(error).fixedSize(horizontal: false, vertical: true)
-                Button("Retry saving") { store.retryLastCorrection() }
-                    .buttonStyle(StoryLinkStyle())
+                // Retry only while one can land; otherwise the button did nothing.
+                if store.canRetryCorrection {
+                    Button("Retry saving") { store.retryLastCorrection() }
+                        .buttonStyle(StoryLinkStyle())
+                } else {
+                    Button("Dismiss") { store.dismissCorrectionError() }
+                        .buttonStyle(StoryLinkStyle())
+                }
             }
             .font(Tokens.Typography.body)
             .padding(Tokens.Space.m)

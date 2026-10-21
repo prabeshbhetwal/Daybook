@@ -8,6 +8,20 @@ extension SessionStore {
     var lastCorrection: SessionStoreCorrectionState? { corrections.last }
 
     func publishCorrectionError(_ error: String?) { correctionError = error }
+
+    /// True when the shown correction error has a Retry that can still land.
+    /// A refusal of a stale answer keeps no retry, and history kept read-only
+    /// refuses every write, so neither offers one.
+    var canRetryCorrection: Bool { correctionRetry != nil && !engine.archive.isReadOnly }
+
+    /// Clears an error that has nothing left to retry. Without this a refusal
+    /// stayed on every surface until some unrelated correction succeeded.
+    func dismissCorrectionError() {
+        // A pending away answer keeps its error for the prompt's own Retry.
+        guard correctionError != nil, !canRetryCorrection, pendingAwaySaveError == nil else { return }
+        correctionRetry = nil
+        publishCorrectionError(nil)
+    }
     func publishCanUndoCorrection(_ available: Bool) { canUndoCorrection = available }
 
     var logGrouping: LogGrouping {
