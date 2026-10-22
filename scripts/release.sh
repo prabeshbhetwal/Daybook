@@ -9,7 +9,9 @@
 # The update is signed with the EdDSA key in the login Keychain (account
 # Daybook); installed copies accept only updates signed by it. The
 # feed (appcast.xml) is uploaded with each release, and the app reads the
-# latest one from releases/latest/download/appcast.xml.
+# latest one from releases/latest/download/appcast.xml. Daybook.dmg, for a
+# first install, goes up beside it, so releases/latest/download/Daybook.dmg
+# is always the newest.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -80,7 +82,7 @@ restore_build_script() {
     echo "error: the release commit and tag exist, but publishing did not finish." >&2
     echo "Kept: ${KEEP}. To finish:" >&2
     echo "  git push origin main v${VERSION}" >&2
-    echo "  gh release create v${VERSION} ${KEEP}/${ZIP_NAME} ${KEEP}/appcast.xml --repo ${REPO} --title \"${APP_NAME} ${VERSION}\" --notes-file ${KEEP}/notes.md" >&2
+    echo "  gh release create v${VERSION} ${KEEP}/${ZIP_NAME} ${KEEP}/${DMG_NAME} ${KEEP}/appcast.xml --repo ${REPO} --title \"${APP_NAME} ${VERSION}\" --notes-file ${KEEP}/notes.md" >&2
   fi
   rm -rf "${STAGE}"
 }
@@ -112,6 +114,18 @@ SIGNATURE="$("${SPARKLE}/bin/sign_update" --account "${KEY_ACCOUNT}" "${ZIP}")"
 "${SPARKLE}/bin/sign_update" --account "${KEY_ACCOUNT}" --verify "${ZIP}" \
   "$(echo "${SIGNATURE}" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')" >/dev/null \
   || fail "the update's signature did not verify"
+
+# A first install: the app beside a link to /Applications, to drag across.
+# Updates still come as the signed zip above. The name has no version so
+# the latest release's download link never changes.
+DMG_NAME="${APP_NAME}.dmg"
+DMG="${STAGE}/${DMG_NAME}"
+mkdir "${STAGE}/dmg"
+ditto "${APP}" "${STAGE}/dmg/${APP_NAME}.app"
+ln -s /Applications "${STAGE}/dmg/Applications"
+hdiutil create -quiet -volname "${APP_NAME} ${VERSION}" -srcfolder "${STAGE}/dmg" \
+  -fs HFS+ -format UDZO "${DMG}"
+hdiutil verify -quiet "${DMG}" || fail "the disk image did not verify"
 
 # Release notes: the commit subjects since the last release (the last 20
 # for the first one, rather than the project's whole history).
@@ -154,7 +168,7 @@ XML
 if [ "${DRY_RUN}" -eq 1 ]; then
   OUT="${ROOT}/.build/release-dry-run"
   rm -rf "${OUT}" && mkdir -p "${OUT}"
-  cp "${ZIP}" "${STAGE}/appcast.xml" "${NOTES}" "${OUT}/"
+  cp "${ZIP}" "${DMG}" "${STAGE}/appcast.xml" "${NOTES}" "${OUT}/"
   echo "Dry run: nothing committed, tagged or uploaded. build.sh is back to ${CURRENT_VERSION}."
   echo "Artifacts: ${OUT}"
   exit 0
@@ -162,14 +176,14 @@ fi
 
 KEEP="${ROOT}/.build/release-${VERSION}"
 rm -rf "${KEEP}" && mkdir -p "${KEEP}"
-cp "${ZIP}" "${STAGE}/appcast.xml" "${NOTES}" "${KEEP}/"
+cp "${ZIP}" "${DMG}" "${STAGE}/appcast.xml" "${NOTES}" "${KEEP}/"
 
 git add build.sh
 git commit -q -m "Version ${VERSION}"
 git tag -a "v${VERSION}" -m "${APP_NAME} ${VERSION}"
 COMMITTED=1
 git push origin main "v${VERSION}"
-gh release create "v${VERSION}" "${KEEP}/${ZIP_NAME}" "${KEEP}/appcast.xml" \
+gh release create "v${VERSION}" "${KEEP}/${ZIP_NAME}" "${KEEP}/${DMG_NAME}" "${KEEP}/appcast.xml" \
   --repo "${REPO}" --title "${APP_NAME} ${VERSION}" --notes-file "${KEEP}/notes.md"
 PUBLISHED=1
 

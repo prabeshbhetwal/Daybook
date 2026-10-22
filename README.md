@@ -171,6 +171,21 @@ machinery that nothing used any more, with no change in behaviour.
 
 The full guide to every surface and control is in [docs/usage.md](docs/usage.md).
 
+## Install
+
+Download [Daybook.dmg](https://github.com/prabeshbhetwal/Daybook/releases/latest/download/Daybook.dmg),
+open it and drag Daybook onto Applications. It needs macOS 14 or later.
+
+Daybook is not notarised, so the first time you open it macOS says it cannot
+check it for malware. Click Done, then in System Settings → Privacy &
+Security, find the message about Daybook and click Open Anyway. (On macOS 14,
+Control-click Daybook in Applications and choose Open.) macOS asks once.
+
+Daybook then updates itself. It looks for a new version once a week and
+offers it; Settings → Updates checks now, changes how often, or installs
+updates without asking. It installs only updates signed with this project's
+key.
+
 ## Build and run
 
 Requirements: macOS 14 or later and the Apple Command Line Tools (`swiftc`).
@@ -199,7 +214,7 @@ against a pinned SHA-256.
 The app is ad-hoc signed and not notarised. `scripts/release.sh <version>`
 runs the checks, builds, signs the update and publishes it to
 [GitHub Releases](https://github.com/prabeshbhetwal/Daybook/releases) with its
-feed; installed copies update through Sparkle and accept only updates signed
+feed and `Daybook.dmg` for new installs; installed copies update through Sparkle and accept only updates signed
 with the project's EdDSA key, which stays in the Keychain.
 
 Builds that replace the local app take a lock at `.build/promotion.lock`, so a

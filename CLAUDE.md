@@ -15,7 +15,7 @@ as one module.
 | `./build.sh --run` | Build, verify and relaunch the app |
 | `./build.sh --install` | Like `--test`, but replaces the live app, `/Applications/Daybook.app`. Sir runs it from the main checkout. |
 | `FC_KEEP_SYMBOLS=1 ./build.sh` | Keep symbols for profiling with `sample` |
-| `scripts/release.sh 1.2.0 [--dry-run]` | Publish a release installed copies update to (Sparkle; key in the Keychain) |
+| `scripts/release.sh 1.2.0 [--dry-run]` | Publish a release installed copies update to (Sparkle; key in the Keychain), with `Daybook.dmg` for new installs |
 
 - `build.sh` fails inside the Claude Bash sandbox at the `sips` icon step (it
   cannot write to the system temp folder). Run it with the sandbox disabled.
