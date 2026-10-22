@@ -32,8 +32,9 @@ for arg in "$@"; do
     --check)   CHECK=1; TEST=1 ;;
     # The live app lives outside iCloud's Desktop and Documents, which
     # quarantine a bundle again after this script clears it
-    # (docs/plans/2026-10-10-live-app-location.md).
-    --install) TEST=1; LOCAL_APP_DIR="${HOME}/Applications/${APP_NAME}.app" ;;
+    # (docs/plans/2026-10-10-live-app-location.md), in the Applications
+    # folder Finder shows.
+    --install) TEST=1; LOCAL_APP_DIR="/Applications/${APP_NAME}.app" ;;
     *) echo "usage: $0 [--run] [--test] [--check] [--install]" >&2; exit 2 ;;
   esac
 done
@@ -400,7 +401,7 @@ fi
 # ponytail: a build killed with SIGKILL leaves the lock behind; remove it by
 # hand when no build is running. Add owner-pid checks if that becomes common.
 # ponytail: the lock is per checkout, so two checkouts running --install at
-# once can race on ~/Applications. Lock beside the target if that happens.
+# once can race on /Applications. Lock beside the target if that happens.
 mkdir -p "${PROMOTION_ROOT}" "${LOCAL_APP_DIR%/*}"
 waited=0
 until mkdir "${PROMOTION_LOCK}" 2>/dev/null; do
@@ -418,8 +419,8 @@ done
 LOCK_HELD=1
 
 # Move the staged app next to the local one so the swap is a same-volume
-# rename, and verify it there before anything is replaced. ~/Applications
-# is on the same volume as a checkout in the home folder.
+# rename, and verify it there before anything is replaced. /Applications
+# is on the same data volume as a checkout in the home folder.
 mv "${APP_DIR}" "${CANDIDATE_APP_DIR}"
 codesign --verify "${CANDIDATE_APP_DIR}"
 

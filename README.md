@@ -181,7 +181,7 @@ Xcode is not needed.
 ./build.sh --run    # Build, verify and open Daybook.app
 ./build.sh --test   # Build, run the checks, then replace the local app
 ./build.sh --check  # Build and run the checks without replacing the app
-./build.sh --install  # Like --test, but replaces ~/Applications/Daybook.app
+./build.sh --install  # Like --test, but replaces /Applications/Daybook.app
 ```
 
 Replacing the local app relaunches it if it was running from that folder, so

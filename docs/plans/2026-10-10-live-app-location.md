@@ -3,6 +3,11 @@
 **Status:** Sir chose option 1 on 10 October 2026. `build.sh --install`
 exists; steps 3 to 5 below are Sir's.
 
+**Update, 22 October 2026:** Sir moved the app to `/Applications`, where
+Finder's Applications sidebar shows it, and chose option 2. `build.sh
+--install` now replaces `/Applications/Daybook.app`. Both folders are
+outside iCloud and on the same data volume as the checkout.
+
 ## What goes wrong today
 
 - The daily app runs from the main checkout's `Daybook.app`, under

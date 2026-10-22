@@ -78,7 +78,7 @@ with the sandbox disabled. Otherwise leave it alone and say why.
 - Never launch or relaunch the live app, and never run `./build.sh`,
   `--test`, `--run` or `--install` in `$MAIN`. Each replaces a bundle the
   user may be running (`--install` replaces the live app,
-  `~/Applications/Daybook.app`), and each relaunches a copy running from it.
+  `/Applications/Daybook.app`), and each relaunches a copy running from it.
   The user opens Daybook from the Dock, and its single-instance lock turns
   away a second copy. If `Sources/` or `Assets/` changed, say the new build is
   on `main` and leave updating the app to the user
