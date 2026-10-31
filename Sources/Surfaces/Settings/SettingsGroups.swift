@@ -528,8 +528,8 @@ struct SettingsGroups: View {
                 if ModelGate.modelAvailable {
                     rowDivider
                     toggleRow("Use on-device AI",
-                              detail: "Writes notes and suggestions with Apple's on-device model. "
-                                + "Nothing leaves this Mac.",
+                              detail: "Writes notes and suggestions with on-device AI. "
+                                + "Nothing is sent off this Mac to write them.",
                               isOn: $model.useAppleIntelligence)
                 }
                 // Only an upgrade from the oldest format leaves this copy;

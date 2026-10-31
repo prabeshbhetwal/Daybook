@@ -35,7 +35,7 @@ enum AskModelChecks: CheckSuite {
         var problems: [String] = []
         let availability: [(SystemLanguageModel.Availability, AskNotice?)] = [
             (.available, nil),
-            (.unavailable(.deviceNotEligible), notice("This Mac can't run Apple's on-device model.")),
+            (.unavailable(.deviceNotEligible), notice("This Mac can't run on-device AI.")),
             (.unavailable(.appleIntelligenceNotEnabled),
              notice("Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri.",
                     opensSettings: true)),
