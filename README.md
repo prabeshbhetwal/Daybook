@@ -90,11 +90,12 @@ iCloud Drive uploads to your own iCloud account. Ask Daybook answers with
 Apple's on-device model, and your question, history and answers are not sent
 anywhere. Review notes are written by the same on-device model, and nothing is
 sent anywhere.
-On a new install, backups are on from the start: every day they are copied
-into iCloud Drive, which uploads them to your own iCloud account when iCloud
-Drive is on, or into a folder you choose; Settings can change how often, or
-turn them off. The app asks for no Accessibility, Automation, Screen Recording
-or Input Monitoring permission; idle detection uses system counters, not event
+Backups are off until you turn them on: today's story offers them once, and
+Settings can turn them on at any time. Once on, they are copied into iCloud
+Drive, which uploads them to your own iCloud account when iCloud Drive is on,
+or into a folder you choose; Settings can change how often, or turn them off.
+The app asks for no Accessibility, Automation, Screen Recording or Input
+Monitoring permission; idle detection uses system counters, not event
 content. The prompts you will see are notifications (at first launch, for break
 reminders), and microphone and speech recognition (only when you dictate a
 note). Launch at login, if you turn it on, adds a login item.
