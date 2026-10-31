@@ -76,7 +76,7 @@ the app's CPU use during normal work went from 0.9% to 0.1%.
 on-device AI, press Cmd-K and ask in plain words. Ask can answer
 about focus totals and the best days, weeks and months, sessions and their
 stretches, breaks, time away and what the Mac did in between, notes, work
-types, app hours, the daily goal, the streak and awards. Every answer lists
+types, app hours, the daily goal and awards. Every answer lists
 where it came from, and each source opens that place in the app: a day, a
 session, a period of History, or Awards.
 
@@ -141,7 +141,7 @@ machinery that nothing used any more, with no change in behaviour.
 
 ## Features
 
-- Today told as a story, with its goal, app use, rhythm and streak beside it
+- Today told as a story, with its goal, app use and rhythm beside it
 - Focus sessions with pause, away, breaks and threads you can continue later
 - Quiet while an app works for you (an AI agent, a render, a build) can count
   as work: noticed from what the session's apps send and compute, or told by
