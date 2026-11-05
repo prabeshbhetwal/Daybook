@@ -669,13 +669,13 @@ final class PersistenceStore {
     }
 
     /// Decided once, at the first launch of a version with automatic backups.
-    /// A new install backs up every day. One from before starts with them off
-    /// and is offered them once: an update never starts uploading the
-    /// reader's history to iCloud on its own.
+    /// Every install, new or from before, starts with them off and is offered
+    /// them once: nothing starts uploading the reader's history to iCloud
+    /// without an explicit choice.
     func settleBackupSchedule(isExistingInstall: Bool) {
         guard defaults.object(forKey: Key.backupSchedule) == nil else { return }
-        backupSchedule = isExistingInstall ? .off : .default
-        backupOfferPending = isExistingInstall
+        backupSchedule = .off
+        backupOfferPending = true
     }
 
     var backupLog: BackupLog {

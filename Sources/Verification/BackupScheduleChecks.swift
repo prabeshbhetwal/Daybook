@@ -10,7 +10,7 @@ enum BackupScheduleChecks: CheckSuite {
         ("Only expired automatic backups go to the Trash, and the newest always stays", pruneKeepsOthers),
         ("The schedule backs up when due, keeps its settings and records what failed", settingsSchedule),
         ("A copy that fails part-way leaves no backup, partial or otherwise", partialCopyLeavesNothing),
-        ("An update starts backups off and offers them once; a new install backs up daily", upgradeStartsOff),
+        ("Every install starts backups off and offers them once", upgradeStartsOff),
     ]
 
     /// Appended at the end of the registry, after the suites that followed this one.
@@ -126,9 +126,10 @@ enum BackupScheduleChecks: CheckSuite {
         let backups = cloud.appendingPathComponent(DataBackup.folderName)
         func made() -> [String] { ((try? FileManager.default.contentsOfDirectory(atPath: backups.path)) ?? []).sorted() }
 
-        expect(settings.backupSchedule == .daily && settings.backupRetention == .forever
+        expect(settings.backupSchedule == .off && settings.backupRetention == .forever
                && settings.backupDestination == .iCloudDrive,
-               "a new install backs up daily to iCloud Drive and keeps every backup", &problems)
+               "backups start off, pointed at iCloud Drive and keeping every backup", &problems)
+        settings.backupSchedule = .daily
         let now = SelfTest.base
         settings.backUpIfDue(now: now)
         expect(made().count == 1 && made().first?.hasSuffix(DataBackup.automaticMark) == true,
@@ -167,8 +168,8 @@ enum BackupScheduleChecks: CheckSuite {
                && reloaded.backupDestination == .folder(unplugged) && reloaded.backupLog == settings.backupLog,
                "schedule, keeping, folder and the last result survive a relaunch", &problems)
         store.removeAll()
-        expect(store.backupSchedule == .daily && store.backupLog == BackupLog(),
-               "erasing preferences returns backups to their defaults", &problems)
+        expect(store.backupSchedule == .off && store.backupLog == BackupLog(),
+               "erasing preferences returns backups to their defaults, off", &problems)
         return problems
     }
 
@@ -283,8 +284,8 @@ enum BackupScheduleChecks: CheckSuite {
 
         store.removeAll()
         store.settleBackupSchedule(isExistingInstall: false)
-        expect(store.backupSchedule == .daily && !store.backupOfferPending,
-               "a new install backs up daily with no offer", &problems)
+        expect(store.backupSchedule == .off && store.backupOfferPending,
+               "a new install also starts with backups off and the offer pending", &problems)
         store.removeAll()
         store.settleBackupSchedule(isExistingInstall: true)
         settings.answerBackupOffer(backUpDaily: false)
