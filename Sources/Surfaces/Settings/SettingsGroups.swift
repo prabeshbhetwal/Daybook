@@ -64,14 +64,15 @@ struct SettingsGroups: View {
                     .disabled(!model.showsMenuBarIcon)
                 rowDivider
                 preferenceRow("Dock icon", detail: dockIconDetail) {
-                    Picker("Dock icon", selection: $model.dockIconMode) {
-                        Text("While the window is open").tag(DockIconMode.whileWindowOpen)
-                        Text("Always").tag(DockIconMode.always)
-                        Text("Never").tag(DockIconMode.never)
+                    RowMenu("Dock icon", selection: $model.dockIconMode,
+                            options: [.whileWindowOpen, .always, .never]) { mode in
+                        switch mode {
+                        case .whileWindowOpen: return "While the window is open"
+                        case .always: return "Always"
+                        case .never: return "Never"
+                        }
                     }
-                    .labelsHidden()
                     .disabled(!model.showsMenuBarIcon)
-                    .accessibilityLabel("Dock icon")
                 }
             }
             // A switch that flips back by itself is otherwise silent.
@@ -252,35 +253,20 @@ struct SettingsGroups: View {
         SurfacePanel(title: "Goal", layout: layout) {
             preferenceRow("Daily goal",
                           detail: "Counts only declared focus while you were actually using the Mac.") {
-                Picker("Daily goal", selection: $model.dailyGoal) {
-                    ForEach(FocusConstants.dailyGoalOptions, id: \.self) { seconds in
-                        Text(Tokens.duration(seconds)).tag(seconds)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Daily goal")
+                RowMenu("Daily goal", selection: $model.dailyGoal,
+                        options: FocusConstants.dailyGoalOptions) { Tokens.duration($0) }
             }
             rowDivider
             preferenceRow("Usual pace compares with",
                           detail: "Today is compared with the same hour on these working days.") {
-                Picker("Usual pace compares with", selection: $model.paceWindowDays) {
-                    ForEach(FocusConstants.paceWindowOptions, id: \.self) { days in
-                        Text("last \(days) days").tag(days)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Usual pace compares with")
+                RowMenu("Usual pace compares with", selection: $model.paceWindowDays,
+                        options: FocusConstants.paceWindowOptions) { "last \($0) days" }
             }
             rowDivider
             preferenceRow("Suggest activities from",
                           detail: "How far back the activity menu looks for names you have used.") {
-                Picker("Suggest activities from", selection: $model.suggestionWindowDays) {
-                    ForEach(FocusConstants.suggestionWindowOptions, id: \.self) { days in
-                        Text("last \(days) days").tag(days)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Suggest activities from")
+                RowMenu("Suggest activities from", selection: $model.suggestionWindowDays,
+                        options: FocusConstants.suggestionWindowOptions) { "last \($0) days" }
             }
             rowDivider
             preferenceRow("Streak counts a day after",
@@ -291,25 +277,20 @@ struct SettingsGroups: View {
             rowDivider
             preferenceRow("New sessions start as",
                           detail: "Used until you choose another.") {
-                Picker("New sessions start as", selection: $model.defaultWorkType) {
+                RowMenu("New sessions start as", selection: $model.defaultWorkType,
+                        value: model.defaultWorkType.displayName,
+                        systemImage: model.defaultWorkType.symbolName) {
                     ForEach(WorkType.startable) { type in
                         Label(type.displayName, systemImage: type.symbolName)
                             .labelStyle(.titleAndIcon).tag(type)
                     }
                 }
-                .labelsHidden()
-                .accessibilityLabel("New sessions start as")
             }
             rowDivider
             preferenceRow("Keep sessions longer than",
                           detail: "A stretch shorter than this is a misclick, not history, and is never written.") {
-                Picker("Keep sessions longer than", selection: $model.minimumRecordedSession) {
-                    ForEach(FocusConstants.minimumRecordedSessionOptions, id: \.self) { seconds in
-                        Text(Tokens.preciseDuration(seconds)).tag(seconds)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Keep sessions longer than")
+                RowMenu("Keep sessions longer than", selection: $model.minimumRecordedSession,
+                        options: FocusConstants.minimumRecordedSessionOptions) { Tokens.preciseDuration($0) }
             }
             rowDivider
             preferenceRow("Offer to continue for",
@@ -432,25 +413,15 @@ struct SettingsGroups: View {
             preferenceRow("Apps shown in a card",
                           detail: "How many apps the side panel and the History previews list before "
                             + "\u{201c}See all\u{201d}.") {
-                Picker("Apps shown in a card", selection: $model.railAppCount) {
-                    ForEach(FocusConstants.railAppOptions, id: \.self) { count in
-                        Text("\(count)").tag(count)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Apps shown in a card")
+                RowMenu("Apps shown in a card", selection: $model.railAppCount,
+                        options: FocusConstants.railAppOptions) { "\($0)" }
             }
             rowDivider
             preferenceRow("Recent app visits",
                           detail: "Limits the newest recorded app visits shown after you open "
                             + "an app in Story.") {
-                Picker("Recent app visits", selection: $model.menuSessionCount) {
-                    ForEach([3, 5, 7, 10], id: \.self) { count in
-                        Text("\(count)").tag(count)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Recent app visits")
+                RowMenu("Recent app visits", selection: $model.menuSessionCount,
+                        options: [3, 5, 7, 10]) { "\($0)" }
             }
             rowDivider
             toggleRow("Record app usage",
@@ -465,23 +436,20 @@ struct SettingsGroups: View {
         SurfacePanel(title: "Interface", layout: layout) {
             preferenceRow("Appearance",
                           detail: "System follows macOS, including its schedule.") {
-                Picker("Appearance", selection: $model.appearancePreference) {
-                    Text("System").tag(AppearancePreference.system)
-                    Text("Light").tag(AppearancePreference.light)
-                    Text("Dark").tag(AppearancePreference.dark)
+                RowMenu("Appearance", selection: $model.appearancePreference,
+                        options: [.system, .light, .dark]) { preference in
+                    switch preference {
+                    case .system: return "System"
+                    case .light: return "Light"
+                    case .dark: return "Dark"
+                    }
                 }
-                .labelsHidden()
-                .accessibilityLabel("Appearance")
             }
             rowDivider
             preferenceRow("Interface density",
                           detail: "Compact fits more rows into the same space.") {
-                Picker("Interface density", selection: $model.interfaceDensity) {
-                    Text("Comfortable").tag(InterfaceDensity.comfortable)
-                    Text("Compact").tag(InterfaceDensity.compact)
-                }
-                .labelsHidden()
-                .accessibilityLabel("Interface density")
+                RowMenu("Interface density", selection: $model.interfaceDensity,
+                        options: [.comfortable, .compact]) { $0 == .compact ? "Compact" : "Comfortable" }
             }
             rowDivider
             preferenceRow("Zoom",
@@ -500,13 +468,8 @@ struct SettingsGroups: View {
             rowDivider
             preferenceRow("Fold quiet stretches after",
                           detail: "Runs of gaps and loose app use fold into one line once they reach this many rows.") {
-                Picker("Fold quiet stretches after", selection: $model.quietFold) {
-                    ForEach(FocusConstants.quietFoldOptions, id: \.self) { count in
-                        Text(count == 0 ? "Never" : "\(count) rows").tag(count)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Fold quiet stretches after")
+                RowMenu("Fold quiet stretches after", selection: $model.quietFold,
+                        options: FocusConstants.quietFoldOptions) { $0 == 0 ? "Never" : "\($0) rows" }
             }
         }
     }
@@ -566,11 +529,8 @@ struct SettingsGroups: View {
             preferenceRow("Back up automatically",
                           detail: "Copies the data folder and your preferences to a new dated folder. "
                             + "A Mac asleep at the time backs up soon after it wakes.") {
-                Picker("Back up automatically", selection: $model.backupSchedule) {
-                    ForEach(BackupSchedule.allCases) { Text($0.title).tag($0) }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Back up automatically")
+                RowMenu("Back up automatically", selection: $model.backupSchedule,
+                        options: BackupSchedule.allCases) { $0.title }
             }
             rowDivider
             preferenceRow("Back up to", detail: backupDestinationDetail) {
@@ -586,11 +546,8 @@ struct SettingsGroups: View {
             preferenceRow("Keep automatic backups",
                           detail: "Older ones go to the Trash at the next backup; the newest always stays. "
                             + "Backups made with Back Up Now are always kept.") {
-                Picker("Keep automatic backups", selection: $model.backupRetention) {
-                    ForEach(BackupRetention.allCases) { Text($0.title).tag($0) }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Keep automatic backups")
+                RowMenu("Keep automatic backups", selection: $model.backupRetention,
+                        options: BackupRetention.allCases) { $0.title }
             }
             rowDivider
             readOnlyRow("Last backup", value: lastBackupValue, detail: lastBackupDetail)
@@ -667,20 +624,14 @@ struct SettingsGroups: View {
                           isOn: $model.checksForUpdatesAutomatically)
                 rowDivider
                 preferenceRow("How often") {
-                    Picker("How often", selection: $model.updateFrequency) {
-                        ForEach(UpdateFrequency.allCases) { Text($0.title).tag($0) }
-                    }
-                    .labelsHidden()
-                    .disabled(!model.checksForUpdatesAutomatically)
-                    .accessibilityLabel("How often to check for updates")
+                    RowMenu("How often to check for updates", selection: $model.updateFrequency,
+                            options: UpdateFrequency.allCases) { $0.title }
+                        .disabled(!model.checksForUpdatesAutomatically)
                 }
                 rowDivider
                 preferenceRow("When an update is found", detail: model.updateInstallMode.detail) {
-                    Picker("When an update is found", selection: $model.updateInstallMode) {
-                        ForEach(UpdateInstallMode.allCases) { Text($0.title).tag($0) }
-                    }
-                    .labelsHidden()
-                    .accessibilityLabel("When an update is found")
+                    RowMenu("When an update is found", selection: $model.updateInstallMode,
+                            options: UpdateInstallMode.allCases) { $0.title }
                 }
                 rowDivider
                 preferenceRow("Check for Updates", detail: lastUpdateCheck) {

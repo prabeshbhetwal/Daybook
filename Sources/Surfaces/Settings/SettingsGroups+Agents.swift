@@ -7,13 +7,8 @@ extension SettingsGroups {
     var agentsPanel: some View {
         SurfacePanel(title: "Apps working for you", layout: layout) {
             preferenceRow("While an app works for you", detail: agentPolicyDetail) {
-                Picker("While an app works for you", selection: $model.agentQuietPolicy) {
-                    ForEach(AgentQuietPolicy.allCases, id: \.self) { policy in
-                        Text(policy.title).tag(policy)
-                    }
-                }
-                .labelsHidden()
-                .accessibilityLabel("While an app works for you")
+                RowMenu("While an app works for you", selection: $model.agentQuietPolicy,
+                        options: AgentQuietPolicy.allCases) { $0.title }
             }
             rowDivider
             toggleRow("Notice apps working for you by themselves",

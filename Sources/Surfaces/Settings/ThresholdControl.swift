@@ -48,10 +48,19 @@ struct ThresholdControl: View {
             })
     }
 
+    /// The closed menu's text: the item the picker would mark.
+    private var shownValue: String {
+        switch pickerSelection.wrappedValue {
+        case customTag: return "Custom…"
+        case neverValue where isNever: return "Never"
+        case let seconds: return Tokens.duration(seconds)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .trailing, spacing: 3.zoomed) {
             HStack(spacing: Tokens.Space.s) {
-                Picker(label, selection: pickerSelection) {
+                RowMenu(label, selection: pickerSelection, value: shownValue) {
                     ForEach(options, id: \.self) { seconds in
                         Text(Tokens.duration(seconds)).tag(seconds)
                     }
@@ -61,9 +70,6 @@ struct ThresholdControl: View {
                         Text("Never").tag(neverValue)
                     }
                 }
-                .labelsHidden()
-                .fixedSize()
-                .accessibilityLabel(label)
                 // After the menu, where the eye and the Tab key go next.
                 if custom.value || (!options.contains(selection) && !isNever) {
                     customField
