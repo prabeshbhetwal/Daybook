@@ -6,7 +6,7 @@ extension AskModel {
     nonisolated static let needsNewerMacOS = AskNotice(text: "Ask needs macOS 26 or later.", opensSettings: false)
     /// A full context is retried once in a fresh session; this is for the second.
     nonisolated static let contextFull = AskNotice(
-        text: "That question needs more room than Apple's on-device model has. Try a shorter question, or start a new chat.",
+        text: "That question needs more room than on-device AI has. Try a shorter question, or start a new chat.",
         opensSettings: false)
     /// The answer asked for an eighth lookup; see `AskGate`.
     nonisolated static let keptLooking = AskNotice(
@@ -22,7 +22,7 @@ extension AskModel {
         case .available:
             return nil
         case .unavailable(.deviceNotEligible):
-            return AskNotice(text: "This Mac can't run Apple's on-device model.", opensSettings: false)
+            return AskNotice(text: "This Mac can't run on-device AI.", opensSettings: false)
         case .unavailable(.appleIntelligenceNotEnabled):
             // The switch is Apple's, so the line uses its name in System Settings.
             return AskNotice(text: "Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri.", // name: Apple's

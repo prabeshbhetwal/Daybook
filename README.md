@@ -7,7 +7,7 @@ labelled measures.
 
 ![The Day story: an expanded session with its apps, app activity and the evidence rail](docs/screenshots/day-story.png)
 
-**SwiftUI · AppKit · Swift Charts · macOS 14+** ·
+**SwiftUI · AppKit · Swift Charts · macOS 14+ (on-device AI features need macOS 26)** ·
 no Xcode project, one dependency (Sparkle, for updates), no telemetry ·
 hundreds of headless checks
 
@@ -72,14 +72,15 @@ even when closed, and the hidden menu bar panel alone was costing about 45 ms
 of work each second. Closed windows and panels now rest until shown again, and
 the app's CPU use during normal work went from 0.9% to 0.1%.
 
-**Ask, with its sources.** Press Cmd-K and ask in plain words. Ask can answer
+**Ask, with its sources.** On macOS 26 or later, on a Mac that supports
+on-device AI, press Cmd-K and ask in plain words. Ask can answer
 about focus totals and the best days, weeks and months, sessions and their
 stretches, breaks, time away and what the Mac did in between, notes, work
-types, app hours, the daily goal, the streak and awards. Every answer lists
+types, app hours, the daily goal and awards. Every answer lists
 where it came from, and each source opens that place in the app: a day, a
 session, a period of History, or Awards.
 
-**Private by construction.** Nothing leaves your Mac unless you want it to.
+**Private by construction.** Your record is kept on your Mac.
 Tracking stores app identity and time ranges, never content. The session names,
 intents and notes you write are content, and they are kept on the Mac. Three
 things can reach another server: the update check asks GitHub for the latest
@@ -87,9 +88,9 @@ version, which you can turn off in Settings; dictating a note uses Apple's
 speech recognition, which runs on the Mac where your language supports that and
 otherwise may send the audio to Apple; and the backups described below, which
 iCloud Drive uploads to your own iCloud account. Ask Daybook answers with
-Apple's on-device model, and your question, history and answers are not sent
-anywhere. Review notes are written by the same on-device model, and nothing is
-sent anywhere.
+on-device AI, and your question, history and answers are not sent anywhere.
+Review notes are written by the same on-device AI, and nothing is sent anywhere
+to write them.
 On a new install, backups are on from the start: every day they are copied
 into iCloud Drive, which uploads them to your own iCloud account when iCloud
 Drive is on, or into a folder you choose; Settings can change how often, or
@@ -140,7 +141,7 @@ machinery that nothing used any more, with no change in behaviour.
 
 ## Features
 
-- Today told as a story, with its goal, app use, rhythm and streak beside it
+- Today told as a story, with its goal, app use and rhythm beside it
 - Focus sessions with pause, away, breaks and threads you can continue later
 - Quiet while an app works for you (an AI agent, a render, a build) can count
   as work: noticed from what the session's apps send and compute, or told by
@@ -174,7 +175,10 @@ The full guide to every surface and control is in [docs/usage.md](docs/usage.md)
 ## Install
 
 Download [Daybook.dmg](https://github.com/prabeshbhetwal/Daybook/releases/latest/download/Daybook.dmg),
-open it and drag Daybook onto Applications. It needs macOS 14 or later.
+open it and drag Daybook onto Applications. It needs macOS 14 or later; the
+on-device AI features (Ask, review notes, name suggestions and reading
+unusual History searches) need macOS 26 or later on a Mac that supports
+on-device AI.
 
 Daybook is not notarised, so the first time you open it macOS says it cannot
 check it for malware. Click Done, then in System Settings → Privacy &
