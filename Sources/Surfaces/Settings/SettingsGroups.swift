@@ -278,13 +278,7 @@ struct SettingsGroups: View {
             preferenceRow("New sessions start as",
                           detail: "Used until you choose another.") {
                 RowMenu("New sessions start as", selection: $model.defaultWorkType,
-                        value: model.defaultWorkType.displayName,
-                        systemImage: model.defaultWorkType.symbolName) {
-                    ForEach(WorkType.startable) { type in
-                        Label(type.displayName, systemImage: type.symbolName)
-                            .labelStyle(.titleAndIcon).tag(type)
-                    }
-                }
+                        items: WorkType.startable.map { .option($0, $0.displayName, systemImage: $0.symbolName) })
             }
             rowDivider
             preferenceRow("Keep sessions longer than",

@@ -48,28 +48,15 @@ struct ThresholdControl: View {
             })
     }
 
-    /// The closed menu's text: the item the picker would mark.
-    private var shownValue: String {
-        switch pickerSelection.wrappedValue {
-        case customTag: return "Custom…"
-        case neverValue where isNever: return "Never"
-        case let seconds: return Tokens.duration(seconds)
-        }
+    private var menuItems: [RowMenuItem<TimeInterval>] {
+        options.map { .option($0, Tokens.duration($0)) } + [.option(customTag, "Custom…")]
+            + (allowsNever ? [.divider, .option(neverValue, "Never")] : [])
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 3.zoomed) {
             HStack(spacing: Tokens.Space.s) {
-                RowMenu(label, selection: pickerSelection, value: shownValue) {
-                    ForEach(options, id: \.self) { seconds in
-                        Text(Tokens.duration(seconds)).tag(seconds)
-                    }
-                    Text("Custom…").tag(customTag)
-                    if allowsNever {
-                        Divider()
-                        Text("Never").tag(neverValue)
-                    }
-                }
+                RowMenu(label, selection: pickerSelection, items: menuItems)
                 // After the menu, where the eye and the Tab key go next.
                 if custom.value || (!options.contains(selection) && !isNever) {
                     customField
