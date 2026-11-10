@@ -117,6 +117,15 @@ note). Launch at login, if you turn it on, adds a login item.
   visual review (`--snapshot`). The screenshots above come from it.
 - **A fixture-only app** (`scripts/build-fixture-app.sh`) has its own bundle
   identifier and cannot open real data, so native UI automation can run safely.
+  To check a start-to-History flow in a separate native app, run
+  `scripts/build-fixture-app.sh focusSmoke`, then open the printed app path.
+  Confirm the title says “Daybook — safe verification”. On Focus, enter
+  `Fixture smoke`, select a focus category, and choose **Start focus**. Wait at
+  least 35 seconds, then choose **Stop**. Open **History**, search for
+  `Fixture smoke`, and confirm the ended session appears with a positive
+  duration. Quit the fixture app when finished. Its clock advances, but its
+  archive is temporary and preferences are in memory; it does not load the
+  live app's history. The bundle is ad-hoc signed for local verification only.
 - **The build is strict**: Swift 5 mode with warnings as errors, a strict deep
   signature check, and tests run before the local app is replaced. If anything
   fails, including during the swap, the previous app is put back.

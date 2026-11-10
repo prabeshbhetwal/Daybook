@@ -169,6 +169,7 @@ extension SelfTest {
             + CorrectionNoticeChecks.tests
             + BreakSoundChecks.tests
             + SettingsMenuWidthChecks.tests
+            + FocusSmokeChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

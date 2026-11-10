@@ -21,8 +21,14 @@ enum FixtureFactory {
     }
 
     private final class Clock {
-        var value: Date
-        init(_ start: Date) { value = start }
+        private var base: Date
+        private let started = ProcessInfo.processInfo.systemUptime
+        private let advances: Bool
+        var value: Date {
+            get { base.addingTimeInterval(advances ? ProcessInfo.processInfo.systemUptime - started : 0) }
+            set { base = newValue }
+        }
+        init(_ start: Date, advances: Bool = false) { base = start; self.advances = advances }
     }
 
     static func scratchDirectory() -> URL {
@@ -92,7 +98,8 @@ enum FixtureFactory {
         preferenceSuites.removeAll()
     }
 
-    static func store(for fixture: FixtureState, accurateUsage: Bool = false) -> SessionStore {
+    static func store(for fixture: FixtureState, accurateUsage: Bool = false,
+                      advancingClock: Bool = false) -> SessionStore {
         // Anchor at 10:00 today, not "now": seeding from a late-evening anchor
         // pushes a session's end past midnight, so it lands on the wrong day and
         // the totals lie. Sessions are attributed to the day they end.
@@ -101,7 +108,7 @@ enum FixtureFactory {
             ?? Date()
         // Archived morning work precedes the live stretch. Fixture clocks must
         // not jump backwards into the archived session when a new one starts.
-        let clock = Clock(anchor.addingTimeInterval(2 * 3_600))
+        let clock = Clock(anchor.addingTimeInterval(2 * 3_600), advances: advancingClock)
         let defaults = fixtureDefaults(fixture.rawValue)
         let prefs = PersistenceStore(defaults: defaults)
         prefs.removeAll()
@@ -173,7 +180,7 @@ enum FixtureFactory {
             engine.transition(on: .awayEnded)
         }
 
-        let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
+        let store = SessionStore(engine: engine, schedulesTicker: advancingClock, now: { clock.value })
 
         // Background app usage, so the per-app history renders with real shapes.
         // First run gets the archive too, just empty: the empty state is only a

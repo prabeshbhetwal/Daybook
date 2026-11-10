@@ -12,12 +12,15 @@ import AppKit
 
     init() {
         let configured = Bundle.main.object(forInfoDictionaryKey: "FCVerificationScenario") as? String
-        guard let scenario = configured.flatMap(SnapshotScenario.init(rawValue:)) else {
+        let isFocusSmoke = configured == "focusSmoke"
+        guard let scenario = isFocusSmoke ? .focusFirstRun : configured.flatMap(SnapshotScenario.init(rawValue:)) else {
             FileHandle.standardError.write(Data("Unknown or missing fixture scenario.\n".utf8))
             exit(2)
         }
         self.scenario = scenario
-        let store = Snapshotter.store(for: scenario)
+        let store = isFocusSmoke
+            ? FixtureFactory.store(for: .firstRun, accurateUsage: true, advancingClock: true)
+            : Snapshotter.store(for: scenario)
         self.store = store
         navigation = Snapshotter.navigation(for: scenario, store: store)
         settings = SettingsModel(store: store.engine.store, isTrackingEnabled: store.isTrackingEnabled,

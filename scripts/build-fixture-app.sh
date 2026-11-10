@@ -21,7 +21,8 @@ fi
 SPARKLE_DIR="$("${PROJECT_DIR}/scripts/fetch-sparkle.sh")"
 
 mkdir -p "${PROJECT_DIR}/.build"
-FIXTURE_ROOT="$(mktemp -d "${PROJECT_DIR}/.build/native-fixture.XXXXXX")"
+# Keep signed fixtures outside cloud-synced folders, whose Finder attributes invalidate signatures.
+FIXTURE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/daybook-native-fixture.XXXXXX")"
 FIXTURE_APP="${FIXTURE_ROOT}/Daybook.app"
 mkdir -p "${FIXTURE_APP}/Contents/MacOS"
 cp "${LOCAL_APP}/Contents/Info.plist" "${FIXTURE_APP}/Contents/Info.plist"
@@ -39,7 +40,7 @@ while IFS= read -r source_file; do
   fi
 done < <(find "${PROJECT_DIR}/Sources" -name '*.swift' -print | LC_ALL=C sort)
 
-swiftc -O -swift-version 5 -warnings-as-errors -parse-as-library \
+swiftc -O -whole-module-optimization -swift-version 5 -warnings-as-errors -parse-as-library \
   -target "$(uname -m)-apple-macos14.0" -framework Cocoa \
   -F "${SPARKLE_DIR}" -framework Sparkle \
   -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
