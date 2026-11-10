@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Shown once to an install from before automatic backups: they start off,
-/// so an update never uploads the reader's history on its own. One click
+/// Shown once to every install: backups start off, so nothing uploads the
+/// reader's history without an explicit choice. One click
 /// turns on a daily backup to iCloud Drive; Not now leaves them off, and
 /// either answer ends the offer. Settings › Privacy has the full choice.
 struct BackupOfferNotice: View {
@@ -11,7 +11,7 @@ struct BackupOfferNotice: View {
         if settings.backupOfferPending {
             VStack(alignment: .leading, spacing: Tokens.Space.s) {
                 Label {
-                    Text("Daybook can now back itself up every day, to iCloud Drive or a folder you choose.")
+                    Text("Daybook can back itself up every day, to iCloud Drive or a folder you choose.")
                         .font(Tokens.Typography.body)
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {

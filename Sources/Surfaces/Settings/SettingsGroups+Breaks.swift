@@ -52,11 +52,8 @@ extension SettingsGroups {
             rowDivider
             preferenceRow("Rhythm",
                           detail: model.breakRhythm.evidenceNote ?? "Your own numbers, set below.") {
-                Picker("Rhythm", selection: $model.breakRhythm) {
-                    ForEach(BreakPreset.allCases, id: \.self) { Text($0.pickerTitle).tag($0) }
-                }
-                .labelsHidden()
-                .accessibilityLabel("Rhythm")
+                RowMenu("Rhythm", selection: $model.breakRhythm,
+                        options: BreakPreset.allCases) { $0.pickerTitle }
             }
             .disabled(!model.remindersEnabled)
             if model.breakRhythm == .custom {
@@ -73,12 +70,8 @@ extension SettingsGroups {
         preferenceRow("Break") { minutesStepper("Break", \.breakMinutes, 1...30, step: 1) }
         rowDivider
         preferenceRow("Long break every", detail: Self.longBreakDetail(every: custom.longEvery)) {
-            Picker("Long break every", selection: customBinding(\.longEvery)) {
-                Text("Off").tag(Int?.none)
-                ForEach(2...8, id: \.self) { Text("\($0) breaks").tag(Int?.some($0)) }
-            }
-            .labelsHidden()
-            .accessibilityLabel("Long break every")
+            RowMenu("Long break every", selection: customBinding(\.longEvery),
+                    options: [nil] + (2...8).map { Optional($0) }) { $0.map { "\($0) breaks" } ?? "Off" }
         }
         if custom.longEvery != nil {
             rowDivider
@@ -115,12 +108,9 @@ extension SettingsGroups {
             if index != order.first { rowDivider }
             let name = model.weekdayName(index)
             preferenceRow(name) {
-                Picker(name, selection: Binding(get: { model.breakWeekdayPlans[index] },
-                                                set: { model.breakWeekdayPlans[index] = $0 })) {
-                    planOptions(usual: "Usual rhythm")
-                }
-                .labelsHidden()
-                .accessibilityLabel(name)
+                planMenu(name, Binding(get: { model.breakWeekdayPlans[index] },
+                                       set: { model.breakWeekdayPlans[index] = $0 }),
+                         usual: "Usual rhythm")
             }
         }
         explanation("No reminders turns off the rhythm that day. Eyes and the long-stretch guard follow "
@@ -171,21 +161,23 @@ extension SettingsGroups {
 
     private func overrideRow(_ title: String, _ kind: BreakOverrideKind) -> some View {
         preferenceRow(title) {
-            Picker(title, selection: Binding(get: { model.breakOverridePlan(kind) },
-                                             set: { model.setBreakOverride(kind, plan: $0,
-                                                                           from: kind == .range ? model.breakRangeFrom : nil,
-                                                                           to: kind == .range ? model.breakRangeTo : nil) })) {
-                planOptions(usual: "Weekday plan")
-            }
-            .labelsHidden()
-            .accessibilityLabel(title)
+            planMenu(title, Binding(get: { model.breakOverridePlan(kind) },
+                                    set: { model.setBreakOverride(kind, plan: $0,
+                                                                  from: kind == .range ? model.breakRangeFrom : nil,
+                                                                  to: kind == .range ? model.breakRangeTo : nil) }),
+                     usual: "Weekday plan")
         }
     }
 
-    @ViewBuilder private func planOptions(usual: String) -> some View {
-        Text(usual).tag(BreakDayPlan.usual)
-        ForEach(BreakPreset.allCases, id: \.self) { Text($0.title).tag(BreakDayPlan.preset($0)) }
-        Text("No reminders").tag(BreakDayPlan.off)
+    private func planMenu(_ title: String, _ selection: Binding<BreakDayPlan>, usual: String) -> some View {
+        RowMenu(title, selection: selection,
+                options: [.usual] + BreakPreset.allCases.map(BreakDayPlan.preset) + [.off]) { plan in
+            switch plan {
+            case .usual: return usual
+            case .preset(let preset): return preset.title
+            case .off: return "No reminders"
+            }
+        }
     }
 
     // MARK: - Working hours, Eyes and the guard
@@ -215,13 +207,10 @@ extension SettingsGroups {
                                            comesAfter: model.guardComesAfter),
                   isOn: $model.breakGuardEnabled)
         preferenceRow("Guard comes after") {
-            Picker("Guard comes after", selection: $model.breakGuardMinutes) {
-                ForEach(Self.guardChoices(including: model.breakGuardMinutes), id: \.self) {
-                    Text(Tokens.duration(TimeInterval($0 * 60))).tag($0)
-                }
+            RowMenu("Guard comes after", selection: $model.breakGuardMinutes,
+                    options: Self.guardChoices(including: model.breakGuardMinutes)) {
+                Tokens.duration(TimeInterval($0 * 60))
             }
-            .labelsHidden()
-            .accessibilityLabel("Guard comes after")
         }
         .padding(.leading, Tokens.Space.l)
         .disabled(!model.breakGuardEnabled)

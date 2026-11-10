@@ -48,22 +48,15 @@ struct ThresholdControl: View {
             })
     }
 
+    private var menuItems: [RowMenuItem<TimeInterval>] {
+        options.map { .option($0, Tokens.duration($0)) } + [.option(customTag, "Custom…")]
+            + (allowsNever ? [.divider, .option(neverValue, "Never")] : [])
+    }
+
     var body: some View {
         VStack(alignment: .trailing, spacing: 3.zoomed) {
             HStack(spacing: Tokens.Space.s) {
-                Picker(label, selection: pickerSelection) {
-                    ForEach(options, id: \.self) { seconds in
-                        Text(Tokens.duration(seconds)).tag(seconds)
-                    }
-                    Text("Custom…").tag(customTag)
-                    if allowsNever {
-                        Divider()
-                        Text("Never").tag(neverValue)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
-                .accessibilityLabel(label)
+                RowMenu(label, selection: pickerSelection, items: menuItems)
                 // After the menu, where the eye and the Tab key go next.
                 if custom.value || (!options.contains(selection) && !isNever) {
                     customField

@@ -90,10 +90,14 @@ enum SettingsAlignmentChecks: CheckSuite {
         }
     }
 
-    /// The trailing edge of each control drawn: the AppKit pop-up where the
-    /// system draws one, otherwise the stand-in view SwiftUI gives each
-    /// control the keyboard can reach.
     @MainActor private static func controlTrailingEdges<V: View>(_ view: V) -> [CGFloat] {
+        controlFrames(view).map(\.maxX)
+    }
+
+    /// The frame of each control drawn: the AppKit pop-up where the system
+    /// draws one, otherwise the stand-in view SwiftUI gives each control the
+    /// keyboard can reach.
+    @MainActor static func controlFrames<V: View>(_ view: V) -> [NSRect] {
         let host = hosted(view.frame(width: 760).fixedSize(horizontal: false, vertical: true),
                           width: 760, height: 900)
         defer { host.window?.orderOut(nil); host.window?.close() }
@@ -107,6 +111,6 @@ enum SettingsAlignmentChecks: CheckSuite {
             view.subviews.forEach(walk)
         }
         walk(host)
-        return frames.map { CGFloat($0[2]) }
+        return frames.map { NSRect(x: $0[0], y: $0[1], width: $0[2] - $0[0], height: $0[3] - $0[1]) }
     }
 }

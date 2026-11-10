@@ -227,10 +227,10 @@ busy an app still is.
 A backup copies the data folder and the app's preferences into a new dated
 folder under **Daybook Backups**, in iCloud Drive or a folder you choose with
 **Choose Folder…** (another disk, another service's synced folder, a network
-share). **Back up automatically** offers Off, Every 6 hours, Every day (the
-default for a new install) and Every week. An install from before automatic
-backups starts with them off, so an update never uploads history on its own;
-today's story offers them once, with **Back up every day** or **Not now**.
+share). **Back up automatically** offers Off (the default), Every 6 hours,
+Every day and Every week. Every install, new or updated, starts with backups
+off, so nothing uploads history without your choice; today's story offers them
+once, with **Back up every day** or **Not now**.
 Changing where backups go starts that destination afresh: the next check backs
 up there. The running app checks every half hour, a minute
 after launch and on wake, so a Mac that was asleep or shut down at the due

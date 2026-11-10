@@ -108,6 +108,9 @@ enum Tokens {
     /// than the two beside it.
     enum Control {
         static var compactHeight: CGFloat { 34.zoomed }
+        /// The label inside every Settings pop-up (`RowMenu`), so they share
+        /// one width; "While the window is open", the longest choice, fits.
+        static var rowMenuLabelWidth: CGFloat { 180.zoomed }
     }
 
     static var popoverWidth: CGFloat { 340.zoomed }
