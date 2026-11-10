@@ -235,6 +235,8 @@ enum BackupScheduleChecks: CheckSuite {
         var held: [() -> Void] = []
         let settings = SettingsModel(store: store, isTrackingEnabled: false, onChange: {}, onTrackingChanged: { _ in },
                                      dataDirectory: data, backupRoot: cloud, backupWork: { held.append($0) })
+        // Backups start off, so the automatic ones below need a schedule.
+        settings.backupSchedule = .daily
         func release() { while !held.isEmpty { held.removeFirst()() } }
         func made(_ root: URL) -> Int {
             ((try? FileManager.default.contentsOfDirectory(
