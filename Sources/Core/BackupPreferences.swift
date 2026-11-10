@@ -7,7 +7,9 @@ enum BackupSchedule: String, CaseIterable, Identifiable {
     case daily
     case weekly
 
-    static let `default` = BackupSchedule.daily
+    /// Off until the reader chooses: nothing is backed up, or uploaded to
+    /// iCloud, without an explicit choice.
+    static let `default` = BackupSchedule.off
 
     /// How often the running app looks for a backup that has come due. A
     /// backup counts as due this much early, or each one would land up to a

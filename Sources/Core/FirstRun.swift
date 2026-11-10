@@ -447,8 +447,8 @@ enum FirstRunScript {
                  anchor: .settings),
             Card(sentence: "Your record is yours.",
                  body: "It is a handful of files in your own Library folder, and there "
-                     + "is no account. Backups copy it to your own iCloud Drive every day, "
-                     + "or to a folder you choose, or not at all. Otherwise only the update "
+                     + "is no account. Backups are off until you turn them on; then they copy "
+                     + "it to your own iCloud Drive or to a folder you choose. Otherwise only the update "
                      + "check asks GitHub for anything, and dictation may send audio to "
                      + "Apple when this Mac cannot recognise your language itself. Privacy "
                      + "in Settings sets the backups, shows you the folder and lets you "
