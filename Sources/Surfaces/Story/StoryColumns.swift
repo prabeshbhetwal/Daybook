@@ -92,7 +92,7 @@ enum StoryNarrative {
         if rest > 0 {
             return "You recorded \(Tokens.preciseDuration(rest)) as a break, with no focus session."
         }
-        return isToday ? "Your day starts here." : "No activity was recorded on this day."
+        return isToday ? "Nothing recorded yet today." : "No activity was recorded on this day."
     }
 }
 
@@ -180,7 +180,7 @@ struct ProjectedDayStoryColumn: View {
                 // Sessions are still logged, but nothing says which apps they
                 // were in. Said here, once, rather than left to be inferred
                 // from every card reading "no app recording".
-                IntegrityNotice("App recording is off, so today's sessions carry no app evidence. "
+                IntegrityNotice("App recording is off, so today's sessions have no app data. "
                                 + "Turn on Record app usage in Settings › Recording.")
             }
             if context == .main {

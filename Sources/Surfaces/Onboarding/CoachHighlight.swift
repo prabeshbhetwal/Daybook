@@ -94,7 +94,6 @@ struct CoachRing: View {
                         RoundedRectangle(cornerRadius: CoachRingGeometry.radius, style: .continuous)
                             .fill(Tokens.Colour.focus.opacity(0.06))
                     )
-                    .shadow(color: Tokens.Colour.focus.opacity(0.45), radius: 8.zoomed)
                     .frame(width: frame.width, height: frame.height)
                     .position(x: frame.midX, y: frame.midY)
                     // Arrives fully formed, then breathes slowly, so it stays

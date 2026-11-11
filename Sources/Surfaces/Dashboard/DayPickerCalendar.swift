@@ -310,8 +310,7 @@ struct DayPickerCalendar: View {
     }
 
     private var legend: some View {
-        Text("Under each date, its focused time. A dot is a day at the Mac with no "
-             + "session; a tick, a met goal.")
+        Text("Number: focused time. Dot: at the Mac, no session. Tick: goal met.")
             .font(Tokens.Typography.body)
             .foregroundStyle(StoryStyle.supportingInk)
             .fixedSize(horizontal: false, vertical: true)

@@ -214,8 +214,7 @@ enum BreakSettingsFixChecks: CheckSuite {
         }
         expect(SettingsGroups.longBreakDetail(every: nil) == "Off, every break is the same length.",
                "no long break says so", &problems)
-        expect(SettingsGroups.overridesFootnote.hasSuffix("Where more than one covers a day, the one covering "
-                                                          + "the fewest days wins."),
+        expect(SettingsGroups.overridesFootnote.hasSuffix("Where two overlap, the shorter one wins."),
                "the footnote names what wins, got \"\(SettingsGroups.overridesFootnote)\"", &problems)
         return problems
     }

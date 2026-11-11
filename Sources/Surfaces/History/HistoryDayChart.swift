@@ -2,15 +2,11 @@ import SwiftUI
 
 /// One bar per day from the first day on record to today. A day with a
 /// figure can be clicked: a search brings it into view below, the overview
-/// opens it. Bars take their own colour when given one, and a dashed line
-/// can mark the average a bar is read against.
+/// opens it. Every bar is one ink, and a dashed line can mark the average a bar is read against.
 struct HistoryResultChart: View {
     struct Value: Equatable {
         let primary: TimeInterval
         let secondary: TimeInterval
-        /// The bar's own colour, such as its day's main category; nil draws
-        /// it in the chart's.
-        var colour: Color?
         var total: TimeInterval { primary + secondary }
     }
 
@@ -99,7 +95,7 @@ struct HistoryResultChart: View {
     @ViewBuilder private func bar(_ day: Date, peak: TimeInterval) -> some View {
         if let value = values[day], value.total > 0 {
             let height = max(4.zoomed, Self.height * value.total / peak)
-            let colour = value.colour ?? primaryColour
+            let colour = primaryColour
             VStack(spacing: 0) {
                 Rectangle().fill(colour.opacity(0.42))
                     .frame(height: height * value.secondary / value.total)

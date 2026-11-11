@@ -100,7 +100,7 @@ struct DaybookApp: App {
                 store: coordinator.store,
                 settings: coordinator.settings,
                 onOpenApplication: { openMainWindow() },
-                onOpenSettings: { openMainWindow(on: .settings) },
+                onOpenSettings: { openSettingsWindow() },
                 onCheckForUpdates: { coordinator.updater.checkForUpdates() },
                 onOpenCategoryEditor: { request in
                     CategoryEditorPanel.shared.show(request, model: coordinator.settings) { definition, wasNew in
@@ -137,6 +137,15 @@ struct DaybookApp: App {
             ZoomCommands(settings: coordinator.settings)
             UpdateCommands(updater: coordinator.updater)
         }
+
+        Window("Settings", id: SettingsWindow.id) {
+            SettingsWindowContent(settings: coordinator.settings, navigation: coordinator.mainWindow,
+                                  store: coordinator.store)
+        }
+        .windowResizability(.contentMinSize)
+        .defaultPosition(.center)
+        // ⌘, opens it; a second entry in the Window menu would only repeat that.
+        .commandsRemoved()
     }
 
     /// "Check for Updates…" under About in the Daybook menu, where
@@ -153,9 +162,16 @@ struct DaybookApp: App {
     }
 
     private func openMainWindow(on tab: AppTab? = nil) {
+        if tab == .settings { return openSettingsWindow() }
         if let tab { coordinator.mainWindow.open(tab: tab) }
         else { coordinator.mainWindow.revealApplication() }
         NSApp.activate(ignoringOtherApps: true)
         openWindow(id: "main")
+    }
+
+    /// Settings opens in its own window and leaves the main window as it is.
+    private func openSettingsWindow() {
+        coordinator.mainWindow.openSettings()
+        SettingsWindow.open(openWindow)
     }
 }

@@ -98,7 +98,7 @@ enum RedundancyChecks {
             || StoryBreakRow.label("") != "Recorded break, not counted as focus" {
             failures.append("an unnamed break read as \(StoryBreakRow.label("Break"))")
         }
-        if StoryBreakRow.label("Lunch") != "Lunch — recorded break, not counted as focus" {
+        if StoryBreakRow.label("Lunch") != "Lunch · recorded break, not counted as focus" {
             failures.append("a named break lost its name: \(StoryBreakRow.label("Lunch"))")
         }
         return failures

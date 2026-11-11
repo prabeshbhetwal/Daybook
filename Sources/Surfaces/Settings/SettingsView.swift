@@ -11,6 +11,8 @@ enum SettingsLayout {
     static var detailMeasure: CGFloat { 720.zoomed }
     static var sheetHeight: CGFloat { 720.zoomed }
     static var sheetMaximumHeight: CGFloat { 740.zoomed }
+    /// The Settings window can shrink to this; its page scrolls below it.
+    static var minimumWindowHeight: CGFloat { 420.zoomed }
     /// Room kept to the window's edge when the window is smaller than the
     /// sheet would like to be.
     static var windowMargin: CGFloat { 40.zoomed }
@@ -113,15 +115,9 @@ struct SettingsView: View {
         let query = navigation.settingsQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let sections = page.sections(matching: navigation.settingsQuery)
         let detail = VStack(alignment: .leading, spacing: Tokens.Space.l) {
-            VStack(alignment: .leading, spacing: 3.zoomed) {
-                Text(query.isEmpty ? page.title : "\(page.title) · matching “\(query)”")
-                    .font(Tokens.Typography.title)
-                    .accessibilityAddTraits(.isHeader)
-                Text(page.summary)
-                    .font(Tokens.Typography.body)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(query.isEmpty ? page.title : "\(page.title) · matching “\(query)”")
+                .font(Tokens.Typography.title)
+                .accessibilityAddTraits(.isHeader)
             ForEach(sections) { section in
                 SettingsGroups(model: model, section: section)
             }

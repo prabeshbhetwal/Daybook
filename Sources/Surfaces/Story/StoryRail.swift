@@ -118,7 +118,9 @@ struct StoryRail: View {
                 }
                 BackupOfferNotice(settings: settings)
             }
+            // Hairlines, not cards: the rail is one inspector column.
             ForEach(shownTiles, id: \.self) { kind in
+                if kind != shownTiles.first { Divider() }
                 arrangedTile(kind, shownTiles: shownTiles, evidence: evidence)
             }
             // Cards are arranged on the dashboard; History shows them in that order.
@@ -699,13 +701,8 @@ struct StoryTile<Content: View>: View {
             }
             content
         }
-        .padding(StoryStyle.tileInsets(for: density))
+        .padding(.vertical, Tokens.Space.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(StoryStyle.card,
-                    in: RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous)
-            .strokeBorder(StoryStyle.line))
-        .shadow(color: .black.opacity(0.025), radius: 2.zoomed, y: 1)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(title)
     }

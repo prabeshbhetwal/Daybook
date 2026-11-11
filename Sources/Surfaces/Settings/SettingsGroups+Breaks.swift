@@ -19,9 +19,7 @@ extension SettingsGroups {
                 .disabled(!on)
             SurfacePanel(title: "When a break ends", layout: layout) {
                 HStack(alignment: .top, spacing: Tokens.Space.m) {
-                    toggleRow("Play a sound when a break is over",
-                              detail: "A short tone with the \"Break's over\" prompt.",
-                              isOn: $model.breakOverSound)
+                    toggleRow("Play a sound when a break is over", isOn: $model.breakOverSound)
                     Spacer(minLength: Tokens.Space.m)
                     // Works with the switch off too: hearing it is how you decide.
                     Button {
@@ -32,9 +30,7 @@ extension SettingsGroups {
                     .fixedSize()
                     .accessibilityLabel("Play the break-over sound")
                 }
-                toggleRow("Show break countdown in the menu bar",
-                          detail: "Off, the menu bar shows only the cup while a break is under way.",
-                          isOn: $model.menuBarShowsBreakCountdown)
+                toggleRow("Show break countdown in the menu bar", isOn: $model.menuBarShowsBreakCountdown)
                     .disabled(!model.showsMenuBarIcon)
             }
             .disabled(!on)
@@ -46,8 +42,7 @@ extension SettingsGroups {
     private var rhythmPanel: some View {
         SurfacePanel(title: "Reminders", layout: layout) {
             toggleRow("Remind me to take breaks",
-                      detail: "A notice after a long stretch of continuous use, timed from your typing "
-                        + "and clicking rather than from sessions.",
+                      detail: "Timed from typing and clicking, not from sessions.",
                       isOn: $model.remindersEnabled)
             rowDivider
             preferenceRow("Rhythm",
@@ -113,8 +108,7 @@ extension SettingsGroups {
                          usual: "Usual rhythm")
             }
         }
-        explanation("No reminders turns off the rhythm that day. Eyes and the long-stretch guard follow "
-                    + "their own switches.")
+        explanation("No reminders leaves Eyes and the guard on.")
     }
 
     @ViewBuilder private var overrideRows: some View {
@@ -134,8 +128,7 @@ extension SettingsGroups {
         explanation(Self.overridesFootnote)
     }
 
-    static let overridesFootnote = "These set the weekday plan aside for a while. Where more than one covers a "
-        + "day, the one covering the fewest days wins."
+    static let overridesFootnote = "These replace the weekday plan. Where two overlap, the shorter one wins."
 
     /// What the Long break every row says about the chosen number: "Every 3rd
     /// break is the long one." (the picker offers 2 to 8, so only 2nd and 3rd
@@ -184,8 +177,7 @@ extension SettingsGroups {
 
     @ViewBuilder private var workingHoursRows: some View {
         toggleRow("Working hours",
-                  detail: "Reminders stay quiet outside these hours. A start later than the end runs "
-                    + "overnight, such as 22:00 to 06:00.",
+                  detail: "Quiet outside these hours. 22:00 to 06:00 runs overnight.",
                   isOn: $model.workingHoursEnabled)
         if model.workingHoursEnabled {
             preferenceRow("From") { datePicker("Working hours from", $model.workingHoursFrom, .hourAndMinute) }
@@ -197,9 +189,7 @@ extension SettingsGroups {
 
     @ViewBuilder private var addOnRows: some View {
         toggleRow("Eyes",
-                  detail: "Every 20 minutes of use, a short reminder to look at something far away. It has "
-                    + "no buttons, and stays quiet within 5 minutes of a break, so short blocks such as "
-                    + "Pomodoro rarely show it.",
+                  detail: "Look far away every 20 minutes. Skipped near a break.",
                   isOn: $model.breakEyes)
         rowDivider
         toggleRow("Long-stretch guard",
@@ -221,7 +211,7 @@ extension SettingsGroups {
     /// shows: a guard set at or past the rhythm's work block waits until 15
     /// minutes after that block.
     static func guardDetail(pickedMinutes: Int, comesAfter: TimeInterval?) -> String {
-        let base = "One clearer prompt after an unbroken stretch, whatever the rhythm."
+        let base = "One firmer prompt after a long unbroken stretch."
         guard let comesAfter, comesAfter != TimeInterval(pickedMinutes * 60) else { return base }
         return base + " With your usual rhythm it comes after \(Tokens.duration(comesAfter))."
     }

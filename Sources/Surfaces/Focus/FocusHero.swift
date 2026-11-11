@@ -43,10 +43,10 @@ enum FocusSurfaceMode: Equatable {
 
     var primaryPrompt: String {
         switch self {
-        case .idle: return "Ready to focus"
+        case .idle: return "No session running"
         case .running: return "Focus in progress"
-        case .paused: return "Ready to continue?"
-        case .watching: return "Watching quietly"
+        case .paused: return "Paused"
+        case .watching: return "Watching"
         case .awaitingDecision: return "What happened while you were away?"
         case .onBreak: return "On a break"
         }
@@ -170,7 +170,7 @@ struct CompactGoalPresentation: Equatable {
             }
         } else {
             shortPace = nil
-            fullPace = "Pace comparison appears after enough comparable history."
+            fullPace = "No pace yet. It needs more history."
         }
         visible = shortPace.map { "Today · \(achieved) / \(target) · \($0)" }
             ?? "Today · \(achieved) / \(target)"
@@ -442,8 +442,7 @@ struct FocusHero: View {
         case .paused: return store.isAway ? "Nothing is counted while you are away."
                                           : "The clock is paused. App use is still recorded."
         case .watching:
-            return "The focus clock is paused while you watch. "
-                + "This time is recorded as Watching, not focus."
+            return "Focus clock paused. This time counts as Watching."
         // The break row names itself; there is nothing more to say under it.
         case .idle, .awaitingDecision, .onBreak: return nil
         }
@@ -484,7 +483,7 @@ struct FocusHero: View {
                 // Only a page carries a subtitle. In the popover this sentence
                 // restated the field's own placeholder directly above it.
                 if !compact {
-                    Text("Choose an activity or write your own. Start when you're ready.")
+                    Text("Choose an activity or type a name.")
                         .font(Tokens.Typography.body)
                         .foregroundStyle(StoryStyle.supportingInk)
                         .multilineTextAlignment(.center)
@@ -578,7 +577,7 @@ struct FocusHero: View {
     private var watchingBody: some View {
         operationalBody(
             title: mode.primaryPrompt,
-            detail: "The focus clock is paused while you watch. This time is recorded as Watching, not focus.",
+            detail: "Focus clock paused. This time counts as Watching.",
             quiet: true
         ) {
             FocusActionButton(title: "Resume", symbol: "play.fill", prominent: true) {
@@ -824,7 +823,7 @@ struct FocusHero: View {
     private var goalPaceLine: String {
         if store.goal.isMet { return "Daily goal met" }
         guard let ahead = store.goal.aheadBy else {
-            return "Pace comparison appears after enough comparable history."
+            return "No pace yet. It needs more history."
         }
         if ahead >= 60 { return "\(Tokens.duration(ahead)) ahead of your usual pace" }
         if ahead <= -60 { return "\(Tokens.duration(-ahead)) behind your usual pace" }

@@ -174,15 +174,15 @@ enum HistorySearchWeekdayChecks: CheckSuite {
         }
         let general = detail("Thesis")
         let words = detail("banana split over 1h")
-        expect(words.contains("“banana split” was searched as words"), "chips and two unread words: \(words)", &problems)
+        expect(words.contains("has “banana split”. Remove them"), "chips and two unread words: \(words)", &problems)
         let word = detail("over 1h fortnightly")
-        expect(word.contains("“fortnightly” was searched as a word"), "chips and one unread word: \(word)", &problems)
-        expect(!general.contains("searched as"), "no chips: the general hint, not \(general)", &problems)
+        expect(word.contains("has “fortnightly”. Remove it"), "chips and one unread word: \(word)", &problems)
+        expect(!general.contains("No session matching"), "no chips: the general hint, not \(general)", &problems)
         expect(detail("over 1h") == general, "chips and no words: the general hint, not \(detail("over 1h"))", &problems)
         // Periods that do not overlap rule everything out: the words are not to blame.
         for text in ["Tuesday and Thursday", "last week this week"] {
             let apart = detail(text)
-            expect(apart.contains("do not overlap") && !apart.contains("searched as"), "\(text): \(apart)", &problems)
+            expect(apart.contains("do not overlap") && !apart.contains("No session matching"), "\(text): \(apart)", &problems)
         }
         return problems
     }

@@ -308,9 +308,6 @@ enum Tokens {
         /// A measurement moving to its next measurement — a ring, a bar.
         /// Critically damped: it arrives, it does not spring past.
         static let settle = Animation.spring(response: 0.45, dampingFraction: 0.92)
-        /// Pressable things sink to this scale and lift to `hoverScale`.
-        static let pressedScale: CGFloat = 0.94
-        static let hoverScale: CGFloat = 1.03
 
         static func animation(_ base: Animation, reduceMotion: Bool) -> Animation? {
             reduceMotion ? nil : base

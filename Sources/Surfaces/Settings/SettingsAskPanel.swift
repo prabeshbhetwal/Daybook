@@ -6,17 +6,12 @@ extension SettingsGroups {
     /// never run it, the status says why and the controls rest.
     var askPanel: some View {
         SurfacePanel(title: "Ask Daybook", layout: layout) {
-            explanation("Ask a question about your focus history, such as when your most focused day was. "
-                        + AskModel.status)
+            explanation(AskModel.status)
             rowDivider
-            toggleRow("Show Ask in the toolbar",
-                      detail: "The Ask button beside Settings. ⌘K opens Ask either way.",
-                      isOn: $model.showsAskButton)
+            toggleRow("Show Ask in the toolbar", detail: "⌘K opens Ask either way.", isOn: $model.showsAskButton)
                 .disabled(!AskModel.isOffered)
             rowDivider
-            preferenceRow("Open Ask in",
-                          detail: "A side panel stays beside Story and History, so sources open next to the chat. "
-                              + "On a screen too small for both, Ask opens as a sheet.") {
+            preferenceRow("Open Ask in", detail: "Small screens always use a sheet.") {
                 Picker("Open Ask in", selection: $model.askPlacement) {
                     Text("Sheet").tag(AskPlacement.sheet)
                     Text("Side panel").tag(AskPlacement.panel)

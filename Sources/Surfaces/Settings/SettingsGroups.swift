@@ -1,16 +1,9 @@
 import SwiftUI
 
-/// Scalar diagnostics align a short value with their title; a narrative status
-/// needs the row's full reading width instead of a compressed trailing column.
-enum SettingsReadOnlyRowLayout: Equatable {
-    case trailingValue
-    case statusBlock
-
-    var usesTrailingValue: Bool { self == .trailingValue }
-}
-
 /// The selected Settings group. Every interactive row binds directly to the
 /// coordinator-owned model; read-only rows come from its live diagnostics.
+/// A row's title and control say what it does; a detail line is added only
+/// when they leave something unsaid.
 struct SettingsGroups: View {
     @ObservedObject var model: SettingsModel
     @State var copiedAgentSetup = false
@@ -41,10 +34,7 @@ struct SettingsGroups: View {
     private var general: some View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Menu bar, Dock and login", layout: layout) {
-                toggleRow("Open at login",
-                          detail: "Starts Daybook in the menu bar when you sign in, so the "
-                            + "record never has a gap at the start of the day.",
-                          isOn: $model.opensAtLogin)
+                toggleRow("Open at login", isOn: $model.opensAtLogin)
                 if let message = loginItemMessage {
                     explanation(message)
                 }
@@ -54,13 +44,9 @@ struct SettingsGroups: View {
                     }
                 }
                 rowDivider
-                toggleRow("Show the icon in the menu bar",
-                          detail: "Off, the Dock icon stays so Daybook can always be reached.",
-                          isOn: $model.showsMenuBarIcon)
+                toggleRow("Show the icon in the menu bar", isOn: $model.showsMenuBarIcon)
                 rowDivider
-                toggleRow("Show the session time in the menu bar",
-                          detail: "Off, the menu bar keeps only the goal ring while a session runs.",
-                          isOn: $model.menuBarShowsTime)
+                toggleRow("Show the session time in the menu bar", isOn: $model.menuBarShowsTime)
                     .disabled(!model.showsMenuBarIcon)
                 rowDivider
                 preferenceRow("Dock icon", detail: dockIconDetail) {
@@ -81,28 +67,18 @@ struct SettingsGroups: View {
             askPanel
             keyboard
             SurfacePanel(title: "Confirmations", layout: layout) {
-                toggleRow("Ask before changing how a break counts",
-                          detail: "Count as focus and Leave uncounted ask first. Undo restores the break either way.",
-                          isOn: asks(.changeBreak))
+                toggleRow("Ask before changing how a break counts", isOn: asks(.changeBreak))
                 rowDivider
-                toggleRow("Ask before removing a session",
-                          detail: "Remove asks first. Undo puts the session back either way.",
-                          isOn: asks(.removeSession))
-                explanation("“Don't ask again” in a question turns its switch off here. "
-                            + "Deleting a rule, resetting a category and discarding a note always ask, "
-                            + "because Undo cannot reverse them.")
+                toggleRow("Ask before removing a session", isOn: asks(.removeSession))
+                explanation("Undo works either way. Deletes Undo can't reverse always ask.")
             }
             if model.canReplayWelcome {
                 SurfacePanel(title: "Getting started", layout: layout) {
-                    explanation("The tour walks through every part of the app in twelve short "
-                                + "chapters — starting a session, what your Mac records on its "
-                                + "own, the away card, rules, History, the menu bar. About seven "
-                                + "minutes; any chapter can be skipped.")
                     // A tour ended by a quit or a crash, not by Skip or its
                     // last card, can be picked up where it was left.
-                    if let chapter = model.interruptedWelcomeChapter {
-                        explanation("You left the tour at chapter \(chapter.number), \(chapter.title).")
-                    }
+                    explanation(model.interruptedWelcomeChapter.map {
+                        "Stopped at chapter \($0.number), \($0.title)."
+                    } ?? "Twelve short chapters, about seven minutes.")
                     HStack(spacing: Tokens.Space.s) {
                         if let chapter = model.interruptedWelcomeChapter {
                             Button("Continue the tour") { model.resumeWelcome() }
@@ -130,165 +106,50 @@ struct SettingsGroups: View {
 
     private static let loginApproval = "Approve Daybook in System Settings › General › Login Items."
 
-    /// The keys, in one place that stays. The app has no menu bar to list
-    /// them in, and the welcome names them once and moves on.
-    private var keyboard: some View {
-        SurfacePanel(title: "Keyboard", layout: layout) {
-            globalShortcutRow
-            rowDivider
-            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                ForEach(Self.windowKeys, id: \.keys) { entry in
-                    HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
-                        Text(entry.keys)
-                            .font(Tokens.Typography.label.monospacedDigit())
-                            .frame(width: 52.zoomed, alignment: .leading)
-                            .accessibilityHidden(true)
-                        Text(entry.action)
-                            .font(Tokens.Typography.body)
-                            .foregroundStyle(StoryStyle.supportingInk)
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(entry.action), \(entry.spoken)")
-                }
-                Text(Self.pauseOrAwayNote)
-                    .font(Tokens.Typography.body)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, Tokens.Space.xs)
-            }
-            .padding(.vertical, Tokens.Space.s)
-        }
-    }
-
-    /// The chord, a button that records a new one, and the way back to the
-    /// standard chord or to none. The line under it says whether it is held.
-    private var globalShortcutRow: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
-                Text("Start or end a session from any app")
-                    .font(Tokens.Typography.rowTitle)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                Spacer(minLength: Tokens.Space.m)
-                ShortcutRecorder(shortcut: model.globalShortcut) { model.setGlobalShortcut($0) }
-                if model.globalShortcut != .standard {
-                    Button("Reset") { model.setGlobalShortcut(.standard) }
-                        .buttonStyle(.bordered)
-                        .accessibilityLabel("Reset the shortcut to Control-Option-Space")
-                }
-                if model.globalShortcut != nil {
-                    Button("Turn off") { model.setGlobalShortcut(nil) }
-                        .buttonStyle(.bordered)
-                        .accessibilityLabel("Turn the global shortcut off")
-                }
-            }
-            explanation(Self.globalShortcutDetail(model.globalShortcutStatus, shortcut: model.globalShortcut))
-            if let message = model.globalShortcutMessage {
-                Text(message)
-                    .font(Tokens.Typography.body)
-                    .foregroundStyle(Tokens.Colour.danger)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .frame(minHeight: layout.rowHeight)
-        .announcesChanges(to: model.globalShortcutMessage)
-    }
-
-    static func globalShortcutDetail(_ status: HotKeyMonitor.Status,
-                                     shortcut: GlobalShortcut? = .standard) -> String {
-        let chord = shortcut?.spoken ?? "The shortcut"
-        switch status {
-        case .registered:
-            return "\(chord) works in any app. It also brings up an away card that is waiting for you."
-        case .yieldedToVoiceOver:
-            return "Off while VoiceOver is on, because VoiceOver uses Control-Option chords. "
-                + "It comes back when VoiceOver turns off, or record a chord without both."
-        case .unavailable:
-            return "Another app is using \(chord), so this shortcut is off. Record a different "
-                + "one, or free the keys in that app, then quit and reopen Daybook."
-        case .off:
-            return "Off. Record a shortcut to turn it on."
-        }
-    }
-
-    /// Pause and Away sit side by side on the bar and read as one thing
-    /// until pressed; the keyboard list is where the difference is written down.
-    static let pauseOrAwayNote = "Pause is for staying at the Mac: the clock stops, app use is still "
-        + "recorded. Away is for leaving it: nothing is recorded until you're back, and a long "
-        + "gap is asked about."
-
-    /// The window's own keys. The session keys come from `SessionShortcut`,
-    /// so this list cannot drift from what the Session commands answer to.
-    static let windowKeys: [KeyEntry] = [
-        KeyEntry(keys: SessionShortcut.start.glyphs, spoken: "Option-Command-N", action: "Start focus"),
-        KeyEntry(keys: SessionShortcut.pauseOrResume.glyphs, spoken: "Option-Command-P",
-                 action: "Pause or resume"),
-        KeyEntry(keys: SessionShortcut.stepAway.glyphs, spoken: "Option-Command-A", action: "Away"),
-        KeyEntry(keys: SessionShortcut.takeBreak.glyphs, spoken: "Option-Command-B",
-                 action: "Take a break, or end it"),
-        KeyEntry(keys: SessionShortcut.stop.glyphs, spoken: "Option-Command-S", action: "Stop the session"),
-        KeyEntry(keys: "⌘1", spoken: "Command-1", action: "The day's story"),
-        KeyEntry(keys: "⌘2", spoken: "Command-2", action: "History"),
-        KeyEntry(keys: "⌘F", spoken: "Command-F", action: "Find in History"),
-        KeyEntry(keys: "⌘K", spoken: "Command-K", action: "Ask Daybook"),
-        KeyEntry(keys: "⌘6", spoken: "Command-6", action: "Awards"),
-        KeyEntry(keys: "⌘7", spoken: "Command-7", action: "Session controls"),
-        KeyEntry(keys: "⌘,", spoken: "Command-comma", action: "Settings"),
-        KeyEntry(keys: "⌘+", spoken: "Command-plus", action: "Zoom in"),
-        KeyEntry(keys: "⌘−", spoken: "Command-minus", action: "Zoom out"),
-        KeyEntry(keys: "⌘0", spoken: "Command-0", action: "Actual size")
-    ]
-
-    struct KeyEntry: Hashable {
-        let keys: String
-        /// How VoiceOver should say the keys; it reads the glyphs poorly.
-        let spoken: String
-        let action: String
-    }
-
     private var loginItemMessage: String? {
         model.loginItemError.map { "Could not change the login item: \($0)" }
     }
 
+    /// Said only where the menu leaves it unclear: the app's menus come and
+    /// go with the Dock icon.
+    private var dockIconDetail: String? {
+        guard model.showsMenuBarIcon else { return "Always shown while the menu bar icon is hidden." }
+        return model.dockIconMode == .never ? "No Dock icon or app menus." : nil
+    }
+
     private var focus: some View {
         SurfacePanel(title: "Goal", layout: layout) {
-            preferenceRow("Daily goal",
-                          detail: "Counts only declared focus while you were actually using the Mac.") {
+            preferenceRow("Daily goal", detail: "Counts focus only while you're at the Mac.") {
                 RowMenu("Daily goal", selection: $model.dailyGoal,
                         options: FocusConstants.dailyGoalOptions) { Tokens.duration($0) }
             }
             rowDivider
-            preferenceRow("Usual pace compares with",
-                          detail: "Today is compared with the same hour on these working days.") {
+            preferenceRow("Usual pace compares with") {
                 RowMenu("Usual pace compares with", selection: $model.paceWindowDays,
                         options: FocusConstants.paceWindowOptions) { "last \($0) days" }
             }
             rowDivider
-            preferenceRow("Suggest activities from",
-                          detail: "How far back the activity menu looks for names you have used.") {
+            preferenceRow("Suggest activities from") {
                 RowMenu("Suggest activities from", selection: $model.suggestionWindowDays,
                         options: FocusConstants.suggestionWindowOptions) { "last \($0) days" }
             }
             rowDivider
-            preferenceRow("Streak counts a day after",
-                          detail: "A day joins your streak once its focus reaches this.") {
+            preferenceRow("Streak counts a day after") {
                 ThresholdControl(label: "Streak counts a day after", selection: $model.streakMinimum,
                                  options: FocusConstants.streakMinimumOptions)
             }
             rowDivider
-            preferenceRow("New sessions start as",
-                          detail: "Used until you choose another.") {
+            preferenceRow("New sessions start as") {
                 RowMenu("New sessions start as", selection: $model.defaultWorkType,
                         items: WorkType.startable.map { .option($0, $0.displayName, systemImage: $0.symbolName) })
             }
             rowDivider
-            preferenceRow("Keep sessions longer than",
-                          detail: "A stretch shorter than this is a misclick, not history, and is never written.") {
+            preferenceRow("Keep sessions longer than", detail: "Shorter ones are never saved.") {
                 RowMenu("Keep sessions longer than", selection: $model.minimumRecordedSession,
                         options: FocusConstants.minimumRecordedSessionOptions) { Tokens.preciseDuration($0) }
             }
             rowDivider
-            preferenceRow("Offer to continue for",
-                          detail: "How long after a session ends it is still offered as something to pick up.") {
+            preferenceRow("Offer to continue for", detail: "Counted from when a session ends.") {
                 ThresholdControl(label: "Offer to continue for", selection: $model.continueWindow,
                                  options: FocusConstants.continueWindowOptions)
             }
@@ -299,27 +160,23 @@ struct SettingsGroups: View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Stepping away", layout: layout) {
                 preferenceRow("Pause after no input for",
-                              detail: "Quiet at the keyboard for this long pauses the session, timed from "
-                                + "your last key or click. Reading and thinking are work; pick a wait that "
-                                + "does not punish them.") {
+                              detail: "Leave room for reading and thinking.") {
                     ThresholdControl(label: "Pause after no input for", selection: $model.idlePauseThreshold,
                                      options: FocusConstants.idlePauseOptions, allowsNever: true)
                 }
                 rowDivider
-                preferenceRow("Ask me after",
-                              detail: "Shorter absences are left out of the session without a question.") {
+                preferenceRow("Ask me after", detail: "Shorter absences are left out without asking.") {
                     ThresholdControl(label: "Ask me after", selection: $model.breakThreshold,
                                      options: FocusConstants.thresholdOptions, allowsNever: true)
                 }
                 rowDivider
-                preferenceRow("End session after",
-                              detail: "Longer than this, the session ends where you left rather than waiting.") {
+                preferenceRow("End session after") {
                     ThresholdControl(label: "End session after", selection: $model.longAwayCap,
                                      options: FocusConstants.longAwayCapOptions, allowsNever: true)
                 }
                 rowDivider
                 preferenceRow("Full-screen prompt after",
-                              detail: "How long the away question stays in the menu bar before it fills the screen.") {
+                              detail: "Until then the question waits in the menu bar.") {
                     ThresholdControl(label: "Full-screen prompt after", selection: $model.fullPromptAfter,
                                      options: FocusConstants.fullPromptAfterOptions, allowsNever: true,
                                      neverValue: 0)
@@ -335,6 +192,14 @@ struct SettingsGroups: View {
         }
     }
 
+    /// What the rows above leave unsaid: a pause also ends at the cap, Away
+    /// is never questioned, and watching is not an absence.
+    private var awayExplanation: String {
+        let cap = FocusConstants.isNever(model.longAwayCap)
+            ? "" : "A pause past \(Tokens.duration(model.longAwayCap)) also ends the session. "
+        return cap + "Pressing Away never asks. Video, calls and presentations count as watching."
+    }
+
     private var categories: some View {
         SurfacePanel(title: "Categories", layout: layout) {
             CategoriesView(model: model)
@@ -345,10 +210,7 @@ struct SettingsGroups: View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
             SurfacePanel(title: "Activity rules", layout: layout) {
                 toggleRow("Use my activity rules",
-                          // What a rule does is the panel's opening line below.
-                          detail: "Rules start a session only when none is running; they never switch one. "
-                            + "When off, your rules are kept but start nothing. "
-                            + "Editing a rule never starts a session by itself.",
+                          detail: "Rules start a session only when none is running.",
                           isOn: $model.activityRuleAutomationEnabled)
             }
             ActivityRulesView(model: model)
@@ -363,36 +225,23 @@ struct SettingsGroups: View {
                 // reads off. Only its reading changes: the stored choice is
                 // kept for when rules are turned off again.
                 toggleRow("Guess sessions from the app in front",
-                          detail: "A work app starts a session and a break app pauses it. The category "
-                            + "is the one you chose the last few times you started from that app."
-                            + (rulesOn ? "" : " Activity rules replace this while they are on."),
+                          detail: rulesOn ? "Off while activity rules are on."
+                                          : "Work apps start a session; break apps pause it.",
                           isOn: Binding(get: { model.autoSessionsEnabled && !rulesOn },
                                         set: { model.autoSessionsEnabled = $0 }))
                     .disabled(rulesOn)
-                if rulesOn {
-                    explanation("Off while activity rules are on.")
-                }
                 rowDivider
-                preferenceRow("End a paused automatic session after",
-                              detail: "Come back sooner and it picks up where it left off.") {
+                preferenceRow("End a paused automatic session after") {
                     ThresholdControl(label: "End a paused automatic session after",
                                      selection: $model.autoSessionPauseLimit,
                                      options: FocusConstants.autoSessionPauseLimitOptions, allowsNever: true)
                 }
                 rowDivider
-                toggleRow("Celebrate milestones",
-                          detail: "A short notice in the corner when you reach the daily goal, keep a "
-                            + "streak going or beat your usual pace.",
-                          isOn: $model.rewardsEnabled)
+                toggleRow("Celebrate milestones", detail: "Goal, streak and pace.", isOn: $model.rewardsEnabled)
                 rowDivider
-                toggleRow("Haptic feedback",
-                          detail: "A short pulse on the trackpad or an MX Master 4 mouse with Daybook's "
-                            + "notices and a few of your own actions. The trackpad pulses only while a "
-                            + "finger rests on it.",
-                          isOn: $model.hapticsEnabled)
+                toggleRow("Haptic feedback", detail: "Trackpad or MX Master 4.", isOn: $model.hapticsEnabled)
                 rowDivider
-                preferenceRow("Try haptic feedback",
-                              detail: hapticTryResult?.tryMessage ?? "Plays the goal pulse.") {
+                preferenceRow("Try haptic feedback", detail: hapticTryResult?.tryMessage) {
                     Button("Try") {
                         Task { @MainActor in hapticTryResult = await model.tryHaptics() }
                     }
@@ -404,32 +253,23 @@ struct SettingsGroups: View {
 
     private var tracking: some View {
         SurfacePanel(title: "Tracking and apps", layout: layout) {
-            preferenceRow("Apps shown in a card",
-                          detail: "How many apps the side panel and the History previews list before "
-                            + "\u{201c}See all\u{201d}.") {
+            preferenceRow("Apps shown in a card") {
                 RowMenu("Apps shown in a card", selection: $model.railAppCount,
                         options: FocusConstants.railAppOptions) { "\($0)" }
             }
             rowDivider
-            preferenceRow("Recent app visits",
-                          detail: "Limits the newest recorded app visits shown after you open "
-                            + "an app in Story.") {
+            preferenceRow("Recent app visits") {
                 RowMenu("Recent app visits", selection: $model.menuSessionCount,
                         options: [3, 5, 7, 10]) { "\($0)" }
             }
             rowDivider
-            toggleRow("Record app usage",
-                      detail: "Which app was in front and for how long. Off, the story shows your "
-                        + "sessions alone.",
-                      isOn: $model.isTrackingEnabled)
-            explanation(SettingsPrivacyDisclosure.current.storageDetail)
+            toggleRow("Record app usage", detail: "Off, Story shows sessions only.", isOn: $model.isTrackingEnabled)
         }
     }
 
     private var appearance: some View {
         SurfacePanel(title: "Interface", layout: layout) {
-            preferenceRow("Appearance",
-                          detail: "System follows macOS, including its schedule.") {
+            preferenceRow("Appearance") {
                 RowMenu("Appearance", selection: $model.appearancePreference,
                         options: [.system, .light, .dark]) { preference in
                     switch preference {
@@ -440,314 +280,23 @@ struct SettingsGroups: View {
                 }
             }
             rowDivider
-            preferenceRow("Interface density",
-                          detail: "Compact fits more rows into the same space.") {
+            preferenceRow("Interface density") {
                 RowMenu("Interface density", selection: $model.interfaceDensity,
                         options: [.comfortable, .compact]) { $0 == .compact ? "Compact" : "Comfortable" }
             }
             rowDivider
-            preferenceRow("Zoom",
-                          detail: "Makes text, spacing and controls larger or smaller in every Daybook window.") {
-                ZoomControl(model: model)
-            }
+            preferenceRow("Zoom") { ZoomControl(model: model) }
             rowDivider
-            toggleRow("Show Story timestamps",
-                      detail: "Times down the left edge of the day's timeline.",
-                      isOn: $model.showsTimelineLabels)
+            toggleRow("Show Story timestamps", isOn: $model.showsTimelineLabels)
             rowDivider
-            toggleRow("Expand entry details by default",
-                      detail: "Open each session's apps and notes without a click.",
-                      isOn: $model.expandsEntryDetails)
-            explanation("Reduce Motion always follows macOS and is never overridden here.")
+            toggleRow("Expand entry details by default", isOn: $model.expandsEntryDetails)
             rowDivider
             preferenceRow("Fold quiet stretches after",
-                          detail: "Runs of gaps and loose app use fold into one line once they reach this many rows.") {
+                          detail: "Gaps and loose app use fold into one line.") {
                 RowMenu("Fold quiet stretches after", selection: $model.quietFold,
                         options: FocusConstants.quietFoldOptions) { $0 == 0 ? "Never" : "\($0) rows" }
             }
         }
-    }
-
-    private var data: some View {
-        VStack(alignment: .leading, spacing: layout.panelSpacing) {
-            SurfacePanel(title: "Privacy", layout: layout) {
-                readOnlyRow("Storage",
-                            value: model.backupSchedule != .off && model.backupDestination == .iCloudDrive
-                                && model.iCloudDriveIsOn ? "On this Mac, backed up to iCloud" : "Local only",
-                            detail: SettingsPrivacyDisclosure.current.storageDetail)
-                rowDivider
-                readOnlyRow("App use measured precisely since",
-                            value: model.diagnostics.usageAccuracyEpoch.map(
-                                SettingsDiagnostics.accuracyEpochLabel)
-                                ?? "Not established",
-                            detail: "Earlier app use may include time you were not at the Mac.")
-                // Without a usable on-device model there is nothing to switch.
-                if ModelGate.modelAvailable {
-                    rowDivider
-                    toggleRow("Use on-device AI",
-                              detail: "Writes notes and suggestions with on-device AI. "
-                                + "Nothing is sent off this Mac to write them.",
-                              isOn: $model.useAppleIntelligence)
-                }
-                // Only an upgrade from the oldest format leaves this copy;
-                // without one the row said nothing worth reading.
-                if let backup = model.diagnostics.legacyBackupURL {
-                    rowDivider
-                    readOnlyRow("Backup of older app use", value: backup.path,
-                                detail: "Made when older data was upgraded.",
-                                valueLayout: .statusBlock)
-                }
-            }
-
-            backups
-
-            SurfacePanel(title: "Data folder", layout: layout) {
-                readOnlyRow("Location", value: model.dataDirectoryURL.path,
-                            valueLayout: .statusBlock)
-                Button("Reveal data folder") { model.revealDataFolder() }
-                    .buttonStyle(.bordered)
-                    .controlSize(Tokens.Zoom.controlSize(.large))
-                    .accessibilityHint("Opens the local Daybook data folder in Finder")
-            }
-        }
-        .onAppear { model.refreshBackupState() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            model.refreshBackupState()
-        }
-    }
-
-    /// The schedule, where backups go, how long automatic ones stay, and
-    /// what the last one did, including whether it has reached iCloud.
-    private var backups: some View {
-        SurfacePanel(title: "Backups", layout: layout) {
-            preferenceRow("Back up automatically",
-                          detail: "Copies the data folder and your preferences to a new dated folder. "
-                            + "A Mac asleep at the time backs up soon after it wakes.") {
-                RowMenu("Back up automatically", selection: $model.backupSchedule,
-                        options: BackupSchedule.allCases) { $0.title }
-            }
-            rowDivider
-            preferenceRow("Back up to", detail: backupDestinationDetail) {
-                HStack(spacing: Tokens.Space.s) {
-                    if model.backupDestination != .iCloudDrive {
-                        Button("Use iCloud Drive") { model.backupDestination = .iCloudDrive }
-                    }
-                    Button("Choose Folder…") { model.chooseBackupFolder() }
-                        .accessibilityHint("Picks another disk or folder for backups")
-                }
-            }
-            rowDivider
-            preferenceRow("Keep automatic backups",
-                          detail: "Older ones go to the Trash at the next backup; the newest always stays. "
-                            + "Backups made with Back Up Now are always kept.") {
-                RowMenu("Keep automatic backups", selection: $model.backupRetention,
-                        options: BackupRetention.allCases) { $0.title }
-            }
-            rowDivider
-            readOnlyRow("Last backup", value: lastBackupValue, detail: lastBackupDetail)
-            rowDivider
-            readOnlyRow("Next backup", value: nextBackupValue)
-            HStack(spacing: Tokens.Space.s) {
-                Button("Back Up Now") { model.backUp() }
-                    .buttonStyle(.bordered)
-                    .controlSize(Tokens.Zoom.controlSize(.large))
-                    .accessibilityHint("Copies your Daybook data and preferences to \(model.backupDestination.name)")
-                Button("Show Backups") { model.revealBackups() }
-                    .buttonStyle(.bordered)
-                    .controlSize(Tokens.Zoom.controlSize(.large))
-                    .accessibilityHint("Opens the backups folder in Finder")
-            }
-            if let status = model.backupStatus {
-                explanation(status)
-            }
-        }
-        // Whether Back Up Now worked appears under its button; say it too.
-        .announcesChanges(to: model.backupStatus)
-    }
-
-    private var backupDestinationDetail: String {
-        switch model.backupDestination {
-        case .iCloudDrive:
-            return model.iCloudDriveIsOn
-                ? "iCloud Drive › \(DataBackup.folderName), which iCloud keeps in step across your devices."
-                : "iCloud Drive is off on this Mac, so nothing is backed up. Turn it on in System Settings › "
-                    + "your name › iCloud › iCloud Drive, or choose a folder."
-        case .folder(let url):
-            return "\(url.path) › \(DataBackup.folderName). If it is on another disk, backups wait until it "
-                + "is connected."
-        }
-    }
-
-    private var lastBackupValue: String {
-        model.backupLog.lastSuccess?.formatted(date: .abbreviated, time: .shortened) ?? "None yet"
-    }
-
-    private var lastBackupDetail: String? {
-        let log = model.backupLog
-        var parts: [String] = []
-        switch model.backupUploadState {
-        case .uploaded?: parts.append("Uploaded to iCloud.")
-        case .uploading?: parts.append("Uploading to iCloud.")
-        case .waiting?: parts.append("Waiting to upload to iCloud.")
-        case .failed(let reason)?: parts.append("Not uploaded to iCloud: \(reason)")
-        case .missing?: parts.append("That backup is no longer where it was made.")
-        case .notInICloud?, nil: break
-        }
-        if let failure = log.failure, let failedAt = log.failedAt, failedAt > (log.lastSuccess ?? .distantPast) {
-            parts.append("The latest attempt, \(failedAt.formatted(date: .omitted, time: .shortened)), failed: \(failure)")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private var nextBackupValue: String {
-        switch model.nextBackup() {
-        case .off: return "Off"
-        case .due: return "Within half an hour"
-        case .at(let next): return next.formatted(date: .abbreviated, time: .shortened)
-        }
-    }
-
-    /// Sparkle reads the release feed on GitHub; only the version is sent.
-    private var updates: some View {
-        SurfacePanel(title: "Updates", layout: layout) {
-            if model.updater == nil {
-                explanation("Updates are checked by the installed app. This copy is a preview or a test.")
-            } else {
-                toggleRow("Check for updates automatically",
-                          detail: "Looks for a new version on GitHub. Only the version number is sent.",
-                          isOn: $model.checksForUpdatesAutomatically)
-                rowDivider
-                preferenceRow("How often") {
-                    RowMenu("How often to check for updates", selection: $model.updateFrequency,
-                            options: UpdateFrequency.allCases) { $0.title }
-                        .disabled(!model.checksForUpdatesAutomatically)
-                }
-                rowDivider
-                preferenceRow("When an update is found", detail: model.updateInstallMode.detail) {
-                    RowMenu("When an update is found", selection: $model.updateInstallMode,
-                            options: UpdateInstallMode.allCases) { $0.title }
-                }
-                rowDivider
-                preferenceRow("Check for Updates", detail: lastUpdateCheck) {
-                    Button("Check Now") { model.updater?.checkForUpdates() }
-                        .disabled(model.updater?.canCheckForUpdates != true)
-                }
-            }
-        }
-    }
-
-    private var lastUpdateCheck: String {
-        guard let date = model.updater?.lastCheck else { return "Not checked yet." }
-        let day = Tokens.dayLabel(date)
-        let when = ["Today", "Yesterday"].contains(day) ? day.lowercased() : "on \(day)"
-        return "Last checked \(when) at \(Tokens.timeOfDayOnly(date))."
-    }
-
-    private var advanced: some View {
-        SurfacePanel(title: "Diagnostics", layout: layout) {
-            readOnlyRow("Version", value: model.diagnostics.version)
-            rowDivider
-            readOnlyRow("Build", value: model.diagnostics.build)
-            rowDivider
-            readOnlyRow("Recovery", value: model.diagnostics.recoverySummary,
-                        detail: "A file the app cannot read is set aside or left untouched, never written over.",
-                        valueLayout: .statusBlock)
-        }
-    }
-
-    func preferenceRow<Accessory: View>(
-        _ title: String,
-        detail: String? = nil,
-        @ViewBuilder accessory: () -> Accessory
-    ) -> some View {
-        HStack(alignment: .center, spacing: Tokens.Space.m) {
-            VStack(alignment: .leading, spacing: 3.zoomed) {
-                Text(title).font(Tokens.Typography.rowTitle)
-                if let detail {
-                    Text(detail)
-                        .font(Tokens.Typography.body)
-                        .foregroundStyle(StoryStyle.supportingInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer(minLength: Tokens.Space.m)
-            // Every control at its own width against the trailing edge, the
-            // way System Settings lines them up. A pop-up draws at its widest
-            // item whatever frame it is given, so a wider frame centred it and
-            // each row's control stood at a different place.
-            accessory()
-                .fixedSize()
-        }
-        .frame(minHeight: layout.rowHeight)
-    }
-
-    @ViewBuilder
-    private func readOnlyRow(_ title: String, value: String, detail: String? = nil,
-                             valueLayout: SettingsReadOnlyRowLayout = .trailingValue) -> some View {
-        switch valueLayout {
-        case .trailingValue:
-            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
-                    Text(title)
-                        .font(Tokens.Typography.rowTitle)
-                        .foregroundStyle(StoryStyle.supportingInk)
-                    Spacer(minLength: Tokens.Space.m)
-                    Text(value)
-                        .font(Tokens.Typography.body)
-                        .multilineTextAlignment(.trailing)
-                        .textSelection(.enabled)
-                }
-                if let detail {
-                    Text(detail)
-                        .font(Tokens.Typography.body)
-                        .foregroundStyle(StoryStyle.supportingInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(minHeight: layout.rowHeight)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel([title, value, detail].compactMap { $0 }.joined(separator: ", "))
-
-        case .statusBlock:
-            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                Text(title)
-                    .font(Tokens.Typography.rowTitle)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                Text(value)
-                    .font(Tokens.Typography.rowTitle)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-                if let detail {
-                    Text(detail)
-                        .font(Tokens.Typography.body)
-                        .foregroundStyle(StoryStyle.supportingInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(minHeight: layout.rowHeight)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel([title, value, detail].compactMap { $0 }.joined(separator: ", "))
-        }
-    }
-
-    /// A switch whose label says what it does, not only what it is called.
-    /// The description sits under the switch and is not part of its target:
-    /// reading it must not flip it, and the whole row used to.
-    func toggleRow(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
-        VStack(alignment: .leading, spacing: 3.zoomed) {
-            Toggle(isOn: isOn) {
-                Text(title).font(Tokens.Typography.rowTitle)
-            }
-            .accessibilityHint(detail)
-            Text(detail)
-                .font(Tokens.Typography.body)
-                .foregroundStyle(StoryStyle.supportingInk)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.leading, 22.zoomed)
-                .accessibilityHidden(true)
-        }
-        .frame(minHeight: layout.rowHeight, alignment: .leading)
     }
 
     /// On while the app still asks this question; off is "Don't ask again".
@@ -758,65 +307,5 @@ struct SettingsGroups: View {
                     if on { skipped.remove(confirmation) } else { skipped.insert(confirmation) }
                     model.skippedConfirmations = skipped
                 })
-    }
-
-    /// A system state this app cannot change for you, with the button that
-    /// opens the place where you can.
-    private func systemSettingsRow(_ text: String, button: String,
-                                   action: @escaping () -> Void) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
-            explanation(text)
-            Spacer(minLength: Tokens.Space.s)
-            Button(button, action: action)
-                .fixedSize()
-        }
-    }
-
-    var rowDivider: some View { Divider() }
-
-    /// The app's menus come and go with the Dock icon, so the detail names both.
-    private var dockIconDetail: String {
-        guard model.showsMenuBarIcon else {
-            return "Always, while the menu bar icon is hidden: the Dock is then the only way in."
-        }
-        switch model.dockIconMode {
-        case .whileWindowOpen: return "The Dock icon and the app's menus show while the window is open."
-        case .always: return "The Dock icon and the app's menus show all the time."
-        case .never: return "Daybook stays in the menu bar, with no Dock icon or app menus."
-        }
-    }
-
-    func explanation(_ text: String) -> some View {
-        Text(text)
-            .font(Tokens.Typography.body)
-            .foregroundStyle(StoryStyle.supportingInk)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var awayExplanation: String {
-        let asks = !FocusConstants.isNever(model.breakThreshold)
-        let ends = !FocusConstants.isNever(model.longAwayCap)
-        var text = "Under 5 seconds is ignored. "
-        if asks {
-            text += "Up to \(Tokens.duration(model.breakThreshold)) is left out of the session "
-                + "without interrupting you. "
-            text += ends
-                ? "Up to \(Tokens.duration(model.longAwayCap)) you are asked what it was; past that the "
-                    + "session ends where you left. "
-                : "Longer than that you are asked what it was, however long you were gone. "
-        } else {
-            text += "Absences are never asked about; they are left out of the session. "
-            text += ends
-                ? "Past \(Tokens.duration(model.longAwayCap)) the session ends where you left. "
-                : "The session waits for you however long you were gone. "
-        }
-        if ends {
-            text += "A pause longer than \(Tokens.duration(model.longAwayCap)) ends the session too. "
-        }
-        text += (asks && model.fullPromptAfter > 0
-                 ? "From \(Tokens.duration(model.fullPromptAfter)) the question fills the screen."
-                 : asks ? "Every absence is asked about from the menu bar." : "")
-        return text + " Pressing Away is never asked about. Quiet in front of video, a call or a "
-            + "presentation keeping the screen awake is Watching, not an absence."
     }
 }

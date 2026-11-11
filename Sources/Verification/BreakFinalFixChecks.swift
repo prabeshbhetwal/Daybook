@@ -30,7 +30,7 @@ enum BreakFinalFixChecks: CheckSuite {
 
     private static func guardComesAfterIsTrue() -> [String] {
         withModel { model, problems in
-            let base = "One clearer prompt after an unbroken stretch, whatever the rhythm."
+            let base = "One firmer prompt after a long unbroken stretch."
             func set(_ preset: BreakPreset, custom: CustomRhythm = CustomRhythm(), guardMinutes: Int) {
                 model.breakRhythm = preset
                 model.customRhythm = custom

@@ -86,15 +86,13 @@ extension HistorySearchChips {
     /// not read rather than words a session should hold.
     static func emptyDetail(_ search: ParsedSearch) -> String {
         if search.noOverlap {
-            return "The dates in the chips do not overlap, so no session fits them all. Remove one of them."
+            return "These dates do not overlap. Remove one."
         }
         guard !search.phrases.isEmpty, !search.leftover.isEmpty else {
-            return "Try fewer words, or a session name, an old name, a word from a note, "
-                + "a named break, an app, a category, a date or a time of day."
+            return "Try fewer words, or search a name, note, app, category or date."
         }
         let one = search.leftover.split(whereSeparator: \.isWhitespace).count == 1
-        return "“\(search.leftover)” was searched as \(one ? "a word" : "words"), and no session that fits the chips has "
-            + (one ? "it. Remove it, or say it another way." : "them. Remove them, or say them another way.")
+        return "No session matching the chips has “\(search.leftover)”. Remove \(one ? "it" : "them") or reword."
     }
 }
 

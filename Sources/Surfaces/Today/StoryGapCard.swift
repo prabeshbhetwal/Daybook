@@ -38,7 +38,7 @@ struct StoryGapCard: View {
                 GapTrack(span: span, anatomy: anatomy)
                 Rectangle().fill(StoryStyle.line).frame(height: 1)
                 GapStretchList(anatomy: anatomy, stretches: anatomy.stretches)
-                Text("Not assumed to be work or rest.")
+                Text("Counted as neither work nor rest.")
                     .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             }
         }

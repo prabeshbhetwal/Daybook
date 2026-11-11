@@ -445,8 +445,8 @@ struct DayStory: View {
     @ViewBuilder private var empty: some View {
         if store.isToday {
             Text(store.isTrackingEnabled
-                 ? "Start a focus session, or let app recording build the day's story."
-                 : "Start a focus session to begin the day's story.")
+                 ? "Start a focus session. App use is recorded either way."
+                 : "No sessions yet today.")
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
                 .padding(.vertical, Tokens.Space.m)
@@ -749,7 +749,7 @@ struct SessionEntryCard: View {
             }
             factualCaption
         }
-        .help(shape ?? "Only recorded app use is shown; no keyboard activity is inferred.")
+        .help(shape ?? "Shows recorded app use, not typing.")
     }
 
     @ViewBuilder private var factualCaption: some View {
@@ -814,7 +814,7 @@ struct SessionEntryCard: View {
                             .buttonStyle(StoryActionStyle(tint: Tokens.Colour.danger))
                             .disabled(onRemove == nil)
                             .help(removeBlockReason
-                                  ?? "Takes this session out of the record. Its time reads as outside sessions; Undo puts it back.")
+                                  ?? "Removes this session. Its time counts as outside sessions.")
                             .accessibilityHint(removeBlockReason ?? "Removes this session; Undo is offered in the story.")
                             .confirmationDialog("Remove this session?", isPresented: $confirmingRemoval.value) {
                                 Button("Remove session", role: .destructive) {

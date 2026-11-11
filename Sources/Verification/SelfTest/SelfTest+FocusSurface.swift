@@ -109,10 +109,10 @@ extension SelfTest {
     static func testFocusSurfaceStateAndContinuationLimit() -> [String] {
         var problems: [String] = []
         let cases: [(SessionState, FocusSurfaceMode, String, FocusPrimaryAction?)] = [
-            (.idle, .idle, "Ready to focus", .start),
+            (.idle, .idle, "No session running", .start),
             (.running, .running, "Focus in progress", .pause),
-            (.paused(reason: .manual), .paused, "Ready to continue?", .resume),
-            (.paused(reason: .watching), .watching, "Watching quietly", .resume),
+            (.paused(reason: .manual), .paused, "Paused", .resume),
+            (.paused(reason: .watching), .watching, "Watching", .resume),
             (.awaitingUserDecision(away: 20 * 60, lastApp: "Xcode"),
              .awaitingDecision, "What happened while you were away?", nil)
         ]

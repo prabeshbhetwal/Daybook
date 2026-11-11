@@ -7,7 +7,9 @@ enum StoryStyle {
     static let rail = Color(lightHex: 0xF6F5F3, darkHex: 0x232325)
     static let card = Color(lightHex: 0xFFFFFF, darkHex: 0x2C2C2E)
     static let well = Color(lightHex: 0xF0EFED, darkHex: 0x343437)
-    static let focus = Color(lightHex: 0x4E4CCC, darkHex: 0xB6B3FF)
+    /// Focus figures and states share the one action ink: an indigo beside
+    /// the blue read as a second accent.
+    static let focus = action
     /// Links and text actions. The light value is a shade under Apple's
     /// #0071E3, which fell to 4.1:1 on the well and the rail.
     static let action = Color(lightHex: 0x0068D1, darkHex: 0x75B5FF)
@@ -23,12 +25,6 @@ enum StoryStyle {
     /// as text it was 2:1 in light mode. This is Apple's high-contrast orange.
     static let attentionInk = Color(lightHex: 0xC93400, darkHex: 0xFF9F0A)
     static let successWash = Color(lightHex: 0xEFF8EF, darkHex: 0x25352B)
-    /// Ask's sparkles: blue to violet to pink, the colours assistants wear.
-    /// Each stop keeps 3:1 against the elevated fill in both appearances.
-    static let askSparkles = LinearGradient(
-        colors: [Color(lightHex: 0x2F6BFF, darkHex: 0x6EA0FF), Color(lightHex: 0x8E4CF0, darkHex: 0xB98CFF),
-                 Color(lightHex: 0xD93A73, darkHex: 0xFF7EAA)],
-        startPoint: .topLeading, endPoint: .bottomTrailing)
     /// The Mac's states inside a hole in the day. Each step further from the
     /// desk is more ink: darker in light appearance, lighter in dark.
     static let macLocked = Color(lightHex: 0x9C9CA5, darkHex: 0x636369)

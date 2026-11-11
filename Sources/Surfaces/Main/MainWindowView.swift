@@ -12,6 +12,7 @@ struct MainWindowView: View {
     /// that builds this window can leave it at its default.
     @ObservedObject var firstRun = FirstRunCoach()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openWindow) private var openWindow
     var reviewScrolls = true
     var insightsScrolls = true
     var settingsScrolls = true
@@ -141,7 +142,11 @@ struct MainWindowView: View {
         .onChange(of: panelHasRoom, initial: true) { _, room in
             if presentsNativeSheets { navigation.updateAskPanelRoom(room) }
         }
-        .sheet(item: Binding(get: { presentsNativeSheets ? navigation.sheet : nil },
+        // Settings has a window of its own; only Awards and Ask attach here.
+        .onChange(of: navigation.sheet, initial: true) { _, sheet in
+            if presentsNativeSheets && sheet == .settings { SettingsWindow.open(openWindow) }
+        }
+        .sheet(item: Binding(get: { presentsNativeSheets ? Self.nativeSheet(navigation.sheet) : nil },
                              set: { if $0 == nil { navigation.closeSheet() } })) { presented in
             sheetContent(presented, within: windowSize.value == .zero ? nil : windowSize.value)
                 .environment(\.focusInterfaceDensity, settings.interfaceDensity)
@@ -158,6 +163,12 @@ struct MainWindowView: View {
     }
 
     private var underlineShown: Bool { SessionUnderline.hasContent(store) }
+
+    /// What the window attaches as a sheet: Awards and Ask. Settings has a
+    /// window of its own (`SettingsWindow`), so it is never one.
+    static func nativeSheet(_ sheet: StorySheetKind?) -> StorySheetKind? {
+        sheet == .settings ? nil : sheet
+    }
 
     private func openActivityEditor(_ request: ActivityEditorRequest) {
         ActivityEditorPanel.shared.show(request, store: store)

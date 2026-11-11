@@ -70,11 +70,7 @@ struct AwardCard: View {
     @ViewBuilder private var badge: some View {
         ZStack {
             Circle()
-                .fill(award.isEarned
-                      ? AnyShapeStyle(LinearGradient(
-                            colors: [tint, tint.opacity(0.72)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing))
-                      : AnyShapeStyle(Tokens.Colour.elevated))
+                .fill(award.isEarned ? AnyShapeStyle(tint) : AnyShapeStyle(Tokens.Colour.elevated))
             Image(systemName: award.isEarned ? award.symbolName : "circle.dotted")
                 .font(Tokens.Typography.heading)
                 .foregroundStyle(award.isEarned ? AnyShapeStyle(.white)
@@ -127,7 +123,7 @@ struct AwardsView: View {
         VStack(alignment: .leading, spacing: 2.zoomed) {
             Text("Awards")
                 .font(Tokens.Typography.title)
-            Text("Earned quietly, never announced. Nothing here interrupts a session.")
+            Text("Awards never interrupt a session.")
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
         }

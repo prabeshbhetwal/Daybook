@@ -39,7 +39,7 @@ struct MainWindowCommands: Commands {
         CommandGroup(replacing: .appSettings) {
             Button("Settings…") {
                 navigation.openSettings()
-                revealMainWindow()
+                SettingsWindow.open(openWindow)
             }
             .keyboardShortcut(",", modifiers: [.command])
         }

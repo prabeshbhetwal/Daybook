@@ -19,7 +19,7 @@ struct HistoryFindBar: View {
 
     static let searchableHint = "Searches session names, old names, notes, named breaks, apps, "
         + "categories, dates and times of day. Command F puts the cursor here."
-    private static let generalPrompt = "Find anything: a name, note, break, app, category, date or time"
+    private static let generalPrompt = "Search names, notes, apps, dates"
     static let exampleSeconds: TimeInterval = 3.5
 
     var body: some View {

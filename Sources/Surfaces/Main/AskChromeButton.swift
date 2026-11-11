@@ -34,7 +34,8 @@ struct AskChromeButton: View {
         HStack(spacing: Tokens.Space.xs) {
             Image(systemName: "sparkles")
                 .font(Tokens.Typography.control)
-                .foregroundStyle(StoryStyle.askSparkles)
+                // One ink like every other toolbar symbol; the active state carries the accent.
+                .foregroundStyle(isActive ? AnyShapeStyle(Tokens.Colour.focus) : AnyShapeStyle(StoryStyle.supportingInk))
             if withWord {
                 Text("Ask")
                     .font(Tokens.Typography.label)

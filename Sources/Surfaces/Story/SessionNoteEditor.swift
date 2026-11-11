@@ -97,7 +97,7 @@ struct SessionNoteEditor: View {
         .tint(dictation.isListening ? Tokens.Colour.danger : nil)
         .disabled(!dictation.isSupported || dictation.status == .requesting)
         .help(dictation.isSupported
-              ? "Speak this note. Words appear as they are recognised; press again to stop."
+              ? "Dictate this note. Press again to stop."
               : "Speech recognition is not available for your language on this Mac.")
         .accessibilityLabel(dictation.isListening ? "Stop dictating" : "Dictate note")
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),

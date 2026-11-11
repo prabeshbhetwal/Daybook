@@ -73,7 +73,7 @@ struct StoryBreakRow: View, Equatable {
     static func label(_ name: String) -> String {
         name.isEmpty || name == "Break"
             ? "Recorded break, not counted as focus"
-            : "\(name) — recorded break, not counted as focus"
+            : "\(name) · recorded break, not counted as focus"
     }
 
     /// The name the user gave, or nil while it is the default.

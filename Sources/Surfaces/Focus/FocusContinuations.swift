@@ -68,7 +68,7 @@ struct FocusContinuations: View {
             if rows.isEmpty {
                 Text(isSwitching
                      ? "Names you start will be here to switch to next time."
-                     : "Start a focus session and useful continuations will stay here on this Mac.")
+                     : "Sessions you start appear here.")
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)

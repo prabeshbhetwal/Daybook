@@ -24,7 +24,6 @@ struct StoryChromeBar: View {
     @FocusState private var focusedControl: StoryChromeFocus?
     /// The activity field in the bar, so ⌘7 and the tour can hand it the cursor.
     @FocusState private var intentFocused: Bool
-    @StateObject private var gearHovered = BoolBox()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// A scope pill is the target floor plus the container's 3pt inset each side.
     static var controlRowHeight: CGFloat { AccessibilityMetrics.minimumTargetSize + 6.zoomed }
@@ -50,20 +49,15 @@ struct StoryChromeBar: View {
                 }
             }
             Button { navigation.openSheet(.settings) } label: {
+                // A borderless toolbar symbol, like every Mac toolbar's.
                 Image(systemName: "gearshape")
                     .font(Tokens.Typography.control)
-                    .symbolRenderingMode(.hierarchical)
-                    // A gear that turns a little under the pointer is a gear.
-                    .rotationEffect(.degrees(gearHovered.value ? 30 : 0))
-                    .animation(Tokens.Motion.animation(Tokens.Motion.release, reduceMotion: reduceMotion),
-                               value: gearHovered.value)
                     .frame(width: AccessibilityMetrics.minimumTargetSize,
                            height: AccessibilityMetrics.minimumTargetSize)
-                    .background(Tokens.Colour.elevated, in: Circle())
                     .foregroundStyle(StoryStyle.supportingInk)
+                    .hoverHighlight(cornerRadius: Tokens.Radius.well)
             }
             .buttonStyle(PressableStyle())
-            .onHover { gearHovered.value = $0 }
             .focused($focusedControl, equals: .settings)
             .help("Settings")
             .accessibilityLabel("Settings")
@@ -143,12 +137,20 @@ struct StoryChromeBar: View {
         }
     }
 
-    /// The way to History, as a link. Navigation belongs in the chrome; it
-    /// sat below every rail card, so reaching it meant scrolling past the
-    /// content first. History's own bar has the back button instead.
+    /// The way to History, as a toolbar button rather than a web-style link.
+    /// Navigation belongs in the chrome; it sat below every rail card, so
+    /// reaching it meant scrolling past the content first. History's own bar
+    /// has the back button instead.
     private var crossLinks: some View {
-        Button("History") { navigation.open(tab: .review) }
-            .buttonStyle(StoryLinkStyle())
+        Button { navigation.open(tab: .review) } label: {
+            Label("History", systemImage: "clock.arrow.circlepath")
+                .font(Tokens.Typography.label)
+                .padding(.horizontal, Tokens.Space.s)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
+        .help("History (⌘2)")
     }
 
     @StateObject private var historyCalendarShown = BoolBox()

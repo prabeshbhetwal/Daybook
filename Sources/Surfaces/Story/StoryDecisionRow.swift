@@ -122,9 +122,7 @@ struct StorySavedActionRow: View {
         .padding(.horizontal, 15.zoomed)
         .padding(.vertical, Tokens.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(LinearGradient(colors: [StoryStyle.successWash, StoryStyle.successWash.opacity(0.45)],
-                                   startPoint: .leading, endPoint: .trailing),
-                    in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
+        .background(StoryStyle.successWash, in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius).strokeBorder(StoryStyle.successInk.opacity(0.22)))
     }
 }

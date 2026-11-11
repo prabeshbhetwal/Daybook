@@ -69,20 +69,6 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         return pages[index + delta]
     }
 
-    /// What the page is about, under its title in the detail.
-    var summary: String {
-        switch self {
-        case .general: return "Starting at login, where Daybook shows (menu bar and Dock), and Ask Daybook."
-        case .sessions: return "Your goal, your categories, and what starts a session by itself."
-        case .activities: return "Rules that start and name a session from the apps you are in."
-        case .away: return "What happens when you step away, and what counts as you being here."
-        case .breaks: return "When to be reminded to rest, and how your breaks are spaced."
-        case .recording: return "What is recorded about the apps you use."
-        case .privacy: return "Where your data lives."
-        case .about: return "The version you have, and how it stays up to date."
-        }
-    }
-
     var sections: [SettingsSection] {
         switch self {
         case .general: return [.general, .appearance]

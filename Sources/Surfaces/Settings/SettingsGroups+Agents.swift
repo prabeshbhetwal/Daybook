@@ -12,31 +12,22 @@ extension SettingsGroups {
             }
             rowDivider
             toggleRow("Notice apps working for you by themselves",
-                      detail: "Needs no setup. When an app you used in this session keeps sending data, as an "
-                        + "AI agent does with its AI service, or keeps the processor busy, as a render, an "
-                        + "export or a build does, Daybook takes it that the work goes on. It only looks at "
-                        + "how much, never at what. Syncing and backup apps you did not use do not count.",
+                      detail: "Reads network and processor load of apps used this session, never content.",
                       isOn: $model.noticesAppsAtWork)
                 .disabled(model.agentQuietPolicy == .ignore)
             rowDivider
             toggleRow("Count a coding app in front as you being here",
-                      detail: "While an editor, a terminal or an AI app is the app in front, Daybook takes it "
-                        + "that you are watching. It cannot see whether you walked away, so leave this off "
-                        + "if you often go with that window still open.",
+                      detail: "Leave off if you often walk away with it open.",
                       isOn: $model.countsAgentAppInFront)
                 .disabled(model.agentQuietPolicy == .ignore)
             rowDivider
             toggleRow("Count a keep-awake app as you being here",
-                      detail: "For apps such as Amphetamine, Caffeine or KeepingYouAwake. While one keeps your "
-                        + "screen on, Daybook takes it that you are here, even when you are not: a lunch "
-                        + "with it on counts too. Leave this off unless that is what you want.",
+                      detail: "Amphetamine, Caffeine and similar. A lunch with one on counts too.",
                       isOn: $model.countsKeepAwake)
                 .disabled(model.agentQuietPolicy == .ignore)
             rowDivider
             preferenceRow("Let your agent tell Daybook when it works",
-                          detail: "The most exact way, for agents that support it: Claude Code, Codex, Gemini "
-                            + "CLI and Cursor. Copy the message and paste it into the agent; it sets itself "
-                            + "up, and Daybook then knows each time it starts and finishes a step.") {
+                          detail: "Claude Code, Codex, Gemini CLI or Cursor. Paste the message into the agent.") {
                 Button(copiedAgentSetup ? "Copied" : "Copy Setup Message") {
                     model.copyAgentSetupMessage()
                     copiedAgentSetup = true
@@ -49,26 +40,20 @@ extension SettingsGroups {
     private var agentPolicyDetail: String {
         switch model.agentQuietPolicy {
         case .countAsWork:
-            return "When an AI agent, a render or a build is busy on your task and you are only "
-                + "watching, your session keeps counting. Once it stops, the usual rules for stepping "
-                + "away apply."
+            return "Your session keeps counting while an agent, render or build runs."
         case .pauseQuietly:
-            return "While you only watch an app work, your session stops counting, but you are not "
-                + "asked whether you took a break. Type or click to carry on."
+            return "The clock stops while you watch, without asking about a break."
         case .ignore:
-            return "Apps at work make no difference. If you do not type or click for a while, it counts "
-                + "as time away and you are asked about it."
+            return "Quiet time counts as away, as usual."
         }
     }
 
     /// The limits, said plainly: the screen has to be on, and a run left
     /// going overnight is not a night's work.
     private var agentExplanation: String {
-        var text = "Daybook notices work going on only while the screen is on and unlocked; locking the "
-            + "Mac or letting the screen sleep is still time away."
+        var text = "Works only while the screen is on and unlocked."
         if !FocusConstants.isNever(model.longAwayCap) {
-            text += " After \(Tokens.duration(model.longAwayCap)) without a key or click, Daybook takes "
-                + "it that you have left, even if an app is still busy."
+            text += " After \(Tokens.duration(model.longAwayCap)) without input, you count as gone."
         }
         return text
     }

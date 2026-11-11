@@ -852,7 +852,7 @@ enum CompactControlsChecks {
         // while the explanation stays available to assistive technology.
         if unavailable.visible != "Today · 31s / 4h"
             || unavailable.visible.contains("unavailable")
-            || !unavailable.accessibility.contains("Pace comparison appears after enough comparable history") {
+            || !unavailable.accessibility.contains("No pace yet. It needs more history") {
             failures.append("An uncomparable pace did not fall silent while keeping its explanation")
         }
         if behind.visible != "Today · 31s / 4h · 3h 59m behind"

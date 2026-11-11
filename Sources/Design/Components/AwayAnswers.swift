@@ -177,7 +177,7 @@ struct AwayAnswerGrid: View {
                 .font(compact ? Tokens.Typography.label : Tokens.Typography.control)
                 .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
-            TextField("Name it — dinner, a call, a walk", text: $reason.text)
+            TextField("Name it: dinner, a call, a walk", text: $reason.text)
                 .textFieldStyle(.plain)
                 .font(Tokens.Typography.answer(compact: compact, field: true))
                 .onSubmit(submitReason)

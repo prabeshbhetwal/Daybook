@@ -61,8 +61,9 @@ struct AppSwatch: View {
     }
 }
 
-/// A round 28pt button for the places a word would be louder than the action
-/// deserves. Always carries a tooltip, because a glyph alone is a guess.
+/// A 28pt symbol button for the places a word would be louder than the action
+/// deserves: borderless like a toolbar symbol, with a tint only when it is the
+/// prominent one. Always carries a tooltip, because a glyph alone is a guess.
 struct IconButton: View {
     let systemImage: String
     let help: String
@@ -83,8 +84,9 @@ struct IconButton: View {
                 .frame(width: AccessibilityMetrics.minimumTargetSize,
                        height: AccessibilityMetrics.minimumTargetSize)
                 .background(prominent ? AnyShapeStyle(Tokens.Colour.focus.opacity(0.15))
-                                      : AnyShapeStyle(Tokens.Colour.elevated),
+                                      : AnyShapeStyle(Color.clear),
                             in: Circle())
+                .hoverHighlight(cornerRadius: Tokens.Radius.well)
                 .foregroundStyle(prominent ? AnyShapeStyle(Tokens.Colour.focus)
                                            : AnyShapeStyle(StoryStyle.supportingInk))
         }

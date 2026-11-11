@@ -141,9 +141,7 @@ struct HistoryTree: View {
         let calendar = Calendar.current
         var values: [Date: HistoryResultChart.Value] = [:]
         for day in store.historyDays where day.focused > 0 {
-            let main = day.focusByWorkType.max { $0.value == $1.value ? $0.key.rawValue > $1.key.rawValue : $0.value < $1.value }?.key
-            values[calendar.startOfDay(for: day.date)] = HistoryResultChart.Value(
-                primary: day.focused, secondary: 0, colour: main.map(Tokens.Palette.workType))
+            values[calendar.startOfDay(for: day.date)] = HistoryResultChart.Value(primary: day.focused, secondary: 0)
         }
         return HistoryResultChart(firstDay: top.firstDay, today: top.today, values: values, isLens: false,
                                   onPick: { navigation.openHistory(day: $0) },
@@ -274,8 +272,7 @@ struct HistoryTree: View {
 
     private var emptyArchive: some View {
         StoryTile(title: "Nothing recorded yet", trailing: nil) {
-            Text("History fills in as you work. Each day you record appears here, newest first, "
-                 + "with its sessions one click away.")
+            Text("Days you record appear here, newest first.")
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
