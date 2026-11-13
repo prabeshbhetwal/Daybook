@@ -2,7 +2,7 @@
 # Publishes a Daybook release that installed copies update to:
 #
 #   scripts/release.sh 1.1.0             raise the version, test, build, sign,
-#                                        tag, push and upload to GitHub Releases
+#                                        tag, merge through a PR and upload to GitHub Releases
 #   scripts/release.sh 1.1.0 --dry-run   everything up to the upload, then puts
 #                                        build.sh back and publishes nothing
 #
@@ -80,8 +80,8 @@ restore_build_script() {
     cp "${STAGE}/build.sh.before" build.sh
   elif [ "${PUBLISHED:-0}" -ne 1 ]; then
     echo "error: the release commit and tag exist, but publishing did not finish." >&2
-    echo "Kept: ${KEEP}. To finish:" >&2
-    echo "  git push origin main v${VERSION}" >&2
+    echo "Kept: ${KEEP}. To finish, once release/v${VERSION} has merged into main:" >&2
+    echo "  git push origin v${VERSION}" >&2
     echo "  gh release create v${VERSION} ${KEEP}/${ZIP_NAME} ${KEEP}/${DMG_NAME} ${KEEP}/appcast.xml --repo ${REPO} --title \"${APP_NAME} ${VERSION}\" --notes-file ${KEEP}/notes.md" >&2
   fi
   rm -rf "${STAGE}"
@@ -187,10 +187,24 @@ git add build.sh
 git commit -q -m "Version ${VERSION}"
 git tag -a "v${VERSION}" -m "${APP_NAME} ${VERSION}"
 COMMITTED=1
-git push origin main "v${VERSION}"
+# main takes changes only through a pull request that passes the required
+# check, so the version commit goes the same way, and nothing is published
+# until it has merged.
+BRANCH="release/v${VERSION}"
+git push -q origin "HEAD:refs/heads/${BRANCH}"
+PR_URL="$(gh pr create --repo "${REPO}" --base main --head "${BRANCH}" \
+  --title "Version ${VERSION}" --body "Raises the version to ${VERSION} (build ${NEW_BUILD}) for its release.")"
+echo "Waiting for the required check on ${PR_URL}…"
+sleep 20 # ponytail: GitHub lists the push's check a few seconds late; poll for it if this ever misses
+gh pr checks "${PR_URL}" --required --watch --fail-fast >/dev/null \
+  || fail "the required check did not pass on ${PR_URL}"
+gh pr merge "${PR_URL}" --merge --delete-branch
+git push origin "v${VERSION}"
 gh release create "v${VERSION}" "${KEEP}/${ZIP_NAME}" "${KEEP}/${DMG_NAME}" "${KEEP}/appcast.xml" \
   --repo "${REPO}" --title "${APP_NAME} ${VERSION}" --notes-file "${KEEP}/notes.md"
 PUBLISHED=1
+git fetch -q origin main && git merge -q --ff-only origin/main \
+  || echo "warning: local main did not fast-forward to origin/main; pull it" >&2
 
 # What installed copies will read, read the way they read it.
 FEED="https://github.com/${REPO}/releases/latest/download/appcast.xml"

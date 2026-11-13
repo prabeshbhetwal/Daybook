@@ -131,7 +131,9 @@ to its new name, so launch one only when the user wants that to happen.
 ## Conventions
 
 - Ship with the `ship` skill: it checks, commits in the style below, merges
-  into `main`, pushes and updates the main checkout.
+  into `main` through a pull request that auto-merges once the required
+  `check` passes, and updates the main checkout. Never push to `main`
+  directly.
 - Commit subject: one plain present-tense sentence stating what is now true
   for the user, e.g. "A relaunch no longer deletes the running session's power
   readings". No type prefixes. The body is wrapped prose: what changed and why.
