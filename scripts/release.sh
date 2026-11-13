@@ -128,11 +128,16 @@ hdiutil create -quiet -volname "${APP_NAME} ${VERSION}" -srcfolder "${STAGE}/dmg
 hdiutil verify -quiet "${DMG}" || fail "the disk image did not verify"
 
 # Release notes: the commit subjects since the last release (the last 20
-# for the first one, rather than the project's whole history).
+# for the first one, rather than the project's whole history). Every user
+# reads them in the update window, so only commits that change the app
+# count: docs, tooling and checks change nothing a user sees.
 LAST_TAG="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
 if [ -n "${LAST_TAG}" ]; then RANGE=("${LAST_TAG}..HEAD"); else RANGE=(-n 20); fi
 SUBJECTS="${STAGE}/subjects.txt"
-git log --no-merges --pretty='%s' "${RANGE[@]}" | grep -v '^Version [0-9]' > "${SUBJECTS}" || true
+git log --no-merges --pretty='%s' "${RANGE[@]}" -- Sources Assets \
+    ':(exclude)Sources/Verification' ':(exclude)Sources/SelfTest.swift' \
+  | grep -v '^Version [0-9]' > "${SUBJECTS}" || true
+[ -s "${SUBJECTS}" ] || echo "Improvements and fixes" > "${SUBJECTS}"
 NOTES="${STAGE}/notes.md"
 {
   echo "## What's new in ${VERSION}"

@@ -85,7 +85,9 @@ with the sandbox disabled. Otherwise leave it alone and say why.
   a local `--install`. If `Sources/` or `Assets/` changed, say the new build
   is on `main` and offer a release: the next patch version (one past the
   latest `v*` tag) with `scripts/release.sh <version>`, run with the sandbox
-  disabled, a `--dry-run` first. A release publishes to a public repository,
+  disabled, a `--dry-run` first. Read the dry run's `notes.md` before the
+  real run: every user sees those lines in the update window, so each must
+  read as a release note for any user. A release publishes to a public repository,
   so run it only on the user's yes. The installed app then finds it on its
   next automatic check, or at once from Check for Updates.
 

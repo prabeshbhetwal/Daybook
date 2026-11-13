@@ -13,15 +13,16 @@ as one module.
 | `./build.sh --check` | Build and run every self-check; never replaces the local app. Run before each commit. |
 | `./build.sh --test` | The same, then replaces `Daybook.app`, relaunching it if it was running from this folder |
 | `./build.sh --run` | Build, verify and relaunch the app |
-| `./build.sh --install` | Like `--test`, but replaces the live app, `/Applications/Daybook.app`. Not how Sir's app is updated; see below. |
+| `./build.sh --install` | Like `--test`, but replaces the live app, `/Applications/Daybook.app`. For testing only; see below. |
 | `FC_KEEP_SYMBOLS=1 ./build.sh` | Keep symbols for profiling with `sample` |
 | `scripts/release.sh 1.2.0 [--dry-run]` | Publish a release installed copies update to (Sparkle; key in the Keychain), with `Daybook.dmg` for new installs |
 
-Sir's app updates only from GitHub Releases: ship to `main`, then release
-the next version with `scripts/release.sh` (on Sir's yes; the repository is
-public). The app checks the feed on its schedule (weekly by default, set in
-Settings › About & Updates) and from Check for Updates. Do not put a local
-build in `/Applications`: Sir's copy should always be a published release.
+The installed app updates only from GitHub Releases: ship to `main`, then
+release the next version with `scripts/release.sh`, only when asked, since
+the repository is public. The app checks the feed on its schedule (weekly by
+default, set in Settings › About & Updates) and from Check for Updates. Do
+not put a local build in `/Applications`: the copy there is always a
+published release.
 
 - `build.sh` fails inside the Claude Bash sandbox at the `sips` icon step (it
   cannot write to the system temp folder). Run it with the sandbox disabled.
@@ -134,6 +135,9 @@ to its new name, so launch one only when the user wants that to happen.
 - Commit subject: one plain present-tense sentence stating what is now true
   for the user, e.g. "A relaunch no longer deletes the running session's power
   readings". No type prefixes. The body is wrapped prose: what changed and why.
+  A subject for a change under `Sources/` or `Assets/` becomes a line in the
+  public release notes every user reads in the update window, so write it for
+  any user of the app: no personal names, no internal terms, no tooling.
 - A length in `Sources/App`, `Sources/Design` or `Sources/Surfaces` is a design
   token or `N.zoomed` (`Sources/Design/Zoomed.swift`), so it follows the
   interface zoom; `build.sh` fails on a bare one. A deliberately fixed length (a
