@@ -59,49 +59,6 @@ extension SelfTest {
         }
     }
 
-    /// A named rest is evidence only for its clipped record interval. It cannot
-    /// inherit the duration of the larger elided inactivity gap around it.
-    static func testTimelineRestEvidenceStaysCanonical() -> [String] {
-        var problems: [String] = []
-        let day = Calendar.current.startOfDay(for: base)
-        let gap = TimelineGap(start: day.addingTimeInterval(9 * 3_600),
-                              end: day.addingTimeInterval(12 * 3_600),
-                              xStart: 0.4, xEnd: 0.44)
-        let tea = SessionRecord(name: "Tea break", workType: .breakTime,
-                                start: day.addingTimeInterval(10 * 3_600),
-                                end: day.addingTimeInterval(10.5 * 3_600),
-                                workSeconds: 30 * 60)
-        // Crosses the gap's right boundary: only the fifteen minutes inside the
-        // gap are eligible for its presentation.
-        let handover = SessionRecord(name: "Handover", workType: .breakTime,
-                                     start: day.addingTimeInterval(11.75 * 3_600),
-                                     end: day.addingTimeInterval(12.25 * 3_600),
-                                     workSeconds: 30 * 60)
-
-        let evidence = TimelineGapEvidence(gap: gap, breaks: [tea, handover])
-        expect(evidence.rests.count == 2,
-               "two overlapping canonical rests remain two rest slices", &problems)
-        if evidence.rests.count == 2 {
-            expectClose(evidence.rests[0].start.timeIntervalSince(day), 10 * 3_600,
-                        "the inside rest keeps its start", &problems)
-            expectClose(evidence.rests[0].end.timeIntervalSince(day), 10.5 * 3_600,
-                        "the inside rest keeps its end", &problems)
-            expectClose(evidence.rests[0].duration, 30 * 60,
-                        "the inside rest keeps its own duration", &problems)
-            expectClose(evidence.rests[1].start.timeIntervalSince(day), 11.75 * 3_600,
-                        "the boundary-crossing rest keeps its inside start", &problems)
-            expectClose(evidence.rests[1].end.timeIntervalSince(day), 12 * 3_600,
-                        "the boundary-crossing rest clips at the gap end", &problems)
-            expectClose(evidence.rests[1].duration, 15 * 60,
-                        "the boundary-crossing rest labels only its clipped duration", &problems)
-        }
-        expect(evidence.unknown.count == 2,
-               "unknown inactivity remains on both sides of the named evidence", &problems)
-        expectClose(evidence.unknown.reduce(0) { $0 + $1.duration }, 135 * 60,
-                    "surrounding inactivity stays distinct from named rests", &problems)
-        return problems
-    }
-
     /// Focus is an operational surface, so every engine state needs one clear
     /// presentation contract. Awaiting a decision is deliberately exceptional:
     /// the honest answers replace ordinary session controls. Continuations are

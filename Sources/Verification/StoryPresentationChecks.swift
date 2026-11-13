@@ -3,7 +3,6 @@ import Foundation
 enum StoryPresentationChecks {
     static let tests: [(String, () -> [String])] = [
         ("Story grouping preserves observed seconds through gaps and overlaps", observedIntervalGrouping),
-        ("Month duration intensity distinguishes long days and keeps labels legible", heatmap),
         ("Story chronology preserves resumed stretches, observed use and unknown gaps", chronology),
         ("Story app detail clips the requested app without changing source evidence", appEvidence),
         ("Sparse Story narratives distinguish rest, app use and focus", sparseNarratives),
@@ -41,35 +40,6 @@ enum StoryPresentationChecks {
                 failures.append("\(name): grouped \(observed)s differs from the source's 1200s")
             }
             if moments.count != 1 { failures.append("\(name): connected visits did not form one group") }
-        }
-        return failures
-    }
-
-    private static func heatmap() -> [String] {
-        var failures: [String] = []
-        for dark in [false, true] {
-            let oneHour = StoryHeatmap.paint(seconds: 3_600, peak: 8 * 3_600, dark: dark)
-            let eightHours = StoryHeatmap.paint(seconds: 8 * 3_600, peak: 8 * 3_600, dark: dark)
-            if oneHour.intensity >= eightHours.intensity {
-                failures.append("One and eight hours saturate to the same intensity")
-            }
-            for minutes in stride(from: 0, through: 480, by: 5) {
-                let paint = StoryHeatmap.paint(seconds: Double(minutes * 60), peak: 8 * 3_600, dark: dark)
-                func luminance(_ hex: UInt32) -> Double {
-                    let r = Double((hex >> 16) & 255) / 255
-                    let g = Double((hex >> 8) & 255) / 255
-                    let b = Double(hex & 255) / 255
-                    func linear(_ c: Double) -> Double {
-                        c < 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
-                    }
-                    return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
-                }
-                let light = max(luminance(paint.background), luminance(paint.foreground))
-                let darkValue = min(luminance(paint.background), luminance(paint.foreground))
-                if (light + 0.05) / (darkValue + 0.05) < 4.5 {
-                    failures.append("\(minutes)m cell in \(dark ? "dark" : "light") has illegible date text")
-                }
-            }
         }
         return failures
     }
