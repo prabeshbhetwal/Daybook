@@ -275,62 +275,16 @@ extension SessionStore {
         return parts.count == 1 ? last : parts.dropLast().joined(separator: ", ") + " and " + last
     }
 
+    /// A live tail or an app-use checkpoint changes a few known days. History
+    /// is the model the app draws from them, so its affected days are
+    /// replaced here, every tick the window is visible. The period models
+    /// (`reviewDays`, `reviewSummary`, the log, the focus rows) are rebuilt
+    /// by the next full refresh: nothing reads them between two.
     private func refreshReviewLiveTail(usage: AppUsageArchive) {
         let calendar = periodCalendar
         let snapshot = effectiveUsageSnapshot ?? AppUsageSnapshot(archive: usage)
-        let anchor = reviewAnchor ?? calendar.startOfDay(for: now())
-        reviewAnchor = anchor
-        let periodStats = PeriodStats(sessions: engine.archive, usage: usage,
-                                      usageSnapshot: snapshot, calendar: calendar, now: now)
-        let bounds = periodStats.bounds(for: reviewPeriod, containing: anchor)
-        let affected = liveHistoryBounds(calendar: calendar)
-        refreshHistory(snapshot: snapshot, calendar: calendar, fully: false, within: affected)
-        let changedDays = reviewDays.map(\.date).filter {
-            $0 >= affected.start && $0 < affected.end
-        }
-        guard !changedDays.isEmpty else {
-            noteReviewReadModelRebuild()
-            return
-        }
-        // Each changed day lies inside the live span, so its rollup reads only
-        // that span's records rather than the whole uncapped history.
-        let liveStats = PeriodStats(sessions: engine.archive, usage: usage,
-                                    usageSnapshot: snapshot.restricted(to: affected),
-                                    calendar: calendar, now: now)
-
-        for date in changedDays {
-            let current = liveStats.rollup(for: .day, containing: date)
-            guard let day = current.days.first else { continue }
-            let priorEntries = reviewEntriesByDay[date] ?? []
-            let newEntries = current.entriesByDay[date] ?? []
-            if let index = reviewDays.firstIndex(where: { $0.date == date }) {
-                reviewDays[index] = day
-            }
-            reviewEntriesByDay[date] = newEntries
-            reviewDayTotals[date] = current.dayTotals[date] ?? 0
-            reviewLogTotalEntries += newEntries.count - priorEntries.count
-            for entry in newEntries { historyAppNames[entry.session.bundleID] = entry.session.appName }
-        }
-
-        let allEntries = reviewEntriesByDay.values.flatMap { $0 }
-        reviewLog = Array(allEntries.sorted { $0.session.start > $1.session.start }.prefix(500))
-        reviewAppGroups = PeriodStats.appGroups(from: allEntries)
-        let tracked = reviewDays.reduce(0) { $0 + $1.tracked }
-        let active = reviewDays.filter { $0.tracked > 0 }
-        reviewSummary = PeriodSummary(
-            tracked: tracked, activeDays: active.count, totalDays: reviewDays.count,
-            averagePerActiveDay: active.isEmpty ? 0 : tracked / Double(active.count),
-            longest: allEntries.map(\.session).max { $0.attended < $1.attended })
-        reviewWorkTypeShares = Self.reviewWorkTypes(from: reviewDays)
-
-        // Period rows retain period bounds. Re-slicing an overnight entry to
-        // today loses its prior-day work, even if the day index stays correct.
-        reviewFocusSessions = reviewFocusEntries(in: DateInterval(start: bounds.start, end: bounds.end))
-        let longestFocus = reviewFocusSessions.max { left, right in
-            left.seconds == right.seconds ? left.start > right.start : left.seconds < right.seconds
-        }
-        reviewLongestFocusSeconds = longestFocus?.seconds ?? 0
-        reviewLongestFocusName = longestFocus?.name
+        refreshHistory(snapshot: snapshot, calendar: calendar, fully: false,
+                       within: liveHistoryBounds(calendar: calendar))
         noteReviewReadModelRebuild()
     }
 
