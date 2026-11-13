@@ -195,7 +195,14 @@ git push -q origin "HEAD:refs/heads/${BRANCH}"
 PR_URL="$(gh pr create --repo "${REPO}" --base main --head "${BRANCH}" \
   --title "Version ${VERSION}" --body "Raises the version to ${VERSION} (build ${NEW_BUILD}) for its release.")"
 echo "Waiting for the required check on ${PR_URL}…"
-sleep 20 # ponytail: GitHub lists the push's check a few seconds late; poll for it if this ever misses
+# The required check is listed only once it starts, after the jobs it
+# waits on, so poll for it rather than guess how long that takes.
+DEADLINE=$((SECONDS + 1800))
+# `gh` exits nonzero while none is listed, so read its words, not its status.
+while [[ "$(gh pr checks "${PR_URL}" --required 2>&1 || true)" == *"no required checks reported"* ]]; do
+  (( SECONDS < DEADLINE )) || fail "the required check never started on ${PR_URL}"
+  sleep 15
+done
 gh pr checks "${PR_URL}" --required --watch --fail-fast >/dev/null \
   || fail "the required check did not pass on ${PR_URL}"
 gh pr merge "${PR_URL}" --merge --delete-branch
