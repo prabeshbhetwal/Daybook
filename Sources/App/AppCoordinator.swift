@@ -302,8 +302,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             // What the user filed this app under lately beats the purpose
             // table's guess.
             let workType = engine.categories.learnedWorkType(for: lastScoredApp) ?? guessedType
-            store.startAutomatically(workType: workType, name: name,
-                                     backdatedTo: backdatedTo, because: because)
+            // Nothing started, nothing to announce or learn from.
+            guard store.startAutomatically(workType: workType, name: name,
+                                           backdatedTo: backdatedTo, because: because) else { return }
             autoStartedFor = lastScoredApp
             // Deliberately not gated on `rewardsEnabled`: this is a notice about
             // something the app did to the user's history, and the HUD carries
@@ -321,11 +322,16 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         case .resume:
             engine.transition(on: .manualResume)
         case .end(let at, let because):
+            // A refused save leaves the session running: neither kept nor
+            // over yet, so the learner and the detector hear nothing.
+            guard store.stopAutomatically(endingAt: at) else {
+                Diagnostics.log("auto-end refused: \(because)")
+                return
+            }
             // Ending naturally is the user having let it stand.
             engine.store.autoStartLearning = PurposeLearner(
                 signals: engine.store.autoStartLearning).recordingKept(autoStartedFor)
             autoStartedFor = nil
-            engine.stop(endingAt: at)
             detector.reset()
             // `stop()` fires `onStateChanged`, which already refreshes; a second
             // pass re-runs the month-long rollup for nothing.
@@ -434,9 +440,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// owner. The shortcut never archives or clears unclassified evidence.
     private func toggleSessionFromHotKey() {
         let result = store.performSessionHotKeyAction()
-        switch result {
-        case .started, .stopped, .stoppedPendingFinalisation: haptics.play(.sessionToggled)
-        case .saveFailed, .showAwayDecision: break
+        if let title = result.failureTitle {
+            // No success haptic: the store holds the error and its Retry.
+            let detail = store.correctionError ?? "Try again."
+            Task { @MainActor [weak self] in
+                self?.hud.show(title: title, detail: detail,
+                               symbolName: "exclamationmark.triangle.fill", undo: nil)
+            }
+        } else if result != .showAwayDecision {
+            haptics.play(.sessionToggled)
         }
         if result == .showAwayDecision {
             Task { @MainActor [weak self] in
@@ -766,6 +778,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         machineEvents.recordExit(nil)
+        // A note being written lives only in memory; the quit saves it, as
+        // Save would, rather than drop it.
+        store.saveNoteDraftsBeforeQuit()
         engine.persist()
         tracker.suspend()
         monitor.stop()

@@ -68,6 +68,11 @@ struct NameSuggestion: Equatable {
     /// the session is not offered again this run: a rename elsewhere that moves
     /// the ranking does not bring it back, a change to its own facts does.
     private var accepted: Set<String> = []
+    /// `NameFacts.cacheKey` of each question that timed out or met an error
+    /// of the Mac's state rather than the session's. Passed over until the
+    /// next `refresh()` from outside, which asks again: cached, a busy
+    /// moment meant no suggestion for the rest of the run.
+    private var unanswered: Set<String> = []
     /// The facts `current` was published for.
     private var currentFacts: NameFacts?
     /// Which question is under way, counted up whenever one starts or ends: a
@@ -92,9 +97,18 @@ struct NameSuggestion: Equatable {
     /// has one. A session with neither app evidence nor a note has no facts
     /// and is passed over unasked.
     func refresh() {
+        unanswered.removeAll()
+        offerNext()
+    }
+
+    /// `refresh()` without asking again what went unanswered, for the
+    /// suggester's own passes: re-asked at once, a failing model was asked
+    /// in a loop.
+    private func offerNext() {
         guard isUsable, let store else { return cancelAll() }
         for session in store.nameSuggestionTargets() {
-            guard let facts = store.nameFacts(for: session), !accepted.contains(facts.sessionKey) else { continue }
+            guard let facts = store.nameFacts(for: session), !accepted.contains(facts.sessionKey),
+                  !unanswered.contains(facts.cacheKey) else { continue }
             guard let answer = cache[facts.cacheKey] else {
                 // Two earlier names too close to tell apart: no offer, no question,
                 // and nothing cached, so a later name that breaks the tie is seen.
@@ -181,29 +195,36 @@ struct NameSuggestion: Equatable {
 
     private func timedOut(_ id: Int, _ key: String) {
         guard id == generation, isAsking else { return }
-        cache.updateValue(nil, forKey: key)
+        unanswered.insert(key)
         end(id)
-        refresh()
+        offerNext()
     }
 
-    /// An error leaves the session with nothing to offer. A reply is dropped,
-    /// and not remembered, when the wait was given up (the timeout or the
-    /// switch), the switch is off, or the session is no longer a target:
-    /// named on its card, kept, or gone.
+    /// An error the model would repeat (`NoteWriter.repeats`) leaves the
+    /// session with nothing to offer; any other is asked again on the next
+    /// refresh. A reply is dropped, and not remembered, when the wait was
+    /// given up (the timeout or the switch), the switch is off, or the
+    /// session is no longer a target: named on its card, kept, or gone.
     private func finish(_ id: Int, _ session: DaySession, _ facts: NameFacts) async {
-        let choice = try? await asked(facts)
+        let reply: Result<NameChoice, Error>
+        do { reply = .success(try await asked(facts)) } catch { reply = .failure(error) }
         guard let store, id == generation else { return }
         end(id)
         if isUsable, isTarget(session, store) {
-            let name = choice.flatMap {
-                NameAudit.resolve($0, candidates: facts.candidates, earlierNames: store.earlierSessionNames(),
-                                  appNames: facts.appNames)
+            if case .failure(let error) = reply, !NoteWriter.repeats(error) {
+                unanswered.insert(facts.cacheKey)
+            } else {
+                let choice = try? reply.get()
+                let name = choice.flatMap {
+                    NameAudit.resolve($0, candidates: facts.candidates, earlierNames: store.earlierSessionNames(),
+                                      appNames: facts.appNames)
+                }
+                var source = NameSuggestion.Source.fresh
+                if case .earlier? = choice { source = .earlier }
+                cache.updateValue(name.map { ($0, source) }, forKey: facts.cacheKey)
             }
-            var source = NameSuggestion.Source.fresh
-            if case .earlier? = choice { source = .earlier }
-            cache.updateValue(name.map { ($0, source) }, forKey: facts.cacheKey)
         }
-        refresh()
+        offerNext()
     }
 
     private func asked(_ facts: NameFacts) async throws -> NameChoice {
