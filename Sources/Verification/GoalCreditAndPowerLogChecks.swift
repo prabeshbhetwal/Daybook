@@ -8,6 +8,7 @@ enum GoalCreditAndPowerLogChecks: CheckSuite {
         ("A session still running past midnight fills the goal of the day it began",
          runningSessionCreditsTheDayItBegan),
         ("The power log never writes over a file it could not read", powerLogKeepsUnreadableFile),
+        ("A power log that cannot save says why in whole sentences", powerLogSaveFailureReadsAsSentences),
     ]
 
     private static func runningSessionCreditsTheDayItBegan() -> [String] {
@@ -66,6 +67,29 @@ enum GoalCreditAndPowerLogChecks: CheckSuite {
         }
     }
 
+    /// The system's reason ends in a full stop of its own or the message adds
+    /// one, so the next step is a sentence and not the tail of the reason.
+    private static func powerLogSaveFailureReadsAsSentences() -> [String] {
+        var problems: [String] = []
+        for (text, expected) in [("No space", "No space."), ("No space.", "No space."), ("Why?", "Why?"),
+                                 ("  Why not \n", "Why not."), ("", "")] {
+            expect(text.endingInFullStop == expected, "“\(text)” ended as “\(text.endingInFullStop)”", &problems)
+        }
+        // A file where the folder should be makes the save fail with a real system error.
+        let blocker = URL(fileURLWithPath: SelfTest.scratchDirectory().path)
+        guard (try? Data().write(to: blocker, options: .atomic)) != nil else { return ["could not write the blocking file"] }
+        let moment = SelfTest.anchoredNow()
+        let log = AmbientPowerLog(directory: blocker)
+        let result = log.append(PowerObservation(timestamp: moment, source: .battery, percentage: 60, charging: .notCharging),
+                                now: moment)
+        guard case .failed(let message) = result else { return problems + ["a save into a file reported \(result)"] }
+        expect(message.hasPrefix("Power readings couldn't be saved. ")
+               && message.hasSuffix(". Check free space and folder access, then try again.")
+               && !message.contains(":"),
+               "a failed power save said “\(message)”", &problems)
+        return problems
+    }
+
     private static func powerLogKeepsUnreadableFile() -> [String] {
         var problems: [String] = []
         let payloads: [(String, Data)] = [
@@ -87,6 +111,10 @@ enum GoalCreditAndPowerLogChecks: CheckSuite {
                                     now: moment)
             expect(result != .saved, "appending over \(label) reported \(result)", &problems)
             expect(log.lastError != nil, "appending over \(label) cleared its error", &problems)
+            if label == "an unreadable file" {
+                expect(result == .failed("Power readings couldn't be read. The original file was kept. Reopen Daybook to try again."),
+                       "an unreadable power log said \(result)", &problems)
+            }
             let bytes = try? Data(contentsOf: file)
             expect(bytes == payload,
                    "appending over \(label) changed it to \(bytes.map { String(decoding: $0, as: UTF8.self) } ?? "nothing")",

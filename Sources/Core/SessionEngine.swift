@@ -160,14 +160,14 @@ final class SessionEngine {
         self.store = store
         self.archive = archive ?? SessionArchive(now: now)
         self.decisionHistory = DecisionHistory(directory: self.archive.dataDirectoryURL,
-                                              writeOverride: correctionWriteOverride)
+                                              writeOverride: correctionWriteOverride, now: now())
         self.categories = CategoryManager(store: store)
         self.ownBundleID = ownBundleID
         self.schedulesDwell = schedulesDwell
         self.now = now
         self.sessionStartDate = now()
         self.archive.capacityRetirementHandler = { [weak self] record in
-            guard let self else { return "Corrections cannot be saved right now. No history was changed. Reopen Daybook and try again." }
+            guard let self else { return "Corrections can't be saved right now. No history was changed. Reopen Daybook and try again." }
             let before = self.snapshot()
             // Away and Watching also append here. Only correction metadata
             // changes; this handler must not end or replay the current stretch.

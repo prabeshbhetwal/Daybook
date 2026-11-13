@@ -12,7 +12,8 @@ extension AskModel {
     nonisolated static let keptLooking = AskNotice(
         text: "Ask kept looking things up without answering. Try asking about one period or one thing.",
         opensSettings: false)
-    private nonisolated static let cannotAnswer = AskNotice(text: "Can't answer that one. Try asking another way.", opensSettings: false)
+    /// Also how an answer that ended with no words ends.
+    nonisolated static let cannotAnswer = AskNotice(text: "Can't answer that one. Try asking another way.", opensSettings: false)
     private nonisolated static let unsupportedLanguage = AskNotice(text: "Ask doesn't understand this language yet. Try asking in English.",
                                                                    opensSettings: false)
 
@@ -22,7 +23,7 @@ extension AskModel {
         case .available:
             return nil
         case .unavailable(.deviceNotEligible):
-            return AskNotice(text: "This Mac can't run on-device AI.", opensSettings: false)
+            return AskNotice(text: "This Mac can't run on-device AI. The rest of Daybook works as usual.", opensSettings: false)
         case .unavailable(.appleIntelligenceNotEnabled):
             // The switch is Apple's, so the line uses its name in System Settings.
             return AskNotice(text: "Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri.", // name: Apple's
@@ -69,6 +70,6 @@ extension AskModel {
             }
         }
         #endif
-        return AskNotice(text: "Couldn't answer. Try again.", opensSettings: false)
+        return AskNotice(text: "Couldn't answer. Try again, or ask another way.", opensSettings: false)
     }
 }

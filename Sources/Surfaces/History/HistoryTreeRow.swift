@@ -174,12 +174,21 @@ struct HistoryTreeRow: View {
                     .lineLimit(1)
             }
             bars
+            // The same chevron the period and session cards end on, so a row
+            // that opens says so. An empty row has nothing to open.
+            if !row.isEmpty {
+                Image(systemName: "chevron.right")
+                    .font(Tokens.Typography.caption)
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+            }
         }
         .padding(.vertical, Tokens.Space.xs)
         .padding(.horizontal, HistoryRowLayout.inset)
         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .background(isFocused ? Tokens.Colour.focus.opacity(0.12) : Color.clear,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+        .keyboardFocusRing(isFocused, cornerRadius: Tokens.Radius.nested)
         .contentShape(Rectangle())
     }
 

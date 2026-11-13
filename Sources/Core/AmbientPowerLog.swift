@@ -60,7 +60,7 @@ final class AmbientPowerLog {
             }
             observations = document.observations.sorted { $0.timestamp < $1.timestamp }
         } catch {
-            loadFailure = "Power readings could not be read. The original file was kept. Reopen Daybook to try again."
+            loadFailure = "Power readings couldn't be read. The original file was kept. Reopen Daybook to try again."
         }
     }
 
@@ -80,7 +80,7 @@ final class AmbientPowerLog {
             lastError = nil
             return .saved
         } catch {
-            let message = "Power readings could not be saved: \(error.localizedDescription) Check free space and folder access, then try again."
+            let message = "Power readings couldn't be saved. \(error.localizedDescription.endingInFullStop) Check free space and folder access, then try again."
             lastError = message
             return .failed(message)
         }

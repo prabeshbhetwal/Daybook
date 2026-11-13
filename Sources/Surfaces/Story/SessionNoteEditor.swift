@@ -121,10 +121,10 @@ struct SessionNoteEditor: View {
         if isFocused {
             Button("Save") { _ = store.saveFocusedNote() }
                 .keyboardShortcut(.return, modifiers: .command)
-                .font(Tokens.Typography.label)
+                .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
         } else {
             Button("Save") { _ = store.saveNote(for: recordID) }
-                .font(Tokens.Typography.label)
+                .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
         }
     }
 
@@ -134,10 +134,10 @@ struct SessionNoteEditor: View {
         if isFocused {
             Button("Cancel", action: cancel)
                 .keyboardShortcut(.cancelAction)
-                .font(Tokens.Typography.body)
+                .buttonStyle(StoryLinkStyle())
         } else {
             Button("Cancel", action: cancel)
-                .font(Tokens.Typography.body)
+                .buttonStyle(StoryLinkStyle())
         }
     }
 

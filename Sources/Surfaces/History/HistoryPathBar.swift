@@ -48,6 +48,23 @@ struct HistoryPathBar: View {
     let onSelect: (HistoryCrumb) -> Void
 
     var body: some View {
+        // A path that fits sits at the leading edge. A deep path wider than
+        // the column scrolls, and rests on the current place at its trailing
+        // end. The padding gives a crumb's hover tint room inside the clip,
+        // and the negative padding takes it back.
+        ViewThatFits(in: .horizontal) {
+            row
+            ScrollView(.horizontal, showsIndicators: false) {
+                row.padding(.horizontal, Tokens.Space.s)
+            }
+            .padding(.horizontal, -Tokens.Space.s)
+            .defaultScrollAnchor(.trailing)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Where you are in History")
+    }
+
+    private var row: some View {
         HStack(spacing: Tokens.Space.s) {
             ForEach(Array(crumbs.enumerated()), id: \.element.id) { index, crumb in
                 let isCurrent = index == crumbs.count - 1
@@ -63,7 +80,5 @@ struct HistoryPathBar: View {
                     .accessibilityLabel(isCurrent ? "\(crumb.title), current place" : "Go to \(crumb.title)")
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Where you are in History")
     }
 }

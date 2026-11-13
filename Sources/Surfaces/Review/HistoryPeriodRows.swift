@@ -10,7 +10,7 @@ struct WorkTypeChip: View {
             .padding(.horizontal, 7.zoomed)
             .padding(.vertical, 2.zoomed)
             .background(Tokens.Palette.workType(workType).opacity(0.14),
-                        in: RoundedRectangle(cornerRadius: 5.zoomed))
+                        in: RoundedRectangle(cornerRadius: Tokens.Radius.swatch, style: .continuous))
             .foregroundStyle(StoryStyle.workTypeInk(workType))
             .accessibilityHidden(true)
     }

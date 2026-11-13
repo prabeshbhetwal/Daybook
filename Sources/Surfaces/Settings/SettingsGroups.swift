@@ -105,7 +105,7 @@ struct SettingsGroups: View {
     private static let loginApproval = "Approve Daybook in System Settings › General › Login Items."
 
     private var loginItemMessage: String? {
-        model.loginItemError.map { "Could not change the login item: \($0) Try again, or use System Settings › General › Login Items." }
+        model.loginItemError.map { "The login item couldn't be changed. \($0.endingInFullStop) Try again, or use System Settings › General › Login Items." }
     }
 
     /// Said only where the menu leaves it unclear: the app's menus come and
@@ -168,8 +168,8 @@ struct SettingsGroups: View {
                                      options: FocusConstants.thresholdOptions, allowsNever: true)
                 }
                 rowDivider
-                preferenceRow("End session after") {
-                    ThresholdControl(label: "End session after", selection: $model.longAwayCap,
+                preferenceRow("Stop session after") {
+                    ThresholdControl(label: "Stop session after", selection: $model.longAwayCap,
                                      options: FocusConstants.longAwayCapOptions, allowsNever: true)
                 }
                 rowDivider
@@ -229,8 +229,8 @@ struct SettingsGroups: View {
                                         set: { model.autoSessionsEnabled = $0 }))
                     .disabled(rulesOn)
                 rowDivider
-                preferenceRow("End a paused automatic session after") {
-                    ThresholdControl(label: "End a paused automatic session after",
+                preferenceRow("Stop a paused automatic session after") {
+                    ThresholdControl(label: "Stop a paused automatic session after",
                                      selection: $model.autoSessionPauseLimit,
                                      options: FocusConstants.autoSessionPauseLimitOptions, allowsNever: true)
                 }

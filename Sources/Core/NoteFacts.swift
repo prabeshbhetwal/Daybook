@@ -72,12 +72,15 @@ struct NoteDayInput {
 enum NoteDayPart: CaseIterable {
     case morning, afternoon, evening, night
 
-    var phrase: String {
+    /// Where the part falls: "between 5 am and noon". The model reads every
+    /// clock in one style, whatever the region, so the default is en_AU.
+    func phrase(locale: Locale = Locale(identifier: "en_AU")) -> String {
+        func hour(_ hour: Int) -> String { hour == 12 ? "noon" : DateFormats.wholeHour(hour, locale: locale) }
         switch self {
-        case .morning: return "in the morning, between 5 am and noon"
-        case .afternoon: return "in the afternoon, between noon and 5 pm"
-        case .evening: return "in the evening, between 5 pm and 10 pm"
-        case .night: return "at night, after 10 pm or before 5 am"
+        case .morning: return "in the morning, between \(hour(5)) and \(hour(12))"
+        case .afternoon: return "in the afternoon, between \(hour(12)) and \(hour(17))"
+        case .evening: return "in the evening, between \(hour(17)) and \(hour(22))"
+        case .night: return "at night, after \(hour(22)) or before \(hour(5))"
         }
     }
 

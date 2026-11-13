@@ -19,43 +19,36 @@ private struct CardModifier: ViewModifier {
     }
 }
 
+/// A question the Story asks in place: the amber wash and hairline of a
+/// notice, cut like the entry cards around it.
+private struct QuestionCardModifier: ViewModifier {
+    @Environment(\.focusInterfaceDensity) private var density
+
+    func body(content: Content) -> some View {
+        content
+            .padding(StoryStyle.entryInsets(for: density))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Tokens.Colour.attention.opacity(0.10),
+                        in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius,
+                                             style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
+                .strokeBorder(Tokens.Colour.attention.opacity(0.35)))
+    }
+}
+
 extension View {
+    /// The one look of an unanswered question in the day's story, whether it
+    /// is the away prompt or a past stretch asking how it should count.
+    func questionCard() -> some View {
+        modifier(QuestionCardModifier())
+    }
+
     /// A lifted surface on the ground: `Colour.surface`, continuous 16pt corners,
     /// one hairline. Cards size to their content; the ground between them is
     /// the layout.
     func card(padding: CGFloat = Tokens.Space.l,
               surface: Color = Tokens.Colour.surface) -> some View {
         modifier(CardModifier(padding: padding, surface: surface))
-    }
-}
-
-/// An app's icon with the app-use accent beside it. Falls back to a rounded
-/// square in the accent when the app has no icon on this machine.
-struct AppSwatch: View {
-    var bundleID: String?
-    var appName: String = ""
-    var size: CGFloat = 18.zoomed
-
-    var body: some View {
-        HStack(spacing: Tokens.Space.xs) {
-            if let bundleID,
-               AppIconProvider.shared.icon(for: bundleID, size: size) != nil {
-                AppIcon(bundleID: bundleID, size: size, appName: appName)
-            } else {
-                RoundedRectangle(cornerRadius: Tokens.Radius.swatch, style: .continuous)
-                    .fill(Tokens.Palette.appUse)
-                    .frame(width: size, height: size)
-                    .overlay(
-                        Text(appName.first.map(String.init)?.uppercased() ?? "")
-                            .font(Tokens.Typography.fitted(size * 0.55, weight: .semibold))
-                            .foregroundStyle(.white)
-                    )
-            }
-            Circle()
-                .fill(Tokens.Palette.appUse)
-                .frame(width: 6.zoomed, height: 6.zoomed)
-        }
-        .accessibilityHidden(true)
     }
 }
 
@@ -78,7 +71,6 @@ struct IconButton: View {
                 .font(Tokens.Typography.control)
                 .symbolRenderingMode(.hierarchical)
                 .symbolSwap()
-                .symbolNod(on: isOn ?? false)
                 .frame(width: AccessibilityMetrics.minimumTargetSize,
                        height: AccessibilityMetrics.minimumTargetSize)
                 .background(prominent ? AnyShapeStyle(Tokens.Colour.focus.opacity(0.15))

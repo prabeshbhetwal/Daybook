@@ -27,7 +27,7 @@ extension SessionEngine {
               let inserted = awayDecisions[index].insertedRecord,
               let current = archive.records.first(where: { $0.id == inserted.id }),
               current == inserted else {
-            awayDecisionError = awayDecisionError ?? "This break changed since it was recorded, so it cannot be renamed here. Reopen the day and try again."
+            awayDecisionError = awayDecisionError ?? "This break changed since it was recorded, so it can't be renamed here. Reopen the day and try again."
             return false
         }
         var renamed = current
@@ -66,7 +66,7 @@ extension SessionEngine {
                 guard let expected = receipt.expectedCreditRecord,
                       let record = archive.records.first(where: { $0.id == expected.id }),
                       expected.workSeconds + 0.001 >= receipt.creditedSeconds else {
-                    awayDecisionError = "The original session cannot be checked, so Undo is not available. Its record was kept. Reopen the day to see what is there now."
+                    awayDecisionError = "The original session can't be checked, so Undo is not available. Its record was kept. Reopen the day to see what is there now."
                     return false
                 }
                 // Name/type edits are independent fields, not a conflict with

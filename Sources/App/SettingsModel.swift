@@ -140,17 +140,31 @@ struct SettingsDiagnostics {
         var notes: [String] = []
         // Session history first: when it is missing, it is what the reader
         // notices, and the only explanation is here.
+        let reveal = "Reveal Data Folder in Settings, Privacy finds it."
         if sessions?.isReadOnly == true {
-            notes.append("Session history is read-only because sessions.json could not be read "
-                + "or set aside. The file was left as it is; Reveal Data Folder finds it.")
+            notes.append("Session history is read-only because it couldn't be read or set aside. "
+                + "It was left as it is. " + reveal)
+        } else if let aside = latestSetAside(prefix: SessionArchive.setAsidePrefix, in: dataDirectory,
+                                             fileManager: fileManager) {
+            // This build keeps every record that reads, so only the rest are missing.
+            let name = aside.lastPathComponent
+            if let counts = SessionArchive.unreadableRecords(inSetAside: aside),
+               counts.unreadable < counts.total {
+                notes.append("\(counts.unreadable) of \(counts.total) sessions couldn't be read. "
+                    + "The rest are shown, and the original history was kept as \(name). " + reveal)
+            } else {
+                notes.append("Session history couldn't be read, so it isn't shown. "
+                    + "It was kept as \(name). " + reveal)
+            }
         } else if let aside = latestSetAside(prefix: "sessions-corrupt-", in: dataDirectory,
                                              fileManager: fileManager) {
-            notes.append("Session history that could not be read was set aside as "
-                + "\(aside.lastPathComponent) and is not shown.")
+            // Set aside by an earlier build, which kept none of it.
+            notes.append("Session history that couldn't be read was kept as "
+                + "\(aside.lastPathComponent) and isn't shown. " + reveal)
         }
         if usage.isReadOnly {
-            notes.append("App use is read-only because its file or journal could not be read "
-                + "or safely rewritten. Reveal Data Folder finds it.")
+            notes.append("App use is read-only because its file or journal couldn't be read "
+                + "or safely rewritten. " + reveal)
         } else if backup != nil {
             notes.append("Older app use was upgraded only after a copy of the original file was kept.")
         }
@@ -208,7 +222,7 @@ struct SettingsDiagnostics {
     static let unavailable = SettingsDiagnostics(
         usageAccuracyEpoch: nil,
         legacyBackupURL: nil,
-        recoverySummary: "Archive diagnostics are unavailable in this presentation context.",
+        recoverySummary: "Recovery details aren't available here.",
         version: "Development",
         build: "Unnumbered")
 

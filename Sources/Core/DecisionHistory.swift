@@ -63,17 +63,34 @@ final class DecisionHistory {
     var metadata: MetadataCheckpoint? {
         document.metadataCheckpoint ?? document.checkpoint.map(MetadataCheckpoint.init)
     }
-    var requiresTerminalCheckpoint: Bool { metadata != nil || document.pending != nil || error != nil }
+    /// `error` is left out: it refuses corrections (`reconcile`), but an
+    /// ending with nothing to journal goes through the archive. With it in,
+    /// a history file this build cannot read refused every Stop, Reset and
+    /// long-away end, and every relaunch did the same.
+    var requiresTerminalCheckpoint: Bool { metadata != nil || document.pending != nil }
 
-    init(directory: URL, writeOverride: (() -> String?)? = nil) {
+    private struct Stamp: Decodable { let version: Int? }
+
+    init(directory: URL, writeOverride: (() -> String?)? = nil, now: Date = Date()) {
         url = directory.appendingPathComponent("correction-history.json")
         self.writeOverride = writeOverride
         guard FileManager.default.fileExists(atPath: url.path) else { return }
+        let data = try? Data(contentsOf: url)
+        // A newer build's file is left exactly as it is and nothing of it is
+        // used; corrections stay refused until Daybook is updated.
+        if let data, let version = (try? JSONDecoder().decode(Stamp.self, from: data))?.version, version != 1 {
+            error = "Correction history was written by a newer version of Daybook. Its file was kept. Update Daybook to read it."
+            return
+        }
         do {
-            document = try JSONDecoder().decode(Document.self, from: Data(contentsOf: url))
-            if document.version != 1 { error = "Correction history was written by a newer version of Daybook. Its file was kept. Update Daybook to read it." }
+            document = try JSONDecoder().decode(Document.self, from: data ?? Data(contentsOf: url))
         } catch {
-            self.error = "Correction history could not be read. Its file was kept: \(error.localizedDescription) Reopen Daybook to try again."
+            // Set aside as the other archives do, and start from an empty
+            // history. Read-only only when it cannot be moved.
+            if UnreadableFile.setAside(url, prefix: "correction-history-corrupt-",
+                                       pathExtension: "json", at: now) == nil {
+                self.error = "Correction history couldn't be read. \(error.localizedDescription.endingInFullStop) Its file was kept. Reopen Daybook to try again."
+            }
         }
     }
 
@@ -159,6 +176,6 @@ final class DecisionHistory {
             try JSONEncoder().encode(next).write(to: url, options: .atomic)
             document = next
             return nil
-        } catch { return "Could not save correction history: \(error.localizedDescription) Check free space and folder access, then try again." }
+        } catch { return "Correction history couldn't be saved. \(error.localizedDescription.endingInFullStop) Check free space and folder access, then try again." }
     }
 }

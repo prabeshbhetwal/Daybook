@@ -68,6 +68,11 @@ extension AskModel {
         guard gate.isOpen else { return }
         if let failure {
             fail(failure, turn: id, question: text, retrying: retrying)
+        } else if turns.last(where: { $0.id == id })?.answer
+                    .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
+            // A stream that ends with no words is no answer: shown as one, it
+            // was a blank reply with nothing to try again.
+            end(.failed(Self.cannotAnswer))
         } else {
             complete(id, gate: gate)
         }

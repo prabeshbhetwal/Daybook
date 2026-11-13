@@ -146,7 +146,7 @@ struct DayStoryColumn: View {
 /// picked-period card shows the date, focus, sessions and app use; a History
 /// row shows the date, focus and sessions.
 enum DayStoryContext {
-    case main, underCard, underRow
+    case main, underRow
 }
 
 struct ProjectedDayStoryColumn: View {
@@ -258,9 +258,11 @@ struct StoryCorrectionNotice: View {
     @ObservedObject var store: SessionStore
 
     /// The failure the notice shows, when it shows one. Today's away prompt
-    /// carries its own save error, so the notice stays out of its way.
+    /// carries its own save error, and the line under the chrome shows any
+    /// other, so the notice stays out of their way: one failure, one place.
     static func visibleError(in store: SessionStore) -> String? {
-        guard let error = store.correctionError,
+        guard store.focusOperationFailure == nil,
+              let error = store.correctionError,
               !store.isToday || store.pendingAwaySaveError == nil else { return nil }
         return error
     }

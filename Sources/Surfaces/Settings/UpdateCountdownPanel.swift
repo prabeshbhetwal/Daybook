@@ -121,7 +121,7 @@ private struct UpdateCountdownView: View {
             return "Waiting until you finish your note, form or answer. Then it installs and relaunches."
         }
         let left = max(1, Int(state.deadline.timeIntervalSince(date).rounded(.up)))
-        return "It installs and relaunches in \(left) seconds. A running session carries on; "
+        return "It installs and relaunches in \(left) \(left == 1 ? "second" : "seconds"). A running session carries on; "
             + "the moments it takes may show as a short pause."
     }
 }

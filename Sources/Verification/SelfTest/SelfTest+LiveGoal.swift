@@ -5,8 +5,8 @@ import AppKit
 
 extension SelfTest {
     /// The open tail is real hands-on evidence before the next checkpoint. It
-    /// must advance both the goal and tracked scalar each tick, while the latter
-    /// counts only the tail intersecting the current local day.
+    /// must advance both the goal and the day's tracked time each tick, while
+    /// the latter counts only the tail intersecting the current local day.
     static func testLiveUsageFeedsGoalAndClipsMidnight() -> [String] {
         var problems: [String] = []
         let calendar = Calendar.current
@@ -39,7 +39,7 @@ extension SelfTest {
                         "the tracker exposes the exact unpersisted live session", &problems)
             expectClose(store.goal.achieved, 90,
                         "live hands-on time advances focused-active goal progress", &problems)
-            expectClose(store.trackedToday, 90,
+            expectClose(store.storyUsageBreakdown(on: clock.value).tracked, 90,
                         "live tracked time advances between checkpoints", &problems)
         }
 
@@ -69,8 +69,8 @@ extension SelfTest {
                         "the exposed live session keeps its full cross-midnight interval", &problems)
             expectClose(tracker.unpersistedSeconds(on: clock.value, calendar: calendar), 60,
                         "the tracker clips the live scalar to the new local day", &problems)
-            expectClose(store.trackedToday, 60,
-                        "today's tracked scalar excludes yesterday's live minute", &problems)
+            expectClose(store.storyUsageBreakdown(on: clock.value).tracked, 60,
+                        "today's tracked time excludes yesterday's live minute", &problems)
             expectClose(store.goal.achieved, 60,
                         "today's goal intersects only the post-midnight live minute", &problems)
         }

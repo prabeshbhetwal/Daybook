@@ -18,6 +18,7 @@ final class EditCommandState: ObservableObject {
     private var store: SessionStore?
     private var watching: [AnyCancellable] = []
     private var responderWatch: AnyCancellable?
+    private var refreshScheduled = false
 
     /// Called from the commands' body, once the store exists.
     func bind(_ store: SessionStore) {
@@ -29,12 +30,14 @@ final class EditCommandState: ObservableObject {
             NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification,
             .NSUndoManagerDidCloseUndoGroup, .NSUndoManagerDidUndoChange, .NSUndoManagerDidRedoChange,
         ]
-        Publishers.Merge(Publishers.MergeMany(changes.map { center.publisher(for: $0).map { _ in () } }),
-                         store.objectWillChange.map { _ in () })
-            // `objectWillChange` fires before the new value lands; the hop to
-            // the main queue reads it after.
+        Publishers.MergeMany(changes.map { center.publisher(for: $0).map { _ in () } })
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.refresh() }
+            .store(in: &watching)
+        // `objectWillChange` fires before the new value lands; one hop on the
+        // main queue reads it after, and coalesces a burst of writes into one.
+        store.objectWillChange
+            .sink { [weak self] _ in self?.scheduleRefresh() }
             .store(in: &watching)
         // Focus moving inside the key window changes who ⌘Z belongs to. The
         // window already key at launch gets no notification, so it is watched
@@ -51,6 +54,15 @@ final class EditCommandState: ObservableObject {
         responderWatch = window?.publisher(for: \.firstResponder)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.refresh() }
+    }
+
+    private func scheduleRefresh() {
+        guard !refreshScheduled else { return }
+        refreshScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshScheduled = false
+            self?.refresh()
+        }
     }
 
     func refresh() {

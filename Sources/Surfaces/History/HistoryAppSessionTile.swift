@@ -22,7 +22,7 @@ enum HistoryAppLensText {
         case let difference where difference > 0: relation = "More than its typical session (\(middle))"
         default: relation = "Less than its typical session (\(middle))"
         }
-        return relation + " · " + ordinal(lens.rank(of: use)) + " longest"
+        return relation + " · " + Ordinal.text(lens.rank(of: use)) + " longest"
     }
 
     /// `All time in Deep work sessions: 3h 10m of 26h 55m`.
@@ -46,22 +46,6 @@ enum HistoryAppLensText {
         guard let from = lens.accurateFrom, lens.legacy >= 60 else { return nil }
         return "\(Tokens.duration(lens.legacy)) of this is from before \(Tokens.longDate(from)), "
             + "when app use was recorded even with nobody at the Mac."
-    }
-
-    static func ordinal(_ number: Int) -> String {
-        let tens = number % 100
-        let suffix: String
-        if (11...13).contains(tens) {
-            suffix = "th"
-        } else {
-            switch number % 10 {
-            case 1: suffix = "st"
-            case 2: suffix = "nd"
-            case 3: suffix = "rd"
-            default: suffix = "th"
-            }
-        }
-        return "\(number)\(suffix)"
     }
 }
 

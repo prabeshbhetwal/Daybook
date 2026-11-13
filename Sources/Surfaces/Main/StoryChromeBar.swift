@@ -128,10 +128,9 @@ struct StoryChromeBar: View {
     private var backSlot: some View {
         ZStack {
             if navigation.workspace != .story {
-                IconButton(systemImage: "chevron.left", help: "Back to Story") {
+                IconButton(systemImage: "chevron.left", help: "Back to Story (⌘1)") {
                     navigation.returnToStory()
                 }
-                .accessibilityLabel("Return to Story")
                 .transition(Tokens.Motion.transition(
                     .opacity.combined(with: .scale(scale: 0.9)), reduceMotion: reduceMotion))
             }
@@ -199,12 +198,12 @@ struct StoryChromeBar: View {
         Button { historyCalendarShown.value.toggle() } label: {
             Label("Go to Date…", systemImage: "calendar")
                 .font(Tokens.Typography.label)
-                .padding(.horizontal, Tokens.Space.m)
+                .padding(.horizontal, Tokens.Space.s)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
-        .help("Pick a day to read in History (⌘J)")
+        .help("Go to Date (⌘J)")
         .accessibilityHint("Opens the calendar; the day you pick is selected in the list")
         .popover(isPresented: Binding(get: { historyCalendarShown.value },
                                       set: { historyCalendarShown.value = $0 }),
@@ -235,7 +234,7 @@ struct StorySessionControl: View {
             Button(action: onDetails) {
                 HStack(spacing: Tokens.Space.xs) {
                     Image(systemName: "play.fill").font(Tokens.Typography.caption)
-                    Text("Start Focus").font(Tokens.Typography.label)
+                    Text("Start Focus…").font(Tokens.Typography.label)
                 }
                 .lineLimit(1)
                 .fixedSize()
@@ -246,7 +245,7 @@ struct StorySessionControl: View {
             }
             .buttonStyle(PressableStyle())
             .focused(focus, equals: .session)
-            .accessibilityLabel("Start Focus")
+            .accessibilityLabel("Start Focus…")
             .accessibilityHint("Opens the session controls to choose an activity")
         } else {
             Button(action: onDetails) {

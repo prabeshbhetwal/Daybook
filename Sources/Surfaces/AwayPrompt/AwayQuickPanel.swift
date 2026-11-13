@@ -26,6 +26,8 @@ private struct QuickPromptView: View {
     let onAnswer: (UserDecision) -> Bool
     let onReason: (String) -> Bool
     let onRetry: () -> Void
+    /// Escape, with the keyboard in the card: the card has no close control.
+    var onDismiss: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +54,7 @@ private struct QuickPromptView: View {
             Color.clear.preference(key: QuickSizeKey.self, value: proxy.size)
         })
         .onPreferenceChange(QuickSizeKey.self) { relay.onSize?($0) }
+        .onExitCommand(perform: onDismiss)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Away decision")
     }
@@ -78,6 +81,12 @@ private final class QuickAskPanel: NSPanel {
     /// Told when the panel takes or gives up the keyboard, so the fade can
     /// wait for someone who is answering.
     var onKeyChange: (() -> Void)?
+    /// Escape reaching the panel unhandled, as it does from an answer button.
+    var onCancel: (() -> Void)?
+
+    override func cancelOperation(_ sender: Any?) {
+        onCancel?()
+    }
 
     override func becomeKey() {
         super.becomeKey()
@@ -92,7 +101,8 @@ private final class QuickAskPanel: NSPanel {
 
 /// The light way to ask: a small card with an arrow, under the menu-bar item,
 /// that never brings the app forward — one click answers. Fades after twenty
-/// seconds unless someone is answering it; the popover card stays.
+/// seconds (sixty with VoiceOver on) unless someone is answering it; Escape
+/// closes it; the popover card stays.
 @MainActor
 final class AwayQuickPanel {
     private let panel: QuickAskPanel
@@ -123,9 +133,11 @@ final class AwayQuickPanel {
         self.panel = panel
         panel.contentView = FirstMouseHostingView(
             rootView: QuickPromptView(model: model, relay: relay,
-                                      onAnswer: onAnswer, onReason: onReason, onRetry: onRetry))
+                                      onAnswer: onAnswer, onReason: onReason, onRetry: onRetry,
+                                      onDismiss: { [weak self] in self?.dismiss() }))
         relay.onSize = { [weak self] size in self?.layout(to: size) }
         panel.onKeyChange = { [weak self] in self?.scheduleFade() }
+        panel.onCancel = { [weak self] in self?.dismiss() }
         zoomFollower = ZoomFollower { [weak self] in self?.zoomChanged() }
     }
 
@@ -201,7 +213,8 @@ final class AwayQuickPanel {
         panel.orderFrontRegardless()
     }
 
-    /// Fades the card after twenty seconds, unless it has the keyboard: a
+    /// Fades the card after twenty seconds, or sixty with VoiceOver on, which
+    /// needs the time to read it out; unless it has the keyboard: a
     /// slow typist used to lose the card mid-word. Once they click away the
     /// count starts again, half-typed reason or not, so a card with no close
     /// control never stays over every Space for good; the reason itself
@@ -217,7 +230,8 @@ final class AwayQuickPanel {
             self.dismiss()
         }
         fade = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + 20, execute: item)
+        let seconds: TimeInterval = NSWorkspace.shared.isVoiceOverEnabled ? 60 : 20
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
     }
 
     func dismiss() {

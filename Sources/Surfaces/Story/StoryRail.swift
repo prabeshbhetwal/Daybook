@@ -166,7 +166,6 @@ struct StoryRail: View {
                       systemImage: arrangement.isArranging ? "checkmark" : "pencil")
                     .labelStyle(.iconOnly)
                     .symbolSwap()
-                    .symbolNod(on: arrangement.isArranging)
                     .font(Tokens.Typography.label)
                     .frame(width: AccessibilityMetrics.minimumTargetSize,
                            height: AccessibilityMetrics.minimumTargetSize)
@@ -181,17 +180,9 @@ struct StoryRail: View {
             .help(arrangement.isArranging ? "Save this order" : "Arrange Cards")
             .accessibilityLabel(arrangement.isArranging ? "Save card order" : "Arrange Cards")
             if arrangement.isArranging {
-                // The 28pt frame sits inside the label: outside the button it
-                // made room but left only the words clickable.
-                Button { resetOrder() } label: {
-                    Text("Reset Order")
-                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(StoryPressStyle())
-                .font(Tokens.Typography.body)
-                .foregroundStyle(StoryStyle.supportingInk)
-                .accessibilityLabel("Reset card order")
+                Button("Reset Order") { resetOrder() }
+                    .buttonStyle(StoryLinkStyle())
+                    .accessibilityLabel("Reset card order")
             }
         }
         .fixedSize()
@@ -615,20 +606,12 @@ struct StoryRail: View {
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
-                // The word is about 15pt tall. The padding lifts the target
-                // past 28pt; the negative padding keeps the row where it was.
-                Button { navigation.openSheet(.awards) } label: {
-                    Text("Awards")
-                        .padding(.vertical, 7.zoomed)
-                        .contentShape(Rectangle())
-                }
-                .padding(.vertical, -7.zoomed)
-                .coachAnchor(.awards)
-                .buttonStyle(StoryPressStyle())
-                .font(Tokens.Typography.label)
-                // The link colour every other text action uses; system blue
-                // was under 4.5:1 on the rail.
-                .foregroundStyle(StoryStyle.action)
+                // The link style lifts the target to 28pt; the negative
+                // padding keeps the row where the 15pt word had it.
+                Button("Awards") { navigation.openSheet(.awards) }
+                    .buttonStyle(StoryLinkStyle())
+                    .padding(.vertical, -7.zoomed)
+                    .coachAnchor(.awards)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

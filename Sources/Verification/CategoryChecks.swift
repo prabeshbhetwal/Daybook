@@ -287,11 +287,11 @@ enum CategoryChecks {
             panel.show(.new, model: settings) { definition, wasNew in
                 if wasNew { adopted.append(definition.workType) }
             }
-            if !panel.isVisible || panel.title != "New category" {
+            if !panel.isVisible || panel.title != "New Category" {
                 problems.append("Add category… did not open the panel on a blank form")
             }
             panel.show(.edit(.meetings), model: settings)
-            if panel.title != "Edit categories" {
+            if panel.title != "Edit Categories" {
                 problems.append("Edit categories… did not retitle the already-open panel")
             }
             panel.close()

@@ -93,7 +93,7 @@ enum BreakSurfaceChecks: CheckSuite {
             let withDetail = BreakHUD.spoken(BreakHUDContent(
                 title: "Take 5 minutes", detail: "You have been in Xcode for 50m.", symbolName: "",
                 buttons: [BreakHUDButton(title: "Skip", isPrimary: false) {}], duration: 12, onTimeout: nil))
-            expect(withDetail == "Take 5 minutes. You have been in Xcode for 50m. "
+            expect(withDetail == "Take 5 minutes. You have been in Xcode for 50 minutes. "
                     + "You can also take or end a break from Daybook in the menu bar.",
                    "got \(withDetail)", &problems)
             let noDetail = BreakHUD.spoken(BreakHUDContent(

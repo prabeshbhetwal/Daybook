@@ -33,7 +33,7 @@ final class ActivityEditorPanelModel: ObservableObject {
         model.request = request
         model.ticket &+= 1
         let panel = self.panel ?? makePanel(store: store)
-        panel.title = request == .new ? "Pin activity" : "Pinned activities"
+        panel.title = request == .new ? "Pin Activity" : "Pinned Activities"
         if !panel.isVisible { panel.openZoomed(base: Self.base) }
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
@@ -104,10 +104,11 @@ struct ActivityEditorPanelView: View {
     @ObservedObject private var catalog = WorkTypeCatalog.shared
     @ObservedObject var editor: ActivityEditorState
     var onClose: () -> Void
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            PanelHeader(title: "Pinned activities",
+            PanelHeader(title: "Pinned Activities",
                         subtitle: "They lead the activity menu, in this order. Anything you type is kept "
                             + "as a recent name on its own; pin the ones you come back to.",
                         onClose: onClose)
@@ -124,6 +125,8 @@ struct ActivityEditorPanelView: View {
         .zoomRoot()
         .onAppear(perform: consume)
         .onChange(of: model.ticket) { consume() }
+        // Escape closes the panel from the name field too.
+        .onExitCommand(perform: onClose)
     }
 
     private func consume() {
@@ -132,6 +135,8 @@ struct ActivityEditorPanelView: View {
         // The form is always there; a fresh ask clears it for a new pin, and
         // an empty form on appearance is set up the same way.
         if fresh || editor.editingID == nil { editor.beginNew() }
+        // The field exists only after this pass, so the request waits for it.
+        DispatchQueue.main.async { nameFocused = true }
     }
 
     // MARK: List
@@ -238,6 +243,7 @@ struct ActivityEditorPanelView: View {
                     TextField("Activity name", text: $editor.name)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 260.zoomed)
+                        .focused($nameFocused)
                         .onSubmit(save)
                         .accessibilityLabel("Activity name")
                 }

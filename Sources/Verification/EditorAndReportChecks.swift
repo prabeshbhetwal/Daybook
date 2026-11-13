@@ -76,6 +76,10 @@ enum EditorAndReportChecks: CheckSuite {
             let drafts = SettingsDrafts.of(model)
             drafts.category.beginNew()
             drafts.category.name = "Half-made category"
+            // The form's first offscreen layout can come out a few points
+            // taller on some Macs (seen on CI: 815pt, then 799pt) before its
+            // switches settle; measure from a settled layout.
+            _ = drawn(CategoriesView(model: model))
             let open = drawn(CategoriesView(model: model))
             let returned = drawn(CategoriesView(model: model))
             expect(open.height > closed.height + 40,

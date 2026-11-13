@@ -179,6 +179,10 @@ extension SelfTest {
             + LocaleFormatChecks.tests
             + CopyPolishChecks.tests
             + AppMarkChecks.tests
+            + EndingSafetyChecks.tests
+            + WrongClockAndRecordChecks.tests
+            + AppAuditChecks.tests
+            + QuietStoreChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

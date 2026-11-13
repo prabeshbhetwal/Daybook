@@ -18,17 +18,20 @@ extension SettingsGroups {
             SurfacePanel(title: "Eyes and long stretches", layout: layout) { addOnRows }
                 .disabled(!on)
             SurfacePanel(title: "When a break ends", layout: layout) {
-                HStack(alignment: .top, spacing: Tokens.Space.m) {
-                    toggleRow("Play a sound when a break is over", isOn: $model.breakOverSound)
-                    Spacer(minLength: Tokens.Space.m)
-                    // Works with the switch off too: hearing it is how you decide.
-                    Button {
-                        NSSound(named: FocusConstants.breakOverSoundName)?.play()
-                    } label: {
-                        Label("Play", systemImage: "play.fill")
+                preferenceRow("Play a sound when a break is over") {
+                    HStack(spacing: Tokens.Space.m) {
+                        // Works with the switch off too: hearing it is how you decide.
+                        Button {
+                            NSSound(named: FocusConstants.breakOverSoundName)?.play()
+                        } label: {
+                            Label("Play", systemImage: "play.fill")
+                        }
+                        .accessibilityLabel("Play the break-over sound")
+                        Toggle("Play a sound when a break is over", isOn: $model.breakOverSound)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(Tokens.Zoom.controlSize(.mini))
                     }
-                    .fixedSize()
-                    .accessibilityLabel("Play the break-over sound")
                 }
                 toggleRow("Show break countdown in the menu bar", isOn: $model.menuBarShowsBreakCountdown)
                     .disabled(!model.showsMenuBarIcon)
@@ -131,12 +134,10 @@ extension SettingsGroups {
     static let overridesFootnote = "These replace the weekday plan. Where two overlap, the shorter one wins."
 
     /// What the Long break every row says about the chosen number: "Every 3rd
-    /// break is the long one." (the picker offers 2 to 8, so only 2nd and 3rd
-    /// are not "th").
+    /// break is the long one."
     static func longBreakDetail(every: Int?) -> String {
         guard let every else { return "Off, every break is the same length." }
-        let ordinal = every == 2 ? "2nd" : every == 3 ? "3rd" : "\(every)th"
-        return "Every \(ordinal) break is the long one."
+        return "Every \(Ordinal.text(every)) break is the long one."
     }
 
     /// A date or time picker working in the model's calendar and zone, so it

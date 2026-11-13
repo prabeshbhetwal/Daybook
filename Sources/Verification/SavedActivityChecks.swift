@@ -92,11 +92,11 @@ enum SavedActivityChecks {
             defer { FixtureFactory.cleanUp() }
             let panel = ActivityEditorPanel.shared
             panel.show(.new, store: store)
-            if !panel.isVisible || panel.title != "Pin activity" {
-                failures.append("Pin activity… did not open the panel on a blank form")
+            if !panel.isVisible || panel.title != "Pin Activity" {
+                failures.append("Pin Activity… did not open the panel on a blank form")
             }
             panel.show(.edit, store: store)
-            if panel.title != "Pinned activities" {
+            if panel.title != "Pinned Activities" {
                 failures.append("Edit pinned… did not retitle the open panel")
             }
             panel.close()

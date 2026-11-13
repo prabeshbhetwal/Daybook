@@ -203,7 +203,7 @@ struct StoryBreakRow: View, Equatable {
     // MARK: - Change how it counts
 
     private var changeMenu: some View {
-        Menu("Change How This Counts") {
+        Menu {
             Button("Leave Uncounted") { choose(.continueSession) }
             if let receipt {
                 Button("Count as Focus in \(receipt.name.isEmpty ? "Unnamed session" : receipt.name) · "
@@ -225,11 +225,22 @@ struct StoryBreakRow: View, Equatable {
                     }
                 }
             }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(Tokens.Typography.control)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(StoryStyle.supportingInk)
+                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                       height: AccessibilityMetrics.minimumTargetSize)
+                .hoverHighlight(cornerRadius: Tokens.Radius.well)
+                .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
         .fixedSize()
         .disabled(isBlocked)
-        .help(isBlocked ? StoryDecisionRow.awayQuestionFirst : "")
+        .help(isBlocked ? StoryDecisionRow.awayQuestionFirst : "Change How This Counts")
         .accessibilityLabel(name.map { "Change how \($0) counts" } ?? "Change how this break counts")
         .accessibilityHint(isBlocked ? StoryDecisionRow.awayQuestionFirst : "")
     }

@@ -35,7 +35,7 @@ enum AskModelChecks: CheckSuite {
         var problems: [String] = []
         let availability: [(SystemLanguageModel.Availability, AskNotice?)] = [
             (.available, nil),
-            (.unavailable(.deviceNotEligible), notice("This Mac can't run on-device AI.")),
+            (.unavailable(.deviceNotEligible), notice("This Mac can't run on-device AI. The rest of Daybook works as usual.")),
             (.unavailable(.appleIntelligenceNotEnabled),
              notice("Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri.",
                     opensSettings: true)),
@@ -62,7 +62,7 @@ enum AskModelChecks: CheckSuite {
         let others: [Error] = [LanguageModelSession.GenerationError.rateLimited(context),
                                LanguageModelSession.GenerationError.assetsUnavailable(context),
                                CocoaError(.fileReadNoSuchFile)]
-        for error in others { errors.append((error, notice("Couldn't answer. Try again."))) }
+        for error in others { errors.append((error, notice("Couldn't answer. Try again, or ask another way."))) }
         errors += newerErrors()
         for (index, (error, want)) in errors.enumerated() {
             let got = AskModel.notice(for: error)
@@ -89,7 +89,7 @@ enum AskModelChecks: CheckSuite {
             (LanguageModelError.refusal(.init(explanation: "no", debugDescription: "probe")), refused),
             (LanguageModelError.unsupportedLanguageOrLocale(.init(languageCode: .english, debugDescription: "probe")),
              notice("Ask doesn't understand this language yet. Try asking in English.")),
-            (timeout, notice("Couldn't answer. Try again.")),
+            (timeout, notice("Couldn't answer. Try again, or ask another way.")),
         ]
         #else
         return []
@@ -179,7 +179,7 @@ enum AskModelChecks: CheckSuite {
         withFixture { f, problems in
             let context = LanguageModelSession.GenerationError.Context(debugDescription: "probe")
             let failures: [(label: String, error: Error, notice: String)] = [
-                ("a failed request", CocoaError(.fileReadNoSuchFile), "Couldn't answer. Try again."),
+                ("a failed request", CocoaError(.fileReadNoSuchFile), "Couldn't answer. Try again, or ask another way."),
                 ("a full context", LanguageModelSession.GenerationError.exceededContextWindowSize(context),
                  AskModel.contextFull.text),
             ]

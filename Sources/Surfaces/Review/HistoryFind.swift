@@ -52,9 +52,6 @@ struct HistoryFindBar: View {
     // MARK: Field
 
     private var query: String { store.historySearchText }
-    private var fieldShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
-    }
 
     private var field: some View {
         HStack(spacing: Tokens.Space.s) {
@@ -91,6 +88,7 @@ struct HistoryFindBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .help("Clear Search")
                 .accessibilityLabel("Clear search")
                 .transition(.opacity)
             } else if !fieldFocused {
@@ -99,13 +97,7 @@ struct HistoryFindBar: View {
         }
         .padding(.horizontal, Tokens.Space.m)
         .frame(height: FilterChip<EmptyView, EmptyView>.height)
-        // The halo sits on the fill alone, so the text never blurs with it.
-        .background(fieldShape.fill(Tokens.Colour.elevated)
-            .shadow(color: StoryStyle.focus.opacity(fieldFocused ? 0.28 : 0), radius: 6.zoomed))
-        .overlay(fieldShape.strokeBorder(fieldFocused ? StoryStyle.focus : Tokens.Colour.line,
-                                         lineWidth: fieldFocused ? 1.5.zoomed : 1))
-        .animation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion),
-                   value: fieldFocused)
+        .fieldFocusChrome(fieldFocused)
         .animation(Tokens.Motion.animation(Tokens.Motion.selection, reduceMotion: reduceMotion),
                    value: query.isEmpty)
     }
@@ -164,9 +156,11 @@ struct HistoryFindBar: View {
 
     // MARK: Filters
 
-    /// Only while something is being searched.
+    /// Only while an app or category filter is on: the typed words clear with
+    /// the field's own button.
     @ViewBuilder private var clearButton: some View {
-        if store.historyFilter.isActive {
+        let filter = store.historyFilter
+        if filter.appBundleID != nil || filter.workType != nil {
             Button("Clear") {
                 store.clearHistoryFilters()
                 fieldFocused = false

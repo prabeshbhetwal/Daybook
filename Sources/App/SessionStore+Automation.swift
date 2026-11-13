@@ -101,13 +101,33 @@ extension SessionStore {
     var automationWaits: Bool { hasUnresolvedAwayDecision || isOnBreak }
 
     /// Starts a session on the detector's behalf, backdated to when the
-    /// qualifying stretch actually began.
+    /// qualifying stretch actually began. False when nothing started: a
+    /// break or the away question waits, or the save was refused.
+    @discardableResult
     func startAutomatically(workType: WorkType, name: String, backdatedTo: Date,
-                            because: String) {
-        guard !automationWaits else { return }
-        guard replaceSession(workType: workType, intent: name, isAuto: true) else { return }
+                            because: String) -> Bool {
+        guard !automationWaits else { return false }
+        guard replaceSession(workType: workType, intent: name, isAuto: true) else { return false }
         engine.backdate(to: backdatedTo)
         refresh()
+        return true
+    }
+
+    /// Ends the detector's session where its work stopped. False when the
+    /// record could not be saved: the session runs on and the error shows.
+    /// The engine's own state change refreshes the surfaces.
+    @discardableResult
+    func stopAutomatically(endingAt moment: Date) -> Bool {
+        let stopped = engine.stop(endingAt: moment)
+        // As an ordinary Stop does: a save that worked clears an earlier
+        // failure and its retry, so the notice does not outlive the problem.
+        if let error = engine.awayDecisionError {
+            publishCorrectionError(error)
+        } else if stopped {
+            publishCorrectionError(nil)
+            correctionRetry = nil
+        }
+        return stopped
     }
 
     @discardableResult

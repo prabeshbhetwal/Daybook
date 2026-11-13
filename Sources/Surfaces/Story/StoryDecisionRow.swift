@@ -57,15 +57,16 @@ struct StoryDecisionRow: View {
                         .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                 }
             }
-            .padding(15.zoomed)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Tokens.Colour.attention.opacity(0.08), in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
-            .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius).strokeBorder(Tokens.Colour.attention.opacity(0.25)))
+            .questionCard()
         }
     }
 
     private func answer(_ decision: UserDecision) {
-        store.applyAwayDecision(decision, reviewing: true, expectedID: receipt.id)
+        // The saved row replaces the question in place, so a listener is
+        // told once, when it is saved; never when an old row scrolls in.
+        if store.applyAwayDecision(decision, reviewing: true, expectedID: receipt.id) {
+            Announcement.post("Saved. \(Tokens.timeRange(range.start, range.end))")
+        }
     }
 
     /// Why a past interval's answers wait: the same words Remove uses.
@@ -79,6 +80,7 @@ struct StorySavedActionRow: View {
     var undoBlockReason: String?
     var scopeNote: String?
     let undo: () -> Void
+    @Environment(\.focusInterfaceDensity) private var density
 
     /// A span for what the action covered; one time for a correction, which
     /// happened at a moment.
@@ -119,10 +121,12 @@ struct StorySavedActionRow: View {
                   .padding(.leading, 22.zoomed)
           }
         }
-        .padding(.horizontal, 15.zoomed)
+        .padding(.horizontal, StoryStyle.entryInsets(for: density).leading)
         .padding(.vertical, Tokens.Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(StoryStyle.successWash, in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
-        .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius).strokeBorder(StoryStyle.successInk.opacity(0.22)))
+        .background(StoryStyle.successWash,
+                    in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
+            .strokeBorder(StoryStyle.successInk.opacity(0.22)))
     }
 }

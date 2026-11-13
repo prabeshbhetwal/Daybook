@@ -51,7 +51,7 @@ struct PeriodNote: View {
         usable = writer.isUsable
     }
 
-    static let failure = "Couldn't write a note for this period. Try again."
+    static let failure = "Couldn't write a note for this period."
     private static let caption = "On-device AI · nothing leaves this Mac"
 
     private enum Shown {
@@ -88,6 +88,12 @@ struct PeriodNote: View {
                 written(note)
             case .failure?:
                 Text(Self.failure).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
+                Button("Try Again") {
+                    asked = true
+                    writer.retry(place)
+                }
+                .buttonStyle(StoryLinkStyle())
+                .accessibilityHint("Writes a short note with on-device AI.")
             case nil:
                 EmptyView()
             }

@@ -131,7 +131,7 @@ final class SessionMetadataArchive {
         for observation in moving {
             if let existing = destination.power.first(where: { $0.id == observation.id }),
                existing != observation {
-                return .failed("Session metadata contains conflicting power readings and was left unchanged. Settings › Privacy shows where the file is.")
+                return .failed("Session notes and power readings conflict, so they were left unchanged. Settings › Privacy shows where the file is.")
             }
             if !destination.power.contains(where: { $0.id == observation.id }) {
                 destination.power.append(observation)
@@ -150,7 +150,7 @@ final class SessionMetadataArchive {
                 let data = try Data(contentsOf: fileURL)
                 if let document = try? JSONDecoder().decode(Document.self, from: data) {
                     guard (1...Self.version).contains(document.version) else {
-                        loadFailure = "Session metadata was written by a newer version of Daybook and is read-only. Update Daybook to change it."
+                        loadFailure = "Session notes and power readings were written by a newer version of Daybook and are read-only. Update Daybook to change them."
                         return
                     }
                     cache = try validated(document.entries)
@@ -164,12 +164,12 @@ final class SessionMetadataArchive {
             try replayJournal()
         } catch ValidationError.duplicateRecordID {
             cache = [:]
-            loadFailure = "Session metadata contains duplicate records and is read-only. Settings › Privacy shows where the file is."
+            loadFailure = "Session notes and power readings contain duplicate records and are read-only. Settings › Privacy shows where the file is."
         } catch ValidationError.conflictingObservationID {
             cache = [:]
-            loadFailure = "Session metadata contains conflicting power readings and is read-only. Settings › Privacy shows where the file is."
+            loadFailure = "Session notes and power readings conflict, so they are read-only. Settings › Privacy shows where the file is."
         } catch {
-            loadFailure = "Session metadata could not be read. The original file was kept. Reopen Daybook to try again."
+            loadFailure = "Session notes and power readings couldn't be read. The original file was kept. Reopen Daybook to try again."
         }
     }
 
@@ -264,7 +264,7 @@ final class SessionMetadataArchive {
         } catch let refused as WriteRefused {
             return .failed(refused.message)
         } catch {
-            return .failed("Session metadata could not be saved: \(error.localizedDescription) Check free space and folder access, then try again.")
+            return .failed("Session notes and power readings couldn't be saved. \(error.localizedDescription.endingInFullStop) Check free space and folder access, then try again.")
         }
         cache = candidate
         revision &+= 1

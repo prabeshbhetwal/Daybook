@@ -38,9 +38,6 @@ struct BreakPromptEntry: Codable, Equatable, Identifiable {
     var laterCount = 0
     var outcome: BreakPromptOutcome?
     var outcomeAt: Date?
-    // Phase 3: a reminder held back while the person was busy.
-    var heldSeconds: TimeInterval?
-    var holdReasons: [String]?
     /// When the latest showing came, if it was not the first (a reminder that
     /// returned after a Later). `shown` stays the first showing.
     var lastShown: Date?
@@ -232,7 +229,7 @@ final class BreakLog {
             prompts = document.prompts.sorted { $0.shown < $1.shown }
             days = document.days.sorted { $0.day < $1.day }
         } catch {
-            loadFailure = "The break log could not be read. The original file was kept. Reopen Daybook to try again."
+            loadFailure = "The break log couldn't be read. The original file was kept. Reopen Daybook to try again."
             Diagnostics.log("\(loadFailure ?? ""): \(error)")
         }
     }
@@ -257,7 +254,7 @@ final class BreakLog {
             retryAfter = nil
             return nil
         } catch {
-            let message = "The break log could not be saved: \(error.localizedDescription) Check free space and folder access, then try again."
+            let message = "The break log couldn't be saved. \(error.localizedDescription.endingInFullStop) Check free space and folder access, then try again."
             return refused(message, logging: message, at: moment)
         }
     }

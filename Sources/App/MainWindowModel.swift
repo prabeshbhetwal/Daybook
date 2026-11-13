@@ -171,8 +171,6 @@ struct HistorySessionPick: Hashable {
     @Published private(set) var historyScrollTarget: String?
     private var historyPrepared = false
 
-    var historyDeepestOpen: HistoryPlace? { historyOpen.last }
-
     /// The day History is inspecting: an open day, or a picked session's day.
     var reviewSelectedDate: Date? {
         historySession?.day ?? historyOpen.last(where: { $0.level == .day })?.start

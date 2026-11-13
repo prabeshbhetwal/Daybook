@@ -21,7 +21,8 @@ struct StoryMachineRunCard: View {
             }
         }
         .padding(StoryStyle.entryInsets(for: density))
-        .background(StoryStyle.well.opacity(0.6), in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
+        .background(StoryStyle.well.opacity(0.6),
+                    in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
     }
 
     private var header: some View {

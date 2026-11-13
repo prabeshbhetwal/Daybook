@@ -140,7 +140,8 @@ struct HistorySessionRow: View {
             .clipShape(Capsule())
             .padding(.top, Tokens.Space.s)
             .accessibilityHidden(true)
-            HStack(spacing: Tokens.Space.m) {
+            // Wraps rather than truncates when the names run past the card.
+            ChipFlow(spacing: Tokens.Space.m) {
                 ForEach(top) { app in
                     legend(Tokens.Palette.appUse, "\(app.appName) \(Self.percent(app.share))")
                 }

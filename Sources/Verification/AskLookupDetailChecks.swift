@@ -16,11 +16,11 @@ enum AskLookupDetailChecks: CheckSuite {
         AskLookupChecks.withFixture { f, problems in
             // Insights reads whole weeks: October's last week runs to Sun 5 Nov.
             let month = f.store.askLookup(.bestHours(.lastMonth))
-            expect(month.hasPrefix("Over the 6 weeks to 5 Nov: most focus 9–11am"),
+            expect(month.hasPrefix("Over the 6 weeks to 5 Nov: most focus \(DateFormats.wholeHour(9, locale: Locale(identifier: "en_AU"))) – \(DateFormats.wholeHour(11, locale: Locale(identifier: "en_AU")))"),
                    "last month's best hours say “\(month)”", &problems)
             // A week that is not over is read to today.
             let thisWeek = f.store.askLookup(.bestHours(.thisWeek))
-            expect(thisWeek.hasPrefix("Over the week to 15 Nov: most focus 2–4pm"),
+            expect(thisWeek.hasPrefix("Over the week to 15 Nov: most focus \(DateFormats.wholeHour(14, locale: Locale(identifier: "en_AU"))) – \(DateFormats.wholeHour(16, locale: Locale(identifier: "en_AU")))"),
                    "this week's best hours say “\(thisWeek)”", &problems)
         }
     }

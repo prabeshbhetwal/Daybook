@@ -128,10 +128,9 @@ struct AskChatView: View {
                     Button { model.stop() } label: { Text("Stop").frame(minWidth: 40.zoomed) }
                         .buttonStyle(StoryActionStyle())
                         .keyboardShortcut(".", modifiers: .command)
-                        .help("Stop answering (⌘.)")
+                        .help("Stop Answering (⌘.)")
                 } else {
-                    Button { send(text) } label: { Text("Send").frame(minWidth: 40.zoomed) }
-                        .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
+                    SubmitArrowButton(help: "Send (Return)", label: "Send") { send(text) }
                         .disabled(!model.canAsk || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -139,10 +138,6 @@ struct AskChatView: View {
         }
         .padding(.horizontal, Tokens.Space.xl)
         .padding(.vertical, Tokens.Space.m)
-    }
-
-    private var fieldShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
     }
 
     /// Stays editable while an answer is worked out; Return does nothing until it is done.
@@ -158,10 +153,7 @@ struct AskChatView: View {
             .padding(.horizontal, Tokens.Space.m)
             .padding(.vertical, Tokens.Space.xs)
             .frame(minHeight: FilterChip<EmptyView, EmptyView>.height)
-            .background(fieldShape.fill(Tokens.Colour.elevated)
-                .shadow(color: StoryStyle.focus.opacity(fieldFocused ? 0.28 : 0), radius: 6.zoomed))
-            .overlay(fieldShape.strokeBorder(fieldFocused ? StoryStyle.focus : Tokens.Colour.line,
-                                             lineWidth: fieldFocused ? 1.5.zoomed : 1))
+            .fieldFocusChrome(fieldFocused)
     }
 
     private func send(_ question: String) {

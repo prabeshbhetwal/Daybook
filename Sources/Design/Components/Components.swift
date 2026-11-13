@@ -141,7 +141,7 @@ struct WorkTypePicker: View {
             if let openCategoryEditor {
                 Divider()
                 Button { openCategoryEditor(.new) } label: {
-                    Label("Add Category…", systemImage: "plus")
+                    Label("New Category…", systemImage: "plus")
                         .labelStyle(.titleAndIcon)
                 }
                 Button { openCategoryEditor(.edit(selection)) } label: {
@@ -180,7 +180,7 @@ enum CategoryEditorRequest: Equatable {
 }
 
 /// One ask to open the editor. The counter makes two identical asks two
-/// events, so the editor reopens on a second "Add Category…" after the first
+/// events, so the editor reopens on a second "New Category…" after the first
 /// form was closed.
 struct CategoryEditorTicket: Equatable {
     let id: UInt64
@@ -215,6 +215,34 @@ extension EnvironmentValues {
     }
 }
 
+/// The close control of every panel, sheet and drill-in: an x on an elevated
+/// 28-point disc. One drawing, so the three places that close something look
+/// and press alike.
+struct CloseButton: View {
+    /// What VoiceOver says: "Close Settings".
+    let label: String
+    /// The tooltip, when "Close" alone would not say what closes.
+    var help = "Close"
+    /// Whether Escape presses it. A sheet gives Escape away while an inline
+    /// form is open.
+    var escapes = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(Tokens.Typography.label)
+                .frame(width: AccessibilityMetrics.minimumTargetSize,
+                       height: AccessibilityMetrics.minimumTargetSize)
+                .background(Tokens.Colour.elevated, in: Circle())
+        }
+        .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14.zoomed))
+        .keyboardShortcut(escapes ? .cancelAction : nil)
+        .help(help)
+        .accessibilityLabel(label)
+    }
+}
+
 /// The title band of a floating panel: title, one line of what it is for,
 /// and the close control, drawn the way the app's sheets draw theirs. The
 /// window's own buttons are hidden so there is one way to close.
@@ -238,17 +266,7 @@ struct PanelHeader: View {
                     }
                 }
                 Spacer(minLength: Tokens.Space.m)
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(Tokens.Typography.label)
-                        .frame(width: AccessibilityMetrics.minimumTargetSize,
-                               height: AccessibilityMetrics.minimumTargetSize)
-                        .background(Tokens.Colour.elevated, in: Circle())
-                }
-                .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: 14.zoomed))
-                .keyboardShortcut(.cancelAction)
-                .help("Close")
-                .accessibilityLabel("Close \(title)")
+                CloseButton(label: "Close \(title)", action: onClose)
             }
             .padding(.horizontal, Tokens.Space.xl)
             .padding(.vertical, Tokens.Space.m)

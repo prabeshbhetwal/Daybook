@@ -80,8 +80,8 @@ struct HistoryResultChart: View {
             .foregroundStyle(StoryStyle.supportingInk)
             if isLens {
                 HStack(spacing: Tokens.Space.m) {
-                    swatch(primaryColour, "In a session")
-                    swatch(primaryColour.opacity(0.42), "Outside sessions")
+                    swatch("In a session") { primaryColour }
+                    swatch("Outside sessions") { outsideFill(primaryColour) }
                 }
             }
         }
@@ -92,6 +92,14 @@ struct HistoryResultChart: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Each day")
         .accessibilityValue(DurationText.spoken(in: spokenSummary))
+        // The bars are tap-only, so each day with a figure is also a button
+        // of its own under the summary, reachable without a pointer.
+        .accessibilityChildren {
+            ForEach(days.filter { (values[$0]?.total ?? 0) > 0 }, id: \.self) { day in
+                Button(DurationText.spoken(in: "\(DateFormats.longDate(day)), "
+                                           + Tokens.duration(values[day]?.total ?? 0))) { onPick(day) }
+            }
+        }
     }
 
     @ViewBuilder private func bar(_ day: Date, peak: TimeInterval) -> some View {
@@ -99,7 +107,7 @@ struct HistoryResultChart: View {
             let height = max(4.zoomed, Self.height * value.total / peak)
             let colour = primaryColour
             VStack(spacing: 0) {
-                Rectangle().fill(colour.opacity(0.42))
+                outsideFill(colour)
                     .frame(height: height * value.secondary / value.total)
                 Rectangle().fill(colour)
                     .frame(height: height * value.primary / value.total)
@@ -137,9 +145,20 @@ struct HistoryResultChart: View {
         }
     }
 
-    private func swatch(_ colour: Color, _ label: String) -> some View {
+    /// Time outside a session: the app-use ink at 42% over the stripes the day
+    /// uses for time no event explains, so it is not told apart by tint alone.
+    private func outsideFill(_ colour: Color) -> some View {
+        ZStack {
+            HatchFill()
+            colour.opacity(0.42)
+        }
+    }
+
+    private func swatch<Fill: View>(_ label: String, @ViewBuilder fill: () -> Fill) -> some View {
         HStack(spacing: Tokens.Space.xs) {
-            RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous).fill(colour).frame(width: 9.zoomed, height: 9.zoomed)
+            fill()
+                .frame(width: 9.zoomed, height: 9.zoomed)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous))
             Text(label).font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
         }
     }

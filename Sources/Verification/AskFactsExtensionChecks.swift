@@ -162,7 +162,7 @@ enum AskFactsExtensionChecks: CheckSuite {
     private static func totalsGiveWorkTypes() -> [String] {
         AskDataFixture.with { f, problems in
             let text = f.store.askLookup(.focusTotals(.thisMonth, words: nil))
-            expect(text.contains("By work type: Deep work 8h 12m, Admin 30m."), "this month says “\(text)”", &problems)
+            expect(text.contains("By category: Deep work 8h 12m, Admin 30m."), "this month says “\(text)”", &problems)
             let place = HistoryPlace(level: .month, span: f.store.askInterval(.thisMonth))
             let history = f.store.historyCategories(for: place)
             let shares = f.store.askWorkTypes(.thisMonth)

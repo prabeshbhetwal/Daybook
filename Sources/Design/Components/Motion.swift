@@ -53,13 +53,6 @@ extension View {
     func symbolSwap() -> some View {
         modifier(SymbolSwap())
     }
-
-    /// A glyph that acknowledges a change of state with a small dip — the
-    /// pin when pinned, the tick when the order is saved. macOS 14 only; on
-    /// 13, and under Reduce Motion, the swap is the acknowledgement.
-    func symbolNod<Value: Equatable>(on value: Value) -> some View {
-        modifier(SymbolNod(value: value))
-    }
 }
 
 private struct SymbolSwap: ViewModifier {
@@ -68,19 +61,6 @@ private struct SymbolSwap: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 14.0, *), !reduceMotion {
             content.contentTransition(.symbolEffect(.replace))
-        } else {
-            content
-        }
-    }
-}
-
-private struct SymbolNod<Value: Equatable>: ViewModifier {
-    let value: Value
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    @ViewBuilder func body(content: Content) -> some View {
-        if #available(macOS 14.0, *), !reduceMotion {
-            content.symbolEffect(.bounce.down.byLayer, value: value)
         } else {
             content
         }
