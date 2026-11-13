@@ -79,7 +79,7 @@ extension NoteFacts {
         let partsTotal = input.focusByPart.values.reduce(0, +)
         if let best = NoteDayPart.allCases.map({ (part: $0, focused: input.focusByPart[$0] ?? 0) })
             .max(by: { $0.focused < $1.focused }), best.focused >= 60, best.focused >= partsTotal * 0.4 {
-            observations.append("The most focus came \(best.part.phrase): \(compact(best.focused))")
+            observations.append("The most focus came \(best.part.phrase()): \(compact(best.focused))")
         }
         let stretchCount = input.sessions.reduce(0) { $0 + $1.stretches }
         if stretchCount > 1 {

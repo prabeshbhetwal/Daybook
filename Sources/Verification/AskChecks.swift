@@ -10,7 +10,7 @@ enum AskChecks: CheckSuite {
         ("Every Ask answer says plainly when nothing was found", nothingFoundIsSaid),
         ("Ask answers print durations as the rest of the app does", figuresAreDurationText),
         ("An Ask answer is cut to the byte cap at a line or clause boundary", outputStaysUnderCap),
-        ("The best-hours window reads as a 12-hour range", windowLabels),
+        ("The best-hours window follows the 12 or 24-hour clock", windowLabels),
         ("Ask opens as a sheet over the story and closes back to nothing", askOpensAsASheet),
         ("The Ask sheet fits inside a small window", askSheetFitsWindow),
     ]
@@ -175,8 +175,8 @@ enum AskChecks: CheckSuite {
                "a comparison of named periods says “\(less)”", &problems)
 
         let hours = AskFacts.bestHours(.thisWeek, span: "This week", window: (startHour: 9, seconds: 7_200),
-                                       strongest: "on Tuesdays")
-        expect(hours == "This week: most focus 9–11am (2h); strongest on Tuesdays.",
+                                       strongest: "on Tuesdays", locale: LocaleFormatChecks.australian)
+        expect(hours == "This week: most focus 9\u{00A0}am – 11\u{00A0}am (2h); strongest on Tuesdays.",
                "best hours say “\(hours)”", &problems)
 
         let lines = AskFacts.sessions(.thisWeek, words: "thesis",
@@ -258,10 +258,15 @@ enum AskChecks: CheckSuite {
 
     private static func windowLabels() -> [String] {
         var problems: [String] = []
-        for (start, label) in [(9, "9–11am"), (11, "11am–1pm"), (0, "12–2am")] {
+        let nbsp = "\u{00A0}", au = LocaleFormatChecks.australian, gb = Locale(identifier: "en_GB")
+        let cases: [(Locale, Int, String)] = [
+            (au, 9, "9\(nbsp)am – 11\(nbsp)am"), (au, 11, "11\(nbsp)am – 1\(nbsp)pm"), (au, 0, "12\(nbsp)am – 2\(nbsp)am"),
+            (gb, 9, "09:00 – 11:00"), (gb, 22, "22:00 – 00:00"),
+        ]
+        for (locale, start, label) in cases {
             let text = AskFacts.bestHours(.thisWeek, span: "This week",
-                                          window: (startHour: start, seconds: 3_600), strongest: nil)
-            expect(text.contains(label), "a window starting at \(start) reads “\(text)”, not \(label)", &problems)
+                                          window: (startHour: start, seconds: 3_600), strongest: nil, locale: locale)
+            expect(text.contains(label), "a window at \(start) in \(locale.identifier) reads “\(text)”, not \(label)", &problems)
         }
         return problems
     }

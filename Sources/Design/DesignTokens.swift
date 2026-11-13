@@ -144,12 +144,12 @@ enum Tokens {
         guard let total = DurationText.wholeSeconds(seconds) else { return "—" }
         let hours = total / 3600
         let minutes = (total % 3600) / 60
+        let minutePart = minutes == 1 ? "1 minute" : "\(minutes) minutes"
         if hours > 0 {
             let hourPart = hours == 1 ? "1 hour" : "\(hours) hours"
-            guard minutes > 0 else { return hourPart }
-            return "\(hourPart) \(minutes) min"
+            return minutes > 0 ? "\(hourPart) \(minutePart)" : hourPart
         }
-        if minutes > 0 { return minutes == 1 ? "1 minute" : "\(minutes) minutes" }
+        if minutes > 0 { return minutePart }
         return total == 1 ? "1 second" : "\(total) seconds"
     }
 

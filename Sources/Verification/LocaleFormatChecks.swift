@@ -13,6 +13,7 @@ enum LocaleFormatChecks: CheckSuite {
         ("A range keeps each time whole on either clock", rangesStayWhole),
         ("Chart hours read 9am on a 12-hour clock and the locale's hour on a 24-hour one", hourLabels),
         ("History's hour windows follow the clock", historyHours),
+        ("A note's parts of the day follow the clock", noteDayParts),
         ("Day and month labels are in the locale's language and order", dayLabels),
         ("A span of days names the month once only where the day comes first", dateRanges),
         ("The widest time range is built by the formatter, so its width follows the clock", widestRanges),
@@ -114,6 +115,23 @@ enum LocaleFormatChecks: CheckSuite {
         let twentyFour = HistoryHours.span(from: 9, locale: british)
         expect(twentyFour == "09:00 – 11:00", "a 24-hour window read \(twentyFour)", &problems)
         expect(HistoryHours.label(13, locale: american24) == "13:00", "1 pm on a 24-hour clock read \(HistoryHours.label(13, locale: american24))", &problems)
+        return problems
+    }
+
+    private static func noteDayParts() -> [String] {
+        var problems: [String] = []
+        let cases: [(NoteDayPart, Locale, String)] = [
+            (.morning, australian, "in the morning, between 5\(nbsp)am and noon"),
+            (.afternoon, australian, "in the afternoon, between noon and 5\(nbsp)pm"),
+            (.night, australian, "at night, after 10\(nbsp)pm or before 5\(nbsp)am"),
+            (.morning, british, "in the morning, between 05:00 and noon"),
+            (.evening, british, "in the evening, between 17:00 and 22:00"),
+            (.night, american24, "at night, after 22:00 or before 05:00"),
+        ]
+        for (part, locale, expected) in cases {
+            let text = part.phrase(locale: locale)
+            expect(text == expected, "\(part) in \(locale.identifier) read “\(text)”, not “\(expected)”", &problems)
+        }
         return problems
     }
 

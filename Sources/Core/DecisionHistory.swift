@@ -89,7 +89,7 @@ final class DecisionHistory {
             // history. Read-only only when it cannot be moved.
             if UnreadableFile.setAside(url, prefix: "correction-history-corrupt-",
                                        pathExtension: "json", at: now) == nil {
-                self.error = "Correction history could not be read. Its file was kept: \(error.localizedDescription) Reopen Daybook to try again."
+                self.error = "Correction history couldn't be read. \(error.localizedDescription.endingInFullStop) Its file was kept. Reopen Daybook to try again."
             }
         }
     }
@@ -176,6 +176,6 @@ final class DecisionHistory {
             try JSONEncoder().encode(next).write(to: url, options: .atomic)
             document = next
             return nil
-        } catch { return "Could not save correction history: \(error.localizedDescription) Check free space and folder access, then try again." }
+        } catch { return "Correction history couldn't be saved. \(error.localizedDescription.endingInFullStop) Check free space and folder access, then try again." }
     }
 }

@@ -120,7 +120,7 @@ import Speech
             try engine.start()
         } catch {
             input.removeTap(onBus: 0)
-            status = .failed("The microphone could not be started. Check that no other app is using it, then try again.")
+            status = .failed("The microphone couldn't be started. Check that no other app is using it, then try again.")
             return
         }
         audioEngine = engine
@@ -142,7 +142,7 @@ import Speech
                     let code = (error as NSError).code
                     self.tearDown()
                     self.status = code == 1_110 || code == 216 ? .idle
-                        : .failed("Dictation stopped: \(error.localizedDescription)")
+                        : .failed("Dictation stopped. \(error.localizedDescription.endingInFullStop) Try again.")
                 } else if result?.isFinal == true {
                     self.tearDown()
                     self.status = .idle

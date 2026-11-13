@@ -54,8 +54,10 @@ extension SelfTest {
 
         expect(Tokens.spent(7_200) == "2 hours", "2h exactly, got \(Tokens.spent(7_200))",
                &problems)
-        expect(Tokens.spent(7_980) == "2 hours 13 min",
+        expect(Tokens.spent(7_980) == "2 hours 13 minutes",
                "2h13m, got \(Tokens.spent(7_980))", &problems)
+        expect(Tokens.spent(3_660) == "1 hour 1 minute",
+               "1h1m, got \(Tokens.spent(3_660))", &problems)
         expect(Tokens.spent(60) == "1 minute", "singular minute", &problems)
         expect(Tokens.spent(0) == "0 seconds", "zero", &problems)
 

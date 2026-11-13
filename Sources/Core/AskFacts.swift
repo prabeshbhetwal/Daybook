@@ -71,7 +71,7 @@ enum AskFacts {
         }
         text += "." + (app ?? "") + found
         if !totals.workTypes.isEmpty {
-            text += " By work type: " + totals.workTypes.map { "\($0.name) \(DurationText.compact($0.seconds))" }
+            text += " By category: " + totals.workTypes.map { "\($0.name) \(DurationText.compact($0.seconds))" }
                 .joined(separator: ", ") + "."
         }
         if let streak = totals.streak {
@@ -109,11 +109,13 @@ enum AskFacts {
     }
 
     static func bestHours(_ range: AskRange, span: String,
-                          window: (startHour: Int, seconds: TimeInterval)?, strongest: String?) -> String {
+                          window: (startHour: Int, seconds: TimeInterval)?, strongest: String?,
+                          locale: Locale = Locale(identifier: "en_AU")) -> String {
+        // The model reads every clock in one style, whatever the region.
         guard let window else {
             return capped("Not enough focus \(range.inPhrase) to tell; it needs at least 30m.")
         }
-        var text = "\(span): most focus \(windowLabel(window.startHour)) (\(DurationText.compact(window.seconds)))"
+        var text = "\(span): most focus \(windowLabel(window.startHour, locale: locale)) (\(DurationText.compact(window.seconds)))"
         if let strongest { text += "; strongest \(strongest)" }
         return capped(text + ".")
     }
@@ -226,14 +228,9 @@ enum AskFacts {
         TimeInterval((DurationText.wholeSeconds(seconds) ?? 0) / 60 * 60)
     }
 
-    /// The two-hour window as `9–11am`, `11am–1pm` or `12–2am`.
-    private static func windowLabel(_ startHour: Int) -> String {
-        func clock(_ hour: Int) -> (number: Int, suffix: String) {
-            (hour % 12 == 0 ? 12 : hour % 12, hour % 24 < 12 ? "am" : "pm")
-        }
-        let start = clock(startHour), end = clock(startHour + 2)
-        return start.suffix == end.suffix
-            ? "\(start.number)–\(end.number)\(end.suffix)"
-            : "\(start.number)\(start.suffix)–\(end.number)\(end.suffix)"
+    /// The two-hour window as the clock writes it: `9 am – 11 am`, or
+    /// `09:00 – 11:00` on a 24-hour clock.
+    private static func windowLabel(_ startHour: Int, locale: Locale) -> String {
+        "\(DateFormats.wholeHour(startHour, locale: locale)) – \(DateFormats.wholeHour(startHour + 2, locale: locale))"
     }
 }

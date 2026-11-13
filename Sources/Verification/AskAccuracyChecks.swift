@@ -52,7 +52,7 @@ enum AskAccuracyChecks: CheckSuite {
                    "October 2023 and last month differ: “\(october)” against “\(last)”", &problems)
 
             let day = f.store.askLookup(.focusTotals(.day(year: 2023, month: 11, day: 13), words: nil))
-            expect(day == "On Mon 13 Nov 2023: 1h focused over 1 session on 1 day; the first session began at 9:00am. By work type: Deep work 1h.",
+            expect(day == "On Mon 13 Nov 2023: 1h focused over 1 session on 1 day; the first session began at 9:00am. By category: Deep work 1h.",
                    "Mon 13 Nov says “\(day)”", &problems)
 
             let empty = f.store.askLookup(.focusTotals(.year(2022), words: nil))
@@ -72,7 +72,7 @@ enum AskAccuracyChecks: CheckSuite {
     private static func startsAndLongest() -> [String] {
         AskLookupChecks.withFixture { f, problems in
             let yesterday = f.store.askLookup(.focusTotals(.yesterday, words: nil))
-            expect(yesterday == "Yesterday (Tue 14 Nov): 1h 30m focused over 1 session on 1 day; the first session began at 2:00pm. By work type: Deep work 1h 30m.",
+            expect(yesterday == "Yesterday (Tue 14 Nov): 1h 30m focused over 1 session on 1 day; the first session began at 2:00pm. By category: Deep work 1h 30m.",
                    "yesterday says “\(yesterday)”", &problems)
             let week = f.store.askLookup(.focusTotals(.thisWeek, words: nil))
             expect(week.hasPrefix("This week (13 Nov – 19 Nov): 2h 30m focused over 2 sessions on 2 days, "
