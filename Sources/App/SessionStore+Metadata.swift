@@ -5,6 +5,11 @@ extension SessionStore {
     /// observed start/end. Stored timestamps always remain the sampling clock.
     private static let powerBoundaryTolerance: TimeInterval = 2
 
+    /// Readings kept while the sidecar refuses writes; past this the oldest
+    /// go. A read-only sidecar grew the queue, and the preference rewritten
+    /// whole on each reading, without bound.
+    private static let pendingPowerObservationLimit = 200
+
     private func refreshPowerMetadataError() {
         powerMetadataError = pendingPowerObservations.lazy.compactMap(\.lastError).first
             ?? pendingPowerTransferError
@@ -28,6 +33,16 @@ extension SessionStore {
         let mayAttemptImmediately = pendingPowerObservations.isEmpty
         pendingPowerObservations.append(PendingPowerObservation(
             recordID: recordID, observation: observation, lastError: nil))
+        let excess = pendingPowerObservations.count - Self.pendingPowerObservationLimit
+        if excess > 0 {
+            // The front holds the refusal the queue waits on; the new front
+            // takes it over, so the error stays shown.
+            let error = pendingPowerObservations[0].lastError
+            pendingPowerObservations.removeFirst(excess)
+            let front = pendingPowerObservations[0]
+            pendingPowerObservations[0] = PendingPowerObservation(
+                recordID: front.recordID, observation: front.observation, lastError: front.lastError ?? error)
+        }
         persistPowerObservationRecovery()
         if mayAttemptImmediately { _ = replayPendingPowerObservations() }
     }

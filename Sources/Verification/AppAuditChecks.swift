@@ -13,6 +13,8 @@ enum AppAuditChecks: CheckSuite {
          unansweredNameIsAskedAgain),
         ("A shortcut press that did not save says so, with the store's error", hotKeyFailuresAreShown),
         ("An automatic start or end reports whether it happened", automaticStartAndEndReport),
+        ("The power readings kept for a refused sidecar stop at 200, and keep their error",
+         powerQueueIsCapped),
     ]
 
     private static func hotKeyFailuresAreShown() -> [String] {
@@ -65,6 +67,31 @@ enum AppAuditChecks: CheckSuite {
             expect(f.engine.archive.records.last?.end == end,
                    "the session ends where its work stopped, got \(String(describing: f.engine.archive.records.last?.end))",
                    &problems)
+            return problems
+        }
+    }
+
+    private static func powerQueueIsCapped() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let suite = "fc-selftest-audit-power-\(UUID().uuidString)"
+            defer { MemoryDefaults.remove(named: suite) }
+            guard let store = noteStore(failing: true, suite: suite)?.0 else {
+                return ["could not create isolated preferences"]
+            }
+            let record = UUID()
+            let readings = (0..<250).map {
+                PowerObservation(timestamp: SelfTest.base.addingTimeInterval(TimeInterval($0) * 60), source: .external,
+                                 percentage: 64, charging: .notCharging)
+            }
+            for reading in readings { store.enqueuePowerObservation(reading, for: record) }
+            let kept = store.pendingPowerObservations
+            expect(kept.count == 200, "200 readings are kept, got \(kept.count)", &problems)
+            expect(kept.first?.observation == readings[50] && kept.last?.observation == readings[249],
+                   "the oldest go and the newest stay", &problems)
+            expect(store.engine.store.pendingPowerObservations.count == 200,
+                   "the saved queue is capped too, got \(store.engine.store.pendingPowerObservations.count)", &problems)
+            expect(store.powerMetadataError != nil, "the refusal is still shown", &problems)
             return problems
         }
     }
