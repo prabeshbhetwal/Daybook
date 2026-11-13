@@ -262,9 +262,6 @@ final class SessionStore: ObservableObject {
     var dashboardLiveTailRefreshPending = false
     var dashboardReadModelDay: Date?
     var dashboardEvidenceRevision: EvidenceRevision?
-    /// The archive-wide facts History's map shows, kept until the evidence
-    /// behind them changes.
-    var historyArchiveFactsCache: (revision: EvidenceRevision, facts: HistoryArchiveFacts)?
     /// History's recent readings: the rail asks for one at a time, but a
     /// reader who opens a week, then its month, then the week again should
     /// not pay for the week twice. Bounded; the oldest goes first.

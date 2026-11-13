@@ -29,36 +29,6 @@ extension View {
     }
 }
 
-/// An app's icon with the app-use accent beside it. Falls back to a rounded
-/// square in the accent when the app has no icon on this machine.
-struct AppSwatch: View {
-    var bundleID: String?
-    var appName: String = ""
-    var size: CGFloat = 18.zoomed
-
-    var body: some View {
-        HStack(spacing: Tokens.Space.xs) {
-            if let bundleID,
-               AppIconProvider.shared.icon(for: bundleID, size: size) != nil {
-                AppIcon(bundleID: bundleID, size: size, appName: appName)
-            } else {
-                RoundedRectangle(cornerRadius: Tokens.Radius.swatch, style: .continuous)
-                    .fill(Tokens.Palette.appUse)
-                    .frame(width: size, height: size)
-                    .overlay(
-                        Text(appName.first.map(String.init)?.uppercased() ?? "")
-                            .font(Tokens.Typography.fitted(size * 0.55, weight: .semibold))
-                            .foregroundStyle(.white)
-                    )
-            }
-            Circle()
-                .fill(Tokens.Palette.appUse)
-                .frame(width: 6.zoomed, height: 6.zoomed)
-        }
-        .accessibilityHidden(true)
-    }
-}
-
 /// A 28pt symbol button for the places a word would be louder than the action
 /// deserves: borderless like a toolbar symbol, with a tint only when it is the
 /// prominent one. Always carries a tooltip, because a glyph alone is a guess.

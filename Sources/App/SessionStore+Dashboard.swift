@@ -1,14 +1,5 @@
 import SwiftUI
 
-/// Per-day series behind the KPI cards' sparklines. One array per card, in
-/// the same day order, so the cards can be laid out from one refresh.
-struct KPISparks: Equatable {
-    var tracked: [Double] = []
-    var focused: [Double] = []
-    var sessions: [Double] = []
-    var quality: [Double] = []
-}
-
 // The dashboard's half of the store: timeline inspection, per-app history, the
 // day selection and the thread actions. Split from `SessionStore.swift` for
 // size only — same object, same rules.

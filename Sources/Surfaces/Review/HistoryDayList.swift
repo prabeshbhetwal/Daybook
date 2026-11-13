@@ -65,25 +65,3 @@ struct HistoryDayStrip: View {
         .accessibilityHidden(true)
     }
 }
-
-/// Clock labels over the strips: midnight to midnight, a label every six hours.
-struct HistoryStripAxis: View {
-    var leading: CGFloat = HistoryRowLayout.inset + HistoryRowLayout.dateWidth + HistoryRowLayout.spacing
-    var trailing: CGFloat = HistoryRowLayout.inset + HistoryRowLayout.figureWidth + HistoryRowLayout.spacing
-
-    var body: some View {
-        GeometryReader { geometry in
-            ForEach([0, 6, 12, 18], id: \.self) { hour in
-                Text(HistoryHours.label(hour))
-                    .font(Tokens.Typography.caption)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                    .fixedSize()
-                    .offset(x: geometry.size.width * CGFloat(hour) / 24)
-            }
-        }
-        .frame(height: 12.zoomed)
-        .padding(.leading, leading)
-        .padding(.trailing, trailing)
-        .accessibilityHidden(true)
-    }
-}

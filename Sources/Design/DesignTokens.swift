@@ -305,17 +305,6 @@ enum Tokens {
         static let unfold: AnyTransition = .asymmetric(
             insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .top)),
             removal: .opacity)
-        /// One reading replacing another, nudged the way the reader stepped.
-        /// A nudge, not a page turn: 28 points, so the movement reads as
-        /// direction without the content leaving the window.
-        static func slide(from edge: Edge) -> AnyTransition {
-            let distance = edge == .trailing ? 28.zoomed : -28.zoomed
-            return .asymmetric(
-                insertion: .modifier(active: Nudge(x: distance, opacity: 0),
-                                     identity: Nudge(x: 0, opacity: 1)),
-                removal: .modifier(active: Nudge(x: -distance, opacity: 0),
-                                   identity: Nudge(x: 0, opacity: 1)))
-        }
     }
 
     /// Layout metrics for compact and comfortable density.
@@ -377,10 +366,4 @@ extension Color {
     init(lightHex: UInt32, darkHex: UInt32) {
         self.init(light: NSColor(hex: lightHex), dark: NSColor(hex: darkHex))
     }
-}
-
-private struct Nudge: ViewModifier {
-    let x: CGFloat
-    let opacity: Double
-    func body(content: Content) -> some View { content.offset(x: x).opacity(opacity) }
 }

@@ -146,7 +146,7 @@ struct DayStoryColumn: View {
 /// picked-period card shows the date, focus, sessions and app use; a History
 /// row shows the date, focus and sessions.
 enum DayStoryContext {
-    case main, underCard, underRow
+    case main, underRow
 }
 
 struct ProjectedDayStoryColumn: View {

@@ -42,8 +42,6 @@ struct InsightRangeFacts: Equatable {
     static let empty = InsightRangeFacts(grid: [], rowLabels: [], rowPhrases: [],
                                          categories: [], apps: [], goalRates: [])
 
-    var gridPeak: TimeInterval { grid.map { $0.max() ?? 0 }.max() ?? 0 }
-
     /// Focused seconds per clock hour, every weekday together.
     var hourTotals: [TimeInterval] {
         (0..<24).map { hour in grid.reduce(0) { $0 + $1[hour] } }
@@ -73,22 +71,6 @@ struct InsightRangeFacts: Equatable {
             if sum > bestSum { bestSum = sum; bestRow = row }
         }
         return bestRow.flatMap { rowPhrases.indices.contains($0) ? rowPhrases[$0] : nil }
-    }
-
-    /// The clock hours worth drawing: the span that holds focus, padded by one
-    /// hour and never narrower than eight, so a quiet range is not a wall of
-    /// empty cells.
-    var visibleHours: ClosedRange<Int> {
-        let totals = hourTotals
-        guard let first = totals.firstIndex(where: { $0 > 0 }),
-              let last = totals.lastIndex(where: { $0 > 0 }) else { return 8...18 }
-        var low = max(0, first - 1), high = min(23, last + 1)
-        while high - low < 7 {
-            if low > 0 { low -= 1 }
-            if high - low < 7, high < 23 { high += 1 }
-            if low == 0 && high == 23 { break }
-        }
-        return low...high
     }
 }
 
