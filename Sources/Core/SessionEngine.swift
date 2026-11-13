@@ -160,7 +160,7 @@ final class SessionEngine {
         self.store = store
         self.archive = archive ?? SessionArchive(now: now)
         self.decisionHistory = DecisionHistory(directory: self.archive.dataDirectoryURL,
-                                              writeOverride: correctionWriteOverride)
+                                              writeOverride: correctionWriteOverride, now: now())
         self.categories = CategoryManager(store: store)
         self.ownBundleID = ownBundleID
         self.schedulesDwell = schedulesDwell
