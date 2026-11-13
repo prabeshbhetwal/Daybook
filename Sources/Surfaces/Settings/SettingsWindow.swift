@@ -26,11 +26,11 @@ struct SettingsWindowContent: View {
 
     var body: some View {
         SettingsView(model: settings, navigation: navigation)
-            // Fills the window whatever its size. Without a maximum the page
-            // kept its ideal width, so after a zoom down the window's right
-            // side was left bare, title bar band and all.
-            .frame(minWidth: SettingsLayout.minimumWindowWidth, idealWidth: SettingsLayout.sheetWidth,
-                   maxWidth: .infinity,
+            // Fills the window whatever its size. The window's maximum width
+            // is this one (`.contentSize` in DaybookApp), so a zoomed window
+            // grows taller and never wider than the page, with no bare bands.
+            .frame(minWidth: SettingsLayout.minimumWindowWidth, idealWidth: SettingsLayout.maximumWindowWidth,
+                   maxWidth: SettingsLayout.maximumWindowWidth,
                    minHeight: SettingsLayout.minimumWindowHeight, idealHeight: SettingsLayout.sheetHeight,
                    maxHeight: .infinity)
             .background(StoryStyle.canvas)

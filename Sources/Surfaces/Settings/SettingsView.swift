@@ -16,6 +16,12 @@ enum SettingsLayout {
     /// The sidebar beside a page that still reads, so the window fits a
     /// laptop screen at the largest zoom.
     static var minimumWindowWidth: CGFloat { 680.zoomed }
+    /// The sidebar, its divider and the page's reading measure with its
+    /// padding. Wider, a zoomed window only added empty bands either side of
+    /// the page; like System Settings, zoom now adds height, not width.
+    static var maximumWindowWidth: CGFloat {
+        sidebarWidth + 1 + detailMeasure + Tokens.Space.xl * 2 // zoom: fixed (divider hairline)
+    }
     /// Room kept to the window's edge when the window is smaller than the
     /// sheet would like to be.
     static var windowMargin: CGFloat { 40.zoomed }

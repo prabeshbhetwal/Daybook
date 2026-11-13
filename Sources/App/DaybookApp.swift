@@ -103,7 +103,6 @@ struct DaybookApp: App {
                 settings: coordinator.settings,
                 onOpenApplication: { openMainWindow() },
                 onOpenSettings: { openSettingsWindow() },
-                onCheckForUpdates: { coordinator.updater.checkForUpdates() },
                 onOpenCategoryEditor: { request in
                     CategoryEditorPanel.shared.show(request, model: coordinator.settings) { definition, wasNew in
                         if wasNew { coordinator.store.workType = definition.workType }
@@ -146,7 +145,7 @@ struct DaybookApp: App {
             SettingsWindowContent(settings: coordinator.settings, navigation: coordinator.mainWindow,
                                   store: coordinator.store)
         }
-        .windowResizability(.contentMinSize)
+        .windowResizability(.contentSize)
         .defaultPosition(.center)
         // ⌘, opens it; a second entry in the Window menu would only repeat that.
         .commandsRemoved()

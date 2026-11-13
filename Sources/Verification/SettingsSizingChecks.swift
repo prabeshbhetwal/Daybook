@@ -1,4 +1,5 @@
-import Foundation
+import AppKit
+import SwiftUI
 
 /// Settings sizes with the zoom: the slider reaches every zoom step, and the
 /// window's minimum still fits a laptop screen at the largest zoom.
@@ -6,7 +7,45 @@ enum SettingsSizingChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("The zoom slider reaches every zoom step, the largest included", sliderReachesEveryStep),
         ("The Settings window fits a laptop screen at the largest zoom", settingsFitsLaptopAtLargestZoom),
+        ("A zoomed Settings window grows no wider than its page", settingsWindowStopsAtPage),
+        ("The menu bar panel's footer fits the panel at every zoom", popoverFooterFits),
     ]
+
+    /// The green button asked for a 1,900-point window and got one, with
+    /// empty bands either side of the 720-point page.
+    private static func settingsWindowStopsAtPage() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .running)
+            defer { FixtureFactory.cleanUp() }
+            let settings = SettingsModel(store: store.engine.store, isTrackingEnabled: true,
+                                         onChange: {}, onTrackingChanged: { _ in })
+            let host = NSHostingController(rootView: SettingsWindowContent(
+                settings: settings, navigation: MainWindowModel(store: store), store: store))
+            let width = host.sizeThatFits(in: CGSize(width: 3_000, height: 2_000)).width
+            var problems: [String] = []
+            expect(width <= SettingsLayout.maximumWindowWidth + 0.5,
+                   "a 3,000-point offer should stop at \(SettingsLayout.maximumWindowWidth), got \(width)", &problems)
+            expect(SettingsLayout.maximumWindowWidth >= SettingsLayout.minimumWindowWidth,
+                   "the maximum width should not undercut the minimum", &problems)
+            return problems
+        }
+    }
+
+    /// Four destinations truncated to "Check for Upd…" in the 340-point panel.
+    private static func popoverFooterFits() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            for percent in InterfaceZoom.percents {
+                let (needed, room) = InterfaceZoomChecks.withZoom(percent) { () -> (CGFloat, CGFloat) in
+                    let metrics = PopoverMetrics.fitting(CGSize(width: 1_440, height: 900))
+                    let host = NSHostingView(rootView: PopoverFooter(onOpenApplication: {}, onOpenSettings: {}))
+                    return (host.fittingSize.width, metrics.width - metrics.outerPadding * 2)
+                }
+                expect(needed <= room, "at \(percent)% the footer needs \(needed) points, the panel has \(room)", &problems)
+            }
+            return problems
+        }
+    }
 
     /// Walks the slider's range in its own step, the way the slider does, and
     /// expects to land on every step. In scales the walk stopped at 130%.
