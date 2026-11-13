@@ -178,11 +178,11 @@ private struct FocusContinuationLabel: View {
         case .start, .switchTo:
             // A verb in a quiet pill: the row is the button, this says what
             // pressing it does.
-            // The focus ink on its own tint: system blue on its tint was
-            // under 4.5:1 in both appearances.
+            // The blue ink made for text on the blue tint: the action blue
+            // on its own tint was under 4.5:1 on some surfaces.
             Text(action == .start ? "Start" : "Switch")
                 .font(Tokens.Typography.label)
-                .foregroundStyle(StoryStyle.focus)
+                .foregroundStyle(StoryStyle.ink(.blue))
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .background(StoryStyle.focus.opacity(0.12), in: Capsule())

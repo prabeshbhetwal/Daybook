@@ -104,7 +104,7 @@ private struct BreakHUDView: View {
                     .strokeBorder(Tokens.Colour.progress.opacity(0.38), lineWidth: 1)
             )
             .accessibilityElement(children: .contain)
-            .accessibilityLabel("\(content.title). \(content.detail)")
+            .accessibilityLabel(DurationText.spoken(in: "\(content.title). \(content.detail)"))
             .zoomRoot()
         }
     }
