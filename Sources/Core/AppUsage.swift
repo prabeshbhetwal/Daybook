@@ -356,6 +356,12 @@ final class AppUsageArchive {
         cache.filter { !AppUsageArchive.systemProcesses.contains($0.bundleID) }
     }
 
+    /// Whether `sessions` would hold anything, without building the array: it
+    /// stops at the first record that counts.
+    var hasSessions: Bool {
+        cache.contains { !AppUsageArchive.systemProcesses.contains($0.bundleID) }
+    }
+
     /// Appends verbatim. Merging at write time destroyed the gap evidence that
     /// `AppSessionGrouper` needs, and made the threshold impossible to retune —
     /// grouping is now done non-destructively at display time instead.
