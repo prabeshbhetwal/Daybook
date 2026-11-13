@@ -164,8 +164,7 @@ final class SessionEngine {
         self.categories = CategoryManager(store: store)
         self.ownBundleID = ownBundleID
         self.schedulesDwell = schedulesDwell
-        let clock = SessionClock(wall: now)
-        self.now = clock.read
+        self.now = now
         self.sessionStartDate = now()
         self.archive.capacityRetirementHandler = { [weak self] record in
             guard let self else { return "Corrections cannot be saved right now. No history was changed. Reopen Daybook and try again." }
@@ -174,10 +173,6 @@ final class SessionEngine {
             // changes; this handler must not end or replay the current stretch.
             return self.commitCorrection(before: before, adding: [record], allowsEviction: true, operation: .metadataOnly)
                 ? nil : self.awayDecisionError
-        }
-        clock.isLive = { [weak self] in
-            guard let self else { return false }
-            return self.state != .idle || self.activeBreak != nil
         }
     }
 

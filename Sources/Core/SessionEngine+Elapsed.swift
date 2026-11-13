@@ -1,42 +1,5 @@
 import Foundation
 
-/// The engine's clock: the wall clock, except while a session or a break is
-/// live. A step backwards then is a clock correction, not time travel: it is
-/// absorbed, so the work already done stays done and the time after the step
-/// counts at the wall clock's rate, never twice. Read through the wall clock
-/// alone, a step back past the start made `elapsed` 0 and Stop wrote no
-/// record. Back on the wall clock as soon as nothing is live. Nothing
-/// persisted changes shape; the live session's dates stay on the timeline
-/// they were taken on.
-/// ponytail: in memory only. A relaunch after the step reads the wall clock
-/// again; carrying the offset across one needs a field in the snapshot.
-final class SessionClock {
-    private let wall: () -> Date
-    private var offset: TimeInterval = 0
-    private var latest: Date?
-    var isLive: () -> Bool = { false }
-
-    init(wall: @escaping () -> Date) { self.wall = wall }
-
-    func read() -> Date {
-        let raw = wall()
-        guard isLive() else {
-            offset = 0
-            latest = raw
-            return raw
-        }
-        var moment = raw.addingTimeInterval(offset)
-        if let latest, moment < latest {
-            let step = latest.timeIntervalSince(moment)
-            Diagnostics.log("clock stepped back \(step)s while a session was live; absorbed")
-            offset += step
-            moment = latest
-        }
-        latest = moment
-        return moment
-    }
-}
-
 extension SessionEngine {
     // MARK: - Derived values (D1, D2)
 

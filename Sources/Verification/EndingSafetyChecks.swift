@@ -9,8 +9,6 @@ enum EndingSafetyChecks: CheckSuite {
          unreadableHistoryStillEnds),
         ("With 'Ask me after: Never' a night away still ends the session at the long-away cap",
          neverAskStillEndsAtCap),
-        ("A clock set back past the session start keeps the work done and counts on from there",
-         clockStepBackKeepsWork),
     ]
 
     /// An engine whose preferences and folder survive a relaunch.
@@ -98,30 +96,6 @@ enum EndingSafetyChecks: CheckSuite {
             SelfTest.expectClose(record.end.timeIntervalSince(record.start), 3_600,
                                  "the record ends where the absence began", &problems)
         }
-        return problems
-    }
-
-    private static func clockStepBackKeepsWork() -> [String] {
-        var problems: [String] = []
-        let machine = Machine(); defer { machine.close() }
-        let engine = machine.engine!
-        engine.start(workType: .deepWork, intent: "Writing")
-        machine.clock.advance(3_600)
-        machine.clock.advance(-2 * 3_600)              // corrected to before the start
-        SelfTest.expectClose(engine.elapsed, 3_600, "elapsed right after the step", &problems)
-        machine.clock.advance(1_800)
-        SelfTest.expectClose(engine.elapsed, 5_400, "elapsed 30 min after the step", &problems)
-        expect(engine.stop(), "Stop ends the session", &problems)
-        let records = engine.archive.records
-        expect(records.count == 1, "one record, got \(records.count)", &problems)
-        if let record = records.first {
-            SelfTest.expectClose(record.workSeconds, 5_400, "the record's work, neither lost nor doubled", &problems)
-            expect(record.end >= record.start, "the record never ends before it starts", &problems)
-        }
-        // Idle again, the engine is back on the wall clock.
-        engine.start(workType: .deepWork, intent: "Reading")
-        expect(engine.sessionStartDate == machine.clock.value,
-               "the next session starts at the wall clock's time, got \(engine.sessionStartDate)", &problems)
         return problems
     }
 }
