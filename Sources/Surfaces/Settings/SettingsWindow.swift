@@ -17,6 +17,31 @@ enum SettingsWindow {
     }
 }
 
+/// Settings has no green button and no full screen, as Mac settings windows
+/// do: the page is one column at a fixed measure, so a larger window shows
+/// nothing more, and with the width capped the button could only shrink it.
+/// The edges still resize it, and the page scrolls when it is short.
+private struct SettingsWindowChrome: NSViewRepresentable {
+    final class Probe: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            apply()
+        }
+
+        /// Again on every update: SwiftUI can re-enable the button when it
+        /// resets the window's size limits.
+        func apply() {
+            guard let window else { return }
+            window.standardWindowButton(.zoomButton)?.isEnabled = false
+            window.collectionBehavior.remove(.fullScreenPrimary)
+            window.collectionBehavior.insert(.fullScreenNone)
+        }
+    }
+
+    func makeNSView(context: Context) -> Probe { Probe() }
+    func updateNSView(_ view: Probe, context: Context) { view.apply() }
+}
+
 /// The window's content: the Settings page with the environment the main
 /// window gives its own views, so menus, editors and zoom behave the same.
 struct SettingsWindowContent: View {
@@ -34,6 +59,7 @@ struct SettingsWindowContent: View {
                    minHeight: SettingsLayout.minimumWindowHeight, idealHeight: SettingsLayout.sheetHeight,
                    maxHeight: .infinity)
             .background(StoryStyle.canvas)
+            .background(SettingsWindowChrome())
             .environment(\.focusInterfaceDensity, settings.interfaceDensity)
             .zoomRoot()
             .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)

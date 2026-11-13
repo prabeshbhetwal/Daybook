@@ -9,7 +9,33 @@ enum SettingsSizingChecks: CheckSuite {
         ("The Settings window fits a laptop screen at the largest zoom", settingsFitsLaptopAtLargestZoom),
         ("A zoomed Settings window grows no wider than its page", settingsWindowStopsAtPage),
         ("The menu bar panel's footer fits the panel at every zoom", popoverFooterFits),
+        ("The Settings window has no green button and no full screen", settingsWindowCannotZoom),
     ]
+
+    /// With the width capped, the green button could only shrink Settings.
+    private static func settingsWindowCannotZoom() -> [String] {
+        MainActor.assumeIsolated {
+            let store = FixtureFactory.store(for: .running)
+            defer { FixtureFactory.cleanUp() }
+            let settings = SettingsModel(store: store.engine.store, isTrackingEnabled: true,
+                                         onChange: {}, onTrackingChanged: { _ in })
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+                                  styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                                  backing: .buffered, defer: true)
+            window.isReleasedWhenClosed = false
+            window.collectionBehavior = [.fullScreenPrimary]
+            window.contentView = NSHostingView(rootView: SettingsWindowContent(
+                settings: settings, navigation: MainWindowModel(store: store), store: store))
+            window.contentView?.layoutSubtreeIfNeeded()
+            var problems: [String] = []
+            expect(window.standardWindowButton(.zoomButton)?.isEnabled == false,
+                   "the green button should be off", &problems)
+            expect(window.collectionBehavior.contains(.fullScreenNone)
+                   && !window.collectionBehavior.contains(.fullScreenPrimary),
+                   "the window should not offer full screen, has \(window.collectionBehavior.rawValue)", &problems)
+            return problems
+        }
+    }
 
     /// The green button asked for a 1,900-point window and got one, with
     /// empty bands either side of the 720-point page.
