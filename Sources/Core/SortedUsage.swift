@@ -5,9 +5,10 @@ import Foundation
 struct SortedUsage {
     /// Every stretch History can draw, in start order.
     let stretches: [AppUsageSession]
-    /// Stretches up to `shortLimit`: a span looks back only that far for one
-    /// that reaches into it.
-    private let short: [AppUsageSession]
+    /// Positions in `stretches` of those up to `shortLimit`: a span looks back
+    /// only that far for one that reaches into it. Positions, not copies, so
+    /// the cache holds the archive once.
+    private let short: [Int]
     /// The rare longer ones, checked against every span. Looking back as far
     /// as the longest stretch made one day-long stretch slow every search.
     private let long: [AppUsageSession]
@@ -18,12 +19,16 @@ struct SortedUsage {
         // A stretch longer than History draws any record is damaged, and is
         // refused here as `HistoryStats` refuses it.
         let bound = TimeInterval(HistoryStats.maximumCalendarDaysPerRecord) * 86_400
-        let drawable = usage.filter { (stretch: AppUsageSession) -> Bool in
+        let isDrawable = { (stretch: AppUsageSession) -> Bool in
             stretch.end > stretch.start && stretch.seconds <= bound
         }
-        stretches = drawable.sorted { $0.start < $1.start }
-        short = stretches.filter { $0.seconds <= Self.shortLimit }
-        long = stretches.filter { $0.seconds > Self.shortLimit }
+        // Already clean and in order: share the caller's storage, no copy.
+        let sorted = usage.allSatisfy(isDrawable) && zip(usage, usage.dropFirst()).allSatisfy { $0.start <= $1.start }
+            ? usage
+            : usage.filter(isDrawable).sorted { $0.start < $1.start }
+        stretches = sorted
+        short = sorted.indices.filter { sorted[$0].seconds <= Self.shortLimit }
+        long = sorted.filter { $0.seconds > Self.shortLimit }
     }
 
     /// Each app's time in front inside the spans, every second once: spans
@@ -49,8 +54,8 @@ struct SortedUsage {
         }
         for span in spans {
             var index = firstIndex(startingAtOrAfter: span.start.addingTimeInterval(-Self.shortLimit))
-            while index < short.count, short[index].start < span.end {
-                visit(short[index], span)
+            while index < short.count, stretches[short[index]].start < span.end {
+                visit(stretches[short[index]], span)
                 index += 1
             }
             for stretch in long where stretch.start < span.end { visit(stretch, span) }
@@ -62,7 +67,7 @@ struct SortedUsage {
         var high = short.count
         while low < high {
             let middle = (low + high) / 2
-            if short[middle].start < date { low = middle + 1 } else { high = middle }
+            if stretches[short[middle]].start < date { low = middle + 1 } else { high = middle }
         }
         return low
     }

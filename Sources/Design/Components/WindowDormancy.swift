@@ -88,6 +88,12 @@ final class WindowDormancyAnchor: NSView {
             self.restingResponder = host.firstResponder
             self.resting = content
             host.contentView = standIn
+            // The page's freed memory goes back to the system once its layers
+            // are gone; otherwise the footprint keeps its window-open peak.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                guard self?.resting != nil else { return }
+                malloc_zone_pressure_relief(nil, 0)
+            }
         }
     }
 
