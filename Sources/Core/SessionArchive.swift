@@ -235,6 +235,13 @@ final class SessionArchive {
             data = try Data(contentsOf: fileURL)
             return try JSONDecoder().decode([SessionRecord].self, from: data ?? Data())
         } catch {
+            // The file could not even be read (an I/O error, not bad JSON):
+            // nothing is known about its records, so it is left as it is.
+            guard data != nil else {
+                isReadOnly = true
+                Diagnostics.log("archive could not be read; kept read-only: \(error)")
+                return []
+            }
             // Never wedge launch and never silently destroy history: move the bad
             // file aside so it can be inspected, and keep every record that
             // still reads. A file that is not a list of records at all (garbage,

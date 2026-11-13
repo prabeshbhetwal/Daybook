@@ -48,30 +48,37 @@ struct HistoryPathBar: View {
     let onSelect: (HistoryCrumb) -> Void
 
     var body: some View {
-        // A deep path is wider than the column: it scrolls, and rests on the
-        // current place at its trailing end. The padding gives a crumb's hover
-        // tint room inside the clip, and the negative padding takes it back.
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Tokens.Space.s) {
-                ForEach(Array(crumbs.enumerated()), id: \.element.id) { index, crumb in
-                    let isCurrent = index == crumbs.count - 1
-                    if index > 0 {
-                        Image(systemName: "chevron.right")
-                            .font(Tokens.Typography.caption)
-                            .foregroundStyle(.tertiary) // ink: quiet, a separator between crumbs
-                            .accessibilityHidden(true)
-                    }
-                    Button(crumb.title) { onSelect(crumb) }
-                        .buttonStyle(StoryLinkStyle(tint: isCurrent ? .primary : StoryStyle.supportingInk))
-                        .help("Go to \(crumb.title)")
-                        .accessibilityLabel(isCurrent ? "\(crumb.title), current place" : "Go to \(crumb.title)")
-                }
+        // A path that fits sits at the leading edge. A deep path wider than
+        // the column scrolls, and rests on the current place at its trailing
+        // end. The padding gives a crumb's hover tint room inside the clip,
+        // and the negative padding takes it back.
+        ViewThatFits(in: .horizontal) {
+            row
+            ScrollView(.horizontal, showsIndicators: false) {
+                row.padding(.horizontal, Tokens.Space.s)
             }
-            .padding(.horizontal, Tokens.Space.s)
+            .padding(.horizontal, -Tokens.Space.s)
+            .defaultScrollAnchor(.trailing)
         }
-        .padding(.horizontal, -Tokens.Space.s)
-        .defaultScrollAnchor(.trailing)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Where you are in History")
+    }
+
+    private var row: some View {
+        HStack(spacing: Tokens.Space.s) {
+            ForEach(Array(crumbs.enumerated()), id: \.element.id) { index, crumb in
+                let isCurrent = index == crumbs.count - 1
+                if index > 0 {
+                    Image(systemName: "chevron.right")
+                        .font(Tokens.Typography.caption)
+                        .foregroundStyle(.tertiary) // ink: quiet, a separator between crumbs
+                        .accessibilityHidden(true)
+                }
+                Button(crumb.title) { onSelect(crumb) }
+                    .buttonStyle(StoryLinkStyle(tint: isCurrent ? .primary : StoryStyle.supportingInk))
+                    .help("Go to \(crumb.title)")
+                    .accessibilityLabel(isCurrent ? "\(crumb.title), current place" : "Go to \(crumb.title)")
+            }
+        }
     }
 }

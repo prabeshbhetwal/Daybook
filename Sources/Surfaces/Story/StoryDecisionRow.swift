@@ -62,7 +62,11 @@ struct StoryDecisionRow: View {
     }
 
     private func answer(_ decision: UserDecision) {
-        store.applyAwayDecision(decision, reviewing: true, expectedID: receipt.id)
+        // The saved row replaces the question in place, so a listener is
+        // told once, when it is saved; never when an old row scrolls in.
+        if store.applyAwayDecision(decision, reviewing: true, expectedID: receipt.id) {
+            Announcement.post("Saved. \(Tokens.timeRange(range.start, range.end))")
+        }
     }
 
     /// Why a past interval's answers wait: the same words Remove uses.
@@ -124,8 +128,5 @@ struct StorySavedActionRow: View {
                     in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
             .strokeBorder(StoryStyle.successInk.opacity(0.22)))
-        // The row replaces the question in place, so a listener is told it
-        // was saved; nothing else says so.
-        .onAppear { Announcement.post("Saved. \(title), \(when)") }
     }
 }
