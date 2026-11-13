@@ -26,17 +26,16 @@ struct RhythmChart: View {
                 HStack(alignment: .bottom, spacing: barSpacing) {
                     ForEach(hours) { hour in
                         // A button, so the keyboard and VoiceOver reach the
-                        // hour; without a handler there is nothing to press.
-                        Button { onHourTap?(hour.hour) } label: {
-                            RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
-                                .fill(hour.seconds > 0 ? AnyShapeStyle(Tokens.Palette.appUse)
-                                                       : AnyShapeStyle(Tokens.Colour.elevated))
-                                .frame(height: max(3.zoomed, height * CGFloat(hour.seconds / scaleMaximum)))
-                                .frame(maxWidth: .infinity)
-                                .contentShape(Rectangle())
+                        // hour; without a handler there is nothing to press,
+                        // and a disabled button would dim the bar.
+                        Group {
+                            if let onHourTap {
+                                Button { onHourTap(hour.hour) } label: { bar(for: hour) }
+                                    .buttonStyle(.plain)
+                            } else {
+                                bar(for: hour)
+                            }
                         }
-                            .buttonStyle(.plain)
-                            .disabled(onHourTap == nil)
                             .help("\(DateFormats.hourLabel(hour.hour)) · "
                                   + Tokens.preciseDuration(hour.seconds)
                                   + (hour.seconds > 0 ? hour.topAppName.map { " · \($0)" } ?? "" : "")
@@ -124,6 +123,15 @@ struct RhythmChart: View {
     /// One label per bar up to twelve bars; every second or third beyond, so a
     /// 24-hour day does not collide.
     private var labelStep: Int { hours.count <= 12 ? 1 : (hours.count <= 18 ? 2 : 3) }
+    private func bar(for hour: RhythmHour) -> some View {
+        RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
+            .fill(hour.seconds > 0 ? AnyShapeStyle(Tokens.Palette.appUse)
+                                   : AnyShapeStyle(Tokens.Colour.elevated))
+            .frame(height: max(3.zoomed, height * CGFloat(hour.seconds / scaleMaximum)))
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+    }
+
     private var barSpacing: CGFloat { labelStep == 1 ? Tokens.Space.s : Tokens.Space.xs }
     private var scaleMaximum: TimeInterval { max(3_600, hours.map(\.seconds).max() ?? 0) }
 }
