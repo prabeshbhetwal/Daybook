@@ -82,8 +82,9 @@ struct BreakDay: Codable, Equatable {
 ///
 /// Modelled on `AmbientPowerLog`: a versioned document, an atomic write, and a
 /// file that cannot be read is left alone. Entries older than
-/// `retentionDays` go on each write, counted from the moment that write
-/// carries, so the log needs no clock of its own. `Core` only.
+/// `retentionDays` go on each write, counted from the newest day already in
+/// the log before that write's day, so the log needs no clock of its own and
+/// one wrong clock reading cannot empty it. `Core` only.
 final class BreakLog {
     private struct Document: Codable {
         let version: Int
@@ -239,8 +240,16 @@ final class BreakLog {
 
     private func commit(at moment: Date) -> String? {
         if let loadFailure { return loadFailure }
-        if let horizon = calendar.date(byAdding: .day, value: -Self.retentionDays,
-                                       to: calendar.startOfDay(for: moment)) {
+        // Counted from the newest day the log already holds before `moment`'s
+        // day, never from `moment` alone: one write with the clock a year
+        // ahead would otherwise date the whole log out. A clock far behind
+        // finds no earlier day, so nothing goes. Retention lags one day of use.
+        let today = calendar.startOfDay(for: moment)
+        let earlier = (days.map(\.day) + prompts.map(\.shown))
+            .map { calendar.startOfDay(for: $0) }
+            .filter { $0 < today }
+        if let anchor = earlier.max(),
+           let horizon = calendar.date(byAdding: .day, value: -Self.retentionDays, to: anchor) {
             prompts.removeAll { $0.shown < horizon }
             days.removeAll { $0.day < horizon }
         }
