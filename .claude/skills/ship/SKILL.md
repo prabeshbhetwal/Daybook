@@ -69,14 +69,19 @@ GitHub would allow it.
 2. Open it: `gh pr create --base main --title "<the commit subject>"
    --body-file -`, the body from the commit body (several commits: one
    short paragraph each). Use the `pr` skill if one is installed.
-3. Turn on auto-merge: `gh pr merge <n> --auto --merge --delete-branch`.
-   A merge commit keeps each commit's own subject for the release notes.
-4. In the desktop app, bind the PR to the session so its CI and review
+3. In the desktop app, bind the PR to the session so its CI and review
    comments are watched, and offer Auto-fix.
-5. Codex reviews each PR. Answer its findings with a fix pushed to the
-   branch, or a reply saying why not, before the merge goes through.
-6. Report the PR link and that it merges when `check` passes. Do not poll
-   CI; the desktop app reports failures.
+4. Wait for Codex's review of the latest commit. The `check` can pass first
+   (it runs on every push), and branch protection does not wait for Codex,
+   so auto-merge stays off until the review is in. Answer each finding with
+   a fix pushed to the branch, or a reply saying why not; a pushed fix gets
+   a new review, so wait again.
+5. Once Codex has reviewed the latest commit with nothing unresolved (it
+   reacts 👍 or its findings are answered), turn on auto-merge:
+   `gh pr merge <n> --auto --merge --delete-branch`. A merge commit keeps
+   each commit's own subject for the release notes.
+6. Report the PR link and where it stands. Do not poll CI or the review;
+   the desktop app reports them.
 
 ## 7. Update the main checkout
 
@@ -99,7 +104,10 @@ with the sandbox disabled. Otherwise leave it alone and say why.
 - The user's app updates only from GitHub Releases, through Sparkle, never by
   a local `--install`. If `Sources/` or `Assets/` changed, say the new build
   is on `main` and offer a release: the next patch version (one past the
-  latest `v*` tag) with `scripts/release.sh <version>`, run with the sandbox
+  latest `v*` tag) with `scripts/release.sh <version>` on an up-to-date
+  `main` (a fresh clone if the main checkout is busy). It merges its version
+  commit through its own PR, waits for the required check, and only then
+  tags and publishes, so run it in the background. Run it with the sandbox
   disabled, a `--dry-run` first. Read the dry run's `notes.md` before the
   real run: every user sees those lines in the update window, so each must
   read as a release note for any user. A release publishes to a public repository,
