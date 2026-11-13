@@ -183,6 +183,21 @@ extension SessionStore {
         }
     }
 
+    /// Saves every open note that says something new, for a quit. A blank
+    /// draft is left alone: emptying a note takes Save, so a quit never
+    /// erases one or writes an empty one. False when any write failed; that
+    /// draft keeps its text and error, but nothing outlives the quit to show
+    /// them.
+    @discardableResult func saveNoteDraftsBeforeQuit() -> Bool {
+        var allSaved = true
+        for (recordID, draft) in sessionNoteDrafts {
+            let saved = metadataArchive.metadata(for: recordID)?.note ?? ""
+            guard draft != saved, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+            if !saveNote(for: recordID) { allSaved = false }
+        }
+        return allSaved
+    }
+
     @discardableResult func saveFocusedNote() -> Bool {
         guard let focusedNoteEditorID else { return false }
         return saveNote(for: focusedNoteEditorID)

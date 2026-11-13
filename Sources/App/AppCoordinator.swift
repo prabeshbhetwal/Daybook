@@ -766,6 +766,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         machineEvents.recordExit(nil)
+        // A note being written lives only in memory; the quit saves it, as
+        // Save would, rather than drop it.
+        store.saveNoteDraftsBeforeQuit()
         engine.persist()
         tracker.suspend()
         monitor.stop()
