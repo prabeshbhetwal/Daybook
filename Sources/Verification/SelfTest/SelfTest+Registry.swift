@@ -179,6 +179,7 @@ extension SelfTest {
             + LocaleFormatChecks.tests
             + CopyPolishChecks.tests
             + AppMarkChecks.tests
+            + QuietStoreChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
