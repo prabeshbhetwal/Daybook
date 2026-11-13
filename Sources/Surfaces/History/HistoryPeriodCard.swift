@@ -39,7 +39,7 @@ struct HistoryPeriodCard: View {
                             .padding(.horizontal, 7.zoomed)
                             .padding(.vertical, 2.zoomed)
                             .background(StoryStyle.focus.opacity(0.14), in: RoundedRectangle(cornerRadius: Tokens.Radius.swatch))
-                            .foregroundStyle(StoryStyle.focus)
+                            .foregroundStyle(StoryStyle.ink(.blue))
                             .storyRenderEvidence(.historySoFar)
                     }
                     Spacer(minLength: Tokens.Space.s)
@@ -68,6 +68,7 @@ struct HistoryPeriodCard: View {
             .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
                 .strokeBorder(isOpen ? Tokens.Colour.focus.opacity(0.55) : Tokens.Colour.line,
                               lineWidth: isOpen ? 1.5.zoomed : 1))
+            .keyboardFocusRing(isFocused, cornerRadius: StoryStyle.entryRadius)
         }
         .padding(.horizontal, HistoryRowLayout.inset)
         .padding(.bottom, Tokens.Space.s)

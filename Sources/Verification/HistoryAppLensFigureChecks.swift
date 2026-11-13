@@ -143,8 +143,8 @@ enum HistoryAppLensFigureChecks: CheckSuite {
         let category = HistoryAppLensText.categoryLine(.deepWork, in: lens)
         expect(category == "All time in \(WorkType.deepWork.displayName) sessions: \(Tokens.duration(1_080)) of "
                + Tokens.duration(1_080), "category read \(category)", &problems)
-        expect(HistoryAppLensText.ordinal(11) == "11th" && HistoryAppLensText.ordinal(22) == "22nd",
-               "ordinals read \(HistoryAppLensText.ordinal(11)), \(HistoryAppLensText.ordinal(22))", &problems)
+        expect(Ordinal.text(11) == "11th" && Ordinal.text(22) == "22nd",
+               "ordinals read \(Ordinal.text(11)), \(Ordinal.text(22))", &problems)
         let recent = HistoryAppLensText.recent(lens, today: day, calendar: calendar)
         expect(recent == "Last 7 days \(Tokens.duration(1_080)) · last 30 days \(Tokens.duration(1_080))",
                "recent read \(recent)", &problems)
