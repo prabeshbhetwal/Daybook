@@ -198,7 +198,8 @@ echo "Waiting for the required check on ${PR_URL}…"
 # The required check is listed only once it starts, after the jobs it
 # waits on, so poll for it rather than guess how long that takes.
 DEADLINE=$((SECONDS + 1800))
-while gh pr checks "${PR_URL}" --required 2>&1 | grep -q "no required checks reported"; do
+# `gh` exits nonzero while none is listed, so read its words, not its status.
+while [[ "$(gh pr checks "${PR_URL}" --required 2>&1 || true)" == *"no required checks reported"* ]]; do
   (( SECONDS < DEADLINE )) || fail "the required check never started on ${PR_URL}"
   sleep 15
 done
