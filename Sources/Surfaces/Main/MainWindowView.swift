@@ -334,15 +334,8 @@ struct StorySheet<Content: View, Accessory: View>: View {
     }
 
     private var closeButton: some View {
-        Button(action: onClose) {
-            Image(systemName: "xmark")
-                .frame(width: AccessibilityMetrics.minimumTargetSize,
-                       height: AccessibilityMetrics.minimumTargetSize)
-        }
-            .buttonStyle(StoryPressStyle())
-            .keyboardShortcut(openForm.value == nil ? .cancelAction : nil)
-            .help("Close \(title)")
-            .accessibilityLabel("Close \(title)")
+        CloseButton(label: "Close \(title)", help: "Close \(title)",
+                    escapes: openForm.value == nil, action: onClose)
             // Behind Close rather than beside it: a stack spaces
             // even an empty view, and Close moved while a form was open.
             .background {

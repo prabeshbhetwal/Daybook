@@ -355,9 +355,9 @@ struct SessionReportView: View {
 
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            // DESIGN.md: section headers are headings.
             Text(title)
-                .font(Tokens.Typography.caption)
-                .foregroundStyle(StoryStyle.supportingInk)
+                .font(Tokens.Typography.heading)
                 .accessibilityAddTraits(.isHeader)
             content()
         }

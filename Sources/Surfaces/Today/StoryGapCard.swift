@@ -43,7 +43,8 @@ struct StoryGapCard: View {
             }
         }
         .padding(StoryStyle.entryInsets(for: density))
-        .background(StoryStyle.well.opacity(0.6), in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
+        .background(StoryStyle.well.opacity(0.6),
+                    in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
         .help(reason.explanation ?? "")
     }
 
