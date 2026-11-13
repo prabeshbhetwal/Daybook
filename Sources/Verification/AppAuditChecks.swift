@@ -12,6 +12,7 @@ enum AppAuditChecks: CheckSuite {
         ("A name question that timed out or met a passing error is asked again on the next refresh",
          unansweredNameIsAskedAgain),
         ("A shortcut press that did not save says so, with the store's error", hotKeyFailuresAreShown),
+        ("An automatic start or end reports whether it happened", automaticStartAndEndReport),
     ]
 
     private static func hotKeyFailuresAreShown() -> [String] {
@@ -34,6 +35,35 @@ enum AppAuditChecks: CheckSuite {
                    &problems)
             let started = f.store.performSessionHotKeyAction()
             expect(started == .started && started.failureTitle == nil, "a start is a success, got \(started)",
+                   &problems)
+            return problems
+        }
+    }
+
+    private static func automaticStartAndEndReport() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let f = BreakStoreChecks.make() else { return ["could not create isolated preferences"] }
+            defer { f.close() }
+            f.store.startBreak()
+            expect(!f.store.startAutomatically(workType: .deepWork, name: "Detected",
+                                               backdatedTo: f.clock.value, because: "check"),
+                   "a start refused for a break reports false", &problems)
+            f.store.endBreak()
+            expect(f.store.startAutomatically(workType: .deepWork, name: "Detected",
+                                              backdatedTo: f.clock.value.addingTimeInterval(-120), because: "check")
+                   && f.engine.state.isRunning, "a start reports true, got \(f.engine.state)", &problems)
+            f.clock.advance(1_200)
+            let end = f.clock.value.addingTimeInterval(-300)
+            f.gate.refuses = true
+            expect(!f.store.stopAutomatically(endingAt: end), "a refused end reports false", &problems)
+            expect(f.engine.state != .idle && f.store.correctionError != nil,
+                   "a refused end leaves the session running and shows why, got \(f.engine.state)", &problems)
+            f.gate.refuses = false
+            expect(f.store.stopAutomatically(endingAt: end) && f.engine.state == .idle,
+                   "an end reports true, got \(f.engine.state)", &problems)
+            expect(f.engine.archive.records.last?.end == end,
+                   "the session ends where its work stopped, got \(String(describing: f.engine.archive.records.last?.end))",
                    &problems)
             return problems
         }
