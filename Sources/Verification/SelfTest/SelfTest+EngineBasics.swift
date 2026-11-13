@@ -205,8 +205,10 @@ extension SelfTest {
                     &problems)
         expect(engine.state == .running, "state should stay running", &problems)
 
+        // A step back past the session start is a clock correction: the
+        // 250 s run forward so far (100 + 150) stay, never 0, never negative.
         clock.value = base.addingTimeInterval(-500)    // before the session start
-        expectClose(engine.elapsed, 0, "elapsed", &problems)
+        expectClose(engine.elapsed, 250, "elapsed", &problems)
         return problems
     }
 }
