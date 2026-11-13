@@ -128,3 +128,9 @@ components only.
 - R1 ACCEPT. Files referenced only by self-checks or by nothing: `Surfaces/Main/NativeStoryScopeControl.swift`, `Core/StoryHeatmap.swift`, `Surfaces/Dashboard/TimelineGapEvidence.swift`, `Surfaces/Focus/FocusSurfaceLayout.swift`, `Surfaces/Today/TodayInspector.swift`. Move each, with the checks that exist only for it, to `_trash/2026-11-13-dead-code/` (never delete), after confirming no production reference.
 - R2 ACCEPT. Zero-reference declarations: `AppSwatch` (`Design/Components/Cards.swift:34`), `HistoryStripAxis` (`Surfaces/Review/HistoryDayList.swift:70`), `Tokens.Motion.slide`, `historyDeepestOpen`, `historyArchiveFacts` and its cache, `gridPeak`, `visibleHours`, `BreakLog.heldSeconds`, `holdReasons`, `DayStoryContext.underCard`. Remove after a reference check.
 - R3 DEFER. Review period model used only by self-checks; day-stepping, formatter, rounding and clamp duplicates.
+
+## Outcome of fix batch 1 (13 November, 17:40)
+
+- C3 REVERTED, now DEFER. The fix moved the engine to a shifted clock while App passed wall-clock moments to `stop(endingAt:)` and `endBreak(at:)`, producing zero-length records claiming the full work, and the in-memory offset was lost on relaunch. A safe fix needs the offset persisted in the snapshot and every wall moment translated at the engine boundary.
+- C4 REVERTED, now DEFER. Anchoring retention on the newest earlier day blocked legitimate pruning after a long real gap (checks 1247 and 1248 failed) and still erased the log after two wrong-clock days.
+- C1, C2, C5 kept after independent review. C5 follow-up (crash window between set-aside and write-back; the Recovery note in Settings) is in batch 2.
