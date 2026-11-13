@@ -8,8 +8,6 @@ struct TimelineSegment: Identifiable, Equatable {
     let appName: String
     let start: Date
     let end: Date
-    /// Stable within a day: the busiest app takes 0. 6 means "Other".
-    let colorIndex: Int
     /// Carried through from the raw stretch so grouping can tell a detour from
     /// a real break.
     var endReason: UsageEndReason = .appSwitch
@@ -201,11 +199,6 @@ struct DashboardStats {
                                       : left.total > right.total
         }
 
-        var indexByBundle: [String: Int] = [:]
-        for (offset, rank) in ranks.enumerated() {
-            indexByBundle[rank.bundleID] = min(offset, 6)
-        }
-
         cache.ranks = ranks
         cache.segments = clipped
             .map { entry in
@@ -214,7 +207,6 @@ struct DashboardStats {
                                 appName: entry.session.appName,
                                 start: entry.start,
                                 end: entry.end,
-                                colorIndex: indexByBundle[entry.session.bundleID] ?? 6,
                                 endReason: entry.session.endReason)
             }
             .sorted { $0.start < $1.start }
@@ -675,9 +667,9 @@ struct DashboardStats {
               quality.insideSessionShare > 0 else { return nil }
         let tracked = trackedTotal(for: day)
         return Insight(id: "inside-session",
-                       headline: "\(DurationText.percent(quality.insideSessionShare)) of tracked time was in a focus session",
+                       headline: "\(DurationText.percent(quality.insideSessionShare)) of recorded time was in a focus session",
                        detail: "\(DurationText.compact(tracked * quality.insideSessionShare)) "
-                             + "of \(DurationText.compact(tracked)) tracked",
+                             + "of \(DurationText.compact(tracked)) recorded",
                        symbolName: "target")
     }
 
@@ -704,7 +696,6 @@ struct AppDayHistory: Identifiable, Equatable {
     let bundleID: String
     let appName: String
     let total: TimeInterval
-    let colorIndex: Int
     /// Grouped sittings, newest first — not raw stretches.
     let sessions: [AppSession]
     var id: String { bundleID }

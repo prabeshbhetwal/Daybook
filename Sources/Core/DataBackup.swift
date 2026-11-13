@@ -25,7 +25,7 @@ enum DataBackup {
 
         var errorDescription: String? {
             switch self {
-            case .noDestination: return "iCloud Drive is not turned on for this Mac, so nothing was backed up."
+            case .noDestination: return "iCloud Drive is not turned on for this Mac, so nothing was backed up. Turn it on in System Settings, or choose a folder."
             case .folderMissing(let name):
                 return "The backup folder “\(name)” is not available, so nothing was backed up. "
                     + "If it is on another disk, connect it."

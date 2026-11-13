@@ -141,7 +141,7 @@ extension SelfTest {
         expect(xcode.count == 3, "raw stretches are kept, got \(xcode.count)", &problems)
         let segments = xcode.map {
             TimelineSegment(id: $0.id, bundleID: $0.bundleID, appName: $0.appName,
-                            start: $0.start, end: $0.end, colorIndex: 0,
+                            start: $0.start, end: $0.end,
                             endReason: $0.endReason)
         }
         let grouped = AppSessionGrouper.group(segments, others: [])

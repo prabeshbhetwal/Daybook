@@ -39,7 +39,7 @@ struct AwayDecisionReceipt: Codable, Equatable, Identifiable {
         case .tookBreak: return "Recorded as a break"
         case .mergeTime: return "Counted as focus"
         case .continueSession, .resetTimer: return "Left uncounted"
-        case nil: return "Review this interval"
+        case nil: return "Review this stretch"
         }
     }
 }

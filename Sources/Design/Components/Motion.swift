@@ -48,13 +48,10 @@ extension View {
     }
 
     /// A glyph that becomes another glyph: pencil to tick, pin to pinned.
-    /// macOS 14 crossfades symbols; 13 swaps them, which is still correct.
-    @ViewBuilder func symbolSwap() -> some View {
-        if #available(macOS 14.0, *) {
-            self.contentTransition(.symbolEffect(.replace))
-        } else {
-            self
-        }
+    /// macOS 14 crossfades symbols; 13, and Reduce Motion, swap them, which is
+    /// still correct.
+    func symbolSwap() -> some View {
+        modifier(SymbolSwap())
     }
 
     /// A glyph that acknowledges a change of state with a small dip — the
@@ -62,6 +59,18 @@ extension View {
     /// 13, and under Reduce Motion, the swap is the acknowledgement.
     func symbolNod<Value: Equatable>(on value: Value) -> some View {
         modifier(SymbolNod(value: value))
+    }
+}
+
+private struct SymbolSwap: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 14.0, *), !reduceMotion {
+            content.contentTransition(.symbolEffect(.replace))
+        } else {
+            content
+        }
     }
 }
 
@@ -82,10 +91,12 @@ private struct HoverHighlight: ViewModifier {
     let cornerRadius: CGFloat
     @StateObject private var hovered = BoolBox()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var enabled
 
     func body(content: Content) -> some View {
         content
-            .background(hovered.value ? Tokens.Colour.hover : Color.clear,
+            // A disabled control does not light up: it would promise a click.
+            .background(hovered.value && enabled ? Tokens.Colour.hover : Color.clear,
                         in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .animation(Tokens.Motion.animation(Tokens.Motion.hover, reduceMotion: reduceMotion),
                        value: hovered.value)

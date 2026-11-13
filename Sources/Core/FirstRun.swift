@@ -3,36 +3,56 @@ import Foundation
 /// The welcome's chapters, in order. Each is a short run of cards; three of
 /// the cards, early on, ask the reader to do something and wait. The rest
 /// explain one part of the app each, pointing at it where it is on screen.
-enum FirstRunChapter: String, CaseIterable, Identifiable {
+/// Seven at most: that is as many as a reader can hold as a list.
+///
+/// The id of the chapter a tour was left on is stored (`welcomeLeftAt`), so a
+/// chapter that has been merged into another still reads back, as the chapter
+/// it merged into. Never reuse a retired id for something else.
+enum FirstRunChapter: CaseIterable, Identifiable, RawRepresentable {
     case welcome
     case firstSession
     case macSaw
     case readingDay
-    case rail
-    case steppingAway
-    case automation
     case lookingBack
-    case awards
     case menuBar
-    case settings
     case finish
 
     var id: String { rawValue }
+
+    var rawValue: String {
+        switch self {
+        case .welcome: return "welcome"
+        case .firstSession: return "firstSession"
+        case .macSaw: return "macSaw"
+        case .readingDay: return "readingDay"
+        case .lookingBack: return "lookingBack"
+        case .menuBar: return "menuBar"
+        case .finish: return "finish"
+        }
+    }
+
+    init?(rawValue: String) {
+        switch rawValue {
+        case "welcome": self = .welcome
+        case "firstSession": self = .firstSession
+        case "macSaw", "steppingAway", "automation": self = .macSaw
+        case "readingDay", "rail": self = .readingDay
+        case "lookingBack", "awards": self = .lookingBack
+        case "menuBar", "settings": self = .menuBar
+        case "finish": self = .finish
+        default: return nil
+        }
+    }
 
     var title: String {
         switch self {
         case .welcome: return "Welcome"
         case .firstSession: return "Your first session"
-        case .macSaw: return "What your Mac saw"
+        case .macSaw: return "Apps, away and rules"
         case .readingDay: return "Reading your day"
-        case .rail: return "The rail"
-        case .steppingAway: return "Stepping away"
-        case .automation: return "Automatic sessions"
         case .lookingBack: return "Looking back"
-        case .awards: return "Streaks and awards"
-        case .menuBar: return "The menu bar"
-        case .settings: return "Settings"
-        case .finish: return "That's the app"
+        case .menuBar: return "Menu bar and settings"
+        case .finish: return "That's the whole app"
         }
     }
 
@@ -164,7 +184,7 @@ struct FirstRunProgress: Equatable {
         phase = .done
     }
 
-    /// The single forward control: "Next" once a task is done, "Not now" while
+    /// The single forward control: "Next" once a task is done, "Not Now" while
     /// it still waits. Both move on — nobody is held at a step they could not
     /// manage. The last card of the last chapter ends the welcome.
     mutating func advance() {
@@ -179,7 +199,7 @@ struct FirstRunProgress: Equatable {
     }
 
     /// The previous card, across a chapter boundary if need be. Reading back
-    /// is part of reading; a tour this long cannot be one-way.
+    /// is part of reading; a tour cannot be one-way.
     mutating func back() {
         guard !isFinished else { return }
         if card > 0 {
@@ -246,12 +266,10 @@ enum FirstRunScript {
         Chapter(id: .welcome, cards: [
             Card(sentence: "Daybook keeps two records of your day.",
                  body: "One is what you decided to work on. The other is what your Mac "
-                     + "actually did. Reading them side by side is the whole idea.",
-                 note: "This tour walks through every part of the app, about seven minutes "
-                     + "if you do all of it. Chapters, in the corner of this card, lets you "
-                     + "skip any of it or come back to any of it. Skip tour ends it for good; "
-                     + "Settings can start it again.",
-                 forward: "Show me")
+                     + "actually did.",
+                 note: "Chapters, in the corner of this card, jumps to any part. Skip "
+                     + "Tour ends it for good; Settings › General can start it again.",
+                 forward: "Show Me")
         ]),
 
         Chapter(id: .firstSession, cards: [
@@ -262,208 +280,155 @@ enum FirstRunScript {
                  anchor: .activityField,
                  task: .openControls,
                  result: "That is the row. Nothing begins until you press Start.",
-                 waiting: "Not now"),
+                 waiting: "Not Now"),
             Card(sentence: "Say what you are working on, then start.",
-                 body: "Type anything — emails, that report, admin. Then press Start "
-                     + "focus. You can rename it later; nothing here is set in stone.",
+                 body: "Type anything: emails, that report, admin. Then press Start "
+                     + "Focus. You can rename it later.",
                  anchor: .activityField,
                  task: .startSession,
                  result: "Look at the sentence at the top of the page. That is your "
                      + "day, and it just changed because you decided something.",
-                 waiting: "Not now",
+                 waiting: "Not Now",
                  effect: .openSessionControls),
             Card(sentence: "That is a session.",
                  body: "A session is you saying: I am working now, on this. It runs "
-                     + "until you stop it, and the clock in the bar is its time so far. "
-                     + "Nothing counts as work until you say so.",
+                     + "until you stop it. Nothing counts as work until you say so.",
                  anchor: .sessionControl)
         ]),
 
         Chapter(id: .macSaw, cards: [
             Card(sentence: "Now go and use another app.",
-                 body: "Your browser, your mail, anything at all. Come back whenever "
-                     + "you like — the session keeps running while you are away from "
-                     + "this window.",
+                 body: "Your browser, your mail, anything. Come back when you like. "
+                     + "The session keeps running while you are away from this window.",
                  anchor: .rail,
                  task: .useAnotherApp,
                  result: "Your apps appeared on the right, on their own. You never told "
                      + "Daybook about them: that half is observed, not decided.",
-                 waiting: "Not now"),
+                 waiting: "Not Now"),
             Card(sentence: "Observed is not the same as decided.",
                  body: "The Apps tile is what your Mac saw: which app was in front, and "
-                     + "for how long. Only apps you are actually using count — after "
-                     + "three minutes with no keyboard or mouse, the clock on that app "
-                     + "stops.",
-                 note: "On this Mac adds it up: time inside a session, time outside "
-                     + "one, and time nothing recorded. The three always sum to the "
-                     + "whole, so you can see exactly where an afternoon went.",
-                 anchor: .appsTile)
+                     + "for how long. After three minutes with no keyboard or mouse, the "
+                     + "clock on that app stops.",
+                 anchor: .appsTile),
+            Card(sentence: "Pause stops the clock. Away stops everything, then asks.",
+                 body: "Pause is for staying at the Mac: what you do is still recorded. "
+                     + "Away is for leaving it: nothing is recorded, and when you come "
+                     + "back this card asks what the gap was. The one on screen now is a "
+                     + "rehearsal with made-up figures. Press any answer and nothing is "
+                     + "recorded.",
+                 note: "“It Was a Break” is written down as rest. “I Was Working” adds "
+                     + "the gap to the session. “I Was Away” leaves it out. “Start "
+                     + "Fresh” begins a new session. Every answer can be changed later "
+                     + "from the day's story, and gaps of a few minutes are folded in "
+                     + "without asking. Settings › Away sets when it asks.",
+                 effect: .previewAwayCard),
+            Card(sentence: "It can start sessions for you.",
+                 body: "An activity rule starts a session when an app has been in front "
+                     + "for a few minutes: Coding for your editor, Browsing for your "
+                     + "browser. You are told when it happens, and the notice has an "
+                     + "Undo. Rules never touch a session you started yourself.",
+                 note: "Rules live in Settings › Activities. Turn them off and the "
+                     + "app records app use only, and starts nothing.",
+                 anchor: .settings)
         ]),
 
         Chapter(id: .readingDay, cards: [
             Card(sentence: "This column is your day, told in order.",
                  body: "One sentence at the top says what the day amounts to. Below it, "
                      + "every session and every stretch of app use, in the order they "
-                     + "happened. Click an entry to open it; there is an Expand all at "
-                     + "the top when you want the lot.",
+                     + "happened. Click an entry to open it.",
                  anchor: .storyColumn),
-            Card(sentence: "The evidence sits beside the figures.",
-                 body: "How this day was measured opens to say how each measure is "
-                     + "counted: logged focus, recorded app use and breaks, and how many "
-                     + "separate stretches the sessions ran as. What was not recorded "
-                     + "shows in the day itself. Nothing here is presented as more "
-                     + "certain than it is.",
-                 anchor: .measured),
             Card(sentence: "You can correct anything, and undo any correction.",
-                 body: "Open an entry and you can rename it, change its category, or "
-                     + "continue it as the same piece of work. A correction changes the "
-                     + "whole thread, not one stretch of it, and the original app "
-                     + "record underneath is never touched.",
-                 anchor: .storyColumn)
-        ]),
-
-        Chapter(id: .rail, cards: [
+                 body: "Open an entry to rename it, change its category, or continue it "
+                     + "as the same piece of work. A correction changes the whole thread, "
+                     + "and the original app record underneath is never touched.",
+                 anchor: .storyColumn),
+            Card(sentence: "Every figure shows how it was measured.",
+                 body: "How this day was measured says how each figure is counted. What "
+                     + "was not recorded shows in the day itself. Nothing here is "
+                     + "presented as more certain than it is.",
+                 anchor: .measured),
             Card(sentence: "Daily goal: how far today has come.",
-                 body: "The figure is the focus that counts towards today's goal, and the "
-                     + "ring its share of it. Only declared focus counts — sessions, not app use — "
-                     + "and only while you were actually at the keyboard. The day's total "
-                     + "focus is the column's headline. The goal is yours to set, in "
-                     + "Settings under Sessions.",
+                 body: "The ring is the focus that counts towards today's goal. Only "
+                     + "declared focus counts (sessions, not app use), and only while "
+                     + "you were at the keyboard. Set the goal in Settings › Sessions.",
                  anchor: .focusTile),
             Card(sentence: "On this Mac: the whole day, in three parts.",
                  body: "Time in a session, time at the Mac outside one, and time "
                      + "nothing recorded. They always add up to the whole, which is what "
                      + "lets you trust any one of them.",
-                 anchor: .macTile),
-            Card(sentence: "Apps: what was in front.",
-                 body: "Your most-used apps, by time. Click one for its stretches "
-                     + "through the day. How many are listed is a setting.",
-                 anchor: .appsTile),
-            Card(sentence: "Rhythm: the hours you actually work.",
-                 body: "Where in the day your focus lands. It appears once there is a "
-                     + "day's worth to draw, and it is the thing to look at when you "
-                     + "wonder whether mornings or afternoons are your time.",
-                 anchor: .rhythmTile),
-            Card(sentence: "Streak: days that counted.",
-                 body: "A day joins the streak once its focus reaches a threshold you "
-                     + "choose. This tile appears after your first counted day. The "
-                     + "tiles can be dragged into any order you like.",
-                 anchor: .streakTile)
-        ]),
-
-        Chapter(id: .steppingAway, cards: [
-            Card(sentence: "Pause stops the clock. Away stops everything, then asks.",
-                 body: "Pause is for staying at the Mac: the clock stops, what you do is "
-                     + "still recorded. Away is for leaving it: nothing is recorded until "
-                     + "you're back, and when you come back this card asks what that gap "
-                     + "was. The one on screen now is a "
-                     + "rehearsal with made-up figures — press any answer and nothing "
-                     + "is recorded.",
-                 note: "It was a break is written down as rest. I was working adds the "
-                     + "gap to the session. I was away leaves it out, silently. Start "
-                     + "fresh ends the session where you left and begins a new one.",
-                 effect: .previewAwayCard),
-            Card(sentence: "Answer it honestly. You can change it later.",
-                 body: "The card takes one press and then gets out of the way. Every "
-                     + "answer can be revised from the day's story afterwards, so there "
-                     + "is nothing to get wrong. Short gaps of a few minutes are folded "
-                     + "in without asking.",
-                 note: "How long an absence has to be before it asks, and when it "
-                     + "gives you the full card rather than the quick one, are both in "
-                     + "Settings under Away.")
-        ]),
-
-        Chapter(id: .automation, cards: [
-            Card(sentence: "It can start sessions for you.",
-                 body: "An activity rule says: when this app has been in front for a "
-                     + "few minutes, start a session under this category. Coding when "
-                     + "your editor comes up; Browsing for your browser. You are told "
-                     + "when it happens, and the notice carries an Undo.",
-                 anchor: .settings),
-            Card(sentence: "Rules never touch a session you started yourself.",
-                 body: "If a different rule's app takes over, the automatic session "
-                     + "closes at that moment and the next one begins there — one at "
-                     + "a time, no overlap, no gap. Quick switches between apps do "
-                     + "nothing; a rule waits for a few settled minutes.",
-                 note: "Rules live in Settings under Activities. Turn them off there "
-                     + "and the app records app use only, and starts nothing.")
+                 anchor: .macTile)
         ]),
 
         Chapter(id: .lookingBack, cards: [
             Card(sentence: "The story is today. History is one timeline that unfolds.",
                  body: "Years open into months, months into weeks, weeks into days, and a "
-                     + "day into its sessions, each one step in from its parent. Click a "
-                     + "row to open it, or press Return; Escape folds the deepest open row.",
+                     + "day into its sessions. Click a row to open it, or press Return; "
+                     + "Escape folds the deepest open row.",
                  anchor: .journal,
                  effect: .showHistory),
             Card(sentence: "History goes back to the day you installed the app.",
-                 body: "Nothing is drawn from before the app was here, because nothing "
-                     + "was recorded. Jump to date opens any recorded day straight away.",
+                 body: "Nothing is drawn from before that, because nothing was recorded. "
+                     + "Go to Date opens any recorded day straight away.",
                  anchor: .periodNav,
                  effect: .showHistory),
             Card(sentence: "Find any session by name.",
-                 body: "The search at the top of History finds sessions by what you "
-                     + "called them, what you noted, the app, the category or the date. "
-                     + "⌘F takes you there from anywhere in the window.",
+                 body: "The search at the top of History finds sessions by name, note, "
+                     + "app, category or date. ⌘F takes you there from anywhere in the "
+                     + "window.",
                  anchor: .search,
-                 effect: .showHistory)
-        ]),
-
-        Chapter(id: .awards, cards: [
-            Card(sentence: "Streaks and awards.",
-                 body: "Awards mark milestones — a first counted week, a long streak, "
-                     + "a strong month. They are earned from the record, never given "
-                     + "for opening the app. The Awards link on the Streak tile opens "
-                     + "them once you have a streak; ⌘6 opens them any time.",
-                 anchor: .awards)
+                 effect: .showHistory),
+            Card(sentence: "Rhythm, streak and awards.",
+                 body: "Rhythm shows the hours your focus lands in. A day joins the streak "
+                     + "once its focus reaches a threshold you choose. Awards mark "
+                     + "milestones and are earned from the record, never for opening the "
+                     + "app; ⌘6 opens them. Rhythm and Streak appear once there is a day "
+                     + "to show.",
+                 note: "The tiles can be dragged into any order you like.",
+                 anchor: .streakTile)
         ]),
 
         Chapter(id: .menuBar, cards: [
             Card(sentence: "The app lives in your menu bar.",
                  body: "You can close this window and keep working. The ring in the "
-                     + "menu bar is today's goal, filling as you go, and clicking it "
-                     + "gives you Start, Pause and Stop, your recent activities, and "
-                     + "the way back to this window.",
-                 note: "Look for the ring beside the clock. It shows the session time "
-                     + "next to it while one runs; that is a setting."),
+                     + "menu bar is today's goal, filling as you go. Click it for Start, "
+                     + "Pause and Stop, your recent activities, and the way back to this "
+                     + "window.",
+                 note: "The session time shows beside the ring while one runs; that is "
+                     + "a setting."),
             Card(sentence: "A few keys.",
                  body: "Control-Option-Space, from inside any app, starts a session, "
-                     + "ends the running one, or brings up an away card "
-                     + "that is waiting for you. In this window: ⌘1 for the day's story, "
-                     + "⌘2 for History, ⌘6 for Awards, ⌘7 for the session controls and "
-                     + "⌘, for Settings.",
+                     + "ends the running one, or brings up an away card that is waiting "
+                     + "for you. In this window: ⌘1 for the day's story, ⌘2 for History, "
+                     + "⌘6 for Awards, ⌘7 for the session controls and ⌘, for Settings.",
                  note: "⌥⌘N starts a session, ⌥⌘P pauses or resumes it, ⌥⌘A steps away "
                      + "and ⌥⌘S stops it. While VoiceOver is on, Control-Option-Space "
                      + "stays VoiceOver's own.",
-                 anchor: .sessionControl)
-        ]),
-
-        Chapter(id: .settings, cards: [
+                 anchor: .sessionControl),
             Card(sentence: "Everything adjustable is behind the gear.",
-                 body: "General for login and the menu bar. Sessions for your "
-                     + "daily goal, categories and thresholds. Activities for the rules. "
-                     + "Away for when it asks, Breaks for when to rest. Recording for what is watched "
-                     + "and which apps count as work.",
+                 body: "General for login and the menu bar. Sessions for your daily goal "
+                     + "and categories. Activities for the rules. Away for when it asks, "
+                     + "Breaks for when to rest. Recording for what is watched and which "
+                     + "apps count as work.",
                  anchor: .settings),
             Card(sentence: "Your record is yours.",
                  body: "It is a handful of files in your own Library folder, and there "
-                     + "is no account. Backups are off until you turn them on; then they copy "
-                     + "it to your own iCloud Drive or to a folder you choose. Otherwise only the update "
-                     + "check asks GitHub for anything, and dictation may send audio to "
-                     + "Apple when this Mac cannot recognise your language itself. Privacy "
-                     + "in Settings sets the backups, shows you the folder and lets you "
-                     + "turn recording off entirely.",
+                     + "is no account. Backups are off until you turn them on; then they "
+                     + "copy it to your own iCloud Drive or to a folder you choose. "
+                     + "Otherwise only the update check asks GitHub for anything, and "
+                     + "dictation may send audio to Apple when this Mac cannot recognise "
+                     + "your language itself. Settings › Privacy sets the backups, shows "
+                     + "you the folder and lets you turn recording off entirely.",
                  anchor: .settings)
         ]),
 
         Chapter(id: .finish, cards: [
             Card(sentence: "That's the whole app.",
                  body: "Two records, read side by side: what you decided, and what "
-                     + "your Mac saw. Everything else is just that, over more days. "
-                     + "Your session is still running.",
-                 note: "This tour is in Settings under General whenever you want it "
+                     + "your Mac saw. Your session is still running.",
+                 note: "This tour is in Settings › General whenever you want it "
                      + "again.",
-                 forward: "Start my day")
+                 forward: "Start My Day")
         ])
     ]
 
@@ -478,7 +443,7 @@ enum FirstRunScript {
         return cards[min(max(0, index), cards.count - 1)]
     }
 
-    /// The cards that wait on the reader, in order — what "step 2 of 3" counts.
+    /// The cards that wait on the reader, in order.
     static var taskCards: [(chapter: FirstRunChapter, card: Int, task: FirstRunTask)] {
         chapters.flatMap { chapter in
             chapter.cards.enumerated().compactMap { index, card in
@@ -487,17 +452,12 @@ enum FirstRunScript {
         }
     }
 
-    static func stepNumber(chapter: FirstRunChapter, card: Int) -> Int? {
-        taskCards.firstIndex { $0.chapter == chapter && $0.card == card }.map { $0 + 1 }
-    }
-
     /// Derived, never written into a card, so adding or reordering anything
-    /// cannot leave a card counting to the wrong total.
+    /// cannot leave a card counting to the wrong total. Always chapters, the
+    /// unit the progress bar beneath it counts; a card that waits on the reader
+    /// used to say "Step 1 of 3", a second unit beside it.
     static func eyebrow(chapter: FirstRunChapter, card: Int) -> String {
-        if let step = stepNumber(chapter: chapter, card: card) {
-            return "Step \(step) of \(taskCards.count) · \(chapter.title)"
-        }
-        return "Chapter \(chapter.number) of \(FirstRunChapter.allCases.count) · \(chapter.title)"
+        "Chapter \(chapter.number) of \(FirstRunChapter.allCases.count) · \(chapter.title)"
     }
 
     static var cardCount: Int { chapters.reduce(0) { $0 + $1.cards.count } }

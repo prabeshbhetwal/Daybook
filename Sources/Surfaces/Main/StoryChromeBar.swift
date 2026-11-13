@@ -1,13 +1,41 @@
 import SwiftUI
 
+// Why the chrome is a hand-built row and not a native `.toolbar`
+// (assessed on macOS 14; revisit if any of these stops being true):
+//
+// - Zoom. The interface zoom (80-160%) scales every length here through
+//   `N.zoomed`. An NSToolbar keeps its own height and item sizes, so at 160%
+//   the controls would outgrow it, and at 80% they would float in it.
+// - The welcome tour finds the activity field, the session control, the
+//   settings button and the period control by `coachAnchor`, a preference
+//   that travels up the SwiftUI view tree. Toolbar items live in the window's
+//   titlebar, outside that tree, so the tour could not point at them.
+// - Custom controls. The activity field (with its suggestions), the Start
+//   Focus capsule and the History button that drops its word before it
+//   truncates (`ViewThatFits`) are not toolbar items. AppKit lays out and
+//   overflows a toolbar itself, into a ">>" menu, and cannot do either.
+// - The look. The row sits in the full-size content under a hidden title
+//   bar, in the story's canvas colour. A native toolbar needs a visible title
+//   bar and system toolbar material, and the offscreen captures that build
+//   `MainWindowView` without an NSWindow toolbar would lose the row.
+//
+// The part of a native toolbar worth having is a menu command behind every
+// item, and each chrome action has one:
+//   Back to Story ......... Navigate > Story (⌘1)
+//   History ............... Navigate > History (⌘2)
+//   Activity field, Start Focus, session pill
+//                           Navigate > Session Controls (⌘7), and the
+//                           Session menu (⌥⌘N, P, A, B, S)
+//   Ask ................... Navigate > Ask Daybook… (⌘K)
+//   Settings .............. Settings… (⌘,)
+//   Go to Date… ........... Navigate > Go to Date… (⌘J)
+// Navigate > Previous Day and Next Day (⌥⌘← and ⌥⌘→) have no chrome control.
+
 enum StoryChromeFocus: Hashable {
     case session
     case settings
 }
 
-/// The window's one chrome row, in the design's order: clearance for the native
-/// traffic lights, the scope, the period it resolves to, the live session, Ask
-/// and Settings. It never scrolls and it is the only global navigation.
 enum ChromeSessionControl {
     /// The story's chrome holds the full controls, so it has no small pill;
     /// History's chrome holds its own centre, so the pill is its way back to
@@ -15,6 +43,10 @@ enum ChromeSessionControl {
     static func isShown(workspace: MainReadingWorkspace) -> Bool { workspace == .history }
 }
 
+/// The window's one chrome row, in the design's order: clearance for the native
+/// traffic lights, the way back, the workspace's controls, the live session,
+/// Ask and Settings. It never scrolls and it is the only global navigation.
+/// Full screen hides the traffic lights, so their clearance goes with them.
 struct StoryChromeBar: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var navigation: MainWindowModel
@@ -30,9 +62,7 @@ struct StoryChromeBar: View {
     var body: some View {
         HStack(spacing: Tokens.Space.l) {
             // The real window controls live here; the bar must not draw its own.
-            Color.clear
-                .frame(width: MainWindowChrome.trafficLightClearance, height: 1)
-                .accessibilityHidden(true)
+            TrafficLightGap()
             backSlot
             workspaceControls
             if ChromeSessionControl.isShown(workspace: navigation.workspace) {
@@ -59,7 +89,7 @@ struct StoryChromeBar: View {
             }
             .buttonStyle(PressableStyle())
             .focused($focusedControl, equals: .settings)
-            .help("Settings")
+            .help("Open Settings (⌘,)")
             .accessibilityLabel("Settings")
             .coachAnchor(.settings)
         }
@@ -85,6 +115,9 @@ struct StoryChromeBar: View {
             navigation.consumeFocusRestorationRequest()
         }
         .onChange(of: intentFocused) { _, focused in if focused { navigation.noteActivityFieldEngaged() } }
+        // ⌘J: the calendar is on History's chrome, which this request has
+        // just brought up if the story was showing.
+        .onChange(of: navigation.historyCalendarRequest) { historyCalendarShown.value = true }
     }
 
     /// The way back, in a slot that exists in every workspace. "‹ Story" used
@@ -100,7 +133,7 @@ struct StoryChromeBar: View {
                 }
                 .accessibilityLabel("Return to Story")
                 .transition(Tokens.Motion.transition(
-                    .opacity.combined(with: .scale(scale: 0.8)), reduceMotion: reduceMotion))
+                    .opacity.combined(with: .scale(scale: 0.9)), reduceMotion: reduceMotion))
             }
         }
         .frame(width: AccessibilityMetrics.minimumTargetSize,
@@ -143,7 +176,12 @@ struct StoryChromeBar: View {
     /// has the back button instead.
     private var crossLinks: some View {
         Button { navigation.open(tab: .review) } label: {
-            Label("History", systemImage: "clock.arrow.circlepath")
+            // The word goes before it would wrap or truncate; the symbol and
+            // the help tag stay.
+            ViewThatFits(in: .horizontal) {
+                Label("History", systemImage: "clock.arrow.circlepath").fixedSize()
+                Label("History", systemImage: "clock.arrow.circlepath").labelStyle(.iconOnly)
+            }
                 .font(Tokens.Typography.label)
                 .padding(.horizontal, Tokens.Space.s)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
@@ -159,20 +197,20 @@ struct StoryChromeBar: View {
     /// there. Each date shows its focus, so the calendar is also a map.
     private var jumpToDate: some View {
         Button { historyCalendarShown.value.toggle() } label: {
-            Label("Jump to date", systemImage: "calendar")
+            Label("Go to Date…", systemImage: "calendar")
                 .font(Tokens.Typography.label)
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
-        .help("Pick a day to read in History")
+        .help("Pick a day to read in History (⌘J)")
         .accessibilityHint("Opens the calendar; the day you pick is selected in the list")
         .popover(isPresented: Binding(get: { historyCalendarShown.value },
                                       set: { historyCalendarShown.value = $0 }),
                  arrowEdge: .bottom) {
             DayPickerCalendar(
-                selected: navigation.reviewSelectedDate ?? Calendar.current.startOfDay(for: store.now()),
+                selected: navigation.reviewSelectedDate ?? store.periodCalendar.startOfDay(for: store.now()),
                 earliest: store.earliestSelectableDay,
                 goal: store.goal.goal,
                 calendar: store.periodCalendar,
@@ -197,7 +235,7 @@ struct StorySessionControl: View {
             Button(action: onDetails) {
                 HStack(spacing: Tokens.Space.xs) {
                     Image(systemName: "play.fill").font(Tokens.Typography.caption)
-                    Text("Start focus").font(Tokens.Typography.label)
+                    Text("Start Focus").font(Tokens.Typography.label)
                 }
                 .lineLimit(1)
                 .fixedSize()
@@ -208,7 +246,7 @@ struct StorySessionControl: View {
             }
             .buttonStyle(PressableStyle())
             .focused(focus, equals: .session)
-            .accessibilityLabel("Start focus")
+            .accessibilityLabel("Start Focus")
             .accessibilityHint("Opens the session controls to choose an activity")
         } else {
             Button(action: onDetails) {

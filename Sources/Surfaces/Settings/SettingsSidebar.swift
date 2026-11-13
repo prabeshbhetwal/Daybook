@@ -112,15 +112,15 @@ extension SettingsSection {
     var title: String {
         switch self {
         case .general: return "General"
-        case .focus: return "Focus sessions"
+        case .focus: return "Sessions"
         case .categories: return "Categories"
         case .away: return "Away"
         case .breaks: return "Breaks"
         case .automatic: return "Automatic and rewards"
         case .activities: return "Activity rules"
-        case .tracking: return "Tracking and apps"
+        case .tracking: return "Recording"
         case .appearance: return "Appearance"
-        case .data: return "Data and privacy"
+        case .data: return "Privacy"
         case .updates: return "Updates"
         case .advanced: return "Advanced"
         }
@@ -173,9 +173,9 @@ extension SettingsSection {
             return ["Guess sessions from the app in front", "End a paused automatic session after",
                     "Celebrate milestones", "Haptic feedback", "Try haptic feedback"]
         case .activities:
-            return ["Use my activity rules", "Activity rules", "New rule", "Activity name",
-                    "Start after", "Add application", "Running now"]
-        case .tracking: return ["Apps shown in a card", "Recent app visits", "Record app usage"]
+            return ["Use my activity rules", "Activity rules", "New Rule", "Activity name",
+                    "Start after", "Add App", "Running now"]
+        case .tracking: return ["Apps shown in a card", "Recent app visits", "Record app use"]
         case .appearance:
             return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
                     "Expand entry details by default", "Fold quiet stretches after"]
@@ -184,7 +184,7 @@ extension SettingsSection {
             // on-device AI row is listed only on a Mac that shows it.
             return ["Privacy", "App use measured precisely since", "Backups", "Back up automatically",
                     "Back up to", "Keep automatic backups", "Last backup", "Next backup", "Back Up Now",
-                    "Reveal data folder"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
+                    "Reveal Data Folder"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
         case .advanced: return ["Version", "Build", "Recovery"]
@@ -267,7 +267,7 @@ struct SettingsSidebarList: View {
                                         in: RoundedRectangle(cornerRadius: 6.zoomed, style: .continuous))
                             .accessibilityHidden(true)
                         Text(page.title)
-                            .font(Tokens.Typography.control.weight(selected == page ? .semibold : .regular))
+                            .font(Tokens.Typography.control)
                             .lineLimit(1)
                         Spacer(minLength: 0)
                     }
@@ -275,9 +275,19 @@ struct SettingsSidebarList: View {
                     .frame(maxWidth: .infinity, minHeight: 34.zoomed, alignment: .leading)
                     .background(selected == page ? StoryStyle.well : Color.clear,
                                 in: RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous))
+                    // Keyboard focus follows the row's own rounded shape. The
+                    // system ring is a square drawn around the button, and it
+                    // sat over the selected row like a broken outline.
+                    .overlay {
+                        if focused == page {
+                            RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
+                                .strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 3.zoomed)
+                        }
+                    }
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
+                .focusEffectDisabled()
                 .focused($focused, equals: page)
                 // The trait says "selected"; words in the label said it twice.
                 .accessibilityLabel(page.title)

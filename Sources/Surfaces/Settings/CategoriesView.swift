@@ -196,7 +196,7 @@ struct CategoriesView: View {
                         .foregroundStyle(StoryStyle.supportingInk)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: Tokens.Space.m)
-                    Button("New category") {
+                    Button("New Category") {
                         editor.beginNew()
                         editor.requestFocus()
                     }
@@ -268,6 +268,31 @@ struct CategoriesView: View {
         .accessibilityLabel("\(definition.name), \(rowDetail(definition, edited: isEdited))")
         .accessibilityHint("Edit this category")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .contextMenu {
+            RowContextMenu(items: CategoryRowMenu.items(
+                isRetired: definition.isRetired,
+                isBreak: type == .breakTime,
+                isLastStartable: WorkType.startable.filter { $0 != type }.isEmpty)) { item in
+                perform(item, on: definition)
+            }
+        }
+    }
+
+    /// What the editor's own buttons do, without opening the editor first.
+    /// An editor already open on this category follows the change, as it does
+    /// when its own button is pressed.
+    private func perform(_ item: CategoryRowMenu.Item, on definition: WorkTypeDefinition) {
+        switch item {
+        case .edit:
+            editor.edit(definition)
+            editor.requestFocus()
+        case .restore:
+            model.setCategoryRetired(id: definition.id, false)
+            if editor.selectedID == definition.id { editor.edit(catalog.definition(for: definition.workType)) }
+        case .retire:
+            model.setCategoryRetired(id: definition.id, true)
+            if editor.selectedID == definition.id { editor.close() }
+        }
     }
 
     private func rowDetail(_ definition: WorkTypeDefinition, edited: Bool) -> String {
@@ -356,7 +381,7 @@ struct CategoryEditorForm: View {
                     .accessibilityLabel("Category error: \(message)")
             }
             HStack(spacing: Tokens.Space.s) {
-                Button(isNew ? "Add category" : "Save", action: save)
+                Button(isNew ? "Add Category" : "Save", action: save)
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
                 // No Escape shortcut here: the sheet's or panel's own Close
@@ -367,7 +392,7 @@ struct CategoryEditorForm: View {
                 if let definition = selectedDefinition {
                     if definition.workType.isBuiltIn,
                        model.workTypeDefinitions.contains(where: { $0.id == definition.id && !$0.isRetired }) {
-                        Button("Reset to default") { confirmingReset.value = true }
+                        Button("Reset to Default") { confirmingReset.value = true }
                             .confirmationDialog("Reset “\(definition.name)” to default?",
                                                 isPresented: $confirmingReset.value,
                                                 titleVisibility: .visible) {
@@ -477,7 +502,7 @@ struct CategoryEditorForm: View {
                                 Circle().strokeBorder(Color.primary.opacity(isSelected ? 0.9 : 0),
                                                       lineWidth: 2.zoomed)
                                     .padding(-3.zoomed))
-                            .frame(width: 28.zoomed, height: 28.zoomed)
+                            .frame(width: AccessibilityMetrics.minimumTargetSize, height: AccessibilityMetrics.minimumTargetSize)
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)

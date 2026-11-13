@@ -15,7 +15,7 @@ final class StoryDisclosureState: ObservableObject {
 }
 
 /// One link that opens or closes every session and folded quiet run in the
-/// day. It reads "Collapse all" only when everything it would open is open.
+/// day. It reads "Collapse All" only when everything it would open is open.
 struct StoryExpandAllControl: View {
     @ObservedObject var disclosure: StoryDisclosureState
     let ids: [String]
@@ -24,7 +24,7 @@ struct StoryExpandAllControl: View {
     private var allOpen: Bool { !ids.isEmpty && ids.allSatisfy(disclosure.ids.contains) }
 
     var body: some View {
-        Button(allOpen ? "Collapse all" : "Expand all") {
+        Button(allOpen ? "Collapse All" : "Expand All") {
             let opening = !allOpen
             withAnimation(Tokens.Motion.animation(opening ? Tokens.Motion.reveal : Tokens.Motion.dismiss,
                                                   reduceMotion: reduceMotion)) {
@@ -59,7 +59,7 @@ struct DayStorySessionPresentation: Equatable {
             liveStatus: showsLiveState
                 ? (store.pendingAway != nil ? "awaiting your decision"
                     : store.isPaused ? "paused" : "running now") : nil,
-            pauseTitle: store.isAway ? "I'm back" : store.isPaused ? "Resume" : "Pause",
+            pauseTitle: store.isAway ? "I'm Back" : store.isPaused ? "Resume" : "Pause",
             canControl: canControl)
     }
 }
@@ -141,7 +141,9 @@ struct DayStory: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // Lazy: a long day builds the rows in view, not every row at once.
+        // The stack is inside the column's ScrollView, so nothing pins.
+        LazyVStack(alignment: .leading, spacing: 0) {
             let entries = projection?.chronology ?? store.storyTimelineItems
             let fold = store.engine.store.quietFold
             let rows = entries.groupingQuietRuns(minimumRun: fold == 0 ? Int.max : max(2, fold))
@@ -211,7 +213,7 @@ struct DayStory: View {
             .accessibilityLabel(run.span.map { "\(run.summary), \(Tokens.timeRange($0.start, $0.end))" }
                                 ?? run.summary)
             .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
-            .accessibilityHint(isOpen ? "Fold these intervals" : "Show these intervals")
+            .accessibilityHint(isOpen ? "Fold these stretches" : "Show these stretches")
         }
         if isOpen {
             ForEach(Array(run.moments.enumerated()), id: \.element.id) { index, moment in
@@ -243,7 +245,7 @@ struct DayStory: View {
                         StoryMachinePin(event: event, resumed: resumed)
                     }
                 case .appUse(let span, let seconds):
-                    storyRow(time: span.start, tint: Tokens.Palette.app(rank: 1), dotSize: 7.zoomed,
+                    storyRow(time: span.start, tint: Tokens.Palette.appUse, dotSize: 7.zoomed,
                              isFirst: isFirst, isLast: isLast) {
                         StoryLooseAppUse(store: store, span: span, seconds: seconds,
                                          isOpen: opened.ids.contains(item.id),
@@ -322,40 +324,54 @@ struct DayStory: View {
             let recordIDs = session.recordIDs.isEmpty ? [session.id] : session.recordIDs
             let power = store.powerSummary(for: recordIDs,
                 interval: DateInterval(start: session.start, end: max(session.start, session.end)))
+            let canRemove = !isHistory && store.canRemoveSession(session)
+            let removeBlockReason = isHistory ? nil : store.removalBlockReason(for: session)
+            let noteFacts = SessionCardSignature.noteFacts(of: recordIDs, in: store)
+            let canStartNew = store.canStartNewSession(session) && !store.isThreadRunning(session.threadID)
+            let canContinueSession = store.canContinue(session)
+            let signature = SessionCardSignature(
+                session: session, apps: detail?.apps ?? [], shape: detail?.text,
+                shapeCaption: detail?.caption, activity: detail?.activity,
+                canContinue: canContinueSession, canStartNewSession: canStartNew, isOpen: isOpen,
+                clock: live.clock, liveStatus: live.liveStatus, power: power, recordIDs: recordIDs,
+                notes: noteFacts.notes, editorsOpen: noteFacts.editorsOpen, metadataError: noteFacts.error,
+                isHistory: isHistory, canRemove: canRemove, removeBlockReason: removeBlockReason,
+                pauseTitle: live.pauseTitle, canControl: live.canControl,
+                minimumRecorded: store.engine.store.minimumRecordedSession)
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
                      dotSize: session.isRunning ? 13.zoomed : 11.zoomed,
                      isFirst: isFirst, isLast: isLast) {
-                SessionEntryCard(session: session,
-                                 apps: detail?.apps ?? [],
-                                 shape: detail?.text,
-                                 shapeCaption: detail?.caption,
-                                 activity: detail?.activity,
-                                 appColourIndices: projection?.appColourIndices
-                                    ?? store.storyAppColourIndices,
-                                 canContinue: store.canContinue(session),
-                                 // A stretch of the thread running now is neither continued
-                                 // nor started again: it is already going.
-                                 canStartNewSession: store.canStartNewSession(session)
-                                    && !store.isThreadRunning(session.threadID),
-                                 isOpen: isOpen,
-                                 clock: live.clock,
-                                 liveStatus: live.liveStatus,
-                                 powerSummary: power,
-                                 noteRecordIDs: recordIDs,
-                                 metadataStore: store,
-                                 onToggle: { toggle(key) },
-                                 onRename: { store.renameSession(session, to: $0) },
-                                 onWorkType: { store.setWorkType($0, for: session) },
-                                 onContinue: isHistory ? nil : { store.continueSession(session) },
-                                 onStartNewSession: isHistory ? nil : { store.startNewSession(from: session) },
-                                 onRemove: !isHistory && store.canRemoveSession(session)
-                                    ? { store.removeSession(session) } : nil,
-                                 removeBlockReason: isHistory ? nil : store.removalBlockReason(for: session),
-                                 pauseTitle: live.pauseTitle,
-                                 onPause: live.canControl && !isHistory ? { store.togglePause() } : nil,
-                                 onEnd: live.canControl && !isHistory ? { store.stop() } : nil,
-                                 minimumRecorded: store.engine.store.minimumRecordedSession)
+                // Rebuilt only when its signature changes, so the 1 Hz ticker
+                // redraws the running card and no other.
+                StableSessionCard(signature: signature, card: {
+                    SessionEntryCard(session: session,
+                                     apps: detail?.apps ?? [],
+                                     shape: detail?.text,
+                                     shapeCaption: detail?.caption,
+                                     activity: detail?.activity,
+                                     canContinue: canContinueSession,
+                                     // A stretch of the thread running now is neither continued
+                                     // nor started again: it is already going.
+                                     canStartNewSession: canStartNew,
+                                     isOpen: isOpen,
+                                     clock: live.clock,
+                                     liveStatus: live.liveStatus,
+                                     powerSummary: power,
+                                     noteRecordIDs: recordIDs,
+                                     metadataStore: store,
+                                     onToggle: { toggle(key) },
+                                     onRename: { store.renameSession(session, to: $0) },
+                                     onWorkType: { store.setWorkType($0, for: session) },
+                                     onContinue: isHistory ? nil : { store.continueSession(session) },
+                                     onStartNewSession: isHistory ? nil : { store.startNewSession(from: session) },
+                                     onRemove: canRemove ? { store.removeSession(session) } : nil,
+                                     removeBlockReason: removeBlockReason,
+                                     pauseTitle: live.pauseTitle,
+                                     onPause: live.canControl && !isHistory ? { store.togglePause() } : nil,
+                                     onEnd: live.canControl && !isHistory ? { store.stop() } : nil,
+                                     minimumRecorded: store.engine.store.minimumRecordedSession)
+                }).equatable()
             }
         case .rest(let rest):
             storyRow(time: rest.start,
@@ -414,7 +430,7 @@ struct DayStory: View {
                     // A machine event wears its glyph on the rule in place of
                     // a dot, ringed so it reads as a mark, not a session.
                     Image(systemName: pin.symbol)
-                        .font(Tokens.Typography.micro)
+                        .font(Tokens.Typography.caption)
                         .foregroundStyle(pin.tint)
                         .frame(width: 17.zoomed, height: 17.zoomed)
                         .background(Circle().fill(StoryStyle.canvas))
@@ -477,7 +493,6 @@ struct SessionEntryCard: View {
     var shape: String?
     var shapeCaption: String?
     var activity: RecordedActivity?
-    var appColourIndices: [String: Int] = [:]
     var canContinue = false
     var canStartNewSession = false
     let isOpen: Bool
@@ -648,8 +663,73 @@ struct SessionEntryCard: View {
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
             .strokeBorder(clock != nil ? tint.opacity(0.30) : Tokens.Colour.line,
                           lineWidth: clock != nil ? 1.5.zoomed : 1))
-        .shadow(color: .black.opacity(0.025), radius: 2.zoomed, y: 1)
         .accessibilityElement(children: .contain)
+        .contextMenu { RowContextMenu(items: menuItems, perform: perform) }
+        // On the card, not the Remove button: the menu removes a closed card
+        // too, and the button is not drawn until the card opens.
+        .confirmationDialog("Remove this session?", isPresented: $confirmingRemoval.value) {
+            Button("Remove Session", role: .destructive) {
+                onRemove?()
+                dontAskRemoval.confirm(confirmations)
+            }
+            Button("Keep", role: .cancel) {}
+        } message: {
+            Text("Every stretch of “\(session.workType.sessionTitle(named: session.name))” "
+                 + "leaves the record and its time reads as outside sessions. "
+                 + "App use stays. Undo is offered in the story.")
+        }
+        .dialogSuppressionToggle("Don't ask again",
+                                 isSuppressed: dontAskRemoval.tick(confirmations))
+    }
+
+    // MARK: Right-click menu
+
+    private var menuItems: [SessionCardMenu.Item] {
+        SessionCardMenu.items(for: SessionCardMenu.Facts(
+            isRunning: session.isRunning,
+            canRename: onRename != nil || onWorkType != nil,
+            note: noteState,
+            canContinue: onContinue != nil && canContinue,
+            canStartAgain: onStartNewSession != nil && canStartNewSession,
+            canSeeReport: openSessionReport != nil,
+            canRemove: onRemove != nil))
+    }
+
+    /// Add note while the last stretch has none; Edit note once it has one
+    /// and its editor is closed, as the buttons in the open card are drawn.
+    private var noteState: SessionCardMenu.NoteState {
+        guard let recordID = noteTargetID, let metadataStore else { return .unavailable }
+        guard metadataStore.sessionMetadata(for: recordID)?.note != nil else { return .absent }
+        return metadataStore.expandedNoteEditorIDs.contains(recordID) ? .unavailable : .present
+    }
+
+    /// Each entry does what the visible button does. The rename field and the
+    /// note editor live in the open card, so a closed one is opened first.
+    private func perform(_ item: SessionCardMenu.Item) {
+        switch item {
+        case .continueSession: onContinue?()
+        case .startAgain: onStartNewSession?()
+        case .rename:
+            if !isOpen { onToggle() }
+            beginEditing()
+        case .addNote, .editNote:
+            if let recordID = noteTargetID {
+                if !isOpen { onToggle() }
+                metadataStore?.beginNoteEditing(for: recordID)
+            }
+        case .seeFullReport: openSessionReport?(session)
+        case .remove: requestRemoval()
+        }
+    }
+
+    /// Remove, from the button or the menu: asks first unless told not to.
+    private func requestRemoval() {
+        if confirmations.asks(.removeSession) {
+            dontAskRemoval.reset()
+            confirmingRemoval.value = true
+        } else {
+            onRemove?()
+        }
     }
 
     /// Everything the closed card shows, in one sentence: the hidden duration
@@ -680,8 +760,7 @@ struct SessionEntryCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if showsActivityStrip, let activity {
-                        StoryShapeChart(activity: activity, appColourIndices: appColourIndices,
-                                        height: 28.zoomed, compact: true)
+                        StoryShapeChart(activity: activity, height: 28.zoomed, compact: true)
                             .frame(width: 130.zoomed)
                     }
                 }
@@ -707,8 +786,8 @@ struct SessionEntryCard: View {
         VStack(alignment: .leading, spacing: 6.zoomed) {
             if !apps.isEmpty {
                 sectionLabel("Apps in this stretch")
-                ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
-                    StoryAppRow(app: app, rank: appColourIndices[app.bundleID] ?? index)
+                ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { _, app in
+                    StoryAppRow(app: app)
                 }
                 if apps.count > 4 {
                     // The one door to the report, put where the question
@@ -723,7 +802,7 @@ struct SessionEntryCard: View {
     /// card: after "N more apps" where the list is cut short, on its own
     /// where nothing is, so the report is reachable from every kind of card,
     /// running included.
-    @ViewBuilder private func reportLink(prefix: String? = nil, title: String = "See full report") -> some View {
+    @ViewBuilder private func reportLink(prefix: String? = nil, title: String = "See Full Report") -> some View {
         if let openSessionReport {
             HStack(spacing: Tokens.Space.xs) {
                 if let prefix {
@@ -743,9 +822,9 @@ struct SessionEntryCard: View {
 
     private var activityDetail: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            sectionLabel("App activity")
+            sectionLabel("App use")
             if let activity {
-                StoryShapeChart(activity: activity, appColourIndices: appColourIndices)
+                StoryShapeChart(activity: activity)
             }
             factualCaption
         }
@@ -771,7 +850,6 @@ struct SessionEntryCard: View {
         Text(text)
             .font(Tokens.Typography.caption)
             .foregroundStyle(StoryStyle.supportingInk)
-            .textCase(.uppercase)
             .accessibilityAddTraits(.isHeader)
     }
 
@@ -789,46 +867,26 @@ struct SessionEntryCard: View {
             } else {
                 HStack(spacing: Tokens.Space.m) {
                     if let onContinue, canContinue {
-                        actionButton("Continue this", action: onContinue)
+                        actionButton("Continue This", action: onContinue)
                     } else if let onStartNewSession, canStartNewSession {
-                        actionButton("Start again", action: onStartNewSession)
+                        actionButton("Start Again", action: onStartNewSession)
                             .help("Starts a fresh session with this name and category.")
                     }
                     // A written note carries its own Edit beside it; a second
                     // "Edit note" here opened the same editor.
                     if let recordID = noteTargetID, let metadataStore,
                        metadataStore.sessionMetadata(for: recordID)?.note == nil {
-                        actionButton("Add note") {
+                        actionButton("Add Note") {
                             metadataStore.beginNoteEditing(for: recordID)
                         }
                     }
                     if onRemove != nil || removeBlockReason != nil {
-                        Button("Remove") {
-                            if confirmations.asks(.removeSession) {
-                                dontAskRemoval.reset()
-                                confirmingRemoval.value = true
-                            } else {
-                                onRemove?()
-                            }
-                        }
+                        Button("Remove", action: requestRemoval)
                             .buttonStyle(StoryActionStyle(tint: Tokens.Colour.danger))
                             .disabled(onRemove == nil)
                             .help(removeBlockReason
                                   ?? "Removes this session. Its time counts as outside sessions.")
                             .accessibilityHint(removeBlockReason ?? "Removes this session; Undo is offered in the story.")
-                            .confirmationDialog("Remove this session?", isPresented: $confirmingRemoval.value) {
-                                Button("Remove session", role: .destructive) {
-                                    onRemove?()
-                                    dontAskRemoval.confirm(confirmations)
-                                }
-                                Button("Keep", role: .cancel) {}
-                            } message: {
-                                Text("Every stretch of “\(session.workType.sessionTitle(named: session.name))” "
-                                     + "leaves the record and its time reads as outside sessions. "
-                                     + "App use stays. Undo is offered in the story.")
-                            }
-                            .dialogSuppressionToggle("Don't ask again",
-                                                     isSuppressed: dontAskRemoval.tick(confirmations))
                     }
                     // Pause and Stop are in the bar, a few hundred points up;
                     // the card does not repeat them.
@@ -944,7 +1002,7 @@ struct SessionEntryCard: View {
                     }
                 }
                 .accessibilityLabel("Name this work")
-            Button("Save name", action: commitRename)
+            Button("Save Name", action: commitRename)
                 .font(Tokens.Typography.label)
                 .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                           || draft.text.trimmingCharacters(in: .whitespacesAndNewlines) == session.name)

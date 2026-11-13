@@ -145,8 +145,8 @@ enum BreakCarryOverChecks: CheckSuite {
             expect(withheld == ["Later", "Skip"], "the reminder keeps Later and Skip, got \(withheld)", &problems)
             let guardOnly = BreakHUDCopy.reminder(BreakPrompt(tier: .ultradian, worked: 90 * 60, appName: nil),
                                                   canStart: false).buttons.map(\.title)
-            expect(guardOnly == ["Remind me in 15 min"], "and the guard its Remind me, got \(guardOnly)", &problems)
-            expect(BreakHUDCopy.reminder(reminder).buttons.map(\.title) == ["Start break", "Later", "Skip"],
+            expect(guardOnly == ["Remind Me in 15 min"], "and the guard its Remind me, got \(guardOnly)", &problems)
+            expect(BreakHUDCopy.reminder(reminder).buttons.map(\.title) == ["Start Break", "Later", "Skip"],
                    "while the others still start one", &problems)
             return problems
         }

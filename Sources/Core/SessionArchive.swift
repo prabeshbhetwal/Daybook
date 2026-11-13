@@ -143,7 +143,7 @@ final class SessionArchive {
         }
         for record in expected {
             guard cache.filter({ $0.id == record.id }).count == 1, cache.contains(record) else {
-                return "This record changed since the action. Its newer evidence was preserved."
+                return "This record changed since the action. Its newer changes were kept. Review the day, then try again."
             }
         }
         let retainedIDs = Set(cache.map(\.id)).subtracting(expectedIDs)
@@ -158,7 +158,7 @@ final class SessionArchive {
         guard candidate != cache else { return nil }
         if let capacity, candidate.count > capacity, candidate.count > cache.count {
             guard allowsEviction else {
-                return "History is full. This correction was not saved because it would remove other records."
+                return "History is full. This correction was not saved because it would remove other records. Remove a session you no longer need, then try again."
             }
             candidate.removeFirst(candidate.count - capacity)
         }

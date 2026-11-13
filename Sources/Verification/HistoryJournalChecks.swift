@@ -292,8 +292,11 @@ enum HistoryJournalChecks {
         if note != "\(Tokens.duration(12_000)) of focus fell here, most of it on Tuesdays." {
             failures.append("the best-hours note read \"\(note)\"")
         }
-        if HistoryHours.span(from: 9) != "9 am – 11 am" || HistoryHours.label(0) != "12 am"
-            || HistoryHours.label(13) != "1 pm" {
+        let australian = LocaleFormatChecks.australian
+        let nbsp = "\u{00A0}"
+        if HistoryHours.span(from: 9, locale: australian) != "9\(nbsp)am – 11\(nbsp)am"
+            || HistoryHours.label(0, locale: australian) != "12\(nbsp)am"
+            || HistoryHours.label(13, locale: australian) != "1\(nbsp)pm" {
             failures.append("clock hours were not said as 9 am, 12 am and 1 pm")
         }
         return failures

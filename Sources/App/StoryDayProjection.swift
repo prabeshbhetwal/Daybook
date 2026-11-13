@@ -30,9 +30,6 @@ struct StoryDayProjection: Identifiable {
             return total
         }
     }
-    var appColourIndices: [String: Int] {
-        Dictionary(uniqueKeysWithValues: apps.enumerated().map { ($0.element.bundleID, $0.offset) })
-    }
 }
 
 struct StoryDayProjectionCacheKey: Hashable {
@@ -124,7 +121,7 @@ extension SessionStore {
         if let usage, let bounds = dayBounds {
             let accuracyEpoch = snapshot?.accurateFrom ?? usage.metadata.accurateFrom
             integrityNote = usage.containsUsage(in: bounds, before: accuracyEpoch)
-                ? "App usage from before \(Tokens.longDate(accuracyEpoch)) was preserved and may include unattended time."
+                ? "App use from before \(Tokens.longDate(accuracyEpoch)) was kept as it was and may include time when nobody was at the Mac."
                 : nil
         } else {
             integrityNote = nil

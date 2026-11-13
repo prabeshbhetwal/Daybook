@@ -13,8 +13,7 @@ extension SelfTest {
                  _ reason: UsageEndReason = .appSwitch) -> TimelineSegment {
             TimelineSegment(id: UUID(), bundleID: id, appName: id,
                             start: dayStart.addingTimeInterval(fromMin * 60),
-                            end: dayStart.addingTimeInterval(toMin * 60),
-                            colorIndex: 0, endReason: reason)
+                            end: dayStart.addingTimeInterval(toMin * 60), endReason: reason)
         }
         let gap: TimeInterval = 300, bridge: TimeInterval = 900
 

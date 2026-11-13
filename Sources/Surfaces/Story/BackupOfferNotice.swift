@@ -19,19 +19,16 @@ struct BackupOfferNotice: View {
                         .foregroundStyle(StoryStyle.action)
                 }
                 HStack(spacing: Tokens.Space.s) {
-                    Button("Back up every day") { settings.answerBackupOffer(backUpDaily: true) }
+                    Button("Back Up Every Day") { settings.answerBackupOffer(backUpDaily: true) }
                         .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
-                        .accessibilityHint("Backs up to iCloud Drive every day. Settings, Privacy changes where and how often.")
-                    Button("Not now") { settings.answerBackupOffer(backUpDaily: false) }
+                        .accessibilityHint("Backs up to iCloud Drive every day. Settings › Privacy changes where and how often.")
+                    Button("Not Now") { settings.answerBackupOffer(backUpDaily: false) }
                         .buttonStyle(StoryLinkStyle(tint: StoryStyle.supportingInk))
                         .padding(.leading, Tokens.Space.s)
-                        .accessibilityHint("Leaves backups off. Settings, Privacy can turn them on later.")
+                        .accessibilityHint("Leaves backups off. Settings › Privacy can turn them on later.")
                 }
             }
-            .padding(Tokens.Space.m)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Tokens.Colour.elevated,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+            .noteCard()
             .accessibilityElement(children: .contain)
         }
     }

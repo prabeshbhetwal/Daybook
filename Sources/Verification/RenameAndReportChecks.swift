@@ -169,7 +169,7 @@ enum RenameAndReportChecks: CheckSuite {
         let base = SelfTest.base
         func segment(_ name: String, _ from: TimeInterval, _ to: TimeInterval) -> TimelineSegment {
             TimelineSegment(id: UUID(), bundleID: "test." + name.lowercased(), appName: name,
-                            start: base.addingTimeInterval(from), end: base.addingTimeInterval(to), colorIndex: 0)
+                            start: base.addingTimeInterval(from), end: base.addingTimeInterval(to))
         }
         // A 3 s switch to an app too brief to record, then four minutes untouched.
         let activity = RecordedActivity(

@@ -64,7 +64,7 @@ struct SessionNoteEditor: View {
             Button("Discard", role: .destructive) {
                 _ = store.cancelNoteEditing(for: recordID, discardingChanges: true)
             }
-            Button("Keep editing", role: .cancel) {}
+            Button("Keep Editing", role: .cancel) {}
         } message: {
             Text("This note has not been saved.")
         }
@@ -98,7 +98,7 @@ struct SessionNoteEditor: View {
         .disabled(!dictation.isSupported || dictation.status == .requesting)
         .help(dictation.isSupported
               ? "Dictate this note. Press again to stop."
-              : "Speech recognition is not available for your language on this Mac.")
+              : "Speech recognition is not available for your language on this Mac. Type the note instead.")
         .accessibilityLabel(dictation.isListening ? "Stop dictating" : "Dictate note")
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: dictation.isListening)

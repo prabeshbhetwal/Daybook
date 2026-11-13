@@ -166,20 +166,23 @@ extension SelfTest {
                "compact targets remain practical", &problems)
         expect(InterfaceDensity.compact.layout.rowHeight < InterfaceDensity.comfortable.layout.rowHeight,
                "compact density is observably denser", &problems)
-        expect(Tokens.Colour.resolved(.focus, dark: false).hex == 0x007AFF,
-               "light focus token is Apple's system blue", &problems)
-        expect(Tokens.Colour.resolved(.focus, dark: true).hex == 0x0A84FF,
-               "dark focus token is the dark system blue", &problems)
+        // One accent: the focus token and the link ink are the same blue.
+        for dark in [false, true] {
+            expect(Tokens.Colour.resolved(.focus, dark: dark).hex == (dark ? 0x75B5FF : 0x0068D1),
+                   "the \(dark ? "dark" : "light") focus token is the app's one accent", &problems)
+        }
         expect(Tokens.Colour.resolved(.attention, dark: true).hex == 0xFF9F0A,
                "dark attention token remains semantic amber", &problems)
         let lightOnFocus = Tokens.Colour.resolved(.onFocus, dark: false).hex
         let darkOnFocus = Tokens.Colour.resolved(.onFocus, dark: true).hex
-        expect(lightOnFocus == 0x0F1115 && darkOnFocus == 0x0F1115,
-               "on-focus foreground remains near-black in both appearances", &problems)
-        let lightContrast = contrastRatio(lightOnFocus, 0x007AFF)
-        expect(lightContrast >= 4.5,
-               "on-focus foreground has at least 4.5:1 contrast on light focus; got "
-               + String(format: "%.2f:1", lightContrast), &problems)
+        expect(lightOnFocus == 0xFFFFFF && darkOnFocus == 0x0F1115,
+               "on-focus foreground is white on the light accent, near-black on the dark", &problems)
+        let pairs: [(UInt32, UInt32, String)] = [(lightOnFocus, 0x0068D1, "light"), (darkOnFocus, 0x75B5FF, "dark")]
+        for (ink, fill, name) in pairs {
+            let contrast = contrastRatio(ink, fill)
+            expect(contrast >= 4.5, "on-focus foreground has at least 4.5:1 contrast on the \(name) accent; got "
+                   + String(format: "%.2f:1", contrast), &problems)
+        }
         return problems
     }
 

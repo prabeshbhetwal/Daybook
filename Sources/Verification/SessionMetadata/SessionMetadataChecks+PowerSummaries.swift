@@ -116,7 +116,7 @@ extension SessionMetadataChecks {
         // says it again. A gap between visits neither shows nor resets it.
         func visit(_ from: TimeInterval, _ to: TimeInterval, app: String? = "com.example.app") -> RecordedActivity.Interval {
             RecordedActivity.Interval(start: start.addingTimeInterval(from), end: start.addingTimeInterval(to),
-                                      bundleID: app, appName: app, colourIndex: nil)
+                                      bundleID: app, appName: app)
         }
         let levels = [92, 91, 91, 92].enumerated().map { index, level in
             PowerObservation(timestamp: start.addingTimeInterval(Double(index) * 600), source: .battery,

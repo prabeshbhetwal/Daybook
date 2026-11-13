@@ -72,7 +72,10 @@ struct AskChatView: View {
                             emptyChat
                         } else {
                             ForEach(model.turns) { turn in
-                                AskTurnView(turn: turn, onFollow: onFollow, openSettings: model.openIntelligenceSettings)
+                                AskTurnView(turn: turn, onFollow: onFollow, openSettings: model.openIntelligenceSettings,
+                                            onTryAgain: { tryAgain(turn) },
+                                            offersTryAgain: model.offersTryAgain(turn.id),
+                                            canTryAgain: model.canAsk && !model.isAnswering)
                                     .id(turn.id)
                             }
                         }
@@ -169,6 +172,14 @@ struct AskChatView: View {
             text = ""
             askedFromField = fromField
         }
+    }
+
+    /// Asks the last turn's question again, when it failed or stopped. What is typed in the
+    /// field stays, and the cursor is not pulled back when the answer ends.
+    private func tryAgain(_ turn: AskTurn) {
+        guard !model.isAnswering else { return }
+        askedFromField = false
+        model.tryAgain(turn.id)
     }
 
     /// The cursor goes to the field whenever the chat opens or starts over. Set

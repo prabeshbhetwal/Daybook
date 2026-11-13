@@ -86,7 +86,7 @@ struct HistorySearchList: View {
                                   || navigation.historyFocus == .session(thread: session.threadID, day: day),
                               onSelect: { navigation.selectHistory(session: session.threadID, on: day) })
         case .outside(let use):
-            HistorySpineItem(time: Tokens.timeOfDayOnly(use.span.start), dot: .hollow(Tokens.Palette.app(rank: 1))) {
+            HistorySpineItem(time: Tokens.timeOfDayOnly(use.span.start), dot: .hollow(Tokens.Palette.appUse)) {
                 HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                     if let bundleID = store.historyFilter.appBundleID {
                         AppIcon(bundleID: bundleID, size: 16.zoomed, appName: appName ?? "")
@@ -103,7 +103,7 @@ struct HistorySearchList: View {
             }
             .accessibilityElement(children: .combine)
         case .passing(let use):
-            HistorySpineItem(time: "", dot: .hollow(Tokens.Palette.app(rank: 1).opacity(0.5))) {
+            HistorySpineItem(time: "", dot: .hollow(Tokens.Palette.appUse.opacity(0.5))) {
                 Text(durations: Self.passingLine(use, appName: appName ?? "the app"))
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)

@@ -157,10 +157,12 @@ private struct FocusContinuationLabel: View {
                 Text(title)
                     .font(Tokens.Typography.rowTitle)
                     .lineLimit(1)
+                    .help(title)
                 Text(detail)
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                     .lineLimit(1)
+                    .help(detail)
             }
             Spacer(minLength: Tokens.Space.s)
             trailing

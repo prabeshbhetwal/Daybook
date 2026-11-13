@@ -50,7 +50,7 @@ struct StoryQuietRun: Equatable {
         }
         if parts.isEmpty { parts.append("Nothing recorded") }
         let intervals = appUseCount + gapCount
-        parts.append(intervals == 1 ? "1 interval" : "\(intervals) intervals")
+        parts.append(intervals == 1 ? "1 stretch" : "\(intervals) stretches")
         return parts.joined(separator: " · ")
     }
 }

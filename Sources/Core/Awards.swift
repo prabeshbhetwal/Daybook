@@ -154,7 +154,7 @@ enum Awards {
                      detail: earned
                         ? "\(facts.activeDays) days recorded"
                         : "\(facts.activeDays) so far",
-                     method: "Days with any tracked time at the Mac, for as long as the "
+                     method: "Days with any recorded time at the Mac, for as long as the "
                            + "record goes back.",
                      symbolName: "calendar",
                      paletteRank: 1,
@@ -178,6 +178,6 @@ enum Awards {
     // MARK: - Phrasing
 
     private static func dayMonth(_ date: Date) -> String {
-        DateFormats.australian("d MMM").string(from: date)
+        DateFormats.dayMonth(date)
     }
 }

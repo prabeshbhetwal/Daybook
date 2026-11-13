@@ -39,9 +39,13 @@ struct NameCategoryNotice: View {
                 HStack(spacing: Tokens.Space.s) {
                     Button("Move to \(tidy.target.displayName)") { move(tidy) }
                         .buttonStyle(StoryActionStyle(tint: Tokens.Palette.workType(tidy.target)))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help("Move to \(tidy.target.displayName)")
                         .accessibilityHint("Files them under \(tidy.target.displayName). Undo puts them back.")
-                    Button("Keep as is") { store.engine.store.nameCategoryKept = tidy.signature; store.refresh() }
+                    Button("Keep as Is") { store.engine.store.nameCategoryKept = tidy.signature; store.refresh() }
                         .buttonStyle(StoryLinkStyle(tint: StoryStyle.supportingInk))
+                        .fixedSize()
                         .padding(.leading, Tokens.Space.s)
                 }
             }

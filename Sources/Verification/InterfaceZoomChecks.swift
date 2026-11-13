@@ -8,7 +8,7 @@ import SwiftUI
 enum InterfaceZoomChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A stored zoom snaps to a step, and anything unreadable is 100%", storedZoomSnaps),
-        ("Zoom steps stop at 80% and 140%", zoomStepsStopAtEnds),
+        ("Zoom steps stop at 80% and 160%", zoomStepsStopAtEnds),
         ("The control-size band shifts below 100% and above 110%", controlBand),
         ("The zoom setting saves, reloads and reaches every window", zoomSettingRoundTrips),
         ("Lengths written as N.zoomed scale with the zoom", zoomedLiterals),
@@ -37,7 +37,7 @@ enum InterfaceZoomChecks: CheckSuite {
     private static func storedZoomSnaps() -> [String] {
         var problems: [String] = []
         // Ties round up; 1.15 is the one a plain multiplication gets wrong.
-        let scales: [(Double, Int)] = [(1.37, 140), (0.5, 80), (1.25, 130), (1.15, 120), (120, 140),
+        let scales: [(Double, Int)] = [(1.37, 140), (0.5, 80), (1.25, 130), (1.15, 120), (1.6, 160), (120, 160),
                                        (-1, 80), (.nan, 100), (.infinity, 100), (-.infinity, 100)]
         for (scale, expected) in scales {
             let got = InterfaceZoom.nearestPercent(toScale: scale)
@@ -64,12 +64,12 @@ enum InterfaceZoomChecks: CheckSuite {
 
     private static func zoomStepsStopAtEnds() -> [String] {
         var problems: [String] = []
-        let moves: [(Int, Int, Int)] = [(140, 1, 140), (80, -1, 80), (100, 1, 110), (105, 1, 120)]
+        let moves: [(Int, Int, Int)] = [(160, 1, 160), (140, 1, 150), (80, -1, 80), (100, 1, 110), (105, 1, 120)]
         for (percent, delta, expected) in moves {
             let got = InterfaceZoom.stepped(percent, by: delta)
             expect(got == expected, "\(percent)% stepped by \(delta) should be \(expected)%, got \(got)%", &problems)
         }
-        let steps: [(Int, Int, Bool)] = [(140, 1, false), (80, -1, false), (100, 0, false), (110, -1, true)]
+        let steps: [(Int, Int, Bool)] = [(160, 1, false), (140, 1, true), (80, -1, false), (100, 0, false), (110, -1, true)]
         for (percent, delta, expected) in steps {
             let got = InterfaceZoom.canStep(percent, by: delta)
             expect(got == expected, "canStep(\(percent), by: \(delta)) should be \(expected), got \(got)", &problems)
@@ -79,7 +79,7 @@ enum InterfaceZoomChecks: CheckSuite {
 
     private static func controlBand() -> [String] {
         var problems: [String] = []
-        let shifts: [Int: Int] = [80: -1, 90: -1, 100: 0, 110: 0, 120: 1, 130: 1, 140: 1]
+        let shifts: [Int: Int] = [80: -1, 90: -1, 100: 0, 110: 0, 120: 1, 130: 1, 140: 1, 150: 1, 160: 1]
         for (percent, expected) in shifts.sorted(by: { $0.key < $1.key }) {
             let got = InterfaceZoom.controlSizeShift(forPercent: percent)
             expect(got == expected, "\(percent)% should shift controls by \(expected), got \(got)", &problems)
@@ -197,7 +197,7 @@ enum InterfaceZoomChecks: CheckSuite {
             expect(got == wanted, "\(what) at \(percent)% should be \(wanted), got \(got)", &problems)
         }
         let roots: [Int: ControlSize] = [80: .small, 90: .small, 100: .regular, 110: .regular,
-                                         120: .large, 130: .large, 140: .large]
+                                         120: .large, 130: .large, 140: .large, 160: .large]
         for (percent, wanted) in roots.sorted(by: { $0.key < $1.key }) {
             withZoom(percent) { expectSize(Tokens.Zoom.rootControlSize, wanted, "the root control size", at: percent) }
         }

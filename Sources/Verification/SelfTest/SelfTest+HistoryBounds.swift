@@ -211,7 +211,7 @@ extension SelfTest {
 
         expect(store.historyIntegrityNotices.contains {
             $0.contains(Tokens.longDate(accurateFrom))
-                && $0.localizedCaseInsensitiveContains("legacy")
+                && $0.localizedCaseInsensitiveContains("kept as it was")
         }, "History qualifies preserved pre-accuracy app usage", &problems)
         expect(store.historyIntegrityNotices.contains {
             $0.contains("1 app-usage record") && $0.contains("1 focus record")

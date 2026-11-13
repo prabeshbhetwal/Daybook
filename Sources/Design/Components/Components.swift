@@ -33,7 +33,7 @@ struct SectionHeader: View {
 }
 
 struct StartButton: View {
-    var title: String = "Start focus"
+    var title: String = "Start Focus"
     /// The caller decides how wide. It used to force `maxWidth: .infinity`,
     /// which was right in a 320pt panel and absurd in a 560pt one.
     var fills: Bool = true
@@ -80,16 +80,16 @@ struct IntentField: View {
 /// is whole whichever item is selected and wherever the panel sits.
 struct WorkTypePicker: View {
     @Binding var selection: WorkType
-    /// The menu bar panel's variant: drawn in the app's own box, the height
-    /// of the activity field beside it, so it never draws greyed the way an
-    /// AppKit bordered control does in a panel that is not the key window.
-    var quiet = false
     @Environment(\.openCategoryEditor) private var openCategoryEditor
     /// Renames and new icons land here without a store in between.
     @ObservedObject private var catalog = WorkTypeCatalog.shared
 
     var body: some View {
-        if quiet { quietBody } else { borderedBody }
+        // Drawn in the app's own box everywhere. An AppKit bordered menu
+        // keeps its title at its own size whatever the zoom, so at 160% the
+        // toolbar's category read at about half the size of the field beside
+        // it; and it drew greyed in a panel that was not the key window.
+        quietBody
     }
 
     private var quietBody: some View {
@@ -124,30 +124,6 @@ struct WorkTypePicker: View {
         .accessibilityLabel("Category, \(selection.displayName)")
     }
 
-    private var borderedBody: some View {
-        Menu {
-            menuItems
-        } label: {
-            Label(selection.displayName, systemImage: selection.symbolName)
-                .lineLimit(1)
-        }
-        // `.borderlessButton` sizes its AppKit popup to the label's own text:
-        // 18pt tall whatever padding or frame is wrapped around it, well under
-        // the 28pt floor the rest of this app holds itself to. A large bordered
-        // menu button is the only style that clears it, and it stays a
-        // pull-down, so the list still opens whole and downward.
-        .menuStyle(.button)
-        .buttonStyle(.bordered)
-        .controlSize(Tokens.Zoom.controlSize(.large))
-        // Neutral on purpose: the platform's own bezel and label. A
-        // near-transparent tint used to stand in for "no tint" and went
-        // invisible the moment the window was inactive.
-        .foregroundStyle(.primary)
-        .fixedSize()
-        .help("Category")
-        .accessibilityLabel("Category, \(selection.displayName)")
-    }
-
     @ViewBuilder private var menuItems: some View {
         Group {
             // An inline picker, not a run of buttons: the menu then marks the
@@ -165,11 +141,11 @@ struct WorkTypePicker: View {
             if let openCategoryEditor {
                 Divider()
                 Button { openCategoryEditor(.new) } label: {
-                    Label("Add category…", systemImage: "plus")
+                    Label("Add Category…", systemImage: "plus")
                         .labelStyle(.titleAndIcon)
                 }
                 Button { openCategoryEditor(.edit(selection)) } label: {
-                    Label("Edit categories…", systemImage: "slider.horizontal.3")
+                    Label("Edit Categories…", systemImage: "slider.horizontal.3")
                         .labelStyle(.titleAndIcon)
                 }
             }
@@ -204,7 +180,7 @@ enum CategoryEditorRequest: Equatable {
 }
 
 /// One ask to open the editor. The counter makes two identical asks two
-/// events, so the editor reopens on a second "Add category…" after the first
+/// events, so the editor reopens on a second "Add Category…" after the first
 /// form was closed.
 struct CategoryEditorTicket: Equatable {
     let id: UInt64

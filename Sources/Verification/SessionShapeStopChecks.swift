@@ -16,7 +16,7 @@ enum SessionShapeStopChecks: CheckSuite {
 
     private static func use(_ from: Double, _ to: Double, _ end: UsageEndReason) -> TimelineSegment {
         TimelineSegment(id: UUID(), bundleID: "com.apple.dt.Xcode", appName: "Xcode",
-                        start: at(from), end: at(to), colorIndex: 0, endReason: end)
+                        start: at(from), end: at(to), endReason: end)
     }
 
     private static func event(_ kind: MachineEvent.Kind, _ minutes: Double,

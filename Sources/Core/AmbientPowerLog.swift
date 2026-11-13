@@ -55,12 +55,12 @@ final class AmbientPowerLog {
         do {
             let document = try JSONDecoder().decode(Document.self, from: Data(contentsOf: fileURL))
             guard document.version == 1 else {
-                loadFailure = "Ambient power was written by a newer version and remains read-only."
+                loadFailure = "Power readings were written by a newer version of Daybook and are read-only. Update Daybook to change them."
                 return
             }
             observations = document.observations.sorted { $0.timestamp < $1.timestamp }
         } catch {
-            loadFailure = "Ambient power could not be read. The original file was preserved."
+            loadFailure = "Power readings could not be read. The original file was kept. Reopen Daybook to try again."
         }
     }
 
@@ -80,7 +80,7 @@ final class AmbientPowerLog {
             lastError = nil
             return .saved
         } catch {
-            let message = "Ambient power could not be saved: \(error.localizedDescription)"
+            let message = "Power readings could not be saved: \(error.localizedDescription) Check free space and folder access, then try again."
             lastError = message
             return .failed(message)
         }

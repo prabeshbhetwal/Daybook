@@ -21,6 +21,10 @@ private struct StoryActionLabel<Label: View>: View {
     var body: some View {
         label
             .font(Tokens.Typography.label)
+            // A button says its whole label. At 80% a row offered "Continue
+            // t…" and "Resear…" with room beside them to spare.
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(tint.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
             .padding(.horizontal, 11.zoomed)
             .padding(.vertical, 5.zoomed)

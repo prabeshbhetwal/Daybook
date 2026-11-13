@@ -26,6 +26,8 @@ private struct RewardHUDView: View {
                 // was about 2:1, under the 3:1 a meaningful symbol needs.
                 .foregroundStyle(StoryStyle.successInk)
                 .frame(width: Tokens.Space.xl)
+                // The card's label already says it.
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text(model.title)
                     .font(Tokens.Typography.label)
@@ -184,10 +186,16 @@ final class RewardHUD {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             panel.alphaValue = 1
         } else {
+            // It drops a few points from the menu bar it came from, so the
+            // moment reads as arriving rather than appearing.
+            let rest = panel.frame.origin
             panel.alphaValue = 0
+            panel.setFrameOrigin(NSPoint(x: rest.x, y: rest.y + 8)) // zoom: fixed
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
                 panel.animator().alphaValue = 1
+                panel.animator().setFrameOrigin(rest)
             }
         }
         Announcement.post(Self.spoken(title: title, detail: detail, hasUndo: undo != nil))
@@ -210,7 +218,7 @@ final class RewardHUD {
         var sentences = [title, detail].filter { !$0.isEmpty }
         if hasUndo {
             sentences.append("To undo it, open Daybook from the menu bar "
-                             + "and choose Undo automatic session")
+                             + "and choose Undo Automatic Session")
         }
         return sentences
             .map { $0.last.map { ".?!".contains($0) } == true ? $0 : $0 + "." }
@@ -237,7 +245,8 @@ final class RewardHUD {
             return
         }
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.3
+            // Leaving is quicker than arriving (0.2 s).
+            context.duration = 0.15
             panel.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             // AppKit's completion block is `@Sendable`, so touching main-actor

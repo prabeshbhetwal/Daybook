@@ -14,6 +14,8 @@ enum FirstRunChecks {
         ("Welcome steps wait, report, and never trap the reader", flow),
         ("The tour reads back, jumps by chapter, and ends once however it ends", navigation),
         ("Every welcome chapter and card is complete and counts itself correctly", script),
+        ("The tour has at most seven chapters and keeps all three steps", sevenChapters),
+        ("A chapter id stored before chapters were merged still resumes the tour", retiredIds),
         ("Each welcome chapter renders its own production evidence", render),
         ("A ring around an edge-flush control stays inside the window", ringStaysOnScreen),
         ("The ring is visible in a still capture, moving or not", ringDraws)
@@ -263,11 +265,11 @@ enum FirstRunChecks {
 
         // Skip is an answer.
         var skipped = FirstRunProgress()
-        skipped.jump(to: .rail)
+        skipped.jump(to: .readingDay)
         skipped.skip()
         if !skipped.isFinished { failures.append("Skip did not end the welcome") }
         skipped.advance(); skipped.back(); skipped.jump(to: .welcome)
-        if skipped.chapter != .rail {
+        if skipped.chapter != .readingDay {
             failures.append("A finished welcome still moved: \(skipped.chapter)")
         }
 
@@ -336,20 +338,78 @@ enum FirstRunChecks {
         let tasks = FirstRunScript.taskCards
         if tasks.count != 3 { failures.append("Expected three steps, got \(tasks.count)") }
         if Set(tasks.map(\.task)).count != tasks.count { failures.append("Two steps wait on the same thing") }
-        for (index, step) in tasks.enumerated() {
-            let eyebrow = FirstRunScript.eyebrow(chapter: step.chapter, card: step.card)
-            if !eyebrow.hasPrefix("Step \(index + 1) of \(tasks.count)") {
-                failures.append("\(step.chapter) card \(step.card) counts itself as \"\(eyebrow)\"")
+        // Every card, one that waits included, counts chapters: the progress
+        // bar beneath the eyebrow counts chapters, and "Step 1 of 3" was a
+        // second unit beside it.
+        for chapter in FirstRunChapter.allCases {
+            for index in FirstRunScript.chapter(chapter).cards.indices {
+                let eyebrow = FirstRunScript.eyebrow(chapter: chapter, card: index)
+                let wanted = "Chapter \(chapter.number) of \(FirstRunChapter.allCases.count) · \(chapter.title)"
+                if eyebrow != wanted {
+                    failures.append("\(chapter) card \(index) counts itself as \"\(eyebrow)\", not \"\(wanted)\"")
+                }
             }
         }
-        if FirstRunScript.stepNumber(chapter: .welcome, card: 0) != nil {
-            failures.append("A card that asks nothing was given a step number")
+        if let last = FirstRunChapter.allCases.last,
+           FirstRunScript.chapter(last).cards.last?.sentence != last.title + "." {
+            failures.append("The last chapter's title and its card say different things")
         }
         // The sample away card is raised only where the words say it is.
         let previewing = FirstRunScript.chapters.flatMap(\.cards).filter { $0.effect == .previewAwayCard }
-        if previewing.count != 1 || FirstRunScript.chapter(.steppingAway).cards.first?.effect != .previewAwayCard {
-            failures.append("The away-card rehearsal is not on the first card of Stepping away")
+        let awayCard = FirstRunScript.chapter(.macSaw).cards.first { $0.effect == .previewAwayCard }
+        if previewing.count != 1 || awayCard?.sentence.hasPrefix("Pause stops the clock") != true {
+            failures.append("The away-card rehearsal is not on the Pause and Away card")
         }
+        return failures
+    }
+
+    // MARK: - How long it is
+
+    /// Seven is as many chapters as a reader holds as a list. Merging chapters
+    /// must not lose a step: the three that wait on the reader all survive.
+    private static func sevenChapters() -> [String] {
+        var failures: [String] = []
+        let count = FirstRunChapter.allCases.count
+        if count > 7 { failures.append("The tour has \(count) chapters; the limit is 7") }
+        if FirstRunScript.chapters.count > 7 {
+            failures.append("The script has \(FirstRunScript.chapters.count) chapters; the limit is 7")
+        }
+        let tasks = Set(FirstRunScript.taskCards.map(\.task))
+        if tasks != Set(FirstRunTask.allCases) {
+            failures.append("The tour no longer asks for every step: \(tasks.map(\.rawValue).sorted())")
+        }
+        if FirstRunScript.eyebrow(chapter: .finish, card: 0) != "Chapter \(count) of \(count) · That's the whole app" {
+            failures.append("The last chapter does not count itself as \(count) of \(count)")
+        }
+        return failures
+    }
+
+    /// The chapter a tour was left on is stored by id. An id retired when
+    /// chapters were merged reads back as the chapter it merged into, so a
+    /// tour interrupted by the update still continues; an unknown one reads
+    /// as none rather than breaking anything.
+    private static func retiredIds() -> [String] {
+        var failures: [String] = []
+        let merged: [(old: String, now: FirstRunChapter)] = [
+            ("steppingAway", .macSaw), ("automation", .macSaw),
+            ("rail", .readingDay), ("awards", .lookingBack), ("settings", .menuBar)
+        ]
+        let suite = "com.prabesh.daybook.retired-chapter.\(UUID().uuidString)"
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["no isolated preferences"] }
+        defer { MemoryDefaults.remove(named: suite) }
+        let store = PersistenceStore(defaults: defaults)
+        for (old, now) in merged {
+            defaults.set(old, forKey: "fc.welcomeLeftAt")
+            if store.welcomeLeftAt != now {
+                failures.append("A tour left at \(old) resumed at \(String(describing: store.welcomeLeftAt)), not \(now)")
+            }
+        }
+        for chapter in FirstRunChapter.allCases {
+            store.welcomeLeftAt = chapter
+            if store.welcomeLeftAt != chapter { failures.append("\(chapter) did not survive being stored") }
+        }
+        defaults.set("noSuchChapter", forKey: "fc.welcomeLeftAt")
+        if store.welcomeLeftAt != nil { failures.append("An unknown stored chapter was not ignored") }
         return failures
     }
 

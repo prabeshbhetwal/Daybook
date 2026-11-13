@@ -11,7 +11,7 @@ struct ShortcutRecorder: View {
     @State private var monitor: Any?
 
     var body: some View {
-        Button(isRecording ? "Type the keys…" : (shortcut?.glyphs ?? "Record shortcut")) {
+        Button(isRecording ? "Type the Keys…" : (shortcut?.glyphs ?? "Record Shortcut")) {
             isRecording ? stop() : start()
         }
         .buttonStyle(.bordered)

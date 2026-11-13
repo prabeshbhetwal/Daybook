@@ -806,10 +806,10 @@ enum CompactControlsChecks {
 
     private static func answerTitle(_ decision: UserDecision) -> String {
         switch decision {
-        case .tookBreak: return "It was a break"
-        case .mergeTime: return "I was working"
-        case .continueSession: return "I was away"
-        case .resetTimer: return "Start fresh"
+        case .tookBreak: return "It Was a Break"
+        case .mergeTime: return "I Was Working"
+        case .continueSession: return "I Was Away"
+        case .resetTimer: return "Start Fresh"
         }
     }
 

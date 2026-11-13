@@ -139,8 +139,7 @@ extension SelfTest {
         func seg(_ fromMin: Double, _ toMin: Double) -> TimelineSegment {
             TimelineSegment(id: UUID(), bundleID: "com.a", appName: "Alpha",
                             start: dayStart.addingTimeInterval(fromMin * 60),
-                            end: dayStart.addingTimeInterval(toMin * 60),
-                            colorIndex: 0)
+                            end: dayStart.addingTimeInterval(toMin * 60))
         }
 
         // 30 minutes, three hours of nothing, 30 minutes.

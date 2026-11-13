@@ -26,8 +26,13 @@ struct SettingsWindowContent: View {
 
     var body: some View {
         SettingsView(model: settings, navigation: navigation)
-            .frame(minWidth: SettingsLayout.sheetWidth, idealWidth: SettingsLayout.sheetWidth,
-                   minHeight: SettingsLayout.minimumWindowHeight, idealHeight: SettingsLayout.sheetHeight)
+            // Fills the window whatever its size. Without a maximum the page
+            // kept its ideal width, so after a zoom down the window's right
+            // side was left bare, title bar band and all.
+            .frame(minWidth: SettingsLayout.minimumWindowWidth, idealWidth: SettingsLayout.sheetWidth,
+                   maxWidth: .infinity,
+                   minHeight: SettingsLayout.minimumWindowHeight, idealHeight: SettingsLayout.sheetHeight,
+                   maxHeight: .infinity)
             .background(StoryStyle.canvas)
             .environment(\.focusInterfaceDensity, settings.interfaceDensity)
             .zoomRoot()

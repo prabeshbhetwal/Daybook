@@ -14,7 +14,7 @@ enum StoryRailFiguresChecks {
         let logged: TimeInterval = 5 * 3_600 + 16 * 60 + 40
         let counted: TimeInterval = 4 * 3_600 + 43 * 60 + 50
         let equation = StoryRailFigures.goalEquation(logged: logged, counted: counted)
-        if equation != "5h 16m logged − 33m with no app use recorded" {
+        if equation != "5h 16m in sessions − 33m with no app use recorded" {
             problems.append("the goal line read \(equation ?? "nothing")")
         }
         if StoryRailFigures.goalEquation(logged: 3_600, counted: 3_600 + 30) != nil {

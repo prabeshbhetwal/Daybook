@@ -24,13 +24,8 @@ enum StoryRenderEvidence: String, Hashable {
     case firstRunFirstSession
     case firstRunMacSaw
     case firstRunReadingDay
-    case firstRunRail
-    case firstRunSteppingAway
-    case firstRunAutomation
     case firstRunLookingBack
-    case firstRunAwards
     case firstRunMenuBar
-    case firstRunSettings
     case firstRunFinish
 }
 
@@ -44,13 +39,8 @@ extension StoryRenderEvidence {
         case .firstSession: return .firstRunFirstSession
         case .macSaw: return .firstRunMacSaw
         case .readingDay: return .firstRunReadingDay
-        case .rail: return .firstRunRail
-        case .steppingAway: return .firstRunSteppingAway
-        case .automation: return .firstRunAutomation
         case .lookingBack: return .firstRunLookingBack
-        case .awards: return .firstRunAwards
         case .menuBar: return .firstRunMenuBar
-        case .settings: return .firstRunSettings
         case .finish: return .firstRunFinish
         }
     }
@@ -107,9 +97,9 @@ struct StoryHeadline: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            Text(eyebrow.uppercased())
-                .font(Tokens.Typography.eyebrow)
-                .kerning(0.8.zoomed)
+            // The date as written, not spaced-out capitals over the headline.
+            Text(eyebrow)
+                .font(Tokens.Typography.label)
                 .foregroundStyle(StoryStyle.supportingInk)
             emphasised
                 .font(Tokens.Typography.headline)
@@ -180,8 +170,8 @@ struct ProjectedDayStoryColumn: View {
                 // Sessions are still logged, but nothing says which apps they
                 // were in. Said here, once, rather than left to be inferred
                 // from every card reading "no app recording".
-                IntegrityNotice("App recording is off, so today's sessions have no app data. "
-                                + "Turn on Record app usage in Settings › Recording.")
+                IntegrityNotice("Record app use is off, so today's sessions have no app use. "
+                                + "Turn it on in Settings › Recording.")
             }
             if context == .main {
                 StoryHeadline(eyebrow: Tokens.longDate(projection.date),
@@ -281,7 +271,7 @@ struct StoryCorrectionNotice: View {
                 Text(error).fixedSize(horizontal: false, vertical: true)
                 // Retry only while one can land; otherwise the button did nothing.
                 if store.canRetryCorrection {
-                    Button("Retry saving") { store.retryLastCorrection() }
+                    Button("Retry Saving") { store.retryLastCorrection() }
                         .buttonStyle(StoryLinkStyle())
                 } else {
                     Button("Dismiss") { store.dismissCorrectionError() }

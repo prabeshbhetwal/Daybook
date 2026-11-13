@@ -83,7 +83,7 @@ struct StoryGapCard: View {
             }.joined(separator: "; ") + ".")
         }
         if let power { parts.append("Power: \(power.headline).") }
-        parts.append("This interval is not assumed to be work or rest.")
+        parts.append("This stretch is not assumed to be work or rest.")
         return parts.joined(separator: " ")
     }
 }

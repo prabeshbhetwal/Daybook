@@ -1,15 +1,14 @@
 import SwiftUI
 
-/// Clock hours as History says them: "9 am", "9 am – 11 am".
+/// Clock hours as History says them: "9 am", "9 am – 11 am", or "09:00 –
+/// 11:00" on a 24-hour clock.
 enum HistoryHours {
-    static func label(_ hour: Int) -> String {
-        let wrapped = ((hour % 24) + 24) % 24
-        let twelve = wrapped % 12 == 0 ? 12 : wrapped % 12
-        return "\(twelve) \(wrapped < 12 ? "am" : "pm")"
+    static func label(_ hour: Int, locale: Locale = .current) -> String {
+        DateFormats.wholeHour(hour, locale: locale)
     }
 
-    static func span(from startHour: Int) -> String {
-        "\(label(startHour)) – \(label(startHour + 2))"
+    static func span(from startHour: Int, locale: Locale = .current) -> String {
+        "\(label(startHour, locale: locale)) – \(label(startHour + 2, locale: locale))"
     }
 
     /// The best two hours' figure, and where it mostly fell, said once.
@@ -209,8 +208,7 @@ struct HistoryPeriodRail: View {
         if let best = summary.best, summary.focusedDays > 1 {
             let isMonth = best.place.level == .month
             StoryTile(title: isMonth ? "Best month" : "Best day", trailing: nil) {
-                Text(isMonth ? DateFormats.australian("MMMM yyyy").string(from: best.place.start)
-                             : Tokens.longDate(best.place.start))
+                Text(isMonth ? DateFormats.monthYear(best.place.start) : Tokens.longDate(best.place.start))
                     .font(Tokens.Typography.heading)
                 Text(durations: "\(Tokens.duration(best.focused)) focused")
                     .font(Tokens.Typography.body)
@@ -267,8 +265,8 @@ struct HistoryPeriodRail: View {
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
             }
-            ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
-                StoryAppRow(app: app, rank: index)
+            ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { _, app in
+                StoryAppRow(app: app)
             }
         }
     }
@@ -334,8 +332,8 @@ struct HistorySessionRail: View {
                 let limit = store.engine.store.menuAppCount
                 StoryTile(title: apps.count > limit ? "Top \(limit) apps" : "Apps",
                           trailing: apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
-                    ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
-                        StoryAppRow(app: app, rank: index)
+                    ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { _, app in
+                        StoryAppRow(app: app)
                     }
                 }
             }

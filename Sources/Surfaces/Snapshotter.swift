@@ -656,7 +656,7 @@ enum Snapshotter {
             usageAccuracyEpoch: Date(timeIntervalSince1970: 1_700_000_000),
             legacyBackupURL: dataDirectory
                 .appendingPathComponent("app-usage-v1-backup-1700000000.json"),
-            recoverySummary: "Legacy app usage was migrated only after its original bytes were preserved.",
+            recoverySummary: "Earlier app use was upgraded only after a copy of the original file was kept.",
             version: "1.0.0",
             build: "1")
         let model = SettingsModel(store: persistence,

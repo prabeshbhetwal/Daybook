@@ -12,8 +12,8 @@ extension AskModel {
     nonisolated static let keptLooking = AskNotice(
         text: "Ask kept looking things up without answering. Try asking about one period or one thing.",
         opensSettings: false)
-    private nonisolated static let cannotAnswer = AskNotice(text: "Can't answer that one.", opensSettings: false)
-    private nonisolated static let unsupportedLanguage = AskNotice(text: "Ask doesn't understand this language yet.",
+    private nonisolated static let cannotAnswer = AskNotice(text: "Can't answer that one. Try asking another way.", opensSettings: false)
+    private nonisolated static let unsupportedLanguage = AskNotice(text: "Ask doesn't understand this language yet. Try asking in English.",
                                                                    opensSettings: false)
 
     @available(macOS 26, *)
@@ -30,7 +30,7 @@ extension AskModel {
         case .unavailable(.modelNotReady):
             return AskNotice(text: "The on-device model is still downloading. Try again shortly.", opensSettings: false)
         case .unavailable:
-            return AskNotice(text: "Ask isn't available on this Mac right now.", opensSettings: false)
+            return AskNotice(text: "Ask isn't available on this Mac right now. Try again later.", opensSettings: false)
         }
     }
 
@@ -48,7 +48,8 @@ extension AskModel {
         return false
     }
 
-    /// Anything not listed is worded from the error itself.
+    /// Anything not listed gets one plain line; the error's own description is
+    /// not something the reader can act on, so it stays out of the notice.
     @available(macOS 26, *)
     nonisolated static func notice(for error: Error) -> AskNotice {
         if isContextFull(error) { return contextFull }
@@ -68,6 +69,6 @@ extension AskModel {
             }
         }
         #endif
-        return AskNotice(text: "Couldn't answer: \(error.localizedDescription)", opensSettings: false)
+        return AskNotice(text: "Couldn't answer. Try again.", opensSettings: false)
     }
 }

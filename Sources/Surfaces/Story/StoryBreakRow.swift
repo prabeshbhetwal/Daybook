@@ -115,9 +115,9 @@ struct StoryBreakRow: View, Equatable {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(Self.label(rest.name)), \(Tokens.spent(rest.length)), "
                             + Tokens.timeRange(rest.start, rest.end))
-        .confirmationDialog("Change this recorded interval?", isPresented: $draft.confirming,
+        .confirmationDialog("Change this recorded stretch?", isPresented: $draft.confirming,
                             titleVisibility: .visible) {
-            Button(draft.decision == .mergeTime ? "Count as focus" : "Leave uncounted") {
+            Button(draft.decision == .mergeTime ? "Count as Focus" : "Leave Uncounted") {
                 perform()
                 dontAsk.confirm(confirmations)
             }
@@ -131,14 +131,14 @@ struct StoryBreakRow: View, Equatable {
     // MARK: - Name
 
     private var nameButton: some View {
-        Button(name == nil ? "Name it" : "Rename") {
+        Button(name == nil ? "Name It" : "Rename") {
             withAnimation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion)) {
                 nameDraft.begin(with: name ?? "", in: store)
             }
         }
         .buttonStyle(StoryLinkStyle())
         .font(Tokens.Typography.label)
-        .frame(minHeight: 28.zoomed)
+        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
         .disabled(isBlocked)
         .help(isBlocked ? StoryDecisionRow.awayQuestionFirst : "")
         .accessibilityLabel(name == nil ? "Name this break" : "Rename \(name ?? "this break")")
@@ -203,10 +203,10 @@ struct StoryBreakRow: View, Equatable {
     // MARK: - Change how it counts
 
     private var changeMenu: some View {
-        Menu("Change how this counts") {
-            Button("Leave uncounted") { choose(.continueSession) }
+        Menu("Change How This Counts") {
+            Button("Leave Uncounted") { choose(.continueSession) }
             if let receipt {
-                Button("Count as focus in \(receipt.name.isEmpty ? "Unnamed session" : receipt.name) · "
+                Button("Count as Focus in \(receipt.name.isEmpty ? "Unnamed session" : receipt.name) · "
                        + receipt.workType.displayName) {
                     choose(.mergeTime)
                 }
@@ -214,9 +214,9 @@ struct StoryBreakRow: View, Equatable {
                 let targets = store.legacyFocusTargets(for: rest)
                 if targets.isEmpty {
                     Text("No focus session was recorded on this day.")
-                    Text("You can still leave this interval uncounted.")
+                    Text("You can still leave this stretch uncounted.")
                 } else {
-                    Menu("Count as focus in…") {
+                    Menu("Count as Focus in…") {
                         ForEach(targets) { record in
                             Button(SessionStore.legacyFocusTargetLabel(record)) {
                                 choose(.mergeTime, target: record)
@@ -258,22 +258,22 @@ struct StoryBreakRow: View, Equatable {
     }
 
     private var scopeMessage: String {
-        guard let record = store.legacyBreakRecord(id: rest.id) else { return "This record is no longer available." }
+        guard let record = store.legacyBreakRecord(id: rest.id) else { return "This record is no longer available. Reopen the day to see what is there now." }
         let full = receipt?.range ?? DateInterval(start: record.start, end: record.end)
-        var text = "Changes the full \(Tokens.preciseDuration(full.duration)) recorded interval. "
+        var text = "Changes the full \(Tokens.preciseDuration(full.duration)) recorded stretch. "
         if draft.decision == .mergeTime {
             let sessionName = draft.target?.name ?? receipt?.name ?? ""
             if let type = draft.target?.workType ?? receipt?.workType {
-                text += "Attribute it to \(sessionName.isEmpty ? "the unnamed session" : sessionName) "
+                text += "Count it in \(sessionName.isEmpty ? "the unnamed session" : sessionName) "
                     + "as \(type.displayName). "
             }
-        } else { text += "Its break classification will be removed, with no focus time added. " }
+        } else { text += "Its break label will be removed, with no focus time added. " }
         if let note = StoryDecisionScope.note(visible: DateInterval(start: rest.start, end: rest.end), full: full) {
             text += note + " "
         }
         let undo = receipt == nil ? "Undo restores the original recorded break."
-            : "Undo reopens the question for this interval, where you can call it a break again."
-        return text + undo + " App-use evidence is unchanged."
+            : "Undo reopens the question for this stretch, where you can call it a break again."
+        return text + undo + " Recorded app use is unchanged."
     }
 
     // MARK: - Undo
@@ -285,11 +285,11 @@ struct StoryBreakRow: View, Equatable {
         .buttonStyle(StoryLinkStyle())
         .font(Tokens.Typography.label)
         .foregroundStyle(StoryStyle.action)
-        .frame(minWidth: 36.zoomed, minHeight: 28.zoomed)
+        .frame(minWidth: 36.zoomed, minHeight: AccessibilityMetrics.minimumTargetSize)
         .disabled(!canUndo)
         .help(canUndo ? "" : StoryDecisionRow.awayQuestionFirst)
         .accessibilityLabel("Undo recorded as a break")
-        .accessibilityHint(canUndo ? "Reopens the question for this interval; later work is unchanged."
+        .accessibilityHint(canUndo ? "Reopens the question for this stretch; later work is unchanged."
                            : StoryDecisionRow.awayQuestionFirst)
     }
 }

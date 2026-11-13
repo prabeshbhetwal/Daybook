@@ -117,6 +117,13 @@ extension SessionStore {
                                           hasOriginBoundRetry: canRetryCorrection)
     }
 
+    /// What VoiceOver hears when `focusOperationFailure` appears or changes.
+    /// The card itself cannot say it: it mounts with the failure, and
+    /// `announcesChanges` needs a view that is already there to see the change.
+    var focusOperationFailureAnnouncement: String? {
+        focusOperationFailure.map { "Change not saved. \($0.message)" }
+    }
+
     /// Executes the tested state-to-primary-action contract. The hero's
     /// filled button and the Session menu both run this, so a command from
     /// the keyboard does exactly what the visible button does.
@@ -235,9 +242,13 @@ struct FocusHero: View {
             }
             if let failure = store.focusOperationFailure {
                 FocusOperationFailure(store: store, failure: failure)
+                    .transition(Tokens.Motion.transition(.opacity, reduceMotion: reduceMotion))
             }
         }
         .frame(maxWidth: .infinity, alignment: compact ? .leading : .center)
+        .announcesChanges(to: store.focusOperationFailureAnnouncement)
+        .animation(Tokens.Motion.animation(Tokens.Motion.reveal, reduceMotion: reduceMotion),
+                   value: store.focusOperationFailure != nil)
         // Start, pause, resume: the controls for one state give way to the
         // controls for the next rather than snapping.
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
@@ -354,7 +365,7 @@ struct FocusHero: View {
         // named work type with its own symbol reads as what it is, and the
         // caption was the only 10pt step in the row.
         WorkTypePicker(selection: $store.workType)
-        StartButton(title: "Start focus", fills: false) { performPrimaryAction() }
+        StartButton(title: "Start Focus", fills: false) { performPrimaryAction() }
             .fixedSize()
             .matchedGeometryEffect(id: "primary", in: primaryPill)
             .help(startHelp)
@@ -412,7 +423,7 @@ struct FocusHero: View {
             takeBreakButton
             automaticNameButton
         case .paused, .watching:
-            FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
+            FocusActionButton(title: store.isAway ? "I'm Back" : "Resume",
                               symbol: "play.fill", prominent: true) {
                 performPrimaryAction()
             }
@@ -498,8 +509,8 @@ struct FocusHero: View {
                     // of the panel rather than a greyed AppKit control, with
                     // Start taking the rest of the row.
                     HStack(spacing: Tokens.Space.s) {
-                        WorkTypePicker(selection: $store.workType, quiet: true)
-                        StartButton(title: "Start focus", fills: true,
+                        WorkTypePicker(selection: $store.workType)
+                        StartButton(title: "Start Focus", fills: true,
                                     height: Tokens.Control.compactHeight) { performPrimaryAction() }
                             .help(startHelp)
                     }
@@ -510,7 +521,7 @@ struct FocusHero: View {
                             .foregroundStyle(StoryStyle.supportingInk)
                         WorkTypePicker(selection: $store.workType)
                         Spacer(minLength: Tokens.Space.s)
-                        StartButton(title: "Start focus", fills: false) {
+                        StartButton(title: "Start Focus", fills: false) {
                             performPrimaryAction()
                         }
                         .fixedSize()
@@ -562,7 +573,7 @@ struct FocusHero: View {
                 : "The focus clock is paused. App use is still recorded.",
             quiet: true
         ) {
-            FocusActionButton(title: store.isAway ? "I'm back" : "Resume",
+            FocusActionButton(title: store.isAway ? "I'm Back" : "Resume",
                               symbol: "play.fill", prominent: true) {
                 performPrimaryAction()
             }
@@ -612,7 +623,9 @@ struct FocusHero: View {
             VStack(alignment: compact ? .leading : .center, spacing: 2.zoomed) {
                 Text(store.activeIntent)
                     .font(compact ? Tokens.Typography.rowTitle : Tokens.Typography.heading)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(compact ? .leading : .center)
+                    .help(store.activeIntent)
                 Label(store.workType.displayName, systemImage: store.workType.symbolName)
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
@@ -645,8 +658,8 @@ struct FocusHero: View {
     /// What the controls ask, in one sentence: the strip's row says it to
     /// VoiceOver, the stacked layouts print it.
     private var automaticSentence: String {
-        mode == .running ? "Name this session, reclassify it, or discard it."
-                         : "Name or reclassify this automatic session, or discard it."
+        mode == .running ? "Name this session, change its category, or discard it."
+                         : "Name this automatic session, change its category, or discard it."
     }
 
     /// Beside Stop, only in the strip and only for an automatic session:
@@ -725,7 +738,7 @@ struct FocusHero: View {
     }
 
     private var automaticAdoptButton: some View {
-        FocusActionButton(title: store.automaticCorrectionAdopts ? "Save" : "Start new",
+        FocusActionButton(title: store.automaticCorrectionAdopts ? "Save" : "Start New",
                           symbol: store.automaticCorrectionAdopts
                               ? "checkmark" : "arrow.triangle.branch") {
             store.applyAutomaticSessionCorrection()
@@ -733,14 +746,14 @@ struct FocusHero: View {
     }
 
     private var automaticUndoButton: some View {
-        Button(compact && !isStrip ? "Undo automatic session" : "Undo") {
+        Button(compact && !isStrip ? "Undo Automatic Session" : "Undo") {
             store.undoAutomaticSessionCorrection()
         }
-        .accessibilityLabel("Undo automatic session")
+        .accessibilityLabel("Undo Automatic Session")
         .buttonStyle(StoryPressStyle())
         .font(Tokens.Typography.body)
         .foregroundStyle(StoryStyle.supportingInk)
-        .frame(minHeight: 28.zoomed)
+        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
     }
 
     // MARK: - Awaiting decision
@@ -902,7 +915,7 @@ private struct FocusOperationFailure: View {
                 .font(Tokens.Typography.body)
                 .fixedSize(horizontal: false, vertical: true)
             if failure.hasOriginBoundRetry {
-                Button("Retry saving") { store.retryLastCorrection() }
+                Button("Retry Saving") { store.retryLastCorrection() }
                     .buttonStyle(StoryLinkStyle())
                     .font(Tokens.Typography.label)
                     .frame(minHeight: AccessibilityMetrics.minimumTargetSize)

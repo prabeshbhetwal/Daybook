@@ -97,11 +97,3 @@ struct AppIcon: View {
             )
     }
 }
-
-/// Forwarder. Every timeline, bar and chart already asks this by rank or by work
-/// type; routing it through `Tokens.Palette` re-skins all of them at once and
-/// leaves one definition of each colour.
-enum TimelinePalette {
-    static func color(_ index: Int) -> Color { Tokens.Palette.app(rank: index) }
-    static let untracked = Tokens.Palette.untracked
-}

@@ -15,6 +15,8 @@ struct HistoryResultChart: View {
     let values: [Date: Value]
     /// An app's use: in-session and outside parts, in the app-use colour.
     let isLens: Bool
+    /// The picked app, so its bars wear its colour.
+    var appBundleID: String?
     let onPick: (Date) -> Void
     /// Drawn as a dashed line and named, not printed: its figure is already
     /// the headline's.
@@ -44,7 +46,7 @@ struct HistoryResultChart: View {
         return result
     }
 
-    private var primaryColour: Color { isLens ? Tokens.Palette.app(rank: 1) : Tokens.Colour.focus }
+    private var primaryColour: Color { Tokens.Palette.appUse }
 
     var body: some View {
         let days = self.days
@@ -61,7 +63,7 @@ struct HistoryResultChart: View {
                         .foregroundStyle(StoryStyle.supportingInk)
                 }
             }
-            HStack(alignment: .bottom, spacing: days.count > 120 ? 1 : 2.zoomed) {
+            HStack(alignment: .bottom, spacing: days.count > 240 ? 0 : days.count > 120 ? 1 : 2.zoomed) { // zoom: fixed
                 ForEach(days, id: \.self) { day in bar(day, peak: peak) }
             }
             .frame(height: Self.height, alignment: .bottom)
@@ -70,7 +72,7 @@ struct HistoryResultChart: View {
             // line near the top it rose into the hint and cut its letters.
             .padding(.top, average == nil ? 0 : Tokens.Space.s)
             HStack {
-                Text(DateFormats.australian("d MMM").string(from: days.first ?? firstDay))
+                Text(DateFormats.dayMonth(days.first ?? firstDay))
                 Spacer(minLength: Tokens.Space.s)
                 Text("Today")
             }
@@ -106,7 +108,7 @@ struct HistoryResultChart: View {
             .clipShape(RoundedRectangle(cornerRadius: 2.zoomed, style: .continuous))
             .contentShape(Rectangle())
             .onTapGesture { onPick(day) }
-            .help("\(DateFormats.australian("EEE d MMM").string(from: day)) · \(Tokens.preciseDuration(value.total))")
+            .help("\(DateFormats.shortDay(day)) · \(Tokens.preciseDuration(value.total))")
         } else {
             RoundedRectangle(cornerRadius: 1, style: .continuous)
                 .fill(StoryStyle.line)
@@ -146,7 +148,7 @@ struct HistoryResultChart: View {
         let used = values.filter { $0.value.total > 0 }
         guard let best = used.max(by: { $0.value.total < $1.value.total }) else { return "nothing recorded" }
         let count = used.count == 1 ? "1 day" : "\(used.count) days"
-        var summary = "\(count), the most on \(DateFormats.australian("EEEE d MMMM").string(from: best.key)), "
+        var summary = "\(count), the most on \(DateFormats.longDate(best.key)), "
             + Tokens.duration(best.value.total)
         if let average, average > 0 { summary += ", an average day \(Tokens.duration(average))" }
         return summary

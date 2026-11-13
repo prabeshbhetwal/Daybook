@@ -67,7 +67,7 @@ final class ActivityRuleEditorState: ObservableObject, FormDraft {
         } else { seconds = dwell }
         let cleanName = ActivityRule.normalisedName(name)
         guard !cleanName.isEmpty else { validationMessage = "Enter an activity name."; return nil }
-        guard !bundleIDs.isEmpty else { validationMessage = "Choose at least one application."; return nil }
+        guard !bundleIDs.isEmpty else { validationMessage = "Choose at least one app."; return nil }
         validationMessage = nil
         return ActivityRule(id: selectedID ?? UUID(), name: cleanName,
             workType: workType, bundleIDs: bundleIDs, isEnabled: enabled, startAfter: seconds)
@@ -108,7 +108,7 @@ struct ActivityRulesView: View {
                                                  set: { if !$0 { editor.pendingDeletion = nil } }),
                             titleVisibility: .visible,
                             presenting: editor.pendingDeletion) { rule in
-            Button("Delete rule", role: .destructive) {
+            Button("Delete Rule", role: .destructive) {
                 model.removeActivityRule(id: rule.id)
                 if editor.selectedID == rule.id { editor.close() }
             }
@@ -151,10 +151,10 @@ struct ActivityRulesView: View {
                     Button {
                         open { editor.beginNew() }
                     } label: {
-                        Label("New rule", systemImage: "plus")
+                        Label("New Rule", systemImage: "plus")
                     }
                     .buttonStyle(.bordered)
-                    .accessibilityLabel("New rule")
+                    .accessibilityLabel("New Rule")
                 }
             }
             if editor.selectedID != nil {
@@ -203,6 +203,7 @@ struct ActivityRuleCard: View {
                             Text(rule.name)
                                 .font(Tokens.Typography.rowTitle)
                                 .lineLimit(1)
+                                .help(rule.name)
                             WorkTypeChip(workType: rule.workType)
                             // Said in words, so an off rule is not told only
                             // by its faded icons.
@@ -235,10 +236,7 @@ struct ActivityRuleCard: View {
                 .controlSize(Tokens.Zoom.controlSize(.small))
                 .accessibilityLabel("\(rule.name) rule")
             Menu {
-                Button("Edit", action: onEdit)
-                Button("Duplicate", action: onDuplicate)
-                Divider()
-                Button("Delete", role: .destructive, action: onDelete)
+                RowContextMenu(items: ActivityRuleMenu.items(), perform: perform)
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .font(Tokens.Typography.control)
@@ -253,6 +251,16 @@ struct ActivityRuleCard: View {
         .padding(.horizontal, Tokens.Space.s)
         .background(isEditing ? Tokens.Colour.focus.opacity(0.10) : Color.clear,
                     in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+        // The same items as the ellipsis menu beside the switch.
+        .contextMenu { RowContextMenu(items: ActivityRuleMenu.items(), perform: perform) }
+    }
+
+    private func perform(_ item: ActivityRuleMenu.Item) {
+        switch item {
+        case .edit: onEdit()
+        case .duplicate: onDuplicate()
+        case .delete: onDelete()
+        }
     }
 
     /// Up to four icons, overlapping like a stack of cards.
@@ -325,7 +333,7 @@ struct ActivityRuleForm: View {
                 // The app's own box, as the session strip draws it, not the
                 // platform's bezel: the same menu, Add and Edit category included.
                 // It says "Category" and the chosen one itself.
-                WorkTypePicker(selection: $editor.workType, quiet: true)
+                WorkTypePicker(selection: $editor.workType)
             }
             if let named = SessionNaming.contradicts(name: editor.name, workType: editor.workType) {
                 Label("\(named.displayName) is also a category. Sessions from this rule will count toward "
@@ -389,13 +397,13 @@ struct ActivityRuleForm: View {
             // while its Escape lost to the sheet's Close and shut Settings.
             // Return in a field saves; Escape inside the form cancels it.
             HStack(spacing: Tokens.Space.m) {
-                Button(editor.isNew ? "Add rule" : "Save rule", action: save)
+                Button(editor.isNew ? "Add Rule" : "Save Rule", action: save)
                     .buttonStyle(.borderedProminent)
                 Button("Cancel") { editor.close() }
                 Spacer(minLength: 0)
                 if !editor.isNew, let id = editor.selectedID,
                    let rule = model.activityRules.first(where: { $0.id == id }) {
-                    Button("Delete rule", role: .destructive) { editor.pendingDeletion = rule }
+                    Button("Delete Rule", role: .destructive) { editor.pendingDeletion = rule }
                 }
             }
         }
@@ -429,7 +437,6 @@ struct ActivityRuleForm: View {
                 Text("In this activity")
                     .font(Tokens.Typography.caption)
                     .foregroundStyle(StoryStyle.supportingInk)
-                    .textCase(.uppercase)
                 ChipFlow(spacing: Tokens.Space.xs) {
                     ForEach(editor.bundleIDs.sorted(), id: \.self) { id in
                         let app = model.installedAppCatalog.applications.first { $0.bundleID == id }
@@ -443,7 +450,7 @@ struct ActivityRuleForm: View {
                                 }
                                 Text(app?.name ?? id).lineLimit(1)
                                 Image(systemName: "xmark")
-                                    .font(Tokens.Typography.micro)
+                                    .font(Tokens.Typography.caption)
                                     .foregroundStyle(StoryStyle.supportingInk)
                             }
                             .font(Tokens.Typography.body)
@@ -468,7 +475,6 @@ struct ActivityRuleForm: View {
                 Text("Running now")
                     .font(Tokens.Typography.caption)
                     .foregroundStyle(StoryStyle.supportingInk)
-                    .textCase(.uppercase)
                 ChipFlow(spacing: Tokens.Space.xs) {
                     ForEach(running) { app in
                         Button {
@@ -481,7 +487,7 @@ struct ActivityRuleForm: View {
                                 }
                                 Text(app.name).lineLimit(1)
                                 Image(systemName: "plus")
-                                    .font(Tokens.Typography.micro)
+                                    .font(Tokens.Typography.caption)
                                     .foregroundStyle(StoryStyle.supportingInk)
                             }
                             .font(Tokens.Typography.body)
@@ -534,17 +540,16 @@ struct InstalledAppPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            Text("All applications")
+            Text("All apps")
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(StoryStyle.supportingInk)
-                .textCase(.uppercase)
                 // The list below carries this name for VoiceOver.
                 .accessibilityHidden(true)
             HStack {
-                TextField("Search applications", text: $query).textFieldStyle(.roundedBorder)
+                TextField("Search apps", text: $query).textFieldStyle(.roundedBorder)
                 Button { catalog.refresh() } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Refresh installed applications")
-                    .accessibilityLabel("Refresh installed applications")
+                    .help("Refresh installed apps")
+                    .accessibilityLabel("Refresh installed apps")
             }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2.zoomed) {
@@ -593,9 +598,9 @@ struct InstalledAppPicker: View {
             .padding(.vertical, Tokens.Space.xs)
             .background(StoryStyle.well.opacity(0.5),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-            .accessibilityLabel("All applications")
+            .accessibilityLabel("All apps")
             HStack {
-                Button("Add application…", action: addApplication)
+                Button("Add App…", action: addApplication)
                 if catalog.isLoading { ProgressView().controlSize(Tokens.Zoom.controlSize(.small)) }
             }
         }

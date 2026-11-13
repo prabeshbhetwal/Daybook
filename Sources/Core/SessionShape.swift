@@ -277,7 +277,7 @@ enum SessionShape {
     private static func recordingGapClause(_ input: Input) -> String? {
         let gap = input.activity.gapDuration
         guard gap >= 60 else { return nil }
-        return "\(duration(gap)) of this session has no app recording."
+        return "\(duration(gap)) of this session has no app use recorded."
     }
 
     /// `Core` cannot import the Design layer, so it carries the same phrasing

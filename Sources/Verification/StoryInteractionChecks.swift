@@ -282,8 +282,7 @@ enum StoryInteractionChecks {
         let start = Date(timeIntervalSince1970: 1_800_000_000)
         func segment(_ app: String, _ a: Double, _ b: Double) -> TimelineSegment {
             TimelineSegment(id: UUID(), bundleID: app, appName: app,
-                start: start.addingTimeInterval(a), end: start.addingTimeInterval(b),
-                colorIndex: 0, endReason: .appSwitch)
+                start: start.addingTimeInterval(a), end: start.addingTimeInterval(b), endReason: .appSwitch)
         }
         let bins = SessionShape.bins(segments: [
             segment("Editor", -300, 900), segment("Editor", 0, 450),
@@ -305,8 +304,7 @@ enum StoryInteractionChecks {
         let start = Date(timeIntervalSince1970: 1_800_000_000)
         func segment(_ app: String, _ a: Double, _ b: Double) -> TimelineSegment {
             TimelineSegment(id: UUID(), bundleID: app, appName: app,
-                start: start.addingTimeInterval(a), end: start.addingTimeInterval(b),
-                colorIndex: 0, endReason: .appSwitch)
+                start: start.addingTimeInterval(a), end: start.addingTimeInterval(b), endReason: .appSwitch)
         }
         // 0–50m: Editor 8s / Browser 2s, alternating. 50–60m: nothing recorded.
         var barcode: [TimelineSegment] = []
@@ -463,7 +461,7 @@ enum StoryInteractionChecks {
     private static func meetingEvidence() -> [String] {
         let start = Date(timeIntervalSince1970: 1_800_000_000)
         let text = SessionShape.paragraph(.init(segments: [TimelineSegment(id: UUID(), bundleID: "zoom",
-            appName: "Zoom", start: start, end: start.addingTimeInterval(1_800), colorIndex: 0,
+            appName: "Zoom", start: start, end: start.addingTimeInterval(1_800),
             endReason: .idle)], workType: .meetings, stretches: 1, worked: 600)) ?? ""
         return text.lowercased().contains("counted in full")
             ? ["a ten-minute logged meeting is described as counted in full for a thirty-minute span"] : []

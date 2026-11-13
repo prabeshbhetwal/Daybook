@@ -18,6 +18,16 @@ struct ZoomControl: View {
 
     private var percent: Int { InterfaceZoom.nearestPercent(toScale: draft) }
 
+    /// The slider runs in whole percents. In scales, 0.8 plus six steps of 0.1
+    /// is 1.4000000000000001, past the top of 0.8...1.4, so the slider never
+    /// reached the last step.
+    static let sliderRange = Double(InterfaceZoom.percents[0])...Double(InterfaceZoom.percents[InterfaceZoom.percents.count - 1])
+    static let sliderStep = 10.0
+
+    private var percentDraft: Binding<Double> {
+        Binding(get: { draft * 100 }, set: { draft = $0 / 100 })
+    }
+
     /// Hands the draft to the model, unless it is the step the model holds.
     private func commit() {
         guard percent != InterfaceZoom.nearestPercent(toScale: model.interfaceZoom) else { return }
@@ -28,7 +38,7 @@ struct ZoomControl: View {
         HStack(spacing: Tokens.Space.s) {
             // A drag commits on release: every window re-zooms at once, so the
             // slider would move under the pointer and the pointer would pick another step.
-            Slider(value: $draft, in: 0.8...1.4, step: 0.1) {
+            Slider(value: percentDraft, in: Self.sliderRange, step: Self.sliderStep) {
                 Text("Zoom")
             } minimumValueLabel: {
                 // Decoration, so plain secondary ink: the slider would tint

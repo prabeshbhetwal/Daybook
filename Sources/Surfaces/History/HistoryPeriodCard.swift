@@ -68,7 +68,6 @@ struct HistoryPeriodCard: View {
             .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
                 .strokeBorder(isOpen ? Tokens.Colour.focus.opacity(0.55) : Tokens.Colour.line,
                               lineWidth: isOpen ? 1.5.zoomed : 1))
-            .shadow(color: .black.opacity(0.025), radius: 2.zoomed, y: 1)
         }
         .padding(.horizontal, HistoryRowLayout.inset)
         .padding(.bottom, Tokens.Space.s)

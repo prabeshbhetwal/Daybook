@@ -58,8 +58,10 @@ struct ActivityQuietChoiceView: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 ForEach(choice.candidates, id: \.ruleID) { candidate in
+                    // Tinted: the plain fill is the well this notice sits in,
+                    // so the choices read as bare words, not buttons.
                     Button(candidate.name) { store.chooseActivity(ruleID: candidate.ruleID) }
-                        .buttonStyle(StoryActionStyle())
+                        .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
                 }
             }
         }

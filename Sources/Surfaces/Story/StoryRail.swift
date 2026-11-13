@@ -23,7 +23,7 @@ extension EnvironmentValues {
 
 /// The keyboard's way to reorder a tile. A drag needs a pointer and the tile's
 /// menu a right-click, so without these a Full Keyboard Access user who chose
-/// "Arrange cards" had nothing to act on.
+/// "Arrange Cards" had nothing to act on.
 struct StoryTileMoves {
     let name: String
     let canMoveUp: Bool
@@ -111,7 +111,7 @@ struct StoryRail: View {
         let shownTiles = visibleTiles(evidence)
         // The model's availability costs about 215 µs a read: once per redraw.
         let notesUsable = navigation.notes?.isUsable == true
-        VStack(alignment: .leading, spacing: density == .compact ? 10.zoomed : 14.zoomed) {
+        VStack(alignment: .leading, spacing: StoryStyle.railSpacing(for: density)) {
             if day == nil {
                 if store.isToday {
                     TodayNotes(store: store, writer: navigation.notes, usable: notesUsable, offers: $noteOffers)
@@ -162,7 +162,7 @@ struct StoryRail: View {
                     arrangement.begin()
                 }
             } label: {
-                Label(arrangement.isArranging ? "Done" : "Arrange cards",
+                Label(arrangement.isArranging ? "Done" : "Arrange Cards",
                       systemImage: arrangement.isArranging ? "checkmark" : "pencil")
                     .labelStyle(.iconOnly)
                     .symbolSwap()
@@ -178,13 +178,13 @@ struct StoryRail: View {
                     .contentShape(Circle())
             }
             .buttonStyle(PressableStyle())
-            .help(arrangement.isArranging ? "Save this order" : "Arrange cards")
-            .accessibilityLabel(arrangement.isArranging ? "Save card order" : "Arrange cards")
+            .help(arrangement.isArranging ? "Save this order" : "Arrange Cards")
+            .accessibilityLabel(arrangement.isArranging ? "Save card order" : "Arrange Cards")
             if arrangement.isArranging {
                 // The 28pt frame sits inside the label: outside the button it
                 // made room but left only the words clickable.
                 Button { resetOrder() } label: {
-                    Text("Reset order")
+                    Text("Reset Order")
                         .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                         .contentShape(Rectangle())
                 }
@@ -211,19 +211,19 @@ struct StoryRail: View {
                                             canMoveDown: canMoveDown,
                                             move: { moveVertically(kind, by: $0) }))
                 .contextMenu {
-                    Button("Move \(kind.title) up") { moveVertically(kind, by: -1) }
+                    Button("Move \(kind.title) Up") { moveVertically(kind, by: -1) }
                         .disabled(!canMoveUp)
-                    Button("Move \(kind.title) down") { moveVertically(kind, by: 1) }
+                    Button("Move \(kind.title) Down") { moveVertically(kind, by: 1) }
                         .disabled(!canMoveDown)
                 }
                 // Offered only where they can act, so VoiceOver never lists a
                 // move that would do nothing.
                 .accessibilityActions {
                     if canMoveUp {
-                        Button("Move up") { moveVertically(kind, by: -1) }
+                        Button("Move Up") { moveVertically(kind, by: -1) }
                     }
                     if canMoveDown {
-                        Button("Move down") { moveVertically(kind, by: 1) }
+                        Button("Move Down") { moveVertically(kind, by: 1) }
                     }
                 }
         } else {
@@ -432,10 +432,13 @@ struct StoryRail: View {
                             .frame(width: 14.zoomed)
                         Text(item.type.displayName)
                             .font(Tokens.Typography.body)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                         Spacer(minLength: Tokens.Space.s)
                         Text(durations: "\(Tokens.duration(item.achieved)) of \(Tokens.duration(item.goal))"
                              + (share >= 1 ? " · met" : ""))
                             .font(Tokens.Typography.body.monospacedDigit())
+                            .fixedSize()
                             .foregroundStyle(share >= 1 ? AnyShapeStyle(StoryStyle.successInk)
                                                         : AnyShapeStyle(StoryStyle.supportingInk))
                     }
@@ -493,28 +496,28 @@ struct StoryRail: View {
                 GeometryReader { geometry in
                     HStack(spacing: 0) {
                         Rectangle()
-                            .fill(Tokens.Palette.app(rank: 1))
+                            .fill(Tokens.Palette.appUse)
                             .frame(width: geometry.size.width * width(of: minutes(rows.duringFocus), total: trackedValue))
                         Rectangle()
-                            .fill(Tokens.Palette.app(rank: 1).opacity(0.7))
+                            .fill(Tokens.Palette.appUse.opacity(0.7))
                             .frame(width: geometry.size.width * width(of: minutes(rows.duringPauses), total: trackedValue))
                         Rectangle()
-                            .fill(Tokens.Palette.app(rank: 1).opacity(0.42))
+                            .fill(Tokens.Palette.appUse.opacity(0.42))
                             .frame(width: geometry.size.width * width(of: minutes(rows.outside), total: trackedValue))
                     }
                 }
                 .frame(height: 7.zoomed)
                 .clipShape(Capsule())
                 .accessibilityHidden(true)
-                legendRow(colour: Tokens.Palette.app(rank: 1),
+                legendRow(colour: Tokens.Palette.appUse,
                           label: "During focus",
                           value: Tokens.duration(minutes(rows.duringFocus)))
                 if rows.duringPauses > 0 {
-                    legendRow(colour: Tokens.Palette.app(rank: 1).opacity(0.7),
+                    legendRow(colour: Tokens.Palette.appUse.opacity(0.7),
                               label: "During pauses",
                               value: Tokens.duration(minutes(rows.duringPauses)))
                 }
-                legendRow(colour: Tokens.Palette.app(rank: 1).opacity(0.42),
+                legendRow(colour: Tokens.Palette.appUse.opacity(0.42),
                           label: "Outside sessions",
                           value: Tokens.duration(minutes(rows.outside)))
             }
@@ -559,8 +562,8 @@ struct StoryRail: View {
         return StoryTile(title: apps.count > limit ? "Your top \(limit) apps" : "Your apps",
                   trailing: apps.isEmpty ? "None recorded"
                     : apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
-            ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { index, app in
-                StoryAppRow(app: app, rank: index) { selectedApp.text = app.bundleID }
+            ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { _, app in
+                StoryAppRow(app: app) { selectedApp.text = app.bundleID }
                     .popover(isPresented: Binding(
                         get: { selectedApp.text == app.bundleID },
                         set: { if !$0 && selectedApp.text == app.bundleID { selectedApp.text = "" } })) {
@@ -595,7 +598,7 @@ struct StoryRail: View {
             HStack(spacing: 3.zoomed) {
                 ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
                     RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
-                        .fill(entry.met ? Tokens.Palette.app(rank: 4) : Tokens.Colour.elevated)
+                        .fill(entry.met ? Tokens.Colour.focus : Tokens.Colour.elevated)
                         .frame(height: 8.zoomed)
                 }
             }
@@ -604,15 +607,14 @@ struct StoryRail: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Days met")
             .accessibilityValue("\(days.filter(\.met).count) of the last \(days.count)")
-            // On the first line's baseline, so the link stays beside the
-            // sentence it follows when the sentence wraps.
-            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.xs) {
+            // The link has its own line beneath the sentence: beside it, it
+            // read as the sentence's last words once the sentence wrapped.
+            VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text(durations: "Last 14 days. A day counts once it has "
                      + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
                 // The word is about 15pt tall. The padding lifts the target
                 // past 28pt; the negative padding keeps the row where it was.
                 Button { navigation.openSheet(.awards) } label: {
@@ -628,6 +630,7 @@ struct StoryRail: View {
                 // was under 4.5:1 on the rail.
                 .foregroundStyle(StoryStyle.action)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

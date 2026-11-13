@@ -29,7 +29,7 @@ enum HistoryNoticeChecks: CheckSuite {
             let legacy = FixtureFactory.store(for: .idleWithHistory)
             legacy.refreshReview()
             let legacyNotices = legacy.historyIntegrityNotices
-            expect(legacyNotices.contains { $0.localizedCaseInsensitiveContains("legacy") },
+            expect(legacyNotices.contains { $0.localizedCaseInsensitiveContains("kept as it was") },
                    "app use from before the accuracy date should raise a legacy notice, got \(legacyNotices)",
                    &problems)
             let legacyDrawn = drawn(legacy)

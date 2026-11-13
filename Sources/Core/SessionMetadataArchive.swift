@@ -82,12 +82,12 @@ final class SessionMetadataArchive {
         if candidate.contains(where: { owner, metadata in
             owner != recordID && metadata.power.contains(where: { $0.id == observation.id })
         }) {
-            return .failed("That power observation already belongs to another session record.")
+            return .failed("That power reading already belongs to another session. Reopen the day and try again.")
         }
         var metadata = candidate[recordID] ?? SessionMetadata(recordID: recordID)
         if let existing = metadata.power.first(where: { $0.id == observation.id }) {
             guard existing == observation else {
-                return .failed("That power observation already exists on this session record with different content.")
+                return .failed("That session already has a different power reading at that time. Reopen the day and try again.")
             }
             return .saved
         }
@@ -131,7 +131,7 @@ final class SessionMetadataArchive {
         for observation in moving {
             if let existing = destination.power.first(where: { $0.id == observation.id }),
                existing != observation {
-                return .failed("Session metadata contains conflicting power observations and remains unchanged.")
+                return .failed("Session metadata contains conflicting power readings and was left unchanged. Settings › Privacy shows where the file is.")
             }
             if !destination.power.contains(where: { $0.id == observation.id }) {
                 destination.power.append(observation)
@@ -150,7 +150,7 @@ final class SessionMetadataArchive {
                 let data = try Data(contentsOf: fileURL)
                 if let document = try? JSONDecoder().decode(Document.self, from: data) {
                     guard (1...Self.version).contains(document.version) else {
-                        loadFailure = "Session metadata was written by a newer version and remains read-only."
+                        loadFailure = "Session metadata was written by a newer version of Daybook and is read-only. Update Daybook to change it."
                         return
                     }
                     cache = try validated(document.entries)
@@ -164,12 +164,12 @@ final class SessionMetadataArchive {
             try replayJournal()
         } catch ValidationError.duplicateRecordID {
             cache = [:]
-            loadFailure = "Session metadata contains duplicate record identities and remains read-only."
+            loadFailure = "Session metadata contains duplicate records and is read-only. Settings › Privacy shows where the file is."
         } catch ValidationError.conflictingObservationID {
             cache = [:]
-            loadFailure = "Session metadata contains conflicting power observations and remains read-only."
+            loadFailure = "Session metadata contains conflicting power readings and is read-only. Settings › Privacy shows where the file is."
         } catch {
-            loadFailure = "Session metadata could not be read. The original file was preserved."
+            loadFailure = "Session metadata could not be read. The original file was kept. Reopen Daybook to try again."
         }
     }
 
@@ -264,7 +264,7 @@ final class SessionMetadataArchive {
         } catch let refused as WriteRefused {
             return .failed(refused.message)
         } catch {
-            return .failed("Session metadata could not be saved: \(error.localizedDescription)")
+            return .failed("Session metadata could not be saved: \(error.localizedDescription) Check free space and folder access, then try again.")
         }
         cache = candidate
         revision &+= 1

@@ -68,19 +68,6 @@ enum SessionReportChecks {
         if report.title.isEmpty {
             failures.append("The report has no title")
         }
-        // Colours: the day's mapping wins, the rest are told apart, grey only past six.
-        let ranks = (0..<9).map { AppRank(bundleID: "app.\($0)", appName: "App \($0)", total: Double(100 - $0), share: 0.1, longest: 10) }
-        let colours = SessionReport.colourIndices(apps: ranks, dayIndices: ["app.3": 2, "app.8": 6])
-        if colours["app.3"] != 2 {
-            failures.append("An app with a day colour lost it")
-        }
-        let first = ranks.prefix(6).compactMap { colours[$0.bundleID] }
-        if Set(first).count != 6 || first.contains(6) {
-            failures.append("The first six apps did not get six distinct named colours: \(first)")
-        }
-        if colours["app.7"] != 6 || colours["app.8"] != 6 {
-            failures.append("Apps past the palette did not fall to grey")
-        }
         return failures
     }
 

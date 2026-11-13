@@ -5,7 +5,6 @@ import SwiftUI
 /// bar from the same figures.
 struct HistoryAppMomentsBar: View {
     let use: HistoryAppLens.SessionUse
-
     var body: some View {
         let length = max(use.span.duration, 1)
         // Read here, not in the reader's closure, so a zoom change draws the bar again.
@@ -15,7 +14,7 @@ struct HistoryAppMomentsBar: View {
                 Capsule().fill(StoryStyle.well)
                 ForEach(Array(use.moments.enumerated()), id: \.offset) { _, moment in
                     Rectangle()
-                        .fill(Tokens.Palette.app(rank: 1))
+                        .fill(Tokens.Palette.appUse)
                         .frame(width: max(thinnest, geometry.size.width * moment.duration / length))
                         .offset(x: geometry.size.width * moment.start.timeIntervalSince(use.span.start) / length)
                 }

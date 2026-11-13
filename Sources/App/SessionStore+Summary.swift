@@ -18,7 +18,7 @@ extension SessionStore {
         }
         var facts: [String] = []
         if !sessions.isEmpty {
-            facts.append("Logged focus is session time with pauses and uncounted absences left out, "
+            facts.append("Recorded focus is session time with pauses and uncounted absences left out, "
                          + "clipped to this day.")
             let stretchCount = sessions.reduce(0) { $0 + $1.stretches }
             if stretchCount > sessions.count {

@@ -48,8 +48,8 @@ enum AskModelChecks: CheckSuite {
 
         let context = LanguageModelSession.GenerationError.Context(debugDescription: "probe")
         let full = AskModel.contextFull
-        let refused = notice("Can't answer that one.")
-        let language = notice("Ask doesn't understand this language yet.")
+        let refused = notice("Can't answer that one. Try asking another way.")
+        let language = notice("Ask doesn't understand this language yet. Try asking in English.")
         let refusal = LanguageModelSession.GenerationError.Refusal(transcriptEntries: [])
         var errors: [(Error, AskNotice)] = [
             (LanguageModelSession.GenerationError.exceededContextWindowSize(context), full),
@@ -57,11 +57,12 @@ enum AskModelChecks: CheckSuite {
             (LanguageModelSession.GenerationError.refusal(refusal, context), refused),
             (LanguageModelSession.GenerationError.unsupportedLanguageOrLocale(context), language),
         ]
-        // Anything else is worded from the error itself.
+        // Anything else gets one plain line; the error's own description is
+        // jargon the reader cannot act on, so it stays out of the notice.
         let others: [Error] = [LanguageModelSession.GenerationError.rateLimited(context),
                                LanguageModelSession.GenerationError.assetsUnavailable(context),
                                CocoaError(.fileReadNoSuchFile)]
-        for error in others { errors.append((error, notice("Couldn't answer: \(error.localizedDescription)"))) }
+        for error in others { errors.append((error, notice("Couldn't answer. Try again."))) }
         errors += newerErrors()
         for (index, (error, want)) in errors.enumerated() {
             let got = AskModel.notice(for: error)
@@ -79,7 +80,7 @@ enum AskModelChecks: CheckSuite {
         #if compiler(>=6.4)
         guard #available(macOS 27, *) else { return [] }
         let full = AskModel.contextFull
-        let refused = notice("Can't answer that one.")
+        let refused = notice("Can't answer that one. Try asking another way.")
         let timeout = LanguageModelError.timeout(.init(debugDescription: "probe"))
         return [
             (LanguageModelError.contextSizeExceeded(.init(contextSize: 4_096, tokenCount: 9_000,
@@ -87,8 +88,8 @@ enum AskModelChecks: CheckSuite {
             (LanguageModelError.guardrailViolation(.init(debugDescription: "probe")), refused),
             (LanguageModelError.refusal(.init(explanation: "no", debugDescription: "probe")), refused),
             (LanguageModelError.unsupportedLanguageOrLocale(.init(languageCode: .english, debugDescription: "probe")),
-             notice("Ask doesn't understand this language yet.")),
-            (timeout, notice("Couldn't answer: \(timeout.localizedDescription)")),
+             notice("Ask doesn't understand this language yet. Try asking in English.")),
+            (timeout, notice("Couldn't answer. Try again.")),
         ]
         #else
         return []
@@ -178,7 +179,7 @@ enum AskModelChecks: CheckSuite {
         withFixture { f, problems in
             let context = LanguageModelSession.GenerationError.Context(debugDescription: "probe")
             let failures: [(label: String, error: Error, notice: String)] = [
-                ("a failed request", CocoaError(.fileReadNoSuchFile), "Couldn't answer:"),
+                ("a failed request", CocoaError(.fileReadNoSuchFile), "Couldn't answer. Try again."),
                 ("a full context", LanguageModelSession.GenerationError.exceededContextWindowSize(context),
                  AskModel.contextFull.text),
             ]

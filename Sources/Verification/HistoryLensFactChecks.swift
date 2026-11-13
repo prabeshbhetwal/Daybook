@@ -52,7 +52,7 @@ enum HistoryLensFactChecks: CheckSuite {
         expect(after.days.map(\.day) == [day, at(0, 0, dayOffset: 1)],
                "the bars are the 15th and the 16th, got \(after.days.map(\.day))", &problems)
         let eyebrow = HistorySearchText.eyebrow(filter: HistoryFilter(), appName: "Qwen", lens: after)
-        let first = DateFormats.australian("d MMMM yyyy").string(from: at(0, 0, dayOffset: 1))
+        let first = DateFormats.localized("dMMMMy").string(from: at(0, 0, dayOffset: 1))
         expect(eyebrow == "Qwen · first used \(first)", "the eyebrow read \"\(eyebrow)\"", &problems)
         let one = HistorySearchText.lensSentence(appName: "Qwen", lens: after).sentence
         expect(one == "You used Qwen for \(Tokens.duration(900)) on 2 days.", "the headline read \"\(one)\"", &problems)

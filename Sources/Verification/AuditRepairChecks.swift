@@ -146,7 +146,7 @@ enum AuditRepairChecks: CheckSuite {
             }
             let segments = spans.map {
                 TimelineSegment(id: UUID(), bundleID: "com.example.editor", appName: "Editor",
-                                start: $0.start, end: $0.end, colorIndex: 0, endReason: .appSwitch)
+                                start: $0.start, end: $0.end, endReason: .appSwitch)
             }
             return (RecordedActivity(segments: segments, spans: spans), spans[spans.count - 1])
         }

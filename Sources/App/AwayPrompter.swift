@@ -108,7 +108,7 @@ final class AwayPrompter {
     /// draft visible, and stop the quick prompt's automatic fade while retrying.
     private func finish(_ saved: Bool) -> Bool {
         if saved { dismiss(); return true }
-        let error = store.correctionError ?? "This interval changed. Reopen its question from session controls."
+        let error = store.correctionError ?? "This stretch changed. Reopen its question from session controls."
         showError(error)
         return false
     }
@@ -136,7 +136,7 @@ final class AwayPrompter {
     func preview(_ tier: AwayPromptTier) {
         let now = Date()
         let range = (start: now.addingTimeInterval(-6 * 60), end: now)
-        let note = "Not counted. Focus session continues — 5h 59m so far."
+        let note = "Not counted. Focus session continues, 5h 59m so far."
         isPreview = true
         presentedID = nil
         presentedTier = tier

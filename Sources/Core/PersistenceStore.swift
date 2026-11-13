@@ -851,7 +851,7 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.interfaceDensityRawValue) }
     }
 
-    /// The interface zoom as a step, 80 to 140. Stored as the scale (1.2 for
+    /// The interface zoom as a step, 80 to 160. Stored as the scale (1.2 for
     /// 120%); a value that is not a number reads as 100%, and a number off a
     /// step as the nearest step.
     var interfaceZoomPercent: Int {

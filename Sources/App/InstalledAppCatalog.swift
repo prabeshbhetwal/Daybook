@@ -8,7 +8,7 @@ struct InstalledApplication: Equatable, Identifiable {
     let url: URL?
     let isInstalled: Bool
     var id: String { bundleID }
-    var displayName: String { isInstalled ? name : "\(name) — Missing" }
+    var displayName: String { isInstalled ? name : "\(name) (missing)" }
 
     init(bundleID: String, name: String, url: URL?, isInstalled: Bool = true) {
         self.bundleID = ActivityRule.normalisedBundleID(bundleID) ?? bundleID.lowercased()

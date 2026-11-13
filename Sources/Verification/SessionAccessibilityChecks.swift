@@ -53,7 +53,7 @@ enum SessionAccessibilityChecks {
                                             detail: "Writing after 90 seconds in the assigned application",
                                             hasUndo: true)
             if !undoable.contains("application. To undo it")
-                || !undoable.contains("Undo automatic session") || !undoable.hasSuffix(".") {
+                || !undoable.contains("Undo Automatic Session") || !undoable.hasSuffix(".") {
                 failures.append("An undoable notice did not say where else Undo is: \(undoable)")
             }
             return failures

@@ -8,8 +8,6 @@ struct AwardCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var expanded = BoolBox()
 
-    private var tint: Color { Tokens.Palette.app(rank: award.paletteRank) }
-
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
             HStack(spacing: Tokens.Space.m) {
@@ -65,15 +63,19 @@ struct AwardCard: View {
                             + ", \(award.detail)")
     }
 
-    /// Earned badges carry their identity colour; an unearned one stays a quiet
-    /// well, so the difference is visible without reading a word.
+    /// Earned badges fill with the focus colour and an on-focus glyph, a pairing
+    /// that holds its contrast in both appearances; an unearned one stays a quiet
+    /// well, so the difference is visible without reading a word. The old
+    /// per-award palette colours put white at 2.0 to 2.8:1, and red read as an
+    /// alarm on a reward.
     @ViewBuilder private var badge: some View {
         ZStack {
             Circle()
-                .fill(award.isEarned ? AnyShapeStyle(tint) : AnyShapeStyle(Tokens.Colour.elevated))
+                .fill(award.isEarned ? AnyShapeStyle(Tokens.Colour.focus)
+                                     : AnyShapeStyle(Tokens.Colour.elevated))
             Image(systemName: award.isEarned ? award.symbolName : "circle.dotted")
                 .font(Tokens.Typography.heading)
-                .foregroundStyle(award.isEarned ? AnyShapeStyle(.white)
+                .foregroundStyle(award.isEarned ? AnyShapeStyle(Tokens.Colour.onFocus)
                                                 : AnyShapeStyle(StoryStyle.supportingInk))
         }
         .frame(width: 44.zoomed, height: 44.zoomed)
@@ -104,9 +106,9 @@ struct AwardsView: View {
     private var content: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
             header
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 236.zoomed),
-                                         spacing: Tokens.Space.l,
-                                         alignment: .top)],
+            // Two columns, so four awards sit two by two with no orphan.
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: Tokens.Space.l, alignment: .top),
+                                GridItem(.flexible(), spacing: Tokens.Space.l, alignment: .top)],
                       alignment: .leading,
                       spacing: Tokens.Space.l) {
                 ForEach(store.awards) { award in
@@ -119,14 +121,12 @@ struct AwardsView: View {
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
+    /// The sheet's own title bar already says Awards; a second, larger
+    /// "Awards" under it was the same word twice.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2.zoomed) {
-            Text("Awards")
-                .font(Tokens.Typography.title)
-            Text("Awards never interrupt a session.")
-                .font(Tokens.Typography.body)
-                .foregroundStyle(StoryStyle.supportingInk)
-        }
+        Text("Awards never interrupt a session.")
+            .font(Tokens.Typography.body)
+            .foregroundStyle(StoryStyle.supportingInk)
     }
 
     private var streakPanel: some View {

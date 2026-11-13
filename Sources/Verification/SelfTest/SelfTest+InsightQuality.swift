@@ -61,7 +61,7 @@ extension SelfTest {
                    + "'\(month.rhythm?.detail ?? "nil")'", &problems)
         expect(month.rhythm?.detail.contains("1h 30m") != true,
                "legacy time is absent from verified Rhythm", &problems)
-        expect(month.continuity?.headline.hasPrefix("1 of 2 days had tracked time") == true,
+        expect(month.continuity?.headline.hasPrefix("1 of 2 days had recorded time") == true,
                "active-day continuity counts only complete authoritative days; got "
                    + "'\(month.continuity?.headline ?? "nil")'", &problems)
         expect(month.quality?.headline == "Admin was 100% of focused time",
@@ -220,7 +220,7 @@ extension SelfTest {
         expect(headline == "Deep work was <1% of focused time",
                "tiny positive work-type share uses an honest lower bound; got '\(headline)'",
                &problems)
-        expect(detail.contains("<1% of tracked time")
+        expect(detail.contains("<1% of recorded time")
                    && detail.contains("<0.1 app switches"),
                "tiny positive quality details retain both lower bounds; got '\(detail)'",
                &problems)

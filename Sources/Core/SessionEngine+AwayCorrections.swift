@@ -27,7 +27,7 @@ extension SessionEngine {
               let inserted = awayDecisions[index].insertedRecord,
               let current = archive.records.first(where: { $0.id == inserted.id }),
               current == inserted else {
-            awayDecisionError = awayDecisionError ?? "This break changed since it was recorded, so it cannot be renamed here."
+            awayDecisionError = awayDecisionError ?? "This break changed since it was recorded, so it cannot be renamed here. Reopen the day and try again."
             return false
         }
         var renamed = current
@@ -49,7 +49,7 @@ extension SessionEngine {
         var liveCredit: TimeInterval = 0
         if let record = receipt.insertedRecord {
             guard archive.records.contains(where: { $0.id == record.id }) else {
-                awayDecisionError = "The original classified record is no longer available. Its correction history was preserved."
+                awayDecisionError = "The original record is no longer available. Its correction history was kept. Reopen the day to see what is there now."
                 return false
             }
             removals.append(record)
@@ -59,21 +59,21 @@ extension SessionEngine {
             if state != .idle, activeThreadID == receipt.threadID, sessionStartDate == receipt.sessionStart {
                 liveCredit = receipt.creditedSeconds
                 guard elapsed + 0.001 >= liveCredit else {
-                    awayDecisionError = "This session no longer contains the original away credit."
+                    awayDecisionError = "This session no longer contains the time you counted. Reopen the day to see what is there now."
                     return false
                 }
             } else {
                 guard let expected = receipt.expectedCreditRecord,
                       let record = archive.records.first(where: { $0.id == expected.id }),
                       expected.workSeconds + 0.001 >= receipt.creditedSeconds else {
-                    awayDecisionError = "The original saved session cannot be verified for Undo. Its record was preserved."
+                    awayDecisionError = "The original session cannot be checked, so Undo is not available. Its record was kept. Reopen the day to see what is there now."
                     return false
                 }
                 // Name/type edits are independent fields, not a conflict with
                 // subtracting this exact, journalled credit from its stretch.
                 guard record.id == expected.id, record.start == expected.start, record.end == expected.end,
                       record.threadID == expected.threadID, record.workSeconds == expected.workSeconds else {
-                    awayDecisionError = "This session changed since the action. Its newer evidence was preserved."
+                    awayDecisionError = "This session changed since the action. Its newer changes were kept. Review the day, then try again."
                     return false
                 }
                 var corrected = record
@@ -146,7 +146,7 @@ extension SessionEngine {
         else { return false }
         let target = focusTargetID.flatMap { id in archive.records.first { $0.id == id && $0.workType.countsAsFocus } }
         if decision == .mergeTime && target == nil {
-            awayDecisionError = "Choose a valid recorded focus session before counting this interval. Leave uncounted is still available."
+            awayDecisionError = "Choose a valid recorded focus session before counting this stretch. Leave Uncounted is still available."
             return false
         }
         let before = snapshot()
@@ -175,7 +175,7 @@ extension SessionEngine {
         let existing = records.compactMap { wanted in archive.records.first { $0.id == wanted.id } }
         guard !existing.isEmpty else { return nil }
         guard existing.count == records.count else {
-            return "This interval's saved evidence has changed. No records were replaced."
+            return "This stretch changed since you opened it. No records were replaced. Reopen the day and try again."
         }
         for (saved, wanted) in zip(existing, records) {
             // Detected-app metadata can be unavailable on restore. Preserve
@@ -184,7 +184,7 @@ extension SessionEngine {
                   saved.start == wanted.start, saved.end == wanted.end,
                   abs(saved.workSeconds - wanted.workSeconds) < 0.000_001,
                   saved.threadID == wanted.threadID, saved.isAuto == wanted.isAuto else {
-                return "An incompatible answer is already saved for this interval. Its record was preserved."
+                return "A different answer is already saved for this stretch. Its record was kept. Reopen the day to see it."
             }
         }
         return nil

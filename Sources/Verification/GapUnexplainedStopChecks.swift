@@ -62,7 +62,7 @@ enum GapUnexplainedStopChecks: CheckSuite {
             expect(reasons == [.recordingStopped, .recordingStopped] && reasons.allSatisfy { $0.title == "Not recorded" },
                    "the story and History call the hole 'Not recorded', got \(reasons.map(\.title))", &problems)
             let hint = reasons.first?.explanation ?? ""
-            expect(hint.contains("Spotlight") && hint.contains("recording was off"),
+            expect(hint.contains("Spotlight") && hint.contains("Record app use was off"),
                    "its hint names what stops recording, got \(hint)", &problems)
             // A lock still names its hole, however late macOS reports it, and
             // idleness and other endings read as before. A restart announced

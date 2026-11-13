@@ -82,8 +82,13 @@ struct HistoryFindBar: View {
                         .transition(.opacity)
                 }
                 Button { store.setHistoryQuery("") } label: {
+                    // The glyph is about 14pt; the frame lifts the target to the
+                    // minimum. The field is taller than that, so it does not grow.
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(StoryStyle.supportingInk)
+                        .frame(width: AccessibilityMetrics.minimumTargetSize,
+                               height: AccessibilityMetrics.minimumTargetSize)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
@@ -118,7 +123,7 @@ struct HistoryFindBar: View {
                 promptText(lines[index])
                     .id(index)
                     .transition(.opacity)
-                    .animation(.easeInOut(duration: 0.4), value: index)
+                    .animation(Tokens.Motion.swap, value: index)
             }
         }
     }
@@ -174,7 +179,7 @@ struct HistoryFindBar: View {
 
     private var appFilter: some View {
         let picked = store.historyFilter.appBundleID
-        return FilterChip(title: picked.map(store.historyAppName(for:)) ?? "All apps",
+        return FilterChip(title: picked.map(store.historyAppName(for:)) ?? "All Apps",
                           isActive: picked != nil,
                           filterName: "App filter",
                           clearLabel: "Show all apps",
@@ -197,7 +202,7 @@ struct HistoryFindBar: View {
 
     private var workTypeFilter: some View {
         let picked = store.historyFilter.workType
-        return FilterChip(title: picked?.displayName ?? "All categories",
+        return FilterChip(title: picked?.displayName ?? "All Categories",
                           isActive: picked != nil,
                           tint: picked.map(Tokens.Palette.workType) ?? StoryStyle.action,
                           ink: picked.map(StoryStyle.workTypeInk) ?? StoryStyle.action,
@@ -209,7 +214,7 @@ struct HistoryFindBar: View {
         } items: {
             Picker("Category", selection: Binding(get: { store.historyFilter.workType },
                                                   set: store.setHistoryWorkType)) {
-                Label("All categories", systemImage: "square.grid.2x2").tag(WorkType?.none)
+                Label("All Categories", systemImage: "square.grid.2x2").tag(WorkType?.none)
                 Divider()
                 ForEach(WorkType.allCases) { type in
                     Label(type.displayName, systemImage: type.symbolName).tag(WorkType?.some(type))

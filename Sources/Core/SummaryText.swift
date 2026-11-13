@@ -86,7 +86,7 @@ enum SummaryText {
                 text += ", and focused for **\(DurationText.compact(i.focused))**\(inSessions)"
                 // Their quotient is not an overlap, even when below 100%.
                 // The quality sentence uses the actual temporal intersection.
-                if let goal = goalClause(i) { text += " — " + goal }
+                if let goal = goalClause(i) { text += ", " + goal }
             } else {
                 text += i.isToday ? ", with no focus session yet" : ", with no focus session"
             }
@@ -95,7 +95,7 @@ enum SummaryText {
             // or the work happened away from the keyboard.
             text = i.isToday ? "So far today you've focused for **\(DurationText.compact(i.focused))**\(inSessions)"
                              : "You focused for **\(DurationText.compact(i.focused))**\(inSessions)"
-            if let goal = goalClause(i) { text += " — " + goal }
+            if let goal = goalClause(i) { text += ", " + goal }
         }
         return text + "."
     }
@@ -134,7 +134,7 @@ enum SummaryText {
         text += "."
         if let running = i.sessions.first(where: \.isRunning), running.id != longest.id {
             text += running.stretches > 1
-                ? " \(label(running)) is still running — \(running.stretches) stretches "
+                ? " \(label(running)) is still running, \(running.stretches) stretches "
                   + "since \(DateFormats.clockTime(running.start))."
                 : " \(label(running)) is still running, since \(DateFormats.clockTime(running.start))."
         }
@@ -187,7 +187,7 @@ enum SummaryText {
             parts.append(part)
         }
         if i.workTypes.count > 1 {
-            parts.append("by type, " + i.workTypes.prefix(3)
+            parts.append("by category, " + i.workTypes.prefix(3)
                 .map { "\($0.workType.displayName) \(percent($0.share))" }
                 .joined(separator: ", "))
         }
@@ -234,7 +234,7 @@ enum SummaryText {
         var out: [String] = []
         var first = "\(i.containsToday ? "This" : "That") \(unit) you were at the Mac for "
             + "**\(DurationText.compact(i.tracked))** across \(i.activeDays) of \(i.totalDays) days"
-        if i.activeDays > 0 { first += " — **\(DurationText.compact(i.averagePerActiveDay))** per active day" }
+        if i.activeDays > 0 { first += ", **\(DurationText.compact(i.averagePerActiveDay))** per active day" }
         if i.previousTracked > 0 {
             let difference = i.tracked - i.previousTracked
             first += abs(difference) >= 60
@@ -280,7 +280,7 @@ enum SummaryText {
             }
             if i.appCount > 2 { text += ", across \(i.appCount) apps in all" }
             if i.workTypes.count > 1 {
-                text += "; session time by type, " + i.workTypes.prefix(3)
+                text += "; session time by category, " + i.workTypes.prefix(3)
                     .map { "\($0.workType.displayName) \(percent($0.share))" }
                     .joined(separator: ", ")
             }
@@ -300,6 +300,6 @@ enum SummaryText {
         DurationText.percent(share)
     }
 
-    private static func weekday(_ date: Date) -> String { DateFormats.local("EEEE").string(from: date) }
-    private static func longDate(_ date: Date) -> String { DateFormats.local("EEEE d MMMM").string(from: date) }
+    private static func weekday(_ date: Date) -> String { DateFormats.localized("EEEE").string(from: date) }
+    private static func longDate(_ date: Date) -> String { DateFormats.longDate(date) }
 }

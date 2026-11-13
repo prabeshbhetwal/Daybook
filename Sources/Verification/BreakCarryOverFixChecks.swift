@@ -174,7 +174,7 @@ enum BreakCarryOverFixChecks: CheckSuite {
             main.canLater = true
             var answers: [BreakHUDAction] = []
             let offered = AppCoordinator.breakReminderContent(main, store: running.store) { answers.append($0) }
-            expect(offered.buttons.map(\.title) == ["Start break", "Later", "Skip"] && offered.mentionsMenuBar,
+            expect(offered.buttons.map(\.title) == ["Start Break", "Later", "Skip"] && offered.mentionsMenuBar,
                    "a store that can begin a break offers Start, got \(offered.buttons.map(\.title))", &problems)
             expect(BreakHUD.spoken(offered).hasSuffix("in the menu bar."), "and says where to take one", &problems)
             let held = AppCoordinator.breakReminderContent(main, store: watching.store) { answers.append($0) }

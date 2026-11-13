@@ -24,7 +24,7 @@ extension SessionMetadataChecks {
                     id: observationID, timestamp: moment, source: .external,
                     percentage: 81, charging: .charging, boundary: .stretchStarted))
             ]
-            let expectedError = "That power observation already exists on this session record with different content."
+            let expectedError = "That session already has a different power reading at that time. Reopen the day and try again."
             var allProblems: [String] = []
 
             for conflict in conflicts {

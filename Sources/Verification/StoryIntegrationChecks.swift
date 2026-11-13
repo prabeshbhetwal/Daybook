@@ -151,7 +151,7 @@ enum StoryIntegrationChecks {
         if !(run.moments.count == 3) { failures.append("the folded run cannot reopen every row") }
         if !(run.summary.contains("20m outside sessions")
                    && run.summary.contains("5m not recorded")
-                   && run.summary.contains("3 intervals")) { failures.append("the summary misstates the run: \(run.summary)") }
+                   && run.summary.contains("3 stretches")) { failures.append("the summary misstates the run: \(run.summary)") }
 
         // Work is never folded away, and a rest the user named is not noise.
         let sessions = folded.compactMap { row -> StoryTimelineItem? in

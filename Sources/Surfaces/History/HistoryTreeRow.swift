@@ -151,6 +151,12 @@ struct HistoryTreeRow: View {
                                                   calendar: SessionStore.historyCalendar))
         .accessibilityAddTraits(isFocused ? [.isButton, .isSelected] : .isButton)
         .accessibilityHint(row.isEmpty ? "" : HistoryTree.keyboardHint)
+        // The header's own click, for a reader who looks for it in a menu.
+        .contextMenu {
+            RowContextMenu(items: HistoryRowMenu.items(isEmpty: row.isEmpty, isOpen: isOpen)) { _ in
+                navigation.toggleHistory(row.place)
+            }
+        }
     }
 
     private var plainHeader: some View {
@@ -226,7 +232,7 @@ struct HistoryTreeRow: View {
     @ViewBuilder private var note: some View {
         if row.place.level != .year, row.sessions > 0, let writer = navigation.notes {
             PeriodNote(writer: writer, place: row.place, evidence: store.noteEvidence,
-                       trigger: store.noteIsCurrent(row.place) ? .onRequest(label: "Write a note") : .automatic,
+                       trigger: store.noteIsCurrent(row.place) ? .onRequest(label: "Write a Note") : .automatic,
                        insets: EdgeInsets(top: Tokens.Space.m, leading: Tokens.Space.s, bottom: Tokens.Space.s,
                                           trailing: HistoryRowLayout.inset))
         }

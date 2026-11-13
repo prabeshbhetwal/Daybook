@@ -86,10 +86,6 @@ extension SessionStore {
         return GapAnatomy.of(gap, in: hole, events: events)
     }
 
-    var storyAppColourIndices: [String: Int] {
-        Dictionary(uniqueKeysWithValues: rankedApps.enumerated().map { ($0.element.bundleID, $0.offset) })
-    }
-
     /// `day` is History's open day; nil is the dashboard's.
     func storyAppEvidence(for bundleID: String, period: TrackingPeriod?, day: Date? = nil) -> StoryAppEvidence {
         let bounds = period == nil

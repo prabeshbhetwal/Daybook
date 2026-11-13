@@ -73,22 +73,18 @@ extension SettingsGroups {
         }
     }
 
-    /// A switch whose label says what it does, not only what it is called.
-    /// The description sits under the switch and is not part of its target:
-    /// reading it must not flip it, and the whole row used to.
+    /// A switch on the trailing edge, where every other row keeps its
+    /// control, as System Settings does. Check boxes on the left and pop-ups on
+    /// the right sent the eye down two edges. The title and description are
+    /// not part of the switch's target: reading them must not flip it.
     func toggleRow(_ title: String, detail: String? = nil, isOn: Binding<Bool>) -> some View {
-        VStack(alignment: .leading, spacing: 3.zoomed) {
-            Toggle(isOn: isOn) {
-                Text(title).font(Tokens.Typography.rowTitle)
-            }
-            .accessibilityHint(detail ?? "")
-            if let detail {
-                detailText(detail)
-                    .padding(.leading, 22.zoomed)
-                    .accessibilityHidden(true)
-            }
+        preferenceRow(title, detail: detail) {
+            Toggle(title, isOn: isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(Tokens.Zoom.controlSize(.mini))
+                .accessibilityHint(detail ?? "")
         }
-        .frame(minHeight: rowMinHeight(hasDetail: detail != nil), alignment: .leading)
     }
 
     /// A system state this app cannot change for you, with the button that

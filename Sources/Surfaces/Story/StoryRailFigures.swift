@@ -17,7 +17,7 @@ enum StoryRailFigures {
     static func goalEquation(logged: TimeInterval, counted: TimeInterval) -> String? {
         let gap = minutes(logged) - minutes(counted)
         guard gap > 0 else { return nil }
-        return "\(Tokens.duration(TimeInterval(minutes(logged) * 60))) logged − "
+        return "\(Tokens.duration(TimeInterval(minutes(logged) * 60))) in sessions − "
             + "\(Tokens.duration(TimeInterval(gap * 60))) with no app use recorded"
     }
 

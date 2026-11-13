@@ -8,7 +8,7 @@ enum StoryDecisionScope {
             from: calendar.startOfDay(for: full.start),
             to: calendar.startOfDay(for: full.end.addingTimeInterval(-0.001))).day ?? 1) + 1)
         let scope = days == 2 ? "both days" : "all \(days) days"
-        return "Changes apply to the full \(Tokens.preciseDuration(full.duration)) interval across \(scope)."
+        return "Changes apply to the full \(Tokens.preciseDuration(full.duration)) stretch across \(scope)."
     }
 }
 
@@ -35,18 +35,18 @@ struct StoryDecisionRow: View {
             }
         } else {
             VStack(alignment: .leading, spacing: 10.zoomed) {
-                Text("How should this interval be recorded?")
+                Text("How should this stretch be recorded?")
                     .font(Tokens.Typography.rowTitle)
                     .accessibilityAddTraits(.isHeader)
                 Text("\(Tokens.timeRange(range.start, range.end)) · \(Tokens.preciseDuration(range.duration)) is not counted. Later work is unchanged.")
                     .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: Tokens.Space.s) {
-                    Button("Count as focus") { answer(.mergeTime) }
+                    Button("Count as Focus") { answer(.mergeTime) }
                         .buttonStyle(StoryActionStyle(tint: StoryStyle.focus))
-                    Button("Call it a break") { answer(.tookBreak) }
+                    Button("Call It a Break") { answer(.tookBreak) }
                         .buttonStyle(StoryActionStyle())
-                    Button("Leave uncounted") { answer(.continueSession) }
+                    Button("Leave Uncounted") { answer(.continueSession) }
                         .buttonStyle(StoryActionStyle())
                 }
                 .disabled(store.hasUnresolvedAwayDecision)
@@ -107,7 +107,7 @@ struct StorySavedActionRow: View {
                 .buttonStyle(StoryLinkStyle())
                 .font(Tokens.Typography.label)
                 .foregroundStyle(StoryStyle.action)
-                .frame(minWidth: 36.zoomed, minHeight: 28.zoomed)
+                .frame(minWidth: 36.zoomed, minHeight: AccessibilityMetrics.minimumTargetSize)
                 .disabled(undoBlockReason != nil)
                 .help(undoBlockReason ?? "")
                 .accessibilityLabel("Undo \(title.lowercased())")

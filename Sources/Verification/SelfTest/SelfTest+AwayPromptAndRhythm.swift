@@ -197,7 +197,7 @@ extension SelfTest {
     // MARK: - 89
 
     /// The rhythm chart sums tracked seconds per hour, splitting a stretch that
-    /// crosses the hour, colours the hour by the app that took most of it, and
+    /// crosses the hour, names the app that took most of the hour, and
     /// names the busiest run.
     static func testRhythm() -> [String] {
         var problems: [String] = []
@@ -206,7 +206,7 @@ extension SelfTest {
         func seg(_ fromMinutes: Double, _ toMinutes: Double, color: Int) -> TimelineSegment {
             TimelineSegment(id: UUID(), bundleID: "b\(color)", appName: "A\(color)",
                             start: day.addingTimeInterval(fromMinutes * 60),
-                            end: day.addingTimeInterval(toMinutes * 60), colorIndex: color)
+                            end: day.addingTimeInterval(toMinutes * 60))
         }
         // 9:00–10:30 app 0 (crosses 10:00), 10:20–10:40 app 1, 11:00–11:10 app 2.
         let segments = [seg(9 * 60, 10 * 60 + 30, color: 0),
@@ -219,9 +219,9 @@ extension SelfTest {
         expect(hours.count == 3, "three hours in the window, got \(hours.count)", &problems)
         guard hours.count == 3 else { return problems }
         expectClose(hours[0].seconds, 3_600, "9am is a full hour of app 0", &problems)
-        expect(hours[0].colorIndex == 0, "and coloured by it", &problems)
+        expect(hours[0].topBundleID == "b0" && hours[0].topAppName == "A0", "and names it", &problems)
         expectClose(hours[1].seconds, 1_800 + 1_200, "10am sums both apps", &problems)
-        expect(hours[1].colorIndex == 0, "app 0's 30m beats app 1's 20m", &problems)
+        expect(hours[1].topBundleID == "b0", "app 0's 30m beats app 1's 20m", &problems)
         expectClose(hours[2].seconds, 600, "11am has ten minutes", &problems)
         let label = Rhythm.peakLabel(hours) { date in
             "\(calendar.component(.hour, from: date))h"

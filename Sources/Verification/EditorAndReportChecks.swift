@@ -130,8 +130,7 @@ enum EditorAndReportChecks: CheckSuite {
     private static func reportNamesItsDay() -> [String] {
         var problems: [String] = []
         let calendar = Calendar.current
-        let dayName = DateFormatter()
-        dayName.dateFormat = "EEEE d MMMM y"
+        let dayName = DateFormats.localized("EEEEdMMMMy")
         let morning = SelfTest.base
         let evening = calendar.date(bySettingHour: 23, minute: 30, second: 0, of: morning)!
         let afterMidnight = evening.addingTimeInterval(4_200)
@@ -183,8 +182,7 @@ enum EditorAndReportChecks: CheckSuite {
                &problems)
 
         // The year appears only when it is not this year's.
-        let thisYear = DateFormatter()
-        thisYear.dateFormat = "EEEE d MMMM"
+        let thisYear = DateFormats.localized("EEEEdMMMM")
         expect(DateFormats.fullDay(morning, now: morning) == thisYear.string(from: morning),
                "a day in the current year should omit the year: \(DateFormats.fullDay(morning, now: morning))",
                &problems)
@@ -205,7 +203,7 @@ enum EditorAndReportChecks: CheckSuite {
                                             worked: (span?.end ?? end).timeIntervalSince(span?.start ?? start),
                                             note: nil)
         return SessionReport(session: session, detail: detail, stretches: [stretch], power: nil,
-                             powerChanges: [:], appColourIndices: [:])
+                             powerChanges: [:])
     }
 
     // MARK: Orange ink

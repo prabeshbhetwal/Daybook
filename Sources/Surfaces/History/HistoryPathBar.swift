@@ -24,7 +24,7 @@ enum HistoryPath {
         if let place = top.place {
             // A month on top has no year above it to say which one it is.
             let title = place.level == .month
-                ? DateFormats.australian("MMMM yyyy", in: calendar.timeZone).string(from: place.start)
+                ? DateFormats.monthYear(place.start, in: calendar.timeZone)
                 : HistoryRowText.title(place, today: today, calendar: calendar)
             crumbs.append(HistoryCrumb(title: title, target: topID, focus: nil))
         }

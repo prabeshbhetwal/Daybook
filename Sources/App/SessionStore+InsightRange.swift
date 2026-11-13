@@ -218,12 +218,8 @@ struct InsightGridRows {
         let calendar = calendar.forPeriods
         self.scope = scope
         self.calendar = calendar
-        func text(_ format: String, _ date: Date) -> String {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_AU")
-            formatter.calendar = calendar
-            formatter.dateFormat = format
-            return formatter.string(from: date)
+        func text(_ template: String, _ date: Date) -> String {
+            DateFormats.localized(template, in: calendar.timeZone).string(from: date)
         }
         switch scope {
         case .week:
@@ -237,7 +233,7 @@ struct InsightGridRows {
             weekdays = []
             // Newest first, as the periods arrive.
             keys = periods.map { calendar.startOfDay(for: $0.start) }
-            labels = keys.map { text("EEE d", $0).uppercased() }
+            labels = keys.map { text("EEEd", $0).uppercased() }
             phrases = keys.map { "on \(Tokens.longDate($0))" }
         case .month:
             weekdays = []

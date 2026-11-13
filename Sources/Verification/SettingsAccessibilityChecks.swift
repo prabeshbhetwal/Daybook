@@ -33,15 +33,15 @@ enum SettingsAccessibilityChecks {
             if settings.interruptedWelcomeChapter != nil {
                 failures.append("a Mac that never left a tour was offered to continue one")
             }
-            store.welcomeLeftAt = .steppingAway
-            if settings.interruptedWelcomeChapter != .steppingAway {
+            store.welcomeLeftAt = .macSaw
+            if settings.interruptedWelcomeChapter != .macSaw {
                 failures.append("the chapter a tour was left on was not remembered")
             }
             settings.resumeWelcome()
-            if resumed != .steppingAway { failures.append("Continue did not start at the chapter left on") }
+            if resumed != .macSaw { failures.append("Continue did not start at the chapter left on") }
             let coach = FirstRunCoach()
-            coach.begin(at: .steppingAway)
-            if coach.progress?.chapter != .steppingAway || coach.progress?.card != 0 {
+            coach.begin(at: .macSaw)
+            if coach.progress?.chapter != .macSaw || coach.progress?.card != 0 {
                 failures.append("the tour did not open at the start of the remembered chapter")
             }
             store.welcomeLeftAt = nil
@@ -75,6 +75,19 @@ enum SettingsAccessibilityChecks {
         }
         for zoomKey in ["⌘+", "⌘−", "⌘0"] where !listed.contains(zoomKey) {
             failures.append("\(zoomKey) answers a View menu zoom command but is not listed")
+        }
+        for dayKey in ["⌘J", "⌥⌘←", "⌥⌘→"] where !listed.contains(dayKey) {
+            failures.append("\(dayKey) answers a Navigate menu command but is not listed")
+        }
+        // The column and the label font scale together, so fitting at 100%
+        // is fitting at every zoom.
+        let font = NSFont.monospacedDigitSystemFont(
+            ofSize: Tokens.Typography.Role.label.baseSize, weight: .semibold)
+        for entry in SettingsGroups.windowKeys {
+            let width = NSAttributedString(string: entry.keys, attributes: [.font: font]).size().width
+            if width > CGFloat(SettingsGroups.keyColumnWidth) {
+                failures.append("\(entry.keys) is \(width) pt wide, past the \(SettingsGroups.keyColumnWidth) pt key column")
+            }
         }
         if SettingsSection.matching("Keyboard") != [.general] {
             failures.append("searching Keyboard does not find the General page's panel")

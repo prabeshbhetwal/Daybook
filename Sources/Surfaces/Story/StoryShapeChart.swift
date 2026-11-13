@@ -1,8 +1,10 @@
 import SwiftUI
 
 /// A compact elapsed-time strip of the foreground app evidence. It is not a
-/// typing waveform: coloured runs are observed apps and outlined runs are
-/// explicitly named gaps in the supplied session span.
+/// typing waveform: filled runs are observed apps and outlined runs are
+/// explicitly named gaps in the supplied session span. Every app wears the one
+/// app-use accent; a thin divider in the card colour shows each switch, and a
+/// run wide enough carries the app's icon.
 ///
 /// The strip is drawn in cells, one per `cellPitch` points of width, each
 /// taking the app that held the front for most of it. An interval per
@@ -11,7 +13,6 @@ import SwiftUI
 /// click away under "Show intervals".
 struct StoryShapeChart: View {
     let activity: RecordedActivity
-    let appColourIndices: [String: Int]
     /// nil draws the strip 28 points high, read as the strip draws.
     var height: CGFloat?
     var compact = false
@@ -40,24 +41,45 @@ struct StoryShapeChart: View {
                                              cellCount: cellCount(for: geometry.size.width, pitch: pitch))
                 let cells = max(1, runs.reduce(0) { $0 + $1.cells })
                 let unit = geometry.size.width / CGFloat(cells)
-                // One band, clipped once. Runs abut and are told apart by
-                // colour; a corner radius on each run made every short one a
-                // bead, and the row read as a string of them.
+                // One band, clipped once. Runs abut and are told apart by a
+                // 1pt divider; a corner radius on each run made every short
+                // one a bead, and the row read as a string of them.
                 HStack(spacing: 0) {
                     ForEach(runs) { run in
                         // The compact strip has no caption line, so its
                         // tooltip leads with the whole strip before the run.
-                        runView(run, help: compact ? "\(summary)\n\(detail(run))" : detail(run))
+                        runView(run, size: CGSize(width: unit * CGFloat(run.cells),
+                                                  height: geometry.size.height),
+                                help: compact ? "\(summary)\n\(detail(run))" : detail(run))
                             .frame(width: unit * CGFloat(run.cells))
                     }
                 }
+                .overlay(alignment: .leading) {
+                    ForEach(AppMarkLayout.dividerCells(runs), id: \.self) { cell in
+                        Rectangle().fill(StoryStyle.card)
+                            .frame(width: 1) // zoom: fixed
+                            .offset(x: unit * CGFloat(cell) - 0.5) // zoom: fixed
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+                .overlay(alignment: .leading) {
+                    ForEach(AppMarkLayout.streaks(runs), id: \.startCell) { streak in
+                        if AppMarkLayout.showsIcon(width: unit * CGFloat(streak.cells),
+                                                   height: geometry.size.height,
+                                                   scale: ZoomModel.shared.scale) {
+                            AppIcon(bundleID: streak.bundleID, size: AppMarkLayout.iconPoints.zoomed,
+                                    appName: appNames[streak.bundleID] ?? "")
+                                .frame(width: unit * CGFloat(streak.cells), height: geometry.size.height)
+                                .offset(x: unit * CGFloat(streak.startCell))
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
                 .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous))
-                // Runs settle when one arrives or goes, not as the live one
-                // grows: keyed on the coverage, a running session restarted
-                // the spring every second, and the dashboard drew every frame
-                // (40% of a core) for as long as a session ran.
-                .animation(Tokens.Motion.animation(Tokens.Motion.settle, reduceMotion: reduceMotion),
-                           value: activity.intervals.count)
+                // No motion on the runs: they are data, and they change with
+                // every app switch.
             }
             .frame(height: height ?? 28.zoomed)
             if !compact, let first = activity.intervals.first, let last = activity.intervals.last {
@@ -65,7 +87,6 @@ struct StoryShapeChart: View {
                     if let run = hovered.run {
                         Text(caption(run))
                             .lineLimit(1)
-                            .transition(.opacity)
                     } else {
                         Text(Tokens.timeOfDayOnly(first.start))
                         Spacer(minLength: Tokens.Space.s)
@@ -74,13 +95,11 @@ struct StoryShapeChart: View {
                 }
                 .font(Tokens.Typography.body.monospacedDigit())
                 .foregroundStyle(StoryStyle.supportingInk)
-                .animation(Tokens.Motion.animation(Tokens.Motion.tick, reduceMotion: reduceMotion),
-                           value: hovered.run?.id)
                 .accessibilityHidden(true)
             }
         }
         .accessibilityElement(children: runsListedBelow ? .ignore : .contain)
-        .accessibilityLabel("App activity: recorded app use, not typing intensity")
+        .accessibilityLabel("App use: recorded app use, not typing intensity")
         .accessibilityValue(summary)
     }
 
@@ -103,7 +122,7 @@ struct StoryShapeChart: View {
         }
         var text = apps.isEmpty ? "No app use recorded." : apps.joined(separator: ", ") + "."
         if gaps > 0 {
-            text += gaps == 1 ? " 1 gap with no app recording." : " \(gaps) gaps with no app recording."
+            text += gaps == 1 ? " 1 gap with no app use recorded." : " \(gaps) gaps with no app use recorded."
         }
         return text
     }
@@ -114,7 +133,7 @@ struct StoryShapeChart: View {
         return max(1, min(byWidth, byTime))
     }
 
-    private func runView(_ run: SessionShape.Run, help: String) -> some View {
+    private func runView(_ run: SessionShape.Run, size: CGSize, help: String) -> some View {
         Rectangle()
             .fill(colour(run))
             .overlay {
@@ -140,8 +159,7 @@ struct StoryShapeChart: View {
     }
 
     private func colour(_ run: SessionShape.Run) -> Color {
-        guard let bundleID = run.bundleID else { return Tokens.Palette.untracked.opacity(0.22) }
-        return Tokens.Palette.app(rank: appColourIndices[bundleID] ?? colourIndices[bundleID] ?? 6)
+        run.isGap ? Tokens.Palette.untracked.opacity(0.22) : Tokens.Palette.appUse
     }
 
     private var appNames: [String: String] {
@@ -150,20 +168,18 @@ struct StoryShapeChart: View {
         }, uniquingKeysWith: { first, _ in first })
     }
 
-    private var colourIndices: [String: Int] {
-        Dictionary(activity.intervals.compactMap { interval in
-            interval.bundleID.flatMap { id in interval.colourIndex.map { (id, $0) } }
-        }, uniquingKeysWith: { first, _ in first })
-    }
-
     /// "Mostly", because a run is the app that held the front for most of its
     /// cells; a briefer switch inside it is listed in the full report.
-    private func detail(_ run: SessionShape.Run) -> String {
+    private func detail(_ run: SessionShape.Run) -> String { Self.detail(run, names: appNames) }
+
+    /// Also the run's accessibility label, so the app is named whether or not
+    /// its icon fits in the run.
+    static func detail(_ run: SessionShape.Run, names: [String: String]) -> String {
         let range = Tokens.timeRange(run.start, run.end)
         guard let bundleID = run.bundleID else {
-            return "Mostly no app recording, \(range)"
+            return "Mostly no app use recorded, \(range)"
         }
-        return "Mostly \(appNames[bundleID] ?? bundleID), \(range), "
+        return "Mostly \(names[bundleID] ?? bundleID), \(range), "
             + "\(Tokens.preciseDuration(run.recordedSeconds)) recorded app use"
     }
 }

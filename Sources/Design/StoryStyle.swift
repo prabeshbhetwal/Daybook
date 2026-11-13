@@ -12,7 +12,7 @@ enum StoryStyle {
     static let focus = action
     /// Links and text actions. The light value is a shade under Apple's
     /// #0071E3, which fell to 4.1:1 on the well and the rail.
-    static let action = Color(lightHex: 0x0068D1, darkHex: 0x75B5FF)
+    static let action = Tokens.Colour.focus
     /// Supporting text that has to be read, and the symbols beside it: a role
     /// under a label, a footer, a placeholder, a state not reached yet.
     /// `.secondary` is 3.8:1 on the light surfaces, under the 4.5:1 text
@@ -81,6 +81,11 @@ enum StoryStyle {
         density == .compact
             ? EdgeInsets(top: 20.zoomed, leading: 24.zoomed, bottom: 26.zoomed, trailing: 24.zoomed)
             : columnInsets
+    }
+
+    /// The gap between the rail's rows, and on each side of a hairline.
+    static func railSpacing(for density: InterfaceDensity) -> CGFloat {
+        density == .compact ? 10.zoomed : 14.zoomed
     }
 
     static func railInsets(for density: InterfaceDensity) -> EdgeInsets {

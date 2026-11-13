@@ -72,13 +72,13 @@ extension SessionEngine {
         }
         if let existing = archive.records.first(where: { $0.id == decisionID }),
            existing != breakRecord {
-            awayDecisionError = "An answer is already saved for this interval. Its record was preserved."
+            awayDecisionError = "An answer is already saved for this stretch. Its record was kept. Reopen the day to see it."
             return
         }
         if decision == .mergeTime, archive.records.contains(where: {
             $0.id == activeRecordID
         }) {
-            awayDecisionError = "The preceding stretch is already saved. Finish the original uncounted answer before changing this interval."
+            awayDecisionError = "The preceding stretch is already saved. Finish the original uncounted answer before changing this stretch."
             return
         }
         if let error = validateDecisionEffects(additions) {

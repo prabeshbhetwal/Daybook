@@ -172,7 +172,9 @@ enum AskFacts {
         func label(_ hour: Int) -> String {
             // Not 12am, which the model read as the next morning (as `askTime` says).
             if hour % 24 == 0 { return midnight }
-            return DateFormats.hourLabel(Calendar.current.date(bySettingHour: hour % 24, minute: 0, second: 0, of: day) ?? day)
+            // The model reads every clock in one style, whatever the region.
+            return DateFormats.hourLabel(Calendar.current.date(bySettingHour: hour % 24, minute: 0, second: 0, of: day) ?? day,
+                                         locale: Locale(identifier: "en_AU"))
         }
         let spans = top.map { "from \(label($0.offset)) to \(label($0.offset + 1)) (\(DurationText.compact($0.element)))" }
         switch spans.count {

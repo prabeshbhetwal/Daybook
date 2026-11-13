@@ -114,13 +114,13 @@ struct AwayAnswerGrid: View {
         [
             // "Not counted" is the header's to say, once; each caption says
             // what its answer leaves behind.
-            Answer(decision: .tookBreak, title: "It was a break",
+            Answer(decision: .tookBreak, title: "It Was a Break",
                    caption: "Saved as a break in your day", prominent: true),
-            Answer(decision: .mergeTime, title: "I was working",
+            Answer(decision: .mergeTime, title: "I Was Working",
                    caption: "Count it as work on this session", prominent: false),
-            Answer(decision: .continueSession, title: "I was away",
+            Answer(decision: .continueSession, title: "I Was Away",
                    caption: "Left uncounted in your day", prominent: false),
-            Answer(decision: .resetTimer, title: "Start fresh",
+            Answer(decision: .resetTimer, title: "Start Fresh",
                    caption: "End that session where you left, begin a new one",
                    prominent: false)
         ]
@@ -134,14 +134,18 @@ struct AwayAnswerGrid: View {
                 .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(spacing: Tokens.Space.s) {
+                // Each row is as tall as its taller answer and no taller, so
+                // a caption that wraps does not leave its neighbour short.
                 HStack(spacing: Tokens.Space.s) {
                     button(answers[0])
                     button(answers[1])
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: Tokens.Space.s) {
                     button(answers[2])
                     button(answers[3])
                 }
+                .fixedSize(horizontal: false, vertical: true)
             }
             if onReason != nil { reasonField }
             if let error {
@@ -151,7 +155,7 @@ struct AwayAnswerGrid: View {
                     Text(error).font(Tokens.Typography.body)
                         .fixedSize(horizontal: false, vertical: true)
                     if let onRetry {
-                        Button("Retry saving", action: onRetry)
+                        Button("Retry Saving", action: onRetry)
                             .buttonStyle(StoryLinkStyle())
                             .font(Tokens.Typography.caption)
                             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
@@ -192,9 +196,9 @@ struct AwayAnswerGrid: View {
                         .background(Tokens.Colour.focus, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .help("Log it (Return)")
-                .accessibilityLabel("Log the reason")
-                .transition(reduceMotion ? .identity : .scale.combined(with: .opacity))
+                .help("Save It (Return)")
+                .accessibilityLabel("Save the reason")
+                .transition(Tokens.Motion.transition(.scale(scale: 0.9).combined(with: .opacity), reduceMotion: reduceMotion))
             }
         }
         .animation(reduceMotion ? nil : Tokens.Motion.reveal,
@@ -273,6 +277,9 @@ struct AwayAnswerGrid: View {
             // above the ink, 20 px below — hence a point shifted downward.
             .padding(.top, controlVerticalPadding - 1.zoomed)
             .padding(.bottom, controlVerticalPadding + 1.zoomed)
+            // Bounded by the row's fixed height, so this fills the row and
+            // not the window.
+            .frame(maxHeight: .infinity, alignment: .topLeading)
             .background(answer.prominent ? AnyShapeStyle(Tokens.Colour.focus)
                                          : AnyShapeStyle(Tokens.Colour.elevated),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,

@@ -12,19 +12,17 @@ extension SettingsGroups {
                 .disabled(!AskModel.isOffered)
             rowDivider
             preferenceRow("Open Ask in", detail: "Small screens always use a sheet.") {
-                Picker("Open Ask in", selection: $model.askPlacement) {
-                    Text("Sheet").tag(AskPlacement.sheet)
-                    Text("Side panel").tag(AskPlacement.panel)
+                // A pop-up like every other choice here: a segmented control
+                // belongs in a toolbar, and its text did not follow the zoom.
+                RowMenu("Open Ask in", selection: $model.askPlacement, options: [.sheet, .panel]) {
+                    $0 == .sheet ? "Sheet" : "Side panel"
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
                 .disabled(!AskModel.isOffered)
                 .accessibilityLabel("Open Ask in")
             }
             if model.canOpenAsk {
                 Button("Open Ask") { model.openAsk() }
                     .buttonStyle(.bordered)
-                    .controlSize(Tokens.Zoom.controlSize(.large))
                     .disabled(!AskModel.isOffered)
                     .accessibilityHint("Closes Settings and opens Ask Daybook")
             }

@@ -55,7 +55,7 @@ enum DayStoryAccessibilityChecks {
             ("Daily goal: 30m of a 4h goal", "Daily goal: 30 minutes of a 4 hours goal"),
             // Left alone: clock times, counts, key glyphs and words with digits.
             ("9:15 am to 10:45 am", "9:15 am to 10:45 am"),
-            ("Step 1 of 3 · 12 stretches", "Step 1 of 3 · 12 stretches"),
+            ("Chapter 1 of 12 · 12 stretches", "Chapter 1 of 12 · 12 stretches"),
             ("⌥⌘S", "⌥⌘S"),
             ("mp3s and 4ms", "mp3s and 4ms")
         ]
@@ -72,8 +72,7 @@ enum DayStoryAccessibilityChecks {
 
     private static func segment(_ name: String, _ from: TimeInterval, _ to: TimeInterval) -> TimelineSegment {
         TimelineSegment(id: UUID(), bundleID: "test." + name.lowercased(), appName: name,
-                        start: start.addingTimeInterval(from), end: start.addingTimeInterval(to),
-                        colorIndex: 0)
+                        start: start.addingTimeInterval(from), end: start.addingTimeInterval(to))
     }
 
     /// Xcode appears twice and must be summed; the fourth app is counted, not
@@ -86,7 +85,7 @@ enum DayStoryAccessibilityChecks {
             spans: [DateInterval(start: start, duration: 2_880)])
         let summary = StoryShapeChart.summary(of: activity)
         let expected = "Xcode 30 minutes, Safari 10 minutes, Mail 2 minutes, and 1 more app. "
-            + "1 gap with no app recording."
+            + "1 gap with no app use recorded."
         var failures: [String] = []
         if summary != expected { failures.append("the strip summary read \"\(summary)\"") }
         let empty = RecordedActivity(segments: [], spans: [DateInterval(start: start, duration: 60)])

@@ -192,6 +192,9 @@ struct HistorySessionPick: Hashable {
     /// Asks History's search field for the cursor (⌘F). The field is always
     /// shown; the journal narrows to matches while a query or filter is active.
     @Published private(set) var historySearchFocusRequest = 0
+    /// Asks History's chrome to open its calendar (⌘J, Go to Date…). Counted,
+    /// so asking twice is two requests.
+    @Published private(set) var historyCalendarRequest = 0
     @Published var settingsSection: SettingsSection = .general
     /// The most recent ask to open a category for editing, or a blank form.
     /// A counter travels with it so the same ask made twice — Add, close,
@@ -484,15 +487,15 @@ struct HistorySessionPick: Hashable {
         } else {
             next = delta > 0 ? stops[0] : stops[stops.count - 1]
         }
-        animated(Tokens.Motion.selection) {
-            historyFocus = next
-            if case .session(let thread, let day) = next { historySession = HistorySessionPick(thread: thread, day: day) }
-            switch next {
-            case .row(let place): historyScrollTarget = place.id
-            case .session(let thread, let day): historyScrollTarget = HistorySessionPick(thread: thread, day: day).scrollID
-            }
-            historyScrollRequest &+= 1
+        // A key press moves at once: motion on an action repeated
+        // hundreds of times a day reads as lag.
+        historyFocus = next
+        if case .session(let thread, let day) = next { historySession = HistorySessionPick(thread: thread, day: day) }
+        switch next {
+        case .row(let place): historyScrollTarget = place.id
+        case .session(let thread, let day): historyScrollTarget = HistorySessionPick(thread: thread, day: day).scrollID
         }
+        historyScrollRequest &+= 1
     }
 
     /// Return: open or fold the focused row; select the focused session.
@@ -509,7 +512,7 @@ struct HistorySessionPick: Hashable {
         guard case .row(let place) = historyFocus, let depth = historyDepth(of: place) else {
             if !open, case .session(_, let day) = historyFocus,
                let dayPlace = historyOpen.last, dayPlace.level == .day, dayPlace.start == day {
-                animated(Tokens.Motion.selection) { historyFocus = .row(dayPlace) }
+                historyFocus = .row(dayPlace)
             }
             return
         }
@@ -517,7 +520,7 @@ struct HistorySessionPick: Hashable {
         if open, !isOpen { toggleHistory(place) }
         if !open {
             if isOpen { toggleHistory(place) } else if depth > 0 {
-                animated(Tokens.Motion.selection) { historyFocus = .row(historyOpen[depth - 1]) }
+                historyFocus = .row(historyOpen[depth - 1])
             }
         }
     }
@@ -604,7 +607,7 @@ struct HistorySessionPick: Hashable {
         openSheet(.settings)
     }
 
-    /// ⌘7, the Session controls menu item, History's pill and the tour: the
+    /// ⌘7, the Session Controls menu item, History's pill and the tour: the
     /// story, with the cursor in the bar's activity field.
     func focusSessionControls() {
         animated(Tokens.Motion.swap) {
@@ -629,5 +632,11 @@ struct HistorySessionPick: Hashable {
     func findInHistory() {
         open(tab: .review)
         historySearchFocusRequest &+= 1
+    }
+
+    /// History, with its calendar open to pick a day.
+    func goToDate() {
+        open(tab: .review)
+        historyCalendarRequest &+= 1
     }
 }

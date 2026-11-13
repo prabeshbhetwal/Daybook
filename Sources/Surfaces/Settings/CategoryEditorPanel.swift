@@ -196,7 +196,7 @@ struct CategoryEditorPanelView: View {
             }
             .padding(.leading, Tokens.Space.xs)
             .padding(.trailing, Tokens.Space.s)
-            .frame(minHeight: 28.zoomed)
+            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .background(selected ? StoryStyle.well : Color.clear, in: Capsule())
             .overlay(Capsule().strokeBorder(selected ? StoryStyle.line : Color.clear))
             .contentShape(Capsule())

@@ -98,7 +98,8 @@ enum ZoomWindowChecks: CheckSuite {
         var problems: [String] = []
         // (percent, zoomIn, zoomOut, actualSize): whether each item is enabled.
         let cases: [(Int, Bool, Bool, Bool)] = [
-            (140, false, true, true),
+            (160, false, true, true),
+            (140, true, true, true),
             (80, true, false, true),
             (100, true, true, false),
             (120, true, true, true),

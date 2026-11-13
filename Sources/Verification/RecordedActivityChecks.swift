@@ -19,7 +19,7 @@ enum RecordedActivityChecks {
                                 _ endOffset: TimeInterval) -> TimelineSegment {
         TimelineSegment(id: UUID(), bundleID: "test." + name.lowercased(), appName: name,
                         start: start.addingTimeInterval(startOffset),
-                        end: start.addingTimeInterval(endOffset), colorIndex: 0)
+                        end: start.addingTimeInterval(endOffset))
     }
 
     /// Breaks if sub-minute source evidence is rounded down to a minute or if

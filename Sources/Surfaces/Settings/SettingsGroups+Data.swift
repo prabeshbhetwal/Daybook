@@ -42,9 +42,8 @@ extension SettingsGroups {
             SurfacePanel(title: "Data folder", layout: layout) {
                 readOnlyRow("Location", value: model.dataDirectoryURL.path,
                             valueLayout: .statusBlock)
-                Button("Reveal data folder") { model.revealDataFolder() }
+                Button("Reveal Data Folder") { model.revealDataFolder() }
                     .buttonStyle(.bordered)
-                    .controlSize(Tokens.Zoom.controlSize(.large))
                     .accessibilityHint("Opens the local Daybook data folder in Finder")
             }
         }
@@ -84,11 +83,9 @@ extension SettingsGroups {
             HStack(spacing: Tokens.Space.s) {
                 Button("Back Up Now") { model.backUp() }
                     .buttonStyle(.bordered)
-                    .controlSize(Tokens.Zoom.controlSize(.large))
                     .accessibilityHint("Copies your Daybook data and preferences to \(model.backupDestination.name)")
                 Button("Show Backups") { model.revealBackups() }
                     .buttonStyle(.bordered)
-                    .controlSize(Tokens.Zoom.controlSize(.large))
                     .accessibilityHint("Opens the backups folder in Finder")
             }
             if let status = model.backupStatus {
@@ -122,11 +119,11 @@ extension SettingsGroups {
         case .uploading?: parts.append("Uploading to iCloud.")
         case .waiting?: parts.append("Waiting to upload to iCloud.")
         case .failed(let reason)?: parts.append("Not uploaded to iCloud: \(reason)")
-        case .missing?: parts.append("That backup is no longer where it was made.")
+        case .missing?: parts.append("That backup is no longer where it was made. Back Up Now makes a new one.")
         case .notInICloud?, nil: break
         }
         if let failure = log.failure, let failedAt = log.failedAt, failedAt > (log.lastSuccess ?? .distantPast) {
-            parts.append("The latest attempt, \(failedAt.formatted(date: .omitted, time: .shortened)), failed: \(failure)")
+            parts.append("The latest attempt, \(failedAt.formatted(date: .omitted, time: .shortened)), failed: \(failure) Check the backup folder, then choose Back Up Now.")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

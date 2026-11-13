@@ -162,7 +162,7 @@ machinery that nothing used any more, with no change in behaviour.
   weeks into days, days into sessions, each a step in from its parent, back to
   the first recorded day and no further. A chart of each day heads it, the
   top periods are cards with their days and category split, and the rail
-  describes whichever row is open. Jump to date opens a calendar that shows
+  describes whichever row is open. Go to Date opens a calendar that shows
   each day's focus
 - Search at the top of History: sessions by name, note, app, category or date (⌘F)
 - History states only what the record supports: category shares, best two
@@ -176,7 +176,7 @@ machinery that nothing used any more, with no change in behaviour.
 - Automatic backups every 6 hours, day or week, to iCloud Drive or a folder you
   choose, kept forever or for a period you set, with their upload state shown;
   and updates from GitHub Releases, checked automatically or on demand
-- A twelve-chapter first-run tour that can be skipped or replayed
+- A seven-chapter first-run tour that can be skipped or replayed
 - Full keyboard operation, VoiceOver labels, light and dark appearance, and a
   whole-interface zoom from 80% to 140% (⌘+, ⌘−, ⌘0 or a slider in Settings)
 
@@ -196,7 +196,7 @@ Security, find the message about Daybook and click Open Anyway. (On macOS 14,
 Control-click Daybook in Applications and choose Open.) macOS asks once.
 
 Daybook then updates itself. It looks for a new version once a week and
-offers it; Settings → Updates checks now, changes how often, or installs
+offers it; Settings → About & Updates checks now, changes how often, or installs
 updates without asking. It installs only updates signed with this project's
 key.
 

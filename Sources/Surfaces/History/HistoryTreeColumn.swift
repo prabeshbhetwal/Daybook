@@ -57,11 +57,8 @@ struct HistoryTree: View {
                         // laid out: measured against the old layout, a scroll after
                         // a long day folded stopped where the day had been, below
                         // the end of the list, and the column showed blank.
-                        DispatchQueue.main.async {
-                            withAnimation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion)) {
-                                proxy.scrollTo(target, anchor: .top)
-                            }
-                        }
+                        // No animation: it follows the arrow keys, like a file browser.
+                        DispatchQueue.main.async { proxy.scrollTo(target, anchor: .top) }
                     }
             }
         }
@@ -276,7 +273,7 @@ struct HistoryTree: View {
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
-            StartButton(title: "Start focus", fills: false) {
+            StartButton(title: "Start Focus", fills: false) {
                 navigation.focusSessionControls()
             }
             .fixedSize()

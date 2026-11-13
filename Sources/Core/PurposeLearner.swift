@@ -71,10 +71,10 @@ struct PurposeLearner {
               signal.observations >= PurposeLearner.minimumObservations else { return nil }
         let threshold = startThreshold(for: bundleID)
         if threshold > FocusConstants.autoStartThreshold {
-            return "Slower to start — you undid \(signal.undone) of \(signal.observations)"
+            return "Slower to start: you undid \(signal.undone) of \(signal.observations)"
         }
         if threshold < FocusConstants.autoStartThreshold {
-            return "Quicker to start — you kept \(signal.kept) of \(signal.observations)"
+            return "Quicker to start: you kept \(signal.kept) of \(signal.observations)"
         }
         return nil
     }

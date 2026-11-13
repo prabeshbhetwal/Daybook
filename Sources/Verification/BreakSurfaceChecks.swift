@@ -27,11 +27,11 @@ enum BreakSurfaceChecks: CheckSuite {
 
     private static func reminderButtons() -> [String] {
         var problems: [String] = []
-        expect(BreakHUDCopy.reminder(cognitive(canLater: true)).buttons.map(\.title) == ["Start break", "Later", "Skip"],
+        expect(BreakHUDCopy.reminder(cognitive(canLater: true)).buttons.map(\.title) == ["Start Break", "Later", "Skip"],
                "full set", &problems)
-        expect(BreakHUDCopy.reminder(cognitive(canLater: false)).buttons.map(\.title) == ["Start break", "Skip"],
+        expect(BreakHUDCopy.reminder(cognitive(canLater: false)).buttons.map(\.title) == ["Start Break", "Skip"],
                "no third Later", &problems)
-        expect(BreakHUDCopy.reminder(ultradian(canLater: true)).buttons.map(\.title) == ["Start break", "Remind me in 15 min"],
+        expect(BreakHUDCopy.reminder(ultradian(canLater: true)).buttons.map(\.title) == ["Start Break", "Remind Me in 15 min"],
                "guard has no Skip", &problems)
         expect(BreakHUDCopy.reminder(cognitive(canLater: true)).buttons.map(\.action) == [.start, .later, .skip],
                "each button does what it says", &problems)

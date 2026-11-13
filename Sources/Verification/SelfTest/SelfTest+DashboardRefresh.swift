@@ -132,8 +132,8 @@ extension SelfTest {
         store.setDashboardVisible(true)
         store.selectDay(offset: 1)
 
-        let expected = "App usage from before \(Tokens.longDate(clock.value)) was preserved "
-            + "and may include unattended time."
+        let expected = "App use from before \(Tokens.longDate(clock.value)) was kept as it was "
+            + "and may include time when nobody was at the Mac."
         expect(store.selectedDayIntegrityNote == expected,
                "the selected pre-accuracy day shows the approved warning", &problems)
         store.selectDay(offset: 2)
@@ -205,8 +205,8 @@ extension SelfTest {
         expect(store.selectedDayIntegrityNote == nil,
                "the post-epoch anchor day itself has no legacy warning", &problems)
 
-        let expected = "App usage from before \(Tokens.longDate(accurateFrom)) was preserved "
-            + "and may include unattended time."
+        let expected = "App use from before \(Tokens.longDate(accurateFrom)) was kept as it was "
+            + "and may include time when nobody was at the Mac."
         store.period = .week
         expect(store.selectedDayIntegrityNote == expected,
                "Week warns when any selected day contains legacy usage", &problems)

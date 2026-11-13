@@ -48,7 +48,7 @@ extension SessionStore {
         }
         guard applied else {
             activityAutomationError = engine.awayDecisionError
-                ?? "The automatic activity could not be saved. Current work was preserved."
+                ?? "The automatic activity could not be saved. Current work was kept. Try again."
             refresh()
             return nil
         }
@@ -71,7 +71,7 @@ extension SessionStore {
         // leaves the invented stretch out of history.
         guard engine.discard() else {
             activityAutomationError = engine.awayDecisionError
-                ?? "The automatic activity could not be undone. Current work was preserved."
+                ?? "The automatic activity could not be undone. Current work was kept. Try again."
             refresh()
             return false
         }

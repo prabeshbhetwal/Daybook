@@ -13,6 +13,9 @@ enum SettingsLayout {
     static var sheetMaximumHeight: CGFloat { 740.zoomed }
     /// The Settings window can shrink to this; its page scrolls below it.
     static var minimumWindowHeight: CGFloat { 420.zoomed }
+    /// The sidebar beside a page that still reads, so the window fits a
+    /// laptop screen at the largest zoom.
+    static var minimumWindowWidth: CGFloat { 680.zoomed }
     /// Room kept to the window's edge when the window is smaller than the
     /// sheet would like to be.
     static var windowMargin: CGFloat { 40.zoomed }
@@ -124,6 +127,9 @@ struct SettingsView: View {
         }
         .padding(Tokens.Space.xl)
         .frame(maxWidth: SettingsLayout.detailMeasure + Tokens.Space.xl * 2, alignment: .topLeading)
+        // A wide window centres the reading measure rather than leaving
+        // every spare point on the right.
+        .frame(maxWidth: .infinity, alignment: .top)
         .accessibilitySortPriority(1)
 
         if scrolls {
@@ -145,13 +151,8 @@ struct SettingsView: View {
     private func pageBinding(in pages: [SettingsPage]) -> Binding<SettingsPage> {
         Binding(
             get: { visiblePage(in: pages) ?? SettingsPage(section: navigation.settingsSection) },
-            set: { page in
-                // A page change is a view being replaced; give it a transaction.
-                if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-                    navigation.settingsSection = page.sections[0]
-                } else {
-                    withAnimation(Tokens.Motion.swap) { navigation.settingsSection = page.sections[0] }
-                }
-            })
+            // Panes swap at once, as in System Settings: a sidebar is
+            // clicked too often for a crossfade to be anything but a wait.
+            set: { page in navigation.settingsSection = page.sections[0] })
     }
 }

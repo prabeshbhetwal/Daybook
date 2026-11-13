@@ -70,7 +70,7 @@ struct SettingsGroups: View {
                 toggleRow("Ask before changing how a break counts", isOn: asks(.changeBreak))
                 rowDivider
                 toggleRow("Ask before removing a session", isOn: asks(.removeSession))
-                explanation("Undo works either way. Deletes Undo can't reverse always ask.")
+                explanation("Undo works either way. Anything Undo can't reverse always asks first.")
             }
             if model.canReplayWelcome {
                 SurfacePanel(title: "Getting started", layout: layout) {
@@ -78,21 +78,19 @@ struct SettingsGroups: View {
                     // last card, can be picked up where it was left.
                     explanation(model.interruptedWelcomeChapter.map {
                         "Stopped at chapter \($0.number), \($0.title)."
-                    } ?? "Twelve short chapters, about seven minutes.")
+                    } ?? "Seven short chapters, a few minutes.")
                     HStack(spacing: Tokens.Space.s) {
                         if let chapter = model.interruptedWelcomeChapter {
-                            Button("Continue the tour") { model.resumeWelcome() }
+                            Button("Continue the Tour") { model.resumeWelcome() }
                                 .buttonStyle(.borderedProminent)
-                                .controlSize(Tokens.Zoom.controlSize(.large))
                                 .accessibilityHint("Closes Settings and picks the introduction up at chapter "
                                                    + "\(chapter.number), \(chapter.title)")
                         }
-                        Button(model.interruptedWelcomeChapter == nil ? "Show the tour again"
-                                                                      : "Start from the beginning") {
+                        Button(model.interruptedWelcomeChapter == nil ? "Show the Tour Again"
+                                                                      : "Start From the Beginning") {
                             model.replayWelcome()
                         }
                         .buttonStyle(.bordered)
-                        .controlSize(Tokens.Zoom.controlSize(.large))
                         .accessibilityHint("Closes Settings and runs the introduction over the story")
                     }
                 }
@@ -107,7 +105,7 @@ struct SettingsGroups: View {
     private static let loginApproval = "Approve Daybook in System Settings › General › Login Items."
 
     private var loginItemMessage: String? {
-        model.loginItemError.map { "Could not change the login item: \($0)" }
+        model.loginItemError.map { "Could not change the login item: \($0) Try again, or use System Settings › General › Login Items." }
     }
 
     /// Said only where the menu leaves it unclear: the app's menus come and
@@ -252,7 +250,11 @@ struct SettingsGroups: View {
     }
 
     private var tracking: some View {
-        SurfacePanel(title: "Tracking and apps", layout: layout) {
+        SurfacePanel(title: "App use", layout: layout) {
+            // First, because it decides whether the two rows below have
+            // anything to show.
+            toggleRow("Record app use", detail: "Off, Story shows sessions only.", isOn: $model.isTrackingEnabled)
+            rowDivider
             preferenceRow("Apps shown in a card") {
                 RowMenu("Apps shown in a card", selection: $model.railAppCount,
                         options: FocusConstants.railAppOptions) { "\($0)" }
@@ -262,8 +264,6 @@ struct SettingsGroups: View {
                 RowMenu("Recent app visits", selection: $model.menuSessionCount,
                         options: [3, 5, 7, 10]) { "\($0)" }
             }
-            rowDivider
-            toggleRow("Record app usage", detail: "Off, Story shows sessions only.", isOn: $model.isTrackingEnabled)
         }
     }
 

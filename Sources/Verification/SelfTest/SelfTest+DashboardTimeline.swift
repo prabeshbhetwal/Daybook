@@ -89,8 +89,6 @@ extension SelfTest {
         expect(segments.count == 3, "three segments, got \(segments.count)", &problems)
         expect(segments.map(\.start) == segments.map(\.start).sorted(),
                "segments must be ordered by start", &problems)
-        expect(segments.filter { $0.bundleID == "com.a" }.allSatisfy { $0.colorIndex == 0 },
-               "the busiest app takes index 0 for all its segments", &problems)
 
         let ranked = stats.rankedApps(for: base)
         expect(ranked.count == 2, "two apps, got \(ranked.count)", &problems)

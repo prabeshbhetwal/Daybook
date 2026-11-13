@@ -1,10 +1,10 @@
 import CoreGraphics
 import Foundation
 
-/// The interface zoom's steps, as percents: 80 to 140 in tens. Pure, so every
+/// The interface zoom's steps, as percents: 80 to 160 in tens. Pure, so every
 /// reader of a stored or typed value lands on the same step.
 enum InterfaceZoom {
-    static let percents = [80, 90, 100, 110, 120, 130, 140]
+    static let percents = Array(stride(from: 80, through: 160, by: 10))
     static let defaultPercent = 100
 
     /// The step nearest a scale (1.2 is 120%), ties rounding up. A scale

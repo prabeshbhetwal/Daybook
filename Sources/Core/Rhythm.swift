@@ -1,14 +1,14 @@
 import Foundation
 
 /// One hour of the day's rhythm: how long the Mac was in use, and which app
-/// (by its day rank) took most of it. Pure, so the chart can be tested without
-/// a window.
+/// took most of it. Pure, so the chart can be tested without a window.
 struct RhythmHour: Identifiable, Equatable {
     let hour: Date
     let seconds: TimeInterval
-    /// The dominant app's palette index for the hour; 6 (Other) when nothing
-    /// was recorded, which the chart draws as an empty slot.
-    let colorIndex: Int
+    /// The app that held the hour, named so its icon can stand under the bar.
+    /// nil when nothing was recorded, and for a figure that sums many apps.
+    var topBundleID: String?
+    var topAppName: String?
     var id: Date { hour }
 }
 
@@ -25,7 +25,8 @@ enum Rhythm {
         var result: [RhythmHour] = []
         while cursor < window.end && result.count < 48 {
             guard let next = calendar.date(byAdding: .hour, value: 1, to: cursor) else { break }
-            var byColor: [Int: TimeInterval] = [:]
+            var byApp: [String: TimeInterval] = [:]
+            var names: [String: String] = [:]
             var total: TimeInterval = 0
             for segment in segments {
                 let start = max(segment.start, cursor)
@@ -33,12 +34,14 @@ enum Rhythm {
                 guard end > start else { continue }
                 let seconds = end.timeIntervalSince(start)
                 total += seconds
-                byColor[segment.colorIndex, default: 0] += seconds
+                byApp[segment.bundleID, default: 0] += seconds
+                if names[segment.bundleID] == nil { names[segment.bundleID] = segment.appName }
             }
-            let dominant = byColor.max { left, right in
+            let dominant = byApp.max { left, right in
                 left.value == right.value ? left.key > right.key : left.value < right.value
-            }?.key ?? 6
-            result.append(RhythmHour(hour: cursor, seconds: total, colorIndex: dominant))
+            }?.key
+            result.append(RhythmHour(hour: cursor, seconds: total, topBundleID: dominant,
+                                     topAppName: dominant.flatMap { names[$0] }))
             cursor = next
         }
         return result
@@ -47,8 +50,9 @@ enum Rhythm {
     /// Twenty-four clock hours, 12 am to 11 pm, for figures summed over many
     /// days. They sit on a fixed day with no clock change: on a day whose
     /// clocks go forward, start of day plus 2 hours is 3 am, and every label
-    /// after it reads an hour late.
-    static func clockHours(colorIndex: Int, calendar: Calendar,
+    /// after it reads an hour late. `app` is the one app the figures are for,
+    /// or nil when they sum every app.
+    static func clockHours(app: (bundleID: String, name: String)? = nil, calendar: Calendar,
                            seconds: (Int) -> TimeInterval) -> [RhythmHour] {
         var reference = DateComponents()
         reference.calendar = calendar
@@ -59,7 +63,10 @@ enum Rhythm {
         let start = calendar.date(from: reference) ?? Date(timeIntervalSince1970: 0)
         return (0..<24).compactMap { hour -> RhythmHour? in
             guard let date = calendar.date(byAdding: .hour, value: hour, to: start) else { return nil }
-            return RhythmHour(hour: date, seconds: seconds(hour), colorIndex: colorIndex)
+            let used = seconds(hour)
+            return RhythmHour(hour: date, seconds: used,
+                              topBundleID: used > 0 ? app?.bundleID : nil,
+                              topAppName: used > 0 ? app?.name : nil)
         }
     }
 

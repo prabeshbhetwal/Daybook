@@ -35,13 +35,13 @@ extension SessionStore {
                               engine.sessionStartDate)
     }
 
-    /// `6h 55m on this today · 6 stretches since 9:10 am`, or nil for a first
+    /// `6h 55m on this activity today · 6 stretches since 9:10 am`, or nil for a first
     /// stretch. The thread's total lives here, under the clock, so it can
     /// never be mistaken for the timer — which is the current stretch.
     var threadSummaryLine: String? {
         guard state != .idle, threadSegments > 1, let began = threadStartedAt else { return nil }
         let at = Tokens.timeOfDay(began).replacingOccurrences(of: "since ", with: "")
-        return "\(Tokens.duration(threadElapsed)) on this today · "
+        return "\(Tokens.duration(threadElapsed)) on this activity today · "
             + "\(threadSegments) stretches since \(at)"
     }
 
@@ -51,10 +51,10 @@ extension SessionStore {
     var continuationNote: String? {
         guard state != .idle else { return nil }
         if !engine.returnKeepsThread {
-            return "Not counted. You're in \(engine.currentAppName) now — "
+            return "Not counted. You're in \(engine.currentAppName) now, and "
                 + "\(activeIntent) stays in Continue today."
         }
-        return "Not counted. \(activeIntent) continues — "
+        return "Not counted. \(activeIntent) continues, "
             + "\(Tokens.duration(threadElapsed)) so far."
     }
 

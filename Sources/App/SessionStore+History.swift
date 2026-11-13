@@ -223,9 +223,9 @@ extension SessionStore {
             if usage.containsUsage(in: DateInterval(start: selectedBounds.start,
                                                     end: selectedBounds.end),
                                                     before: accuracyEpoch) {
-                selectedDayIntegrityNote = "App usage from before "
-                    + "\(Tokens.longDate(accuracyEpoch)) was preserved "
-                    + "and may include unattended time."
+                selectedDayIntegrityNote = "App use from before "
+                    + "\(Tokens.longDate(accuracyEpoch)) was kept as it was "
+                    + "and may include time when nobody was at the Mac."
             } else {
                 selectedDayIntegrityNote = nil
             }
@@ -305,12 +305,10 @@ extension SessionStore {
         earlierToday = rankedApps
             .filter { !runningIDs.contains($0.bundleID) }
             .prefix(engine.store.menuAppCount)
-            .enumerated()
-            .map { index, rank in
+            .map { rank in
                 AppDayHistory(bundleID: rank.bundleID,
                               appName: rank.appName,
                               total: rank.total,
-                              colorIndex: min(index, 6),
                               sessions: stats.sessions(for: day, bundleID: rank.bundleID)
                                   .sorted { $0.start > $1.start })
             }
@@ -478,9 +476,8 @@ extension SessionStore {
     /// `Browsing · Deep work · 2:24 pm – 3:11 pm`: the time tells apart
     /// sessions that share a name.
     static func legacyFocusTargetLabel(_ record: SessionRecord) -> String {
-        let time = DateFormats.australian("h:mm a")
-        return "\(record.name.isEmpty ? "Unnamed session" : record.name) · \(record.workType.displayName) · "
-            + "\(time.string(from: record.start)) – \(time.string(from: record.end))"
+        "\(record.name.isEmpty ? "Unnamed session" : record.name) · \(record.workType.displayName) · "
+            + DateFormats.clockRange(record.start, record.end)
     }
 
     func legacyBreakRecord(id: UUID) -> SessionRecord? {
@@ -521,7 +518,7 @@ extension SessionStore {
         }
         let target = focusTargetID.flatMap { id in engine.archive.records.first { $0.id == id } }
         let saved = engine.reclassifyLegacyBreak(recordID: recordID, decision: decision, focusTargetID: focusTargetID)
-        publishCorrectionError(saved ? nil : engine.awayDecisionError ?? "This break changed. Its newer evidence was preserved.")
+        publishCorrectionError(saved ? nil : engine.awayDecisionError ?? "This break changed. Its newer changes were kept. Review the day, then try again.")
         if saved { correctionRetry = nil }
         else { correctionRetry = .legacy(record: original, decision: decision, target: target) }
         refresh()
@@ -615,7 +612,7 @@ extension SessionStore {
     @discardableResult
     func removeSession(_ session: DaySession) -> Bool {
         guard canRemoveSession(session) else {
-            publishCorrectionError("This session is running or waiting on an answer, so it cannot be removed yet.")
+            publishCorrectionError("This session is running or waiting on an answer, so it cannot be removed yet. Stop it or answer first.")
             return false
         }
         guard engine.prepareCorrection() else {
@@ -657,7 +654,7 @@ extension SessionStore {
                 if engine.decisionHistory.pendingAfterIsCommitted(in: engine.archive),
                    (pending.after.correctionGeneration ?? 0) <= engine.decisionHistoryRevision,
                    let completed = retryCurrentTerminalIntent(retry) { return completed }
-                publishCorrectionError("That Retry belongs to a different action. The pending correction was preserved.")
+                publishCorrectionError("That retry belongs to a different action. The pending correction was kept. Use the retry shown now.")
                 return false
             }
             guard engine.prepareCorrection() else {
@@ -691,14 +688,14 @@ extension SessionStore {
         switch retry {
         case .ending(let thread, let start):
             guard engine.state != .idle, engine.activeThreadID == thread, engine.sessionStartDate == start else {
-                publishCorrectionError("That Retry belongs to an earlier session. Current work was preserved.")
+                publishCorrectionError("That retry belongs to an earlier session. Current work was kept. Use the retry shown now.")
                 return false
             }
             stop()
             return engine.state == .idle && engine.awayDecisionError == nil
         case .discarding(let thread, let start, let resumeTracking):
             guard engine.state != .idle, engine.activeThreadID == thread, engine.sessionStartDate == start else {
-                publishCorrectionError("That Retry belongs to an earlier automatic session. Current work was preserved.")
+                publishCorrectionError("That retry belongs to an earlier automatic session. Current work was kept. Use the retry shown now.")
                 return false
             }
             return undoAutoSession(resumeTracking: resumeTracking)
@@ -714,16 +711,17 @@ extension SessionStore {
 
     @discardableResult
     func undoLastCorrection() -> Bool {
-        if engine.lastAwayDecision?.isResolved == true,
-           (engine.lastAwayDecision?.sequence ?? 0) >= (lastCorrection?.sequence ?? 0) { return undoAwayDecision() }
-        guard let state = lastCorrection else { return false }
-        return undo(state)
+        switch lastUndo {
+        case .awayAnswer?: return undoAwayDecision()
+        case .field(let state)?: return undo(state)
+        case nil: return false
+        }
     }
 
     @discardableResult
     func undoCorrection(expectedID: UUID) -> Bool {
         guard let correction = corrections.first(where: { $0.id == expectedID }) else {
-            publishCorrectionError("That correction is no longer available. Later work was preserved.")
+            publishCorrectionError("That correction is no longer available. Later work was kept. Reopen the day to see what is there now.")
             return false
         }
         return undo(correction)
@@ -790,7 +788,7 @@ extension SessionStore {
         }) else {
             // The success branches above necessarily carry a prior field value;
             // keep this fail-closed guard rather than inventing one for Undo.
-            publishCorrectionError("Could not retain the original correction value.")
+            publishCorrectionError("Could not keep the original value for Undo. Nothing was changed. Try again.")
             return false
         }
 
@@ -826,7 +824,7 @@ extension SessionStore {
             let records = state.removedRecords ?? []
             let present = Set(engine.archive.records.map(\.id))
             guard !records.isEmpty, records.allSatisfy({ !present.contains($0.id) }) else {
-                publishCorrectionError("That session is already back, or its stretches were rewritten since.")
+                publishCorrectionError("That session is already back, or its stretches were rewritten since. Reopen the day to see it.")
                 return false
             }
             guard engine.commitCorrection(before: before, removing: [], adding: records,
@@ -844,7 +842,7 @@ extension SessionStore {
         let originals = Dictionary(uniqueKeysWithValues: (state.archiveSnapshot?.fields ?? []).map { ($0.recordID, $0) })
         let existingIDs = Set(engine.archive.records.map(\.id))
         guard Set(originals.keys).isSubset(of: existingIDs) else {
-            publishCorrectionError("An originally corrected record is not currently available. Restore its classification before undoing this field.")
+            publishCorrectionError("The original record is not available. Restore its category first, then undo this change.")
             correctionRetry = .undo(state)
             return false
         }
@@ -894,7 +892,7 @@ extension SessionStore {
     }
 
     private func correctionConflict(_ state: SessionStoreCorrectionState) -> Bool {
-        publishCorrectionError("This field changed after the correction. Its newer value was preserved.")
+        publishCorrectionError("This field changed after the correction. Its newer value was kept. Review it, then try again.")
         correctionRetry = .undo(state)
         return false
     }

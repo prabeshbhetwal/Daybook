@@ -80,6 +80,9 @@ struct MainWindowView: View {
             }
         }
         .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+        // The failure card in the underline mounts with the failure, so the
+        // announcement sits here, on the window, which is already there.
+        .announcesChanges(to: store.focusOperationFailureAnnouncement)
         // The open report is modal: what is dimmed behind it can be neither
         // tabbed into nor read, so the keyboard and VoiceOver stay inside it.
         .disabled(navigation.reportSession != nil)
@@ -119,6 +122,10 @@ struct MainWindowView: View {
         .frame(minWidth: minimum.width, minHeight: minimum.height)
         .background(ZoomWindowFit(base: Self.contentBase(askPanelOpen: askPanelShown)) { screenVisible.value = $0 })
         .background(StoryStyle.canvas)
+        // The title bar is hidden, but the window's name is still what the
+        // Window menu, Mission Control and the Dock menu list it by.
+        .navigationTitle(windowTitle.title)
+        .navigationSubtitle(windowTitle.subtitle)
         .environment(\.focusInterfaceDensity, settings.interfaceDensity)
         .zoomRoot()
         .environment(\.focusShowsTimelineLabels, settings.showsTimelineLabels)
@@ -163,6 +170,11 @@ struct MainWindowView: View {
     }
 
     private var underlineShown: Bool { SessionUnderline.hasContent(store) }
+
+    private var windowTitle: MainWindowChrome.WindowTitle {
+        MainWindowChrome.windowTitle(workspace: navigation.workspace, storyDay: store.selectedDay,
+                                     historyDay: navigation.reviewSelectedDate, now: store.now())
+    }
 
     /// What the window attaches as a sheet: Awards and Ask. Settings has a
     /// window of its own (`SettingsWindow`), so it is never one.

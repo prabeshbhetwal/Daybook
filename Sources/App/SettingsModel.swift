@@ -142,15 +142,15 @@ struct SettingsDiagnostics {
         // notices, and the only explanation is here.
         if sessions?.isReadOnly == true {
             notes.append("Session history is read-only because sessions.json could not be read "
-                + "or set aside. Its bytes are unchanged.")
+                + "or set aside. The file was left as it is; Reveal Data Folder finds it.")
         } else if let aside = latestSetAside(prefix: "sessions-corrupt-", in: dataDirectory,
                                              fileManager: fileManager) {
             notes.append("Session history that could not be read was set aside as "
                 + "\(aside.lastPathComponent) and is not shown.")
         }
         if usage.isReadOnly {
-            notes.append("App usage is read-only because its file or journal could not be read "
-                + "or safely rewritten.")
+            notes.append("App use is read-only because its file or journal could not be read "
+                + "or safely rewritten. Reveal Data Folder finds it.")
         } else if backup != nil {
             notes.append("Older app use was upgraded only after a copy of the original file was kept.")
         }
@@ -212,16 +212,8 @@ struct SettingsDiagnostics {
         version: "Development",
         build: "Unnumbered")
 
-    private static let accuracyDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.dateFormat = "EEEE d MMMM yyyy"
-        return formatter
-    }()
-
     static func accuracyEpochLabel(_ date: Date) -> String {
-        accuracyDateFormatter.string(from: date)
+        DateFormats.localized("EEEEdMMMMy").string(from: date)
     }
 }
 

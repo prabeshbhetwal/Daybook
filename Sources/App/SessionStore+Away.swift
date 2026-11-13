@@ -89,7 +89,7 @@ extension SessionStore {
             ?? (expectedID == nil ? engine.lastAwayDecision?.id : nil)) : engine.pendingDecisionID
         guard let id = currentID, expectedID == nil || expectedID == id else {
             if reviewing || expectedID != nil {
-                publishCorrectionError("That interval was retired or changed. The current record was not changed.")
+                publishCorrectionError("That stretch changed. The current record was not changed. Reopen the day and try again.")
                 correctionRetry = nil
             }
             return false
@@ -122,7 +122,7 @@ extension SessionStore {
         guard let id = expectedID.flatMap({ engine.awayDecision(id: $0)?.id })
             ?? (expectedID == nil ? engine.lastAwayDecision?.id : nil) else {
             if expectedID != nil {
-                publishCorrectionError("That Undo belongs to an earlier action. The current record was not changed.")
+                publishCorrectionError("That Undo belongs to an earlier action. The current record was not changed. Use the Undo shown now.")
                 correctionRetry = nil
             }
             return false
@@ -134,7 +134,9 @@ extension SessionStore {
         }
         correctionRetry = nil
         publishCorrectionError(nil)
-        publishCanUndoCorrection(false)
+        // An earlier field correction can still be undone: taking an away
+        // answer back must not end the chain.
+        publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
         apply(engine.state)
         return true
     }
@@ -143,7 +145,7 @@ extension SessionStore {
     @discardableResult
     func nameBreak(decisionID: UUID, titled name: String) -> Bool {
         guard engine.nameBreak(decisionID: decisionID, to: name) else {
-            publishCorrectionError(engine.awayDecisionError ?? "The break could not be renamed.")
+            publishCorrectionError(engine.awayDecisionError ?? "Couldn't rename the break. Try again.")
             return false
         }
         publishCorrectionError(nil)

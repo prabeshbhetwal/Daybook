@@ -127,7 +127,7 @@ extension ActivityRuleChecks {
         if result.map(\.bundleID) != ["com.example.code", "com.example.missing"] {
             failures.append("Injected catalog sources were not stably deduplicated")
         }
-        if result.last?.displayName != "Old App — Missing" {
+        if result.last?.displayName != "Old App (missing)" {
             failures.append("Missing observed application lacked an honest label")
         }
         return failures

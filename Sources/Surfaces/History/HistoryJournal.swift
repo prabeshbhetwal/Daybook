@@ -31,8 +31,8 @@ struct HistoryWorkspace: View {
 /// A month's name, for the search results' month lines, read in the zone of
 /// the calendar that worked the month out.
 enum HistoryMonthHeader {
-    static func title(_ start: Date, in timeZone: TimeZone) -> String {
-        DateFormats.australian("MMMM yyyy", in: timeZone).string(from: start)
+    static func title(_ start: Date, in timeZone: TimeZone, locale: Locale = .current) -> String {
+        DateFormats.monthYear(start, locale: locale, in: timeZone)
     }
 }
 
@@ -69,7 +69,7 @@ enum HistoryDayHeader {
         return true
     }
 
-    static func title(_ date: Date, isToday: Bool) -> String {
-        isToday ? "Today" : DateFormats.australian("EEE d MMM").string(from: date)
+    static func title(_ date: Date, isToday: Bool, locale: Locale = .current) -> String {
+        isToday ? "Today" : DateFormats.shortDay(date, locale: locale)
     }
 }

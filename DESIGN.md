@@ -12,7 +12,7 @@ record the tested behaviour and remaining manual-verification limits.
 
 ## Composition
 
-A persistent native chrome row holds day navigation (History: Jump to date)
+A persistent native chrome row holds day navigation (History: Go to Date)
 and session controls. A readable Story column sits beside a 300-point supporting rail.
 The canvas is warm off-white (`#FBFAF8`) with white entry cards; the rail is a
 subtle neutral layer over the warm base. Dark appearance retains the same
@@ -47,8 +47,11 @@ Focus identity is indigo, separate from blue action. The reference's `#4E4CCC`
 is used for light-appearance emphasis; dark-appearance text uses `#B6B3FF`
 to stay readable on dark cards instead of copying a low-contrast saturated fill
 into small labels. Action blue is `#0071E3` / `#75B5FF`. Work types retain stable
-identities; app colours are consistent within
-the day or month shown. Colour never implies goal credit where only focused duration
+identities. Apps have none: every app mark (bars, strips, swatches, dots) is the
+one app-use accent, and apps are told apart by a 1pt divider where the app
+changes on a strip, the app's icon where a segment or hour column is wide enough
+(24pt at 100% zoom), and the app's name in the tooltip and accessibility label.
+Colour never implies goal credit where only focused duration
 is known. Native controls preserve visible keyboard focus.
 
 Supporting text that has to be read (a role under a label, a footer line, a
@@ -91,7 +94,7 @@ any other.
 One row: a slot for the way back, the workspace's controls, the session
 control, Ask, Settings. The slot is the width of one round button and is empty on
 the Story; History puts a bare back arrow in it. The Story's controls are its
-day arrows and date, with a History link; History's is Jump to date, which
+day arrows and date, with a History link; History's is Go to Date, which
 opens the calendar. The bar holds controls and the way back, never a title, and
 History's search heads its page rather than sitting in the bar. The
 session control never wraps.

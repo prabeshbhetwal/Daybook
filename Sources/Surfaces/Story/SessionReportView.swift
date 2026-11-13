@@ -31,7 +31,6 @@ struct SessionReport {
     let power: PowerContextSummary?
     /// Each visit's power reading, by interval id, only where it changed.
     let powerChanges: [String: PowerReading]
-    let appColourIndices: [String: Int]
     /// Why each listed gap is there, by interval id.
     var gapReasons: [String: StoryGapReason] = [:]
 
@@ -95,35 +94,8 @@ struct SessionReport {
                              powerChanges: PowerReading.changes(
                                  across: detail.activity.intervals,
                                  in: store.powerObservations(for: session.recordIDs)),
-                             appColourIndices: colourIndices(apps: detail.apps,
-                                                             dayIndices: store.storyAppColourIndices),
                              gapReasons: gapReasons(listing(detail.activity.intervals), store: store,
                                                     day: session.start))
-    }
-
-    /// The day's palette names its busiest apps; anything below that shares
-    /// "Other" grey, which in a full list put two neighbours in one colour.
-    /// Apps with a day colour keep it; the rest take the unused colours in
-    /// rank order, and only past the sixth does grey return.
-    static func colourIndices(apps: [AppRank], dayIndices: [String: Int]) -> [String: Int] {
-        let distinct = Tokens.Palette.distinctAppColourCount
-        var result: [String: Int] = [:]
-        var used = Set<Int>()
-        for app in apps {
-            if let index = dayIndices[app.bundleID], index < distinct {
-                result[app.bundleID] = index
-                used.insert(index)
-            }
-        }
-        for app in apps where result[app.bundleID] == nil {
-            if let free = (0..<distinct).first(where: { !used.contains($0) }) {
-                result[app.bundleID] = free
-                used.insert(free)
-            } else {
-                result[app.bundleID] = distinct
-            }
-        }
-        return result
     }
 }
 
@@ -185,16 +157,34 @@ final class EscapeKeyMonitor: ObservableObject {
     deinit { remove() }
 }
 
+/// A report and its activity list, kept for a session that has finished:
+/// nothing in it changes while the card is open, though the store publishes
+/// every second. A running session's is rebuilt as it grows.
+final class SessionReportCache: ObservableObject {
+    private var built: (report: SessionReport, list: ReportActivityList)?
+
+    func build(for session: DaySession, store: SessionStore) -> (report: SessionReport, list: ReportActivityList) {
+        if !session.isRunning, let built, built.report.session == session { return built }
+        let report = SessionReport.make(for: session, store: store)
+        let list = ReportActivityList.make(
+            listed: report.listedIntervals, power: report.power(for:),
+            gapTitle: { report.gapReasons[$0.id]?.title ?? "Not recorded" })
+        built = (report, list)
+        return (report, list)
+    }
+}
+
 struct SessionReportCard: View {
     @ObservedObject var store: SessionStore
     let session: DaySession
     let onClose: () -> Void
+    @StateObject private var cache = SessionReportCache()
 
     var body: some View {
-        let report = SessionReport.make(for: session, store: store)
+        let (report, list) = cache.build(for: session, store: store)
         StorySheet(title: "Session report", onClose: onClose) {
             ScrollView {
-                SessionReportView(report: report)
+                SessionReportView(report: report, activityList: list)
                     .padding(Tokens.Space.xl)
             }
         }
@@ -211,6 +201,9 @@ struct SessionReportCard: View {
 /// summarised away — that is the point of asking for it.
 struct SessionReportView: View {
     let report: SessionReport
+    /// The Recorded activity rows and their column widths, worked out once
+    /// with the report rather than with each draw of it.
+    let activityList: ReportActivityList
     @Environment(\.focusInterfaceDensity) private var density
 
     private var session: DaySession { report.session }
@@ -327,7 +320,7 @@ struct SessionReportView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .frame(minHeight: 28.zoomed)
+                .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Stretch \(index + 1), \(report.stretchWhen(stretch, joiner: "to")), "
                                     + Tokens.spent(stretch.worked)
@@ -338,27 +331,23 @@ struct SessionReportView: View {
 
     private var apps: some View {
         section("Every app in this session") {
-            ForEach(Array(report.apps.enumerated()), id: \.element.id) { index, app in
-                StoryAppRow(app: app, rank: report.appColourIndices[app.bundleID] ?? index)
+            ForEach(Array(report.apps.enumerated()), id: \.element.id) { _, app in
+                StoryAppRow(app: app)
             }
         }
     }
 
     private var activity: some View {
         section("Recorded activity") {
-            StoryShapeChart(activity: report.detail.activity, appColourIndices: report.appColourIndices,
-                            runsListedBelow: true)
+            StoryShapeChart(activity: report.detail.activity, runsListedBelow: true)
             // Latest first: the reader opens a report to see where it ended.
             // The chart above stays left-to-right in time.
-            VStack(spacing: 0) {
-                let listed = report.listedIntervals
-                ForEach(Array(listed.reversed().enumerated()), id: \.element.id) { index, interval in
-                    ReportActivityRow(interval: interval,
-                                      colourRank: interval.bundleID.flatMap { report.appColourIndices[$0] }
-                                          ?? Tokens.Palette.distinctAppColourCount,
-                                      power: report.power(for: interval),
-                                      gapTitle: report.gapReasons[interval.id]?.title ?? "Not recorded")
-                    if index < listed.count - 1 { Divider() }
+            // Lazy: a session of hundreds of visits builds the rows in view.
+            // The report scrolls in its card, so nothing pins.
+            LazyVStack(spacing: 0) {
+                ForEach(Array(activityList.rows.enumerated()), id: \.element.id) { index, model in
+                    ReportActivityRow(model: model, widths: activityList.widths).equatable()
+                    if index < activityList.rows.count - 1 { Divider() }
                 }
             }
         }
@@ -369,7 +358,6 @@ struct SessionReportView: View {
             Text(title)
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(StoryStyle.supportingInk)
-                .textCase(.uppercase)
                 .accessibilityAddTraits(.isHeader)
             content()
         }

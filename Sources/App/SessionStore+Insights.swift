@@ -107,11 +107,7 @@ struct InsightSurface: Equatable {
         components.year = 2001; components.month = 1; components.day = 15
         components.hour = min(24, hour) % 24
         guard let date = calendar.date(from: components) else { return "\(hour)" }
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = calendar.timeZone
-        formatter.setLocalizedDateFormatFromTemplate("j")
-        return formatter.string(from: date).lowercased()
+        return DateFormats.hourLabel(date, in: calendar.timeZone)
     }
 
     static func showsRangeSelector(week: InsightSurface,
@@ -133,9 +129,9 @@ struct InsightSurface: Equatable {
         return Insight(
             id: "pace",
             headline: headline,
-            detail: "\(Tokens.preciseDuration(goal.achieved)) focused-active today; "
-                + "\(Tokens.preciseDuration(typical)) is the personal median by this local time "
-                + "across at least three authoritative active days.",
+            detail: "\(Tokens.preciseDuration(goal.achieved)) focused today; "
+                + "\(Tokens.preciseDuration(typical)) is your median by this time of day "
+                + "across at least three full days.",
             symbolName: "gauge.with.dots.needle.50percent")
     }
 
@@ -143,12 +139,12 @@ struct InsightSurface: Equatable {
         let present = hours.filter { $0.seconds > 0 }
         guard !present.isEmpty, let peak else { return nil }
         let total = present.reduce(0) { $0 + $1.seconds }
-        let bucket = present.count == 1 ? "recorded hourly bucket" : "recorded hourly buckets"
+        let bucket = present.count == 1 ? "recorded hour" : "recorded hours"
         return Insight(
             id: "rhythm",
-            headline: "\(peak) was the busiest verified period",
+            headline: "\(peak) was the busiest period",
             detail: "\(Tokens.preciseDuration(total)) at the Mac across "
-                + "\(present.count) \(bucket), summed from canonical tracked app usage.",
+                + "\(present.count) \(bucket), summed from recorded app use.",
             symbolName: "waveform.path.ecg")
     }
 
@@ -161,11 +157,11 @@ struct InsightSurface: Equatable {
         let sessionWord = quality.sessionCount == 1 ? "focus session" : "focus sessions"
         let supplies = quality.sessionCount == 1 ? "supplies" : "supply"
         var details = [
-            "\(quality.sessionCount) recorded \(sessionWord) \(supplies) the work-type composition"
+            "\(quality.sessionCount) recorded \(sessionWord) \(supplies) the category mix"
         ]
         if quality.insideSessionShare > 0 {
             details.append(
-                "\(percentageText(quality.insideSessionShare)) of tracked time "
+                "\(percentageText(quality.insideSessionShare)) of recorded time "
                     + "fell inside a focus session")
         }
         if quality.switchesPerSession > 0 {
@@ -187,7 +183,7 @@ struct InsightSurface: Equatable {
 
     private static func rateText(_ value: Double) -> String {
         if value > 0 && value < 0.1 { return "<0.1" }
-        return String(format: "%.1f", value)
+        return DurationText.oneDecimal(value)
     }
 
     private static func continuityInsight(range: InsightRange,
@@ -206,7 +202,7 @@ struct InsightSurface: Equatable {
             } else {
                 dayCount = "\(activeDays) " + (activeDays == 1 ? "day" : "days")
             }
-            headline = "\(dayCount) had tracked time \(range.periodPhrase)"
+            headline = "\(dayCount) had recorded time \(range.periodPhrase)"
         } else {
             headline = streak == 1 ? "1-day current focus streak"
                                    : "\(streak)-day current focus streak"
@@ -214,8 +210,8 @@ struct InsightSurface: Equatable {
 
         var details: [String] = []
         if activeDays > 0 {
-            details.append("An active day here is a complete post-accuracy day with "
-                           + "non-zero canonical tracked time")
+            details.append("An active day here is a full day, measured precisely, with "
+                           + "some recorded time")
         }
         if streak > 0 {
             let streakText = streak == 1 ? "the current focus streak is 1 day"
@@ -226,12 +222,12 @@ struct InsightSurface: Equatable {
         if let comparableTracked, tracked > 0, comparableTracked > 0 {
             let difference = tracked - comparableTracked
             if abs(difference) < 60 {
-                details.append("tracked time matches the like-for-like previous period")
+                details.append("recorded time matches the previous period of the same length")
             } else {
                 details.append(
                     "\(Tokens.preciseDuration(abs(difference))) "
-                        + "\(difference > 0 ? "more" : "less") tracked than the "
-                        + "like-for-like previous period")
+                        + "\(difference > 0 ? "more" : "less") recorded than the "
+                        + "previous period of the same length")
             }
         }
         return Insight(id: "continuity", headline: headline,
@@ -367,8 +363,8 @@ extension SessionStore {
                     += hour.seconds
             }
         }
-        let hours = Rhythm.clockHours(colorIndex: 6, calendar: calendar) { byClockHour[$0] ?? 0 }
-        let peak = Rhythm.peakLabel(hours) { DateFormats.australian("ha", in: calendar.timeZone).string(from: $0) }
+        let hours = Rhythm.clockHours(calendar: calendar) { byClockHour[$0] ?? 0 }
+        let peak = Rhythm.peakLabel(hours) { DateFormats.hourLabel($0, in: calendar.timeZone) }
         return (hours, peak)
     }
 

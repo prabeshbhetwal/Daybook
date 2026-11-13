@@ -118,8 +118,8 @@ extension SessionStore {
             $0.end > bounds.start && $0.start < legacyEnd
         }
         reviewIntegrityNote = containsLegacy
-            ? "App usage from before \(Tokens.longDate(snapshot.accurateFrom)) was preserved "
-                + "and may include unattended time."
+            ? "App use from before \(Tokens.longDate(snapshot.accurateFrom)) was kept as it was "
+                + "and may include time when nobody was at the Mac."
             : nil
         noteReviewReadModelRebuild()
     }
@@ -261,8 +261,9 @@ extension SessionStore {
                                 rebuilt: HistoryBuildResult) -> [String] {
         var notices: [String] = []
         if snapshot.sessions.contains(where: { $0.end > $0.start && $0.start < snapshot.accurateFrom }) {
-            notices.append("History includes preserved legacy app usage from before "
-                           + "\(Tokens.longDate(snapshot.accurateFrom)); it may include unattended time.")
+            notices.append("History includes app use from before "
+                           + "\(Tokens.longDate(snapshot.accurateFrom)) that was kept as it was; "
+                           + "it may include time when nobody was at the Mac.")
         }
         if let dropped = Self.recordCounts(usage: rebuilt.droppedUsageSpans, focus: rebuilt.droppedFocusSpans,
                                            rest: rebuilt.droppedRestSpans) {
@@ -417,7 +418,7 @@ extension SessionStore {
     var reviewPeriodLabel: String {
         let anchor = reviewAnchor ?? now()
         if reviewPeriod == .month {
-            return DateFormats.australian("MMMM yyyy", in: periodCalendar.timeZone).string(from: anchor)
+            return DateFormats.monthYear(anchor, in: periodCalendar.timeZone)
         }
         guard let usage else { return Tokens.longDate(anchor) }
         let calendar = periodCalendar
@@ -437,10 +438,10 @@ extension SessionStore {
             let count = reviewFocusSessionCount
             let sessions = count == 1 ? "1 focus session" : "\(count) focus sessions"
             let focused = reviewFocusSessions.reduce(0) { $0 + $1.seconds }
-            return "No tracked time · \(sessions) · \(Tokens.duration(focused)) recorded focus"
+            return "No recorded time · \(sessions) · \(Tokens.duration(focused)) recorded focus"
         }
         let dayWord = reviewSummary.activeDays == 1 ? "active day" : "active days"
-        return "\(Tokens.duration(reviewSummary.tracked)) tracked · "
+        return "\(Tokens.duration(reviewSummary.tracked)) recorded · "
             + "\(reviewSummary.activeDays) \(dayWord) · "
             + "\(Tokens.duration(reviewSummary.averagePerActiveDay)) average"
     }

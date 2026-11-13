@@ -71,7 +71,7 @@ enum BreakTier: Int, CaseIterable, Comparable, Codable {
         case .micro:
             return "Focus on something far away and let your shoulders drop. "
                 + "This is for your eyes and your posture, not your "
-                + "concentration — it is over before you lose your thread."
+                + "concentration. It is over before you lose your thread."
         case .cognitive:
             return "Attention wears down after about this long and a short rest "
                 + "restores it. Stand up if you can. Scrolling your phone uses "
@@ -79,7 +79,7 @@ enum BreakTier: Int, CaseIterable, Comparable, Codable {
         case .ultradian:
             return "You are past the point where pushing on costs more than it "
                 + "returns. A real break away from the screen is what resets "
-                + "this — email and messages do not count as one."
+                + "this. Email and messages do not count as one."
         }
     }
 

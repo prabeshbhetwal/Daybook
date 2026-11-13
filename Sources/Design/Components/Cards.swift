@@ -29,11 +29,9 @@ extension View {
     }
 }
 
-/// An app's icon with its palette colour beside it, so the row is its own
-/// legend. Falls back to a rounded square in the colour when the app has no
-/// icon on this machine.
+/// An app's icon with the app-use accent beside it. Falls back to a rounded
+/// square in the accent when the app has no icon on this machine.
 struct AppSwatch: View {
-    let rank: Int
     var bundleID: String?
     var appName: String = ""
     var size: CGFloat = 18.zoomed
@@ -45,7 +43,7 @@ struct AppSwatch: View {
                 AppIcon(bundleID: bundleID, size: size, appName: appName)
             } else {
                 RoundedRectangle(cornerRadius: Tokens.Radius.swatch, style: .continuous)
-                    .fill(Tokens.Palette.app(rank: rank))
+                    .fill(Tokens.Palette.appUse)
                     .frame(width: size, height: size)
                     .overlay(
                         Text(appName.first.map(String.init)?.uppercased() ?? "")
@@ -54,7 +52,7 @@ struct AppSwatch: View {
                     )
             }
             Circle()
-                .fill(Tokens.Palette.app(rank: rank))
+                .fill(Tokens.Palette.appUse)
                 .frame(width: 6.zoomed, height: 6.zoomed)
         }
         .accessibilityHidden(true)

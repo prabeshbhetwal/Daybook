@@ -86,6 +86,29 @@ import FoundationModels
         begin(turn.id, question: trimmed, retrying: false)
     }
 
+    /// Whether "Try Again" is offered on this turn: only on the last turn, and
+    /// only when it failed or was stopped. An earlier failed turn has been
+    /// asked about since, or the person moved on, so a button on it would add
+    /// a second copy of a question the chat has already left behind.
+    func offersTryAgain(_ id: UUID) -> Bool {
+        guard let last = turns.last, last.id == id else { return false }
+        switch last.state {
+        case .failed, .stopped: return true
+        case .lookingUp, .answering, .answered: return false
+        }
+    }
+
+    /// "Try Again" on the last turn when it failed or was stopped: asks its
+    /// stored question once more through `ask(_:)`, so it is refused while an
+    /// answer is in progress and meets the same availability check. The answer
+    /// goes in a new turn at the end of the chat, because only the last turn
+    /// can be in progress and the turns before it never change; the turn it
+    /// retries stays as it was.
+    func tryAgain(_ id: UUID) {
+        guard offersTryAgain(id), let turn = turns.last else { return }
+        ask(turn.question)
+    }
+
     /// Cancels any answer, empties the chat and drops the session.
     func newChat() {
         closeRun()

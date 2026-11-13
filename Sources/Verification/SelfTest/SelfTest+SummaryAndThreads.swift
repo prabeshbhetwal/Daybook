@@ -71,7 +71,7 @@ extension SelfTest {
                        "The busiest apps were Dia (3h 4m, 38%) and Claude (2h 19m, 29%), across 3 apps in all",
                        "the busiest hours were 1pm–4pm",
                        "45% of the time at the Mac fell inside a session, with about 57 app switches per stretch",
-                       "by type, Deep work 94%, Break 6%",
+                       "by category, Deep work 94%, Break 6%",
                        "54m less at the Mac and 1h 10m more focused"] {
             expect(text.contains(needle), "summary says “\(needle)”, got: \(text)", &problems)
         }
@@ -118,7 +118,7 @@ extension SelfTest {
             busiestDay: day, busiestTracked: 8 * 3_600 + 6 * 60,
             longestSitting: ("Dia", 95 * 60, day), apps: [("Dia", 12 * 3_600, 0.38)], appCount: 14,
             workTypes: [])))
-        for needle in ["This week you were at the Mac for 31h 20m across 5 of 7 days — 6h 16m per active day, 2h 10m more than the week before.",
+        for needle in ["This week you were at the Mac for 31h 20m across 5 of 7 days, 6h 16m per active day, 2h 10m more than the week before.",
                        "You focused for 14h in 9 sessions, meeting the 4h goal on 2 days.",
                        "(8h 6m); the longest single sitting was 1h 35m in Dia on",
                        "All of the time was in Dia, across 14 apps in all."] {

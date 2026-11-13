@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The app filter's choices, laid out as a grid rather than a menu's single
 /// column: a native menu cannot have columns, and a long history holds
-/// scores of apps. Presented by `FilterChip` in a popover; "All apps" sits
+/// scores of apps. Presented by `FilterChip` in a popover; "All Apps" sits
 /// above a grid that scrolls once it outgrows `maxGridHeight`.
 ///
 /// Built from plain values so it never observes the store: the chip around it
@@ -38,7 +38,7 @@ struct HistoryAppPicker: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            cell(title: "All apps", isSelected: picked == nil, help: "Show every app") {
+            cell(title: "All Apps", isSelected: picked == nil, help: "Show every app") {
                 Image(systemName: "app")
                     .frame(width: 20.zoomed, height: 20.zoomed)
                     .foregroundStyle(StoryStyle.supportingInk)

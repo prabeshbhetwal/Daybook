@@ -55,7 +55,7 @@ struct AskSourcesView: View {
                 .background(Tokens.Colour.surface, in: Self.shape)
                 .overlay(Self.shape.strokeBorder(Tokens.Colour.line, lineWidth: 1))
             if hidden > 0 {
-                Button("Show \(hidden) more") { expanded = true }
+                Button("Show \(hidden) More") { expanded = true }
                     .buttonStyle(StoryLinkStyle())
                     .accessibilityHint("Lists the other sources")
             }

@@ -225,14 +225,14 @@ final class BreakLog {
         do {
             let document = try JSONDecoder().decode(Document.self, from: Data(contentsOf: fileURL))
             guard document.version == 1 else {
-                loadFailure = "The break log was written by a newer version and remains read-only."
+                loadFailure = "The break log was written by a newer version of Daybook and is read-only. Update Daybook to change it."
                 Diagnostics.log(loadFailure ?? "")
                 return
             }
             prompts = document.prompts.sorted { $0.shown < $1.shown }
             days = document.days.sorted { $0.day < $1.day }
         } catch {
-            loadFailure = "The break log could not be read. The original file was preserved."
+            loadFailure = "The break log could not be read. The original file was kept. Reopen Daybook to try again."
             Diagnostics.log("\(loadFailure ?? ""): \(error)")
         }
     }
@@ -257,7 +257,7 @@ final class BreakLog {
             retryAfter = nil
             return nil
         } catch {
-            let message = "The break log could not be saved: \(error.localizedDescription)"
+            let message = "The break log could not be saved: \(error.localizedDescription) Check free space and folder access, then try again."
             return refused(message, logging: message, at: moment)
         }
     }

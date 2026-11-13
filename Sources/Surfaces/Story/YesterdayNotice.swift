@@ -52,11 +52,23 @@ struct YesterdayNotice: View {
 }
 
 extension View {
-    /// The look of a notice on the rail: the backup offer's card.
+    /// The look of a notice on the rail: a row like the tiles below it, set
+    /// off by the same hairline rather than a card of its own. The rail is one
+    /// inspector column, and a grey card at its top read as a second surface.
     func noteCard() -> some View {
-        padding(Tokens.Space.m)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Tokens.Colour.elevated,
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
+        modifier(RailNoticeRow())
+    }
+}
+
+private struct RailNoticeRow: ViewModifier {
+    @Environment(\.focusInterfaceDensity) private var density
+
+    func body(content: Content) -> some View {
+        VStack(alignment: .leading, spacing: StoryStyle.railSpacing(for: density)) {
+            content
+                .padding(.vertical, Tokens.Space.xs)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Divider()
+        }
     }
 }

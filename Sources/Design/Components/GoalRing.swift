@@ -38,7 +38,7 @@ struct GoalRing: View {
                 Image(systemName: "checkmark")
                     .font(Tokens.Typography.fitted(diameter * 0.3, weight: .bold))
                     .foregroundStyle(.tint)
-                    .transition(Tokens.Motion.transition(.scale.combined(with: .opacity),
+                    .transition(Tokens.Motion.transition(.scale(scale: 0.9).combined(with: .opacity),
                                                          reduceMotion: reduceMotion))
             } else if let label {
                 Text(label)

@@ -7,7 +7,7 @@ struct FocusBreakButtons: View {
 
     var body: some View {
         HStack(spacing: Tokens.Space.s) {
-            FocusActionButton(title: "End break", symbol: "stop.fill", prominent: true) { store.endBreak() }
+            FocusActionButton(title: "End Break", symbol: "stop.fill", prominent: true) { store.endBreak() }
                 .help(store.isIdle
                       ? "Ends the break (\(SessionShortcut.takeBreak.glyphs))"
                       : "Ends the break and goes back to your session (\(SessionShortcut.takeBreak.glyphs))")
@@ -32,7 +32,7 @@ struct FocusTakeBreakMenu: View {
 
     var body: some View {
         HStack(spacing: Tokens.Space.xs) {
-            FocusActionButton(title: "Take a break", symbol: "cup.and.saucer", iconOnly: compact) {
+            FocusActionButton(title: "Take a Break", symbol: "cup.and.saucer", iconOnly: compact) {
                 store.startBreak()
             }
             .help("Starts \(BreakChoice.startPhrase(minutes: minutes)) break (\(SessionShortcut.takeBreak.glyphs))")

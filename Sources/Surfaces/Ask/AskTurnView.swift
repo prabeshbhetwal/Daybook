@@ -9,6 +9,13 @@ struct AskTurnView: View {
     let turn: AskTurn
     let onFollow: (AskLink) -> Void
     let openSettings: () -> Void
+    /// Asks this turn's question again, in a new turn. Offered only on the last
+    /// turn, and only when it failed or stopped (`offersTryAgain`, which the
+    /// model decides), and off (`canTryAgain`) while another answer is in
+    /// progress or Ask cannot answer, as Send is.
+    let onTryAgain: () -> Void
+    let offersTryAgain: Bool
+    let canTryAgain: Bool
 
     /// The scheme of a link inside an answer. The system never opens one:
     /// `OpenURLAction` below takes every click.
@@ -60,13 +67,26 @@ struct AskTurnView: View {
         case .stopped:
             // What had streamed is dimmed, so a cut-off answer does not read as a finished one.
             if !turn.answer.isEmpty { prose(dimmed: true) }
-            Text("Stopped.")
-                .font(Tokens.Typography.body)
-                .foregroundStyle(StoryStyle.supportingInk)
-                .accessibilityHidden(true)
+            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
+                Text("Stopped.")
+                    .font(Tokens.Typography.body)
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .accessibilityHidden(true)
+                if offersTryAgain { tryAgain }
+            }
         case let .failed(notice):
-            AskNoticeLine(notice: notice, tint: Tokens.Colour.danger, readsAloud: false, openSettings: openSettings)
+            HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
+                AskNoticeLine(notice: notice, tint: Tokens.Colour.danger, readsAloud: false, openSettings: openSettings)
+                if offersTryAgain { tryAgain }
+            }
         }
+    }
+
+    private var tryAgain: some View {
+        Button("Try Again", action: onTryAgain)
+            .buttonStyle(StoryLinkStyle())
+            .disabled(!canTryAgain)
+            .accessibilityLabel(Self.tryAgainLabel(for: turn))
     }
 
     /// The longest an answer's lines run: about 75 characters at 13 points. The
@@ -139,6 +159,11 @@ extension AskTurnView {
         case .stopped: return answer.isEmpty ? "\(asked) Stopped." : "\(asked) Ask answered \(sentence(answer)) Stopped."
         case let .failed(notice): return "\(asked) \(notice.text)"
         }
+    }
+
+    /// "Try again: <question>", so the button says which question it asks.
+    nonisolated static func tryAgainLabel(for turn: AskTurn) -> String {
+        "Try Again: \(turn.question)"
     }
 
     private nonisolated static func sentence(_ text: String) -> String {

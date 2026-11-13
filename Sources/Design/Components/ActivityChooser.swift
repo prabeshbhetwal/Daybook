@@ -53,12 +53,12 @@ struct ActivityChooser: View {
                 if openActivityEditor != nil { Divider() }
                 if let openActivityEditor {
                     Button { openActivityEditor(.new) } label: {
-                        Label("Pin activity…", systemImage: "pin")
+                        Label("Pin Activity…", systemImage: "pin")
                             .labelStyle(.titleAndIcon)
                     }
                     if !store.savedActivities.isEmpty {
                         Button { openActivityEditor(.edit) } label: {
-                            Label("Edit pinned…", systemImage: "slider.horizontal.3")
+                            Label("Edit Pinned…", systemImage: "slider.horizontal.3")
                                 .labelStyle(.titleAndIcon)
                         }
                     }

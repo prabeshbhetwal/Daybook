@@ -80,13 +80,13 @@ struct SessionCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Session") {
-            Button("Start focus") { store.performFocusPrimaryAction() }
+            Button("Start Focus") { store.performFocusPrimaryAction() }
                 .keyboardShortcut(SessionShortcut.start.shortcut)
                 .disabled(mode != .idle)
             Button(pauseOrResumeTitle) { store.performFocusPrimaryAction() }
                 .keyboardShortcut(SessionShortcut.pauseOrResume.shortcut)
                 .disabled(!isLive)
-            Button("Away") { store.markAway() }
+            Button("Step Away") { store.markAway() }
                 .keyboardShortcut(SessionShortcut.stepAway.shortcut)
                 .disabled(mode != .running)
             // One item, like Pause and Resume: it ends the break it started.
@@ -106,7 +106,7 @@ struct SessionCommands: Commands {
     /// The hero's filled button in the same state says the same word.
     private var pauseOrResumeTitle: String {
         switch mode {
-        case .paused, .watching: return state.snapshot.isAway ? "I'm back" : "Resume"
+        case .paused, .watching: return state.snapshot.isAway ? "I'm Back" : "Resume"
         default: return "Pause"
         }
     }

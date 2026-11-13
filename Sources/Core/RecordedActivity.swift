@@ -13,7 +13,6 @@ struct RecordedActivity: Equatable {
         /// interval. App identity is present only when it was observed.
         let bundleID: String?
         let appName: String?
-        let colourIndex: Int?
 
         var id: String {
             "\(start.timeIntervalSinceReferenceDate)-\(end.timeIntervalSinceReferenceDate)-\(bundleID ?? "gap")"
@@ -98,8 +97,8 @@ struct RecordedActivity: Equatable {
     private struct Source {
         var segment: TimelineSegment
         let order: Int
-        var start: Date { get { segment.start } set { segment = TimelineSegment(id: segment.id, bundleID: segment.bundleID, appName: segment.appName, start: newValue, end: segment.end, colorIndex: segment.colorIndex, endReason: segment.endReason) } }
-        var end: Date { get { segment.end } set { segment = TimelineSegment(id: segment.id, bundleID: segment.bundleID, appName: segment.appName, start: segment.start, end: newValue, colorIndex: segment.colorIndex, endReason: segment.endReason) } }
+        var start: Date { get { segment.start } set { segment = TimelineSegment(id: segment.id, bundleID: segment.bundleID, appName: segment.appName, start: newValue, end: segment.end, endReason: segment.endReason) } }
+        var end: Date { get { segment.end } set { segment = TimelineSegment(id: segment.id, bundleID: segment.bundleID, appName: segment.appName, start: segment.start, end: newValue, endReason: segment.endReason) } }
     }
 
     private static func merged(_ spans: [DateInterval]) -> [DateInterval] {
@@ -117,15 +116,13 @@ struct RecordedActivity: Equatable {
 
     private static func append(start: Date, end: Date, source: Source?, to intervals: inout [Interval]) {
         let next = Interval(start: start, end: end, bundleID: source?.segment.bundleID,
-                            appName: source?.segment.appName, colourIndex: source?.segment.colorIndex)
+                            appName: source?.segment.appName)
         if let last = intervals.last,
            last.end == next.start,
            last.bundleID == next.bundleID,
-           last.appName == next.appName,
-           last.colourIndex == next.colourIndex {
+           last.appName == next.appName {
             intervals[intervals.count - 1] = Interval(start: last.start, end: next.end,
-                                                       bundleID: last.bundleID, appName: last.appName,
-                                                       colourIndex: last.colourIndex)
+                                                       bundleID: last.bundleID, appName: last.appName)
         } else {
             intervals.append(next)
         }

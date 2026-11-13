@@ -14,16 +14,31 @@ enum DurationText {
         let hours = total / 3_600
         let minutes = (total % 3_600) / 60
         guard hours > 0 else { return "\(minutes)m" }
-        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
+        return minutes > 0 ? "\(hoursText(hours))h \(minutes)m" : "\(hoursText(hours))h"
     }
 
     /// `2h 15m`, `4h`, `15m`, `0m`: whole minutes, for sentences and tiles.
+    /// From a thousand hours the hours are grouped as the locale does:
+    /// `1,234h 5m`.
     static func compact(_ seconds: TimeInterval) -> String {
         guard let total = wholeSeconds(seconds) else { return "—" }
         let hours = total / 3_600
         let minutes = (total % 3_600) / 60
         guard hours > 0 else { return "\(minutes)m" }
-        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
+        return minutes > 0 ? "\(hoursText(hours))h \(minutes)m" : "\(hoursText(hours))h"
+    }
+
+    /// A count of hours, grouped from a thousand (`1,234`; `1.234` in German).
+    /// Below that it is plain digits, so a time and its minutes are never
+    /// written in two numeral systems.
+    static func hoursText(_ hours: Int, locale: Locale = .current) -> String {
+        hours < 1_000 ? "\(hours)" : hours.formatted(.number.locale(locale))
+    }
+
+    /// A rate to one decimal place in the locale's own separator: `1.5`, `1,5`.
+    /// `String(format:)` writes a full stop whatever the locale.
+    static func oneDecimal(_ value: Double, locale: Locale = .current) -> String {
+        value.formatted(.number.precision(.fractionLength(1)).locale(locale))
     }
 
     /// The same text with each compact duration in words, for VoiceOver:
@@ -31,8 +46,10 @@ enum DurationText {
     /// `<1s` becomes `under a second`. The eye reads `15m` as minutes; speech
     /// reads it as fifteen metres. Numbers inside words or times are left.
     /// Compiled once: every accessibility label on the story went through
-    /// this, and each call was compiling the pattern again.
-    private static let compactDuration = try? NSRegularExpression(pattern: #"(?<![\w.:])(\d+)([hms])(?!\w)"#)
+    /// this, and each call was compiling the pattern again. Hours of a thousand
+    /// or more carry their locale's grouping (`1,234h`, `1.234h`).
+    private static let compactDuration = try? NSRegularExpression(
+        pattern: #"(?<![\w.:])(\d{1,3}(?:[,.  ’]\d{3})+|\d+)([hms])(?!\w)"#)
 
     static func spoken(in text: String) -> String {
         let text = text.replacingOccurrences(of: "<1s", with: "under a second")

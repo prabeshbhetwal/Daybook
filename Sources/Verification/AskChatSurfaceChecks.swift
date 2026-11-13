@@ -231,8 +231,8 @@ enum AskChatSurfaceChecks: CheckSuite {
         let stopped = AskTurn(question: "And in August?", answer: "In August", state: .stopped)
         expect(AskTurnView.spokenLabel(for: stopped) == "You asked And in August? Ask answered In August. Stopped.",
                "a stopped turn reads “\(AskTurnView.spokenLabel(for: stopped))”", &problems)
-        let failed = AskTurn(question: "Why", state: .failed(AskNotice(text: "Can't answer that one.", opensSettings: false)))
-        expect(AskTurnView.spokenLabel(for: failed) == "You asked Why. Can't answer that one.",
+        let failed = AskTurn(question: "Why", state: .failed(AskNotice(text: "Can't answer that one. Try asking another way.", opensSettings: false)))
+        expect(AskTurnView.spokenLabel(for: failed) == "You asked Why. Can't answer that one. Try asking another way.",
                "a failed turn reads “\(AskTurnView.spokenLabel(for: failed))”", &problems)
         return problems
     }
@@ -270,7 +270,7 @@ enum AskChatSurfaceChecks: CheckSuite {
             let stopped = evidence([AskTurn(question: "And in August?", answer: "In August", state: .stopped)])
             expect(stopped.contains(.askTranscript) && !stopped.contains(.askSources),
                    "a stopped turn drew \(stopped.map(\.rawValue).sorted())", &problems)
-            let failed = evidence([AskTurn(question: "Why", state: .failed(AskNotice(text: "Can't answer that one.",
+            let failed = evidence([AskTurn(question: "Why", state: .failed(AskNotice(text: "Can't answer that one. Try asking another way.",
                                                                                     opensSettings: false)))])
             expect(failed.contains(.askTranscript) && !failed.contains(.askSources),
                    "a failed turn drew \(failed.map(\.rawValue).sorted())", &problems)

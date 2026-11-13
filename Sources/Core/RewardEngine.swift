@@ -128,7 +128,7 @@ struct RewardEngine {
         return Reward(kind: .goalPace,
                       title: "Ahead of your usual pace",
                       detail: "\(DurationText.compact(context.goal.achieved)) today vs "
-                            + "\(DurationText.compact(typical)) typical by now — \(DurationText.compact(aheadBy)) ahead.",
+                            + "\(DurationText.compact(typical)) typical by now, \(DurationText.compact(aheadBy)) ahead.",
                       symbolName: "hare.fill")
     }
 
@@ -138,8 +138,8 @@ struct RewardEngine {
         guard let media = context.endedMedia, media.seconds >= 600 else { return nil }
         return Reward(kind: .mediaEnded,
                       title: "Welcome back",
-                      detail: "\(DurationText.compact(media.seconds)) with \(media.appName) — "
-                            + "ready when you are.",
+                      detail: "\(DurationText.compact(media.seconds)) with \(media.appName). "
+                            + "Ready when you are.",
                       symbolName: "arrow.uturn.backward.circle.fill")
     }
 

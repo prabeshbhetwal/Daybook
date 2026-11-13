@@ -192,7 +192,6 @@ struct ActivityEditorPanelView: View {
             Text("Recent · click to pin")
                 .font(Tokens.Typography.caption)
                 .foregroundStyle(StoryStyle.supportingInk)
-                .textCase(.uppercase)
             ChipFlow(spacing: Tokens.Space.xs) {
                 ForEach(store.recentActivities.prefix(6)) { quick in
                     Button { _ = store.pinActivity(quick) } label: {
@@ -204,7 +203,7 @@ struct ActivityEditorPanelView: View {
                         }
                         .padding(.leading, Tokens.Space.xs)
                         .padding(.trailing, Tokens.Space.m)
-                        .frame(minHeight: 28.zoomed)
+                        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
                         .background(Tokens.Colour.elevated, in: Capsule())
                         .contentShape(Capsule())
                     }
@@ -262,9 +261,9 @@ struct ActivityEditorPanelView: View {
                     .help(isNew && !store.canPinActivity ? "Eight is the limit. Unpin one to pin another." : "")
                 Spacer(minLength: Tokens.Space.s)
                 if let index = existing, let id = editor.editingID {
-                    Button("Move up") { store.moveSavedActivity(id: id, up: true) }
+                    Button("Move Up") { store.moveSavedActivity(id: id, up: true) }
                         .disabled(index == 0)
-                    Button("Move down") { store.moveSavedActivity(id: id, up: false) }
+                    Button("Move Down") { store.moveSavedActivity(id: id, up: false) }
                         .disabled(index == store.savedActivities.count - 1)
                     Button("Unpin", role: .destructive) {
                         store.removeSavedActivity(id: id)

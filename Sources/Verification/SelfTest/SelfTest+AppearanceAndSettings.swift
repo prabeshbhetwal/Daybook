@@ -65,30 +65,11 @@ extension SelfTest {
 
     // MARK: - 80
 
-    /// Seven distinct app colours in both appearances, clamped past the end,
-    /// and a total work-type mapping. Pins the palette so a later edit cannot
-    /// quietly give two apps one colour or leave a work type on a default.
+    /// A total work-type mapping: every case compiles to a colour. App marks
+    /// have no palette of their own (see AppMarkChecks), so a later edit cannot
+    /// leave a work type on a default.
     static func testPalette() -> [String] {
-        var problems: [String] = []
-        for dark in [false, true] {
-            var seen: Set<String> = []
-            for rank in 0..<7 {
-                let c = Tokens.Palette.resolved(rank: rank, dark: dark)
-                seen.insert(String(format: "%.3f-%.3f-%.3f", c.r, c.g, c.b))
-            }
-            expect(seen.count == 7,
-                   "seven distinct app colours in \(dark ? "dark" : "light"), got \(seen.count)",
-                   &problems)
-        }
-        let light0 = Tokens.Palette.resolved(rank: 0, dark: false)
-        let dark0 = Tokens.Palette.resolved(rank: 0, dark: true)
-        expect(light0 != dark0, "the pair flips with the appearance", &problems)
-        let beyond = Tokens.Palette.resolved(rank: 42, dark: false)
-        let other = Tokens.Palette.resolved(rank: 6, dark: false)
-        expect(beyond == other, "ranks past the end read as Other", &problems)
-        let negative = Tokens.Palette.resolved(rank: -1, dark: false)
-        let first = Tokens.Palette.resolved(rank: 0, dark: false)
-        expect(negative == first, "a negative rank clamps to the first", &problems)
+        let problems: [String] = []
         for type in WorkType.allCases {
             _ = Tokens.Palette.workType(type)   // total: every case compiles to a colour
         }

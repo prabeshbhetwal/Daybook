@@ -51,7 +51,7 @@ struct PeriodNote: View {
         usable = writer.isUsable
     }
 
-    static let failure = "Couldn't write a note for this period."
+    static let failure = "Couldn't write a note for this period. Try again."
     private static let caption = "On-device AI · nothing leaves this Mac"
 
     private enum Shown {

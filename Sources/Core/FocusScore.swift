@@ -130,10 +130,10 @@ struct FocusScorer {
             * FocusConstants.switchPenaltyWeight
         let value = min(1, max(0, focusedShare * activityWeight - churnPenalty))
 
+        let rate = "\(DurationText.oneDecimal(switchesPerMinute)) switches/min"
         let explanation = dominantAppName.isEmpty
-            ? String(format: "%.1f switches/min", switchesPerMinute)
-            : "\(dominantAppName) \(Int(dominantMinutes))m · " +
-              String(format: "%.1f switches/min", switchesPerMinute)
+            ? rate
+            : "\(dominantAppName) \(Int(dominantMinutes))m · " + rate
 
         return FocusScore(value: value, signals: signals, explanation: explanation)
     }

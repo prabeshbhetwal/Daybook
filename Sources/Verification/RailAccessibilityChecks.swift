@@ -38,7 +38,7 @@ enum RailAccessibilityChecks {
                 }
                 let labels = buttons.map { $0.accessibilityLabel() ?? "" }
                 let recommended = labels.filter { $0.contains(", recommended.") }
-                if recommended.count != 1 || recommended.first?.hasPrefix("It was a break") != true {
+                if recommended.count != 1 || recommended.first?.hasPrefix("It Was a Break") != true {
                     failures.append("The \(layout) grid did not name one recommended answer: \(labels)")
                 }
                 for button in buttons {

@@ -39,6 +39,7 @@ struct HistorySessionRow: View {
                 Text(session.workType.sessionTitle(named: session.name))
                     .font(Tokens.Typography.rowTitle)
                     .lineLimit(1)
+                    .help(session.workType.sessionTitle(named: session.name))
                 // An unnamed session's title is its category already.
                 if !session.name.isEmpty { WorkTypeChip(workType: session.workType) }
                 Spacer(minLength: Tokens.Space.s)
@@ -70,7 +71,6 @@ struct HistorySessionRow: View {
         .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
             .strokeBorder(isSelected ? Tokens.Colour.focus.opacity(0.55) : Tokens.Colour.line,
                           lineWidth: isSelected ? 1.5.zoomed : 1))
-        .shadow(color: .black.opacity(0.025), radius: 2.zoomed, y: 1)
         .contentShape(Rectangle())
     }
 
@@ -127,8 +127,8 @@ struct HistorySessionRow: View {
         return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             GeometryReader { geometry in
                 HStack(spacing: gap) {
-                    ForEach(Array(top.enumerated()), id: \.element.id) { index, app in
-                        Rectangle().fill(Tokens.Palette.app(rank: index))
+                    ForEach(top) { app in
+                        Rectangle().fill(Tokens.Palette.appUse)
                             .frame(width: max(gap, geometry.size.width * app.share))
                     }
                     if restShare > 0.005 {
@@ -141,8 +141,8 @@ struct HistorySessionRow: View {
             .padding(.top, Tokens.Space.s)
             .accessibilityHidden(true)
             HStack(spacing: Tokens.Space.m) {
-                ForEach(Array(top.enumerated()), id: \.element.id) { index, app in
-                    legend(Tokens.Palette.app(rank: index), "\(app.appName) \(Self.percent(app.share))")
+                ForEach(top) { app in
+                    legend(Tokens.Palette.appUse, "\(app.appName) \(Self.percent(app.share))")
                 }
                 if restShare > 0.005 {
                     legend(Tokens.Palette.untracked.opacity(0.5), "Others \(Self.percent(restShare))")

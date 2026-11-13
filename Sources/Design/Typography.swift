@@ -111,6 +111,11 @@ extension Tokens {
         }
         /// Marks too small to read as words: a tick, a cross, a chevron.
         static var micro: Font { Font.system(size: pointSize(of: .micro), weight: .bold) }
+        /// The body role with tabular figures as an AppKit font, for measuring
+        /// a column's widest text without drawing it.
+        static var bodyDigitsNSFont: NSFont {
+            NSFont.monospacedDigitSystemFont(ofSize: pointSize(of: .body), weight: .regular)
+        }
         /// The menu bar item is not scaled: macOS fixes the menu bar's height.
         static let menuBar = Font.system(size: NSFont.systemFontSize).monospacedDigit()
         /// The label role for a symbol AppKit draws itself, where no SwiftUI

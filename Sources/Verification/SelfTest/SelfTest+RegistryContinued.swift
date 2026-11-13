@@ -16,7 +16,7 @@ extension SelfTest {
              testDayScopedSessionFigures),
             ("Historical goal status uses focused-active time",
              testHistoricalGoalStatusUsesFocusedActiveTime),
-            ("Palette: seven distinct app colours, both appearances, total work types",
+            ("Palette: total work types",
              testPalette),
             ("Menu-bar glyph renders a template ring for every state", testMenuBarGlyph),
             ("Settings model writes through and notifies once per change", testSettingsModel),

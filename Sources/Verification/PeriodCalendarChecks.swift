@@ -50,7 +50,7 @@ enum PeriodCalendarChecks: CheckSuite {
                 if case .month(let month) = entry { return month }
                 return nil
             }
-            let titles = months.map { HistoryMonthHeader.title($0.start, in: islamic.timeZone) }
+            let titles = months.map { HistoryMonthHeader.title($0.start, in: islamic.timeZone, locale: LocaleFormatChecks.australian) }
             expect(titles == ["October 2026", "September 2026"] && months.first?.focused == 1_200
                        && months.first?.dailyFocus.count == 31,
                    "search grouped \(titles) holding \(months.map(\.focused))s over \(months.map(\.dailyFocus.count)) days",
@@ -63,13 +63,18 @@ enum PeriodCalendarChecks: CheckSuite {
                    &problems)
             store.reviewPeriod = .month
             store.reviewAnchor = anchor
-            expect(store.reviewPeriodStart == date(10, 1) && store.reviewPeriodLabel == "October 2026",
+            // The label is the Gregorian month in the person's language: the
+            // Islamic calendar the base carries must not name it.
+            let octoberLabel = DateFormats.monthYear(date(10, 1), in: islamic.timeZone)
+            expect(store.reviewPeriodStart == date(10, 1) && store.reviewPeriodLabel == octoberLabel
+                       && octoberLabel.contains("2026"),
                    "Review's month \(store.reviewPeriodLabel) began \(store.reviewPeriodStart)", &problems)
             let story = store.storyReviewBounds()
             expect(story == DateInterval(start: date(10, 1), end: date(11, 1)),
                    "the story's month ran \(story)", &problems)
             store.moveReviewPeriod(by: -1)
-            expect(store.reviewPeriodStart == date(9, 1) && store.reviewPeriodLabel == "September 2026",
+            expect(store.reviewPeriodStart == date(9, 1)
+                       && store.reviewPeriodLabel == DateFormats.monthYear(date(9, 1), in: islamic.timeZone),
                    "a month back, Review's month \(store.reviewPeriodLabel) began \(store.reviewPeriodStart)", &problems)
 
             let projected = store.insightPeriodProjections(scope: .month, anchoredAt: anchor, limit: 1,

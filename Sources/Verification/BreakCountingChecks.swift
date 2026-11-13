@@ -199,7 +199,8 @@ enum BreakCountingChecks {
                 failures.append("offered \(targets.map { "\($0.name) \($0.start)" }), not Browsing then the afternoon's Coding")
             }
             let labels = targets.map(SessionStore.legacyFocusTargetLabel)
-            if Set(labels).count != labels.count || !(labels.first?.hasPrefix("Browsing · Deep work · 2:24") ?? false) {
+            let began = "Browsing · Deep work · \(DateFormats.clockTime(before.start))"
+            if Set(labels).count != labels.count || !(labels.first?.hasPrefix(began) ?? false) {
                 failures.append("labels did not tell sessions apart by time: \(labels)")
             }
             return failures

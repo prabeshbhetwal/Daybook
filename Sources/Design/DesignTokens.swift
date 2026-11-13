@@ -19,18 +19,25 @@ enum Tokens {
 
             fileprivate var swatch: (light: UInt32, dark: UInt32) {
                 switch self {
-                // Apple's neutral system greys rather than a warm cast: the
-                // shell should read as a macOS window, not as a themed one.
-                case .ground: return (0xF2F2F7, 0x1C1C1E)
+                // One neutral family. In light appearance every background is
+                // the Story canvas's warm neutral (`StoryStyle.canvas`,
+                // `rail`, `well`); the cool system grey (#F2F2F7, #EBEBF0)
+                // made a sheet, the popover and Awards look like a different
+                // app beside the main window. Ground sits one step under the
+                // rail and keeps the old grey's separation from a white card
+                // (1.12:1); supporting ink is 9.8:1 on it, 9.4:1 on elevated.
+                // The dark values are already neutral on both sides.
+                case .ground: return (0xF3F2EF, 0x1C1C1E)
                 case .surface: return (0xFFFFFF, 0x2C2C2E)
-                case .elevated: return (0xEBEBF0, 0x3A3A3C)
+                case .elevated: return (0xECEBE8, 0x3A3A3C)
                 case .line: return (0x000000, 0xFFFFFF)
                 case .hover: return (0x000000, 0xFFFFFF)
-                // System blue, in its own light and dark variants.
-                case .focus: return (0x007AFF, 0x0A84FF)
-                // Near-black, not white: white on system blue is 4.02:1, which
-                // fails the contrast contract this app holds itself to.
-                case .onFocus: return (0x0F1115, 0x0F1115)
+                // The app's one accent, the same blue as links and text
+                // actions: a shade under system blue so white text on it
+                // reads (5.4:1), and a lighter blue in the dark.
+                case .focus: return (0x0068D1, 0x75B5FF)
+                // White on the light accent, near-black on the dark one.
+                case .onFocus: return (0xFFFFFF, 0x0F1115)
                 case .progress: return (0x34C759, 0x30D158)
                 case .attention: return (0xFF9500, 0xFF9F0A)
                 // A red deep enough to be read: danger is mostly error text
@@ -110,7 +117,9 @@ enum Tokens {
         static var compactHeight: CGFloat { 34.zoomed }
         /// The label inside every Settings pop-up (`RowMenu`), so they share
         /// one width; "While the window is open", the longest choice, fits.
-        static var rowMenuLabelWidth: CGFloat { 180.zoomed }
+        /// Text stops shrinking before the zoom does, so the width has a
+        /// floor: at 80% that choice read "While the window is op…".
+        static var rowMenuLabelWidth: CGFloat { max(172, 180.zoomed) } // zoom: fixed
     }
 
     static var popoverWidth: CGFloat { 340.zoomed }
@@ -156,10 +165,11 @@ enum Tokens {
         return days == 1 ? "yesterday" : "\(days) days ago"
     }
 
-    /// `2:13 PM – 4:13 PM`.
-    static func timeRange(_ start: Date, _ end: Date) -> String {
-        let clock = DateFormats.local("h:mm a")
-        return "\(clock.string(from: start)) – \(clock.string(from: end))"
+    /// `2:13 pm – 4:13 pm`, or `14:13 – 16:13` on a 24-hour clock, each time
+    /// unbreakable so a wrapped line cannot end on "2:13" and begin on
+    /// "pm – 4:13 pm".
+    static func timeRange(_ start: Date, _ end: Date, locale: Locale = .current) -> String {
+        DateFormats.clockRange(start, end, locale: locale)
     }
 
     /// Sub-minute stretches are common in app usage, where `duration` floors to
@@ -168,31 +178,31 @@ enum Tokens {
         DurationText.precise(seconds)
     }
 
-    /// `Today`, `Yesterday`, or `Wed 13 Aug`.
-    static func dayLabel(_ date: Date, calendar: Calendar = .current) -> String {
+    /// `Today`, `Yesterday`, or `Wed, 13 Aug`: the day as the locale writes it.
+    static func dayLabel(_ date: Date, calendar: Calendar = .current, locale: Locale = .current) -> String {
         if calendar.isDateInToday(date) { return "Today" }
         if calendar.isDateInYesterday(date) { return "Yesterday" }
-        return DateFormats.local("EEE d MMM").string(from: date)
+        return DateFormats.shortDay(date, locale: locale)
     }
 
-    /// `since 2:13 PM`, for a launch time.
-    static func timeOfDay(_ date: Date) -> String {
-        "since \(DateFormats.local("h:mm a").string(from: date))"
+    /// `since 2:13 pm`, for a launch time.
+    static func timeOfDay(_ date: Date, locale: Locale = .current) -> String {
+        "since \(DateFormats.clockTime(date, locale: locale))"
     }
 
     /// `Wednesday`, for a sentence that names a day rather than dating it.
-    static func weekdayName(_ date: Date) -> String {
-        DateFormats.local("EEEE").string(from: date)
+    static func weekdayName(_ date: Date, locale: Locale = .current) -> String {
+        DateFormats.localized("EEEE", locale: locale).string(from: date)
     }
 
-    /// `2:13 PM` on its own, for a column that already means "when".
-    static func timeOfDayOnly(_ date: Date) -> String {
-        DateFormats.local("h:mm a").string(from: date)
+    /// `2:13 pm` on its own, for a column that already means "when".
+    static func timeOfDayOnly(_ date: Date, locale: Locale = .current) -> String {
+        DateFormats.clockTime(date, locale: locale)
     }
 
     /// `Saturday 22 August`, for the dashboard's title band.
-    static func longDate(_ date: Date) -> String {
-        DateFormats.local("EEEE d MMMM").string(from: date)
+    static func longDate(_ date: Date, locale: Locale = .current) -> String {
+        DateFormats.longDate(date, locale: locale)
     }
 
     /// A span of days the way the chrome writes one: `24 – 30 Aug`,
@@ -201,45 +211,36 @@ enum Tokens {
     /// Insights wrote `31 Aug–6 Sep` for the same week, and the longer one
     /// cost the bar twenty points at its minimum width.
     static func dateRange(_ start: Date, _ end: Date, now: Date = Date(),
-                          calendar: Calendar = .current) -> String {
-        func formatter(_ format: String) -> DateFormatter { DateFormats.australian(format, in: calendar.timeZone) }
-        let thisYear = calendar.component(.year, from: now)
-        let startYear = calendar.component(.year, from: start)
-        let endYear = calendar.component(.year, from: end)
-        let sameMonth = startYear == endYear
-            && calendar.component(.month, from: start) == calendar.component(.month, from: end)
-        if startYear != endYear {
-            return "\(formatter("d MMM yyyy").string(from: start)) – \(formatter("d MMM yyyy").string(from: end))"
-        }
-        let first = formatter(sameMonth ? "d" : "d MMM").string(from: start)
-        let last = formatter(endYear == thisYear ? "d MMM" : "d MMM yyyy").string(from: end)
-        return "\(first) – \(last)"
+                          calendar: Calendar = .current, locale: Locale = .current) -> String {
+        DateFormats.dateRange(start, end, now: now, calendar: calendar, locale: locale)
     }
 
     // MARK: Palette
 
     enum Palette {
-        /// The Apple system hues, in light and dark variants. Rank 0 is the
-        /// busiest app, and the last entry is always the neutral "other" grey.
-        private static let pairs: [(light: UInt32, dark: UInt32)] = [
-            (0x007AFF, 0x0A84FF),
-            (0x30B0C7, 0x40C8E0),
-            (0xFF9500, 0xFF9F0A),
-            (0x5E5CE6, 0x7D7AFF),
-            (0xFF375F, 0xFF6482),
-            (0xAF52DE, 0xBF5AF2),
-            (0x8E8E93, 0x98989D)
-        ]
-        private static let ramp: [Color] = pairs.map { Color(lightHex: $0.light, darkHex: $0.dark) }
-
-        static func app(rank: Int) -> Color {
-            ramp[min(max(rank, 0), ramp.count - 1)]
+        /// The Apple system hues, in light and dark variants.
+        private static func pair(_ hue: WorkTypeHue) -> (light: UInt32, dark: UInt32) {
+            switch hue {
+            case .blue: return (0x007AFF, 0x0A84FF)
+            case .teal: return (0x30B0C7, 0x40C8E0)
+            case .orange: return (0xFF9500, 0xFF9F0A)
+            case .indigo: return (0x5E5CE6, 0x7D7AFF)
+            case .pink: return (0xFF375F, 0xFF6482)
+            case .purple: return (0xAF52DE, 0xBF5AF2)
+            case .green: return (0x34C759, 0x30D158)
+            case .yellow: return (0xFFCC00, 0xFFD60A)
+            case .red: return (0xFF3B30, 0xFF453A)
+            case .brown: return (0xA2845E, 0xAC8E68)
+            case .grey: return (0x8E8E93, 0x98989D)
+            }
         }
 
-        static let untracked = ramp[ramp.count - 1]
-        /// How many named colours precede the neutral "other" grey.
-        static let distinctAppColourCount = ramp.count - 1
+        /// The neutral grey of an aggregated "Other" bucket, never of one app.
+        static let untracked = Color(lightHex: 0x8E8E93, darkHex: 0x98989D)
         static let warmGrey = Color(lightHex: 0x8E8E93, darkHex: 0x98989D)
+        /// Every app mark: bar, strip, swatch and dot. Apps are told apart by
+        /// icon and name, never by colour, so no two collide.
+        static let appUse = Tokens.Colour.focus
 
         /// Fixed identities, matching the approved design's composition legend:
         /// deep work indigo, meetings orange, admin teal, learning pink, rest
@@ -248,29 +249,8 @@ enum Tokens {
         static func workType(_ type: WorkType) -> Color { hue(type.hue) }
 
         static func hue(_ hue: WorkTypeHue) -> Color {
-            switch hue {
-            case .blue: return ramp[0]
-            case .teal: return ramp[1]
-            case .orange: return ramp[2]
-            case .indigo: return ramp[3]
-            case .pink: return ramp[4]
-            case .purple: return ramp[5]
-            case .green: return Color(lightHex: 0x34C759, darkHex: 0x30D158)
-            case .yellow: return Color(lightHex: 0xFFCC00, darkHex: 0xFFD60A)
-            case .red: return Color(lightHex: 0xFF3B30, darkHex: 0xFF453A)
-            case .brown: return Color(lightHex: 0xA2845E, darkHex: 0xAC8E68)
-            case .grey: return warmGrey
-            }
-        }
-
-        /// The pair's sRGB components for one appearance. For the tests, which
-        /// cannot compare dynamic colours any other way.
-        static func resolved(rank: Int, dark: Bool) -> (r: Double, g: Double, b: Double) {
-            let pair = pairs[min(max(rank, 0), pairs.count - 1)]
-            let hex = dark ? pair.dark : pair.light
-            return (Double((hex >> 16) & 0xFF) / 255,
-                    Double((hex >> 8) & 0xFF) / 255,
-                    Double(hex & 0xFF) / 255)
+            let colours = pair(hue)
+            return Color(lightHex: colours.light, darkHex: colours.dark)
         }
     }
 
@@ -287,9 +267,9 @@ enum Tokens {
 
         /// The way down. Faster than a click, or a click never shows it.
         static let press = out(0.08)
-        /// The way back up: a spring with a hair of give, so a released
-        /// control visibly settles. This is the only overshoot in the app.
-        static let release = Animation.spring(response: 0.32, dampingFraction: 0.72)
+        /// The way back up: a critically damped spring, so a released control
+        /// settles in one smooth arc and never travels past its rest size.
+        static let release = Animation.spring(response: 0.32, dampingFraction: 1.0)
         /// A hover is a tint, never a colour jump.
         static let hover = out(0.16)
         /// The selection pill travels rather than redrawing, so the eye follows

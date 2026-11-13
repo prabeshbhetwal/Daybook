@@ -205,7 +205,7 @@ extension SelfTest {
             }, "focus-only stretches keep their name and type", &problems)
             expectClose(store.reviewFocusSessions.reduce(0) { $0 + $1.seconds },
                         60 * 60, "focus-only session duration", &problems)
-            expect(store.reviewSummaryLine.contains("No tracked time")
+            expect(store.reviewSummaryLine.contains("No recorded time")
                        && store.reviewSummaryLine.contains("1 focus session"),
                    "focus-only summary counts the shared thread once", &problems)
             return problems

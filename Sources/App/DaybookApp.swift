@@ -78,6 +78,8 @@ struct DaybookApp: App {
     /// Read straight from the defaults so the status item comes and goes as
     /// the setting changes; written only through the settings model.
     @AppStorage(PersistenceStore.showsMenuBarIconKey) private var showsMenuBarIcon = true
+    /// Edit > Undo and Redo, which follow focus as well as the store.
+    @StateObject private var editCommands = EditCommandState()
 
     var body: some Scene {
         let _ = coordinator.windowOpener = WindowOpener(
@@ -126,6 +128,7 @@ struct DaybookApp: App {
             // A closed window is kept whole by SwiftUI and would go on
             // re-rendering the story every second; it rests until reopened.
             .background(WindowDormancy(onOpenChange: { coordinator.mainWindowOpen = $0 }))
+            .background(EditUndoWindowAnchor(state: editCommands))
         }
         .defaultSize(width: 1_160.zoomed, height: 780.zoomed)
         .windowResizability(.contentMinSize)
@@ -134,6 +137,7 @@ struct DaybookApp: App {
             MainWindowCommands(navigation: coordinator.mainWindow)
             SessionCommands(store: coordinator.store,
                             state: coordinator.sessionCommandState)
+            EditCommands(store: coordinator.store, state: editCommands)
             ZoomCommands(settings: coordinator.settings)
             UpdateCommands(updater: coordinator.updater)
         }

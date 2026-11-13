@@ -57,7 +57,7 @@ import Speech
 
     func start() {
         guard let recognizer, recognizer.isAvailable else {
-            status = .failed("Speech recognition is not available for your language on this Mac.")
+            status = .failed("Speech recognition is not available for your language on this Mac. Type the note instead.")
             return
         }
         status = .requesting
@@ -120,7 +120,7 @@ import Speech
             try engine.start()
         } catch {
             input.removeTap(onBus: 0)
-            status = .failed("The microphone could not be started.")
+            status = .failed("The microphone could not be started. Check that no other app is using it, then try again.")
             return
         }
         audioEngine = engine

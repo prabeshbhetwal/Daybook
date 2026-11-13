@@ -44,11 +44,11 @@ struct NameSuggestionNotice: View {
             caption(offer)
             // Fixed to their words: at 140% the first drew as "Nam…".
             HStack(spacing: Tokens.Space.s) {
-                Button("Name it") { named = suggester.accept() ?? named }
+                Button("Name It") { named = suggester.accept() ?? named }
                     .buttonStyle(StoryActionStyle(tint: Tokens.Palette.workType(offer.session.workType)))
                     .fixedSize()
                     .accessibilityHint("Names this session “\(offer.name)”. Undo appears above.")
-                Button("Keep as is") { named = nil; suggester.keep() }
+                Button("Keep as Is") { named = nil; suggester.keep() }
                     .buttonStyle(StoryLinkStyle(tint: StoryStyle.supportingInk))
                     .fixedSize()
                     .padding(.leading, Tokens.Space.s)

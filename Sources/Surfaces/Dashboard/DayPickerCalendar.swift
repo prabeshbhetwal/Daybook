@@ -97,10 +97,8 @@ struct DayPickerCalendar: View {
                     .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
             }
             IconButton(systemImage: "chevron.left", help: "Previous month") { step(-1) }
-                .opacity(canStep(-1) ? 1 : 0.35)
                 .disabled(!canStep(-1))
             IconButton(systemImage: "chevron.right", help: "Next month") { step(1) }
-                .opacity(canStep(1) ? 1 : 0.35)
                 .disabled(!canStep(1))
         }
     }

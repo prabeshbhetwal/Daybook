@@ -13,11 +13,11 @@ struct HistorySearchRail: View {
         if let lens, let bundleID = store.historyFilter.appBundleID {
             let name = store.historyAppName(for: bundleID)
             splitTile(lens, name: name)
-            rhythmTile(lens)
+            rhythmTile(lens, name: name)
             if !lens.alongside.isEmpty {
                 StoryTile(title: "Alongside it", trailing: "same sessions") {
-                    ForEach(Array(lens.alongside.prefix(4).enumerated()), id: \.element.id) { index, app in
-                        StoryAppRow(app: app, rank: index)
+                    ForEach(Array(lens.alongside.prefix(4).enumerated()), id: \.element.id) { _, app in
+                        StoryAppRow(app: app)
                     }
                 }
             }
@@ -26,8 +26,8 @@ struct HistorySearchRail: View {
             let apps = store.historySearchApps()
             if !apps.isEmpty {
                 StoryTile(title: "Apps in these sessions", trailing: apps.count == 1 ? "1 app" : "\(apps.count) apps") {
-                    ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { index, app in
-                        StoryAppRow(app: app, rank: index)
+                    ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { _, app in
+                        StoryAppRow(app: app)
                     }
                 }
             }
@@ -40,7 +40,7 @@ struct HistorySearchRail: View {
         let inside = StoryRailFigures.minutes(lens.inSession)
         let outside = StoryRailFigures.minutes(lens.outsideTotal)
         let parts = HistorySearchText.lensParts(lens)
-        let colour = Tokens.Palette.app(rank: 1)
+        let colour = Tokens.Palette.appUse
         return StoryTile(title: name, trailing: "All time") {
             HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
                 Text(durations: parts.total)
@@ -69,9 +69,9 @@ struct HistorySearchRail: View {
     }
 
     /// When in the day the app was in front, summed over the whole record.
-    private func rhythmTile(_ lens: HistoryAppLens) -> some View {
+    private func rhythmTile(_ lens: HistoryAppLens, name: String) -> some View {
         let calendar = Calendar.current
-        let hours = Rhythm.clockHours(colorIndex: 1, calendar: calendar) {
+        let hours = Rhythm.clockHours(app: (lens.bundleID, name), calendar: calendar) {
             lens.hoursInSession[$0] + lens.hoursOutside[$0]
         }
         let peak = Rhythm.peakLabel(hours) { HistoryHours.label(calendar.component(.hour, from: $0)) }

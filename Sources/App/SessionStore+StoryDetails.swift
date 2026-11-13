@@ -150,7 +150,6 @@ extension SessionStore {
                     guard end > start else { continue }
                     segments.append(TimelineSegment(id: segment.id, bundleID: segment.bundleID,
                         appName: segment.appName, start: start, end: end,
-                        colorIndex: segment.colorIndex,
                         endReason: end == segment.end ? segment.endReason : .appSwitch))
                 }
             }
@@ -192,21 +191,21 @@ extension SessionStore {
         var report: String?
         if coverage > 0 {
             let gapNote = gap >= 1
-                ? "\(Tokens.preciseDuration(gap)) of the session span has no app recording." : nil
+                ? "\(Tokens.preciseDuration(gap)) of the session has no app use recorded." : nil
             card = "Recorded app use: \(Tokens.preciseDuration(coverage)) across "
                 + "\(Tokens.preciseDuration(elapsed)) elapsed." + (gapNote.map { " " + $0 } ?? "")
             report = gapNote
         } else if isRunning {
             card = isTrackingEnabled ? "No app use recorded yet." : nil
             report = isTrackingEnabled ? "No app use recorded yet."
-                                       : "App recording is off, so no app use is being recorded."
+                                       : "Record app use is off, so no app use is being recorded."
         } else {
-            card = "No app recording was available for this session."
-                + (isTrackingEnabled ? "" : " App recording is off.")
+            card = "No app use was recorded for this session."
+                + (isTrackingEnabled ? "" : " Record app use is off.")
             report = card
         }
         if conflicting {
-            let note = "Overlapping source app records were resolved to one foreground strip."
+            let note = "Some app records overlapped; Daybook counted one app at a time."
             card = card.map { $0 + " " + note } ?? note
             report = report.map { $0 + " " + note } ?? note
         }

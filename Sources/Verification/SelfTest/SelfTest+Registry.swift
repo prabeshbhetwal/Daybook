@@ -170,7 +170,15 @@ extension SelfTest {
             + BreakSoundChecks.tests
             + SettingsMenuWidthChecks.tests
             + FocusSmokeChecks.tests
-            + SettingsWindowChecks.tests
+            + SettingsWindowChecks.tests + SettingsSizingChecks.tests + CopyDashChecks.tests
+            + AskRetryChecks.tests
+            + NeutralFamilyChecks.tests
+            + WindowChromeNavChecks.tests
+            + EditUndoChecks.tests
+            + RowMenuAndLongListChecks.tests
+            + LocaleFormatChecks.tests
+            + CopyPolishChecks.tests
+            + AppMarkChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

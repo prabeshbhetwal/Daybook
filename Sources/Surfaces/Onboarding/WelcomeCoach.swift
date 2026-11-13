@@ -320,9 +320,9 @@ struct WelcomeCoachCard: View {
     /// reader without a mouse can still turn the pages.
     private var controls: some View {
         HStack(spacing: Tokens.Space.s) {
-            Button("Skip tour", action: onSkip)
+            Button("Skip Tour", action: onSkip)
                 .buttonStyle(StoryLinkStyle())
-                .accessibilityHint("Ends the tour for good; Settings can start it again")
+                .accessibilityHint("Ends the tour for good; Settings › General can start it again")
             Spacer(minLength: Tokens.Space.s)
             if !progress.isFirstCard {
                 Button("Back", action: onBack)

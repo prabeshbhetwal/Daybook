@@ -5,7 +5,6 @@ import SwiftUI
 /// a second numeric column.
 struct StoryAppRow: View {
     let app: AppRank
-    let rank: Int
     var onOpen: (() -> Void)?
     @StateObject private var hovered = BoolBox()
 
@@ -38,7 +37,7 @@ struct StoryAppRow: View {
                     .monospacedDigit().foregroundStyle(StoryStyle.supportingInk)
                 if onOpen != nil {
                     Image(systemName: "chevron.right")
-                        .font(Tokens.Typography.micro)
+                        .font(Tokens.Typography.caption)
                         .foregroundStyle(StoryStyle.supportingInk)
                 }
             }
@@ -46,7 +45,7 @@ struct StoryAppRow: View {
             GeometryReader { geometry in
                 Capsule().fill(StoryStyle.line)
                     .overlay(alignment: .leading) {
-                        Capsule().fill(Tokens.Palette.app(rank: rank))
+                        Capsule().fill(Tokens.Palette.appUse)
                             .frame(width: geometry.size.width * min(1, max(0, app.share)))
                     }
             }
@@ -113,7 +112,7 @@ struct StoryAppDetail: View {
             }
             .frame(height: min(260.zoomed, CGFloat(max(1, shown)) * 26.zoomed))
             if shown < entries.count {
-                Button("Show all \(entries.count) visits") { showAll.value = true }
+                Button("Show All \(entries.count) Visits") { showAll.value = true }
                     .buttonStyle(StoryLinkStyle())
             }
             if entries.isEmpty {
@@ -121,7 +120,7 @@ struct StoryAppDetail: View {
                     .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             }
             Text(shown < entries.count
-                 ? "The list shows the newest \(shown) visits, set by Recent app visits in Settings. "
+                 ? "The list shows the newest \(shown) visits, set by Recent app visits in Settings › Recording. "
                     + "The total counts every visit."
                  : "The total counts every visit.")
                 .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
@@ -180,8 +179,8 @@ struct StoryLooseAppUse: View {
             .buttonStyle(StoryPressStyle())
             .accessibilityValue(open ? "Expanded" : "Collapsed")
             if open {
-                ForEach(Array(store.appRanks(within: [span]).enumerated()), id: \.element.id) { index, app in
-                    StoryAppRow(app: app, rank: store.storyAppColourIndices[app.bundleID] ?? index)
+                ForEach(Array(store.appRanks(within: [span]).enumerated()), id: \.element.id) { _, app in
+                    StoryAppRow(app: app)
                 }
                 if let detail = power?.detail {
                     Text(detail).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)

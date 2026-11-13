@@ -17,8 +17,7 @@ enum RedundancyChecks {
 
     private static func segment(_ name: String, _ from: TimeInterval, _ to: TimeInterval) -> TimelineSegment {
         TimelineSegment(id: UUID(), bundleID: "test." + name.lowercased(), appName: name,
-                        start: start.addingTimeInterval(from), end: start.addingTimeInterval(to),
-                        colorIndex: 0)
+                        start: start.addingTimeInterval(from), end: start.addingTimeInterval(to))
     }
 
     private static func measuredExplains() -> [String] {
@@ -66,10 +65,10 @@ enum RedundancyChecks {
         let covered = SessionStore.sessionEvidenceNotes(coverage: 2_100, elapsed: 2_580, gap: 480,
                                                         isRunning: false, isTrackingEnabled: true,
                                                         conflicting: false)
-        if covered.card != "Recorded app use: 35m across 43m elapsed. 8m of the session span has no app recording." {
+        if covered.card != "Recorded app use: 35m across 43m elapsed. 8m of the session has no app use recorded." {
             failures.append("the card caption repeats its clock or lost coverage: \(covered.card ?? "nil")")
         }
-        if covered.report != "8m of the session span has no app recording." {
+        if covered.report != "8m of the session has no app use recorded." {
             failures.append("the report note repeats its figures: \(covered.report ?? "nil")")
         }
         let runningOff = SessionStore.sessionEvidenceNotes(coverage: 0, elapsed: 600, gap: 600,
@@ -78,14 +77,14 @@ enum RedundancyChecks {
         if runningOff.card != nil {
             failures.append("the card repeats the recording-off banner: \(runningOff.card ?? "")")
         }
-        if runningOff.report?.contains("App recording is off") != true {
+        if runningOff.report?.contains("Record app use is off") != true {
             failures.append("the report, which has no banner, lost the recording-off note")
         }
         let unrecorded = SessionStore.sessionEvidenceNotes(coverage: 0, elapsed: 600, gap: 600,
                                                            isRunning: false, isTrackingEnabled: true,
                                                            conflicting: true)
-        if unrecorded.card?.contains("Logged focus") != false
-            || unrecorded.card?.contains("Overlapping source app records") != true
+        if unrecorded.card?.contains("Recorded focus") != false
+            || unrecorded.card?.contains("Some app records overlapped") != true
             || unrecorded.card != unrecorded.report {
             failures.append("an unrecorded session's notes were wrong: \(unrecorded)")
         }

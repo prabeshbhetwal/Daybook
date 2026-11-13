@@ -7,7 +7,7 @@ enum HistorySearchText {
     static func eyebrow(filter: HistoryFilter, appName: String?, lens: HistoryAppLens?) -> String {
         if let lens, let appName {
             guard let first = lens.usedByDay.keys.min() else { return appName }
-            return "\(appName) · first used \(DateFormats.australian("d MMMM yyyy").string(from: first))"
+            return "\(appName) · first used \(DateFormats.localized("dMMMMy").string(from: first))"
         }
         return (["Search"] + subjects(filter: filter, appName: appName)).joined(separator: " · ")
     }
@@ -58,7 +58,7 @@ enum HistorySearchText {
             facts.append("\(lensParts(lens).inside) in \(count == 1 ? "1 session" : "\(count) sessions")")
         }
         if let last = lens.lastUsed {
-            facts.append("last used \(DateFormats.australian("EEE d MMM").string(from: last)) at "
+            facts.append("last used \(DateFormats.shortDay(last)) at "
                          + Tokens.timeOfDayOnly(last))
         }
         return facts
@@ -125,7 +125,7 @@ struct HistorySearchColumn: View {
         VStack(alignment: .leading, spacing: Tokens.Space.l) {
             headline
             HistoryResultChart(firstDay: store.historyTop().firstDay, today: store.now(),
-                               values: chartValues, isLens: lens != nil,
+                               values: chartValues, isLens: lens != nil, appBundleID: lens?.bundleID,
                                onPick: { day in navigation.revealHistory(target: JournalEntry.dayID(day), focus: nil) })
             HistorySearchList(store: store, navigation: navigation, entries: entries, lens: lens, appName: appName)
         }

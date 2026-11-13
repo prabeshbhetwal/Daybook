@@ -12,7 +12,8 @@ extension SettingsGroups {
                     HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.m) {
                         Text(entry.keys)
                             .font(Tokens.Typography.label.monospacedDigit())
-                            .frame(width: 52.zoomed, alignment: .leading)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .frame(minWidth: Self.keyColumnWidth.zoomed, alignment: .leading)
                             .accessibilityHidden(true)
                         Text(entry.action)
                             .font(Tokens.Typography.body)
@@ -44,7 +45,7 @@ extension SettingsGroups {
                         .accessibilityLabel("Reset the shortcut to Control-Option-Space")
                 }
                 if model.globalShortcut != nil {
-                    Button("Turn off") { model.setGlobalShortcut(nil) }
+                    Button("Turn Off") { model.setGlobalShortcut(nil) }
                         .buttonStyle(.bordered)
                         .accessibilityLabel("Turn the global shortcut off")
                 }
@@ -81,26 +82,35 @@ extension SettingsGroups {
     static let pauseOrAwayNote = "Pause: you're at the Mac, apps still recorded. "
         + "Away: you've left, nothing recorded."
 
-    /// The window's own keys. The session keys come from `SessionShortcut`,
-    /// so this list cannot drift from what the Session commands answer to.
+    /// The key column's width in points at 100%. It holds the widest chord, ⌥⌘
+    /// and an arrow, at any zoom, because the label font and the column scale
+    /// together; a check measures the chords against it.
+    static let keyColumnWidth = 64
+
+    /// The window's own keys, named as the menu names them. The session keys
+    /// come from `SessionShortcut`, so this list cannot drift from what the
+    /// Session commands answer to.
     static let windowKeys: [KeyEntry] = [
-        KeyEntry(keys: SessionShortcut.start.glyphs, spoken: "Option-Command-N", action: "Start focus"),
+        KeyEntry(keys: SessionShortcut.start.glyphs, spoken: "Option-Command-N", action: "Start Focus"),
         KeyEntry(keys: SessionShortcut.pauseOrResume.glyphs, spoken: "Option-Command-P",
-                 action: "Pause or resume"),
-        KeyEntry(keys: SessionShortcut.stepAway.glyphs, spoken: "Option-Command-A", action: "Away"),
+                 action: "Pause or Resume"),
+        KeyEntry(keys: SessionShortcut.stepAway.glyphs, spoken: "Option-Command-A", action: "Step Away"),
         KeyEntry(keys: SessionShortcut.takeBreak.glyphs, spoken: "Option-Command-B",
-                 action: "Take a break, or end it"),
-        KeyEntry(keys: SessionShortcut.stop.glyphs, spoken: "Option-Command-S", action: "Stop the session"),
-        KeyEntry(keys: "⌘1", spoken: "Command-1", action: "The day's story"),
+                 action: "Take a Break, or End It"),
+        KeyEntry(keys: SessionShortcut.stop.glyphs, spoken: "Option-Command-S", action: "Stop"),
+        KeyEntry(keys: "⌘1", spoken: "Command-1", action: "Story"),
         KeyEntry(keys: "⌘2", spoken: "Command-2", action: "History"),
         KeyEntry(keys: "⌘F", spoken: "Command-F", action: "Find in History"),
+        KeyEntry(keys: "⌘J", spoken: "Command-J", action: "Go to Date…"),
         KeyEntry(keys: "⌘K", spoken: "Command-K", action: "Ask Daybook"),
+        KeyEntry(keys: "⌥⌘←", spoken: "Option-Command-Left Arrow", action: "Previous Day"),
+        KeyEntry(keys: "⌥⌘→", spoken: "Option-Command-Right Arrow", action: "Next Day"),
         KeyEntry(keys: "⌘6", spoken: "Command-6", action: "Awards"),
-        KeyEntry(keys: "⌘7", spoken: "Command-7", action: "Session controls"),
+        KeyEntry(keys: "⌘7", spoken: "Command-7", action: "Session Controls"),
         KeyEntry(keys: "⌘,", spoken: "Command-comma", action: "Settings"),
-        KeyEntry(keys: "⌘+", spoken: "Command-plus", action: "Zoom in"),
-        KeyEntry(keys: "⌘−", spoken: "Command-minus", action: "Zoom out"),
-        KeyEntry(keys: "⌘0", spoken: "Command-0", action: "Actual size")
+        KeyEntry(keys: "⌘+", spoken: "Command-plus", action: "Zoom In"),
+        KeyEntry(keys: "⌘−", spoken: "Command-minus", action: "Zoom Out"),
+        KeyEntry(keys: "⌘0", spoken: "Command-0", action: "Actual Size")
     ]
 
     struct KeyEntry: Hashable {

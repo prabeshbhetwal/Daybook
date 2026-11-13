@@ -71,9 +71,9 @@ final class DecisionHistory {
         guard FileManager.default.fileExists(atPath: url.path) else { return }
         do {
             document = try JSONDecoder().decode(Document.self, from: Data(contentsOf: url))
-            if document.version != 1 { error = "Correction history has an unsupported version. Its file was preserved." }
+            if document.version != 1 { error = "Correction history was written by a newer version of Daybook. Its file was kept. Update Daybook to read it." }
         } catch {
-            self.error = "Correction history could not be read. Its file was preserved: \(error.localizedDescription)"
+            self.error = "Correction history could not be read. Its file was kept: \(error.localizedDescription) Reopen Daybook to try again."
         }
     }
 
@@ -97,7 +97,7 @@ final class DecisionHistory {
             next.metadataCheckpoint = MetadataCheckpoint(pending.before)
             next.fields = pending.fieldsBefore
         } else {
-            return "A pending correction conflicts with newer evidence. No records were replaced."
+            return "A pending correction conflicts with newer changes. No records were replaced. Review the day, then try again."
         }
         next.pending = nil
         return save(next)
@@ -159,6 +159,6 @@ final class DecisionHistory {
             try JSONEncoder().encode(next).write(to: url, options: .atomic)
             document = next
             return nil
-        } catch { return "Could not save correction history: \(error.localizedDescription)" }
+        } catch { return "Could not save correction history: \(error.localizedDescription) Check free space and folder access, then try again." }
     }
 }

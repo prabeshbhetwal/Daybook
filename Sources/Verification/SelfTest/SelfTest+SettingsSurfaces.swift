@@ -13,8 +13,7 @@ extension SelfTest {
                      _ reason: UsageEndReason) -> TimelineSegment {
             TimelineSegment(id: UUID(), bundleID: "com.\(name)", appName: name,
                             start: base.addingTimeInterval(from),
-                            end: base.addingTimeInterval(to),
-                            colorIndex: 0, endReason: reason)
+                            end: base.addingTimeInterval(to), endReason: reason)
         }
 
         expect(SessionShape.paragraph(SessionShape.Input(
@@ -35,7 +34,7 @@ extension SelfTest {
                "a recorded idle end is reported", &problems)
         expect(!joined.contains("watching"),
                "deep work never claims watching counts as the work", &problems)
-        expect(!joined.contains("no app recording"),
+        expect(!joined.contains("no app use recorded"),
                "a fully recorded session reports no gap", &problems)
 
         let meeting = SessionShape.sentences(SessionShape.Input(
@@ -46,7 +45,7 @@ extension SelfTest {
                "a single-app session says so plainly", &problems)
         expect(meetingText.contains("Meetings treats watching as the work itself"),
                "the watching rule is stated where it applies", &problems)
-        expect(meetingText.contains("30m of this session has no app recording."),
+        expect(meetingText.contains("30m of this session has no app use recorded."),
                "worked time beyond the recording is stated, not hidden", &problems)
         return problems
     }
@@ -89,18 +88,18 @@ extension SelfTest {
     static func testSettingsGroupsContainOnlyBackedControls() -> [String] {
         var problems: [String] = []
         let expectedTitles = [
-            "General", "Focus sessions", "Categories", "Away", "Breaks", "Automatic and rewards",
-            "Activity rules", "Tracking and apps", "Appearance", "Data and privacy", "Updates", "Advanced"
+            "General", "Sessions", "Categories", "Away", "Breaks", "Automatic and rewards",
+            "Activity rules", "Recording", "Appearance", "Privacy", "Updates", "Advanced"
         ]
         expect(SettingsSection.allCases.map(\.title) == expectedTitles,
                "all twelve Settings groups retain their approved order and titles", &problems)
         expect(SettingsSection.allCases.allSatisfy {
             !$0.symbol.isEmpty && !$0.controlLabels.isEmpty
         }, "every Settings group exposes a symbol and searchable control labels", &problems)
-        expect(SettingsSection.matching("goal").map(\.title) == ["Focus sessions"],
-               "searching goal returns Focus sessions", &problems)
-        expect(SettingsSection.matching("privacy").map(\.title) == ["Data and privacy"],
-               "searching privacy returns Data and privacy", &problems)
+        expect(SettingsSection.matching("goal").map(\.title) == ["Sessions"],
+               "searching goal returns Sessions", &problems)
+        expect(SettingsSection.matching("privacy").map(\.title) == ["Privacy"],
+               "searching privacy returns Privacy", &problems)
 
         let expectedControls: Set<SettingsControlKey> = [
             .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,

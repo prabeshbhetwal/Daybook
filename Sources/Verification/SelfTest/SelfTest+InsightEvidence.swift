@@ -33,7 +33,7 @@ extension SelfTest {
                    == "Keep using Daybook; patterns appear once there is enough comparable history.",
                "first-run copy explains how evidence becomes available", &problems)
 
-        let zeroHour = RhythmHour(hour: base, seconds: 0, colorIndex: 6)
+        let zeroHour = RhythmHour(hour: base, seconds: 0)
         let zeroRhythm = InsightSurface.make(
             range: .week,
             goal: emptyGoal,
@@ -111,7 +111,7 @@ extension SelfTest {
         let evidenced = InsightSurface.make(
             range: .month,
             goal: emptyGoal,
-            rhythm: [RhythmHour(hour: base, seconds: 45 * 60, colorIndex: 0)],
+            rhythm: [RhythmHour(hour: base, seconds: 45 * 60)],
             rhythmPeak: "9am",
             quality: FocusQuality(
                 byWorkType: [WorkTypeShare(workType: .deepWork,
@@ -144,7 +144,7 @@ extension SelfTest {
         let evidencedWeek = InsightSurface.make(
             range: .week,
             goal: emptyGoal,
-            rhythm: [RhythmHour(hour: base, seconds: 45 * 60, colorIndex: 0)],
+            rhythm: [RhythmHour(hour: base, seconds: 45 * 60)],
             rhythmPeak: "9am",
             quality: emptyQuality,
             streak: 0,
@@ -242,7 +242,7 @@ extension SelfTest {
         boundaryStore.attach(tracker: boundaryTracker, usage: boundaryUsage)
         boundaryStore.refreshInsights()
         expect(boundaryStore.insightMonthSurface.continuity?.detail
-                   .contains("like-for-like previous period") != true,
+                   .contains("previous period of the same length") != true,
                "a month with no corresponding previous-month day has no comparison",
                &problems)
         return problems + midnightMonthComparison()
@@ -282,7 +282,7 @@ extension SelfTest {
         store.attach(tracker: tracker, usage: usage)
         store.refreshInsights()
         let detail = store.insightMonthSurface.continuity?.detail ?? "nil"
-        expect(detail.contains("tracked time matches the like-for-like previous period"),
+        expect(detail.contains("recorded time matches the previous period of the same length"),
                "the second day of a month starting at 01:00 compares with the previous month's second day; "
                    + "got '\(detail)'", &problems)
         return problems

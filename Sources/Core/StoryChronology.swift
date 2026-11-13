@@ -36,7 +36,7 @@ enum StoryGapReason: Equatable {
         case .unknown: return "The Mac may have been asleep or off, or Daybook wasn't running."
         case .recordingStopped:
             return "Recording stopped while Spotlight, Control Centre or a password prompt was in front, "
-                + "or app recording was off."
+                + "or Record app use was off."
         default: return nil
         }
     }

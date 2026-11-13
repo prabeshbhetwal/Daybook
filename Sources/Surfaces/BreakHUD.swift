@@ -34,7 +34,7 @@ enum BreakHUDCopy {
     /// `canStart` is false where a break would be refused (watching): the
     /// reminder then keeps only its Later and Skip.
     static func reminder(_ prompt: BreakPrompt, canStart: Bool = true) -> (title: String, detail: String, buttons: [Choice]) {
-        var buttons: [Choice] = canStart ? [("Start break", .start)] : []
+        var buttons: [Choice] = canStart ? [("Start Break", .start)] : []
         switch prompt.tier {
         case .micro: buttons = []
         case .cognitive:
@@ -42,7 +42,7 @@ enum BreakHUDCopy {
             buttons.append(("Skip", .skip))
         case .ultradian:
             // The long-stretch prompt is put off for 15 minutes, never skipped.
-            if prompt.canLater { buttons.append(("Remind me in 15 min", .later)) }
+            if prompt.canLater { buttons.append(("Remind Me in 15 min", .later)) }
         }
         return (prompt.title, prompt.body, buttons)
     }
@@ -70,6 +70,8 @@ private struct BreakHUDView: View {
                     .font(Tokens.Typography.heading)
                     .foregroundStyle(StoryStyle.successInk)
                     .frame(width: Tokens.Space.xl)
+                    // The card's label already says it.
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     Text(content.title)
                         .font(Tokens.Typography.label)
@@ -225,7 +227,8 @@ final class BreakHUD {
             return
         }
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.3
+            // Leaving is quicker than arriving (0.2 s).
+            context.duration = 0.15
             panel.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             Task { @MainActor in
