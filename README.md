@@ -215,9 +215,10 @@ Xcode is not needed.
 
 Replacing the local app relaunches it if it was running from that folder, so
 it never keeps running from files the swap deleted. For an app you keep
-using, prefer `--install`: iCloud's Desktop and Documents quarantine a bundle
-built inside them, and macOS then runs it from a read-only copy that cannot
-update itself.
+using, install the latest release's `Daybook.dmg` instead: it updates itself
+from GitHub Releases. A local build is for testing, and iCloud's Desktop and
+Documents quarantine a bundle built inside them, so macOS runs it from a
+read-only copy that cannot update itself.
 
 The binary is built with `-Osize` and stripped of local symbols. To profile
 with `sample`, build once with `FC_KEEP_SYMBOLS=1 ./build.sh`.

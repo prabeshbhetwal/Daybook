@@ -80,9 +80,14 @@ with the sandbox disabled. Otherwise leave it alone and say why.
   user may be running (`--install` replaces the live app,
   `/Applications/Daybook.app`), and each relaunches a copy running from it.
   The user opens Daybook from the Dock, and its single-instance lock turns
-  away a second copy. If `Sources/` or `Assets/` changed, say the new build is
-  on `main` and leave updating the app to the user
-  (`./build.sh --install` in `$MAIN`).
+  away a second copy.
+- The user's app updates only from GitHub Releases, through Sparkle, never by
+  a local `--install`. If `Sources/` or `Assets/` changed, say the new build
+  is on `main` and offer a release: the next patch version (one past the
+  latest `v*` tag) with `scripts/release.sh <version>`, run with the sandbox
+  disabled, a `--dry-run` first. A release publishes to a public repository,
+  so run it only on the user's yes. The installed app then finds it on its
+  next automatic check, or at once from Check for Updates.
 
 ## 9. Report
 
@@ -91,5 +96,5 @@ Shipped <sha> "<subject>"
 origin/main <old>..<new>
 Checks: N/N on the merged tree (or: skipped, docs only)
 Main checkout: fast-forwarded | left alone (<reason>)
-App: not touched (new build on main | docs only)
+App: not touched (release offered: <version> | released: <version> | docs only)
 ```

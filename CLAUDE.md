@@ -13,9 +13,15 @@ as one module.
 | `./build.sh --check` | Build and run every self-check; never replaces the local app. Run before each commit. |
 | `./build.sh --test` | The same, then replaces `Daybook.app`, relaunching it if it was running from this folder |
 | `./build.sh --run` | Build, verify and relaunch the app |
-| `./build.sh --install` | Like `--test`, but replaces the live app, `/Applications/Daybook.app`. Sir runs it from the main checkout. |
+| `./build.sh --install` | Like `--test`, but replaces the live app, `/Applications/Daybook.app`. Not how Sir's app is updated; see below. |
 | `FC_KEEP_SYMBOLS=1 ./build.sh` | Keep symbols for profiling with `sample` |
 | `scripts/release.sh 1.2.0 [--dry-run]` | Publish a release installed copies update to (Sparkle; key in the Keychain), with `Daybook.dmg` for new installs |
+
+Sir's app updates only from GitHub Releases: ship to `main`, then release
+the next version with `scripts/release.sh` (on Sir's yes; the repository is
+public). The app checks the feed on its schedule (weekly by default, set in
+Settings › About & Updates) and from Check for Updates. Do not put a local
+build in `/Applications`: Sir's copy should always be a published release.
 
 - `build.sh` fails inside the Claude Bash sandbox at the `sips` icon step (it
   cannot write to the system temp folder). Run it with the sandbox disabled.
