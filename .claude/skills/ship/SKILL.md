@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Ship the current Daybook change to main — check, commit in the repository's style, merge with main, push, and bring the main checkout up to date. Use only when the user asks to ship, commit and merge, merge to main, or push.
+description: Ship the current Daybook change to main through a pull request — check, commit in the repository's style, merge with main, push a branch, open a PR that auto-merges once CI passes, and bring the main checkout up to date. Use only when the user asks to ship, commit and merge, merge to main, or push.
 ---
 
 # Ship to main
@@ -52,26 +52,41 @@ Run `./build.sh --check` with the sandbox disabled. It must end in
 
 ## 5. Merge with main
 
-- Worktree session in the desktop app: call `sync_with_base_branch` (base
-  `main`). Elsewhere: `git fetch origin && git merge origin/main`.
-- Main checkout on `main`: `git pull --no-rebase origin main`.
+- On `main` itself (the main checkout): move the commit to a branch first,
+  `git switch -c ship/<short-topic>`, since `main` only takes pull requests.
+- `git fetch origin && git merge origin/main`.
 - Conflicts: resolve them, `git add` the files, `git commit --no-edit`.
 - If the merge brought in changes under `Sources/`, `Assets/` or `build.sh`,
   run step 3 again on the merged tree.
 
-## 6. Push
+## 6. Pull request
 
-Run `git push origin HEAD:main` with the sandbox disabled. If it is refused
-because `main` moved, go back to step 5. Never force.
+Every change reaches `main` through a pull request that merges only once
+GitHub's required `check` passes. Never push to `main` directly, even though
+GitHub would allow it.
+
+1. `git push -u origin HEAD` with the sandbox disabled. Never force.
+2. Open it: `gh pr create --base main --title "<the commit subject>"
+   --body-file -`, the body from the commit body (several commits: one
+   short paragraph each). Use the `pr` skill if one is installed.
+3. Turn on auto-merge: `gh pr merge <n> --auto --merge --delete-branch`.
+   A merge commit keeps each commit's own subject for the release notes.
+4. In the desktop app, bind the PR to the session so its CI and review
+   comments are watched, and offer Auto-fix.
+5. Codex reviews each PR. Answer its findings with a fix pushed to the
+   branch, or a reply saying why not, before the merge goes through.
+6. Report the PR link and that it merges when `check` passes. Do not poll
+   CI; the desktop app reports failures.
 
 ## 7. Update the main checkout
 
-From a worktree, if `git -C "$MAIN" status --porcelain --untracked-files=no`
-prints nothing and `$MAIN` is on `main`, run
+Once the PR has merged: from a worktree, if
+`git -C "$MAIN" status --porcelain --untracked-files=no` prints nothing and
+`$MAIN` is on `main`, run
 `git -C "$MAIN" fetch origin && git -C "$MAIN" merge --ff-only origin/main`
 with the sandbox disabled. Otherwise leave it alone and say why.
 
-## 8. After the push
+## 8. After the merge
 
 - If `$MAIN/graphify-out/` exists and code changed, run `graphify update .`
   in `$MAIN`.
@@ -94,8 +109,7 @@ with the sandbox disabled. Otherwise leave it alone and say why.
 ## 9. Report
 
 ```
-Shipped <sha> "<subject>"
-origin/main <old>..<new>
+PR <link> "<subject>": auto-merge on, waiting for check (or: merged as <sha>)
 Checks: N/N on the merged tree (or: skipped, docs only)
 Main checkout: fast-forwarded | left alone (<reason>)
 App: not touched (release offered: <version> | released: <version> | docs only)
