@@ -119,7 +119,14 @@ extension SessionStore {
     @discardableResult
     func stopAutomatically(endingAt moment: Date) -> Bool {
         let stopped = engine.stop(endingAt: moment)
-        if let error = engine.awayDecisionError { publishCorrectionError(error) }
+        // As an ordinary Stop does: a save that worked clears an earlier
+        // failure and its retry, so the notice does not outlive the problem.
+        if let error = engine.awayDecisionError {
+            publishCorrectionError(error)
+        } else if stopped {
+            publishCorrectionError(nil)
+            correctionRetry = nil
+        }
         return stopped
     }
 

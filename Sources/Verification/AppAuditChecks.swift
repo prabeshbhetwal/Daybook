@@ -64,6 +64,9 @@ enum AppAuditChecks: CheckSuite {
             f.gate.refuses = false
             expect(f.store.stopAutomatically(endingAt: end) && f.engine.state == .idle,
                    "an end reports true, got \(f.engine.state)", &problems)
+            expect(f.store.correctionError == nil,
+                   "the end that saved clears the earlier failure, got \(String(describing: f.store.correctionError))",
+                   &problems)
             expect(f.engine.archive.records.last?.end == end,
                    "the session ends where its work stopped, got \(String(describing: f.engine.archive.records.last?.end))",
                    &problems)

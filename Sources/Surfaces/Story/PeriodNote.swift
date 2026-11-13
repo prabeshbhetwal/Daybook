@@ -90,7 +90,7 @@ struct PeriodNote: View {
                 Text(Self.failure).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                 Button("Try Again") {
                     asked = true
-                    writer.request(place, requested: true)
+                    writer.retry(place)
                 }
                 .buttonStyle(StoryLinkStyle())
                 .accessibilityHint("Writes a short note with on-device AI.")

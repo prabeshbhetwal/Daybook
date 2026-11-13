@@ -81,6 +81,13 @@ enum NoteState: Equatable {
     /// Asking for a place with no facts (no sessions, or a year) fails. A
     /// write goes first: the note being written for another place waits, and
     /// is started again when the writer is idle.
+    /// Try Again: forgets a failure remembered for these facts, so the model
+    /// is asked again instead of the cached failure being shown.
+    func retry(_ place: HistoryPlace) {
+        if let facts = store?.noteFacts(for: place) { failedKeys.remove(Self.cacheKey(place, facts)) }
+        request(place, requested: true)
+    }
+
     func request(_ place: HistoryPlace, requested: Bool) {
         guard isUsable, let store else { return }
         pending.removeAll { $0.place.id == place.id }
