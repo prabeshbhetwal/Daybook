@@ -134,3 +134,13 @@ components only.
 - C3 REVERTED, now DEFER. The fix moved the engine to a shifted clock while App passed wall-clock moments to `stop(endingAt:)` and `endBreak(at:)`, producing zero-length records claiming the full work, and the in-memory offset was lost on relaunch. A safe fix needs the offset persisted in the snapshot and every wall moment translated at the engine boundary.
 - C4 REVERTED, now DEFER. Anchoring retention on the newest earlier day blocked legitimate pruning after a long real gap (checks 1247 and 1248 failed) and still erased the log after two wrong-clock days.
 - C1, C2, C5 kept after independent review. C5 follow-up (crash window between set-aside and write-back; the Recovery note in Settings) is in batch 2.
+
+## Outcome (13 November, 18:45)
+
+Branch `claude/fable-production-audit-1bddf0`, 45 commits on `dabd00a`, 140 source files, net 153 lines removed. `./build.sh --check` 1351/1351; the same tree minus the last review fixes passed 1351/1351 under `TZ=Europe/Berlin` and `TZ=Pacific/Kiritimati`. Not merged, pushed, released or installed.
+
+- Fixed: C1, C2, C5 (with crash-window and Recovery-note follow-up); A1 to A4, A7 to A9; all ACCEPT items in U, V, X and W; P1, P4, P5, P6, P7, P9, P12 (part), R1, R2.
+- Withdrawn: C3, C4 (see above). W12 kept the model's facts in one clock style (en_AU) after review.
+- Deferred: C3, C4, C6, C7, A5, A6, A10, P2, P3, P8, P10, P11, R3, V14 (part), X11 (hairline under Increase Contrast).
+- Independent reviews: Core fixes (fix-reviewer) and the whole diff (Opus). Their findings were fixed: saved-decision announcement on appear, History path bar alignment, unreadable sessions file emptied. A regression found in snapshots was fixed: every rhythm chart was dimmed by disabled buttons.
+- Not verified by hand: the running app (only static snapshots, 360 scenarios at 80, 100 and 160 percent); the popover footer with an update offered; Settings selection and away-card hover in dark appearance.
