@@ -151,10 +151,17 @@ struct CompactGoalPresentation: Equatable {
     let short: String
     let bare: String
     let accessibility: String
+    /// The figures and the pace in full, for the roomy hero. One builder, so
+    /// the strip and the hero round and word them the same way.
+    let achieved: String
+    let target: String
+    let paceLine: String
 
     init(_ goal: GoalProgress) {
         let achieved = Tokens.preciseDuration(goal.achieved)
         let target = Tokens.preciseDuration(goal.goal)
+        self.achieved = achieved
+        self.target = target
         // Nil where there is nothing to compare against: a line reading
         // "Pace unavailable" states an absence the reader cannot act on.
         let shortPace: String?
@@ -187,6 +194,7 @@ struct CompactGoalPresentation: Equatable {
         short = shortPace.map { "\(achieved) / \(target) · \($0)" } ?? "\(achieved) / \(target)"
         bare = "\(achieved) / \(target)"
         accessibility = "Daily goal. \(achieved) of \(target). \(fullPace)"
+        paceLine = fullPace
     }
 }
 
@@ -384,10 +392,12 @@ struct FocusHero: View {
             Text(store.activeIntent)
                 .font(Tokens.Typography.rowTitle)
                 .lineLimit(1)
+                .help(store.activeIntent)
             Text(liveSubtitle)
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(1)
+                .help(liveSubtitle)
         }
         .layoutPriority(1)
         .transition(Tokens.Motion.transition(
@@ -416,7 +426,7 @@ struct FocusHero: View {
             }
             .matchedGeometryEffect(id: "primary", in: primaryPill)
             .help(pauseHelp)
-            FocusActionButton(title: "Away", symbol: "door.right.hand.open") { store.markAway() }
+            FocusActionButton(title: "Step Away", symbol: "door.right.hand.open") { store.markAway() }
                 .help(awayHelp)
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
@@ -554,7 +564,7 @@ struct FocusHero: View {
                 performPrimaryAction()
             }
             .help(pauseHelp)
-            FocusActionButton(title: "Away", symbol: "door.right.hand.open") {
+            FocusActionButton(title: "Step Away", symbol: "door.right.hand.open") {
                 store.markAway()
             }
             .help(awayHelp)
@@ -646,7 +656,7 @@ struct FocusHero: View {
             HStack(spacing: Tokens.Space.s) {
                 controls()
             }
-            // Its own row: Pause, Away and Stop already fill the popover's.
+            // Its own row: Pause, Step Away and Stop already fill the popover's.
             takeBreakButton
             goalSupport
             if composition.showsAutomaticSessionControls {
@@ -750,10 +760,7 @@ struct FocusHero: View {
             store.undoAutomaticSessionCorrection()
         }
         .accessibilityLabel("Undo Automatic Session")
-        .buttonStyle(StoryPressStyle())
-        .font(Tokens.Typography.body)
-        .foregroundStyle(StoryStyle.supportingInk)
-        .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
+        .buttonStyle(StoryLinkStyle())
     }
 
     // MARK: - Awaiting decision
@@ -806,10 +813,10 @@ struct FocusHero: View {
                          label: DurationText.percent(min(store.goal.share, 9.99)),
                          isMet: store.goal.isMet)
                 VStack(alignment: .leading, spacing: 2.zoomed) {
-                    Text("Today · \(Tokens.preciseDuration(store.goal.achieved)) of "
-                         + Tokens.preciseDuration(store.goal.goal))
+                    let presentation = CompactGoalPresentation(store.goal)
+                    Text("Today · \(presentation.achieved) of \(presentation.target)")
                         .font(Tokens.Typography.body.monospacedDigit())
-                    Text(goalPaceLine)
+                    Text(presentation.paceLine)
                         .font(Tokens.Typography.body)
                         .foregroundStyle(store.goal.isMet
                                          ? AnyShapeStyle(StoryStyle.successInk)
@@ -831,16 +838,6 @@ struct FocusHero: View {
                              : AnyShapeStyle(StoryStyle.supportingInk))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private var goalPaceLine: String {
-        if store.goal.isMet { return "Daily goal met" }
-        guard let ahead = store.goal.aheadBy else {
-            return "No pace yet. It needs more history."
-        }
-        if ahead >= 60 { return "\(Tokens.duration(ahead)) ahead of your usual pace" }
-        if ahead <= -60 { return "\(Tokens.duration(-ahead)) behind your usual pace" }
-        return "On your usual pace"
     }
 
     /// Secondary actions stay explicit beside their buttons because they do

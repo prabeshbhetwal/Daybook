@@ -31,7 +31,7 @@ struct StoryAppRow: View {
         VStack(spacing: Tokens.Space.xs) {
             HStack(spacing: 6.zoomed) {
                 AppIcon(bundleID: app.bundleID, size: 14.zoomed, appName: app.appName)
-                Text(app.appName).lineLimit(1)
+                Text(app.appName).lineLimit(1).help(app.appName)
                 Spacer(minLength: Tokens.Space.xs)
                 Text(durations: Tokens.preciseDuration(app.total))
                     .monospacedDigit().foregroundStyle(StoryStyle.supportingInk)
@@ -86,14 +86,9 @@ struct StoryAppDetail: View {
                 Spacer()
                 Text(durations: Tokens.preciseDuration(evidence.total))
                     .font(Tokens.Typography.heading.monospacedDigit())
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                }
-                .buttonStyle(StoryLinkStyle())
-                .padding(.leading, Tokens.Space.s)
-                .keyboardShortcut(.cancelAction)
-                .accessibilityLabel("Close app detail")
-                .help("Close app detail")
+                CloseButton(label: "Close app detail", help: "Close App Detail",
+                            action: onDismiss)
+                    .padding(.leading, Tokens.Space.s)
             }
             Text("Recorded app visits · newest first")
                 .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
@@ -190,6 +185,6 @@ struct StoryLooseAppUse: View {
         }
         .padding(StoryStyle.entryInsets(for: density))
         .background(StoryStyle.well.opacity(0.6),
-                    in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius))
+                    in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
     }
 }

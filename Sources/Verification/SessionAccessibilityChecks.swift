@@ -56,6 +56,11 @@ enum SessionAccessibilityChecks {
                 || !undoable.contains("Undo Automatic Session") || !undoable.hasSuffix(".") {
                 failures.append("An undoable notice did not say where else Undo is: \(undoable)")
             }
+            // "1h 5m" is for the eye; spoken, it was one hour and five metres.
+            let timed = RewardHUD.spoken(title: "Goal reached", detail: "You logged 1h 5m today.", hasUndo: false)
+            if timed != "Goal reached. You logged 1 hour 5 minutes today." {
+                failures.append("A compact duration was not spoken in words: \(timed)")
+            }
             return failures
         }
     }

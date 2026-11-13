@@ -64,7 +64,10 @@ private struct RewardHUDView: View {
         .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.panel))
         .onTapGesture(perform: onBackgroundTapped)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(model.title). \(model.detail)")
+        .accessibilityLabel(DurationText.spoken(in: "\(model.title). \(model.detail)"))
+        // The panel can never be focused, but VoiceOver can still reach it
+        // by cursor; Escape is the way out of anything it has entered.
+        .accessibilityAction(.escape, onBackgroundTapped)
         .zoomRoot()
     }
 }
@@ -220,9 +223,10 @@ final class RewardHUD {
             sentences.append("To undo it, open Daybook from the menu bar "
                              + "and choose Undo Automatic Session")
         }
-        return sentences
+        // "25m" is for the eye; spoken, it was 25 metres.
+        return DurationText.spoken(in: sentences
             .map { $0.last.map { ".?!".contains($0) } == true ? $0 : $0 + "." }
-            .joined(separator: " ")
+            .joined(separator: " "))
     }
 
     func dismiss() {

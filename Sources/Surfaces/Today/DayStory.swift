@@ -201,10 +201,10 @@ struct DayStory: View {
                         .font(Tokens.Typography.body)
                         .foregroundStyle(StoryStyle.supportingInk)
                     Spacer(minLength: Tokens.Space.xs)
-                    Image(systemName: "chevron.down")
+                    Image(systemName: "chevron.right")
                         .font(Tokens.Typography.caption)
                         .foregroundStyle(StoryStyle.supportingInk)
-                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                        .rotationEffect(.degrees(isOpen ? 90 : 0))
                 }
                 .padding(.vertical, 10.zoomed)
                 .contentShape(Rectangle())
@@ -598,7 +598,7 @@ struct SessionEntryCard: View {
                             if editing.value { finishRenaming() } else { beginEditing() }
                         } label: {
                             Image(systemName: editing.value ? "checkmark.circle.fill" : "pencil")
-                                .font(editing.value ? Tokens.Typography.heading : Tokens.Typography.label)
+                                .font(Tokens.Typography.label)
                                 .foregroundStyle(editing.value ? AnyShapeStyle(StoryStyle.action)
                                                                : AnyShapeStyle(StoryStyle.supportingInk))
                                 // A full-size target around the same glyph;
@@ -848,7 +848,7 @@ struct SessionEntryCard: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(Tokens.Typography.caption)
+            .font(Tokens.Typography.label)
             .foregroundStyle(StoryStyle.supportingInk)
             .accessibilityAddTraits(.isHeader)
     }
@@ -881,7 +881,7 @@ struct SessionEntryCard: View {
                         }
                     }
                     if onRemove != nil || removeBlockReason != nil {
-                        Button("Remove", action: requestRemoval)
+                        Button("Remove", role: .destructive, action: requestRemoval)
                             .buttonStyle(StoryActionStyle(tint: Tokens.Colour.danger))
                             .disabled(onRemove == nil)
                             .help(removeBlockReason
@@ -920,12 +920,12 @@ struct SessionEntryCard: View {
                 .font(Tokens.Typography.body)
                 .foregroundStyle(Tokens.Colour.danger)
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel("Session power metadata error. \(error)")
+                .accessibilityLabel("Power readings error. \(error)")
         }
         if let detail = powerSummary?.detail {
             Text(detail).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel("Recorded power context. \(detail)")
+                .accessibilityLabel("Recorded power readings. \(detail)")
         }
         if let metadataStore {
             ForEach(noteRecordIDs, id: \.self) { recordID in
@@ -936,14 +936,8 @@ struct SessionEntryCard: View {
                             .foregroundStyle(StoryStyle.supportingInk)
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: Tokens.Space.xs)
-                        Button { metadataStore.beginNoteEditing(for: recordID) } label: {
-                            Text("Edit")
-                                .frame(minWidth: AccessibilityMetrics.minimumTargetSize,
-                                       minHeight: AccessibilityMetrics.minimumTargetSize,
-                                       alignment: .trailing)
-                                .contentShape(Rectangle())
-                        }
-                            .buttonStyle(StoryPressStyle()).font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
+                        Button("Edit") { metadataStore.beginNoteEditing(for: recordID) }
+                            .buttonStyle(StoryLinkStyle())
                             .accessibilityLabel("Edit note for stretch \(noteRecordIDs.firstIndex(of: recordID).map { $0 + 1 } ?? 1)")
                     }
                 }
@@ -957,7 +951,7 @@ struct SessionEntryCard: View {
     /// The kinds of work, offered in the card. Correcting a session to a break
     /// is offered too — the record should be able to say it was not work.
     private func workTypeChoices(_ pick: @escaping (WorkType) -> Bool) -> some View {
-        HStack(spacing: Tokens.Space.xs) {
+        ChipFlow(spacing: Tokens.Space.xs) {
             ForEach(WorkType.allCases) { type in
                 let isCurrent = type == session.workType
                 Button {
@@ -982,8 +976,8 @@ struct SessionEntryCard: View {
                 .accessibilityLabel("Record this as \(type.displayName)")
                 .accessibilityAddTraits(isCurrent ? .isSelected : [])
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var renameField: some View {
@@ -1003,11 +997,9 @@ struct SessionEntryCard: View {
                 }
                 .accessibilityLabel("Name this work")
             Button("Save Name", action: commitRename)
-                .font(Tokens.Typography.label)
+                .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
                 .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                           || draft.text.trimmingCharacters(in: .whitespacesAndNewlines) == session.name)
-            Button("Done", action: finishRenaming)
-                .font(Tokens.Typography.body)
         }
         .onExitCommand(perform: finishRenaming)
     }
@@ -1063,12 +1055,6 @@ struct AwayEntryCard: View {
     var body: some View {
         AwayAnswerGrid(away: away, range: range, note: note, error: error, onRetry: onRetry,
                        onAnswer: onAnswer, onReason: onReason)
-            .padding(Tokens.Space.m)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Tokens.Colour.attention.opacity(0.10),
-                        in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,
-                                             style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
-                .strokeBorder(Tokens.Colour.attention.opacity(0.35)))
+            .questionCard()
     }
 }

@@ -88,17 +88,11 @@ struct DayPickerCalendar: View {
             Spacer(minLength: Tokens.Space.s)
             if !calendar.isDate(shown.month, equalTo: Date(), toGranularity: .month) {
                 Button("Today") { shown.month = calendar.startOfDay(for: Date()) }
-                    .buttonStyle(StoryPressStyle())
-                    .font(Tokens.Typography.caption)
-                    .foregroundStyle(Tokens.Colour.focus)
-                    .padding(.horizontal, Tokens.Space.s)
-                    .padding(.vertical, 3.zoomed)
-                    .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                    .background(Tokens.Colour.focus.opacity(0.12), in: Capsule())
+                    .buttonStyle(StoryLinkStyle())
             }
-            IconButton(systemImage: "chevron.left", help: "Previous month") { step(-1) }
+            IconButton(systemImage: "chevron.left", help: "Previous Month") { step(-1) }
                 .disabled(!canStep(-1))
-            IconButton(systemImage: "chevron.right", help: "Next month") { step(1) }
+            IconButton(systemImage: "chevron.right", help: "Next Month") { step(1) }
                 .disabled(!canStep(1))
         }
     }
@@ -258,7 +252,7 @@ struct DayPickerCalendar: View {
         }
         .help(helpText(day, facts, pickable: pickable))
         .accessibilityLabel(dateAccessibilityLabel(day, facts, pickable: pickable,
-                                                   selected: isSelected))
+                                                   isToday: isToday))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -288,9 +282,11 @@ struct DayPickerCalendar: View {
     }
 
     private func dateAccessibilityLabel(_ day: Date, _ facts: DayFacts,
-                                        pickable: Bool, selected: Bool) -> String {
+                                        pickable: Bool, isToday: Bool) -> String {
         guard pickable else { return "\(Tokens.longDate(day)), unavailable" }
-        var parts = [Tokens.longDate(day), selected ? "selected date" : "not selected"]
+        // The selected trait says "selected"; saying it twice was noise.
+        var parts = [Tokens.longDate(day)]
+        if isToday { parts.append("today") }
         if facts.tracked == 0 {
             parts.append("nothing recorded")
         } else {

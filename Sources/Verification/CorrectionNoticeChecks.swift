@@ -38,6 +38,10 @@ enum CorrectionNoticeChecks: CheckSuite {
             store.correctionRetry = .ending(threadID: store.engine.activeThreadID,
                                             sessionStart: store.engine.sessionStartDate)
             expect(store.canRetryCorrection, "a failed Stop should offer Retry, got false", &problems)
+            // The line under the chrome shows this failure; the day's story
+            // must not show it a second time.
+            expect(store.focusOperationFailure != nil && StoryCorrectionNotice.visibleError(in: store) == nil,
+                   "a failure shown under the chrome was shown again in the story", &problems)
             store.dismissCorrectionError()
             expect(store.correctionError != nil && store.correctionRetry != nil,
                    "Dismiss must not drop a retry that can still land, got error=\(store.correctionError ?? "nil")",

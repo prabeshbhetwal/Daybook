@@ -13,7 +13,7 @@ a historical day never substitutes today's data.
 |---|---|---|
 | Story | What happened on this day? | Focus-led summary, chronological stretches, named rest, app use and honest recording gaps; goal, app use, rhythm and streak in the rail |
 | Calendar | Which day? | Opens from Jump to date in History. Each date shows its focus, or a dot if the Mac only saw app use. A tick marks a met goal, and the month's sum sits in its header |
-| Session controls | What should I do now? | The centre of the bar on the story: the activity, its category and Start; while a session runs, the clock, its name and Pause, Away and Stop in the same place. Pause keeps recording app use; Away records nothing until you're back. An away question, a quiet activity choice or an automatic session's Adopt and Undo appear on a line under the bar only while they exist |
+| Session controls | What should I do now? | The centre of the bar on the story: the activity, its category and Start; while a session runs, the clock, its name and Pause, Step Away and Stop in the same place. Pause keeps recording app use; Step Away records nothing until you're back. An away question, a quiet activity choice or an automatic session's Adopt and Undo appear on a line under the bar only while they exist |
 | History | How have my years, months, weeks and days gone? Where is that session? | One timeline that unfolds. It opens on the smallest period holding your whole record: this week's days, this month's weeks, this year's months, or every year. Click a row to open it: a year into its months, a month into its weeks, a week into its days, a day into its sessions, each one step in from its parent; one row is open per level. Each row shows its focus, its focused days or sessions, and a thin bar per month or day. Nothing is drawn from before the first recorded day or after today. Search at the top, with app and category filters. The rail describes the deepest open row, or the session you click: category shares, best two hours, goal rates and apps for a period, its best month or day, the day's strip and notes, a session's stretches and full note. Pace, quality and continuity are stated only for the current month, and only when the record supports them |
 | Awards | What milestones have I earned? | Achievements derived from recorded evidence, with their criteria |
 | Ask Daybook | What does my history say about…? | A question in your own words, answered from your own figures by on-device AI on the Mac (macOS 26 or later, on a Mac that supports it). Open it with the ✦ Ask button beside Settings or `Command-K`; an empty sheet offers four questions to try. Your question, history and answers are not sent anywhere |
@@ -37,14 +37,14 @@ a historical day never substitutes today's data.
 | Escape | In History, fold the deepest open row |
 | `Option-Command-N` | Start focus |
 | `Option-Command-P` | Pause, or resume a paused session |
-| `Option-Command-A` | Away |
+| `Option-Command-A` | Step Away |
 | `Option-Command-S` | Stop the session |
 | `Control-Option-Space` | From any app: start a session, end the running one, or bring up a waiting away card. Record a different chord in Settings › General, or turn it off there; a chord needs Control or Option, and one another app already holds is refused with the old one kept. Control-Option chords are released while VoiceOver is on, because that is VoiceOver's own modifier |
 | `Command-]`, `Command-[` | Next and previous card in the welcome tour |
 | Escape | Dismiss a native sheet/app detail or cancel an inline rename |
 
 The Session keys run the same actions as the buttons, and each is unavailable
-when the session's state offers no such button: Start only when idle, Away
+when the session's state offers no such button: Start only when idle, Step Away
 only while running. Settings › General lists every key under Keyboard, says
 whether the global shortcut is working, lets you record another, and replays the welcome tour.
 

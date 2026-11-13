@@ -19,7 +19,30 @@ private struct CardModifier: ViewModifier {
     }
 }
 
+/// A question the Story asks in place: the amber wash and hairline of a
+/// notice, cut like the entry cards around it.
+private struct QuestionCardModifier: ViewModifier {
+    @Environment(\.focusInterfaceDensity) private var density
+
+    func body(content: Content) -> some View {
+        content
+            .padding(StoryStyle.entryInsets(for: density))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Tokens.Colour.attention.opacity(0.10),
+                        in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius,
+                                             style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)
+                .strokeBorder(Tokens.Colour.attention.opacity(0.35)))
+    }
+}
+
 extension View {
+    /// The one look of an unanswered question in the day's story, whether it
+    /// is the away prompt or a past stretch asking how it should count.
+    func questionCard() -> some View {
+        modifier(QuestionCardModifier())
+    }
+
     /// A lifted surface on the ground: `Colour.surface`, continuous 16pt corners,
     /// one hairline. Cards size to their content; the ground between them is
     /// the layout.
@@ -78,7 +101,6 @@ struct IconButton: View {
                 .font(Tokens.Typography.control)
                 .symbolRenderingMode(.hierarchical)
                 .symbolSwap()
-                .symbolNod(on: isOn ?? false)
                 .frame(width: AccessibilityMetrics.minimumTargetSize,
                        height: AccessibilityMetrics.minimumTargetSize)
                 .background(prominent ? AnyShapeStyle(Tokens.Colour.focus.opacity(0.15))

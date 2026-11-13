@@ -15,9 +15,7 @@ struct PopoverFooter: View {
             footerButton("Settings…", action: onOpenSettings)
                 .keyboardShortcut(",", modifiers: .command)
             if let onCheckForUpdates {
-                footerButton("Updates", action: onCheckForUpdates)
-                    .help("Check for Updates")
-                    .accessibilityLabel("Check for Updates")
+                footerButton("Check for Updates…", action: onCheckForUpdates)
             }
             footerButton("Quit") { NSApp.terminate(nil) }
         }
@@ -26,7 +24,7 @@ struct PopoverFooter: View {
 
     private func footerButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(title, action: action)
-            .buttonStyle(StoryPressStyle())
+            .buttonStyle(StoryPressStyle(hovers: true))
             .foregroundStyle(StoryStyle.supportingInk)
             .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
             .contentShape(Rectangle())

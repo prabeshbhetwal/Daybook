@@ -25,13 +25,18 @@ struct RhythmChart: View {
             VStack(spacing: Tokens.Space.xs) {
                 HStack(alignment: .bottom, spacing: barSpacing) {
                     ForEach(hours) { hour in
-                        RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
-                            .fill(hour.seconds > 0 ? AnyShapeStyle(Tokens.Palette.appUse)
-                                                   : AnyShapeStyle(Tokens.Colour.elevated))
-                            .frame(height: max(3.zoomed, height * CGFloat(hour.seconds / scaleMaximum)))
-                            .frame(maxWidth: .infinity)
-                            .contentShape(Rectangle())
-                            .onTapGesture { onHourTap?(hour.hour) }
+                        // A button, so the keyboard and VoiceOver reach the
+                        // hour; without a handler there is nothing to press.
+                        Button { onHourTap?(hour.hour) } label: {
+                            RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
+                                .fill(hour.seconds > 0 ? AnyShapeStyle(Tokens.Palette.appUse)
+                                                       : AnyShapeStyle(Tokens.Colour.elevated))
+                                .frame(height: max(3.zoomed, height * CGFloat(hour.seconds / scaleMaximum)))
+                                .frame(maxWidth: .infinity)
+                                .contentShape(Rectangle())
+                        }
+                            .buttonStyle(.plain)
+                            .disabled(onHourTap == nil)
                             .help("\(DateFormats.hourLabel(hour.hour)) · "
                                   + Tokens.preciseDuration(hour.seconds)
                                   + (hour.seconds > 0 ? hour.topAppName.map { " · \($0)" } ?? "" : "")
