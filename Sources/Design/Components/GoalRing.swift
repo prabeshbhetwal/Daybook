@@ -26,7 +26,7 @@ struct GoalRing: View {
                 // Drawn clamped; `progress` itself may exceed 1 so the figures
                 // beside it can say "160%" honestly.
                 .trim(from: 0, to: min(1, max(0, progress)))
-                .stroke(Color.accentColor,
+                .stroke(Tokens.Colour.focus,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 // The arc follows `progress` exactly on every draw; the settle

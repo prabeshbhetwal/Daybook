@@ -168,8 +168,8 @@ struct SettingsGroups: View {
                                      options: FocusConstants.thresholdOptions, allowsNever: true)
                 }
                 rowDivider
-                preferenceRow("End session after") {
-                    ThresholdControl(label: "End session after", selection: $model.longAwayCap,
+                preferenceRow("Stop session after") {
+                    ThresholdControl(label: "Stop session after", selection: $model.longAwayCap,
                                      options: FocusConstants.longAwayCapOptions, allowsNever: true)
                 }
                 rowDivider
@@ -229,8 +229,8 @@ struct SettingsGroups: View {
                                         set: { model.autoSessionsEnabled = $0 }))
                     .disabled(rulesOn)
                 rowDivider
-                preferenceRow("End a paused automatic session after") {
-                    ThresholdControl(label: "End a paused automatic session after",
+                preferenceRow("Stop a paused automatic session after") {
+                    ThresholdControl(label: "Stop a paused automatic session after",
                                      selection: $model.autoSessionPauseLimit,
                                      options: FocusConstants.autoSessionPauseLimitOptions, allowsNever: true)
                 }
