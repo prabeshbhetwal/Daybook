@@ -82,7 +82,7 @@ enum ReviewNoteFreshnessChecks: CheckSuite {
                   let saturday = f.store.noteFacts(for: f.store.notePlace(forDayContaining: moment(f, back: 4, 12)))?.text
             else { problems.append("a day has no facts"); return }
 
-            let atNight = "The most focus came at night, after 10 pm or before 5 am: 2h"
+            let atNight = "The most focus came \(NoteDayPart.night.phrase()): 2h"
             expect(friday.contains("Most time went to: Night shift: 2h") && friday.contains(atNight)
                    && friday.contains("Longest stretch: 2h in Night shift, from 10:00 pm"),
                    "Friday's facts are “\(friday)”", &problems)

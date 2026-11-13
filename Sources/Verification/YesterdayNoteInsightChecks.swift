@@ -50,7 +50,7 @@ enum YesterdayNoteInsightChecks: CheckSuite {
             // The longest stretch is the night's, carried over, so it is left out.
             expect(facts.observations == [
                 "2h 30m more focus than your typical day of 1h (the median of 3 days with focus in your last 14)",
-                "The most focus came at night, after 10 pm or before 5 am: 2h",
+                "The most focus came \(NoteDayPart.night.phrase()): 2h",
                 "Focus ran as 2 stretches averaging 1h 45m; your typical stretch is 1h",
             ], "Tuesday's observations are \(facts.observations)", &problems)
             expect(facts.lines.contains("Most time went to: Night build: 2h; Parser: 1h 30m"),
@@ -80,7 +80,7 @@ enum YesterdayNoteInsightChecks: CheckSuite {
             guard f.engine.start(workType: .deepWork, intent: "Late") else { problems.append("Late did not start"); return }
             f.clock.value = moment(f, back: 0, 0, 30)
             let facts = f.store.noteFacts(for: tuesday)
-            expect(facts?.observations.contains("The most focus came at night, after 10 pm or before 5 am: 3h 30m") == true,
+            expect(facts?.observations.contains("The most focus came \(NoteDayPart.night.phrase()): 3h 30m") == true,
                    "Tuesday's observations are \(facts?.observations ?? [])", &problems)
         }
     }

@@ -31,7 +31,7 @@ extension SessionEngine {
     func endAbsentSession(alongside rest: SessionRecord? = nil) -> LongAwayTransitionOutcome {
         let began = pauseStartDate
         guard archiveCurrentSession(endingAt: began, alongside: rest) else {
-            return .refused(awayDecisionError ?? "The end of this session could not be saved. Check free space and folder access, then try again.")
+            return .refused(awayDecisionError ?? "The end of this session couldn't be saved. Check free space and folder access, then try again.")
         }
         cancelDwell()
         pauseStartDate = nil

@@ -72,7 +72,7 @@ enum ReviewNoteFactsChecks: CheckSuite {
                                "Most time went to: Parser: 1h 30m; Thesis: 45m", "Top apps: Xcode 1h, Safari 30m"],
                "lines wrong (top apps stop at the first with no time): \(facts.lines)", &problems)
         expect(facts.observations == ["15m more focus than your typical day of 2h (the median of 14 days with focus in your last 14)",
-                                      "The most focus came in the morning, between 5 am and noon: 1h 30m",
+                                      "The most focus came \(NoteDayPart.morning.phrase()): 1h 30m",
                                       "Focus ran as 3 stretches averaging 45m; your typical stretch is 1h",
                                       "Longest stretch: 1h in Parser, from 9:13 am"],
                "observations are not the four rules in order: \(facts.observations)", &problems)

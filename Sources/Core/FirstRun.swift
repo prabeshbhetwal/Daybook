@@ -310,9 +310,9 @@ enum FirstRunScript {
                      + "for how long. After three minutes with no keyboard or mouse, the "
                      + "clock on that app stops.",
                  anchor: .appsTile),
-            Card(sentence: "Pause stops the clock. Away stops everything, then asks.",
+            Card(sentence: "Pause stops the clock. Step Away stops everything, then asks.",
                  body: "Pause is for staying at the Mac: what you do is still recorded. "
-                     + "Away is for leaving it: nothing is recorded, and when you come "
+                     + "Step Away is for leaving it: nothing is recorded, and when you come "
                      + "back this card asks what the gap was. The one on screen now is a "
                      + "rehearsal with made-up figures. Press any answer and nothing is "
                      + "recorded.",
@@ -416,7 +416,7 @@ enum FirstRunScript {
                      + "is no account. Backups are off until you turn them on; then they "
                      + "copy it to your own iCloud Drive or to a folder you choose. "
                      + "Otherwise only the update check asks GitHub for anything, and "
-                     + "dictation may send audio to Apple when this Mac cannot recognise "
+                     + "dictation may send audio to Apple when this Mac can't recognise "
                      + "your language itself. Settings › Privacy sets the backups, shows "
                      + "you the folder and lets you turn recording off entirely.",
                  anchor: .settings)
