@@ -11,7 +11,33 @@ enum AppAuditChecks: CheckSuite {
         ("An answer that ends with no words is a failure that can be tried again", wordlessAnswerFails),
         ("A name question that timed out or met a passing error is asked again on the next refresh",
          unansweredNameIsAskedAgain),
+        ("A shortcut press that did not save says so, with the store's error", hotKeyFailuresAreShown),
     ]
+
+    private static func hotKeyFailuresAreShown() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let f = BreakStoreChecks.make(prepare: BreakStoreChecks.running) else {
+                return ["could not create isolated preferences"]
+            }
+            defer { f.close() }
+            f.gate.refuses = true
+            let refused = f.store.performSessionHotKeyAction()
+            expect(refused == .saveFailed && refused.failureTitle != nil,
+                   "a refused stop is a failure with a title, got \(refused)", &problems)
+            expect(f.store.correctionError != nil, "the store holds the error the HUD shows", &problems)
+            expect(SessionHotKeyActionResult.stoppedPendingFinalisation.failureTitle != nil,
+                   "a stop whose ending is not finalised is not reported as a success", &problems)
+            f.gate.refuses = false
+            let stopped = f.store.performSessionHotKeyAction()
+            expect(stopped == .stopped && stopped.failureTitle == nil, "a saved stop is a success, got \(stopped)",
+                   &problems)
+            let started = f.store.performSessionHotKeyAction()
+            expect(started == .started && started.failureTitle == nil, "a start is a success, got \(started)",
+                   &problems)
+            return problems
+        }
+    }
 
     private static func unansweredNameIsAskedAgain() -> [String] {
         var problems = NameSuggesterChecks.pair { f, a, _, problems in

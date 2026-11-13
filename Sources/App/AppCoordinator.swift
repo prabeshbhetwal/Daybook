@@ -434,9 +434,15 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// owner. The shortcut never archives or clears unclassified evidence.
     private func toggleSessionFromHotKey() {
         let result = store.performSessionHotKeyAction()
-        switch result {
-        case .started, .stopped, .stoppedPendingFinalisation: haptics.play(.sessionToggled)
-        case .saveFailed, .showAwayDecision: break
+        if let title = result.failureTitle {
+            // No success haptic: the store holds the error and its Retry.
+            let detail = store.correctionError ?? "Try again."
+            Task { @MainActor [weak self] in
+                self?.hud.show(title: title, detail: detail,
+                               symbolName: "exclamationmark.triangle.fill", undo: nil)
+            }
+        } else if result != .showAwayDecision {
+            haptics.play(.sessionToggled)
         }
         if result == .showAwayDecision {
             Task { @MainActor [weak self] in
