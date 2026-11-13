@@ -23,7 +23,7 @@ extension AskModel {
         case .available:
             return nil
         case .unavailable(.deviceNotEligible):
-            return AskNotice(text: "This Mac can't run on-device AI. Ask needs a Mac with Apple Intelligence.", opensSettings: false)
+            return AskNotice(text: "This Mac can't run on-device AI. The rest of Daybook works as usual.", opensSettings: false)
         case .unavailable(.appleIntelligenceNotEnabled):
             // The switch is Apple's, so the line uses its name in System Settings.
             return AskNotice(text: "Turn on Apple Intelligence in System Settings › Apple Intelligence & Siri.", // name: Apple's
