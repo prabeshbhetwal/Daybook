@@ -168,7 +168,7 @@ extension SelfTest {
         let third = SessionArchive(directory: dir, now: { clock.value })
         expect(third.records.isEmpty, "corrupt store should start empty", &problems)
         let files = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
-        expect(files.contains { $0.hasPrefix("sessions-corrupt-") },
+        expect(files.contains { $0.hasPrefix(SessionArchive.setAsidePrefix) },
                "corrupt file should be renamed aside, saw \(files)", &problems)
 
         try? FileManager.default.removeItem(at: dir)

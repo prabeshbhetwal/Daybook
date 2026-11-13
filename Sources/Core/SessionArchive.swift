@@ -238,20 +238,40 @@ final class SessionArchive {
             // Never wedge launch and never silently destroy history: move the bad
             // file aside so it can be inspected, and keep every record that
             // still reads. A file that is not a list of records at all (garbage,
-            // or a newer format) keeps none. If it cannot be moved, nothing is
-            // written over it: read-only.
+            // or a newer format) keeps none. If it cannot be copied aside,
+            // nothing is written over it: read-only.
+            //
+            // Order matters for a crash: a copy is set aside first and only then
+            // is sessions.json replaced, atomically, by the records that read.
+            // Whenever it stops, sessions.json holds either the original or the
+            // recovered list, never nothing; an interrupted run is redone on the
+            // next launch.
             let readable = data.flatMap(Self.readableRecords)?.compactMap(\.record) ?? []
-            guard let aside = UnreadableFile.setAside(fileURL, prefix: "sessions-corrupt-",
-                                                      pathExtension: "json", at: now()) else {
+            let manager = FileManager.default
+            // A run that stopped after setting its copy aside, or whose write
+            // keeps failing, already left this copy; one per launch would pile up.
+            var aside = data.flatMap { original in
+                (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil))?
+                    .first { $0.lastPathComponent.hasPrefix(Self.setAsidePrefix)
+                        && (try? Data(contentsOf: $0)) == original }
+            }
+            let staging = directory.appendingPathComponent(".sessions-unreadable.partial")
+            try? manager.removeItem(at: staging)
+            if aside == nil, (try? manager.copyItem(at: fileURL, to: staging)) != nil {
+                aside = UnreadableFile.setAside(staging, prefix: Self.setAsidePrefix,
+                                                pathExtension: "json", at: now())
+            }
+            guard let aside else {
+                try? manager.removeItem(at: staging)
                 isReadOnly = true
                 Diagnostics.log("archive unreadable and could not be set aside; kept read-only: \(error)")
                 return readable
             }
-            Diagnostics.log("archive unreadable, moved to \(aside.lastPathComponent), "
+            Diagnostics.log("archive unreadable, copied to \(aside.lastPathComponent), "
                             + "\(readable.count) records still read: \(error)")
-            // Written back now, so a relaunch before the next save still shows
-            // them. A refusal here is retried by that save, which writes them too.
-            if !readable.isEmpty, case .failure(let detail) = write(readable) {
+            // Written now, so a relaunch before the next save still shows them.
+            // A refusal leaves the original in place, and that save retries it.
+            if case .failure(let detail) = write(readable) {
                 Diagnostics.log("readable records not written back: \(detail)")
             }
             return readable
@@ -270,6 +290,11 @@ final class SessionArchive {
         try? JSONDecoder().decode([LenientRecord].self, from: data)
     }
 
+    /// Names the copy of an unreadable archive this build sets aside after
+    /// keeping its readable records. Earlier builds used `sessions-corrupt-`
+    /// and kept none, so the Recovery note can tell the two apart.
+    static let setAsidePrefix = "sessions-unreadable-"
+
     /// How many of a set-aside archive's records could not be read, so the
     /// Recovery note can say so; nil when it was not a list of records at all.
     static func unreadableRecords(inSetAside url: URL) -> (unreadable: Int, total: Int)? {
@@ -280,8 +305,8 @@ final class SessionArchive {
 
     private func write(_ candidate: [SessionRecord]) -> WriteResult {
         guard !isReadOnly else {
-            return .failure("Session history could not be read or set aside, so it is not being changed. "
-                            + "Settings › Privacy shows where the file is.")
+            return .failure("Session history couldn't be read or set aside, so it isn't being changed. "
+                            + "Reveal Data Folder in Settings, Privacy shows where it is.")
         }
         if let detail = writeOverride?(candidate) { return .failure(detail) }
         do {
