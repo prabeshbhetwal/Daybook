@@ -230,22 +230,52 @@ final class SessionArchive {
 
     private func load() -> [SessionRecord] {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+        var data: Data?
         do {
-            let data = try Data(contentsOf: fileURL)
-            return try JSONDecoder().decode([SessionRecord].self, from: data)
+            data = try Data(contentsOf: fileURL)
+            return try JSONDecoder().decode([SessionRecord].self, from: data ?? Data())
         } catch {
             // Never wedge launch and never silently destroy history: move the bad
-            // file aside so it can be inspected, and start clean. If it cannot
-            // be moved, start clean but read-only, so it is never written over.
-            if let aside = UnreadableFile.setAside(fileURL, prefix: "sessions-corrupt-",
-                                                   pathExtension: "json", at: now()) {
-                Diagnostics.log("archive unreadable, moved to \(aside.lastPathComponent): \(error)")
-            } else {
+            // file aside so it can be inspected, and keep every record that
+            // still reads. A file that is not a list of records at all (garbage,
+            // or a newer format) keeps none. If it cannot be moved, nothing is
+            // written over it: read-only.
+            let readable = data.flatMap(Self.readableRecords)?.compactMap(\.record) ?? []
+            guard let aside = UnreadableFile.setAside(fileURL, prefix: "sessions-corrupt-",
+                                                      pathExtension: "json", at: now()) else {
                 isReadOnly = true
                 Diagnostics.log("archive unreadable and could not be set aside; kept read-only: \(error)")
+                return readable
             }
-            return []
+            Diagnostics.log("archive unreadable, moved to \(aside.lastPathComponent), "
+                            + "\(readable.count) records still read: \(error)")
+            // Written back now, so a relaunch before the next save still shows
+            // them. A refusal here is retried by that save, which writes them too.
+            if !readable.isEmpty, case .failure(let detail) = write(readable) {
+                Diagnostics.log("readable records not written back: \(detail)")
+            }
+            return readable
         }
+    }
+
+    /// One element of the archive, nil when that record alone cannot be read.
+    private struct LenientRecord: Decodable {
+        let record: SessionRecord?
+        init(from decoder: Decoder) throws { record = try? SessionRecord(from: decoder) }
+    }
+
+    /// Every element of a list of records, readable or not; nil when the data
+    /// is not a list at all.
+    private static func readableRecords(_ data: Data) -> [LenientRecord]? {
+        try? JSONDecoder().decode([LenientRecord].self, from: data)
+    }
+
+    /// How many of a set-aside archive's records could not be read, so the
+    /// Recovery note can say so; nil when it was not a list of records at all.
+    static func unreadableRecords(inSetAside url: URL) -> (unreadable: Int, total: Int)? {
+        guard let data = try? Data(contentsOf: url),
+              let elements = readableRecords(data) else { return nil }
+        return (elements.filter { $0.record == nil }.count, elements.count)
     }
 
     private func write(_ candidate: [SessionRecord]) -> WriteResult {
