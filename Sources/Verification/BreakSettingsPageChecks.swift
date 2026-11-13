@@ -79,8 +79,8 @@ enum BreakSettingsPageChecks: CheckSuite {
                "Pomodoro finds only Breaks, got \(SettingsSection.matching("Pomodoro"))", &problems)
         expect(SettingsSection.matching("Working hours").contains(.breaks),
                "Working hours finds Breaks", &problems)
-        expect(SettingsSection.matching("End session after") == [.away],
-               "End session after finds only Away, got \(SettingsSection.matching("End session after"))", &problems)
+        expect(SettingsSection.matching("Stop session after") == [.away],
+               "Stop session after finds only Away, got \(SettingsSection.matching("Stop session after"))", &problems)
         for term in ["Eyes", "Long-stretch guard", "Weekday plan", "Overrides"] {
             expect(SettingsSection.matching(term).contains(.breaks), "\(term) finds Breaks", &problems)
         }

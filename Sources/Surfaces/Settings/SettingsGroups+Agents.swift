@@ -28,9 +28,18 @@ extension SettingsGroups {
             rowDivider
             preferenceRow("Let your agent tell Daybook when it works",
                           detail: "Claude Code, Codex, Gemini CLI or Cursor. Paste the message into the agent.") {
-                Button(copiedAgentSetup ? "Copied" : "Copy Setup Message") {
+                IconButton(systemImage: copiedAgentSetup ? "checkmark" : "doc.on.doc",
+                           help: "Copy Setup Message",
+                           label: copiedAgentSetup ? "Copied" : "Copy Setup Message") {
                     model.copyAgentSetupMessage()
                     copiedAgentSetup = true
+                }
+                // Back to the copy glyph after two seconds. A task of the
+                // view, so leaving the page cancels the wait.
+                .task(id: copiedAgentSetup) {
+                    guard copiedAgentSetup else { return }
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    if !Task.isCancelled { copiedAgentSetup = false }
                 }
             }
             explanation(agentExplanation)

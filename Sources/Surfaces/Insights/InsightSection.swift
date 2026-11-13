@@ -62,25 +62,17 @@ struct InsightSection: View {
     }
 
     private var methodButton: some View {
-        Button {
+        IconButton(systemImage: expanded.value ? "info.circle.fill" : "info.circle",
+                   help: expanded.value ? "Hide how this is calculated" : presentation.disclosureLabel,
+                   prominent: expanded.value,
+                   label: expanded.value ? "Hide how \(presentation.title) is calculated"
+                                         : "\(presentation.disclosureLabel): \(presentation.title)") {
             withAnimation(Tokens.Motion.animation(
                 expanded.value ? Tokens.Motion.dismiss : Tokens.Motion.reveal,
                 reduceMotion: reduceMotion)) { expanded.value.toggle() }
-        } label: {
-            Image(systemName: expanded.value ? "info.circle.fill" : "info.circle")
-                .font(Tokens.Typography.control)
-                .foregroundStyle(expanded.value ? AnyShapeStyle(StoryStyle.action)
-                                                : AnyShapeStyle(StoryStyle.supportingInk))
-                .frame(width: AccessibilityMetrics.minimumTargetSize,
-                       height: AccessibilityMetrics.minimumTargetSize)
-                .contentShape(Rectangle())
         }
-        .buttonStyle(StoryPressStyle())
         .padding(.top, Tokens.Space.xs)
         .padding(.trailing, Tokens.Space.xs)
-        .help(expanded.value ? "Hide how this is calculated" : presentation.disclosureLabel)
-        .accessibilityLabel(expanded.value ? "Hide how \(presentation.title) is calculated"
-                                           : "\(presentation.disclosureLabel): \(presentation.title)")
     }
 }
 

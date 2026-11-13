@@ -233,7 +233,7 @@ struct ActivityRuleCard: View {
             Toggle("", isOn: Binding(get: { rule.isEnabled }, set: onToggle))
                 .toggleStyle(.switch)
                 .labelsHidden()
-                .controlSize(Tokens.Zoom.controlSize(.small))
+                .controlSize(Tokens.Zoom.controlSize(.mini))
                 .accessibilityLabel("\(rule.name) rule")
             Menu {
                 RowContextMenu(items: ActivityRuleMenu.items(), perform: perform)
@@ -241,10 +241,13 @@ struct ActivityRuleCard: View {
                 Image(systemName: "ellipsis.circle")
                     .font(Tokens.Typography.control)
                     .foregroundStyle(StoryStyle.supportingInk)
+                    .frame(width: AccessibilityMetrics.minimumTargetSize,
+                           height: AccessibilityMetrics.minimumTargetSize)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .help("More Actions")
             .accessibilityLabel("More actions for \(rule.name)")
         }
         .padding(.vertical, Tokens.Space.s)
@@ -340,13 +343,14 @@ struct ActivityRuleForm: View {
                       + "\(editor.workType.displayName), not \(named.displayName).",
                       systemImage: "exclamationmark.triangle")
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(Tokens.Colour.attention)
+                    .foregroundStyle(StoryStyle.attentionInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 HStack(spacing: Tokens.Space.m) {
                     Text("Start after")
-                        .font(Tokens.Typography.control)
+                        .font(Tokens.Typography.body)
+                        .foregroundStyle(StoryStyle.supportingInk)
                     Picker("Start after", selection: $editor.dwell) {
                         ForEach(ActivityRule.startAfterPresets, id: \.self) {
                             Text(Tokens.preciseDuration($0)).tag($0)
@@ -368,14 +372,18 @@ struct ActivityRuleForm: View {
                         }
                     }
                     Spacer(minLength: Tokens.Space.l)
-                    Toggle(isOn: $editor.enabled) {
-                        Text("Use this rule")
-                            .font(Tokens.Typography.control)
-                            .fixedSize()
+                    // An existing rule's switch is its card's, the one place
+                    // it can be turned on and off.
+                    if editor.isNew {
+                        Toggle(isOn: $editor.enabled) {
+                            Text("Use this rule")
+                                .font(Tokens.Typography.control)
+                                .fixedSize()
+                        }
+                        .toggleStyle(.switch)
+                        .controlSize(Tokens.Zoom.controlSize(.mini))
+                        .fixedSize()
                     }
-                    .toggleStyle(.switch)
-                    .controlSize(Tokens.Zoom.controlSize(.small))
-                    .fixedSize()
                 }
                 Text("How long you must be in one of its apps before the session begins.")
                     .font(Tokens.Typography.body)
@@ -417,7 +425,12 @@ struct ActivityRuleForm: View {
 
     private func save() {
         // Saving is finishing: the card above now shows the rule.
-        if let rule = editor.ruleForSaving() {
+        if var rule = editor.ruleForSaving() {
+            // The card's switch may have turned an existing rule on or off
+            // since the form opened; saving must not undo it.
+            if !editor.isNew, let current = model.activityRules.first(where: { $0.id == rule.id }) {
+                rule.isEnabled = current.isEnabled
+            }
             model.saveActivityRule(rule)
             editor.close()
         }
@@ -435,7 +448,7 @@ struct ActivityRuleForm: View {
         if !editor.bundleIDs.isEmpty {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text("In this activity")
-                    .font(Tokens.Typography.caption)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                 ChipFlow(spacing: Tokens.Space.xs) {
                     ForEach(editor.bundleIDs.sorted(), id: \.self) { id in
@@ -473,7 +486,7 @@ struct ActivityRuleForm: View {
         if !running.isEmpty {
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                 Text("Running now")
-                    .font(Tokens.Typography.caption)
+                    .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                 ChipFlow(spacing: Tokens.Space.xs) {
                     ForEach(running) { app in
@@ -541,17 +554,21 @@ struct InstalledAppPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Text("All apps")
-                .font(Tokens.Typography.caption)
+                .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
                 // The list below carries this name for VoiceOver.
                 .accessibilityHidden(true)
             HStack {
                 TextField("Search apps", text: $query).textFieldStyle(.roundedBorder)
-                Button { catalog.refresh() } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Refresh installed apps")
-                    .accessibilityLabel("Refresh installed apps")
+                IconButton(systemImage: "arrow.clockwise", help: "Refresh Installed Apps",
+                           label: "Refresh installed apps") { catalog.refresh() }
             }
             ScrollView {
+                if filtered.isEmpty && !query.isEmpty {
+                    EmptyState("No matching apps",
+                               detail: "Try part of the app's name, or use Add App.",
+                               icon: "magnifyingglass")
+                }
                 LazyVStack(alignment: .leading, spacing: 2.zoomed) {
                     ForEach(filtered) { application in
                         let isOn = selection.contains(application.bundleID)

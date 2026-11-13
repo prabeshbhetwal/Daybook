@@ -246,7 +246,7 @@ struct CategoriesView: View {
                 WorkTypeMark(workType: type, size: 28.zoomed)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(definition.name)
-                        .font(Tokens.Typography.rowTitle)
+                        .font(Tokens.Typography.rowTitle.weight(isSelected ? .semibold : .medium))
                         .foregroundStyle(definition.isRetired ? AnyShapeStyle(StoryStyle.supportingInk)
                                                               : AnyShapeStyle(.primary))
                     Text(rowDetail(definition, edited: isEdited))
@@ -260,7 +260,7 @@ struct CategoriesView: View {
             }
             .padding(.horizontal, Tokens.Space.s)
             .frame(minHeight: 40.zoomed)
-            .background(isSelected ? StoryStyle.well : Color.clear,
+            .background(isSelected ? Tokens.Colour.focus.opacity(0.12) : Color.clear,
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous))
             .contentShape(Rectangle())
         }
@@ -368,6 +368,8 @@ struct CategoryEditorForm: View {
             }
             if !editor.isBuiltIn {
                 Toggle("Counts while watching", isOn: $editor.countsWhileWatching)
+                    .toggleStyle(.switch)
+                    .controlSize(Tokens.Zoom.controlSize(.mini))
                 Text("On for things attended rather than done, such as a call or a lecture. "
                      + "Off, watching without typing pauses the clock.")
                     .font(Tokens.Typography.body)
@@ -466,6 +468,8 @@ struct CategoryEditorForm: View {
                     .foregroundStyle(StoryStyle.supportingInk)
             }
             Toggle("Remind me to take breaks during this category", isOn: $editor.remindsBreaks)
+                .toggleStyle(.switch)
+                .controlSize(Tokens.Zoom.controlSize(.mini))
             Text("Off, break reminders wait while a session of this category runs. "
                  + "Meetings starts off: nobody wants to be told to stand up mid-call.")
                 .font(Tokens.Typography.body)
@@ -506,6 +510,7 @@ struct CategoryEditorForm: View {
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
+                    .help(hue.displayName)
                     .accessibilityLabel(hue.displayName)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
@@ -576,7 +581,7 @@ struct CategoryEditorForm: View {
         .menuStyle(.button)
         .buttonStyle(.bordered)
         .fixedSize()
-        .help("Choose a symbol by name")
+        .help("Choose a Symbol by Name")
         .accessibilityLabel("Browse symbols")
     }
 
@@ -653,6 +658,7 @@ struct CategoryEditorForm: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(label)
         .accessibilityLabel(label)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }

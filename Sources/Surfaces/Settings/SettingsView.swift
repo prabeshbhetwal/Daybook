@@ -51,6 +51,7 @@ struct SettingsView: View {
     @ObservedObject var model: SettingsModel
     @ObservedObject var navigation: MainWindowModel
     var scrolls: Bool
+    @FocusState private var searchFocused: Bool
 
     init(model: SettingsModel, navigation: MainWindowModel, scrolls: Bool = true) {
         self.model = model
@@ -102,13 +103,26 @@ struct SettingsView: View {
             TextField("Search", text: $navigation.settingsQuery)
                 .textFieldStyle(.plain)
                 .font(Tokens.Typography.control)
+                .focused($searchFocused)
+            if !navigation.settingsQuery.isEmpty {
+                Button { navigation.settingsQuery = "" } label: {
+                    // The glyph is about 14pt; the frame lifts the target to the
+                    // minimum. The field is taller than that, so it does not grow.
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(StoryStyle.supportingInk)
+                        .frame(width: AccessibilityMetrics.minimumTargetSize,
+                               height: AccessibilityMetrics.minimumTargetSize)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Clear Search")
+                .accessibilityLabel("Clear search")
+            }
         }
-        .padding(.horizontal, Tokens.Space.s)
+        .padding(.leading, Tokens.Space.s)
+        .padding(.trailing, navigation.settingsQuery.isEmpty ? Tokens.Space.s : 0)
         .frame(height: 30.zoomed)
-        .background(StoryStyle.card, in: RoundedRectangle(cornerRadius: Tokens.Radius.well,
-                                                           style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
-            .stroke(StoryStyle.line, lineWidth: 1))
+        .fieldFocusChrome(searchFocused, cornerRadius: Tokens.Radius.well, fill: StoryStyle.card)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Search settings")
         .accessibilitySortPriority(2)

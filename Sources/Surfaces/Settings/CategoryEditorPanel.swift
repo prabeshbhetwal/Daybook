@@ -68,8 +68,8 @@ final class CategoryEditorPanelModel: ObservableObject {
 
     static func title(for request: CategoryEditorRequest) -> String {
         switch request {
-        case .new: return "New category"
-        case .edit: return "Edit categories"
+        case .new: return "New Category"
+        case .edit: return "Edit Categories"
         }
     }
 

@@ -47,7 +47,8 @@ extension SettingsGroups {
                 if model.globalShortcut != nil {
                     Button("Turn Off") { model.setGlobalShortcut(nil) }
                         .buttonStyle(.bordered)
-                        .accessibilityLabel("Turn the global shortcut off")
+                        .accessibilityLabel("Turn Off")
+                        .accessibilityHint("Turns the global shortcut off")
                 }
             }
             explanation(Self.globalShortcutDetail(model.globalShortcutStatus, shortcut: model.globalShortcut))

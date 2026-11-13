@@ -157,7 +157,7 @@ extension SettingsSection {
                              "Keep sessions longer than", "Offer to continue for"]
         case .categories: return ["Categories", "New category", "Category name", "Icon", "Colour"]
         case .away:
-            return ["Pause after no input for", "Ask me after", "End session after",
+            return ["Pause after no input for", "Ask me after", "Stop session after",
                     "Full-screen prompt after", "While an app works for you",
                     "Notice apps working for you by themselves",
                     "Count a coding app in front as you being here",
@@ -170,7 +170,7 @@ extension SettingsSection {
                     "Working hours", "Eyes", "Long-stretch guard", "Guard comes after",
                     "Play a sound when a break is over", "Show break countdown in the menu bar"]
         case .automatic:
-            return ["Guess sessions from the app in front", "End a paused automatic session after",
+            return ["Guess sessions from the app in front", "Stop a paused automatic session after",
                     "Celebrate milestones", "Haptic feedback", "Try haptic feedback"]
         case .activities:
             return ["Use my activity rules", "Activity rules", "New Rule", "Activity name",
@@ -267,23 +267,18 @@ struct SettingsSidebarList: View {
                                         in: RoundedRectangle(cornerRadius: 6.zoomed, style: .continuous))
                             .accessibilityHidden(true)
                         Text(page.title)
-                            .font(Tokens.Typography.control)
+                            .font(Tokens.Typography.control.weight(selected == page ? .semibold : .regular))
                             .lineLimit(1)
                         Spacer(minLength: 0)
                     }
                     .padding(.horizontal, Tokens.Space.s)
                     .frame(maxWidth: .infinity, minHeight: 34.zoomed, alignment: .leading)
-                    .background(selected == page ? StoryStyle.well : Color.clear,
+                    .background(selected == page ? Tokens.Colour.focus.opacity(0.12) : Color.clear,
                                 in: RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous))
                     // Keyboard focus follows the row's own rounded shape. The
                     // system ring is a square drawn around the button, and it
                     // sat over the selected row like a broken outline.
-                    .overlay {
-                        if focused == page {
-                            RoundedRectangle(cornerRadius: Tokens.Radius.well, style: .continuous)
-                                .strokeBorder(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 3.zoomed)
-                        }
-                    }
+                    .keyboardFocusRing(focused == page, cornerRadius: Tokens.Radius.well)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(StoryPressStyle(hovers: true, cornerRadius: Tokens.Radius.well))
