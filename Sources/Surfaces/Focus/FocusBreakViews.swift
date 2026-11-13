@@ -56,7 +56,7 @@ struct FocusTakeBreakMenu: View {
             .buttonStyle(PressableStyle())
             .menuIndicator(.hidden)
             .fixedSize()
-            .help("Choose how long")
+            .help("Choose How Long")
             .accessibilityLabel("Choose break length")
         }
     }
@@ -99,6 +99,7 @@ struct FocusBreakBody: View {
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(1)
+                .help(breakSubtitle(store))
             FocusBreakButtons(store: store)
         }
         .frame(maxWidth: .infinity, alignment: compact ? .leading : .center)
@@ -128,6 +129,7 @@ struct FocusBreakRowLead: View {
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                     .lineLimit(1)
+                    .help(breakSubtitle(store))
             }
             .layoutPriority(1)
             FocusBreakButtons(store: store)

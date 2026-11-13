@@ -859,6 +859,12 @@ enum CompactControlsChecks {
             || !behind.accessibility.contains("3h 59m behind your usual pace") {
             failures.append("Behind pace did not keep short visible copy and complete accessibility detail")
         }
+        // The roomy hero words the same figures and the same pace, rounded alike.
+        if behind.paceLine != "3h 59m behind your usual pace"
+            || behind.achieved != "31s" || behind.target != "4h" {
+            failures.append("The hero's goal figures and pace differ from the strip's: "
+                            + "\(behind.achieved) / \(behind.target), \(behind.paceLine)")
+        }
         let width = (behind.visible as NSString).size(withAttributes: [
             .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
         ]).width
