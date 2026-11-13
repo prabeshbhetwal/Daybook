@@ -50,16 +50,6 @@ extension SelfTest {
                     "the historical goal ring uses focused-active time", &problems)
         expect(!store.selectedDayGoal.isMet,
                "one hands-on hour cannot meet a four-hour historical goal", &problems)
-        let daySummary = SummaryText.plain(store.summarySentences)
-        expect(daySummary.contains("3h short of the 4h goal"),
-               "historical shortfall copy uses focused-active achievement: \(daySummary)",
-               &problems)
-
-        store.period = .week
-        let periodSummary = SummaryText.plain(store.summarySentences)
-        expect(periodSummary.contains("without meeting the 4h goal on any day"),
-               "period goal-day status uses focused-active achievement: \(periodSummary)",
-               &problems)
         return problems
     }
 

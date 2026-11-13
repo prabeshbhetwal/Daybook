@@ -60,12 +60,10 @@ final class SessionStore: ObservableObject {
     @Published var streak = 0
     /// The best run on record, for the Awards streak panel.
     @Published var streakBest = 0
-    @Published var weekBars: [DayBar] = []
     @Published var quickStarts: [QuickStart] = []
     /// The activities the user pinned, in their order. Refreshed with the
     /// quick starts; edited through the methods below.
     @Published var savedActivities: [SavedActivity] = []
-    @Published var threadsToday: [ThreadSummary] = []
     /// Archive-wide summaries for Focus and Continue Today. Eligibility is
     /// sampled afresh from the paired index when a surface reads them.
     @Published var continuationCandidates: [ThreadSummary] = []
@@ -88,7 +86,6 @@ final class SessionStore: ObservableObject {
     /// The same for the break countdown beside the menu bar's cup.
     @Published var menuBarShowsBreakCountdown = true
 
-    @Published var previousSession: SessionRecord?
     @Published var isTrackingEnabled = true
     @Published var pendingActivityChoice: ActivityQuietChoice?
     @Published var automaticActivityRecord: AutomaticActivityRecord?
@@ -102,21 +99,7 @@ final class SessionStore: ObservableObject {
 
     @Published var rankedApps: [AppRank] = []
     @Published var timelineSegments: [TimelineSegment] = []
-    @Published var focusBrackets: [(start: Date, end: Date)] = []
-    @Published var runningApps: [RunningApp] = []
     @Published var insights: [Insight] = []
-    /// The selected day or period in words (`SummaryText`); `**` marks figures.
-    @Published var summarySentences: [String] = []
-    /// Today's figures, for the menu bar. Separate from the day-scoped ones
-    /// above because the dashboard may be browsing history while this panel must
-    /// still answer "how am I doing right now". They shared one `dayOffset`, so
-    /// stepping the dashboard back to Yesterday quietly re-scoped the menu bar
-    /// too — and it stayed there until the process was quit.
-    @Published var glanceApps: [AppRank] = []
-    @Published var glanceInsights: [Insight] = []
-    @Published var glanceTimeline: [TimelineSegment] = []
-    /// Today's focus brackets, for the menu bar. Same reason as `glanceApps`.
-    @Published var glanceBrackets: [(start: Date, end: Date)] = []
     @Published var focusQuality = FocusQuality(byWorkType: [],
                                                             insideSessionShare: 0,
                                                             switchesPerSession: 0,
@@ -132,9 +115,6 @@ final class SessionStore: ObservableObject {
     /// Minutes at the Mac per hour of the selected day, and the busiest run.
     @Published var rhythm: [RhythmHour] = []
     @Published var rhythmPeak: String?
-    /// Per-day series behind the KPI cards' sparklines: the last seven days on
-    /// Day, the period's days on Week and Month.
-    @Published var sparks = KPISparks()
     /// Work-type split for the donut — the day's, or the period's summed.
     @Published var workTypeShares: [WorkTypeShare] = []
     /// The focus-session figures for a browsed day. On today the live ones are
@@ -142,40 +122,27 @@ final class SessionStore: ObservableObject {
     /// second; these are rebuilt with the dashboard and cover the archive only.
     /// Without them the stat row on Yesterday read yesterday's Tracked beside
     /// today's Sessions, Focused and Longest — four figures, two days.
-    @Published var sessionsForSelectedDay = 0
     @Published var focusedForSelectedDay: TimeInterval = 0
     /// Goal credit for the selected day: declared focus intersected with the
     /// authoritative usage snapshot. Kept separate from raw session work so the
     /// Focused statistic remains a record of the declared session.
     @Published var focusedActiveForSelectedDay: TimeInterval = 0
-    @Published var longestForSelectedDay: TimeInterval = 0
-    @Published var longestNameForSelectedDay: String?
     /// 0 = today, 1 = yesterday, and so on back through history.
     @Published var dayOffset = 0
 
     /// Timeline inspection. Both are single optionals, so hovering allocates nothing.
     @Published var hoveredSegment: TimelineSegment?
     @Published var selectedSegment: TimelineSegment?
-    /// Apps used today that are not running now, each with its stretches.
-    @Published var earlierToday: [AppDayHistory] = []
     /// The selected day's sessions and rests, as the Sessions card shows them.
     @Published var daySessions: [DayEntry] = []
     /// A session the user clicked: the page narrows to it (Focused, Tracked,
     /// App share) until cleared.
     @Published var selectedSession: DaySession?
-    /// Figures for the selected session, computed once when it is selected.
-    @Published var sessionAppRanks: [AppRank] = []
-    @Published var sessionTracked: TimeInterval = 0
     /// Owns every timeline coordinate. Views ask it for positions.
     var timelineLayout: TimelineLayout?
-    /// Today's coordinates, for the menu bar. Same reason as `glanceApps`.
-    var glanceLayout: TimelineLayout?
 
     // MARK: Periods
-    @Published var periodDays: [PeriodDay] = []
-    @Published var periodLog: [LogEntry] = []
     @Published var periodAppGroups: [LogAppGroup] = []
-    @Published var periodDayTotals: [Date: TimeInterval] = [:]
     @Published var periodSummary = PeriodSummary(tracked: 0, activeDays: 0,
                                                               totalDays: 0,
                                                               averagePerActiveDay: 0,
@@ -202,13 +169,6 @@ final class SessionStore: ObservableObject {
     @Published var reviewLongestFocusName: String?
     @Published var reviewFocusSessions: [ReviewFocusEntry] = []
     @Published var reviewWorkTypeShares: [WorkTypeShare] = []
-    /// Canonical quality for the reviewed period, so the rail can split the
-    /// period's time the same three ways the day is split.
-    @Published var reviewQuality = FocusQuality(byWorkType: [],
-                                                insideSessionShare: 0,
-                                                switchesPerSession: 0,
-                                                sessionCount: 0)
-    @Published var reviewIntegrityNote: String?
 
     // MARK: Insights
     // Week and Month remain separate read models so local range selection never
@@ -354,7 +314,6 @@ final class SessionStore: ObservableObject {
     var reviewLiveTailRefreshPending = false
     var insightsVisible = false
     var insightsRefreshPending = true
-    var glanceArchiveRefreshPending = false
     /// Read-model generations change only after a real rebuild. They support
     /// coalescing diagnostics and keep unchanged ticker frames observable.
     var dashboardReadModelGeneration = 0

@@ -51,7 +51,7 @@ extension SelfTest {
              testAbsenceFromWhereItBegan),
             ("Relaunched behind a lock, the absence stays open until the unlock",
              testRestoreBehindLock),
-            ("The menu bar's band stays on today while the dashboard browses",
+            ("The dashboard's band follows the day it browses",
              testGlanceStaysOnToday),
             ("Watching is presence: quiet pause, written down, never asked about; meetings count",
              testWatchingIsNotAbsence),

@@ -92,16 +92,21 @@ extension SelfTest {
             expect(Set(store.timelineSegments.map(\.id)).count == 3,
                    "the Day timeline contains the three authoritative UUIDs", &problems)
 
+            let periods = PeriodStats(sessions: engine.archive, usage: usage,
+                                      usageSnapshot: store.effectiveUsageSnapshot,
+                                      calendar: store.periodCalendar, now: { clock.value })
             store.period = .week
             expectClose(store.periodSummary.tracked, 21 * 60,
                         "the Week total includes every queued confirmed interval", &problems)
-            expectClose(store.periodDays.reduce(0) { $0 + $1.tracked }, 21 * 60,
+            expectClose(periods.rollup(for: .week, containing: clock.value).days
+                            .reduce(0) { $0 + $1.tracked }, 21 * 60,
                         "the Week bars reconcile with their queued total", &problems)
 
             store.period = .month
             expectClose(store.periodSummary.tracked, 21 * 60,
                         "the Month total includes every queued confirmed interval", &problems)
-            expectClose(store.periodDays.reduce(0) { $0 + $1.tracked }, 21 * 60,
+            expectClose(periods.rollup(for: .month, containing: clock.value).days
+                            .reduce(0) { $0 + $1.tracked }, 21 * 60,
                         "the Month bars reconcile with their queued total", &problems)
             expectClose(usage.sessions.first?.seconds ?? -1, 10 * 60,
                         "period views do not rewrite the durable checkpoint", &problems)

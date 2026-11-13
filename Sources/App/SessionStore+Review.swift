@@ -100,9 +100,6 @@ extension SessionStore {
         reviewDayTotals = rollup.dayTotals
         reviewSummary = rollup.summary
         reviewWorkTypeShares = Self.reviewWorkTypes(from: rollup.days)
-        // The multi-day form, so a thread crossing midnight is counted once.
-        reviewQuality = DashboardStats(sessions: engine.archive, usage: usage)
-            .focusQuality(for: rollup.days.map(\.date))
 
         let bounds = periodStats.bounds(for: reviewPeriod, containing: anchor)
         reviewFocusSessions = reviewFocusEntries(
@@ -113,14 +110,6 @@ extension SessionStore {
         }
         reviewLongestFocusSeconds = longestFocus?.seconds ?? 0
         reviewLongestFocusName = longestFocus?.name
-        let legacyEnd = min(bounds.end, snapshot.accurateFrom)
-        let containsLegacy = legacyEnd > bounds.start && snapshot.sessions.contains {
-            $0.end > bounds.start && $0.start < legacyEnd
-        }
-        reviewIntegrityNote = containsLegacy
-            ? "App use from before \(Tokens.longDate(snapshot.accurateFrom)) was kept as it was "
-                + "and may include time when nobody was at the Mac."
-            : nil
         noteReviewReadModelRebuild()
     }
 
@@ -558,9 +547,6 @@ extension SessionStore {
         reviewLongestFocusName = nil
         reviewFocusSessions = []
         reviewWorkTypeShares = []
-        reviewQuality = FocusQuality(byWorkType: [], insideSessionShare: 0,
-                                     switchesPerSession: 0, sessionCount: 0)
-        reviewIntegrityNote = nil
         historyDays = []
         historyRangeStart = nil
         historyRangeEnd = nil

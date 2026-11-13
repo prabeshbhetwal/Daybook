@@ -74,7 +74,6 @@ extension SessionStore {
         usage.onDidChange = { [weak self, weak tracker] in
             guard let self else { return }
             if tracker?.isTransitioning == true {
-                self.glanceArchiveRefreshPending = true
                 self.dashboardArchiveRefreshPending = true
                 self.insightsRefreshPending = true
                 self.reviewLiveTailRefreshPending = true
@@ -98,7 +97,6 @@ extension SessionStore {
             insightsRefreshPending = true
             updateTimeDrivenFigures()
             updateTicker()
-            glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
             // App use alone patches the days it touched; a session change
             // already pending keeps its full rebuild.

@@ -62,8 +62,13 @@ extension SessionStore {
     /// one of its side apps today. The engine asks when the user returns from
     /// an absence in a different app than they left in.
     func runningThreadUses(_ bundleID: String?) -> Bool {
-        guard let bundleID,
-              let thread = threadsToday.first(where: \.isRunning) else { return true }
+        guard let bundleID, let usage,
+              let thread = ThreadStats(sessions: engine.archive, usage: usage,
+                                       usageSnapshot: effectiveUsageSnapshot,
+                                       purposeOverrides: engine.store.purposeOverrides,
+                                       continueWindow: engine.store.continueWindow)
+                .threads(on: Date(), running: runningThread())
+                .first(where: \.isRunning) else { return true }
         let apps = threadApps(thread)
         return apps.primary?.bundleID == bundleID
             || apps.side.contains { $0.bundleID == bundleID }

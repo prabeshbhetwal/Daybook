@@ -109,7 +109,6 @@ extension SessionStore {
             reconcilePowerBoundaries()
             refreshSessionMetadataRetention()
 
-            weekBars = engine.archive.weekBars()
             // A recent name that is only a category's name repeats the
             // category picker beside the field, so it is not offered.
             let categoryNames = Set(WorkType.allCases.map { SavedActivities.key($0.displayName) })
@@ -126,9 +125,7 @@ extension SessionStore {
             automaticActivityRecord = engine.activeAutomaticAction.map {
                 AutomaticActivityRecord(action: $0, resultingRecordID: engine.activeRecordID)
             }
-            previousSession = engine.archive.records.last
             isTrackingEnabled = tracker?.isEnabled ?? false
-            glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
             if reviewVisible {
                 reviewLiveTailRefreshPending = false
