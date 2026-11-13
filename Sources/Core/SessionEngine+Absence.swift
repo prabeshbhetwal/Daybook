@@ -192,8 +192,10 @@ extension SessionEngine {
         // There is also nothing to ask: nobody answers "was that a break?" about
         // a night's sleep with "I was working". Judged before the absence is
         // banked, so a refused save leaves it the pause the session ends in,
-        // with its Retry, not a running session that said nothing.
-        if away >= breakThreshold, away >= store.longAwayCap {
+        // with its Retry, not a running session that said nothing. Judged on
+        // its own: tied to the ask threshold, "Ask me after: Never" kept a
+        // session open across a night.
+        if away >= store.longAwayCap {
             endStretch(leftAt: now().addingTimeInterval(-away))
             return
         }
