@@ -80,16 +80,13 @@ enum BreakLogChecks: CheckSuite {
         log.noteRhythm(BreakPlan(tiers: [.micro]).snapshot, on: daysBefore(401))
         log.recordShown(recent)
         log.noteRhythm(BreakPlan(tiers: [.micro]).snapshot, on: daysBefore(399))
-        // Retention counts from the newest day the log held before the
-        // write's day, so today's entry is what lets the 401-day-old ones go
-        // on tomorrow's write: one write alone never decides what ages out.
+        // Retention counts from the moment of the write, so today's write is
+        // what lets the 401-day-old entries go.
         log.noteRhythm(BreakPlan(tiers: [.micro]).snapshot, on: base)
-        let tomorrow = daysBefore(-1)
-        log.noteRhythm(BreakPlan(tiers: [.micro]).snapshot, on: tomorrow)
         expect(log.prompts.map(\.id).contains(old.id) == false,
-               "a prompt 401 days old is dropped on the next day's write", &problems)
+               "a prompt 401 days old is dropped on the next write", &problems)
         expect(log.prompts.map(\.id).contains(recent.id), "a prompt 399 days old is kept", &problems)
-        expect(log.days.map(\.day) == [daysBefore(399), base, tomorrow].map { calendar.startOfDay(for: $0) },
+        expect(log.days.map(\.day) == [daysBefore(399), base].map { calendar.startOfDay(for: $0) },
                "the 401-day-old day is dropped and the 399-day-old day kept, got \(log.days.count) days", &problems)
         return problems
     }
