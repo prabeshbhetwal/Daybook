@@ -86,6 +86,7 @@ struct AwayAnswerGrid: View {
     /// to fit on a timeline label.
     var onReason: ((String) -> Bool)?
     @StateObject private var reason = AwayReasonDraft()
+    @FocusState private var reasonFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// One set of metrics for the buttons and the field, so the field is the
@@ -184,21 +185,12 @@ struct AwayAnswerGrid: View {
             TextField("Name it: dinner, a call, a walk", text: $reason.text)
                 .textFieldStyle(.plain)
                 .font(Tokens.Typography.answer(compact: compact, field: true))
+                .focused($reasonFocused)
                 .onSubmit(submitReason)
             // Appears with the first character; Return does the same thing.
             if hasText {
-                Button(action: submitReason) {
-                    Image(systemName: "arrow.up")
-                        .font(Tokens.Typography.ring)
-                        .foregroundStyle(Tokens.Colour.onFocus)
-                        .frame(width: AccessibilityMetrics.minimumTargetSize,
-                               height: AccessibilityMetrics.minimumTargetSize)
-                        .background(Tokens.Colour.focus, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .help("Save It (Return)")
-                .accessibilityLabel("Save the reason")
-                .transition(Tokens.Motion.transition(.scale(scale: 0.9).combined(with: .opacity), reduceMotion: reduceMotion))
+                SubmitArrowButton(help: "Save Reason (Return)", label: "Save the reason", action: submitReason)
+                    .transition(Tokens.Motion.transition(.scale(scale: 0.9).combined(with: .opacity), reduceMotion: reduceMotion))
             }
         }
         .animation(reduceMotion ? nil : Tokens.Motion.reveal,
@@ -210,10 +202,7 @@ struct AwayAnswerGrid: View {
                                : controlVerticalPadding - 1.zoomed)
         .padding(.bottom, hasText ? max(3.zoomed, controlVerticalPadding - 1.zoomed)
                                   : controlVerticalPadding + 1.zoomed)
-        .background(Tokens.Colour.elevated,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
-            .strokeBorder(Tokens.Colour.line))
+        .fieldFocusChrome(reasonFocused)
         .help("Name the break and it is written down under that name")
     }
 
@@ -280,6 +269,9 @@ struct AwayAnswerGrid: View {
             // Bounded by the row's fixed height, so this fills the row and
             // not the window.
             .frame(maxHeight: .infinity, alignment: .topLeading)
+            // Laid under the fill below, over the card's own surface, so the
+            // tint shows through the answer's colour instead of behind it.
+            .hoverHighlight(cornerRadius: Tokens.Radius.nested)
             .background(answer.prominent ? AnyShapeStyle(Tokens.Colour.focus)
                                          : AnyShapeStyle(Tokens.Colour.elevated),
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested,

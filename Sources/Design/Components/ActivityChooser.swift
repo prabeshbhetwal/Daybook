@@ -88,12 +88,7 @@ struct ActivityChooser: View {
         .padding(.leading, Tokens.Space.m)
         .padding(.trailing, Tokens.Space.xs)
         .frame(minHeight: fieldHeight)
-        .background(Tokens.Colour.elevated,
-                    in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)
-                .strokeBorder(Tokens.Colour.line)
-        )
+        .fieldFocusChrome(intentFocused.wrappedValue)
         // The whole box is the field: clicking its padding puts the caret in
         // the text rather than doing nothing.
         .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))

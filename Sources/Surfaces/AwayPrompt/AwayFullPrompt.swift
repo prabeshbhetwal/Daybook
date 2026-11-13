@@ -22,23 +22,18 @@ private struct FullPromptView: View {
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onLater)
+                // The Later button below is the same action, for everyone else.
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Tokens.Space.l) {
                 AwayAnswerGrid(away: model.away, range: model.range, showsCaptions: true,
                                note: model.note, error: model.error, onRetry: onRetry,
                                onAnswer: onAnswer, onReason: onReason)
                 HStack {
                     Spacer()
-                    // The 28pt frame sits inside the label: outside the button
-                    // it made room but left only the word clickable.
-                    Button(action: onLater) {
-                        Text("Later")
-                            .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(StoryPressStyle())
-                    .foregroundStyle(StoryStyle.supportingInk)
-                    .keyboardShortcut(.cancelAction)
-                    .accessibilityHint("Keeps the question available for later")
+                    Button("Later", action: onLater)
+                        .buttonStyle(StoryLinkStyle())
+                        .keyboardShortcut(.cancelAction)
+                        .accessibilityHint("Keeps the question available for later")
                 }
             }
             .padding(Tokens.Space.xl)

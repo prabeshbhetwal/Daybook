@@ -8,9 +8,7 @@ struct AskNewChatButton: View {
 
     var body: some View {
         if !model.turns.isEmpty {
-            Button("New Chat") { model.newChat() }
-                .buttonStyle(StoryActionStyle())
-                .fixedSize()
+            IconButton(systemImage: "square.and.pencil", help: "New Chat") { model.newChat() }
                 .storyRenderEvidence(.askNewChat)
         }
     }
