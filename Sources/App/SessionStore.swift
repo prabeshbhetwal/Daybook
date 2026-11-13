@@ -514,8 +514,8 @@ final class SessionStore: ObservableObject {
             } else {
                 self.enqueuePowerObservation(observation, for: self.engine.activeRecordID)
             }
-            self.storyProjectionCache.removeAll(keepingCapacity: true)
-            self.storyProjectionCacheOrder.removeAll(keepingCapacity: true)
+            // The projection cache is not emptied here: a reading belongs to
+            // today or the running stretch, and the cache never holds either.
             self.objectWillChange.send()
         }
         apply(engine.state)
