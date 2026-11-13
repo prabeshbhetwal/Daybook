@@ -82,6 +82,11 @@ extension SessionStore {
         // A break counts down, and ends, on this ticker, with a session
         // paused beneath it or none at all.
         if isOnBreak { return true }
+        // An idle or watching pause ends by itself, on input or at the
+        // long-away cap, and only the ticker's samples can see either. With
+        // app-use recording off nothing else keeps it running, and such a
+        // pause never resumed for input in the app already in front.
+        if engine.state == .paused(reason: .idle) || engine.state == .paused(reason: .watching) { return true }
         return engine.state != .idle && !engine.state.isPaused
     }
 
