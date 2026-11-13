@@ -9,7 +9,42 @@ enum AppAuditChecks: CheckSuite {
          unattendedPauseKeepsTicker),
         ("A quit saves notes being written, and never empties or creates a blank one", quitSavesNoteDrafts),
         ("An answer that ends with no words is a failure that can be tried again", wordlessAnswerFails),
+        ("A name question that timed out or met a passing error is asked again on the next refresh",
+         unansweredNameIsAskedAgain),
     ]
+
+    private static func unansweredNameIsAskedAgain() -> [String] {
+        var problems = NameSuggesterChecks.pair { f, a, _, problems in
+            let calls = NameSuggesterChecks.Calls()
+            // Both sessions meet an error that is the Mac's, not theirs; then the model is back.
+            let s = NameSuggesterChecks.make(f, calls) { n in
+                if n <= 2 { throw NameSuggesterChecks.Refused() }
+                return .earlier(1)
+            }
+            NameSuggesterChecks.run(s)
+            expect(calls.facts.count == 2 && s.current == nil && !s.isAsking,
+                   "each session is asked once, got \(calls.facts.count) questions", &problems)
+            NameSuggesterChecks.run(s)
+            expect(calls.facts.count == 3 && s.current?.session.threadID == a,
+                   "the next refresh asks again, got \(calls.facts.count) questions and \(String(describing: s.current))",
+                   &problems)
+        }
+        problems += NameSuggesterChecks.pair { f, a, b, problems in
+            let calls = NameSuggesterChecks.Calls()
+            let s = NameSuggesterChecks.make(f, calls) { n in
+                if n == 1 { await NameSuggesterChecks.pause(0.5) }
+                return .earlier(1)
+            }
+            s.timeout = .milliseconds(150)
+            NameSuggesterChecks.run(s)
+            expect(calls.facts.count == 2 && s.current?.session.threadID == b,
+                   "a timeout moves on to the next session, got \(String(describing: s.current))", &problems)
+            NameSuggesterChecks.run(s)
+            expect(calls.facts.count == 3 && s.current?.session.threadID == a,
+                   "the next refresh asks the timed-out session again, got \(String(describing: s.current))", &problems)
+        }
+        return problems
+    }
 
     private static func wordlessAnswerFails() -> [String] {
         guard #available(macOS 26, *) else { return [] }
