@@ -48,7 +48,7 @@ enum UnreadableHistoryChecks {
         let unreadable = Data("not json, but the only copy of this history".utf8)
         try? unreadable.write(to: directory.appendingPathComponent("sessions.json"))
         try? Data("an earlier set-aside file".utf8)
-            .write(to: directory.appendingPathComponent("sessions-corrupt-\(stamp).json"))
+            .write(to: directory.appendingPathComponent("\(SessionArchive.setAsidePrefix)\(stamp).json"))
 
         let archive = SessionArchive(directory: directory, now: { base })
         _ = archive.append(SessionRecord(name: "Later", workType: .deepWork, start: base,
@@ -245,16 +245,16 @@ enum UnreadableHistoryChecks {
         let moved = SessionArchive(directory: setAside, now: { base })
         let movedSummary = SettingsDiagnostics.live(usage: AppUsageArchive(directory: setAside, now: { base }),
                                                     sessions: moved, dataDirectory: setAside).recoverySummary
-        if !movedSummary.contains("sessions-corrupt-\(stamp).json") {
+        if !movedSummary.contains("\(SessionArchive.setAsidePrefix)\(stamp).json") {
             failures.append("a set-aside session archive is not named: \(movedSummary)")
         }
         // A second set-aside in the same second is the newer one.
         try? Data("not json either".utf8)
-            .write(to: setAside.appendingPathComponent("sessions-corrupt-\(stamp)-2.json"))
-        try? Data("not ours".utf8).write(to: setAside.appendingPathComponent("sessions-corrupt-\(stamp)-x.json"))
+            .write(to: setAside.appendingPathComponent("\(SessionArchive.setAsidePrefix)\(stamp)-2.json"))
+        try? Data("not ours".utf8).write(to: setAside.appendingPathComponent("\(SessionArchive.setAsidePrefix)\(stamp)-x.json"))
         let newer = SettingsDiagnostics.live(usage: AppUsageArchive(directory: setAside, now: { base }),
                                              sessions: moved, dataDirectory: setAside).recoverySummary
-        if !newer.contains("sessions-corrupt-\(stamp)-2.json") {
+        if !newer.contains("\(SessionArchive.setAsidePrefix)\(stamp)-2.json") {
             failures.append("the newest same-second set-aside is not the one named: \(newer)")
         }
 
