@@ -14,7 +14,7 @@ struct PopoverFooter: View {
         HStack(spacing: Tokens.Space.m) {
             footerButton("Open Daybook", action: onOpenApplication)
             Spacer(minLength: Tokens.Space.s)
-            footerButton("Settings…", action: onOpenSettings)
+            footerButton("Settings", action: onOpenSettings)
                 .keyboardShortcut(",", modifiers: .command)
             footerButton("Quit") { NSApp.terminate(nil) }
         }
