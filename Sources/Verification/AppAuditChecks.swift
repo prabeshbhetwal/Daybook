@@ -8,7 +8,23 @@ enum AppAuditChecks: CheckSuite {
         ("An idle or watching pause keeps the ticker with recording off, until the cap ends it",
          unattendedPauseKeepsTicker),
         ("A quit saves notes being written, and never empties or creates a blank one", quitSavesNoteDrafts),
+        ("An answer that ends with no words is a failure that can be tried again", wordlessAnswerFails),
     ]
+
+    private static func wordlessAnswerFails() -> [String] {
+        guard #available(macOS 26, *) else { return [] }
+        return AskThreadChecks.withModel { _, model, problems in
+            for (label, words) in [("nothing", nil), ("only spaces", "  \n")] as [(String, String?)] {
+                model.responder = { _, show in if let words { show(words) } }
+                model.ask("How long this week?")
+                InstalledAppCatalog.turnRunLoop(until: { !model.isAnswering }, timeout: 5)
+                guard let turn = model.turns.last else { problems.append("\(label): no turn"); continue }
+                expect(turn.state == .failed(AskModel.cannotAnswer),
+                       "a stream of \(label) ends as \(turn.state)", &problems)
+                expect(model.offersTryAgain(turn.id), "a stream of \(label) offers no Try Again", &problems)
+            }
+        }
+    }
 
     /// A store over its own engine, metadata sidecar and preferences.
     @MainActor

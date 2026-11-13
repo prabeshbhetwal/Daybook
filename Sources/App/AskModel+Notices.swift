@@ -12,7 +12,8 @@ extension AskModel {
     nonisolated static let keptLooking = AskNotice(
         text: "Ask kept looking things up without answering. Try asking about one period or one thing.",
         opensSettings: false)
-    private nonisolated static let cannotAnswer = AskNotice(text: "Can't answer that one. Try asking another way.", opensSettings: false)
+    /// Also how an answer that ended with no words ends.
+    nonisolated static let cannotAnswer = AskNotice(text: "Can't answer that one. Try asking another way.", opensSettings: false)
     private nonisolated static let unsupportedLanguage = AskNotice(text: "Ask doesn't understand this language yet. Try asking in English.",
                                                                    opensSettings: false)
 
