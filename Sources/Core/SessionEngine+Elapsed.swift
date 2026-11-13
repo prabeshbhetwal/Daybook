@@ -36,15 +36,6 @@ extension SessionEngine {
         return archived + (archive.threadWork(activeThreadID, on: today) > 0 ? 0 : 1)
     }
 
-    /// The longest session today, the running thread's earlier stretches and
-    /// its live one added together.
-    var longestToday: TimeInterval {
-        let today = now()
-        let archived = archive.longestThread(on: today)?.seconds ?? 0
-        guard state != .idle, activeWorkType.countsAsFocus else { return archived }
-        return max(archived, archive.threadWork(activeThreadID, on: today) + elapsedToday())
-    }
-
     /// Today's completed work plus the part of the running session that happened
     /// today.
     var todayTotal: TimeInterval {

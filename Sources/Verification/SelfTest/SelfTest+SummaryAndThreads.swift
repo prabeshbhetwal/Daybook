@@ -174,7 +174,6 @@ extension SelfTest {
         engine.start(workType: .deepWork, intent: "Parser", threadID: thread)
         expect(engine.sessionsToday == 2, "the running stretch joins its thread, got \(engine.sessionsToday)",
                &problems)
-        expect(engine.longestToday >= 4_500, "longest is the thread with its live stretch", &problems)
         engine.stop()
         // Running on a new thread: a third session.
         engine.start(workType: .deepWork, intent: "Fresh")

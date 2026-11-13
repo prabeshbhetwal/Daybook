@@ -127,19 +127,6 @@ extension SelfTest {
         return problems
     }
 
-    /// Focus refuses to become a report at any state.
-    static func testDayAndFocusHierarchy() -> [String] {
-        var problems: [String] = []
-        expect(FocusSurfaceLayout.operationalMeasure == 760,
-               "Focus keeps a deliberate operational measure", &problems)
-        for state in [SessionState.idle, .running, .paused(reason: .manual),
-                      .awaitingUserDecision(away: 600, lastApp: "Editor")] {
-            expect(!FocusSurfaceLayout.permitsSupportingReport(state: state),
-                   "Focus does not become a dashboard in \(state)", &problems)
-        }
-        return problems
-    }
-
     /// Selecting or clearing a Review day stays in Review.
     static func testReviewContentHierarchy() -> [String] {
         MainActor.assumeIsolated {

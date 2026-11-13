@@ -180,15 +180,13 @@ enum StoryCorrectionChecks: CheckSuite {
                    "active conversion to Break should succeed", &problems)
             expect(fixture.engine.elapsedToday() == 0,
                    "active Break still contributed elapsed focus", &problems)
-            expect(fixture.store.todayTotal == 0 && fixture.store.sessionsToday == 0
-                    && fixture.store.longestToday == 0,
+            expect(fixture.store.todayTotal == 0 && fixture.store.sessionsToday == 0,
                    "published live focus totals still credited an active Break", &problems)
             expect(fixture.store.undoLastCorrection(),
                    "active Break correction should be undoable", &problems)
             expect(fixture.engine.elapsedToday() == 600,
                    "undo did not restore active elapsed focus", &problems)
-            expect(fixture.store.todayTotal == 600 && fixture.store.sessionsToday == 1
-                    && fixture.store.longestToday == 600,
+            expect(fixture.store.todayTotal == 600 && fixture.store.sessionsToday == 1,
                    "undo did not restore published live focus totals", &problems)
             return problems
         }

@@ -543,7 +543,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         guard FirstRunGate.shouldWelcome(
             onboarded: engine.store.hasOnboarded,
             hasSessionHistory: !engine.archive.records.isEmpty,
-            hasUsageHistory: !usage.sessions.isEmpty,
+            hasUsageHistory: usage.hasSessions,
             forced: CommandLine.arguments.contains("--onboarding")) else {
             return
         }
@@ -610,7 +610,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         engine.store.settleBackupSchedule(isExistingInstall: !FirstRunGate.shouldWelcome(
             onboarded: engine.store.hasOnboarded,
             hasSessionHistory: !engine.archive.records.isEmpty,
-            hasUsageHistory: !usage.sessions.isEmpty,
+            hasUsageHistory: usage.hasSessions,
             forced: false))
         backups.start { [weak self] in self?.settings.backUpIfDue() }
         secondLaunchObserver = DistributedNotificationCenter.default().addObserver(

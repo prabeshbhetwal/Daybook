@@ -38,9 +38,6 @@ struct BreakPromptEntry: Codable, Equatable, Identifiable {
     var laterCount = 0
     var outcome: BreakPromptOutcome?
     var outcomeAt: Date?
-    // Phase 3: a reminder held back while the person was busy.
-    var heldSeconds: TimeInterval?
-    var holdReasons: [String]?
     /// When the latest showing came, if it was not the first (a reminder that
     /// returned after a Later). `shown` stays the first showing.
     var lastShown: Date?

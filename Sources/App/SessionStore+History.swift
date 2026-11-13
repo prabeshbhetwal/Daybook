@@ -8,10 +8,8 @@ extension SessionStore {
     // MARK: - Timeline inspection
 
     /// `fraction` is the pointer's position across the band, 0...1. Nil clears.
-    /// `glance` is the menu bar's band: today's coordinates and today's
-    /// segments, whatever day the dashboard is browsing.
-    func hoverTimeline(at fraction: Double?, glance: Bool = false) {
-        guard let fraction, let layout = glance ? glanceLayout : timelineLayout, let usage,
+    func hoverTimeline(at fraction: Double?) {
+        guard let fraction, let layout = timelineLayout, let usage,
               // Over an elided separator there is nothing to name.
               let date = layout.date(at: min(max(fraction, 0), 1)) else {
             if hoveredSegment != nil { hoveredSegment = nil }
@@ -19,7 +17,7 @@ extension SessionStore {
         }
         let found = DashboardStats(sessions: engine.archive, usage: usage,
                                    usageSnapshot: effectiveUsageSnapshot)
-            .segment(at: date, on: glance ? Date() : selectedDay)
+            .segment(at: date, on: selectedDay)
         // Only publish on a real change, or every mouse move redraws the band.
         if found?.id != hoveredSegment?.id { hoveredSegment = found }
     }
@@ -38,8 +36,6 @@ extension SessionStore {
 
     func clearSession() {
         selectedSession = nil
-        sessionAppRanks = []
-        sessionTracked = 0
     }
 
     /// Apps used inside the given spans on the selected day. The story opens
@@ -94,7 +90,6 @@ extension SessionStore {
 
     func archiveUsageDidChange() {
         withRefreshTransaction {
-            glanceArchiveRefreshPending = true
             dashboardArchiveRefreshPending = true
             insightsRefreshPending = true
             reviewLiveTailRefreshPending = true
@@ -110,10 +105,6 @@ extension SessionStore {
     private func consumePendingSurfaceRefreshes() {
         guard refreshTransactionDepth == 0 else { return }
         refreshTransactionDepth = 1
-        if glanceArchiveRefreshPending {
-            glanceArchiveRefreshPending = false
-            rebuildGlance()
-        }
         if dashboardVisible, dashboardArchiveRefreshPending || dashboardLiveTailRefreshPending {
             let liveOnly = !dashboardArchiveRefreshPending
             dashboardArchiveRefreshPending = false
@@ -133,33 +124,11 @@ extension SessionStore {
         refreshTransactionDepth = 0
         // A synchronous observer may have requested another pass while values
         // were publishing. Coalesce that work into the next single pass.
-        if glanceArchiveRefreshPending
-            || (dashboardVisible && (dashboardArchiveRefreshPending || dashboardLiveTailRefreshPending))
+        if (dashboardVisible && (dashboardArchiveRefreshPending || dashboardLiveTailRefreshPending))
             || (reviewVisible && (reviewRefreshPending || reviewLiveTailRefreshPending))
             || (insightsVisible && insightsRefreshPending) {
             consumePendingSurfaceRefreshes()
         }
-    }
-
-    /// The popover's archive-derived slice: today only, with the continuation
-    /// rows it presents. It remains live without touching selected-day/period
-    /// dashboard state while that window is hidden.
-    private func rebuildGlance() {
-        guard let usage else { return }
-        let today = Date()
-        let usageSnapshot = effectiveUsageSnapshot
-        let stats = DashboardStats(sessions: engine.archive, usage: usage,
-                                   usageSnapshot: usageSnapshot)
-        glanceApps = stats.rankedApps(for: today)
-        glanceInsights = stats.insights(for: today)
-        glanceTimeline = stats.timeline(for: today)
-        glanceBrackets = stats.focusSpans(for: today).map { ($0.start, $0.end) }
-        glanceLayout = TimelineLayout(segments: glanceTimeline)
-        threadsToday = ThreadStats(sessions: engine.archive, usage: usage,
-                                   usageSnapshot: usageSnapshot,
-                                   purposeOverrides: engine.store.purposeOverrides,
-                                   continueWindow: engine.store.continueWindow)
-            .threads(on: today, running: runningThread())
     }
 
     /// Rebuilds every full dashboard figure from the two archives in one pass.
@@ -196,7 +165,6 @@ extension SessionStore {
         timelineSegments = stats.timeline(for: day)
         cachedWindow = stats.timelineWindow(for: day)
         timelineLayout = TimelineLayout(segments: timelineSegments)
-        focusBrackets = stats.focusSpans(for: day).map { ($0.start, $0.end) }
         var qualityStats = stats
         qualityStats.activeWorkType = engine.activeWorkType
         focusQuality = qualityStats.focusQuality(
@@ -210,13 +178,7 @@ extension SessionStore {
             insights = stats.insights(for: day)
             trackedYesterday = Calendar.current.date(byAdding: .day, value: -1, to: day)
                 .map { stats.trackedTotal(for: $0) } ?? 0
-            sessionsForSelectedDay = engine.archive.threadCount(on: day)
             focusedForSelectedDay = engine.archive.workSeconds(on: day)
-            let longest = engine.archive.longestThread(on: day)
-            longestForSelectedDay = longest?.seconds ?? 0
-            // Unnamed work is named by its type, as the Sessions card and the
-            // summary name it.
-            longestNameForSelectedDay = longest.map { $0.workType.sessionTitle(named: $0.name) }
             earliestDay = stats.earliestRecordedDay()
             let selectedBounds = periods.bounds(for: period, containing: day)
             let accuracyEpoch = usageSnapshot?.accurateFrom ?? usage.metadata.accurateFrom
@@ -244,74 +206,28 @@ extension SessionStore {
         }
 
         let rollup = periods.rollup(for: period, containing: day)
-        periodDays = rollup.days
-        periodLog = rollup.log
         periodAppGroups = PeriodStats.appGroups(from: rollup.log)
-        periodDayTotals = rollup.dayTotals
         periodSummary = rollup.summary
         if !live {
             previousPeriodTracked = periods.previousPeriodTracked(for: period, containing: day)
         }
 
         // Charts. The rhythm is the day's segments re-cut by the hour; the
-        // sparklines are one figure per day across the period (or the last
-        // seven days on Day); the donut is the work-type split of whatever is
-        // selected. All from the same passes the figures above already made.
+        // donut is the work-type split of whatever is selected. Both from the
+        // same passes the figures above already made.
         rhythm = cachedWindow.map { Rhythm.hours(segments: timelineSegments, window: $0) } ?? []
         rhythmPeak = Rhythm.peakLabel(rhythm) { DateFormats.hourLabel($0) }
         if live {
-            if let last = sparks.tracked.indices.last { sparks.tracked[last] = trackedForSelectedDay }
             workTypeShares = focusQuality.byWorkType
-            refreshSummary(rollup: rollup, day: day)
             noteDashboardReadModelRebuild(full: false)
             return
         }
-        let calendar = Calendar.current
-        let sparkDays: [Date] = period == .day
-            ? (0..<7).reversed().compactMap { calendar.date(byAdding: .day, value: -$0, to: day) }
-            : rollup.days.map(\.date)
-        sparks = KPISparks(
-            tracked: sparkDays.map { stats.trackedTotal(for: $0) },
-            focused: sparkDays.map { engine.archive.workSeconds(on: $0) },
-            sessions: sparkDays.map { Double(engine.archive.threadCount(on: $0)) },
-            quality: sparkDays.map { stats.focusQuality(for: $0).byWorkType.first?.share ?? 0 })
         if period == .day {
             workTypeShares = focusQuality.byWorkType
         } else {
             workTypeShares = Self.reviewWorkTypes(from: rollup.days)
         }
-        refreshSummary(rollup: rollup, day: day)
-        refreshRunningApps(stats: stats, day: day)
         noteDashboardReadModelRebuild()
-    }
-
-    /// The apps open now, and "Earlier today": apps with usage that are not
-    /// running now, so the two sections never repeat an app.
-    private func refreshRunningApps(stats: DashboardStats, day: Date) {
-        let frontmost = tracker?.currentBundleID
-        runningApps = stats.runningNow(from: NSWorkspace.shared.runningApplications
-            .filter { $0.activationPolicy == .regular }
-            .compactMap { app in
-                guard let bundleID = app.bundleIdentifier,
-                      bundleID != Bundle.main.bundleIdentifier else { return nil }
-                return RunningAppInput(bundleID: bundleID,
-                                       appName: app.localizedName ?? bundleID,
-                                       launched: app.launchDate,
-                                       stretchSeconds: bundleID == frontmost
-                                           ? tracker?.currentStretchSeconds() : nil)
-            })
-
-        let runningIDs = Set(runningApps.map(\.bundleID))
-        earlierToday = rankedApps
-            .filter { !runningIDs.contains($0.bundleID) }
-            .prefix(engine.store.menuAppCount)
-            .map { rank in
-                AppDayHistory(bundleID: rank.bundleID,
-                              appName: rank.appName,
-                              total: rank.total,
-                              sessions: stats.sessions(for: day, bundleID: rank.bundleID)
-                                  .sorted { $0.start > $1.start })
-            }
     }
 
     /// Window lifecycle gate for archive-driven refreshes. A hidden dashboard

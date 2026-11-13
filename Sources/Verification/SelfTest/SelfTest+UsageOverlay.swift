@@ -38,7 +38,7 @@ extension SelfTest {
             expectClose(usage.sessions.first?.seconds ?? -1, 10 * 60,
                         "the durable archive remains untouched while correction is pending",
                         &problems)
-            expectClose(store.trackedToday, 5 * 60,
+            expectClose(store.storyUsageBreakdown(on: clock.value).tracked, 5 * 60,
                         "the live tracked total replaces the durable checkpoint", &problems)
             expectClose(store.goal.achieved, 5 * 60,
                         "the live goal uses the corrected hands-on interval", &problems)
@@ -92,16 +92,21 @@ extension SelfTest {
             expect(Set(store.timelineSegments.map(\.id)).count == 3,
                    "the Day timeline contains the three authoritative UUIDs", &problems)
 
+            let periods = PeriodStats(sessions: engine.archive, usage: usage,
+                                      usageSnapshot: store.effectiveUsageSnapshot,
+                                      calendar: store.periodCalendar, now: { clock.value })
             store.period = .week
             expectClose(store.periodSummary.tracked, 21 * 60,
                         "the Week total includes every queued confirmed interval", &problems)
-            expectClose(store.periodDays.reduce(0) { $0 + $1.tracked }, 21 * 60,
+            expectClose(periods.rollup(for: .week, containing: clock.value).days
+                            .reduce(0) { $0 + $1.tracked }, 21 * 60,
                         "the Week bars reconcile with their queued total", &problems)
 
             store.period = .month
             expectClose(store.periodSummary.tracked, 21 * 60,
                         "the Month total includes every queued confirmed interval", &problems)
-            expectClose(store.periodDays.reduce(0) { $0 + $1.tracked }, 21 * 60,
+            expectClose(periods.rollup(for: .month, containing: clock.value).days
+                            .reduce(0) { $0 + $1.tracked }, 21 * 60,
                         "the Month bars reconcile with their queued total", &problems)
             expectClose(usage.sessions.first?.seconds ?? -1, 10 * 60,
                         "period views do not rewrite the durable checkpoint", &problems)

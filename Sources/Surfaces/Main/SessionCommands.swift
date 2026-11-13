@@ -50,16 +50,24 @@ final class SessionCommandState: ObservableObject {
     }
 
     @Published private(set) var snapshot: Snapshot
+    private var subscription: AnyCancellable?
+    private var updateScheduled = false
 
     init(store: SessionStore) {
         snapshot = Snapshot(store)
-        // `objectWillChange` fires before the new value lands; the hop to the
-        // main queue reads it after.
-        store.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .compactMap { [weak store] _ in store.map(Snapshot.init) }
-            .removeDuplicates()
-            .assign(to: &$snapshot)
+        // `objectWillChange` fires before the new value lands; one hop on the
+        // main queue reads it after, and coalesces a burst of writes into one.
+        subscription = store.objectWillChange.sink { [weak self, weak store] _ in
+            guard let self, !self.updateScheduled else { return }
+            self.updateScheduled = true
+            DispatchQueue.main.async { [weak self, weak store] in
+                guard let self else { return }
+                self.updateScheduled = false
+                guard let store else { return }
+                let next = Snapshot(store)
+                if next != self.snapshot { self.snapshot = next }
+            }
+        }
     }
 }
 

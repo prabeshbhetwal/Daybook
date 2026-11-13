@@ -53,18 +53,12 @@ enum StoryAccountingChecks: CheckSuite {
                     let expected = Double(1_200 + tick + (includesStoredSpan ? 3_300 : 0))
                     expectClose(days.reduce(0) { $0 + $1.focused }, expected,
                                 "History does not contain each running contribution exactly once", &problems)
-                    expectClose(fixture.store.reviewFocusSessions.reduce(0) { $0 + $1.seconds }, expected,
-                                "period focus rows lost the prior-day portion", &problems)
-                    expectClose(fixture.store.reviewLongestFocusSeconds,
-                                includesStoredSpan ? 3_300 : Double(1_200 + tick),
-                                "period longest is a day-only slice", &problems)
                     expect(fixture.store.historyIndexGeneration == generation,
                            "live update rebuilt stable all-history indexing", &problems)
                 }
                 let partial = fixture.store.historyDays
-                let focus = fixture.store.reviewFocusSessions
                 fixture.store.refreshReview()
-                expect(partial == fixture.store.historyDays && focus == fixture.store.reviewFocusSessions,
+                expect(partial == fixture.store.historyDays,
                        "partial overnight evidence differs from a full rebuild", &problems)
             }
             return problems
@@ -125,12 +119,16 @@ enum StoryAccountingChecks: CheckSuite {
             defer { fixture.cleanUp() }
             fixture.store.setDashboardVisible(true)
             fixture.store.setReviewVisible(true)
+            // A running session reads the usage evidence: the goal is the only
+            // live figure that does, so it is the one the observer listens to.
+            fixture.engine.start(workType: .deepWork, intent: "Live")
+            clock.advance(900)
             let id = UUID()
             let start = clock.value.addingTimeInterval(-900)
             fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "editor", appName: "Editor",
                 start: start, end: start.addingTimeInterval(600)))
             var armed = false
-            let observer = fixture.store.$trackedToday.sink { _ in
+            let observer = fixture.store.$goal.sink { _ in
                 guard armed else { return }
                 armed = false
                 fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "editor", appName: "Editor",
@@ -149,7 +147,7 @@ enum StoryAccountingChecks: CheckSuite {
                         "durable correction was not recorded", &problems)
             expectClose(fixture.store.trackedForSelectedDay, 900,
                         "selected-day total missed the published correction", &problems)
-            expectClose(fixture.store.trackedToday, 900,
+            expectClose(fixture.store.goal.achieved, 900,
                         "the frame cache consumed evidence its live values never read", &problems)
             return problems
         }
@@ -258,8 +256,8 @@ enum StoryAccountingChecks: CheckSuite {
             clock.advance(125)
             fixture.store.updateTimeDrivenFigures()
             var problems: [String] = []
-            expectClose(fixture.store.reviewSummary.tracked, 125,
-                        "Week bars/average consume the uncheckpointed live tail", &problems)
+            expectClose(fixture.store.historyDays.reduce(0) { $0 + $1.tracked }, 125,
+                        "History consumes the uncheckpointed live tail", &problems)
             expectClose(fixture.store.historyDays.first?.focused ?? -1, 125,
                         "An open History sheet advances running work with Day", &problems)
             expect(fixture.store.historyIndexGeneration == stableHistoryGeneration,
@@ -274,8 +272,8 @@ enum StoryAccountingChecks: CheckSuite {
                                                       end: start.addingTimeInterval(-300)))
             expect(fixture.usage.sessions.count == count,
                    "The mutation fixture must replace, not append, a record", &problems)
-            expectClose(fixture.store.reviewSummary.tracked, 1_025,
-                        "Visible Review reacts to a direct same-count archive mutation", &problems)
+            expectClose(fixture.store.historyDays.reduce(0) { $0 + $1.tracked }, 1_025,
+                        "Visible History reacts to a direct same-count archive mutation", &problems)
             return problems
         }
     }
@@ -411,7 +409,7 @@ enum StoryAccountingChecks: CheckSuite {
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
             let historyGeneration = store.historyIndexGeneration
             let fullDashboardGeneration = store.dashboardArchiveReadModelGeneration
-            let trackedBeforeLiveTick = store.reviewSummary.tracked
+            let trackedBeforeLiveTick = store.historyDays.reduce(0) { $0 + $1.tracked }
             clock.advance(1)
             let liveBegan = Date()
             store.updateTimeDrivenFigures()
@@ -420,8 +418,8 @@ enum StoryAccountingChecks: CheckSuite {
                    "capacity live tick rebuilt stable all-history indexing", &problems)
             expect(store.dashboardArchiveReadModelGeneration == fullDashboardGeneration,
                    "capacity live tick rebuilt stable dashboard history", &problems)
-            expect(store.reviewSummary.tracked > trackedBeforeLiveTick,
-                   "capacity live tick did not advance current Review evidence", &problems)
+            expect(store.historyDays.reduce(0) { $0 + $1.tracked } > trackedBeforeLiveTick,
+                   "capacity live tick did not advance current History evidence", &problems)
             Diagnostics.log("Story capacity idle ticks \(elapsed)s; live tick \(liveElapsed)s")
             return problems
         }

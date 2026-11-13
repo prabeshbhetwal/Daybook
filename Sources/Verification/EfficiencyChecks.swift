@@ -416,9 +416,9 @@ enum EfficiencyChecks {
         return problems
     }
 
-    /// The Day view refreshes its live figures every second, and Week/Month
-    /// patch today's row; both read only the period's records now. Each must
-    /// publish what a full rebuild over every record publishes.
+    /// The Day view refreshes its live figures every second, reading only that
+    /// day's records now. It must publish what a full rebuild over every
+    /// record publishes.
     private static func liveRefreshesMatchFullRebuild() -> [String] {
         MainActor.assumeIsolated {
             let clock = TestClock(noon())
@@ -438,8 +438,7 @@ enum EfficiencyChecks {
             store.refreshReview(period: .month)
             var problems: [String] = []
             for _ in 0..<3 { clock.advance(1); store.updateTimeDrivenFigures() }
-            let live = (store.rankedApps, store.timelineSegments, store.trackedForSelectedDay,
-                        store.reviewDays, store.reviewDayTotals)
+            let live = (store.rankedApps, store.timelineSegments, store.trackedForSelectedDay)
             store.refreshDashboard()
             store.refreshReview(period: .month)
             if store.rankedApps != live.0 || store.timelineSegments != live.1 {
@@ -447,9 +446,6 @@ enum EfficiencyChecks {
             }
             if store.trackedForSelectedDay != live.2 {
                 problems.append("The live Day total \(live.2) differs from a full rebuild's \(store.trackedForSelectedDay)")
-            }
-            if store.reviewDays != live.3 || store.reviewDayTotals != live.4 {
-                problems.append("The live Month patch differs from a full rebuild")
             }
             return problems
         }

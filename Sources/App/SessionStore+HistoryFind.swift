@@ -20,34 +20,6 @@ struct HistorySearchHit: Identifiable, Equatable {
     var recordIDs: [UUID] = []
 }
 
-/// Everything on record, summed once: what the History page opens with.
-struct HistoryArchiveFacts: Equatable {
-    let firstDay: Date?
-    let dayCount: Int
-    let sessionCount: Int
-    let focused: TimeInterval
-    let bestMonth: (start: Date, focused: TimeInterval)?
-    let longestStreak: Int
-    let categories: [WorkTypeShare]
-    let apps: [AppRank]
-    /// Focused seconds per local day, for the map.
-    let focusByDay: [Date: TimeInterval]
-    /// Recorded app use per local day, so a day at the Mac with no session
-    /// still shows as a day.
-    let trackedByDay: [Date: TimeInterval]
-
-    static let empty = HistoryArchiveFacts(firstDay: nil, dayCount: 0, sessionCount: 0, focused: 0,
-                                           bestMonth: nil, longestStreak: 0, categories: [], apps: [],
-                                           focusByDay: [:], trackedByDay: [:])
-
-    static func == (lhs: HistoryArchiveFacts, rhs: HistoryArchiveFacts) -> Bool {
-        lhs.firstDay == rhs.firstDay && lhs.dayCount == rhs.dayCount && lhs.sessionCount == rhs.sessionCount
-            && lhs.focused == rhs.focused && lhs.longestStreak == rhs.longestStreak
-            && lhs.bestMonth?.start == rhs.bestMonth?.start && lhs.categories == rhs.categories
-            && lhs.apps == rhs.apps
-    }
-}
-
 extension SessionStore {
     /// Sessions and breaks holding every word of the query, newest first.
     /// A session is known by its name and any name it had before a rename,
@@ -180,89 +152,5 @@ extension SessionStore {
         case 17..<21: return "evening"
         default: return "night"
         }
-    }
-
-    /// The whole archive summed once per evidence revision.
-    func historyArchiveFacts() -> HistoryArchiveFacts {
-        let revision = evidenceRevision
-        if let cached = historyArchiveFactsCache, cached.revision == revision { return cached.facts }
-        let facts = buildHistoryArchiveFacts()
-        historyArchiveFactsCache = (revision, facts)
-        return facts
-    }
-
-    private func buildHistoryArchiveFacts() -> HistoryArchiveFacts {
-        let calendar = periodCalendar
-        var focusByDay: [Date: TimeInterval] = [:]
-        var trackedByDay: [Date: TimeInterval] = [:]
-        for day in historyDays {
-            let key = calendar.startOfDay(for: day.date)
-            focusByDay[key] = day.focused
-            trackedByDay[key] = day.tracked
-        }
-        if historyDays.isEmpty {
-            // Before the review index exists, the archive's own records still
-            // say which days held focus.
-            for record in engine.archive.records where record.workType.countsAsFocus && record.workSeconds > 0 {
-                focusByDay[calendar.startOfDay(for: record.start), default: 0] += record.workSeconds
-            }
-        }
-        let sessionCount = Set(engine.archive.records.filter { $0.workType.countsAsFocus }.map(\.threadID)).count
-        let focused = focusByDay.values.reduce(0, +)
-
-        var byMonth: [Date: TimeInterval] = [:]
-        for (day, seconds) in focusByDay where seconds > 0 {
-            if let start = calendar.dateInterval(of: .month, for: day)?.start {
-                byMonth[start, default: 0] += seconds
-            }
-        }
-        let bestMonth = byMonth.max { $0.value < $1.value }.map { (start: $0.key, focused: $0.value) }
-
-        var longest = 0, run = 0
-        var previous: Date?
-        for day in focusByDay.keys.sorted() where (focusByDay[day] ?? 0) >= engine.store.streakMinimum {
-            if let previous, let next = calendar.date(byAdding: .day, value: 1, to: previous),
-               calendar.isDate(next, inSameDayAs: day) {
-                run += 1
-            } else {
-                run = 1
-            }
-            longest = max(longest, run)
-            previous = day
-        }
-
-        var byCategory: [WorkType: TimeInterval] = [:]
-        for record in engine.archive.records where record.workType.countsAsFocus {
-            byCategory[record.workType, default: 0] += record.workSeconds
-        }
-        let categories = WorkTypeShare.shares(from: byCategory)
-
-        var appTotals: [String: (name: String, total: TimeInterval, longest: TimeInterval)] = [:]
-        if let usage {
-            let stats = DashboardStats(sessions: engine.archive, usage: usage,
-                                       usageSnapshot: effectiveUsageSnapshot,
-                                       calendar: calendar, now: now)
-            for day in historyDays {
-                for app in stats.rankedApps(for: day.date) {
-                    let existing = appTotals[app.bundleID]
-                    appTotals[app.bundleID] = (app.appName, (existing?.total ?? 0) + app.total,
-                                               max(existing?.longest ?? 0, app.longest))
-                }
-            }
-        }
-        var appSum: TimeInterval = 0
-        for value in appTotals.values { appSum += value.total }
-        var apps: [AppRank] = []
-        for (key, value) in appTotals {
-            let share: Double = appSum > 0 ? value.total / appSum : 0
-            apps.append(AppRank(bundleID: key, appName: value.name, total: value.total,
-                                share: share, longest: value.longest))
-        }
-        apps.sort { (a: AppRank, b: AppRank) -> Bool in a.total > b.total }
-
-        return HistoryArchiveFacts(firstDay: focusByDay.keys.min().map { min($0, trackedByDay.keys.min() ?? $0) },
-                                   dayCount: historyDays.count, sessionCount: sessionCount, focused: focused,
-                                   bestMonth: bestMonth, longestStreak: longest, categories: categories,
-                                   apps: apps, focusByDay: focusByDay, trackedByDay: trackedByDay)
     }
 }

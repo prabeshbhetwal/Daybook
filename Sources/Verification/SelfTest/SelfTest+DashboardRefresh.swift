@@ -40,8 +40,6 @@ extension SelfTest {
         store.refresh()
         expectClose(store.trackedForSelectedDay, 0,
                     "an ordinary hidden refresh does not consume the full dashboard", &problems)
-        expectClose(store.glanceApps.first?.total ?? -1, 10 * 60,
-                    "the hidden-dashboard refresh still updates today's popover glance", &problems)
         store.setDashboardVisible(true)
         expectClose(store.trackedForSelectedDay, 10 * 60,
                     "appearing consumes the pending archive refresh", &problems)

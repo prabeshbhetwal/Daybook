@@ -55,10 +55,9 @@ extension SelfTest {
 
     // MARK: - 97
 
-    /// The popover's Today band is today's whatever day the dashboard shows:
-    /// stepping the dashboard to yesterday must leave the glance segments,
-    /// brackets and hover on today. It used to draw the selected day's
-    /// segments on today's axis, which emptied the band.
+    /// The dashboard's band is the browsed day's: stepping the dashboard to
+    /// yesterday must put its segments and hover on yesterday. It used to draw
+    /// the selected day's segments on today's axis, which emptied the band.
     static func testGlanceStaysOnToday() -> [String] {
         var problems: [String] = []
         let directory = scratchDirectory()
@@ -98,14 +97,6 @@ extension SelfTest {
         store.stepDay(by: -1)
         expect(store.timelineSegments.map(\.bundleID) == ["com.y"],
                "the dashboard browses yesterday, got \(store.timelineSegments.map(\.bundleID))", &problems)
-        expect(store.glanceTimeline.map(\.bundleID) == ["com.t"],
-               "the glance band stays on today, got \(store.glanceTimeline.map(\.bundleID))", &problems)
-        expect(store.glanceBrackets.count == 1 && store.focusBrackets.count == 1,
-               "brackets merge today's overlap for the glance and preserve yesterday's page bracket", &problems)
-        store.hoverTimeline(at: 0.5, glance: true)
-        expect(store.hoveredSegment?.bundleID == "com.t",
-               "hovering the glance band names today's app, got \(store.hoveredSegment?.bundleID ?? "nil")",
-               &problems)
         store.hoverTimeline(at: 0.5)
         expect(store.hoveredSegment?.bundleID == "com.y",
                "hovering the page names yesterday's, got \(store.hoveredSegment?.bundleID ?? "nil")", &problems)
