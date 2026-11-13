@@ -151,7 +151,7 @@ extension SelfTest {
         let store = SessionStore(engine: engine, now: { clock.value })
         store.attach(tracker: tracker, usage: usage)
 
-        expectClose(store.trackedToday, 21 * 60,
+        expectClose(store.storyUsageBreakdown(on: clock.value).tracked, 21 * 60,
                     "scalar tracked time includes every disjoint queued interval", &problems)
         expectClose(store.goal.achieved, 21 * 60,
                     "focused-active time includes every disjoint queued interval", &problems)

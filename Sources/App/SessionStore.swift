@@ -72,7 +72,6 @@ final class SessionStore: ObservableObject {
     @Published var goal = GoalProgress(
         goal: FocusConstants.defaultDailyGoal, achieved: 0, typical: nil)
     @Published var sessionsToday = 0
-    @Published var longestToday: TimeInterval = 0
     @Published var pendingAway: TimeInterval?
     /// When that absence was, for the card's header and the prompts.
     @Published var pendingAwayRange: (start: Date, end: Date)?
@@ -89,9 +88,6 @@ final class SessionStore: ObservableObject {
     /// The same for the break countdown beside the menu bar's cup.
     @Published var menuBarShowsBreakCountdown = true
 
-    /// Total tracked computer time today — distinct from `todayTotal`, which is
-    /// focused-session time.
-    @Published var trackedToday: TimeInterval = 0
     @Published var previousSession: SessionRecord?
     @Published var isTrackingEnabled = true
     @Published var pendingActivityChoice: ActivityQuietChoice?

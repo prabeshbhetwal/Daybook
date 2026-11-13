@@ -22,8 +22,6 @@ extension SelfTest {
                &problems)
         expect(engine.sessionsToday == 1,
                "the running session counts as one, got \(engine.sessionsToday)", &problems)
-        expectClose(engine.longestToday, 42 * 60,
-                    "longest today includes the running session", &problems)
 
         // Under the 25 minute bar the streak stays honest.
         let clock2 = TestClock(base)

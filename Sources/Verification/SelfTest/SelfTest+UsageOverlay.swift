@@ -38,7 +38,7 @@ extension SelfTest {
             expectClose(usage.sessions.first?.seconds ?? -1, 10 * 60,
                         "the durable archive remains untouched while correction is pending",
                         &problems)
-            expectClose(store.trackedToday, 5 * 60,
+            expectClose(store.storyUsageBreakdown(on: clock.value).tracked, 5 * 60,
                         "the live tracked total replaces the durable checkpoint", &problems)
             expectClose(store.goal.achieved, 5 * 60,
                         "the live goal uses the corrected hands-on interval", &problems)

@@ -159,13 +159,13 @@ extension SessionStore {
         let inFlight = engine.elapsedToday()
         // Each write is guarded: a `@Published` assignment notifies every
         // observer even when the value is equal, and this runs every second.
-        publish(\.elapsed, engine.elapsed)
-        // Gated on state: the engine's `elapsed` keeps counting from the last
-        // start after a stop, because nothing reads it when idle — this does.
+        // Gated on state like `threadElapsed`: `engine.elapsed` keeps counting
+        // from the last start after a stop, and publishing that every second
+        // woke every observer of the store for nothing while no session ran.
+        publish(\.elapsed, engine.state == .idle ? 0 : engine.elapsed)
         publish(\.threadElapsed, engine.state == .idle ? 0 : threadBaseSeconds + elapsed)
         publish(\.todayTotal, engine.todayTotal)
         publish(\.sessionsToday, engine.sessionsToday)
-        publish(\.longestToday, engine.longestToday)
         publish(\.streak, engine.currentStreak(includingToday: inFlight))
         publish(\.streakBest, engine.bestStreak(includingToday: inFlight))
         publish(\.goal, GoalProgress(goal: engine.store.dailyGoal,
@@ -182,12 +182,6 @@ extension SessionStore {
                                                 windowDays: engine.store.paceWindowDays)
                                 .achievedToday(),
                             typical: cachedTypical))
-        // Re-read rather than adding the open stretch to a cached total. The
-        // cached version missed every segment that opened *and closed* between
-        // refreshes, so the figure went backwards on each app switch.
-        if let usageSnapshot {
-            publish(\.trackedToday, usageSnapshot.total(on: moment))
-        }
         lastLiveFrame = consumedFrame
     }
 

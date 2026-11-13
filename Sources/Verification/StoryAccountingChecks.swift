@@ -125,12 +125,16 @@ enum StoryAccountingChecks: CheckSuite {
             defer { fixture.cleanUp() }
             fixture.store.setDashboardVisible(true)
             fixture.store.setReviewVisible(true)
+            // A running session reads the usage evidence: the goal is the only
+            // live figure that does, so it is the one the observer listens to.
+            fixture.engine.start(workType: .deepWork, intent: "Live")
+            clock.advance(900)
             let id = UUID()
             let start = clock.value.addingTimeInterval(-900)
             fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "editor", appName: "Editor",
                 start: start, end: start.addingTimeInterval(600)))
             var armed = false
-            let observer = fixture.store.$trackedToday.sink { _ in
+            let observer = fixture.store.$goal.sink { _ in
                 guard armed else { return }
                 armed = false
                 fixture.usage.checkpoint(AppUsageSession(id: id, bundleID: "editor", appName: "Editor",
@@ -149,7 +153,7 @@ enum StoryAccountingChecks: CheckSuite {
                         "durable correction was not recorded", &problems)
             expectClose(fixture.store.trackedForSelectedDay, 900,
                         "selected-day total missed the published correction", &problems)
-            expectClose(fixture.store.trackedToday, 900,
+            expectClose(fixture.store.goal.achieved, 900,
                         "the frame cache consumed evidence its live values never read", &problems)
             return problems
         }
