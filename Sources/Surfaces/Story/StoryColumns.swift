@@ -4,6 +4,7 @@ enum StoryRenderEvidence: String, Hashable {
     case dayStory
     case historyJournal
     case historyTree
+    case historyGrid
     case storyChromeControls
     case askButton
     case askButtonWithWord
