@@ -45,16 +45,21 @@ enum HistoryRowText {
     }
 
     /// `September 2026, 1 hour 45 minutes across 3 days, month, level 2, collapsed`.
-    static func spoken(_ row: HistoryRow, today: Date, isOpen: Bool, depth: Int, calendar: Calendar) -> String {
+    /// A first-view period row adds the line under its sentence from `facts`.
+    static func spoken(_ row: HistoryRow, today: Date, isOpen: Bool, depth: Int, calendar: Calendar,
+                       facts rowFacts: HistoryRowFacts = .none) -> String {
         var name = title(row.place, today: today, calendar: calendar)
         if row.place.level == .month { name += " " + DateFormats.australian("yyyy", in: calendar.timeZone).string(from: row.place.start) }
         let figure: String
+        var detailLine: String?
         if row.isAppUseOnly {
             figure = "recorded app use only, \(Tokens.spent(row.tracked))"
         } else if depth == 0, row.place.level != .day {
             // A first-view period says its sentence, with the figure in words.
             let rest = sentence(row, today: today).rest.dropLast()
             figure = row.focused > 0 ? "\(Tokens.spent(row.focused)) \(rest)" : rest.lowercased()
+            // Its own part, so the sentence's full stop gives way to the comma.
+            detailLine = detail(rowFacts, row: row, calendar: calendar).map { DurationText.spoken(in: String($0.dropLast())) }
         } else if row.isEmpty {
             figure = facts(row, today: today)
         } else if row.place.level == .day {
@@ -65,7 +70,7 @@ enum HistoryRowText {
             let days = row.focusedDays == 1 ? "1 day" : "\(row.focusedDays) days"
             figure = row.focused > 0 ? "\(Tokens.spent(row.focused)) across \(days)" : "no focus recorded"
         }
-        var parts = [name, figure, row.place.level.spokenName, "level \(depth + 1)"]
+        var parts = [name, figure] + (detailLine.map { [$0] } ?? []) + [row.place.level.spokenName, "level \(depth + 1)"]
         if !row.isEmpty { parts.append(isOpen ? "expanded" : "collapsed") }
         return parts.joined(separator: ", ")
     }

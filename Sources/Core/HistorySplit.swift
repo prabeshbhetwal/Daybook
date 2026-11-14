@@ -35,8 +35,10 @@ enum HistorySplit {
             let muted = previous.map { $0.workType?.hue == share.workType.hue && !$0.isMuted } ?? false
             parts.append(HistorySplitPart(workType: share.workType, share: share.share, isMuted: muted))
         }
-        if !folded.isEmpty {
-            parts.append(HistorySplitPart(workType: nil, share: folded.filter { $0.share.isFinite }.reduce(0) { $0 + $1.share }, isMuted: false))
+        // Other needs a share that rounds to at least 1%, so it never reads "0%" either.
+        let other = folded.filter { $0.share.isFinite }.reduce(0) { $0 + $1.share }
+        if (other * 100).rounded() >= 1 {
+            parts.append(HistorySplitPart(workType: nil, share: other, isMuted: false))
         }
         return parts
     }

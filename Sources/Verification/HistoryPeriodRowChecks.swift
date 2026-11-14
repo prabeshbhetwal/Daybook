@@ -86,7 +86,17 @@ enum HistoryPeriodRowChecks: CheckSuite {
     private static func spokenTopMonth() -> [String] {
         let spoken = HistoryRowText.spoken(november, today: today, isOpen: false, depth: 0, calendar: calendar)
         let wanted = "November 2026, 61 hours 10 minutes across 9 days so far, month, level 1, collapsed"
-        return spoken == wanted ? [] : ["a top November was spoken as \"\(spoken)\", wanted \"\(wanted)\""]
+        var problems = spoken == wanted ? [] : ["a top November was spoken as \"\(spoken)\", wanted \"\(wanted)\""]
+        // With a second line, it follows the sentence, durations in words, as its own part.
+        let facts = HistoryRowFacts(facts: [.recordDay(day: HistoryTreeChecks.date(11, 4), focused: 18_060)], daysLeft: 15)
+        let withDetail = HistoryRowText.spoken(november, today: today, isOpen: false, depth: 0, calendar: calendar,
+                                               facts: facts)
+        let wantedDetail = "November 2026, 61 hours 10 minutes across 9 days so far, "
+            + "Wed 4 Nov was your longest day yet, at 5 hours 1 minute. 15 days left, month, level 1, collapsed"
+        if withDetail != wantedDetail {
+            problems.append("a top November with a second line was spoken as \"\(withDetail)\", wanted \"\(wantedDetail)\"")
+        }
+        return problems
     }
 
     private static func nestedRowsUnchanged() -> [String] {

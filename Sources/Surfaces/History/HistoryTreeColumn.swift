@@ -14,7 +14,9 @@ struct HistoryTree: View {
     /// Escape then reach it. The search field keeps its own cursor.
     @FocusState private var treeFocused: Bool
     /// What the pointer picks out, in the grid or on a row; each marks it in the other.
-    @StateObject private var link = HistoryGridLink()
+    /// Held, not observed: this column never reads it, so a cell the pointer
+    /// crosses redraws only the views that do.
+    @State private var link = HistoryGridLink()
     var scrolls = true
 
     static let keyboardHint = "Up and down arrows move through the rows; Return opens or folds one; "
@@ -139,9 +141,12 @@ struct HistoryTree: View {
     }
 
     private var tree: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
+        // One pass over the root rows, not one per row at every redraw.
+        let facts = store.historyRowFacts()
+        return LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(store.historyRows(under: nil)) { row in
-                HistoryTreeRow(store: store, navigation: navigation, row: row, depth: 0, link: link)
+                HistoryTreeRow(store: store, navigation: navigation, row: row, depth: 0, link: link,
+                               facts: facts[row.id] ?? .none)
             }
         }
         // The spine the top cards hang from, through their dots.
@@ -251,8 +256,10 @@ struct HistoryTree: View {
             }
             guard let row = store.historyRows(under: parent).first(where: { $0.place == place }) else { return nil }
             let isOpen = open.indices.contains(depth) && open[depth] == place
+            // A top row is read with the line under its sentence, as its label is.
+            let facts = depth == 0 ? store.historyRowFacts()[row.id] ?? .none : .none
             return DurationText.spoken(in: HistoryRowText.spoken(row, today: store.now(), isOpen: isOpen, depth: depth,
-                                                                calendar: SessionStore.historyCalendar))
+                                                                calendar: SessionStore.historyCalendar, facts: facts))
         case .session(let thread, let day):
             return store.journalSession(thread: thread, on: day).map(HistorySessionRow.spokenLabel)
         case nil:

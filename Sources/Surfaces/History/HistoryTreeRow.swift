@@ -8,6 +8,11 @@ struct HistoryTreeRow: View {
     let depth: Int
     /// Not observed: a row only writes what it points at, for the grid to read.
     let link: HistoryGridLink
+    /// What stands out about a first-view period row; nested rows have none.
+    var facts: HistoryRowFacts = .none
+    /// The span this row put on the link, so it releases that one even if the
+    /// row's own span has grown since (the period holding today, at a refresh).
+    @State private var pointedSpan: DateInterval?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     static var indent: CGFloat { Tokens.Space.l }
@@ -38,7 +43,10 @@ struct HistoryTreeRow: View {
             // The grid keeps this row's days at full strength while it is pointed at.
             // Each clears only its own span, so the next row's arrival is not undone.
             .onHover { inside in
-                if inside { link.span = row.place.span } else { releaseLink() }
+                if inside {
+                    pointedSpan = row.place.span
+                    link.span = row.place.span
+                } else { releaseLink() }
             }
             .onDisappear(perform: releaseLink)
             if isOpen {
@@ -59,13 +67,14 @@ struct HistoryTreeRow: View {
     private var gutter: CGFloat { isPeriod ? HistoryPeriodRow.gutterWidth(for: row.place.level) : 0 }
 
     private func releaseLink() {
-        if link.span == row.place.span { link.span = nil }
+        if let pointed = pointedSpan, link.span == pointed { link.span = nil }
+        pointedSpan = nil
     }
 
     private var header: some View {
         Button { navigation.toggleHistory(row.place) } label: {
             if isPeriod {
-                HistoryPeriodRow(store: store, row: row, facts: store.historyRowFacts()[row.id] ?? .none,
+                HistoryPeriodRow(store: store, row: row, facts: facts,
                                  isCurrent: row.place.span.holds(store.historyTop().today),
                                  isOpen: isOpen, isFocused: isFocused)
             } else {
@@ -77,7 +86,7 @@ struct HistoryTreeRow: View {
         .disabled(row.isEmpty)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(HistoryRowText.spoken(row, today: today, isOpen: isOpen, depth: depth,
-                                                  calendar: SessionStore.historyCalendar))
+                                                  calendar: SessionStore.historyCalendar, facts: facts))
         .accessibilityAddTraits(isFocused ? [.isButton, .isSelected] : .isButton)
         .accessibilityHint(row.isEmpty ? "" : HistoryTree.keyboardHint)
         // The header's own click, for a reader who looks for it in a menu.

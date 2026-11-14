@@ -32,6 +32,10 @@ enum HistorySplitChecks: CheckSuite {
                &problems)
         expect(abs(edge.reduce(0) { $0 + $1.share } - 1) < 1e-9, "The edge split no longer sums to 1", &problems)
 
+        // Folded shares that total under 1% give no Other, so no label reads 0%.
+        let tiny = HistorySplit.parts([share(.deepWork, 0.996), share(.meetings, 0.002), share(.admin, 0.002)])
+        expect(tiny.map(\.workType) == [.deepWork], "Folded shares totalling 0.4% still made an Other: \(tiny.map(\.id))", &problems)
+
         let whole = HistorySplit.parts([share(.deepWork, 0.6), share(.meetings, 0.4)])
         expect(whole.map(\.workType) == [.deepWork, .meetings], "Other appeared though nothing folded", &problems)
         return problems
@@ -85,6 +89,9 @@ enum HistorySplitChecks: CheckSuite {
             expect(part.share.isFinite || part.workType == nil, "\(part.id) kept the share \(part.share)", &problems)
         }
         expect(corrupt.first?.workType == .deepWork, "the real share did not lead, got \(corrupt.map(\.id))", &problems)
+        // Only non-finite shares folded: nothing real to show, so no Other.
+        let onlyBad = HistorySplit.parts([share(.deepWork, 0.5), share(.admin, .nan)])
+        expect(onlyBad.map(\.workType) == [.deepWork], "A folded non-number made an Other: \(onlyBad.map(\.id))", &problems)
         return problems
     }
 }
