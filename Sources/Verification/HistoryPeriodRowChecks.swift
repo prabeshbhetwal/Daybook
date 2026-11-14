@@ -135,7 +135,7 @@ enum HistoryPeriodRowChecks: CheckSuite {
             expect(period.contains(.historySoFar), "a period row holding today reported no So far, so "
                    + "the check below proves nothing", &problems)
             let drawn = render(HistoryTreeRow(store: f.store, navigation: MainWindowModel(store: f.store),
-                                              row: today, depth: 0))
+                                              row: today, depth: 0, link: HistoryGridLink()))
             expect(!drawn.contains(.historySoFar), "today's row in a first week was drawn as a period row", &problems)
             expect(HistoryPeriodRow.gutterWidth(for: top.rootLevel) == 0,
                    "a first week's day rows have a gutter of \(HistoryPeriodRow.gutterWidth(for: top.rootLevel))",

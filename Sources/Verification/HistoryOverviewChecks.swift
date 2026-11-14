@@ -30,7 +30,8 @@ enum HistoryOverviewChecks: CheckSuite {
                 let navigation = MainWindowModel(store: f.store)
                 for row in rows {
                     let drawn = ActivityRuleChecks.renderEvidence(
-                        AnyView(HistoryTreeRow(store: f.store, navigation: navigation, row: row, depth: 0)),
+                        AnyView(HistoryTreeRow(store: f.store, navigation: navigation, row: row, depth: 0,
+                                               link: HistoryGridLink())),
                         width: 640, height: 260)
                     let isCard = drawn.contains(.historySoFar)
                     expect(isCard == row.place.span.holds(top.today),

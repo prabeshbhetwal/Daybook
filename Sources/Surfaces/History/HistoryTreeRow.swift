@@ -6,6 +6,8 @@ struct HistoryTreeRow: View {
     @ObservedObject var navigation: MainWindowModel
     let row: HistoryRow
     let depth: Int
+    /// Not observed: a row only writes what it points at, for the grid to read.
+    let link: HistoryGridLink
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     static var indent: CGFloat { Tokens.Space.l }
@@ -17,20 +19,28 @@ struct HistoryTreeRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if isPeriod {
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text(HistoryRowText.gutter(row.place, calendar: SessionStore.historyCalendar))
-                        .font(Tokens.Typography.body.monospacedDigit())
-                        .foregroundStyle(StoryStyle.supportingInk)
-                        .lineLimit(1)
-                        .frame(width: gutter, alignment: .trailing)
-                        // The row's own label names the period.
-                        .accessibilityHidden(true)
+            Group {
+                if isPeriod {
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        Text(HistoryRowText.gutter(row.place, calendar: SessionStore.historyCalendar))
+                            .font(Tokens.Typography.body.monospacedDigit())
+                            .foregroundStyle(StoryStyle.supportingInk)
+                            .lineLimit(1)
+                            .frame(width: gutter, alignment: .trailing)
+                            // The row's own label names the period.
+                            .accessibilityHidden(true)
+                        header
+                    }
+                } else {
                     header
                 }
-            } else {
-                header
             }
+            // The grid keeps this row's days at full strength while it is pointed at.
+            // Each clears only its own span, so the next row's arrival is not undone.
+            .onHover { inside in
+                if inside { link.span = row.place.span } else { releaseLink() }
+            }
+            .onDisappear(perform: releaseLink)
             if isOpen {
                 children
                     .padding(.leading, Self.indent)
@@ -47,6 +57,10 @@ struct HistoryTreeRow: View {
     /// months or years. A day stays a row, since it opens the day's own story.
     private var isPeriod: Bool { depth == 0 && row.place.level != .day }
     private var gutter: CGFloat { isPeriod ? HistoryPeriodRow.gutterWidth(for: row.place.level) : 0 }
+
+    private func releaseLink() {
+        if link.span == row.place.span { link.span = nil }
+    }
 
     private var header: some View {
         Button { navigation.toggleHistory(row.place) } label: {
@@ -185,7 +199,7 @@ struct HistoryTreeRow: View {
             AnyView(Group {
                 note
                 ForEach(rows) { child in
-                    HistoryTreeRow(store: store, navigation: navigation, row: child, depth: depth + 1)
+                    HistoryTreeRow(store: store, navigation: navigation, row: child, depth: depth + 1, link: link)
                 }
             })
         }

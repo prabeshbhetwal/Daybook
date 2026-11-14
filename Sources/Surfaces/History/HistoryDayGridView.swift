@@ -10,7 +10,7 @@ struct HistoryDayGridView: View {
     let onPickDay: (Date) -> Void
     let onPickMonth: (DateInterval) -> Void
     /// Names days in the zone the grid was built in.
-    var calendar: Calendar = HistoryTreeBuilder.calendar()
+    let calendar: Calendar
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorSchemeContrast) private var contrast
@@ -56,11 +56,16 @@ struct HistoryDayGridView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+        // Whether the span holds any drawn day, worked out once a body rather
+        // than once a cell; nil when it lowers nothing, as `isDimmed` decides.
+        let lowering = (link.span ?? focusedSpan).flatMap { span in
+            grid.blocks.contains { $0.cells.contains { span.holds($0.day) } } ? span : nil
+        }
+        return VStack(alignment: .leading, spacing: Tokens.Space.s) {
             HStack(alignment: .top, spacing: gap) {
                 weekdayLetters
                 GridFlow(spacing: blockGap, mostPerRow: Self.mostPerRow) {
-                    ForEach(grid.blocks) { monthBlock($0) }
+                    ForEach(grid.blocks) { monthBlock($0, lowering: lowering) }
                 }
             }
             legend
@@ -89,7 +94,7 @@ struct HistoryDayGridView: View {
         .accessibilityHidden(true)
     }
 
-    private func monthBlock(_ block: HistoryGridBlock) -> some View {
+    private func monthBlock(_ block: HistoryGridBlock, lowering: DateInterval?) -> some View {
         let columns = (block.leadingBlanks + block.cells.count + 6) / 7
         return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             Text(HistoryGridWords.monthLabel(block, calendar: calendar))
@@ -103,7 +108,7 @@ struct HistoryDayGridView: View {
                         ForEach(0..<7, id: \.self) { row in
                             let index = column * 7 + row - block.leadingBlanks
                             if block.cells.indices.contains(index) {
-                                dayCell(block.cells[index])
+                                dayCell(block.cells[index], lowering: lowering)
                             } else {
                                 Color.clear.frame(width: cellSize, height: cellSize)
                             }
@@ -131,17 +136,17 @@ struct HistoryDayGridView: View {
         }
     }
 
-    private func dayCell(_ cell: HistoryGridCell) -> some View {
+    private func dayCell(_ cell: HistoryGridCell, lowering: DateInterval?) -> some View {
         let shape = RoundedRectangle(cornerRadius: 3.zoomed, style: .continuous)
-        let dimmed = Self.isDimmed(cell.day, by: link.span ?? focusedSpan, in: grid)
+        let dimmed = lowering.map { !$0.holds(cell.day) } ?? false
         return ZStack {
             switch cell.kind {
             case .toCome:
-                shape.strokeBorder(FocusRamp.toCome, lineWidth: 1)
+                shape.strokeBorder(FocusRamp.toCome, lineWidth: 1) // zoom: fixed, a hairline
             case .recorded(let step):
                 shape.fill(FocusRamp.fill(step))
                 if step != .none, contrast == .increased {
-                    shape.strokeBorder(Tokens.Colour.line, lineWidth: 1)
+                    shape.strokeBorder(Tokens.Colour.line, lineWidth: 1) // zoom: fixed, a hairline
                 }
             }
             if cell.isToday { shape.strokeBorder(Color.primary, lineWidth: 1.5.zoomed) }
@@ -173,7 +178,11 @@ struct HistoryDayGridView: View {
     @ViewBuilder private func swatch(_ step: HistoryFocusStep?) -> some View {
         let shape = RoundedRectangle(cornerRadius: 3.zoomed, style: .continuous)
         Group {
-            if let step { shape.fill(FocusRamp.fill(step)) } else { shape.strokeBorder(FocusRamp.toCome, lineWidth: 1) }
+            if let step {
+                shape.fill(FocusRamp.fill(step))
+            } else {
+                shape.strokeBorder(FocusRamp.toCome, lineWidth: 1) // zoom: fixed, a hairline
+            }
         }
         .frame(width: cellSize, height: cellSize)
     }
