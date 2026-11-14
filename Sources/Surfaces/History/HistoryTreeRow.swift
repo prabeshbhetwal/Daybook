@@ -1,108 +1,5 @@
 import SwiftUI
 
-/// The words on and about a row. Kept apart from the view so the checks can
-/// read them without rendering.
-enum HistoryRowText {
-    static func title(_ place: HistoryPlace, today: Date, calendar: Calendar) -> String {
-        switch place.level {
-        case .year:
-            return DateFormats.australian("yyyy", in: calendar.timeZone).string(from: place.start)
-        case .month:
-            return DateFormats.australian("MMMM", in: calendar.timeZone).string(from: place.start)
-        case .week:
-            let last = calendar.date(byAdding: .day, value: -1, to: place.span.end) ?? place.start
-            if calendar.isDate(place.start, inSameDayAs: last) {
-                return DateFormats.australian("EEE d MMM", in: calendar.timeZone).string(from: place.start)
-            }
-            let sameMonth = calendar.isDate(place.start, equalTo: last, toGranularity: .month)
-            let first = DateFormats.australian(sameMonth ? "d" : "d MMM", in: calendar.timeZone).string(from: place.start)
-            return "\(first) – \(DateFormats.australian("d MMM", in: calendar.timeZone).string(from: last))"
-        case .day:
-            return calendar.isDate(place.start, inSameDayAs: today) ? "Today"
-                : DateFormats.australian("EEE d MMM", in: calendar.timeZone).string(from: place.start)
-        }
-    }
-
-    /// Today is still being recorded, so its figure is the total so far.
-    private static func isToday(_ row: HistoryRow, today: Date) -> Bool {
-        row.place.level == .day && Calendar.current.isDate(row.place.start, inSameDayAs: today)
-    }
-
-    /// `20h 40m · 14 days`, `2h 10m · 3 sessions`, `25m so far · 1 session`,
-    /// or why there is no figure.
-    static func facts(_ row: HistoryRow, today: Date) -> String {
-        if row.isAppUseOnly { return "Recorded app use only · \(Tokens.duration(row.tracked))" }
-        if row.isEmpty {
-            return isToday(row, today: today) ? "nothing recorded yet today" : "nothing recorded"
-        }
-        if row.place.level == .day {
-            let noun = row.sessions == 1 ? "1 session" : "\(row.sessions) sessions"
-            let soFar = isToday(row, today: today) ? " so far" : ""
-            return row.focused > 0 ? "\(Tokens.duration(row.focused))\(soFar) · \(noun)" : noun + soFar
-        }
-        let days = row.focusedDays == 1 ? "1 day" : "\(row.focusedDays) days"
-        return row.focused > 0 ? "\(Tokens.duration(row.focused)) · \(days)" : "no focus recorded"
-    }
-
-    /// `September 2026, 1 hour 45 minutes across 3 days, month, level 2, collapsed`.
-    static func spoken(_ row: HistoryRow, today: Date, isOpen: Bool, depth: Int, calendar: Calendar) -> String {
-        var name = title(row.place, today: today, calendar: calendar)
-        if row.place.level == .month { name += " " + DateFormats.australian("yyyy", in: calendar.timeZone).string(from: row.place.start) }
-        let figure: String
-        if row.isAppUseOnly {
-            figure = "recorded app use only, \(Tokens.spent(row.tracked))"
-        } else if row.isEmpty {
-            figure = facts(row, today: today)
-        } else if row.place.level == .day {
-            let noun = row.sessions == 1 ? "1 session" : "\(row.sessions) sessions"
-            let soFar = isToday(row, today: today) ? " so far" : ""
-            figure = row.focused > 0 ? "\(Tokens.spent(row.focused))\(soFar), \(noun)" : noun + soFar
-        } else {
-            let days = row.focusedDays == 1 ? "1 day" : "\(row.focusedDays) days"
-            figure = row.focused > 0 ? "\(Tokens.spent(row.focused)) across \(days)" : "no focus recorded"
-        }
-        var parts = [name, figure, row.place.level.spokenName, "level \(depth + 1)"]
-        if !row.isEmpty { parts.append(isOpen ? "expanded" : "collapsed") }
-        return parts.joined(separator: ", ")
-    }
-
-    static func headline(top: HistoryTop, summary: HistorySummary, calendar: Calendar)
-        -> (eyebrow: String, sentence: String, facts: [String]) {
-        let eyebrow: String
-        switch top.place?.level {
-        case .year: eyebrow = DateFormats.australian("yyyy", in: calendar.timeZone).string(from: top.span.start)
-        case .month: eyebrow = DateFormats.australian("MMMM yyyy", in: calendar.timeZone).string(from: top.span.start)
-        case .week:
-            let last = calendar.date(byAdding: .day, value: -1, to: top.span.end) ?? top.span.start
-            // A week of one recorded day is that day; a week across two months names both.
-            let sameMonth = calendar.isDate(top.span.start, equalTo: last, toGranularity: .month)
-            eyebrow = calendar.isDate(top.span.start, inSameDayAs: last)
-                ? DateFormats.australian("EEEE d MMMM", in: calendar.timeZone).string(from: top.span.start)
-                : "\(DateFormats.australian(sameMonth ? "d" : "d MMMM", in: calendar.timeZone).string(from: top.span.start)) – "
-                    + DateFormats.australian("d MMMM", in: calendar.timeZone).string(from: last)
-        case .day, .none:
-            eyebrow = "On record since \(DateFormats.australian("d MMMM yyyy", in: calendar.timeZone).string(from: top.firstDay))"
-        }
-        let days = summary.focusedDays == 1 ? "1 day" : "\(summary.focusedDays) days"
-        let sentence = summary.focused > 0
-            ? "You focused \(Tokens.duration(summary.focused)) across \(days)."
-            : "Nothing focused here yet."
-        var facts: [String] = []
-        if summary.focusedDays > 1 {
-            facts.append("\(Tokens.duration(summary.focused / Double(summary.focusedDays))) per focused day")
-        }
-        // The best month or day is the rail's to say; the headline says how
-        // steady the record has been. The top period holds the whole record.
-        let elapsed = (calendar.dateComponents([.day], from: calendar.startOfDay(for: top.firstDay),
-                                               to: calendar.startOfDay(for: top.today)).day ?? 0) + 1
-        if summary.focusedDays > 0, elapsed > 1 {
-            facts.append(summary.focusedDays >= elapsed ? "focus on every day since you started"
-                         : "focus on \(summary.focusedDays) of the \(elapsed) days since you started")
-        }
-        return (eyebrow, sentence, facts)
-    }
-}
-
 /// One row on the spine, and under it, when open, its children one step in.
 struct HistoryTreeRow: View {
     @ObservedObject var store: SessionStore
@@ -120,31 +17,49 @@ struct HistoryTreeRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
+            if isPeriod {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text(HistoryRowText.gutter(row.place, calendar: SessionStore.historyCalendar))
+                        .font(Tokens.Typography.body.monospacedDigit())
+                        .foregroundStyle(StoryStyle.supportingInk)
+                        .lineLimit(1)
+                        .frame(width: gutter, alignment: .trailing)
+                        // The row's own label names the period.
+                        .accessibilityHidden(true)
+                    header
+                }
+            } else {
+                header
+            }
             if isOpen {
                 children
                     .padding(.leading, Self.indent)
                     .overlay(alignment: .leading) { spine }
+                    // Under the row's dot, which the gutter moved along.
+                    .padding(.leading, gutter)
                     .transition(Tokens.Motion.transition(Tokens.Motion.unfold, reduceMotion: reduceMotion))
             }
         }
         .id(row.id)
     }
 
-    /// The top rows are cards: the periods the record is first divided into.
-    /// A day stays a row, since it opens the day's own story.
-    private var isCard: Bool { depth == 0 && row.place.level != .day }
+    /// The periods the record is first divided into: a timeline of weeks,
+    /// months or years. A day stays a row, since it opens the day's own story.
+    private var isPeriod: Bool { depth == 0 && row.place.level != .day }
+    private var gutter: CGFloat { isPeriod ? HistoryPeriodRow.gutterWidth(for: row.place.level) : 0 }
 
     private var header: some View {
         Button { navigation.toggleHistory(row.place) } label: {
-            if isCard {
-                HistoryPeriodCard(store: store, row: row, isOpen: isOpen, isFocused: isFocused)
+            if isPeriod {
+                HistoryPeriodRow(store: store, row: row, facts: store.historyRowFacts()[row.id] ?? .none,
+                                 isCurrent: row.place.span.holds(store.historyTop().today),
+                                 isOpen: isOpen, isFocused: isFocused)
             } else {
                 plainHeader
             }
         }
         .buttonStyle(StoryPressStyle(hovers: !row.isEmpty,
-                                     cornerRadius: isCard ? StoryStyle.entryRadius : Tokens.Radius.nested))
+                                     cornerRadius: isPeriod ? StoryStyle.entryRadius : Tokens.Radius.nested))
         .disabled(row.isEmpty)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(HistoryRowText.spoken(row, today: today, isOpen: isOpen, depth: depth,
@@ -161,7 +76,7 @@ struct HistoryTreeRow: View {
 
     private var plainHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: Tokens.Space.s) {
-            dot
+            Self.dot(row)
             Text(HistoryRowText.title(row.place, today: today, calendar: SessionStore.historyCalendar))
                 .font(row.place.level == .day ? Tokens.Typography.label
                                               : Tokens.Typography.rowTitle)
@@ -200,15 +115,17 @@ struct HistoryTreeRow: View {
                                                            tracked: row.tracked, sessions: row.sessions), rows: rows)
     }
 
-    private var dot: some View {
-        Circle()
-            .strokeBorder(dotColour, lineWidth: row.focused > 0 ? 0 : 1.5.zoomed)
-            .background(Circle().fill(row.focused > 0 ? dotColour : Color.clear))
-            .frame(width: Self.dotSize, height: Self.dotSize)
+    /// A row's mark on the spine, shared with the first view's period rows.
+    static func dot(_ row: HistoryRow) -> some View {
+        let colour = dotColour(row)
+        return Circle()
+            .strokeBorder(colour, lineWidth: row.focused > 0 ? 0 : 1.5.zoomed)
+            .background(Circle().fill(row.focused > 0 ? colour : Color.clear))
+            .frame(width: dotSize, height: dotSize)
             .accessibilityHidden(true)
     }
 
-    private var dotColour: Color {
+    private static func dotColour(_ row: HistoryRow) -> Color {
         if let type = row.mainWorkType { return Tokens.Palette.workType(type) }
         return row.isEmpty ? StoryStyle.line : Tokens.Palette.warmGrey.opacity(0.7)
     }
