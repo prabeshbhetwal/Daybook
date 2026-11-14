@@ -59,17 +59,19 @@ enum HistorySplitChecks: CheckSuite {
             WorkTypeDefinition(id: "custom.\(name)", name: name, symbolName: "tag.fill", hue: hue)
         }
         WorkTypeCatalog.shared.apply(customisations: [custom("a", .green), custom("b", .green),
-                                                      custom("c", .green), custom("d", .blue)])
+                                                      custom("c", .green), custom("d", .green),
+                                                      custom("e", .blue)])
         defer { WorkTypeCatalog.shared.apply(customisations: []) }
-        let parts = HistorySplit.parts([share(WorkType(rawValue: "custom.a"), 0.4),
-                                        share(WorkType(rawValue: "custom.b"), 0.3),
-                                        share(WorkType(rawValue: "custom.c"), 0.2),
-                                        share(WorkType(rawValue: "custom.d"), 0.08),
-                                        share(.admin, 0.02)])
-        expect(parts.map(\.isMuted) == [false, true, true, false, false],
-               "Muting did not follow the colour of the part before: \(parts.map(\.isMuted))", &problems)
-        expect(parts.last?.workType == nil && parts.last?.isMuted == false,
-               "Other was missing from the end or was muted", &problems)
+        func type(_ name: String) -> WorkType { WorkType(rawValue: "custom.\(name)") }
+        let three = HistorySplit.parts([share(type("a"), 0.5), share(type("b"), 0.3), share(type("c"), 0.2)])
+        expect(three.map(\.isMuted) == [false, true, false],
+               "Three neighbours of one colour did not alternate: \(three.map(\.isMuted))", &problems)
+        let mixed = HistorySplit.parts([share(type("a"), 0.4), share(type("b"), 0.3), share(type("c"), 0.2),
+                                        share(type("d"), 0.05), share(type("e"), 0.03), share(.admin, 0.02)])
+        expect(mixed.map(\.isMuted) == [false, true, false, true, false, false],
+               "Four of one colour, a new colour and Other did not mute as expected: \(mixed.map(\.isMuted))",
+               &problems)
+        expect(mixed.last?.workType == nil, "Other was missing from the end", &problems)
         return problems
     }
 

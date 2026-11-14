@@ -4,7 +4,8 @@ import Foundation
 struct HistorySplitPart: Equatable, Identifiable {
     let workType: WorkType?
     let share: Double
-    /// Same hue as the part before it, so the bar draws it quieter.
+    /// Same hue as the part before it, which is not itself muted, so the bar
+    /// draws neighbours of one colour alternately and never alike.
     let isMuted: Bool
     var id: String { workType?.rawValue ?? "other" }
 }
@@ -26,9 +27,11 @@ enum HistorySplit {
                 folded.append(share)
             }
         }
-        var parts = kept.enumerated().map { index, share in
-            HistorySplitPart(workType: share.workType, share: share.share,
-                             isMuted: index > 0 && share.workType.hue == kept[index - 1].workType.hue)
+        var parts: [HistorySplitPart] = []
+        for share in kept {
+            let previous = parts.last
+            let muted = previous.map { $0.workType?.hue == share.workType.hue && !$0.isMuted } ?? false
+            parts.append(HistorySplitPart(workType: share.workType, share: share.share, isMuted: muted))
         }
         if !folded.isEmpty {
             parts.append(HistorySplitPart(workType: nil, share: folded.reduce(0) { $0 + $1.share }, isMuted: false))
