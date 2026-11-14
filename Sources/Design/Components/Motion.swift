@@ -3,7 +3,8 @@ import SwiftUI
 /// The feedback every control in the app gives, so that pressing anything
 /// feels like pressing the same material. Two styles, one vocabulary:
 /// `StoryPressStyle` dims (rows, cards, text actions); `PressableStyle` shades
-/// (filled and iconic controls). Neither changes size: Mac controls stay put.
+/// (filled and iconic controls). Both give a little under the press and pop
+/// back on release; under Reduce Motion neither changes size.
 struct PressableStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         PressableLabel(label: configuration.label, pressed: configuration.isPressed)
@@ -22,6 +23,7 @@ private struct PressableLabel<Label: View>: View {
             // A hover lifts a filled control a shade; a press settles it.
             .brightness(!enabled ? 0 : pressed ? -0.08 : hovered.value ? 0.05 : 0)
             .opacity(enabled ? 1 : 0.45)
+            .scaleEffect(pressed && enabled && !reduceMotion ? 0.96 : 1)
             // Down is instant; up is the spring. The click is over before a
             // symmetric ease could show anything.
             .animation(Tokens.Motion.animation(pressed ? Tokens.Motion.press : Tokens.Motion.release,

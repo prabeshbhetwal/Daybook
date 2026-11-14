@@ -124,7 +124,10 @@ extension SessionStore {
     }
 
     func selectDay(offset: Int) {
-        dayOffset = max(0, offset)
+        let next = max(0, offset)
+        // A larger offset is further back in time.
+        dayStep = abs(next - dayOffset) == 1 ? dayOffset - next : 0
+        dayOffset = next
         clearTimelineSelection()
         clearSession()
         refreshDashboard()

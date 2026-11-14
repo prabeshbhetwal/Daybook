@@ -6,7 +6,7 @@ import SwiftUI
 /// rest of the app does, and a refusal says what to do next.
 enum CopyPolishChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
-        ("A released control settles on a critically damped spring, with no overshoot", releaseDoesNotBounce),
+        ("A released control pops back once, and something closing does not bounce", releaseDoesNotBounce),
         ("Button and menu labels that checks can reach are in Title Case", labelsAreTitleCase),
         ("The title-case rule keeps small words down and capitalises the rest", titleCaseRule),
         ("The first-run tour uses one term per concept and Settings › Page paths", tourTerminology),
@@ -47,10 +47,10 @@ enum CopyPolishChecks: CheckSuite {
 
     private static func releaseDoesNotBounce() -> [String] {
         var problems: [String] = []
-        expect(Tokens.Motion.release == Animation.spring(response: 0.32, dampingFraction: 1.0),
-               "release should be a critically damped spring (damping 1.0)", &problems)
-        expect(Tokens.Motion.release != Animation.spring(response: 0.32, dampingFraction: 0.72),
-               "release must not be the old 0.72 spring that overshot", &problems)
+        expect(Tokens.Motion.release == Animation.spring(response: 0.32, dampingFraction: 0.6),
+               "release should pop back once (response 0.32, damping 0.6)", &problems)
+        expect(Tokens.Motion.dismiss == Animation.spring(response: 0.26, dampingFraction: 1.0),
+               "something closing should not bounce (damping 1.0)", &problems)
         return problems
     }
 
