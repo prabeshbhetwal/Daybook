@@ -132,7 +132,7 @@ Unchanged. The existing `StoryHeadline` (eyebrow, sentence, facts) in
   appearances: lightness strictly increases with focus; the lightest filled
   step is at least 2:1 against its surface; neighbouring steps differ by at
   least 1.3:1. Starting strengths that meet this (measured): light 46%, 64%,
-  82%, 100%; dark 33%, 53%, 75%, 100%.
+  82%, 100%; dark 35%, 55%, 76%, 100%.
 - Legend: always visible under the grid, in words and hours, as sketched.
 - Readout: one line of fixed height under the legend. At rest it reads today
   ("Sun 15 Nov (today) · 1h 5m so far", or "no focus yet"). Pointing at a cell

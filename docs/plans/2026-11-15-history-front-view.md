@@ -22,7 +22,7 @@
 - Day arithmetic goes through `Calendar`, never multiples of 86 400.
 - No entrance animation. Hover uses `Tokens.Motion.hover`; row open and close keep `reveal`, `unfold`, `dismiss`.
 - Steps: none = 0; under 2h; 2h to under 5h; 5h to under 8h; 8h or more.
-- Ramp strengths of `Tokens.Colour.focus`: light 0.46, 0.64, 0.82, 1.0; dark 0.33, 0.53, 0.75, 1.0. Lightest filled step at least 2:1 on canvas and card; neighbouring steps at least 1.3:1; lightness strictly increasing.
+- Ramp strengths of `Tokens.Colour.focus`: light 0.46, 0.64, 0.82, 1.0; dark 0.35, 0.55, 0.76, 1.0. Lightest filled step at least 2:1 on canvas and card; neighbouring steps at least 1.3:1; lightness strictly increasing.
 - Grid cells 12 points, gap 3, radius 3, 14 between blocks, at most six blocks in a row (all `.zoomed`).
 - Commit subjects are one plain present-tense sentence for any user of the app. Commits stay on this branch; no push, no pull request, no release until the owner asks.
 
