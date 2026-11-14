@@ -157,8 +157,9 @@ extension HistoryRowText {
                 sentences.append("Your biggest \(row.place.level.spokenName) so far.")
             case let .change(percent, previous):
                 // Only a day's title reads today, and a day has no facts.
-                let change = "\(percent > 0 ? "up" : "down") \(abs(percent))% on "
-                    + "\(title(previous, today: .distantPast, calendar: calendar))."
+                let name = title(previous, today: .distantPast, calendar: calendar)
+                    .replacingOccurrences(of: " – ", with: " to ")
+                let change = "\(percent > 0 ? "up" : "down") \(abs(percent))% on \(name)."
                 if index > 0, facts.facts[index - 1] == .biggest {
                     sentences[sentences.count - 1] = "\(sentences[sentences.count - 1].dropLast()), \(change)"
                 } else {

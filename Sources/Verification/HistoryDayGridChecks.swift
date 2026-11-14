@@ -38,6 +38,10 @@ enum HistoryDayGridChecks: CheckSuite {
             let got = HistoryFocusStep.step(for: seconds)
             expect(got == want, "\(seconds) seconds is \(want), got \(got)", &problems)
         }
+        for seconds in [TimeInterval.nan, .infinity, -.infinity] {
+            let got = HistoryFocusStep.step(for: seconds)
+            expect(got == .none, "\(seconds) seconds is none, got \(got)", &problems)
+        }
         expect(HistoryFocusStep.allCases.sorted() == HistoryFocusStep.allCases,
                "the steps run from the lightest to the darkest, got \(HistoryFocusStep.allCases.sorted())", &problems)
         return problems

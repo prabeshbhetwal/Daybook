@@ -66,10 +66,19 @@ enum HistoryFrontViewChecks: CheckSuite {
                            "the row for \(block.month) spans \(month.span), not the month clipped to the record",
                            &problems)
                     let navigation = MainWindowModel(store: f.store)
-                    HistoryOverviewGrid.openMonth(block.month, in: navigation)
+                    HistoryOverviewGrid.openMonth(block.month, in: navigation, rootLevel: top.rootLevel)
                     expect(navigation.historyOpen == [month] && navigation.historyFocus == .row(month),
                            "clicking \(block.month)'s name opened \(navigation.historyOpen.map(\.span)), "
                            + "wanted \(month.span)", &problems)
+                    // Under a month or a week top, months are no rows: another month's name does nothing.
+                    for other in grid.blocks where other.month != block.month {
+                        for rootLevel in [HistoryLevel.week, .day] {
+                            HistoryOverviewGrid.openMonth(other.month, in: navigation, rootLevel: rootLevel)
+                            expect(navigation.historyOpen == [month],
+                                   "with \(rootLevel) rows, clicking \(other.month)'s name left "
+                                   + "\(navigation.historyOpen.map(\.span)) open, wanted \(month.span)", &problems)
+                        }
+                    }
                 }
             }
         }

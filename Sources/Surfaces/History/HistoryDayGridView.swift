@@ -8,7 +8,8 @@ struct HistoryDayGridView: View {
     @ObservedObject var link: HistoryGridLink
     let focusedSpan: DateInterval?       // the row keyboard focus is on
     let onPickDay: (Date) -> Void
-    let onPickMonth: (DateInterval) -> Void
+    /// Nil when a month's name opens nothing, so the name is no click target.
+    let onPickMonth: ((DateInterval) -> Void)?
     /// Names days in the zone the grid was built in.
     let calendar: Calendar
 
@@ -97,11 +98,7 @@ struct HistoryDayGridView: View {
     private func monthBlock(_ block: HistoryGridBlock, lowering: DateInterval?) -> some View {
         let columns = (block.leadingBlanks + block.cells.count + 6) / 7
         return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            Text(HistoryGridWords.monthLabel(block, calendar: calendar))
-                .font(Tokens.Typography.caption)
-                .foregroundStyle(StoryStyle.supportingInk)
-                .contentShape(Rectangle())
-                .onTapGesture { onPickMonth(block.month) }
+            monthName(block)
             HStack(alignment: .top, spacing: gap) {
                 ForEach(0..<columns, id: \.self) { column in
                     VStack(spacing: gap) {
@@ -133,6 +130,18 @@ struct HistoryDayGridView: View {
             ForEach(Self.recordedCells(block), id: \.day) { cell in
                 Button(HistoryGridWords.spokenDay(cell, calendar: calendar)) { onPickDay(cell.day) }
             }
+        }
+    }
+
+    /// A click target only when `onPickMonth` has somewhere to go.
+    @ViewBuilder private func monthName(_ block: HistoryGridBlock) -> some View {
+        let label = Text(HistoryGridWords.monthLabel(block, calendar: calendar))
+            .font(Tokens.Typography.caption)
+            .foregroundStyle(StoryStyle.supportingInk)
+        if let onPickMonth {
+            label.contentShape(Rectangle()).onTapGesture { onPickMonth(block.month) }
+        } else {
+            label
         }
     }
 

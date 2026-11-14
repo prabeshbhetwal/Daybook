@@ -7,8 +7,10 @@ enum HistoryFocusStep: Int, CaseIterable, Comparable {
     static func < (lhs: HistoryFocusStep, rhs: HistoryFocusStep) -> Bool { lhs.rawValue < rhs.rawValue }
 
     /// Half-open, so exactly 2, 5 and 8 hours step up. A second of focus is
-    /// already a shade; only no focus at all is none.
+    /// already a shade; only no focus at all is none, and so is a length that
+    /// is not a number or not finite.
     static func step(for focused: TimeInterval) -> HistoryFocusStep {
+        guard focused.isFinite else { return .none }
         switch focused {
         case ...0: return .none
         case ..<7_200: return .under2h

@@ -62,6 +62,10 @@ enum HistoryPeriodRowChecks: CheckSuite {
             (HistoryRowFacts(facts: [.change(percent: -20, previous: september)], daysLeft: nil), "Down 20% on September."),
             (HistoryRowFacts(facts: [.started(day: HistoryTreeChecks.date(8, 13))], daysLeft: nil), "You started on 13 Aug."),
             (HistoryRowFacts(facts: [], daysLeft: 1), "1 day left."),
+            (HistoryRowFacts(facts: [.biggest], daysLeft: nil), "Your biggest month so far."),
+            // A week names the one before it with "to", as its gutter does, never a dash.
+            (HistoryRowFacts(facts: [.change(percent: 20, previous: place(.week, 11, 2))], daysLeft: nil),
+             "Up 20% on 2 to 8 Nov."),
             // November holds 61h 10m over 9 days, and none of it is a fact.
             (.none, nil),
         ]
@@ -69,6 +73,20 @@ enum HistoryPeriodRowChecks: CheckSuite {
             let line = HistoryRowText.detail(item.facts, row: november, calendar: calendar)
             expect(line == item.wanted, "\(item.facts) read \(line ?? "no line"), wanted \(item.wanted ?? "no line")",
                    &problems)
+        }
+        let year = HistoryRow(place: place(.year, 11, 1), focused: 220_200, tracked: 0, focusedDays: 9, sessions: 12,
+                              mainWorkType: .deepWork, hasEvidence: true, bars: [])
+        let yearLine = HistoryRowText.detail(HistoryRowFacts(facts: [.biggest], daysLeft: nil), row: year, calendar: calendar)
+        expect(yearLine == "Your biggest year so far.", "a year read \(yearLine ?? "no line")", &problems)
+        // No sentence of any row's second line carries a dash, whichever period it names.
+        let previous = [place(.week, 11, 2), place(.week, 10, 26), place(.week, 11, 9), place(.month, 9, 1), place(.year, 11, 1)]
+        for row in [november, year, month(11), HistoryRow(place: place(.week, 11, 9), focused: 3_600, tracked: 0, focusedDays: 1,
+                                                          sessions: 1, mainWorkType: .deepWork, hasEvidence: true, bars: [])] {
+            for named in previous {
+                let facts = HistoryRowFacts(facts: [.biggest, .change(percent: 20, previous: named)], daysLeft: 3)
+                let line = HistoryRowText.detail(facts, row: row, calendar: calendar) ?? ""
+                expect(!line.contains("–") && !line.contains("—"), "\(row.place.level) row read \"\(line)\"", &problems)
+            }
         }
         return problems
     }

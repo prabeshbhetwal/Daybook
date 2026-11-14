@@ -26,11 +26,14 @@ struct HistoryRecord: Equatable {
     let longestFocus: TimeInterval
     let focusedDays: Int
 
+    /// A day counts only for a real length: not none, and not NaN or infinite.
+    private static func counts(_ focused: TimeInterval) -> Bool { focused > 0 && focused.isFinite }
+
     /// The earliest day wins a tie, whatever order the index is walked in.
     static func of(byDate: [Date: HistoryDay]) -> HistoryRecord {
         var longest: (day: Date, focused: TimeInterval)?
         var focusedDays = 0
-        for (day, row) in byDate where row.focused > 0 {
+        for (day, row) in byDate where counts(row.focused) {
             focusedDays += 1
             let beats = longest.map { row.focused > $0.focused || (row.focused == $0.focused && day < $0.day) } ?? true
             if beats { longest = (day, row.focused) }
@@ -43,8 +46,8 @@ struct HistoryRecord: Equatable {
     /// latest day, so only a longer one takes the longest-day place.
     func patched(live: HistoryDay?, cachedToday: HistoryDay?, calendar: Calendar) -> HistoryRecord {
         guard let live, live != cachedToday else { return self }
-        let days = focusedDays - ((cachedToday?.focused ?? 0) > 0 ? 1 : 0) + (live.focused > 0 ? 1 : 0)
-        let longer = live.focused > longestFocus
+        let days = focusedDays - (Self.counts(cachedToday?.focused ?? 0) ? 1 : 0) + (Self.counts(live.focused) ? 1 : 0)
+        let longer = Self.counts(live.focused) && live.focused > longestFocus
         return HistoryRecord(longestDay: longer ? calendar.startOfDay(for: live.date) : longestDay,
                              longestFocus: longer ? live.focused : longestFocus, focusedDays: days)
     }

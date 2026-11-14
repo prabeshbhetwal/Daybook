@@ -81,6 +81,11 @@ enum HistoryRowFactsChecks: CheckSuite {
         let record = HistoryRecord.of(byDate: HistoryTreeBuilder.index(days, calendar: calendar))
         let wanted = HistoryRecord(longestDay: date(8, 20), longestFocus: 7_200, focusedDays: 27)
         expect(record == wanted, "the record read \(record), wanted \(wanted)", &problems)
+        // An impossible length is no day at all: the 3 hour day is still the longest.
+        let odd = HistoryRecord.of(byDate: HistoryTreeBuilder.index(
+            [day(9, 1, focus: .infinity), day(9, 2, focus: 10_800), day(9, 3, focus: .nan)], calendar: calendar))
+        let oddWanted = HistoryRecord(longestDay: date(9, 2), longestFocus: 10_800, focusedDays: 1)
+        expect(odd == oddWanted, "an infinite day and a NaN day beside a 3 hour day read \(odd), wanted \(oddWanted)", &problems)
         let reading = read(days, today: date(10, 15))
         let says = HistoryRowFact.recordDay(day: date(8, 20), focused: 7_200)
         expect(reading.facts(8)?.facts.first == says, "August holds the longest day, its facts read \(String(describing: reading.facts(8)))", &problems)

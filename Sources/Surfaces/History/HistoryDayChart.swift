@@ -2,7 +2,7 @@ import SwiftUI
 
 /// One bar per day from the first day on record to today. A day with a
 /// figure can be clicked: a search brings it into view below, the overview
-/// opens it. Every bar is one ink, and a dashed line can mark the average a bar is read against.
+/// opens it. Every bar is one ink.
 struct HistoryResultChart: View {
     struct Value: Equatable {
         let primary: TimeInterval
@@ -18,10 +18,6 @@ struct HistoryResultChart: View {
     /// The picked app, so its bars wear its colour.
     var appBundleID: String?
     let onPick: (Date) -> Void
-    /// Drawn as a dashed line and named, not printed: its figure is already
-    /// the headline's.
-    var average: TimeInterval?
-    var hint: String?
 
     static var height: CGFloat { 64.zoomed }
 
@@ -50,27 +46,18 @@ struct HistoryResultChart: View {
 
     var body: some View {
         let days = self.days
-        let peak = max(values.values.map(\.total).max() ?? 0, average ?? 0, 1)
+        let peak = max(values.values.map(\.total).max() ?? 0, 1)
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Each day")
                     .font(Tokens.Typography.label)
                     .foregroundStyle(StoryStyle.supportingInk)
                 Spacer(minLength: Tokens.Space.s)
-                if let hint {
-                    Text(hint)
-                        .font(Tokens.Typography.body)
-                        .foregroundStyle(StoryStyle.supportingInk)
-                }
             }
             HStack(alignment: .bottom, spacing: days.count > 240 ? 0 : days.count > 120 ? 1 : 2.zoomed) { // zoom: fixed
                 ForEach(days, id: \.self) { day in bar(day, peak: peak) }
             }
             .frame(height: Self.height, alignment: .bottom)
-            .overlay(alignment: .bottom) { averageLine(peak: peak) }
-            // Room for the average's label, which sits above its line: on a
-            // line near the top it rose into the hint and cut its letters.
-            .padding(.top, average == nil ? 0 : Tokens.Space.s)
             HStack {
                 Text(DateFormats.dayMonth(days.first ?? firstDay))
                 Spacer(minLength: Tokens.Space.s)
@@ -125,26 +112,6 @@ struct HistoryResultChart: View {
         }
     }
 
-    @ViewBuilder private func averageLine(peak: TimeInterval) -> some View {
-        if let average, average > 0 {
-            let lift = Self.height * average / peak
-            ZStack(alignment: .trailing) {
-                DashedRule()
-                    .stroke(Color.secondary.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [3.zoomed, 3.zoomed])) // ink: quiet, a drawn mark
-                    .frame(height: 1)
-                Text("average day")
-                    .font(Tokens.Typography.caption)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                    .padding(.horizontal, Tokens.Space.xs)
-                    .background(StoryStyle.card)
-                    .offset(y: -8.zoomed)
-            }
-            .offset(y: -lift)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        }
-    }
-
     /// Time outside a session: the app-use ink at 42% over the stripes the day
     /// uses for time no event explains, so it is not told apart by tint alone.
     private func outsideFill(_ colour: Color) -> some View {
@@ -167,19 +134,6 @@ struct HistoryResultChart: View {
         let used = values.filter { $0.value.total > 0 }
         guard let best = used.max(by: { $0.value.total < $1.value.total }) else { return "nothing recorded" }
         let count = used.count == 1 ? "1 day" : "\(used.count) days"
-        var summary = "\(count), the most on \(DateFormats.longDate(best.key)), "
-            + Tokens.duration(best.value.total)
-        if let average, average > 0 { summary += ", an average day \(Tokens.duration(average))" }
-        return summary
-    }
-}
-
-/// A straight line across its frame, for a dashed stroke.
-private struct DashedRule: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-        return path
+        return "\(count), the most on \(DateFormats.longDate(best.key)), " + Tokens.duration(best.value.total)
     }
 }
