@@ -1,8 +1,9 @@
 import Foundation
 
-/// What the store keeps of History's tree between archive changes. Rows and
-/// summaries are built from `byDate` once; today's live figures are laid
-/// over them on each read rather than rebuilt into them.
+/// What the store keeps of History's tree between archive changes. Rows,
+/// summaries and the front view's read models are built from `byDate` once;
+/// today's live figures are laid over them on each read rather than rebuilt
+/// into them.
 struct HistoryTreeCache {
     let key: JournalKey
     let top: HistoryTop
@@ -11,6 +12,14 @@ struct HistoryTreeCache {
     let cachedToday: HistoryDay?
     var rows: [String: [HistoryRow]] = [:]
     var summaries: [String: HistorySummary] = [:]
+    /// The day grid as the index knew it. `gridBuilt` tells a grid that does
+    /// not exist (a week on top, or no record) from one not built yet.
+    var gridBuilt = false
+    var grid: HistoryDayGrid?
+    /// What the whole record says about its days, as the index knew them.
+    var record: HistoryRecord?
+    /// Each place's seconds by category, by place id, with today left out.
+    var categories: [String: [WorkType: TimeInterval]] = [:]
 }
 
 extension SessionStore {
@@ -83,19 +92,78 @@ extension SessionStore {
 
     /// A place's focus by category, largest first, live for today. Read from
     /// the same day index as the rows, so a card's split and its figure agree.
+    /// The days are walked once per archive state, today left out; today's
+    /// live figures are added on each read.
     func historyCategories(for place: HistoryPlace) -> [WorkTypeShare] {
         let calendar = periodCalendar
-        let state = tree()
-        let today = calendar.startOfDay(for: now())
-        let live = liveToday(calendar)
-        var seconds: [WorkType: TimeInterval] = [:]
-        var cursor = calendar.startOfDay(for: place.span.start)
-        while cursor < place.span.end {
-            let day = cursor == today ? (live ?? state.byDate[cursor]) : state.byDate[cursor]
-            for (type, value) in day?.focusByWorkType ?? [:] { seconds[type, default: 0] += value }
-            cursor = HistoryTreeBuilder.dayAfter(cursor, calendar: calendar)
+        var state = tree()
+        let today = state.top.today
+        var seconds: [WorkType: TimeInterval]
+        if let cached = state.categories[place.id] {
+            seconds = cached
+        } else {
+            historyTreeComputeCount &+= 1
+            seconds = [:]
+            var cursor = calendar.startOfDay(for: place.span.start)
+            while cursor < place.span.end {
+                if cursor != today { Self.add(state.byDate[cursor], to: &seconds) }
+                cursor = HistoryTreeBuilder.dayAfter(cursor, calendar: calendar)
+            }
+            state.categories[place.id] = seconds
+            historyTreeCache = state
+        }
+        if calendar.startOfDay(for: place.span.start) <= today, today < place.span.end {
+            Self.add(liveToday(calendar) ?? state.byDate[today], to: &seconds)
         }
         return WorkTypeShare.shares(from: seconds)
+    }
+
+    /// A place's category split as the bar parts its row draws; the same
+    /// figures as `historyCategories(for:)`.
+    func historySplit(for place: HistoryPlace) -> [HistorySplitPart] {
+        HistorySplit.parts(historyCategories(for: place))
+    }
+
+    /// The day grid of the whole record, live for today. Built once per
+    /// archive state; a running session only redraws today's cell.
+    func historyDayGrid() -> HistoryDayGrid? {
+        let calendar = periodCalendar
+        var state = tree()
+        if !state.gridBuilt {
+            historyTreeComputeCount &+= 1
+            state.grid = HistoryDayGridBuilder.grid(top: state.top, byDate: state.byDate, calendar: calendar)
+            state.gridBuilt = true
+            historyTreeCache = state
+        }
+        guard let grid = state.grid, let live = liveToday(calendar), live != state.cachedToday else { return state.grid }
+        return HistoryDayGridBuilder.patching(grid, live: live, today: state.top.today, calendar: calendar)
+    }
+
+    /// What stands out about each root row, by place id, live for today. The
+    /// record the rows are judged against is walked once per archive state;
+    /// each read is one pass over the patched rows.
+    func historyRowFacts() -> [String: HistoryRowFacts] {
+        let calendar = periodCalendar
+        // Before `tree()`: reading the rows writes the cache this one reads back.
+        let rows = historyRows(under: nil)
+        var state = tree()
+        let record: HistoryRecord
+        if let cached = state.record {
+            record = cached
+        } else {
+            historyTreeComputeCount &+= 1
+            record = HistoryRecord.of(byDate: state.byDate)
+            state.record = record
+            historyTreeCache = state
+        }
+        return HistoryRowFactsBuilder.facts(
+            rows: rows, top: state.top,
+            record: record.patched(live: liveToday(calendar), cachedToday: state.cachedToday, calendar: calendar),
+            calendar: calendar)
+    }
+
+    private static func add(_ day: HistoryDay?, to seconds: inout [WorkType: TimeInterval]) {
+        for (type, value) in day?.focusByWorkType ?? [:] { seconds[type, default: 0] += value }
     }
 
     private func liveToday(_ calendar: Calendar) -> HistoryDay? {
