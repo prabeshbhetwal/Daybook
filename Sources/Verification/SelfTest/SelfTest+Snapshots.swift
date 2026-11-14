@@ -47,6 +47,7 @@ extension SelfTest {
                 .focusSaveFailure, .focusAutomatic, .focusOnBreak,
                 .todayHistory, .todayHistoryExpanded,
                 .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse,
+                .historyFrontMonths, .historyFrontYears, .historyFrontMonth,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .askEmpty, .askAnswered, .askFailed, .askStopped, .askGoals, .askPanelStory, .askPanelHistory, .askPanelGoals,
