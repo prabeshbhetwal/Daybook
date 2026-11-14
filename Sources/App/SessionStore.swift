@@ -139,6 +139,10 @@ final class SessionStore: ObservableObject {
     @Published var focusedActiveForSelectedDay: TimeInterval = 0
     /// 0 = today, 1 = yesterday, and so on back through history.
     @Published var dayOffset = 0
+    /// Which way the last day change went: 1 to the next day, -1 to the one
+    /// before, 0 for a jump. Set before `dayOffset` publishes, so the view
+    /// that draws the new day already knows which side it arrives from.
+    var dayStep = 0
 
     /// Timeline inspection. Both are single optionals, so hovering allocates nothing.
     @Published var hoveredSegment: TimelineSegment?

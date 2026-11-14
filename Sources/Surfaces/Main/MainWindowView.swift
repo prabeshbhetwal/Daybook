@@ -308,7 +308,7 @@ struct StoryCanvas: View {
 
     private var readingKey: String { store.dayLabel }
 
-    private var readingTransition: AnyTransition { Tokens.Motion.unfold }
+    private var readingTransition: AnyTransition { Tokens.Motion.step(direction: store.dayStep) }
 
 }
 

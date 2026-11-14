@@ -258,36 +258,49 @@ enum Tokens {
     /// interruptible and explains a state change; nothing here is decorative,
     /// and `reduceMotion` collapses all of it to an instant cut.
     enum Motion {
-        /// One curve family — ease-out quint — so everything that settles in
-        /// this app decelerates the same way. No bounce, no overshoot: motion
-        /// here says what changed, never that it is animating.
-        private static func out(_ duration: Double) -> Animation {
-            .timingCurve(0.22, 1, 0.36, 1, duration: duration)
+        /// Two spring families. A spring rather than a timed curve because a
+        /// spring carries its speed into the next change: a second click
+        /// while the first is still moving bends the motion, where a timed
+        /// curve stops and starts again.
+        ///
+        /// `out` is critically damped: tints, text and anything leaving
+        /// arrive without travelling past their place.
+        static func out(_ response: Double) -> Animation {
+            .spring(response: response, dampingFraction: 1.0)
         }
 
-        /// The way down. Faster than a click, or a click never shows it.
-        static let press = out(0.08)
-        /// The way back up: a critically damped spring, so a released control
-        /// settles in one smooth arc and never travels past its rest size.
-        static let release = Animation.spring(response: 0.32, dampingFraction: 1.0)
+        /// `lively` travels a little past and comes back: things the reader
+        /// moved by hand, such as a released control, a selection pill,
+        /// something opening. One small overshoot, never a wobble.
+        static func lively(_ response: Double, damping: Double) -> Animation {
+            .spring(response: response, dampingFraction: damping)
+        }
+
+        /// The way down. Faster than a click, or a click never shows it. The
+        /// one timed curve: there is no earlier motion for it to continue.
+        static let press = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.08)
+        /// The way back up: a released control pops back past its rest size
+        /// and settles.
+        static let release = lively(0.32, damping: 0.6)
         /// A hover is a tint, never a colour jump.
-        static let hover = out(0.16)
+        static let hover = out(0.18)
         /// The selection pill travels rather than redrawing, so the eye follows
-        /// one object across the row.
-        static let selection = out(0.20)
+        /// one object across the row, and lands with a small give.
+        static let selection = lively(0.30, damping: 0.78)
         /// A live figure rolling to its next value: a timer's seconds.
-        static let tick = out(0.20)
+        static let tick = out(0.25)
         /// Content settling into place after a view change.
-        static let rise = out(0.22)
+        static let rise = lively(0.32, damping: 0.8)
         /// One reading replacing another: a scope or period change.
-        static let swap = out(0.24)
+        static let swap = out(0.32)
         /// Something opening — the strip, a disclosure, a fold.
-        static let reveal = out(0.26)
-        /// Something closing. Exits are quicker than entrances.
-        static let dismiss = out(0.19)
-        /// A measurement moving to its next measurement — a ring, a bar.
-        /// Critically damped: it arrives, it does not spring past.
-        static let settle = Animation.spring(response: 0.45, dampingFraction: 0.92)
+        static let reveal = lively(0.36, damping: 0.82)
+        /// Something closing. Exits are quicker than entrances and do not
+        /// bounce: what is leaving should not draw the eye back.
+        static let dismiss = out(0.26)
+        /// A measurement moving to its next measurement — a ring, a bar. It
+        /// swings a little past the new reading and comes back to it.
+        static let settle = lively(0.5, damping: 0.72)
 
         static func animation(_ base: Animation, reduceMotion: Bool) -> Animation? {
             reduceMotion ? nil : base
@@ -305,6 +318,15 @@ enum Tokens {
         static let unfold: AnyTransition = .asymmetric(
             insertion: .opacity.combined(with: .scale(scale: 0.98, anchor: .top)),
             removal: .opacity)
+        /// One day replacing the next: the new day arrives from the side it
+        /// lies on (`direction` 1 is later, -1 earlier), a jump (0) settles in
+        /// place, and the old day fades straight out.
+        static func step(direction: Int) -> AnyTransition {
+            guard direction != 0 else { return unfold }
+            return .asymmetric(
+                insertion: .opacity.combined(with: .offset(x: CGFloat(direction) * 16.zoomed)),
+                removal: .opacity)
+        }
     }
 
     /// Layout metrics for compact and comfortable density.

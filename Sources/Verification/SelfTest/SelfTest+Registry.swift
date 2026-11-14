@@ -183,6 +183,7 @@ extension SelfTest {
             + WrongClockAndRecordChecks.tests
             + AppAuditChecks.tests
             + QuietStoreChecks.tests
+            + MotionChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
