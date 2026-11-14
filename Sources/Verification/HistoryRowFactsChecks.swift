@@ -176,6 +176,16 @@ enum HistoryRowFactsChecks: CheckSuite {
                "October was compared with a September that began on the 17th", &problems)
         expect(says([HistoryTreeChecks.row(9, 1, tracked: 600)] + month(10, hours: 50), today: date(11, 5)) == false,
                "October was compared with a September without focus", &problems)
+        // A month without focus says nothing: no fall of 100%, and neither the first day nor the longest day.
+        let idle = HistoryTreeChecks.row(10, 1, tracked: 600)
+        let fell = read(month(9, hours: 40) + [idle], today: date(11, 5))
+        expect(fell.facts(10) == HistoryRowFacts.none, "an October without focus read \(String(describing: fell.facts(10)))", &problems)
+        let quiet = HistoryRecord(longestDay: date(9, 1), longestFocus: 3_600, focusedDays: 20)
+        let first = read([HistoryTreeChecks.row(9, 1, tracked: 600)] + month(10, hours: 80), today: date(11, 5), record: quiet)
+        expect(first.facts(9) == HistoryRowFacts.none, "a September without focus read \(String(describing: first.facts(9)))", &problems)
+        // Still running, it keeps its days left.
+        let running = read(month(9, hours: 40) + [idle], today: date(10, 15))
+        expect(running.facts(10) == HistoryRowFacts(facts: [], daysLeft: 16), "a running October without focus read \(String(describing: running.facts(10)))", &problems)
         // 31 October is the last day: the row is whole, but the month is still running.
         for today in [date(10, 15), date(10, 31)] {
             expect(says(month(9, hours: 40) + month(10, hours: 80), today: today) == false,

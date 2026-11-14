@@ -58,13 +58,17 @@ enum HistoryRowFactsBuilder {
     static let biggestMinimumRows = 3
 
     /// What stands out about each of `rows`, sibling rows at one level,
-    /// newest first. Keyed by `HistoryPlace.id`; day rows get `.none`.
+    /// newest first. Keyed by `HistoryPlace.id`; day rows get `.none`, and a
+    /// row without focus keeps only its days left.
     static func facts(rows: [HistoryRow], top: HistoryTop, record: HistoryRecord,
                       calendar: Calendar) -> [String: HistoryRowFacts] {
         let biggest = biggestRow(in: rows)
         var result: [String: HistoryRowFacts] = [:]
         for (index, row) in rows.enumerated() {
             guard row.place.level != .day else { result[row.id] = HistoryRowFacts.none; continue }
+            let left = daysLeft(of: row, top: top, calendar: calendar)
+            // A row without focus has nothing to stand out for; it only counts its days left.
+            guard row.focused > 0 else { result[row.id] = HistoryRowFacts(facts: [], daysLeft: left); continue }
             var facts: [HistoryRowFact] = []
             if record.focusedDays >= recordDayMinimumDays, let day = record.longestDay, row.place.span.holds(day) {
                 facts.append(.recordDay(day: day, focused: record.longestFocus))
@@ -75,8 +79,7 @@ enum HistoryRowFactsBuilder {
                 facts.append(change)
             }
             if row.place.span.holds(top.firstDay) { facts.append(.started(day: top.firstDay)) }
-            result[row.id] = HistoryRowFacts(facts: Array(facts.prefix(2)),
-                                             daysLeft: daysLeft(of: row, top: top, calendar: calendar))
+            result[row.id] = HistoryRowFacts(facts: Array(facts.prefix(2)), daysLeft: left)
         }
         return result
     }
