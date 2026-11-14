@@ -78,6 +78,13 @@ enum HistorySplitChecks: CheckSuite {
     private static func nothing() -> [String] {
         var problems: [String] = []
         expect(HistorySplit.parts([]).isEmpty, "An empty month produced parts", &problems)
+        // A corrupt share that is not a number, or is impossibly large, returns without a trap.
+        let corrupt = HistorySplit.parts([share(.deepWork, 0.5), share(.admin, .nan), share(.learning, .infinity),
+                                          share(.meetings, 1e300), share(.admin, -.infinity)])
+        for part in corrupt + HistorySplit.parts([share(.deepWork, .nan)]) {
+            expect(part.share.isFinite || part.workType == nil, "\(part.id) kept the share \(part.share)", &problems)
+        }
+        expect(corrupt.first?.workType == .deepWork, "the real share did not lead, got \(corrupt.map(\.id))", &problems)
         return problems
     }
 }

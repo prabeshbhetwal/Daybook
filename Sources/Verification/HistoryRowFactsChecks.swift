@@ -183,6 +183,9 @@ enum HistoryRowFactsChecks: CheckSuite {
         let quiet = HistoryRecord(longestDay: date(9, 1), longestFocus: 3_600, focusedDays: 20)
         let first = read([HistoryTreeChecks.row(9, 1, tracked: 600)] + month(10, hours: 80), today: date(11, 5), record: quiet)
         expect(first.facts(9) == HistoryRowFacts.none, "a September without focus read \(String(describing: first.facts(9)))", &problems)
+        // A corrupt month of 1e300 focus after a real one is too large to be a change: no fact, and no trap.
+        expect(says(month(9, hours: 40) + month(10, hours: 1e297), today: date(11, 5)) == false,
+               "an impossible October was compared with September", &problems)
         // Still running, it keeps its days left.
         let running = read(month(9, hours: 40) + [idle], today: date(10, 15))
         expect(running.facts(10) == HistoryRowFacts(facts: [], daysLeft: 16), "a running October without focus read \(String(describing: running.facts(10)))", &problems)

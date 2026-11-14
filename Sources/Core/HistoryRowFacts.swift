@@ -97,7 +97,10 @@ enum HistoryRowFactsBuilder {
                                calendar: Calendar) -> HistoryRowFact? {
         guard let previous, previous.focused > 0, !row.place.span.holds(top.today),
               isWhole(row.place, calendar: calendar), isWhole(previous.place, calendar: calendar) else { return nil }
-        let percent = Int(((row.focused - previous.focused) / previous.focused * 100).rounded())
+        // A corrupt record can hold any length, and Int() traps on one this large.
+        let ratio = (row.focused - previous.focused) / previous.focused * 100
+        guard ratio.isFinite, abs(ratio) < 1e6 else { return nil }
+        let percent = Int(ratio.rounded())
         return abs(percent) >= changeMinimumPercent ? .change(percent: percent, previous: previous.place) : nil
     }
 

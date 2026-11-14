@@ -21,7 +21,9 @@ enum HistorySplit {
         var kept: [WorkTypeShare] = []
         var folded: [WorkTypeShare] = []
         for (index, share) in shares.enumerated() {
-            if index == 0 || Int((share.share * 100).rounded()) >= otherBelowPercent {
+            // A share that is not a number folds into Other, and the compare stays in
+            // Double: Int() traps on a corrupt, enormous one.
+            if share.share.isFinite, index == 0 || (share.share * 100).rounded() >= Double(otherBelowPercent) {
                 kept.append(share)
             } else {
                 folded.append(share)
@@ -34,7 +36,7 @@ enum HistorySplit {
             parts.append(HistorySplitPart(workType: share.workType, share: share.share, isMuted: muted))
         }
         if !folded.isEmpty {
-            parts.append(HistorySplitPart(workType: nil, share: folded.reduce(0) { $0 + $1.share }, isMuted: false))
+            parts.append(HistorySplitPart(workType: nil, share: folded.filter { $0.share.isFinite }.reduce(0) { $0 + $1.share }, isMuted: false))
         }
         return parts
     }
