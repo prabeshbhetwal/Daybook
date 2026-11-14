@@ -152,7 +152,7 @@ drawn.
   "2026" for a year, the day's short weekday for a day, the range ("9 to 15")
   for a week. The gutter is as wide as the widest label at that level.
 - The row whose period contains today is the one card (`StoryStyle.card`,
-  radius 13, entry-card padding, hairline, the existing shadow). Every other
+  radius 13, entry-card padding, hairline). Every other
   depth-0 row is a quiet row: no fill, no border, the existing hover tint.
   This replaces `isCard = depth == 0 && level != .day`.
 - Line one, in the rowTitle role: "**61h 10m** across 9 days." The figure uses
