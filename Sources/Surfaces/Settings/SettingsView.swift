@@ -58,6 +58,9 @@ struct SettingsView: View {
     @ObservedObject var navigation: MainWindowModel
     var scrolls: Bool
     @FocusState private var searchFocused: Bool
+    /// Which panel's explanation is open: one at a time, and none when the
+    /// window opens again.
+    @StateObject private var openHelp = TipCenter()
 
     init(model: SettingsModel, navigation: MainWindowModel, scrolls: Bool = true) {
         self.model = model
@@ -88,6 +91,8 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(StoryStyle.canvas)
         .environment(\.categoryEditorRequest, navigation.categoryEditorRequest)
+        .environment(\.panelHelp, SettingsHelpText.groups)
+        .environment(\.tipCenter, openHelp)
     }
 
     private func sidebar(pages: [SettingsPage]) -> some View {

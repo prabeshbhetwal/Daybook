@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SurfacePanel<Content: View>: View {
     @Environment(\.focusInterfaceDensity) private var density
+    @Environment(\.panelHelp) private var help
     let title: String?
     let layoutOverride: InterfaceDensity.Layout?
     let showsHeader: Bool
@@ -26,7 +27,12 @@ struct SurfacePanel<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: layout.sectionSpacing) {
             if let title, showsHeader {
+                // On the title's line at the card's corner, as on the rail's
+                // tiles. An overlay, so a panel with the mark is no taller.
                 SectionHeader(title: title)
+                    .overlay(alignment: .trailing) {
+                        if let entries = help[title] { InfoMark(title: title, entries: entries) }
+                    }
             }
             content
         }
@@ -39,6 +45,9 @@ struct SurfacePanel<Content: View>: View {
             RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
                 .strokeBorder(Tokens.Colour.line, lineWidth: 1)
         )
+        .transformPreference(PanelHelpEvidenceKey.self) { drawn in
+            if let title, showsHeader { drawn[title] = help[title] != nil }
+        }
     }
 }
 

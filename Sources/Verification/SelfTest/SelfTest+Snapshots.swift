@@ -59,7 +59,7 @@ extension SelfTest {
                 .settingsActivityRules, .settingsTracking, .settingsAppearance, .settingsData,
                 .settingsUpdates, .settingsAdvanced,
                 .activityRuleAmbiguity, .activityRuleAutomatic,
-                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
+                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp
             ]
 
             expect(SnapshotScenario.allCases == required,
@@ -98,7 +98,7 @@ extension SelfTest {
             }
 
             let compactScenarios: Set<SnapshotScenario> = [
-                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
+                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp
             ]
             let shellScenarios = required.filter { !compactScenarios.contains($0) }
             for scenario in shellScenarios {

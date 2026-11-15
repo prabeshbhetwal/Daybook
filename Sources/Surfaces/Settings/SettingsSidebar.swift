@@ -155,7 +155,8 @@ extension SettingsSection {
         case .focus: return ["Daily goal", "Usual pace compares with", "Suggest activities from",
                              "Streak counts a day after", "New sessions start as",
                              "Keep sessions longer than", "Offer to continue for"]
-        case .categories: return ["Categories", "New category", "Category name", "Icon", "Colour"]
+        case .categories: return ["Categories", "New Category", "Category name", "Icon", "Colour", "Retire", "Restore",
+                                  "Remind me to take breaks during this category", "Counts while watching", "Reset to Default"]
         case .away:
             return ["Pause after no input for", "Ask me after", "Stop session after",
                     "Full-screen prompt after", "While an app works for you",
@@ -164,7 +165,7 @@ extension SettingsSection {
                     "Count a keep-awake app as you being here",
                     "Let your agent tell Daybook when it works"]
         case .breaks:
-            return ["Remind me to take breaks", "Rhythm", "Long break every", "Long break length",
+            return ["Remind me to take breaks", "Rhythm", "Work", "Break", "Long break every", "Long break length",
                     "Weekday plan", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
                     "Usual rhythm", "No reminders", "Overrides", "Today", "This week", "This month", "Dates",
                     "Working hours", "Eyes", "Long-stretch guard", "Guard comes after",
@@ -174,7 +175,7 @@ extension SettingsSection {
                     "Celebrate milestones", "Haptic feedback", "Try haptic feedback"]
         case .activities:
             return ["Use my activity rules", "Activity rules", "New Rule", "Activity name",
-                    "Start after", "Add App", "Running now"]
+                    "Start after", "Use this rule", "Running now", "All apps", "Add App…", "Delete Rule"]
         case .tracking: return ["Apps shown in a card", "Recent app visits", "Record app use"]
         case .appearance:
             return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
@@ -182,9 +183,9 @@ extension SettingsSection {
         case .data:
             // The upgrade copy's row may be absent, so it is not listed; the
             // on-device AI row is listed only on a Mac that shows it.
-            return ["Privacy", "App use measured precisely since", "Backups", "Back up automatically",
+            return ["Privacy", "Storage", "App use measured precisely since", "Backups", "Back up automatically",
                     "Back up to", "Keep automatic backups", "Last backup", "Next backup", "Back Up Now",
-                    "Reveal Data Folder"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
+                    "Show Backups", "Reveal Data Folder"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
         case .advanced: return ["Version", "Build", "Recovery"]

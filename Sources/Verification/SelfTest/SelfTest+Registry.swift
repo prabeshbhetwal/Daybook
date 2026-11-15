@@ -192,6 +192,7 @@ extension SelfTest {
             + HistoryGridViewChecks.tests
             + HistoryPeriodRowChecks.tests
             + HistoryFrontViewChecks.tests
+            + SettingsHelpChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

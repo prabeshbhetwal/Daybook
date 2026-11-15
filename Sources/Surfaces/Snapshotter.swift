@@ -17,7 +17,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsBreaks, settingsAutomatic
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
-    case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned
+    case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned, settingsHelp
 
     var id: String { rawValue }
 
@@ -84,6 +84,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awayQuickFailure: return "Away — quick prompt save failure"
         case .awayFullFailure: return "Away — full prompt save failure"
         case .rewardEarned: return "Reward — earned"
+        case .settingsHelp: return "Settings — every panel's explanation, as its info mark opens it"
         }
     }
 
@@ -117,7 +118,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
              .focusAutomatic, .focusOnBreak, .activityRuleAmbiguity, .activityRuleAutomatic:
             return [.minimum, .comfortable, .popover]
-        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp:
             return [.compact]
         default:
             return [.minimum, .comfortable]
@@ -149,7 +150,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return .settings
-        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp:
             return nil
         }
     }
@@ -417,6 +418,8 @@ enum Snapshotter {
             return AnyView(RewardHUD.snapshotView(for: reward)
                 .snapshotAppearance(item.appearance)
                 .fixedSize(horizontal: false, vertical: true))
+        case .settingsHelp:
+            return AnyView(settingsHelpCards().snapshotAppearance(item.appearance))
         default:
             return AnyView(Text("Unsupported compact snapshot"))
         }
@@ -505,7 +508,7 @@ enum Snapshotter {
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return FixtureFactory.store(for: .running)
-        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp:
             return FixtureFactory.store(for: .firstRun)
         case .welcomeOpening, .welcomeStep:
             // The welcome is read on a day with nothing in it, which is the
