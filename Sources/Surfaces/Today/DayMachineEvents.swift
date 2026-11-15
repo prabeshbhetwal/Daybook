@@ -8,12 +8,14 @@ import SwiftUI
 /// the whole day, so a lock and its unlock make one line, not four.
 struct DayMachineEvents: View {
     let account: DayMacAccount
-    @State private var isOpen = false
+    /// Held in the day's shared open set, so Expand All reaches this card.
+    let isOpen: Bool
+    let onToggle: () -> Void
     @Environment(\.focusInterfaceDensity) private var density
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.m) {
-            Button { isOpen.toggle() } label: { header }
+            Button(action: onToggle) { header }
                 .buttonStyle(StoryPressStyle())
                 .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
                 .accessibilityHint(isOpen ? "Fold what the Mac did"
