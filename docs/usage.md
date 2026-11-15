@@ -14,7 +14,7 @@ a historical day never substitutes today's data.
 | Story | What happened on this day? | Focus-led summary, chronological stretches, named rest, app use and honest recording gaps; goal, app use, rhythm and streak in the rail |
 | Calendar | Which day? | Opens from Jump to date in History. Each date shows its focus, or a dot if the Mac only saw app use. A tick marks a met goal, and the month's sum sits in its header |
 | Session controls | What should I do now? | The centre of the bar on the story: the activity, its category and Start; while a session runs, the clock, its name and Pause, Step Away and Stop in the same place. Pause keeps recording app use; Step Away records nothing until you're back. An away question, a quiet activity choice or an automatic session's Adopt and Undo appear on a line under the bar only while they exist |
-| History | How have my years, months, weeks and days gone? Where is that session? | One timeline that unfolds. It opens on the smallest period holding your whole record: this week's days, this month's weeks, this year's months, or every year. Click a row to open it: a year into its months, a month into its weeks, a week into its days, a day into its sessions, each one step in from its parent; one row is open per level. Each row shows its focus, its focused days or sessions, and a thin bar per month or day. Nothing is drawn from before the first recorded day or after today. Search at the top, with app and category filters. The rail describes the deepest open row, or the session you click: category shares, best two hours, goal rates and apps for a period, its best month or day, the day's strip and notes, a session's stretches and full note. Pace, quality and continuity are stated only for the current month, and only when the record supports them |
+| History | How have my years, months, weeks and days gone? Where is that session? | One timeline that unfolds. It opens on the smallest period holding your whole record: this week's days, this month's weeks, this year's months, or every year. The first view is a headline for the whole record; then, unless the record is all this week, a calendar of months with one cell per day shaded by its focus (none, under 2h, 2 to 5h, 5 to 8h, 8h or more), a legend and a one-line readout of the day you point at, and a click on a day opens it; then those top rows newest first on a timeline, each named beside it and saying its focus and focused days in a sentence, with a thin category bar, and the one holding today drawn as a card. Click a row to open it: a year into its months, a month into its weeks, a week into its days, a day into its sessions, each one step in from its parent; one row is open per level. Each row below the first view shows its focus, its focused days or sessions, and a thin bar per month or day. Nothing is drawn from before the first recorded day or after today. Search at the top, with app and category filters. The rail describes the deepest open row, or the session you click: category shares, best two hours, goal rates and apps for a period, its best month or day, the day's strip and notes, a session's stretches and full note. Pace, quality and continuity are stated only for the current month, and only when the record supports them |
 | Awards | What milestones have I earned? | Achievements derived from recorded evidence, with their criteria |
 | Ask Daybook | What does my history say about…? | A question in your own words, answered from your own figures by on-device AI on the Mac (macOS 26 or later, on a Mac that supports it). Open it with the ✦ Ask button beside Settings or `Command-K`; an empty sheet offers four questions to try. Your question, history and answers are not sent anywhere |
 | Settings | How should the app behave? | Real persisted controls, privacy evidence and diagnostics |
@@ -29,7 +29,7 @@ a historical day never substitutes today's data.
 | `Command-,` | Settings |
 | `Command-F` | Find in History, from anywhere in the window |
 | `Command-K` | Ask Daybook, a question about your focus history, from anywhere in the window |
-| `Command-+`, `Command-−` | Zoom In and Zoom Out, in the View menu: the whole interface a step larger or smaller, from 80% to 140% |
+| `Command-+`, `Command-−` | Zoom In and Zoom Out, in the View menu: the whole interface a step larger or smaller, from 80% to 160% |
 | `Command-0` | Actual Size: the interface back to 100% |
 | Up, Down | In History, move through the rows |
 | Return | In History, open or fold the row; select a session |
@@ -51,7 +51,9 @@ whether the global shortcut is working, lets you record another, and replays the
 ## Reading the story
 
 Current work is at the top of the timeline; earlier work and rest continue
-downwards. Click an entry's full header to expand it. Inspect an app from the
+downwards. Click an entry's full header to expand it. **Expand All** opens
+every entry, every folded quiet run and the **What the Mac did** card under
+the day; **Collapse All** closes them again. Inspect an app from the
 rail to see that day's recorded visits. The story is always today. In
 History, click a row to open it in place and the rail describes it; **Jump to
 date** opens a day straight away. Choose **Arrange cards** to reorder the
@@ -153,7 +155,7 @@ Settings groups the backed controls into eight pages:
 
 | Page | Controls and information |
 |---|---|
-| General | Login item, menu bar icon and time, Dock icon, the global shortcut and the window's keys, Ask Daybook (whether it can run on this Mac, its toolbar button, Open Ask), whether removing a session or changing how a break counts asks first, the tour, appearance, density, zoom (80% to 140%, the same steps as the View menu), Story time gutter, entry expansion and folding quiet stretches |
+| General | Login item, menu bar icon and time, Dock icon, the global shortcut and the window's keys, Ask Daybook (whether it can run on this Mac, its toolbar button, Open Ask), whether removing a session or changing how a break counts asks first, the tour, appearance, density, zoom (80% to 160%, the same steps as the View menu), Story time gutter, entry expansion and folding quiet stretches |
 | Sessions | Daily goal, what usual pace compares with, how far back activity suggestions look, the streak's daily minimum, the category new sessions start as, the shortest session kept, how long an ended session is offered to continue, categories, guessing sessions from the app in front, ending a paused automatic session, and milestones |
 | Activities | Activity rules, their application picker, and whether they run |
 | Away | Absence thresholds, full-screen prompt threshold, and what quiet means while an app works for you |
@@ -161,6 +163,12 @@ Settings groups the backed controls into eight pages:
 | Recording | App recording, how many apps a card lists and how many recent app visits are shown |
 | Privacy | Local storage, when app use was first measured precisely, the backup of older app use, backups (schedule, destination, how long automatic ones are kept, the last and next backup, Back Up Now and Show Backups), and Reveal data folder |
 | About & Updates | Automatic update checks, how often and what happens when one is found, Check Now, and diagnostics |
+
+Each panel carries a circled "i" at its top right, on the title's line. Click
+it, or press Space or Return on it, and a card names every control in the
+panel and what it changes, in plain words; Escape or a click elsewhere closes
+it, and one is open at a time. A few panels that already say all they do
+(Getting started, Data folder, Diagnostics) have none.
 
 Each page or changed search result opens at its first control; search retains
 the result's group context. Long paths and recovery text wrap and are
