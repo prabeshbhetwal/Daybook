@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Two things that line up: the window buttons with the chrome row beside
@@ -24,7 +25,34 @@ enum ChromeAlignmentChecks: CheckSuite {
         let short = TrafficLightCentreAnchor.placement(row: 10, button: button)
         expect(short.band == button && short.y == 0,
                "a 10pt row is a band of \(short.band) with the button at \(short.y)", &problems)
+        problems += buttonsStayCentred()
         return problems
+    }
+
+    /// AppKit lays its title bar out again at moments no notification names;
+    /// a button it moves back is put in the middle again.
+    private static func buttonsStayCentred() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let window = NSWindow(contentRect: NSRect(x: -10_000, y: -10_000, width: 400, height: 300),
+                                  styleMask: [.titled, .closable, .fullSizeContentView],
+                                  backing: .buffered, defer: false)
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            let anchor = TrafficLightCentreAnchor()
+            window.contentView?.addSubview(anchor)
+            anchor.height = 66
+            guard let close = window.standardWindowButton(.closeButton) else { return problems }
+            let middle = TrafficLightCentreAnchor.placement(row: 66, button: close.frame.height).y
+            expect(close.frame.origin.y == middle, "a 66pt row puts the button at \(close.frame.origin.y), not \(middle)", &problems)
+            // The anchor centres once more outside the view update that added it.
+            _ = InstalledAppCatalog.turnRunLoop(until: { false }, timeout: 0.3)
+            close.setFrameOrigin(NSPoint(x: close.frame.origin.x, y: 0))
+            _ = InstalledAppCatalog.turnRunLoop(until: { close.frame.origin.y == middle }, timeout: 2)
+            expect(close.frame.origin.y == middle,
+                   "a button AppKit moved back sits at \(close.frame.origin.y), not \(middle)", &problems)
+            return problems
+        }
     }
 
     private static func periodTintIsTheCards() -> [String] {
