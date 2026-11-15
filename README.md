@@ -17,7 +17,7 @@ trade, and Daybook makes a different one.
 
 | Kind of app | What that approach gives up | What Daybook does instead |
 |---|---|---|
-| A manual start and stop timer | It counts everything between start and stop. A lunch with the timer left running becomes an hour of work unless you remember to fix it. | You still start sessions yourself, but after a quiet spell with no keyboard, mouse or trackpad, the session pauses from your last touch. When you come back, Daybook asks how that time should count: a break, work, or time left out. |
+| A manual start and stop timer | It counts everything between start and stop. A lunch with the timer left running becomes an hour of work unless you remember to fix it. | You still start sessions yourself, but after a quiet spell with no keyboard, mouse or trackpad, the session pauses from your last touch. A short absence is left out; after a longer one, Daybook asks when you come back whether it was a break, work, or time to leave out. |
 | An automatic tracker that logs every app | It records everything and leaves the sorting to you, and an app being in front is taken as you working in it. | Daybook records app use too, but keeps it apart from the sessions you declare and never adds the two together. A session's figures come from what was recorded, and the day reads as a story, not a table. |
 | A cloud time tracker built for teams and billing | Your record lives in an account on someone else's servers, organised around projects, clients and invoices. | There is no account and no server. The record is kept on your Mac, and on-device AI answers questions about it without sending anything away. Daybook is for one person on one Mac: it has no team, invoicing or sync features. |
 
@@ -26,8 +26,10 @@ Behind those choices is one rule: evidence comes before interpretation.
 - **Declared and observed time stay separate.** A focus session is something
   you start. App use is something the Mac saw. Each is named on screen, and
   neither is passed off as the other.
-- **Time away is asked about or left out, never counted silently.** Locking
-  the screen, sleep and long quiet spells all end in a question you answer.
+- **Time away is asked about or left out, never counted silently.** A short
+  absence is left out without a question, a longer one is asked about when you
+  come back, and one past the limit you set ends the session at the moment you
+  left. None of it counts as focus unless you say it was work.
 - **Daybook says what it could not measure.** Where nothing was recorded, the
   story says so. Session time the Mac could not confirm is shown on its own
   line, and older records from before a recording fix are marked as less
