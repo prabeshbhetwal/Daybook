@@ -29,9 +29,9 @@ extension SettingsHelpText {
 
     static let appsWorking: [HelpEntry] = [
         HelpEntry("While an app works for you", """
-            What your session does while you wait on an app, such as an AI agent, a video export or a \
-            build. Count it as work keeps the clock going, Pause without asking stops it, and Treat it as \
-            time away changes nothing.
+            What your session does while you wait on an app, such as an AI agent or a video export. \
+            Count it as work keeps the clock going, Pause without asking stops it, and Treat it as \
+            time away handles it like any other absence.
             """),
         HelpEntry("Notice apps working for you by themselves", """
             Daybook checks whether a coding or AI app you used this session is busy sending data or \
@@ -56,7 +56,7 @@ extension SettingsHelpText {
     static let reminders: [HelpEntry] = [
         HelpEntry("Remind me to take breaks", """
             Daybook tells you when it is time to rest, timed from your typing and clicking whether or not \
-            a session is running. Off, no break reminders appear at all, Eyes and the guard included.
+            a session is running. Off, no break reminders appear at all, the eye and long-stretch reminders included.
             """),
         HelpEntry("Rhythm", """
             How long you work before a break, and how long it lasts. Steady · 50/5 means 50 minutes of \
