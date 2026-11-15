@@ -32,6 +32,7 @@ final class TrafficLightCentreAnchor: NSView {
         // is not a new window, and what watches the old one must survive it.
         guard let window, window !== host else { return }
         observers.forEach(NotificationCenter.default.removeObserver)
+        watched = []
         host = window
         // AppKit lays its title bar out again on each of these, which puts
         // the buttons back where it keeps them.
@@ -49,20 +50,40 @@ final class TrafficLightCentreAnchor: NSView {
     /// The title bar's container grows to the row's height, at the top of the
     /// window, and each button sits in the middle of it. The container is
     /// what takes the clicks, so the buttons cannot just be moved below it.
+    /// AppKit puts its own frames back on layout passes no notification
+    /// announces, so each view involved is watched and put right again.
     private func centre() {
-        guard height > 0, let window, !window.styleMask.contains(.fullScreen),
+        guard !centring, height > 0, let window, !window.styleMask.contains(.fullScreen),
               let close = window.standardWindowButton(.closeButton),
               let titlebar = close.superview, let container = titlebar.superview,
               let frame = container.superview else { return }
+        centring = true
+        defer { centring = false }
+        let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
+            .compactMap { window.standardWindowButton($0) }
+        watch([container, titlebar] + buttons)
         let (band, y) = Self.placement(row: height, button: close.frame.height)
         var box = container.frame
         box.size.height = band
         box.origin.y = frame.isFlipped ? 0 : frame.bounds.height - band
-        container.frame = box
-        titlebar.frame = container.bounds
-        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            guard let button = window.standardWindowButton(kind) else { continue }
+        if container.frame != box { container.frame = box }
+        if titlebar.frame != container.bounds { titlebar.frame = container.bounds }
+        for button in buttons where button.frame.origin.y != y {
             button.setFrameOrigin(NSPoint(x: button.frame.origin.x, y: y))
+        }
+    }
+
+    private var watched: Set<ObjectIdentifier> = []
+    private var centring = false
+
+    /// Centres again whenever AppKit moves one of the views it laid out.
+    private func watch(_ views: [NSView]) {
+        for view in views where watched.insert(ObjectIdentifier(view)).inserted {
+            view.postsFrameChangedNotifications = true
+            observers.append(NotificationCenter.default.addObserver(
+                forName: NSView.frameDidChangeNotification, object: view, queue: .main) { [weak self] _ in
+                self?.centre()
+            })
         }
     }
 
