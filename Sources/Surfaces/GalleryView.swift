@@ -15,7 +15,7 @@ enum FixtureFactory {
     private static var directories: [URL] = []
     private static var preferenceSuites: [String] = []
 
-    private struct UsageFixtureEnvelope: Codable {
+    struct UsageFixtureEnvelope: Codable {
         let metadata: AppUsageMetadata
         let sessions: [AppUsageSession]
     }
@@ -82,7 +82,7 @@ enum FixtureFactory {
         return store
     }
 
-    private static func fixtureDefaults(_ label: String) -> UserDefaults {
+    static func fixtureDefaults(_ label: String) -> UserDefaults {
         let suite = "com.prabesh.daybook.gallery.\(label).\(UUID().uuidString)"
         guard let defaults = MemoryDefaults.suite(named: suite) else {
             preconditionFailure("Could not create isolated fixture preferences")

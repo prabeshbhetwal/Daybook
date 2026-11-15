@@ -13,6 +13,10 @@ struct HistoryTree: View {
     /// so a click hands focus to the tree itself: ↑, ↓, ←, →, Return and
     /// Escape then reach it. The search field keeps its own cursor.
     @FocusState private var treeFocused: Bool
+    /// What the pointer picks out, in the grid or on a row; each marks it in the other.
+    /// Held, not observed: this column never reads it, so a cell the pointer
+    /// crosses redraws only the views that do.
+    @State private var link = HistoryGridLink()
     var scrolls = true
 
     static let keyboardHint = "Up and down arrows move through the rows; Return opens or folds one; "
@@ -101,7 +105,7 @@ struct HistoryTree: View {
                         HistorySearchColumn(store: store, navigation: navigation, entries: searched, lens: lens)
                     } else {
                         headline
-                        overviewChart
+                        HistoryOverviewGrid(store: store, navigation: navigation, link: link)
                         tree
                     }
                 }
@@ -130,27 +134,19 @@ struct HistoryTree: View {
             .id(HistoryPath.topID)
     }
 
-    /// Every day on record as a bar in its main category's colour, against
-    /// the average focused day. A day clicked opens in the tree below.
-    private var overviewChart: some View {
-        let top = store.historyTop()
-        let summary = store.historySummary()
-        let calendar = Calendar.current
-        var values: [Date: HistoryResultChart.Value] = [:]
-        for day in store.historyDays where day.focused > 0 {
-            values[calendar.startOfDay(for: day.date)] = HistoryResultChart.Value(primary: day.focused, secondary: 0)
-        }
-        return HistoryResultChart(firstDay: top.firstDay, today: top.today, values: values, isLens: false,
-                                  onPick: { navigation.openHistory(day: $0) },
-                                  average: summary.focusedDays > 0 ? summary.focused / Double(summary.focusedDays) : nil,
-                                  hint: "Click a day to open it")
-            .padding(.horizontal, HistoryRowLayout.inset)
+    /// The root spine's leading edge, so it runs through the root rows' dots:
+    /// past the gutter, then the 2-point line centred on the dot.
+    static func spineLeading(for rootLevel: HistoryLevel) -> CGFloat {
+        HistoryPeriodRow.gutterWidth(for: rootLevel) + HistoryRowLayout.inset + HistoryTreeRow.dotSize / 2 - 1.zoomed
     }
 
     private var tree: some View {
-        LazyVStack(alignment: .leading, spacing: 0) {
+        // One pass over the root rows, not one per row at every redraw.
+        let facts = store.historyRowFacts()
+        return LazyVStack(alignment: .leading, spacing: 0) {
             ForEach(store.historyRows(under: nil)) { row in
-                HistoryTreeRow(store: store, navigation: navigation, row: row, depth: 0)
+                HistoryTreeRow(store: store, navigation: navigation, row: row, depth: 0, link: link,
+                               facts: facts[row.id] ?? .none)
             }
         }
         // The spine the top cards hang from, through their dots.
@@ -158,10 +154,12 @@ struct HistoryTree: View {
             Rectangle()
                 .fill(StoryStyle.line)
                 .frame(width: 2.zoomed)
-                .padding(.leading, HistoryRowLayout.inset + HistoryTreeRow.dotSize / 2 - 1.zoomed)
+                .padding(.leading, Self.spineLeading(for: store.historyTop().rootLevel))
                 .padding(.vertical, Tokens.Space.l)
                 .accessibilityHidden(true)
         }
+        // Once the tree leaves, as when a search takes over, no cell stays lowered.
+        .onDisappear(perform: link.clear)
         .coachAnchor(.journal)
         // Key focus lives on a point-sized proxy off the left edge: the arrow,
         // Return and Escape handlers below still receive it, and macOS draws
@@ -258,8 +256,10 @@ struct HistoryTree: View {
             }
             guard let row = store.historyRows(under: parent).first(where: { $0.place == place }) else { return nil }
             let isOpen = open.indices.contains(depth) && open[depth] == place
+            // A top row is read with the line under its sentence, as its label is.
+            let facts = depth == 0 ? store.historyRowFacts()[row.id] ?? .none : .none
             return DurationText.spoken(in: HistoryRowText.spoken(row, today: store.now(), isOpen: isOpen, depth: depth,
-                                                                calendar: SessionStore.historyCalendar))
+                                                                calendar: SessionStore.historyCalendar, facts: facts))
         case .session(let thread, let day):
             return store.journalSession(thread: thread, on: day).map(HistorySessionRow.spokenLabel)
         case nil:

@@ -47,6 +47,7 @@ extension SelfTest {
                 .focusSaveFailure, .focusAutomatic, .focusOnBreak,
                 .todayHistory, .todayHistoryExpanded,
                 .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse,
+                .historyFrontMonths, .historyFrontYears, .historyFrontMonth,
                 .insightsEnough, .insightsEmpty,
                 .awardsEarned, .awardsEmpty,
                 .askEmpty, .askAnswered, .askFailed, .askStopped, .askGoals, .askPanelStory, .askPanelHistory, .askPanelGoals,
@@ -58,7 +59,7 @@ extension SelfTest {
                 .settingsActivityRules, .settingsTracking, .settingsAppearance, .settingsData,
                 .settingsUpdates, .settingsAdvanced,
                 .activityRuleAmbiguity, .activityRuleAutomatic,
-                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
+                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp
             ]
 
             expect(SnapshotScenario.allCases == required,
@@ -97,7 +98,7 @@ extension SelfTest {
             }
 
             let compactScenarios: Set<SnapshotScenario> = [
-                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned
+                .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp
             ]
             let shellScenarios = required.filter { !compactScenarios.contains($0) }
             for scenario in shellScenarios {

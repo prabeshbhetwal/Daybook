@@ -61,18 +61,19 @@ enum SupportingInkChecks: CheckSuite {
         renderer.scale = 2
         guard let image = renderer.cgImage else { return 0 }
         let bitmap = NSBitmapImageRep(cgImage: image)
-        // The bitmap is sRGB, but colorAt tags its colours calibrated, and a
-        // conversion back to sRGB lightens them, so read the bytes.
-        func hex(_ x: Int, _ y: Int) -> UInt32 {
-            var pixel = [Int](repeating: 0, count: 4)
-            bitmap.getPixel(&pixel, atX: x, y: y)
-            return UInt32(pixel[0]) << 16 | UInt32(pixel[1]) << 8 | UInt32(pixel[2])
-        }
-        let background = hex(1, 1)
+        let background = hex(bitmap, 1, 1)
         var peak = 1.0
         for y in 0..<bitmap.pixelsHigh {
-            for x in 0..<bitmap.pixelsWide { peak = max(peak, SelfTest.contrastRatio(hex(x, y), background)) }
+            for x in 0..<bitmap.pixelsWide { peak = max(peak, SelfTest.contrastRatio(hex(bitmap, x, y), background)) }
         }
         return peak
+    }
+
+    /// The bitmap is sRGB, but colorAt tags its colours calibrated, and a
+    /// conversion back to sRGB lightens them, so read the bytes.
+    static func hex(_ bitmap: NSBitmapImageRep, _ x: Int, _ y: Int) -> UInt32 {
+        var pixel = [Int](repeating: 0, count: 4)
+        bitmap.getPixel(&pixel, atX: x, y: y)
+        return UInt32(pixel[0]) << 16 | UInt32(pixel[1]) << 8 | UInt32(pixel[2])
     }
 }

@@ -66,6 +66,12 @@ enum MachineRunCardChecks: CheckSuite {
             let ids = DayStory.expandableIDs(in: [.moment(quit(2)), .moment(quit(1))])
             let run = StoryMachineRun(moments: [quit(2), quit(1)])
             expect(ids == [run.id], "Expand all opens the run card, got \(ids)", &problems)
+            // The day's "What the Mac did" card opens with everything else.
+            let withAccount = DayStory.expandableIDs(in: [.moment(quit(2)), .moment(quit(1))], hasMacAccount: true)
+            expect(withAccount == [DayStory.macAccountKey, run.id],
+                   "Expand all also opens What the Mac did, got \(withAccount)", &problems)
+            expect(DayStory.expandableIDs(in: [], hasMacAccount: true) == [DayStory.macAccountKey],
+                   "a day with only Mac events can still be expanded", &problems)
             return problems
         }
     }

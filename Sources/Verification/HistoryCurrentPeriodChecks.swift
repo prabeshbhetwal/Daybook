@@ -4,7 +4,7 @@ import SwiftUI
 /// A History period is still running only while today lies inside it. One
 /// that ends at the midnight starting today (last week on a Monday, last
 /// month on the 1st, last year on 1 January) is over: its card says no
-/// "So far" and its rail shows none of this month's Insights.
+/// "So far" on its row and its rail shows none of this month's Insights.
 enum HistoryCurrentPeriodChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A History period that ended at today's midnight is not drawn as still running",
@@ -42,9 +42,9 @@ enum HistoryCurrentPeriodChecks: CheckSuite {
                                     + "so the case tests nothing: \(rows.map(\.place.span))")
                     return
                 }
-                expect(!soFar(ended, store: f.store), "\(item.label): the card for \(ended.place.span), "
+                expect(!soFar(ended, store: f.store), "\(item.label): the row for \(ended.place.span), "
                        + "which ended at the start of today, says So far", &problems)
-                expect(soFar(current, store: f.store), "\(item.label): the card for \(current.place.span), "
+                expect(soFar(current, store: f.store), "\(item.label): the row for \(current.place.span), "
                        + "today's, does not say So far", &problems)
                 guard item.level == .month else { return }
                 expect(!HistoryPeriodRail.showsThisMonth(place: ended.place, top: top),
@@ -58,8 +58,8 @@ enum HistoryCurrentPeriodChecks: CheckSuite {
 
     private static func soFar(_ row: HistoryRow, store: SessionStore) -> Bool {
         MainActor.assumeIsolated {
-            ActivityRuleChecks.renderEvidence(AnyView(HistoryPeriodCard(store: store, row: row, isOpen: false,
-                                                                        isFocused: false)),
+            ActivityRuleChecks.renderEvidence(AnyView(HistoryTreeRow(store: store, navigation: MainWindowModel(store: store),
+                                                                     row: row, depth: 0, link: HistoryGridLink())),
                                               width: 640, height: 260).contains(.historySoFar)
         }
     }

@@ -1,0 +1,45 @@
+import Foundation
+
+/// One stretch of a period row's split bar. A nil `workType` is "Other".
+struct HistorySplitPart: Equatable, Identifiable {
+    let workType: WorkType?
+    let share: Double
+    /// Same hue as the part before it, which is not itself muted, so the bar
+    /// draws neighbours of one colour alternately and never alike.
+    let isMuted: Bool
+    var id: String { workType?.rawValue ?? "other" }
+}
+
+enum HistorySplit {
+    /// A category whose rounded percentage is below this folds into Other, so
+    /// no label ever reads "0%".
+    static let otherBelowPercent = 3
+
+    /// The shares (largest first) as bar parts. The first is always kept, even
+    /// when it is small. "Other" comes last and exists only when something folded.
+    static func parts(_ shares: [WorkTypeShare]) -> [HistorySplitPart] {
+        var kept: [WorkTypeShare] = []
+        var folded: [WorkTypeShare] = []
+        for (index, share) in shares.enumerated() {
+            // A share that is not a number folds into Other, and the compare stays in
+            // Double: Int() traps on a corrupt, enormous one.
+            if share.share.isFinite, index == 0 || (share.share * 100).rounded() >= Double(otherBelowPercent) {
+                kept.append(share)
+            } else {
+                folded.append(share)
+            }
+        }
+        var parts: [HistorySplitPart] = []
+        for share in kept {
+            let previous = parts.last
+            let muted = previous.map { $0.workType?.hue == share.workType.hue && !$0.isMuted } ?? false
+            parts.append(HistorySplitPart(workType: share.workType, share: share.share, isMuted: muted))
+        }
+        // Other needs a share that rounds to at least 1%, so it never reads "0%" either.
+        let other = folded.filter { $0.share.isFinite }.reduce(0) { $0 + $1.share }
+        if (other * 100).rounded() >= 1 {
+            parts.append(HistorySplitPart(workType: nil, share: other, isMuted: false))
+        }
+        return parts
+    }
+}

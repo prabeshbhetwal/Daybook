@@ -110,13 +110,18 @@ struct DayStory: View {
         }
     }
 
+    /// The "What the Mac did" card's key in the day's shared open set.
+    static let macAccountKey = "mac-account"
+
     /// Every row that can be opened: each session, and each folded run of
     /// quiet rows. The same keys the rows themselves toggle.
     /// Everything on the day that opens: session cards, loose app use, the
     /// folded quiet runs, and the app use inside those runs, so Expand all
     /// leaves nothing closed.
-    static func expandableIDs(in entries: [StoryTimelineItem], fold: Int = FocusConstants.defaultQuietFold) -> [String] {
-        var ids: [String] = []
+    static func expandableIDs(in entries: [StoryTimelineItem], fold: Int = FocusConstants.defaultQuietFold,
+                              hasMacAccount: Bool = false) -> [String] {
+        // "What the Mac did" sits under the story and opens with it.
+        var ids: [String] = hasMacAccount ? [macAccountKey] : []
         for row in entries.groupingQuietRuns(minimumRun: fold == 0 ? Int.max : max(2, fold)) {
             switch row {
             case .item(let item):
@@ -165,7 +170,8 @@ struct DayStory: View {
             }
             if entries.isEmpty { empty }
             if let account = store.macAccount(on: projection?.date ?? store.selectedDay) {
-                DayMachineEvents(account: account)
+                DayMachineEvents(account: account, isOpen: opened.ids.contains(Self.macAccountKey),
+                                 onToggle: { toggle(Self.macAccountKey) })
                     .padding(.leading, (showsTimes ? timeColumn : 0) + railColumn)
                     .padding(.top, Tokens.Space.s)
             }

@@ -43,11 +43,14 @@ The scale is 9, 10, 11, 12, 13, 14, 15, 20, 22, 24 and 36. A weight changes only
 to show state; the menu bar panel steps each title down one role.
 Values use monospaced digits. Prose wraps; diagnostics never truncate silently.
 
-Focus identity is indigo, separate from blue action. The reference's `#4E4CCC`
-is used for light-appearance emphasis; dark-appearance text uses `#B6B3FF`
-to stay readable on dark cards instead of copying a low-contrast saturated fill
-into small labels. Action blue is `#0071E3` / `#75B5FF`. Work types retain stable
-identities. Apps have none: every app mark (bars, strips, swatches, dots) is the
+Focus and action share one blue, `#0068D1` in the light appearance and
+`#75B5FF` in the dark (`StoryStyle.focus` is `StoryStyle.action`, which is
+`Tokens.Colour.focus`), so a focus figure and a link read as one accent. Indigo
+is the Deep work category's colour, not the focus colour. History's day grid
+shades a day by its focus in five steps (`FocusRamp`): none, then the focus
+colour at strengths light 0.46, 0.64, 0.82, 1.0 and dark 0.35, 0.55, 0.76, 1.0,
+the lightest step at least 2:1 on canvas and card and neighbouring steps at
+least 1.3:1. Work types retain stable identities. Apps have none: every app mark (bars, strips, swatches, dots) is the
 one app-use accent, and apps are told apart by a 1pt divider where the app
 changes on a strip, the app's icon where a segment or hour column is wide enough
 (24pt at 100% zoom), and the app's name in the tooltip and accessibility label.
@@ -69,9 +72,13 @@ any other.
 
 ## Components
 
-- History journal: one list, newest first. A month header carries the month's
-  totals over a thin bar per day; a day header carries its focus; a session row
-  carries time, name, category, length, apps and the first line of its note.
+- History journal: a headline; a calendar of month blocks, one cell per day
+  shaded by focus in five steps, with a legend and a one-line readout; then the
+  periods newest first on a spine, each named in a gutter and saying its focus
+  and days in a sentence, the period holding today drawn as the one card and the
+  rest as quiet rows, each with a thin category bar. A day header carries its
+  focus; a session row carries time, name, category, length, apps and the first
+  line of its note.
   Runs of empty days fold into one line. The selected row is tinted, and a
   month, day or session selection sets what the rail describes.
 - Entry cards: radius 13, 13-point vertical / 15-point horizontal padding,

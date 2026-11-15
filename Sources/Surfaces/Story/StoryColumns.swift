@@ -4,6 +4,7 @@ enum StoryRenderEvidence: String, Hashable {
     case dayStory
     case historyJournal
     case historyTree
+    case historyGrid
     case storyChromeControls
     case askButton
     case askButtonWithWord
@@ -163,7 +164,8 @@ struct ProjectedDayStoryColumn: View {
         // "How this day was measured" opens with everything else; it is the
         // first thing Expand all should not skip.
         let expandable = (projection.summaryFacts.isEmpty ? [] : [Self.summaryKey])
-            + DayStory.expandableIDs(in: projection.chronology, fold: store.engine.store.quietFold)
+            + DayStory.expandableIDs(in: projection.chronology, fold: store.engine.store.quietFold,
+                                     hasMacAccount: store.macAccount(on: projection.date) != nil)
         VStack(alignment: .leading, spacing: Tokens.Space.xl) {
             if let note = projection.integrityNote { IntegrityNotice(note) }
             if !store.isTrackingEnabled, Calendar.current.isDateInToday(projection.date) {

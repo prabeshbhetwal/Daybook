@@ -184,6 +184,15 @@ extension SelfTest {
             + AppAuditChecks.tests
             + QuietStoreChecks.tests
             + MotionChecks.tests
+            + HistoryDayGridChecks.tests
+            + HistoryRowFactsChecks.tests
+            + HistorySplitChecks.tests
+            + HistoryFrontStoreChecks.tests
+            + FocusRampChecks.tests
+            + HistoryGridViewChecks.tests
+            + HistoryPeriodRowChecks.tests
+            + HistoryFrontViewChecks.tests
+            + SettingsHelpChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

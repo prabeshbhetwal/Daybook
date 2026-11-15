@@ -6,6 +6,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusAutomatic, focusOnBreak
     case todayHistory, todayHistoryExpanded
     case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
+    case historyFrontMonths, historyFrontYears, historyFrontMonth
     case insightsEnough, insightsEmpty
     case awardsEarned, awardsEmpty
     case askEmpty, askAnswered, askFailed, askStopped, askGoals, askPanelStory, askPanelHistory, askPanelGoals
@@ -16,7 +17,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsBreaks, settingsAutomatic
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
-    case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned
+    case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned, settingsHelp
 
     var id: String { rawValue }
 
@@ -36,6 +37,9 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .historySearch: return "History — searching"
         case .historyApp: return "History — one app picked"
         case .historySparse: return "History — three recorded days"
+        case .historyFrontMonths: return "History — a few months this year"
+        case .historyFrontYears: return "History — over a year, across two"
+        case .historyFrontMonth: return "History — this month only"
         case .insightsEnough: return "Insights — enough evidence"
         case .insightsEmpty: return "Insights — insufficient evidence"
         case .awardsEarned: return "Awards — earned and in progress"
@@ -80,6 +84,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awayQuickFailure: return "Away — quick prompt save failure"
         case .awayFullFailure: return "Away — full prompt save failure"
         case .rewardEarned: return "Reward — earned"
+        case .settingsHelp: return "Settings — every panel's explanation, as its info mark opens it"
         }
     }
 
@@ -113,7 +118,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
              .focusAutomatic, .focusOnBreak, .activityRuleAmbiguity, .activityRuleAutomatic:
             return [.minimum, .comfortable, .popover]
-        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp:
             return [.compact]
         default:
             return [.minimum, .comfortable]
@@ -130,7 +135,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .todayHistory, .todayHistoryExpanded:
             return .today
         case .reviewHistorySelection, .historySession, .historySearch, .historyApp, .historySparse,
-             .askPanelHistory, .reviewNotesHistory:
+             .historyFrontMonths, .historyFrontYears, .historyFrontMonth, .askPanelHistory, .reviewNotesHistory:
             return .review
         case .insightsEnough, .insightsEmpty:
             return .insights
@@ -145,7 +150,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return .settings
-        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp:
             return nil
         }
     }
@@ -413,6 +418,8 @@ enum Snapshotter {
             return AnyView(RewardHUD.snapshotView(for: reward)
                 .snapshotAppearance(item.appearance)
                 .fixedSize(horizontal: false, vertical: true))
+        case .settingsHelp:
+            return AnyView(settingsHelpCards().snapshotAppearance(item.appearance))
         default:
             return AnyView(Text("Unsupported compact snapshot"))
         }
@@ -474,6 +481,10 @@ enum Snapshotter {
             let store = FixtureFactory.store(for: .firstRun, accurateUsage: true)
             store.refreshReview()
             return store
+        case .historyFrontMonths, .historyFrontYears, .historyFrontMonth:
+            let store = FixtureFactory.historyFrontStore(for: scenario)
+            store.refreshReview()
+            return store
         case .insightsEnough:
             return FixtureFactory.insightsStore(withEvidence: true)
         case .insightsEmpty:
@@ -497,7 +508,7 @@ enum Snapshotter {
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return FixtureFactory.store(for: .running)
-        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp:
             return FixtureFactory.store(for: .firstRun)
         case .welcomeOpening, .welcomeStep:
             // The welcome is read on a day with nothing in it, which is the
@@ -549,6 +560,11 @@ enum Snapshotter {
             }
         case .insightsEnough, .insightsEmpty, .historySearch, .historyApp, .historySparse:
             navigation.open(tab: .review)
+        case .historyFrontMonths, .historyFrontYears, .historyFrontMonth:
+            // At the top, nothing open: a first showing otherwise unfolds to this week.
+            navigation.open(tab: .review)
+            navigation.prepareHistory()
+            navigation.navigateHistory(to: nil)
         case .activityRuleAmbiguity, .activityRuleAutomatic:
             navigation.focusSessionControls()
         case .askEmpty:
