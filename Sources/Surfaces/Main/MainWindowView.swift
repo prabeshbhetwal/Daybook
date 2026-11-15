@@ -119,6 +119,10 @@ struct MainWindowView: View {
         .onAppear { windowSize.value = geometry.size }
         .onChange(of: geometry.size) { _, newSize in windowSize.value = newSize }
       }
+        // The title bar is hidden, so the chrome row sits in the traffic
+        // lights' own band. Left inside the safe area it started below the
+        // 28pt title bar, a gap of empty canvas above every control.
+        .ignoresSafeArea(.container, edges: .top)
         .frame(minWidth: minimum.width, minHeight: minimum.height)
         .background(ZoomWindowFit(base: Self.contentBase(askPanelOpen: askPanelShown)) { screenVisible.value = $0 })
         .background(StoryStyle.canvas)
