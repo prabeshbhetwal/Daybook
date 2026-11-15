@@ -58,7 +58,11 @@ struct HistoryPeriodRow: View {
             }
             .padding(StoryStyle.entryInsets(for: density))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(fill, in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
+            // The tint is the card's own, in front of its fill. On the button
+            // it also covered the dot and the padding around the card, a
+            // rectangle that stuck out of the card's edge on three sides.
+            .hoverHighlight(cornerRadius: StoryStyle.entryRadius)
+            .background(fill,in: RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous))
             .overlay {
                 if isCurrent {
                     RoundedRectangle(cornerRadius: StoryStyle.entryRadius, style: .continuous)

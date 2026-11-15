@@ -66,6 +66,11 @@ struct HistoryTreeRow: View {
     private var isPeriod: Bool { depth == 0 && row.place.level != .day }
     private var gutter: CGFloat { isPeriod ? HistoryPeriodRow.gutterWidth(for: row.place.level) : 0 }
 
+    /// Whether the whole button tints under the pointer. A period row tints
+    /// its own card instead (`HistoryPeriodRow`): its button also holds the
+    /// dot and the padding around the card, and a tint there overhangs it.
+    static func buttonTints(isEmpty: Bool, isPeriod: Bool) -> Bool { !isEmpty && !isPeriod }
+
     private func releaseLink() {
         if let pointed = pointedSpan, link.span == pointed { link.span = nil }
         pointedSpan = nil
@@ -81,7 +86,7 @@ struct HistoryTreeRow: View {
                 plainHeader
             }
         }
-        .buttonStyle(StoryPressStyle(hovers: !row.isEmpty,
+        .buttonStyle(StoryPressStyle(hovers: Self.buttonTints(isEmpty: row.isEmpty, isPeriod: isPeriod),
                                      cornerRadius: isPeriod ? StoryStyle.entryRadius : Tokens.Radius.nested))
         .disabled(row.isEmpty)
         .accessibilityElement(children: .ignore)

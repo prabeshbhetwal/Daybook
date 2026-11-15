@@ -193,6 +193,7 @@ extension SelfTest {
             + HistoryPeriodRowChecks.tests
             + HistoryFrontViewChecks.tests
             + SettingsHelpChecks.tests
+            + ChromeAlignmentChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

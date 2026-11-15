@@ -100,6 +100,8 @@ struct StoryChromeBar: View {
         .padding(.horizontal, Tokens.Space.l)
         .padding(.vertical, Tokens.Space.s)
         .background(StoryStyle.canvas)
+        // The window buttons sit level with the row's middle, at any zoom.
+        .background(GeometryReader { TrafficLightCentre(height: $0.size.height) })
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),
                    value: navigation.workspace)
         .accessibilityElement(children: .contain)
