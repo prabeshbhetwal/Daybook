@@ -53,7 +53,7 @@ whether the global shortcut is working, lets you record another, and replays the
 Current work is at the top of the timeline; earlier work and rest continue
 downwards. Click an entry's full header to expand it. **Expand All** opens
 every entry, every folded quiet run and the **What the Mac did** card under
-the day; **Collapse All** closes them again. Inspect an app from the
+the day; **Collapse All** (shown while any is open) closes them. Inspect an app from the
 rail to see that day's recorded visits. The story is always today. In
 History, click a row to open it in place and the rail describes it; **Jump to
 date** opens a day straight away. Choose **Arrange cards** to reorder the

@@ -15,13 +15,19 @@ final class StoryDisclosureState: ObservableObject {
 }
 
 /// One link that opens or closes every session and folded quiet run in the
-/// day. It reads "Collapse All" only when everything it would open is open.
+/// day. It reads "Collapse All" whenever any of them is open, and "Expand All"
+/// only when none is.
 struct StoryExpandAllControl: View {
     @ObservedObject var disclosure: StoryDisclosureState
     let ids: [String]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var allOpen: Bool { !ids.isEmpty && ids.allSatisfy(disclosure.ids.contains) }
+    /// Whether the link would close rows: any of its rows is open.
+    static func closes(_ ids: [String], open: Set<String>) -> Bool {
+        ids.contains(where: open.contains)
+    }
+
+    private var allOpen: Bool { Self.closes(ids, open: disclosure.ids) }
 
     var body: some View {
         Button(allOpen ? "Collapse All" : "Expand All") {
