@@ -194,6 +194,7 @@ extension SelfTest {
             + HistoryFrontViewChecks.tests
             + SettingsHelpChecks.tests
             + ChromeAlignmentChecks.tests
+            + StoryExpandAllChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
