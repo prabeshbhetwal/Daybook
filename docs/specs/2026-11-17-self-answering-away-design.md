@@ -13,8 +13,8 @@ surfaces), `2026-10-19-breaks-design.md` (break records and `breakOrigin`),
 
 On 17 November 2026 the owner came back to the Mac after 17 minutes and Daybook
 asked "What happened while you were away?" with four buttons (It Was a Break,
-I Was Working, I Was Away, Start Fresh) and a name field. He judged it a very
-poor implementation. Daybook's own machine-event log for that absence reads:
+I Was Working, I Was Away, Start Fresh) and a name field. The owner judged it
+a very poor implementation. Daybook's own machine-event log for that absence reads:
 
 | Time | Event |
 |---|---|
@@ -39,7 +39,7 @@ gap was locked, asleep, off or unexplained.
 
 The owner's ruling: **answer first, ask rarely.** Daybook records a clear
 absence itself, says why in plain words, and leaves one Change control. The
-sketch he approved:
+approved sketch:
 
 ```
 Away 17 min · 10:05 – 10:23 pm · Mac was asleep
