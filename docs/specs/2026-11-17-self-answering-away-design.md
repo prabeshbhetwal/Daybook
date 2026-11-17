@@ -365,20 +365,35 @@ the return. It leaves the answers and becomes a session action.
   "Start Fresh From Here". *My call:* the owner ruled it out of the answers;
   the session line keeps it one click away at the moment it was used, without
   making it an answer.
-- **When it shows:** the running stretch's start equals the latest resolved
-  receipt's range end, and the stretch's thread is still the one `apply` gave
-  it. Receipts are persisted, so the test holds after a relaunch. A Change of
-  the answer does not hide it. Once used, the thread differs and the item
-  hides; the next absence's receipt starts the test again.
-- **What it does:** the running stretch moves to a new thread with no name,
-  starting at the return, exactly as `.resetTimer` does today. The away answer
-  (break, uncounted or work) is untouched.
+- **When it shows:** the latest resolved receipt's range ends inside the
+  running stretch, with no stretch boundary after it, and the thread is still
+  the one the answer left. Two shapes meet that test. After a break or an
+  uncounted answer, `apply` began a fresh stretch at the return, so the
+  stretch starts at the range end. After Count as Work, `apply` keeps the
+  original stretch running across the absence (`.mergeTime` keeps
+  `sessionStartDate`), so the range end falls inside it. Receipts are
+  persisted, so the test holds after a relaunch, and a Change of the answer
+  does not hide it. Once used, the thread differs and the item hides; the next
+  absence's receipt starts the test again.
+- **What it does,** by shape:
+  - *Stretch starts at the return* (break or uncounted): the running stretch
+    moves to a new thread with no name, starting at the return, exactly as
+    `.resetTimer` does today.
+  - *Stretch spans the absence* (counted as work): the stretch is ended at the
+    return, so its record keeps everything before it, the work before the
+    absence and the absence counted as work, on the original thread; a new
+    stretch on a new thread with no name begins at the return and carries the
+    work done since. This is the existing end-stretch operation applied at the
+    return, so no counted second moves or disappears.
+  In both shapes the away answer is untouched.
 - **Engine:** a new method on the owner, not a new answer. `UserDecision
   .resetTimer` stays in the enum so old receipts decode, and no new answer
   produces it.
-- **Undo:** one `DecisionHistory` transaction of operation `.correction` whose
-  before and after states differ only in the live thread id and name; Edit ›
-  Undo restores both.
+- **Undo:** one `DecisionHistory` transaction of operation `.correction`. For
+  the first shape its before and after states differ only in the live thread
+  id and name; for the second it also adds the closed stretch's record, which
+  Undo removes as the stretch is reopened. Edit › Undo restores the stretch
+  as it was.
 
 ### 6. Copy
 
