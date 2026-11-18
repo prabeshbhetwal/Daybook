@@ -62,7 +62,7 @@ enum RedundancyChecks {
 
     private static func captionsAddOnly() -> [String] {
         var failures: [String] = []
-        let covered = SessionStore.sessionEvidenceNotes(coverage: 2_100, elapsed: 2_580,
+        let covered = SessionStore.sessionEvidenceNotes(coverage: 2_100, gap: 480,
                                                         isRunning: false, isTrackingEnabled: true,
                                                         conflicting: false)
         if covered.card != "Apps in use for 35m of 43m." {
@@ -71,13 +71,19 @@ enum RedundancyChecks {
         if covered.report != "Nothing was recorded for 8m." {
             failures.append("the report note repeats its figures: \(covered.report ?? "nil")")
         }
-        // 9m 50s of 14m 10s prints 9m of 14m, so the gap prints 5m, not 4m.
-        let rounded = SessionStore.sessionEvidenceNotes(coverage: 590, elapsed: 850, isRunning: false,
+        // 9m 50s used and 4m 20s unrecorded print 9m and 4m: the span is their sum, 13m.
+        let rounded = SessionStore.sessionEvidenceNotes(coverage: 590, gap: 260, isRunning: false,
                                                         isTrackingEnabled: true, conflicting: false)
-        if rounded.card != "Apps in use for 9m of 14m." || rounded.report != "Nothing was recorded for 5m." {
+        if rounded.card != "Apps in use for 9m of 13m." || rounded.report != "Nothing was recorded for 4m." {
             failures.append("printed figures did not add up: \(rounded)")
         }
-        let runningOff = SessionStore.sessionEvidenceNotes(coverage: 0, elapsed: 600,
+        // A break between a continued session's stretches is not a recording gap.
+        let continued = SessionStore.sessionEvidenceNotes(coverage: 1_200, gap: 0, isRunning: false,
+                                                          isTrackingEnabled: true, conflicting: false)
+        if continued.report != nil || continued.card != "Apps in use for 20m of 20m." {
+            failures.append("a fully recorded continued session reported a gap: \(continued)")
+        }
+        let runningOff = SessionStore.sessionEvidenceNotes(coverage: 0, gap: 600,
                                                            isRunning: true, isTrackingEnabled: false,
                                                            conflicting: false)
         if runningOff.card != nil {
@@ -86,7 +92,7 @@ enum RedundancyChecks {
         if runningOff.report?.contains("Record app use is off") != true {
             failures.append("the report, which has no banner, lost the recording-off note")
         }
-        let unrecorded = SessionStore.sessionEvidenceNotes(coverage: 0, elapsed: 600,
+        let unrecorded = SessionStore.sessionEvidenceNotes(coverage: 0, gap: 600,
                                                            isRunning: false, isTrackingEnabled: true,
                                                            conflicting: true)
         if unrecorded.card?.contains("Recorded focus") != false
