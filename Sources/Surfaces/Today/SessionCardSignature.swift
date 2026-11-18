@@ -16,6 +16,7 @@ struct SessionCardSignature: Equatable {
     var shape: String?
     var shapeCaption: String?
     var activity: RecordedActivity?
+    var phases: SessionActivityShape?
     var canContinue: Bool
     var canStartNewSession: Bool
     var isOpen: Bool

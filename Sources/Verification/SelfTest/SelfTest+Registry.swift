@@ -195,8 +195,18 @@ extension SelfTest {
             + SettingsHelpChecks.tests
             + ChromeAlignmentChecks.tests
             + StoryExpandAllChecks.tests
+            + BeatArchiveChecks.tests
+            + BeatRecorderChecks.tests
+            + ActivityCreditChecks.tests
+            + ActivitySweepChecks.tests
+            + ActivityDerivationChecks.tests
+            + ActivityEvidenceStoreChecks.tests
+            + ActivitySnapshotChecks.tests
+            + SessionPhaseStripChecks.tests
+            + ActivityReviewFixChecks.tests
             + DayRecapChecks.tests
             + GlanceableRailChecks.tests
+            + ActivityCoverageChecks.tests
             + DailyGoalListChecks.tests
     }
 

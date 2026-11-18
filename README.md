@@ -416,6 +416,13 @@ metadata. A version 1 file is rewritten as version 2 before the first journal
 line, so a build that does not know the journal leaves it read-only rather than
 writing over changes it cannot see.
 
+While app use is recorded, Daybook also keeps a `beats` folder holding, for
+each app and half-minute, the seconds spent in the app, counts of keys, clicks
+and scrolls, a presence state and which apps held the screen awake (never what
+was typed). The folder keeps 90 days and is left out of Daybook's own backups.
+Each session also keeps a short summary of its phases in the notes files above
+(`session-metadata.json` and its journal), not in its written note.
+
 Until October 2026 the app was called FocusContinuity. Its first launch under
 the new name carries the data folder and preferences across and deletes
 nothing.

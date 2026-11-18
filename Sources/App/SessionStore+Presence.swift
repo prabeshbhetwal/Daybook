@@ -43,6 +43,8 @@ extension SessionStore {
                 engine.transition(on: .appActivated(bundleID: pendingWakeActivation.bundleID,
                                                     name: pendingWakeActivation.name))
                 _ = applyLongAwayResult()
+                // The engine drops it during a break; the break's end reads the app in front.
+                if !isOnBreak { noteBeatActivation(bundleID: pendingWakeActivation.bundleID, at: now()) }
                 self.pendingWakeActivation = nil
             }
             if deferredAutomationPending {
@@ -71,6 +73,7 @@ extension SessionStore {
                     tracker?.prepareToResume(bundleID: bundleID, name: name)
                 } else {
                     tracker?.appActivated(bundleID: bundleID, name: name)
+                    noteBeatActivation(bundleID: bundleID, at: now())
                 }
                 engine.transition(on: .appActivated(bundleID: bundleID, name: name))
                 _ = applyLongAwayResult()
@@ -108,7 +111,7 @@ extension SessionStore {
     private func observeIdle() {
         let raw = idle.idleSeconds()
         let now = Date()
-        let displayAwake = CGDisplayIsAsleep(CGMainDisplayID()) == 0
+        let displayAwake = readDisplayAwake()
         let observation = presenceGate.observe(rawIdleSeconds: raw,
                                                at: now,
                                                displayAwake: displayAwake,
@@ -122,6 +125,7 @@ extension SessionStore {
             quietSampler.noteInput()
             tracker?.observeIdle(seconds: quiet)
             engine.transition(on: .idleObserved(seconds: quiet))
+            noteBeatReading(quiet < 5 ? .input : .quiet, watched: nil)
             return
         }
         let holders: WatchDetector.Reading
@@ -147,6 +151,11 @@ extension SessionStore {
                                         idlePaused: engine.state == .paused(reason: .idle))
         tracker?.observeIdle(seconds: reading.trackerSeconds)
         engine.transition(on: reading.event)
+        if case .watchingObserved(_, let byAgent) = reading.event {
+            noteBeatReading(byAgent ? .agent : .watched, watched: holders.watchedApps)
+        } else {
+            noteBeatReading(.quiet, watched: holders.watchedApps)
+        }
     }
 
     /// One network reading every `WorkTraffic.interval` of quiet, so a coding
@@ -211,6 +220,7 @@ extension SessionStore {
     func runTick() {
         tick += 1
         observeIdle()
+        recordBeatTick(at: now())
         // A break under way is timed, ended and announced from here, after the
         // idle reading above has told the presence gate what it needs to know.
         tickBreak()
@@ -227,6 +237,7 @@ extension SessionStore {
             // last app switch, and a relaunch reads everything since it as
             // an absence. A heartbeat bounds that to a minute too.
             if engine.state != .idle { engine.persist() }
+            writeActivitySnapshots()
         }
         // Breaks are timed from continuous use, which nothing else observes
         // on a schedule: staying inside one app posts no notification, so a

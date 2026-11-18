@@ -781,6 +781,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // A note being written lives only in memory; the quit saves it, as
         // Save would, rather than drop it.
         store.saveNoteDraftsBeforeQuit()
+        // The beat in progress is written, not dropped with up to 29 seconds.
+        store.endBeatRecording(at: store.now())
         engine.persist()
         tracker.suspend()
         monitor.stop()

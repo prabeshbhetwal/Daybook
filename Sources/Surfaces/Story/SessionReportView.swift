@@ -339,6 +339,7 @@ struct SessionReportView: View {
 
     private var activity: some View {
         section("Recorded activity") {
+            SessionPhaseStrip.ifShown(report.detail.phases, lasted: report.detail.activity.elapsed, tint: tint)
             StoryShapeChart(activity: report.detail.activity, runsListedBelow: true)
             // Latest first: the reader opens a report to see where it ended.
             // The chart above stays left-to-right in time.

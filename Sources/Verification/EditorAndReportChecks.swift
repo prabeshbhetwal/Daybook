@@ -202,7 +202,7 @@ enum EditorAndReportChecks: CheckSuite {
                                  start: start, end: end, worked: end.timeIntervalSince(start), stretches: 1,
                                  spans: [DateInterval(start: start, end: end)], isRunning: running)
         let detail = StorySessionDetail(apps: [], text: nil, caption: nil, reportNote: nil,
-                                        activity: RecordedActivity(segments: [], spans: []), bins: [])
+                                        activity: RecordedActivity(segments: [], spans: []), bins: [], phases: nil)
         let stretch = SessionReport.Stretch(id: UUID(), start: span?.start ?? start, end: span?.end ?? end,
                                             worked: (span?.end ?? end).timeIntervalSince(span?.start ?? start),
                                             note: nil)

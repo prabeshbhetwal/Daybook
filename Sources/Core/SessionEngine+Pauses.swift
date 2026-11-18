@@ -80,6 +80,13 @@ extension SessionEngine {
             ? spans : nil
     }
 
+    /// The running record's pauses so far, the open one included; nil when the engine does not
+    /// trust its own spans. A public name for `trustedPausedSpans(until:)`, which `keep_internals`
+    /// keeps private to the engine's files. Read-only.
+    func pausedSpansSoFar(until end: Date) -> [DateInterval]? {
+        trustedPausedSpans(until: end)
+    }
+
     /// Ends a declared away. The user said they were leaving, so there is
     /// nothing to ask — but an absence long enough to have been asked about is
     /// a break, and a break ends a stretch: the stretch closes where they left,

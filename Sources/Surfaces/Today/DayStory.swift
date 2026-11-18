@@ -329,10 +329,7 @@ struct DayStory: View {
             let isCurrentStoryDay = projection?.isCurrentDay ?? store.isToday
             let live = DayStorySessionPresentation.make(
                 session: session, isCurrentStoryDay: isCurrentStoryDay, store: store)
-            let detail = isOpen
-                ? (projection?.sessionDetails[session.id] ?? store.storySessionDetail(session,
-                    on: projection?.date ?? store.selectedDay))
-                : nil
+            let detail = isOpen ? store.openSessionDetail(session, in: projection) : nil
             let recordIDs = session.recordIDs.isEmpty ? [session.id] : session.recordIDs
             let power = store.powerSummary(for: recordIDs,
                 interval: DateInterval(start: session.start, end: max(session.start, session.end)))
@@ -343,7 +340,7 @@ struct DayStory: View {
             let canContinueSession = store.canContinue(session)
             let signature = SessionCardSignature(
                 session: session, apps: detail?.apps ?? [], shape: detail?.text,
-                shapeCaption: detail?.caption, activity: detail?.activity,
+                shapeCaption: detail?.caption, activity: detail?.activity, phases: detail?.phases,
                 canContinue: canContinueSession, canStartNewSession: canStartNew, isOpen: isOpen,
                 clock: live.clock, liveStatus: live.liveStatus, power: power, recordIDs: recordIDs,
                 notes: noteFacts.notes, editorsOpen: noteFacts.editorsOpen, metadataError: noteFacts.error,
@@ -362,7 +359,7 @@ struct DayStory: View {
                                      shape: detail?.text,
                                      shapeCaption: detail?.caption,
                                      gapNote: detail?.reportNote,
-                                     activity: detail?.activity,
+                                     activity: detail?.activity, phases: detail?.phases,
                                      canContinue: canContinueSession,
                                      // A stretch of the thread running now is neither continued
                                      // nor started again: it is already going.
@@ -508,6 +505,7 @@ struct SessionEntryCard: View {
     /// "Nothing was recorded for 5m.", for the strip's info.
     var gapNote: String?
     var activity: RecordedActivity?
+    var phases: SessionActivityShape?
     var canContinue = false
     var canStartNewSession = false
     let isOpen: Bool
@@ -548,7 +546,7 @@ struct SessionEntryCard: View {
     /// than two minutes turns a few seconds of evidence into visual noise.
     private var showsActivityStrip: Bool {
         guard let activity else { return false }
-        return activity.hasRecordedActivity && activity.elapsed >= 120
+        return activity.hasRecordedActivity && activity.elapsed >= SessionPhaseStrip.minimumElapsed
     }
 
     var body: some View {
@@ -639,7 +637,7 @@ struct SessionEntryCard: View {
                             // second and, under the numeric transition, each change
                             // kept its glyphs (see ClockText). A finished total changes
                             // rarely and rolls.
-                            Group {
+                            withDepth(Group {
                                 if clock != nil {
                                     ClockText(seconds: session.worked)
                                 } else {
@@ -650,7 +648,7 @@ struct SessionEntryCard: View {
                             .font(Tokens.Typography.body.weight(clock == nil ? .regular : .semibold)
                                 .monospacedDigit())
                             .foregroundStyle(clock == nil ? AnyShapeStyle(StoryStyle.supportingInk)
-                                                          : AnyShapeStyle(StoryStyle.workTypeInk(session.workType)))
+                                                          : AnyShapeStyle(StoryStyle.workTypeInk(session.workType))))
                             if let powerSummary {
                                 Label(powerSummary.headline, systemImage: powerSummary.symbolName)
                                     .font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
@@ -835,43 +833,7 @@ struct SessionEntryCard: View {
         }
     }
 
-    /// The strip, its key and one line; what the session's recording means
-    /// in full is behind the info mark, not in sentences under the strip.
-    private var activityDetail: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            HStack(spacing: Tokens.Space.xs) {
-                sectionLabel("Apps used")
-                InfoMark(title: "Apps used", entries: StoryShapeChart.help(shape: shape, gap: gapNote))
-                Spacer(minLength: 0)
-            }
-            if let activity {
-                StoryShapeChart(activity: activity)
-            }
-            if let shapeCaption {
-                Text(shapeCaption)
-                    .font(Tokens.Typography.body)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    @ViewBuilder private var factualCaption: some View {
-        if let shape {
-            Text(shape)
-                .font(Tokens.Typography.body)
-                .foregroundStyle(StoryStyle.supportingInk)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        if let shapeCaption {
-            Text(shapeCaption)
-                .font(Tokens.Typography.body)
-                .foregroundStyle(StoryStyle.supportingInk)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private func sectionLabel(_ text: String) -> some View {
+    func sectionLabel(_ text: String) -> some View {
         Text(text)
             .font(Tokens.Typography.label)
             .foregroundStyle(StoryStyle.supportingInk)
