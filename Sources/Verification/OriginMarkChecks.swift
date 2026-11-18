@@ -146,6 +146,12 @@ enum OriginMarkChecks: CheckSuite {
             worked.store.engine.archive.append(later)
             expect(words(worked.store.originText(for: ActivitySnapshotChecks.daySession([later]))) == ["Started by you"],
                    "an answer outside the session marked it as carried on", &problems)
+            // An overlapping session of another thread does not borrow the answer.
+            let other = SessionRecord(name: "Other", workType: .deepWork, start: counted.start, end: counted.end,
+                                      workSeconds: 600, threadID: UUID())
+            worked.store.engine.archive.append(other)
+            expect(words(worked.store.originText(for: ActivitySnapshotChecks.daySession([other]))) == ["Started by you"],
+                   "another thread's session borrowed the answer", &problems)
             return problems
         }
     }
@@ -239,8 +245,8 @@ enum OriginMarkChecks: CheckSuite {
             expect(words(SessionReport.make(for: manual, store: store).origin) == ["Started by you"],
                    "the report did not carry the mark", &problems)
             // Taking the category over makes it the person's, and then the evidence is held against it.
-            expect(store.setWorkType(.meetings, for: automatic), "the category change was refused", &problems)
-            expect(SessionReport.make(for: automatic.recategorised(as: .meetings), store: store).contradiction == line,
+            expect(store.setWorkType(.admin, for: automatic), "the category change was refused", &problems)
+            expect(SessionReport.make(for: automatic.recategorised(as: .admin), store: store).contradiction == line,
                    "a category the person took over got no line", &problems)
             return problems
         }

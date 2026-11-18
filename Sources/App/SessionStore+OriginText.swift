@@ -40,22 +40,25 @@ struct OriginText: Equatable {
 
 extension SessionStore {
     /// The mark for a session's row and report; nil where nothing says how it began.
-    func originText(for session: DaySession) -> OriginText? {
+    func originText(for session: DaySession) -> OriginText? { origin(for: session).text }
+
+    /// The mark and how the session began, from one pass over the archive: the first stretch says how it
+    /// began, and a running stretch not yet written says it through the engine.
+    func origin(for session: DaySession) -> (text: OriginText?, provenance: SessionProvenance?) {
         let stretches = records(of: session)
-        guard let began = provenance(of: session, in: stretches) else { return nil }
-        return OriginText.make(began, rules: began.origin == .rule ? engine.store.activityRules : [],
-                               carriedOn: carriedOn(session, in: stretches))
+        guard let began = provenance(of: session, in: stretches) else { return (nil, nil) }
+        return (OriginText.make(began, rules: began.origin == .rule ? engine.store.activityRules : [],
+                                carriedOn: carriedOn(session, in: stretches)), began)
     }
 
-    /// How the session began: its first stretch says so, and a running stretch not yet written says it
-    /// through the engine.
-    func provenance(of session: DaySession) -> SessionProvenance? {
-        provenance(of: session, in: records(of: session))
-    }
-
+    /// Newest first, and done once every stretch is found: a session is nearly always among the last records.
     private func records(of session: DaySession) -> [SessionRecord] {
-        let ids = Set(session.recordIDs)
-        return engine.archive.records.filter { ids.contains($0.id) }
+        var wanted = Set(session.recordIDs), found: [SessionRecord] = []
+        for record in engine.archive.records.reversed() where wanted.remove(record.id) != nil {
+            found.append(record)
+            if wanted.isEmpty { break }
+        }
+        return found
     }
 
     private func provenance(of session: DaySession, in stretches: [SessionRecord]) -> SessionProvenance? {
@@ -67,7 +70,8 @@ extension SessionStore {
     /// An "I was working" answer put time back inside one of the session's stretches (plan ruling B15).
     /// Read from the answers, never stored: today every away answer is the person's own.
     private func carriedOn(_ session: DaySession, in stretches: [SessionRecord]) -> Bool {
-        let answers = engine.awayDecisions.filter { $0.decision == .mergeTime }.map(\.range)
+        let answers = engine.awayDecisions.filter { $0.decision == .mergeTime && $0.threadID == session.threadID }
+            .map(\.range)
         guard !answers.isEmpty else { return false }
         let spans = session.spans.map { ($0.start, $0.end) } + stretches.map { ($0.start, $0.end) }
         return answers.contains { answer in spans.contains { $0.0 <= answer.start && answer.end <= $0.1 } }

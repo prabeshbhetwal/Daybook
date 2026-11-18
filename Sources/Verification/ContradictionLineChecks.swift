@@ -13,14 +13,20 @@ enum ContradictionLineChecks: CheckSuite {
          wording),
     ]
 
+    /// Registered at the end of the registry, so the numbers cited in comments stay where they were.
+    static let watchingTests: [(String, () -> [String])] = [
+        ("A category that counts while watching also stands for media: held time never contradicts it",
+         watchingCategories),
+    ]
     /// Credited minutes by purpose, in the seconds a stored shape keeps.
     static func credited(_ minutes: [AppPurpose: Double]) -> [String: TimeInterval] {
         Dictionary(uniqueKeysWithValues: minutes.map { ($0.key.rawValue, $0.value * 60) })
     }
 
     private static func line(_ category: WorkType, _ minutes: [AppPurpose: Double],
-                             source: DecisionSource = .user) -> String? {
-        ContradictionLine.text(category: category, source: source, credited: credited(minutes))
+                             source: DecisionSource = .user, watching: Bool? = nil) -> String? {
+        ContradictionLine.text(category: category, source: source, credited: credited(minutes),
+                               countsWhileWatching: watching ?? category.countsWhileWatching)
     }
 
     private static func edges() -> [String] {
@@ -43,11 +49,11 @@ enum ContradictionLineChecks: CheckSuite {
         var problems: [String] = []
         let shape = credited([.coding: 29, .media: 61, .utility: 10])
         for source in [DecisionSource.user, .rule] {
-            expect(ContradictionLine.text(category: .deepWork, source: source, credited: shape) != nil,
+            expect(ContradictionLine.text(category: .deepWork, source: source, credited: shape, countsWhileWatching: false) != nil,
                    "a category from \(source) got no line", &problems)
         }
         for source in [DecisionSource.builtIn, .correction, .ai] {
-            expect(ContradictionLine.text(category: .deepWork, source: source, credited: shape) == nil,
+            expect(ContradictionLine.text(category: .deepWork, source: source, credited: shape, countsWhileWatching: false) == nil,
                    "a category from \(source) got a line: Daybook's own guess is not contradicted", &problems)
         }
         return problems
@@ -62,9 +68,11 @@ enum ContradictionLineChecks: CheckSuite {
                "30% across three focused purposes fired", &problems)
         expect(line(.deepWork, [.coding: 20, .writingAI: 70, .utility: 10]) == nil,
                "mostly Writing & AI contradicted Deep work", &problems)
-        // Meetings: communication.
-        expect(line(.meetings, [.communication: 20, .media: 70, .utility: 10]) == "Mostly media: 70 of 100 minutes",
-               "meetings spent on media did not say so", &problems)
+        // Meetings: communication, and media too, since a meeting counts while watching.
+        expect(line(.meetings, [.communication: 20, .media: 70, .utility: 10]) == nil,
+               "a meeting held in a browser, read as video, was contradicted", &problems)
+        expect(line(.meetings, [.communication: 20, .utility: 80]) == "Mostly utility: 80 of 100 minutes",
+               "meetings spent in utilities did not say so", &problems)
         expect(line(.meetings, [.communication: 100]) == nil, "an all-communication meeting fired", &problems)
         expect(line(.meetings, [.communication: 25, .coding: 75]) == "Mostly coding: 75 of 100 minutes",
                "meetings spent coding did not say so", &problems)
@@ -89,6 +97,26 @@ enum ContradictionLineChecks: CheckSuite {
         return problems
     }
 
+    private static func watchingCategories() -> [String] {
+        var problems: [String] = []
+        let film: [AppPurpose: Double] = [.coding: 20, .media: 80]
+        // Meetings and Learning count while watching, so the film they hold is their work.
+        for category in [WorkType.meetings, .learning] {
+            expect(category.countsWhileWatching, "\(category) no longer counts while watching", &problems)
+            expect(line(category, film) == nil, "\(category) held mostly media and was contradicted", &problems)
+        }
+        // The flag, not the name, decides: a category of the person's own that sets it, and one that does not.
+        let custom = WorkType(rawValue: "custom.screenings")
+        expect(line(custom, film, watching: true) == nil, "a watching category of the person's own was contradicted",
+               &problems)
+        expect(line(custom, film, watching: false) == "Mostly media: 80 of 100 minutes",
+               "a category that does not count while watching was not contradicted by media", &problems)
+        // Media alone is allowed; any other purpose still contradicts, whatever the category counts.
+        expect(line(custom, [.coding: 20, .communication: 80], watching: true) == "Mostly communication: 80 of 100 minutes",
+               "a watching category tolerated more than media", &problems)
+        expect(line(.deepWork, film) == "Mostly media: 80 of 100 minutes", "Deep work tolerated media", &problems)
+        return problems
+    }
     private static func wording() -> [String] {
         var problems: [String] = []
         for purpose in [AppPurpose.communication, .research, .media, .utility] {
@@ -101,11 +129,14 @@ enum ContradictionLineChecks: CheckSuite {
                "only the first letter of an activity name drops to lower case", &problems)
         // Minutes come from the credited seconds, each rounded to the nearest minute.
         let seconds = ContradictionLine.text(category: .deepWork, source: .user,
-                                             credited: [AppPurpose.coding.rawValue: 1_000, AppPurpose.media.rawValue: 3_700])
+                                             credited: [AppPurpose.coding.rawValue: 1_000, AppPurpose.media.rawValue: 3_700],
+                                             countsWhileWatching: false)
         expect(seconds == "Mostly media: 62 of 78 minutes", "3700 of 4700 seconds read \(String(describing: seconds))", &problems)
-        let one = ContradictionLine.text(category: .deepWork, source: .user, credited: [AppPurpose.media.rawValue: 60])
+        let one = ContradictionLine.text(category: .deepWork, source: .user, credited: [AppPurpose.media.rawValue: 60],
+                                          countsWhileWatching: false)
         expect(one == "Mostly media: 1 of 1 minute", "one minute read \(String(describing: one))", &problems)
-        let thin = ContradictionLine.text(category: .deepWork, source: .user, credited: [AppPurpose.media.rawValue: 59])
+        let thin = ContradictionLine.text(category: .deepWork, source: .user, credited: [AppPurpose.media.rawValue: 59],
+                                           countsWhileWatching: false)
         expect(thin == nil, "under a minute of credit was worth a line", &problems)
         return problems
     }

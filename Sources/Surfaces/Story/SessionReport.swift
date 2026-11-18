@@ -74,6 +74,7 @@ struct SessionReport {
         // The session's own day, not whichever day the Story happens to be
         // on: a report opened from Insights or History is for a past day.
         let detail = store.storySessionDetail(session, on: session.start)
+        let began = store.origin(for: session)
         let ids = Set(session.recordIDs)
         let stretches = store.engine.archive.records
             .filter { ids.contains($0.id) }
@@ -93,10 +94,11 @@ struct SessionReport {
                              gapReasons: gapReasons(listing(detail.activity.intervals), store: store,
                                                     day: session.start),
                              suggestion: store.correctionSuggestion(for: session),
-                             origin: store.originText(for: session),
-                             contradiction: store.provenance(of: session).flatMap {
+                             origin: began.text,
+                             contradiction: began.provenance.flatMap {
                                  ContradictionLine.text(category: session.workType, source: $0.categorySource,
-                                                        credited: detail.phases?.credited ?? [:])
+                                                        credited: detail.phases?.credited ?? [:],
+                                                        countsWhileWatching: session.workType.countsWhileWatching)
                              },
                              split: store.splitOffer(for: session), mergeBack: store.mergeBackOffer(for: session))
     }

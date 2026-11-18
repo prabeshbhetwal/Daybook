@@ -19,9 +19,12 @@ enum ContradictionLine {
     }
 
     /// `credited` is a stored shape's credited seconds by purpose. Under a minute of it there is nothing
-    /// worth a line, and no minutes to count.
-    static func text(category: WorkType, source: DecisionSource, credited: [String: TimeInterval]) -> String? {
-        guard source == .user || source == .rule, let stands = purposes(for: category) else { return nil }
+    /// worth a line, and no minutes to count. A category that counts while watching (`countsWhileWatching`,
+    /// as Meetings and Learning do) also stands for media: the film it holds is the work, not a contradiction.
+    static func text(category: WorkType, source: DecisionSource, credited: [String: TimeInterval],
+                     countsWhileWatching: Bool) -> String? {
+        guard source == .user || source == .rule, var stands = purposes(for: category) else { return nil }
+        if countsWhileWatching { stands.insert(.media) }
         var seconds: [AppPurpose: TimeInterval] = [:]
         for (key, value) in credited where value > 0 {
             if let purpose = AppPurpose(rawValue: key) { seconds[purpose, default: 0] += value }

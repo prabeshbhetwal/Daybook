@@ -4,7 +4,22 @@ import SwiftUI
 /// the app's own with a name it chose, and one whose label the evidence contradicts), the report that adds
 /// the contradiction line and the report that offers a category remembered from before. The sessions come
 /// the way the app makes them, from the engine, an away answer and a stored shape, never from hand-made text.
+extension SnapshotScenario {
+    /// The review cards of how a session began and of the offer to split one: compact, one card each.
+    var isReviewCard: Bool { self == .storyOrigin || self == .storySplit }
+    var reviewTitle: String {
+        self == .storyOrigin ? "Story — how sessions began, a contradiction line and the suggestion row"
+            : "Story — the offer to split a session, and Merge Back on the tail of a split"
+    }
+}
 extension Snapshotter {
+    static func reviewCard(for scenario: SnapshotScenario) -> AnyView {
+        switch scenario {
+        case .storyOrigin: return originMarks()
+        case .storySplit: return splitOffers()
+        default: return AnyView(Text("Unsupported compact snapshot"))
+        }
+    }
     static func originMarks() -> AnyView {
         let fixture = FixtureFactory.originStore()
         let view = HStack(alignment: .top, spacing: Tokens.Space.xl) {
