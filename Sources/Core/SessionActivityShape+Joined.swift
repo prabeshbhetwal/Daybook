@@ -3,12 +3,22 @@ import Foundation
 extension SessionActivityShape {
     /// The shapes stored for a session's records, which run one after another, read as the one session.
     /// Time, credit and phases add up and the label follows the summed credit; depth and the
-    /// fingerprint belong to one run of evidence, so a join of several has neither. One shape is itself.
+    /// fingerprint belong to one run of evidence, so a join of several has neither. The time between
+    /// records (a break, a stop and a continue) is an uncounted away phase, as the beats show it, so the
+    /// phases cover the session's bounds. One shape is itself.
     static func joined(_ parts: [SessionActivityShape]) -> SessionActivityShape? {
         guard let first = parts.first else { return nil }
         guard parts.count > 1 else { return first }
         var credited: [String: TimeInterval] = [:]
         for part in parts { credited.merge(part.credited, uniquingKeysWith: +) }
+        var gaps: [SessionPhase] = []
+        var reached: Date?
+        for part in parts.sorted(by: { $0.bounds.start < $1.bounds.start }) {
+            if let end = reached, part.bounds.start > end {
+                gaps.append(SessionPhase(start: end, end: part.bounds.start, activity: .away, counted: false, credited: [:]))
+            }
+            reached = max(reached ?? part.bounds.end, part.bounds.end)
+        }
         return SessionActivityShape(
             algorithmVersion: parts.map(\.algorithmVersion).min() ?? first.algorithmVersion,
             fidelity: parts.allSatisfy { $0.fidelity == .beats } ? .beats : .appsOnly,
@@ -16,7 +26,7 @@ extension SessionActivityShape {
                                  end: parts.map(\.bounds.end).max() ?? first.bounds.end),
             countedSeconds: parts.reduce(0) { $0 + $1.countedSeconds },
             signals: Set(parts.flatMap(\.signals)).sorted { $0.rawValue < $1.rawValue },
-            phases: parts.flatMap(\.phases).sorted { $0.start < $1.start },
+            phases: (parts.flatMap(\.phases) + gaps).sorted { $0.start < $1.start },
             depth: nil, label: label(of: credited), credited: credited, fingerprint: nil,
             splitCandidates: parts.flatMap(\.splitCandidates).sorted())
     }

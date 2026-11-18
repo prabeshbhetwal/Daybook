@@ -6,15 +6,22 @@ extension ActivityDerivation {
     /// No input is known, so an ambiguous app (a browser) is `.browsing` and credits nothing; any
     /// other app is its purpose as if active. A stretch with no recorded app is `.away` and
     /// uncounted. Cells are the same 60 s cut as beats use, so `phases(cells:)` does the smoothing.
-    /// `countedSeconds` is the session's counted spans inside `bounds`, gaps included.
+    /// `counted` is the session's counted time (its spans less trusted pauses; nil reads the spans
+    /// whole): app use outside it, such as through a manual pause, credits nothing and is uncounted.
+    /// `countedSeconds` is the counted time inside `bounds`, gaps included.
     static func appsOnly(_ activity: RecordedActivity, bounds: DateInterval,
-                         purposeOverrides: [String: String]) -> SessionActivityShape {
+                         purposeOverrides: [String: String], counted: [DateInterval]? = nil) -> SessionActivityShape {
+        let spans = counted ?? activity.bounds
         let recorded: [(interval: DateInterval, key: PhaseActivity, purpose: AppPurpose?)] =
-            activity.intervals.compactMap { item in
-                guard let app = item.bundleID, item.end > item.start else { return nil }
-                if ActivityCredit.isAmbiguous(app, purposeOverrides) { return (item.interval, .browsing, nil) }
-                let purpose = PurposeMap.purpose(for: app, activity: .active, overrides: purposeOverrides)
-                return (item.interval, .purpose(purpose), purpose)
+            activity.intervals.flatMap { item -> [(interval: DateInterval, key: PhaseActivity, purpose: AppPurpose?)] in
+                guard let app = item.bundleID, item.end > item.start else { return [] }
+                let ambiguous = ActivityCredit.isAmbiguous(app, purposeOverrides)
+                let purpose = ambiguous ? nil : PurposeMap.purpose(for: app, activity: .active, overrides: purposeOverrides)
+                return spans.compactMap { span in
+                    let start = max(span.start, item.start), end = min(span.end, item.end)
+                    guard end > start else { return nil }
+                    return (DateInterval(start: start, end: end), purpose.map(PhaseActivity.purpose) ?? .browsing, purpose)
+                }
             }
 
         var cells: [PhaseCell] = []
@@ -44,14 +51,10 @@ extension ActivityDerivation {
             ? top(total).map(ActivityLabel.activity) ?? .unsorted : .unsorted
         return SessionActivityShape(
             algorithmVersion: ActivityConstants.algorithmVersion, fidelity: .appsOnly, bounds: bounds,
-            countedSeconds: activity.bounds.reduce(0) { sum, span in
+            countedSeconds: spans.reduce(0) { sum, span in
                 sum + max(0, min(span.end, bounds.end).timeIntervalSince(max(span.start, bounds.start)))
             },
             signals: [], phases: phases(cells: cells), depth: nil, label: named, credited: raw(total),
             fingerprint: nil, splitCandidates: [])
     }
-}
-
-private extension RecordedActivity.Interval {
-    var interval: DateInterval { DateInterval(start: start, end: end) }
 }

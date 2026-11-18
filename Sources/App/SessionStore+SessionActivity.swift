@@ -71,9 +71,12 @@ extension SessionStore {
 
     private func readActivity(for session: DaySession, bounds: DateInterval, apps: RecordedActivity?) -> SessionActivityShape? {
         let evidence = activityEvidence
+        let moment = now()
         if evidence.archive.covers(from: bounds.start) {
             let beats = evidence.archive.beats(in: bounds)
-            if !beats.isEmpty { return derivedActivity(for: session, bounds: bounds, beats: beats) }
+            if !beats.isEmpty, let shape = derivedActivity(for: session, bounds: bounds, beats: beats, at: moment) {
+                return shape
+            }
         }
         let kept = session.recordIDs.compactMap { metadataArchive.metadata(for: $0)?.activityShape }
         if !kept.isEmpty, kept.count == session.recordIDs.count, let joined = SessionActivityShape.joined(kept) {
@@ -81,27 +84,18 @@ extension SessionStore {
         }
         let recorded = apps ?? RecordedActivity(segments: timelineSegments(of: session, on: session.start),
                                                 spans: session.spans)
-        return ActivityDerivation.appsOnly(recorded, bounds: bounds, purposeOverrides: engine.store.purposeOverrides)
+        // Its trusted pauses are not counted: app use goes on through a manual pause.
+        return ActivityDerivation.appsOnly(recorded, bounds: bounds, purposeOverrides: engine.store.purposeOverrides,
+                                           counted: CountedTime.spans(records: countedRecords(of: session, in: bounds, at: moment),
+                                                                      beats: []))
     }
 
-    private func derivedActivity(for session: DaySession, bounds: DateInterval, beats: [Beat]) -> SessionActivityShape {
-        let moment = now()
-        // Each record's own pauses count, the running one's from the engine; nothing is read from the beats' presence.
-        let records = session.recordIDs.compactMap { id -> (bounds: DateInterval, paused: [DateInterval]?)? in
-            let record: (start: Date, end: Date, paused: [DateInterval]?)
-            if engine.state != .idle, id == engine.activeRecordID {
-                record = (engine.sessionStartDate, moment, engine.pausedSpansSoFar(until: moment))
-            } else if let found = engine.archive.records.first(where: { $0.id == id }) {
-                // The record's pauses only when they add up to its work, as everywhere else: an undone Away answer
-                // lowers the work and leaves the pauses, and the beats then say what was paused.
-                record = (found.start, found.end, found.exactPausedSpans)
-            } else {
-                return nil
-            }
-            let start = max(record.start, bounds.start), end = min(record.end, bounds.end)
-            return end > start ? (DateInterval(start: start, end: end), record.paused) : nil
-        }
-        let counted = CountedTime.spans(records: records, beats: beats)
+    /// Nil when the beats leave part of the counted time unrecorded (app use switched on partway): the row
+    /// then reads its summary or apps rather than lend a neighbour's purpose to time nothing recorded.
+    private func derivedActivity(for session: DaySession, bounds: DateInterval, beats: [Beat],
+                                 at moment: Date) -> SessionActivityShape? {
+        let counted = CountedTime.spans(records: countedRecords(of: session, in: bounds, at: moment), beats: beats)
+        guard ActivityDerivation.recordsWhole(counted, beats: beats) else { return nil }
         let overrides = engine.store.purposeOverrides, watching = session.workType.countsWhileWatching
         let key = SessionActivityKey(bounds: bounds, counted: counted, beats: beats.count,
                                      algorithmVersion: ActivityConstants.algorithmVersion, isRunning: session.isRunning,
@@ -116,6 +110,26 @@ extension SessionStore {
         if activityEvidence.memo.count >= Self.activityMemoLimit { activityEvidence.memo.removeAll() }
         activityEvidence.memo[row] = SessionActivityMemo(key: key, shape: shape)
         return shape
+    }
+
+    /// Each record's own pauses, the running one's from the engine, cut to `bounds`; nothing is read from
+    /// the beats' presence.
+    private func countedRecords(of session: DaySession, in bounds: DateInterval,
+                                at moment: Date) -> [(bounds: DateInterval, paused: [DateInterval]?)] {
+        session.recordIDs.compactMap { id -> (bounds: DateInterval, paused: [DateInterval]?)? in
+            let record: (start: Date, end: Date, paused: [DateInterval]?)
+            if engine.state != .idle, id == engine.activeRecordID {
+                record = (engine.sessionStartDate, moment, engine.pausedSpansSoFar(until: moment))
+            } else if let found = engine.archive.records.first(where: { $0.id == id }) {
+                // The record's pauses only when they add up to its work, as everywhere else: an undone Away answer
+                // lowers the work and leaves the pauses, and the beats then say what was paused.
+                record = (found.start, found.end, found.exactPausedSpans)
+            } else {
+                return nil
+            }
+            let start = max(record.start, bounds.start), end = min(record.end, bounds.end)
+            return end > start ? (DateInterval(start: start, end: end), record.paused) : nil
+        }
     }
 
     /// An open card's detail: the day's projection leaves phases out, so they are added here, for this
@@ -221,6 +235,8 @@ extension SessionStore {
         let beats = evidence.archive.beats(in: bounds)
         guard !beats.isEmpty else { return settle() }
         let counted = known ?? CountedTime.spans(records: [(bounds: bounds, paused: nil)], beats: beats)
+        // Beats over only part of its counted time leave nothing to keep: the row reads its apps instead.
+        guard ActivityDerivation.recordsWhole(counted, beats: beats) else { return settle() }
         if known == nil, isCurrent(counted) { return settle() }
         let shape = ActivityDerivation.derive(DerivationInput(
             credit: CreditInput(beats: beats, counted: counted, signals: [], purposeOverrides: overrides.all),

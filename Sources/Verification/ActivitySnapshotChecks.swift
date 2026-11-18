@@ -126,7 +126,10 @@ enum ActivitySnapshotChecks: CheckSuite {
         expect(both.credited == ["coding": 700, "design": 900], "credit adds, got \(both.credited)", &problems)
         expect(both.label == .activity(.design), "the label follows the summed credit, got \(both.label)", &problems)
         expect(both.depth == nil && both.fingerprint == nil, "depth and fingerprint are dropped", &problems)
-        expect(both.phases.map(\.start) == [first.bounds.start, second.bounds.start], "the phases keep their order", &problems)
+        // The ten minutes between them (600 to 1,200 s) are kept as an uncounted away phase.
+        expect(both.phases.map(\.start) == [first.bounds.start, first.bounds.end, second.bounds.start]
+                && both.phases.map(\.counted) == [true, false, true] && both.phases[1].activity == .away,
+               "the phases keep their order, with the time between records uncounted, got \(both.phases.map(\.start))", &problems)
         return problems
     }
 

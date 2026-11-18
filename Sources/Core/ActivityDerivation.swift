@@ -27,6 +27,25 @@ enum ActivityDerivation {
             overridesDigest: SessionActivityShape.digest(input.credit.purposeOverrides))
     }
 
+    /// Whether beats lie over all of the counted time but less than a phase (`minPhase`): the last open
+    /// beat, a tick or two lost. Recording switched on partway leaves counted time no beat saw, and a cell
+    /// there would take its neighbour's purpose, so such a session is read from its apps instead.
+    static func recordsWhole(_ counted: [DateInterval], beats: [Beat]) -> Bool {
+        let seen = beats.map { DateInterval(start: $0.start.addingTimeInterval(TimeInterval($0.offset)),
+                                            end: max($0.start.addingTimeInterval(TimeInterval($0.offset)), $0.end)) }
+            .sorted { $0.start < $1.start }
+        var unseen: TimeInterval = 0
+        for span in counted {
+            var cursor = span.start
+            for beat in seen where beat.end > cursor && beat.start < span.end {
+                unseen += max(0, beat.start.timeIntervalSince(cursor))
+                cursor = beat.end
+            }
+            unseen += max(0, span.end.timeIntervalSince(cursor))
+        }
+        return unseen <= ActivityConstants.minPhase
+    }
+
     /// Seconds credited to each purpose; a slice credited to nothing is left out.
     static func purposeSeconds(_ slices: [CreditedSlice]) -> [AppPurpose: TimeInterval] {
         var seconds: [AppPurpose: TimeInterval] = [:]

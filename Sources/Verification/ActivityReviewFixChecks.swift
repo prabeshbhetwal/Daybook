@@ -234,7 +234,11 @@ enum ActivityReviewFixChecks: CheckSuite {
             let calendar = r.store.periodCalendar
             let edge = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -90, to: r.clock.value) ?? r.clock.value)
             // From 11 pm on the day past the 90 to late morning on the 90th: its first day's file is the one removed.
-            let record = S.record(from: Beat.gridStart(for: edge.addingTimeInterval(-3_600)), seconds: 12 * 3_600)
+            // Paused after its first ten minutes, so its counted time is all recorded.
+            let start = Beat.gridStart(for: edge.addingTimeInterval(-3_600))
+            var record = S.record(from: start, seconds: 12 * 3_600,
+                                  paused: [DateInterval(start: start.addingTimeInterval(600), end: start.addingTimeInterval(12 * 3_600))])
+            record.workSeconds = 600
             S.beats(r.evidence.archive, from: record.start, seconds: 600)
             r.engine.archive.append(record)
             r.evidence.lastPruneDay = nil   // as a launch finds it
