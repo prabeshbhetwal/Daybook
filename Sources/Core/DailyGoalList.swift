@@ -186,4 +186,26 @@ enum DailyGoalList {
         }
         return seconds
     }
+
+    /// Where an app limit stands, in the minutes as they are printed, so "45m
+    /// of 2h limit" and "1h 15m left" always add up. A limit is never "met":
+    /// it is kept, or it is over.
+    struct LimitStatus: Equatable {
+        let used: Int
+        let limit: Int
+        var isOver: Bool { used > limit }
+        var remaining: Int { max(0, limit - used) }
+        var excess: Int { max(0, used - limit) }
+        /// "45m of 2h limit".
+        var figure: String { "\(Self.text(used)) of \(Self.text(limit)) limit" }
+        /// "1h 15m left", or "15m over".
+        var detail: String { isOver ? "\(Self.text(excess)) over" : "\(Self.text(remaining)) left" }
+
+        private static func text(_ minutes: Int) -> String { DurationText.precise(TimeInterval(minutes * 60)) }
+    }
+
+    static func limitStatus(used: TimeInterval, limit: TimeInterval) -> LimitStatus {
+        let minutes = { (DurationText.wholeSeconds($0) ?? 0) / 60 }
+        return LimitStatus(used: minutes(used), limit: minutes(limit))
+    }
 }
