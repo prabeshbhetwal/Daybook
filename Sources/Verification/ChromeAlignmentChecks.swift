@@ -66,6 +66,11 @@ enum ChromeAlignmentChecks: CheckSuite {
             let centres = all.map { $0.frame.midY }
             expect(all.count == 3 && Set(centres).count == 1,
                    "the three window buttons are centred at \(centres), not level", &problems)
+            // AppKit can swap in a zoom button no frame watch sees; a window event lays the
+            // buttons out again, so one that came in that way is put level.
+            let before = fullAnchor.passes
+            NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: full)
+            expect(fullAnchor.passes > before, "losing key focus does not lay the window buttons out again", &problems)
             return problems
         }
     }
