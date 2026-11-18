@@ -35,10 +35,15 @@ final class TrafficLightCentreAnchor: NSView {
         watched = []
         host = window
         // AppKit lays its title bar out again on each of these, which puts
-        // the buttons back where it keeps them.
+        // the buttons back where it keeps them. It can also swap in a new zoom
+        // button, which no frame watch sees until one of these runs `centre`
+        // and watches it; a green button once stayed high until then.
         let center = NotificationCenter.default
         observers = [NSWindow.didResizeNotification, NSWindow.didEndLiveResizeNotification,
-                     NSWindow.didExitFullScreenNotification, NSWindow.didBecomeKeyNotification].map { name in
+                     NSWindow.didExitFullScreenNotification, NSWindow.didBecomeKeyNotification,
+                     NSWindow.didResignKeyNotification, NSWindow.didBecomeMainNotification,
+                     NSWindow.didChangeScreenNotification, NSWindow.didDeminiaturizeNotification,
+                     NSWindow.didChangeOcclusionStateNotification].map { name in
             center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
                 self?.centre()
             }
@@ -59,6 +64,7 @@ final class TrafficLightCentreAnchor: NSView {
               let frame = container.superview else { return }
         centring = true
         defer { centring = false }
+        passes += 1
         let buttons = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
             .compactMap { window.standardWindowButton($0) }
         watch([container, titlebar] + buttons)
@@ -73,6 +79,8 @@ final class TrafficLightCentreAnchor: NSView {
         }
     }
 
+    /// How many times the buttons were laid out; read by the checks.
+    private(set) var passes = 0
     private var watched: Set<ObjectIdentifier> = []
     private var centring = false
 

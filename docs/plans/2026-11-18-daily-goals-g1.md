@@ -62,9 +62,46 @@ before each commit; run the `fix-reviewer` agent on tasks 1, 2 and 4
 
 ## Order and shipping
 
-Tasks 1 to 3 land together as one PR (no visible change: the old tile reads
-the new rows). Tasks 4 and 5 are one PR, the visible release. Tasks 6 and 7
-are one PR. Each subject line is written for any user of the app.
+Panel review (GPT 96 change, Gemini 92 change, DeepSeek change, Nemotron
+approve with gaps) found tasks 1 to 3 cannot be a no-visible-change PR:
+counting on evidence changes the category figures the old tile shows, and a
+migration that lands before the Settings editor reads the list would make
+edits in Categories silently ignored.
+
+- **PR 1, no visible change:** task 1 (model) and the storage half of task 2
+  (the list, the per-day record, backups). The list stays empty and nothing
+  migrates: the old category goal field remains the one truth, so an edit
+  made between PR 1 and PR 2 is never lost or resurrected.
+- **PR 2, the visible release:** the migration, then tasks 3, 4 and 5
+  together: counting, the tile, and Settings and Categories both editing the
+  list. The migration and its flag run at the first launch of this release,
+  when the list becomes authoritative. The category figure change and its
+  explanation land in the same release.
+- **PR 3:** tasks 6 and 7.
+
+## Additions from review
+
+- **Per-day record (task 2).** Store `goalResultsByDay: [Date: [GoalResult]]`
+  beside the archive's day keys: goal id, target, amount, seconds counted,
+  met. Written when a day closes and refreshed while it is open; past days
+  are read from it and never recomputed, so an edit or a deleted goal cannot
+  change history. History (task 6) and awards read only this record.
+- **Migration guard (task 2, run in PR 2).** A `goalsMigratedVersion` preference, set in
+  the same write that saves the migrated list. A failed write leaves the
+  flag unset so the next launch retries. It runs in PR 2, never earlier. More than 8 categories with goals: the first
+  8 in category order migrate and the rest stay on their category until the
+  person adds them. Checks: failure retries, cap, relaunch is a no-op.
+- **Backups (task 2).** The list and `goalResultsByDay` join the backup set
+  and its restore; a restore from before the list existed re-runs the
+  migration. Check: backup round trip.
+- **Once-per-day haptic (task 4).** `goalReachedPlayed: Set<GoalID>` kept in
+  the store per day key, cleared at midnight, not in the view.
+- **Counting cost (task 3).** One credit pass per refresh, shared by every
+  goal: build per-category credited seconds in a single pass, then read each
+  goal from it. Republish only when a printed minute changes. Check: the pass
+  count does not grow with the number of goals.
+- **Wrong-kind goals (task 1).** A target on an app, or a limit on a
+  category, is refused when saved and ignored when loaded from a file.
 
 ## Risks
 

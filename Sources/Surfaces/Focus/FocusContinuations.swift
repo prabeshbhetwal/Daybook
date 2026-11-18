@@ -185,7 +185,8 @@ private struct FocusContinuationLabel: View {
                 .foregroundStyle(StoryStyle.ink(.blue))
                 .padding(.horizontal, Tokens.Space.m)
                 .frame(minHeight: AccessibilityMetrics.minimumTargetSize)
-                .background(StoryStyle.focus.opacity(0.12), in: Capsule())
+                .background(StoryStyle.focus.opacity(0.12),
+                            in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
         case .duration(let seconds):
             Text(Tokens.preciseDuration(seconds))
                 .font(Tokens.Typography.body.monospacedDigit())
