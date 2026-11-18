@@ -54,6 +54,8 @@ final class SessionStore: ObservableObject {
     @Published var streak = 0
     /// The best run on record, for the Awards streak panel.
     @Published var streakBest = 0
+    /// The day the goals' results were last brought up to date for.
+    var goalResultsDayKey = ""
     @Published var quickStarts: [QuickStart] = []
     /// The activities the user pinned, in their order. Refreshed with the
     /// quick starts; edited through the methods below.

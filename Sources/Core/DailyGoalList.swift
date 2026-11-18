@@ -143,6 +143,13 @@ enum DailyGoalList {
         usable(items).filter { !$0.isPaused }
     }
 
+    /// The day a key names, in the calendar the archive uses.
+    static func date(forKey key: String, calendar: Calendar) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
+
     /// A day's key in the results record, in the calendar the archive uses.
     static func dayKey(_ date: Date, calendar: Calendar) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)

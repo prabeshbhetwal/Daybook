@@ -10,6 +10,8 @@ struct TodayNoteOffers: Equatable {
     var yesterday: HistoryPlace?
     var yesterdayFigures = ""
     var yesterdayRecap: DayRecap?
+    /// Every goal met or kept yesterday.
+    var yesterdayPerfect = false
     var wrapUp: HistoryPlace?
 
     init() {}
@@ -20,6 +22,7 @@ struct TodayNoteOffers: Equatable {
             yesterday = place
             yesterdayFigures = store.noteFiguresLine(for: place)
             yesterdayRecap = store.noteRecap(for: place)
+            yesterdayPerfect = store.wasPerfectDay(place)
         }
         if store.wrapUpOffered { wrapUp = store.notePlace(forDayContaining: store.now()) }
     }
@@ -70,7 +73,8 @@ struct TodayNotes: View {
     var body: some View {
         if let writer, usable {
             if let place = offers.yesterday {
-                YesterdayNotice(writer: writer, place: place, figures: offers.yesterdayFigures, recap: offers.yesterdayRecap) {
+                YesterdayNotice(writer: writer, place: place, figures: offers.yesterdayFigures, recap: offers.yesterdayRecap,
+                                  perfectDay: offers.yesterdayPerfect) {
                     store.dismissYesterdayNote(place)
                     offers.yesterday = nil
                 }

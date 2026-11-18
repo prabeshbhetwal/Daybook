@@ -39,7 +39,7 @@ extension SessionStore {
             bestStreak: streakBest)
     }
 
-    var awards: [Award] { Awards.all(from: awardFacts) }
+    var awards: [Award] { Awards.all(from: awardFacts) + goalAwards }
 
     /// The recent run of days behind the streak figure, oldest first. Each day
     /// says whether it cleared the streak minimum, so the row of marks is
