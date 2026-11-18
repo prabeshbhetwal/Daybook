@@ -460,8 +460,10 @@ struct StoryRail: View {
         }
     }
 
+    /// Today's limits only: a past day is shown by what it recorded, and a limit
+    /// added, changed or removed since would otherwise rewrite it.
     private var appLimits: [(bundleID: String, name: String, limit: TimeInterval, used: TimeInterval)] {
-        store.appLimits(ranked: apps)
+        day == nil ? store.appLimits(ranked: apps) : []
     }
 
     /// An app kept under a limit: icon, name, "45m of 2h limit", a neutral bar
@@ -479,23 +481,31 @@ struct StoryRail: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: Tokens.Space.s)
-                Text(status.figure)
+                Text(store.isTrackingEnabled ? status.figure : "\(Tokens.duration(item.limit)) limit")
                     .font(Tokens.Typography.body.monospacedDigit())
                     .fixedSize()
                     .foregroundStyle(StoryStyle.supportingInk)
             }
-            GeometryReader { geometry in
-                Capsule().fill(StoryStyle.line)
-                    .overlay(alignment: .leading) {
-                        Capsule().fill(status.isOver ? StoryStyle.attentionInk : StoryStyle.supportingInk)
-                            .frame(width: geometry.size.width * share)
-                    }
+            if store.isTrackingEnabled {
+                GeometryReader { geometry in
+                    Capsule().fill(StoryStyle.line)
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(status.isOver ? StoryStyle.attentionInk : StoryStyle.supportingInk)
+                                .frame(width: geometry.size.width * share)
+                        }
+                }
+                .frame(height: 3.zoomed)
+                Text(status.detail)
+                    .font(Tokens.Typography.caption)
+                    .foregroundStyle(status.isOver ? StoryStyle.attentionInk : StoryStyle.supportingInk)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            } else {
+                // Nothing is being recorded, so no allowance can be worked out.
+                Text("App recording is off")
+                    .font(Tokens.Typography.caption)
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(height: 3.zoomed)
-            Text(status.detail)
-                .font(Tokens.Typography.caption)
-                .foregroundStyle(status.isOver ? StoryStyle.attentionInk : StoryStyle.supportingInk)
-                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(DurationText.spoken(in: "\(item.name): \(status.figure), \(status.detail)"))
