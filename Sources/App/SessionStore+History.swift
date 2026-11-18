@@ -676,7 +676,7 @@ extension SessionStore {
             switch correction {
             case .rename(let name): changed.rename(to: name)
             case .workType(let type): changed.recategorise(to: type)
-            case .removed: continue   // has its own path, `removeSession`
+            case .removed, .split, .merge: continue   // each has its own path
             }
             if changed != record { removed.append(record); added.append(changed) }
         }
@@ -686,7 +686,7 @@ extension SessionStore {
             switch correction {
             case .rename(let name): return value.name != name
             case .workType(let type): return value.workType != type
-            case .removed: return false
+            case .removed, .split, .merge: return false
             }
         } ?? false
         guard archiveSnapshot != nil || activeChanged else {
@@ -733,27 +733,7 @@ extension SessionStore {
             return false
         }
         let before = engine.snapshot()
-        if state.correction == .removed {
-            // Put the records back exactly as they were, provided nothing has
-            // since taken their identity.
-            let records = state.removedRecords ?? []
-            let present = Set(engine.archive.records.map(\.id))
-            guard !records.isEmpty, records.allSatisfy({ !present.contains($0.id) }) else {
-                publishCorrectionError("That session is already back, or its stretches were rewritten since. Reopen the day to see it.")
-                return false
-            }
-            guard engine.commitCorrection(before: before, removing: [], adding: records,
-                                          fields: corrections.filter { $0.id != state.id }) else {
-                publishCorrectionError(engine.awayDecisionError)
-                correctionRetry = .undo(state)
-                return false
-            }
-            publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
-            publishCorrectionError(nil)
-            correctionRetry = nil
-            refresh()
-            return true
-        }
+        if state.correction.restoresRecords { return undoRestoringRecords(state, before: before) }
         let originals = Dictionary(uniqueKeysWithValues: (state.archiveSnapshot?.fields ?? []).map { ($0.recordID, $0) })
         let existingIDs = Set(engine.archive.records.map(\.id))
         guard Set(originals.keys).isSubset(of: existingIDs) else {
@@ -776,7 +756,7 @@ extension SessionStore {
                 guard record.workType == expected || record.workType == original.workType else { return correctionConflict(state) }
                 changed.workType = original.workType
                 if let kept = original.provenance { changed.categorySource = kept.categorySource }
-            case .removed: continue
+            case .removed, .split, .merge: continue
             }
             if changed != record { removed.append(record); added.append(changed) }
         }
@@ -792,7 +772,7 @@ extension SessionStore {
                     return correctionConflict(state)
                 }
                 engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID, fromUndo: true, restoring: state.originalFields.provenance)
-            case .removed: break
+            case .removed, .split, .merge: break
             }
         }
         guard engine.commitCorrection(before: before, removing: removed, adding: added,

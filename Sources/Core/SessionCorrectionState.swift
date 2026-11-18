@@ -27,6 +27,9 @@ struct SessionStoreCorrectionState: Codable, Identifiable, Equatable {
     /// For `.removed`: the records taken out, whole, so Undo restores them
     /// as they were. Nil on every other correction and on older journals.
     var removedRecords: [SessionRecord]? = nil
+    /// For `.split` and `.merge`: the records written in, which Undo takes out again as it puts
+    /// `removedRecords` back. Nil on every other correction and on older journals.
+    var addedRecords: [SessionRecord]? = nil
     /// When the person made the correction, so its notice stands at that
     /// moment rather than at the session's start. Nil on older journals.
     var madeAt: Date? = nil

@@ -255,7 +255,7 @@ extension SessionStore {
                         title = "Recorded as a break"
                     }
                 case .workType(let type): title = "Changed to \(type.displayName)"
-                case .removed: title = "Session removed"
+                case .removed, .split, .merge: title = correction.restructureTitle
                 }
                 // A session's notice stands when the correction was made. A
                 // break's replaces the break's row, so keeps its span, as does

@@ -214,6 +214,7 @@ extension SelfTest {
             + ProvenanceCarryChecks.tests + ProvenanceLiveEditChecks.tests
             + CorrectionUndoChecks.tests + CorrectionUndoRuleChecks.tests
             + ContradictionLineChecks.tests + OriginMarkChecks.tests
+            + SplitRecordChecks.tests + SplitStoreChecks.tests + SplitStoreRelaunchChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

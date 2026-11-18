@@ -10,7 +10,18 @@ enum SessionCorrection: Codable, Equatable {
     case rename(String)
     case workType(WorkType)
     case removed
+    /// One record cut in two, and two cut records joined again. Like a removal they swap whole records,
+    /// and the correction keeps what it took out and what it wrote in, so Undo puts it back as it was.
+    case split
+    case merge
 
+    /// Corrections Undo reverses by swapping whole records instead of writing fields back.
+    var restoresRecords: Bool {
+        switch self {
+        case .removed, .split, .merge: return true
+        case .rename, .workType: return false
+        }
+    }
 }
 
 /// The original values of the records touched by one saved correction. Undo

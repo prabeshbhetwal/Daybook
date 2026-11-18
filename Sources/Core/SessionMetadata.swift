@@ -69,9 +69,15 @@ struct SessionMetadata: Codable, Equatable, Identifiable {
     /// What the session's phases were, kept after the beats they came from expire. A sidecar
     /// written before this existed decodes it as nil, and an older build ignores the key.
     var activityShape: SessionActivityShape?
+    /// Set on the tail of a split: what it was cut from, so Merge Back is offered only while the pair is as it was.
+    var splitFrom: SplitLink?
+    /// Moments inside this record the person answered "Keep Together" to, so the offer does not come back.
+    var declinedSplits: [Date]?
     var id: UUID { recordID }
     /// Nothing left to keep: the archive drops an entry like this.
-    var isEmpty: Bool { note == nil && power.isEmpty && activityShape == nil }
+    var isEmpty: Bool {
+        note == nil && power.isEmpty && activityShape == nil && splitFrom == nil && (declinedSplits ?? []).isEmpty
+    }
 
     init(recordID: UUID, note: String? = nil, power: [PowerObservation] = []) {
         self.recordID = recordID
@@ -87,6 +93,9 @@ struct SessionMetadata: Codable, Equatable, Identifiable {
         note = try container.decodeIfPresent(String.self, forKey: .note)
         power = try container.decode([PowerObservation].self, forKey: .power)
         activityShape = try? container.decodeIfPresent(SessionActivityShape.self, forKey: .activityShape)
+        // Lost alone if unreadable, like the summary: a link or a decline is never worth a whole sidecar.
+        splitFrom = try? container.decodeIfPresent(SplitLink.self, forKey: .splitFrom)
+        declinedSplits = try? container.decodeIfPresent([Date].self, forKey: .declinedSplits)
     }
 }
 

@@ -9,6 +9,8 @@ enum EditUndoKind: Equatable {
     case rename(String)
     case category(String)
     case removal(String)
+    case split(String)
+    case merge(String)
     case awayAnswer(UserDecision)
 
     init(_ state: SessionStoreCorrectionState) {
@@ -16,6 +18,8 @@ enum EditUndoKind: Equatable {
         case .rename(let now): self = .rename(now)
         case .workType: self = .category(state.originalFields.name)
         case .removed: self = .removal(state.originalFields.name)
+        case .split: self = .split(state.originalFields.name)
+        case .merge: self = .merge(state.originalFields.name)
         }
     }
 
@@ -29,6 +33,8 @@ enum EditUndoKind: Equatable {
         case .rename(let name): return Self.title("Rename", of: name)
         case .category(let name): return Self.title("Change Category", of: name)
         case .removal(let name): return Self.title("Remove Session", of: name)
+        case .split(let name): return Self.title("Split", of: name)
+        case .merge(let name): return Self.title("Merge Back", of: name)
         case .awayAnswer(.tookBreak): return "Undo Break"
         case .awayAnswer(.mergeTime): return "Undo Count as Focus"
         case .awayAnswer(.continueSession), .awayAnswer(.resetTimer): return "Undo Leave Uncounted"
