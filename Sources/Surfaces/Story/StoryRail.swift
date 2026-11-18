@@ -345,7 +345,8 @@ struct StoryRail: View {
     /// The day's focus total is the headline's; this card is the goal's.
     private func focusTile(_ evidence: StoryUsageBreakdown) -> some View {
         let goal = railGoal
-        return StoryTile(title: "Daily goal", trailing: day.map { Tokens.dayLabel($0) } ?? store.dayLabel) {
+        return StoryTile(title: "Today's goals", trailing: day.map { Tokens.dayLabel($0) } ?? store.dayLabel,
+                         info: goalsHelp(logged: evidence.focused, counted: goal.achieved)) {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
                     if goal.goal > 0 {
@@ -355,7 +356,7 @@ struct StoryRail: View {
                         Text(durations: Tokens.preciseDuration(goal.achieved))
                             .font(Tokens.Typography.figure)
                             .rollingDigits(Tokens.preciseDuration(goal.achieved))
-                        Text(durations: "counts towards your \(Tokens.duration(goal.goal)) goal"
+                        Text(durations: "of \(Tokens.duration(goal.goal)) focus"
                              + (goal.isMet ? " · goal met" : ""))
                             .font(Tokens.Typography.body)
                             .foregroundStyle(StoryStyle.supportingInk)
@@ -374,17 +375,6 @@ struct StoryRail: View {
                              accessibilityTitle: "Share of goal")
                 }
             }
-            // The headline's logged figure and this card's can differ. This
-            // card owns the arithmetic that joins them.
-            if goal.goal > 0,
-               let equation = StoryRailFigures.goalEquation(logged: evidence.focused, counted: goal.achieved) {
-                Text(durations: equation)
-                    .font(Tokens.Typography.body)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .help("Only focus with app use recorded counts towards the goal.")
-                    .accessibilityHint("Only focus with app use recorded counts towards the goal.")
-            }
             if !categoryGoals.isEmpty {
                 categoryGoalRows
             }
@@ -398,13 +388,28 @@ struct StoryRail: View {
         }
     }
 
-    /// Categories with a goal of their own, with the day's seconds against it.
+    /// Category goals from the goal list, each against the day's focus with
+    /// app use recorded: the ring's own accounting, so a row never outruns it.
     private var categoryGoals: [(type: WorkType, goal: TimeInterval, achieved: TimeInterval)] {
-        let seconds = store.storyCategorySeconds(on: shownDay)
+        let credit = store.storyRailDay(on: shownDay).creditByCategory
         return WorkType.startable.compactMap { type in
             guard let goal = type.dailyGoal, goal > 0 else { return nil }
-            return (type, goal, seconds[type] ?? 0)
+            return (type, goal, credit[type.rawValue] ?? 0)
         }
+    }
+
+    /// What the card means, behind its info mark. The line joining the ring's
+    /// figure to the logged focus (sessions less time with no app use) lives
+    /// here rather than under the ring.
+    private func goalsHelp(logged: TimeInterval, counted: TimeInterval) -> [HelpEntry] {
+        var entries = [HelpEntry("The ring", "Your focus for the day against your daily goal. Only focus time "
+                                 + "with an app in use counts."),
+                       HelpEntry("Goal rows", "Each row is one goal, counted the same way, so it never "
+                                 + "adds up to more than the ring.")]
+        if let equation = StoryRailFigures.goalEquation(logged: logged, counted: counted) {
+            entries.append(HelpEntry("Today", equation + "."))
+        }
+        return entries
     }
 
     /// One quiet line per category goal: mark, name, figure, a thin bar. The
@@ -426,8 +431,8 @@ struct StoryRail: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                         Spacer(minLength: Tokens.Space.s)
-                        Text(durations: "\(Tokens.duration(item.achieved)) of \(Tokens.duration(item.goal))"
-                             + (share >= 1 ? " · met" : ""))
+                        Text(durations: share >= 1 ? "\(Tokens.duration(item.goal)) ✓"
+                             : "\(Tokens.duration(item.achieved)) of \(Tokens.duration(item.goal))")
                             .font(Tokens.Typography.body.monospacedDigit())
                             .fixedSize()
                             .foregroundStyle(share >= 1 ? AnyShapeStyle(StoryStyle.successInk)

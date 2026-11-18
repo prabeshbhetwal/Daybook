@@ -11,6 +11,9 @@ struct StoryRailDay: Equatable {
     let rhythmPeak: String?
     /// The day in eight 3-hour blocks, with focus told apart from other use.
     var blocks: [RhythmBlock] = []
+    /// Focus with app use recorded, per category id, as the daily goal counts
+    /// it: what each category goal is measured against.
+    var creditByCategory: [String: TimeInterval] = [:]
 }
 
 extension SessionStore {
@@ -43,7 +46,8 @@ extension SessionStore {
                 apps: stats.rankedApps(for: day),
                 rhythm: rhythm,
                 rhythmPeak: Rhythm.peakLabel(rhythm) { DateFormats.hourLabel($0) },
-                blocks: rhythmBlocks(segments: segments, day: day, usage: snapshot?.sessions ?? usage.sessions))
+                blocks: rhythmBlocks(segments: segments, day: day, usage: snapshot?.sessions ?? usage.sessions),
+                creditByCategory: categoryCredit(on: day, usage: snapshot?.sessions ?? usage.sessions))
         } else {
             reading = StoryRailDay(goal: GoalProgress(goal: engine.store.dailyGoal, achieved: 0, typical: nil),
                                    apps: [], rhythm: [], rhythmPeak: nil)
@@ -61,5 +65,26 @@ extension SessionStore {
         return Rhythm.blocks(segments: segments, day: day, now: now()) { block in
             storyCreditedFocusSeconds(in: block, records: records, usage: usage, running: running)
         }
+    }
+
+    /// Each category's credited focus on a day, by the same accounting as the
+    /// day's goal, so a category row can never exceed the ring's figure.
+    func categoryCredit(on day: Date, usage: [AppUsageSession]) -> [String: TimeInterval] {
+        guard let bounds = SessionRecord.dayBounds(day, calendar: Calendar.current) else { return [:] }
+        let interval = DateInterval(start: bounds.start, end: bounds.end)
+        let records = engine.archive.records
+        let running = storyRunningSpan
+        var types = Set(records.filter {
+            $0.workType.countsAsFocus && $0.workSeconds(in: (start: bounds.start, end: bounds.end)) > 0
+        }.map(\.workType))
+        if running != nil, engine.activeWorkType.countsAsFocus { types.insert(engine.activeWorkType) }
+        var credit: [String: TimeInterval] = [:]
+        for type in types {
+            let seconds = storyCreditedFocusSeconds(
+                in: interval, records: records.filter { $0.workType == type }, usage: usage,
+                running: type == engine.activeWorkType ? running : nil)
+            if seconds > 0 { credit[type.rawValue] = seconds }
+        }
+        return credit
     }
 }

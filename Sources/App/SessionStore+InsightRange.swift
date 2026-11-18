@@ -169,8 +169,10 @@ extension SessionStore {
         var met: [WorkType: Int] = [:]
         if !goalTypes.isEmpty {
             for day in focusedDays {
-                let seconds = storyCategorySeconds(on: day.date)
-                for type in goalTypes where (seconds[type] ?? 0) >= (type.dailyGoal ?? .infinity) {
+                // The card's own accounting: focus with app use recorded.
+                let credit = categoryCredit(on: day.date,
+                                            usage: effectiveUsageSnapshot?.sessions ?? usage?.sessions ?? [])
+                for type in goalTypes where (credit[type.rawValue] ?? 0) >= (type.dailyGoal ?? .infinity) {
                     met[type, default: 0] += 1
                 }
             }
