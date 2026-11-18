@@ -33,6 +33,8 @@ struct SessionReport {
     let powerChanges: [String: PowerReading]
     /// Why each listed gap is there, by interval id.
     var gapReasons: [String: StoryGapReason] = [:]
+    /// The category the person usually files this kind of session under, when it can be offered.
+    var suggestion: WorkType? = nil
 
     var title: String { session.workType.sessionTitle(named: session.name) }
     var apps: [AppRank] { detail.apps }
@@ -95,7 +97,8 @@ struct SessionReport {
                                  across: detail.activity.intervals,
                                  in: store.powerObservations(for: session.recordIDs)),
                              gapReasons: gapReasons(listing(detail.activity.intervals), store: store,
-                                                    day: session.start))
+                                                    day: session.start),
+                             suggestion: store.correctionSuggestion(for: session))
     }
 }
 
@@ -155,45 +158,6 @@ final class EscapeKeyMonitor: ObservableObject {
     }
 
     deinit { remove() }
-}
-
-/// A report and its activity list, kept for a session that has finished:
-/// nothing in it changes while the card is open, though the store publishes
-/// every second. A running session's is rebuilt as it grows.
-final class SessionReportCache: ObservableObject {
-    private var built: (report: SessionReport, list: ReportActivityList)?
-
-    func build(for session: DaySession, store: SessionStore) -> (report: SessionReport, list: ReportActivityList) {
-        if !session.isRunning, let built, built.report.session == session { return built }
-        let report = SessionReport.make(for: session, store: store)
-        let list = ReportActivityList.make(
-            listed: report.listedIntervals, power: report.power(for:),
-            gapTitle: { report.gapReasons[$0.id]?.title ?? "Not recorded" })
-        built = (report, list)
-        return (report, list)
-    }
-}
-
-struct SessionReportCard: View {
-    @ObservedObject var store: SessionStore
-    let session: DaySession
-    let onClose: () -> Void
-    @StateObject private var cache = SessionReportCache()
-
-    var body: some View {
-        let (report, list) = cache.build(for: session, store: store)
-        StorySheet(title: "Session report", onClose: onClose) {
-            ScrollView {
-                SessionReportView(report: report, activityList: list)
-                    .padding(Tokens.Space.xl)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous)
-            .strokeBorder(StoryStyle.line))
-        .shadow(color: .black.opacity(0.18), radius: 24.zoomed, y: 8.zoomed)
-        .accessibilityAddTraits(.isModal)
-    }
 }
 
 /// The full account of a session: what it was, each stretch, every app, the

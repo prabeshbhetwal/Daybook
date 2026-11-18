@@ -11,9 +11,9 @@ final class SessionStore: ObservableObject {
     let metadataArchive: SessionMetadataArchive
     /// Readings taken while idle. A quiet block of the story reads its span.
     let ambientPower: AmbientPowerLog
-    /// Every break reminder shown and what became of it, and the rhythm each
-    /// day. Beside the sessions, as the readings above are.
+    /// Every break reminder shown and what became of it, and each day's rhythm.
     let breakLog: BreakLog
+    lazy var categoryCorrections = CorrectionsStore(directory: engine.archive.dataDirectoryURL)
     /// Which app had the hands and the screen, beat by beat, while a session ran.
     let activityEvidence: ActivityEvidence
     let powerMonitor: PowerSourceMonitoring?

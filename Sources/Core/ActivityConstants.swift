@@ -26,6 +26,9 @@ enum ActivityConstants {
     static let deepOutsideShare = 0.15
     /// How long beats are kept, in days. A setting, not a rule: it stays out of `signature`.
     static let defaultBeatRetentionDays = 90
+    /// How long a remembered category choice steers suggestions after it was last made, in days. Like the
+    /// retention above it is no rule, so it stays out of `signature`.
+    static let correctionExpiryDays = 90
 
     /// Every rule-bearing value above, joined with "|"; a check pins it to `algorithmVersion`.
     static var signature: String {

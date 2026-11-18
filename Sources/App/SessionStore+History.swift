@@ -484,7 +484,7 @@ extension SessionStore {
     /// what happened.
     @discardableResult
     func setWorkType(_ workType: WorkType, for session: DaySession) -> Bool {
-        applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true)
+        fileSession(session, as: workType)
     }
 
     /// The same, by thread, for corrections made outside a session's card:
@@ -654,7 +654,7 @@ extension SessionStore {
 
     /// `claims`: made in the session's own card, so a running automatic
     /// session becomes the person's (see `stageActiveCorrection`).
-    private func applyCorrection(threadID: UUID, correction: SessionCorrection, claims: Bool = false) -> Bool {
+    func applyCorrection(threadID: UUID, correction: SessionCorrection, claims: Bool = false) -> Bool {
         guard engine.prepareCorrection() else {
             publishCorrectionError(engine.awayDecisionError); return false
         }

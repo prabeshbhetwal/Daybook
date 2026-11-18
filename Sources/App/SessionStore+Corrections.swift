@@ -1,0 +1,47 @@
+import Foundation
+
+/// How the person files a kind of session, remembered and offered back (spec section 6). An offer is
+/// a read: no stored record changes. A record changes only when the person takes the offer, through
+/// the same path as any category change of theirs, which writes the category as theirs.
+extension SessionStore {
+    /// The category the person usually files this kind of session under. Offered only for a record whose
+    /// category Daybook chose (`builtIn`: what the person or a rule chose is never second-guessed), only
+    /// while it is a category they can still start, and never the one the record already has.
+    func correctionSuggestion(for recordID: UUID) -> WorkType? {
+        guard let record = engine.archive.records.first(where: { $0.id == recordID }),
+              record.effectiveCategorySource == .builtIn,
+              let fingerprint = metadataArchive.metadata(for: recordID)?.activityShape?.fingerprint,
+              let remembered = categoryCorrections.suggestion(for: fingerprint, now: now()) else { return nil }
+        let offered = WorkType(rawValue: remembered)
+        return offered != record.workType && WorkType.startable.contains(offered) ? offered : nil
+    }
+
+    /// A finished session's offer: one only when every stretch of it has that same one.
+    func correctionSuggestion(for session: DaySession) -> WorkType? {
+        guard !session.isRunning else { return nil }
+        let offers = session.recordIDs.map { correctionSuggestion(for: $0) }
+        guard let first = offers.first, first != nil, offers.allSatisfy({ $0 == first }) else { return nil }
+        return first
+    }
+
+    /// The person's own category change on a session: the ordinary correction, and the choice kept for
+    /// next time. Kept once per kind of stretch however many stretches share it, and only for a finished
+    /// session whose stretches have a stored shape, the one thing that says what kind of session it was.
+    @discardableResult
+    func fileSession(_ session: DaySession, as workType: WorkType) -> Bool {
+        let ids = Set(session.recordIDs)
+        let before = session.isRunning ? [] : engine.archive.records.filter { ids.contains($0.id) }
+        guard applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true) else {
+            return false
+        }
+        var kinds = Set<ActivityFingerprint>()
+        for record in before {
+            guard let fingerprint = metadataArchive.metadata(for: record.id)?.activityShape?.fingerprint,
+                  kinds.insert(fingerprint).inserted else { continue }
+            // Leaving a category the person chose themselves is no veto of it.
+            let left = record.effectiveCategorySource == .user ? nil : record.workType.rawValue
+            categoryCorrections.record(fingerprint: fingerprint, chosen: workType.rawValue, vetoed: left, at: now())
+        }
+        return true
+    }
+}
