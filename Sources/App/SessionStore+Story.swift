@@ -289,7 +289,7 @@ extension SessionStore {
     /// cross midnight: capping it only once over a week would let observed use
     /// on one day consume another day's allocated work and erase that day's
     /// missing-coverage qualification.
-    private func storyCreditedFocusSeconds(in interval: DateInterval,
+    func storyCreditedFocusSeconds(in interval: DateInterval,
                                            records: [SessionRecord],
                                            usage: [AppUsageSession],
                                            running: (start: Date, end: Date)?) -> TimeInterval {

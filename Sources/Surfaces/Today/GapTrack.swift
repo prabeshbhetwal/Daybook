@@ -134,6 +134,10 @@ struct GapSwatch: View {
 /// Diagonal stripes for time no event explains: drawn, not a flat grey, so
 /// it never reads as a state of its own.
 struct HatchFill: View {
+    /// The stripes' colour: grey for unexplained time, a pale app-use blue
+    /// for app use outside focus.
+    var ink: Color = StoryStyle.macHatch
+
     var body: some View {
         Canvas { context, size in
             let step = 4.zoomed
@@ -144,7 +148,7 @@ struct HatchFill: View {
                 path.addLine(to: CGPoint(x: start + size.height, y: 0))
                 start += step
             }
-            context.stroke(path, with: .color(StoryStyle.macHatch), lineWidth: 1.5.zoomed)
+            context.stroke(path, with: .color(ink), lineWidth: 1.5.zoomed)
         }
         .background(StoryStyle.card)
     }

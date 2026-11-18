@@ -463,7 +463,6 @@ struct StoryRail: View {
     private var reading: StoryRailDay? { day.map { store.storyRailDay(on: $0) } }
     private var railGoal: GoalProgress { reading?.goal ?? store.selectedDayGoal }
     private var rhythmHours: [RhythmHour] { reading?.rhythm ?? store.rhythm }
-    private var rhythmPeak: String? { day == nil ? store.rhythmPeak : reading?.rhythmPeak }
 
     // MARK: - On this Mac
 
@@ -570,15 +569,19 @@ struct StoryRail: View {
 
     // MARK: - Rhythm
 
+    /// Eight 3-hour columns with focus told apart from other app use, under
+    /// a headline naming when focus peaked. Hourly bars of any app use could
+    /// not say when someone was most productive.
     private var rhythmTile: some View {
-        StoryTile(title: "Rhythm", trailing: "by hour") {
-            RhythmChart(hours: rhythmHours, height: 54.zoomed, compactLabels: true)
-            if let peak = rhythmPeak {
-                Text("Most recorded app use: \(peak).")
+        let blocks = store.storyRailDay(on: shownDay).blocks
+        return StoryTile(title: "Time of day", trailing: day.map { Tokens.dayLabel($0) } ?? store.dayLabel,
+                         info: TimeOfDayChart.help) {
+            if let headline = TimeOfDayChart.headline(blocks) {
+                Text(headline)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            TimeOfDayChart(blocks: blocks)
         }
     }
 

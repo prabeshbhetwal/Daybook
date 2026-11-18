@@ -11,7 +11,7 @@ enum StoryTileKind: String, CaseIterable, Codable {
         case .focus: return "Daily goal"
         case .mac: return "On this Mac"
         case .apps: return "Top apps"
-        case .rhythm: return "Rhythm"
+        case .rhythm: return "Time of day"
         case .streak: return "Focus streak"
         }
     }

@@ -9,7 +9,9 @@ enum GlanceableRailChecks {
         ("The streak line says what today still needs, and when the dots show only part of the streak",
          streakStatusIsExact),
         ("The session strip's info names its marks and carries the session's own facts",
-         stripHelpCarriesSession)
+         stripHelpCarriesSession),
+        ("Time of day splits the day into 3-hour blocks with focus capped at app use and later hours marked ahead",
+         timeOfDayBlocks)
     ]
 
     static func appsHelpStatesPeriod() -> [String] {
@@ -65,6 +67,43 @@ enum GlanceableRailChecks {
         }
         if StoryShapeChart.help(shape: nil, gap: nil).map(\.name) != ["Blue blocks", "Hatched"] {
             problems.append("a session with nothing to add still had a This session entry")
+        }
+        return problems
+    }
+
+    static func timeOfDayBlocks() -> [String] {
+        var problems: [String] = []
+        let calendar = Calendar.current
+        let midnight = calendar.startOfDay(for: SelfTest.base)
+        func at(_ hours: Double) -> Date { midnight.addingTimeInterval(hours * 3_600) }
+        func segment(_ id: String, _ name: String, _ from: Double, _ to: Double) -> TimelineSegment {
+            TimelineSegment(id: UUID(), bundleID: id, appName: name, start: at(from), end: at(to))
+        }
+        let segments = [segment("a.claude", "Claude", 0.5, 2.5), segment("a.dia", "Dia", 2.5, 2.75),
+                        segment("a.xcode", "Xcode", 9, 10)]
+        let blocks = Rhythm.blocks(segments: segments, day: midnight, now: at(10), calendar: calendar) { block in
+            block.start == at(0) ? 3_600 : block.start == at(9) ? 3 * 3_600 : 0
+        }
+        guard blocks.count == 8 else { return ["expected 8 blocks, got \(blocks.count)"] }
+        if blocks[0].seconds != 2.25 * 3_600 || blocks[0].focusSeconds != 3_600 || blocks[0].topAppName != "Claude" {
+            problems.append("midnight block read \(blocks[0])")
+        }
+        if blocks[3].focusSeconds != 3_600 {
+            problems.append("focus was not capped at the block's app use: \(blocks[3].focusSeconds)")
+        }
+        if blocks.filter(\.isAhead).count != 4 || blocks[3].isAhead {
+            problems.append("blocks ahead of 10 am were \(blocks.filter(\.isAhead).map(\.start))")
+        }
+        let expected = "Most focus \(DateFormats.hourLabel(at(0)))–\(DateFormats.hourLabel(at(3))) · Claude"
+        if TimeOfDayChart.headline(blocks) != expected {
+            problems.append("the headline read \(TimeOfDayChart.headline(blocks) ?? "nothing"), not \(expected)")
+        }
+        let unfocused = Rhythm.blocks(segments: segments, day: midnight, now: at(10), calendar: calendar) { _ in 0 }
+        if TimeOfDayChart.headline(unfocused)?.hasPrefix("Most app use") != true {
+            problems.append("a day without focus did not name its busiest block")
+        }
+        if TimeOfDayChart.headline(Rhythm.blocks(segments: [], day: midnight, now: at(10)) { _ in 0 }) != nil {
+            problems.append("an empty day still had a headline")
         }
         return problems
     }
