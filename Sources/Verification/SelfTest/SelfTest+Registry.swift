@@ -209,6 +209,7 @@ extension SelfTest {
             + ActivityCoverageChecks.tests
             + DailyGoalListChecks.tests
             + DailyGoalMigrationChecks.tests
+            + AppLimitChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
