@@ -10,6 +10,10 @@ enum ActivityCoverageChecks: CheckSuite {
         ("Joined summaries keep the break between a session's records, as its beats do", joinKeepsTheBreak),
         ("Counted time no beat recorded borrows no purpose, and no summary says otherwise", unrecordedTimeBorrowsNothing),
         ("A session read from its apps alone does not count its manual pause", appsOnlyRespectsPauses),
+        ("A running session stays on one reading as each beat closes", runningRowHoldsItsReading),
+        ("Joined summaries read an away beside the break after it as one", joinMergesAway),
+        ("A row whose records are not found counts its spans whole", missingRecordsCountWhole),
+        ("A partly recorded session reads its apps, not a summary an edit may have left stale", partlyRecordedSkipsSummary),
     ]
 
     static func joinKeepsTheBreak() -> [String] {
@@ -90,6 +94,89 @@ enum ActivityCoverageChecks: CheckSuite {
             expect(shape?.phases.map(\.counted) == [true, false, true]
                     && shape?.phases.map(\.activity) == [.purpose(.coding), .away, .purpose(.coding)],
                    "the pause is an uncounted phase between two of coding, got \(String(describing: shape?.phases.map { "\($0.activity) \($0.counted)" }))", &problems)
+            return problems
+        }
+    }
+
+    static func runningRowHoldsItsReading() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            // Begun 160 s (under a phase) or 400 s (over it) before recording started.
+            for (age, expected) in [(160.0, ShapeFidelity.beats), (400.0, ShapeFidelity.appsOnly)] {
+                guard let r = ActivityEvidenceStoreChecks.rig(session: true, sessionAge: age) else {
+                    return ["could not create isolated preferences"]
+                }
+                defer { r.close() }
+                r.activate(S.coding)
+                var seen: [String] = []
+                r.run(120) { tick in
+                    r.keys.value &+= 3
+                    if tick >= 60, let row = S.liveSession(r) {
+                        seen.append(String(describing: r.store.sessionActivity(for: row)?.fidelity))
+                    }
+                }
+                expect(Set(seen) == [String(describing: Optional(expected))],
+                       "begun \(Int(age)) s unrecorded, every second of two beats reads \(expected), got \(Set(seen))", &problems)
+            }
+            return problems
+        }
+    }
+
+    static func joinMergesAway() -> [String] {
+        var problems: [String] = []
+        func phase(_ from: TimeInterval, _ to: TimeInterval, _ activity: PhaseActivity) -> SessionPhase {
+            let counted = activity != .away
+            return SessionPhase(start: S.t0.addingTimeInterval(from), end: S.t0.addingTimeInterval(to), activity: activity,
+                                counted: counted, credited: counted ? ["coding": to - from] : [:])
+        }
+        func shape(_ phases: [SessionPhase]) -> SessionActivityShape {
+            SessionActivityShape(algorithmVersion: ActivityConstants.algorithmVersion, fidelity: .beats,
+                                 bounds: DateInterval(start: phases[0].start, end: phases[phases.count - 1].end),
+                                 countedSeconds: 300, signals: [], phases: phases, depth: nil, label: .activity(.coding),
+                                 credited: ["coding": 300], fingerprint: nil, splitCandidates: [])
+        }
+        // The first record ends in five minutes away; the next begins five minutes after it.
+        let joined = SessionActivityShape.joined([shape([phase(0, 300, .purpose(.coding)), phase(300, 600, .away)]),
+                                                  shape([phase(900, 1_200, .purpose(.coding))])])
+        let middle = joined?.phases.count == 3 ? joined?.phases[1] : nil
+        expect(joined?.phases.map(\.activity) == [.purpose(.coding), .away, .purpose(.coding)]
+                && middle?.start == S.t0.addingTimeInterval(300) && middle?.end == S.t0.addingTimeInterval(900),
+               "one away phase from minute 5 to 15, got \(String(describing: joined?.phases.map { "\($0.activity)" }))", &problems)
+        return problems
+    }
+
+    static func missingRecordsCountWhole() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let r = S.rig() else { return ["could not create isolated preferences"] }
+            defer { r.close() }
+            let record = S.record(from: S.t0, seconds: 600)   // never archived, so the row finds none of its records
+            let session = S.daySession([record])
+            let apps = RecordedActivity(segments: [TimelineSegment(id: UUID(), bundleID: S.coding, appName: "Xcode",
+                                                                   start: S.t0, end: S.t0.addingTimeInterval(600))],
+                                        spans: session.spans)
+            let shape = r.store.sessionActivity(for: session, apps: apps)
+            expect(abs((shape?.countedSeconds ?? 0) - 600) < 1 && shape?.phases.map(\.counted) == [true],
+                   "its ten minutes count, got \(String(describing: shape?.countedSeconds))", &problems)
+            return problems
+        }
+    }
+
+    static func partlyRecordedSkipsSummary() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let r = S.rig() else { return ["could not create isolated preferences"] }
+            defer { r.close() }
+            let record = S.record(from: S.t0, seconds: 190 * 60)
+            S.beats(r.evidence.archive, from: S.t0.addingTimeInterval(180 * 60), seconds: 600)
+            r.engine.archive.append(record)
+            // A summary from before an edit that added the unrecorded time.
+            let stale = S.shape(.activity(.design), credited: ["design": 600],
+                                over: DateInterval(start: record.start, end: record.end))
+            expect(r.store.metadataArchive.saveActivityShape(stale, for: record.id) == .saved, "a summary is saved", &problems)
+            let row = r.store.sessionActivity(for: S.daySession([record]))
+            expect(row != stale && row?.fidelity == .appsOnly,
+                   "the row reads its apps, got \(String(describing: row?.fidelity)) \(String(describing: row?.label))", &problems)
             return problems
         }
     }

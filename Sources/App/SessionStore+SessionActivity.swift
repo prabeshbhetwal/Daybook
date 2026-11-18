@@ -72,30 +72,44 @@ extension SessionStore {
     private func readActivity(for session: DaySession, bounds: DateInterval, apps: RecordedActivity?) -> SessionActivityShape? {
         let evidence = activityEvidence
         let moment = now()
+        let records = countedRecords(of: session, in: bounds, at: moment)
+        // Beats over only part of the counted time pass over the kept summary too: an edit that added counted
+        // time leaves it stale, and the app use covers the session whole.
+        var partlyRecorded = false
         if evidence.archive.covers(from: bounds.start) {
             let beats = evidence.archive.beats(in: bounds)
-            if !beats.isEmpty, let shape = derivedActivity(for: session, bounds: bounds, beats: beats, at: moment) {
-                return shape
+            if !beats.isEmpty {
+                if let shape = derivedActivity(for: session, bounds: bounds, records: records, beats: beats, at: moment) {
+                    return shape
+                }
+                partlyRecorded = true
             }
         }
         let kept = session.recordIDs.compactMap { metadataArchive.metadata(for: $0)?.activityShape }
-        if !kept.isEmpty, kept.count == session.recordIDs.count, let joined = SessionActivityShape.joined(kept) {
+        if !partlyRecorded, !kept.isEmpty, kept.count == session.recordIDs.count, let joined = SessionActivityShape.joined(kept) {
             return joined.clipped(to: bounds)
         }
         let recorded = apps ?? RecordedActivity(segments: timelineSegments(of: session, on: session.start),
                                                 spans: session.spans)
-        // Its trusted pauses are not counted: app use goes on through a manual pause.
+        // Its trusted pauses are not counted: app use goes on through a manual pause. With none of its records
+        // found, its spans count whole.
         return ActivityDerivation.appsOnly(recorded, bounds: bounds, purposeOverrides: engine.store.purposeOverrides,
-                                           counted: CountedTime.spans(records: countedRecords(of: session, in: bounds, at: moment),
-                                                                      beats: []))
+                                           counted: records.isEmpty ? nil : CountedTime.spans(records: records, beats: []))
     }
 
     /// Nil when the beats leave part of the counted time unrecorded (app use switched on partway): the row
     /// then reads its summary or apps rather than lend a neighbour's purpose to time nothing recorded.
-    private func derivedActivity(for session: DaySession, bounds: DateInterval, beats: [Beat],
+    private func derivedActivity(for session: DaySession, bounds: DateInterval,
+                                 records: [(bounds: DateInterval, paused: [DateInterval]?)], beats: [Beat],
                                  at moment: Date) -> SessionActivityShape? {
-        let counted = CountedTime.spans(records: countedRecords(of: session, in: bounds, at: moment), beats: beats)
-        guard ActivityDerivation.recordsWhole(counted, beats: beats) else { return nil }
+        let counted = CountedTime.spans(records: records, beats: beats)
+        // A running row's counted time runs to now while its last beat is still open: it is tested to the last
+        // closed beat, or the open seconds would tip it between its two readings as each beat closes.
+        let reach = session.isRunning ? beats.map(\.end).max() ?? moment : moment
+        let tested = session.isRunning ? counted.compactMap { span in
+            span.start < reach ? DateInterval(start: span.start, end: min(span.end, reach)) : nil
+        } : counted
+        guard ActivityDerivation.recordsWhole(tested, beats: beats) else { return nil }
         let overrides = engine.store.purposeOverrides, watching = session.workType.countsWhileWatching
         let key = SessionActivityKey(bounds: bounds, counted: counted, beats: beats.count,
                                      algorithmVersion: ActivityConstants.algorithmVersion, isRunning: session.isRunning,

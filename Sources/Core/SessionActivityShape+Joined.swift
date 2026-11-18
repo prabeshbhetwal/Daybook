@@ -26,7 +26,7 @@ extension SessionActivityShape {
                                  end: parts.map(\.bounds.end).max() ?? first.bounds.end),
             countedSeconds: parts.reduce(0) { $0 + $1.countedSeconds },
             signals: Set(parts.flatMap(\.signals)).sorted { $0.rawValue < $1.rawValue },
-            phases: (parts.flatMap(\.phases) + gaps).sorted { $0.start < $1.start },
+            phases: awayMerged((parts.flatMap(\.phases) + gaps).sorted { $0.start < $1.start }),
             depth: nil, label: label(of: credited), credited: credited, fingerprint: nil,
             splitCandidates: parts.flatMap(\.splitCandidates).sorted())
     }
@@ -54,6 +54,21 @@ extension SessionActivityShape {
             countedSeconds: kept.filter(\.counted).reduce(0) { $0 + $1.end.timeIntervalSince($1.start) },
             signals: signals, phases: kept, depth: nil, label: Self.label(of: credited), credited: credited,
             fingerprint: nil, splitCandidates: splitCandidates.filter { row.contains($0) })
+    }
+
+    /// Uncounted away phases side by side read as one: a record's trailing away and the gap after it.
+    private static func awayMerged(_ phases: [SessionPhase]) -> [SessionPhase] {
+        var merged: [SessionPhase] = []
+        for phase in phases {
+            if let last = merged.last, !last.counted, !phase.counted, last.activity == .away, phase.activity == .away {
+                merged[merged.count - 1] = SessionPhase(start: last.start, end: max(last.end, phase.end), activity: .away,
+                                                        counted: false,
+                                                        credited: last.credited.merging(phase.credited, uniquingKeysWith: +))
+            } else {
+                merged.append(phase)
+            }
+        }
+        return merged
     }
 
     /// The purpose with most credited seconds, `.unsorted` under `minCreditedSeconds`.
