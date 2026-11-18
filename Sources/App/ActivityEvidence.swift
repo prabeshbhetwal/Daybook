@@ -26,6 +26,9 @@ final class ActivityEvidence {
     var settled: [UUID: SettledRecord] = [:]
     /// The session archive's revision when `refresh()` last wrote summaries after a stop.
     var sweptRevision = -1
+    /// The records already judged for an automatic split; nil until the first pass of a launch notes what is
+    /// there, so nothing recorded before is ever split behind the person's back.
+    var splitSeen: Set<UUID>?
 
     init(archive: BeatArchive = BeatArchive(), counters: InputCounters = InputCounters()) {
         self.archive = archive

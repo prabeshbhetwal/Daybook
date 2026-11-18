@@ -41,9 +41,12 @@ enum SplitStoreChecks: CheckSuite {
         let start = rig.clock.value.addingTimeInterval(-7_200)
         return SessionRecord(name: "Report", workType: .deepWork, start: start, end: start.addingTimeInterval(3_600),
                              workSeconds: 3_000, detectedApp: "com.apple.dt.Xcode", threadID: UUID(),
-                             isAuto: origin == .automatic,
+                             isAuto: origin != .manual,
                              pausedSpans: [DateInterval(start: start.addingTimeInterval(1_200), duration: 600)],
-                             plannedLength: nil, origin: origin, categorySource: .builtIn, nameByApp: true)
+                             plannedLength: nil, origin: origin,
+                             originRuleID: origin == .rule ? UUID() : nil, originRuleName: origin == .rule ? "Morning writing" : nil,
+                             categorySource: origin == .automatic ? .builtIn : origin == .rule ? .rule : .user,
+                             nameByApp: origin == .automatic)
     }
 
     /// Yesterday's two hours, so a streak and a best streak have something to say.

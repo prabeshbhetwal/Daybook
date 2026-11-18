@@ -18,7 +18,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned, settingsHelp, storyPhases
-    case storyOrigin
+    case storyOrigin, storySplit
 
     var id: String { rawValue }
 
@@ -88,6 +88,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsHelp: return "Settings — every panel's explanation, as its info mark opens it"
         case .storyPhases: return "Story — phase strips of four traced sessions, and one's report"
         case .storyOrigin: return "Story — how sessions began, a contradiction line and the suggestion row"
+        case .storySplit: return "Story — the offer to split a session, and Merge Back on the tail of a split"
         }
     }
 
@@ -122,7 +123,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
              .focusAutomatic, .focusOnBreak, .activityRuleAmbiguity, .activityRuleAutomatic:
             return [.minimum, .comfortable, .popover]
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
-             .storyOrigin:
+             .storyOrigin, .storySplit:
             return [.compact]
         default:
             return [.minimum, .comfortable]
@@ -155,7 +156,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
              .settingsActivityRules:
             return .settings
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
-             .storyOrigin:
+             .storyOrigin, .storySplit:
             return nil
         }
     }
@@ -429,6 +430,8 @@ enum Snapshotter {
             return AnyView(phaseStrips().snapshotAppearance(item.appearance))
         case .storyOrigin:
             return AnyView(originMarks().snapshotAppearance(item.appearance))
+        case .storySplit:
+            return AnyView(splitOffers().snapshotAppearance(item.appearance))
         default:
             return AnyView(Text("Unsupported compact snapshot"))
         }
@@ -518,7 +521,7 @@ enum Snapshotter {
              .settingsActivityRules:
             return FixtureFactory.store(for: .running)
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
-             .storyOrigin:
+             .storyOrigin, .storySplit:
             return FixtureFactory.store(for: .firstRun)
         case .welcomeOpening, .welcomeStep:
             // The welcome is read on a day with nothing in it, which is the

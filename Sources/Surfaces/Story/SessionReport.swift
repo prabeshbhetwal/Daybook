@@ -25,6 +25,10 @@ struct SessionReport {
     var origin: OriginText? = nil
     /// "Mostly media: 34 of 48 minutes", when the label the person or a rule chose and the time part ways.
     var contradiction: String? = nil
+    /// "Split here?", for a finished session of the person's that held two pieces of work.
+    var split: SplitOffer? = nil
+    /// "Merge Back", on the tail of a split.
+    var mergeBack: MergeBackOffer? = nil
 
     var title: String { session.workType.sessionTitle(named: session.name) }
     var apps: [AppRank] { detail.apps }
@@ -93,6 +97,7 @@ struct SessionReport {
                              contradiction: store.provenance(of: session).flatMap {
                                  ContradictionLine.text(category: session.workType, source: $0.categorySource,
                                                         credited: detail.phases?.credited ?? [:])
-                             })
+                             },
+                             split: store.splitOffer(for: session), mergeBack: store.mergeBackOffer(for: session))
     }
 }

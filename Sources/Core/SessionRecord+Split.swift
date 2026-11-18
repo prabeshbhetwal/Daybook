@@ -13,14 +13,27 @@ struct SplitTail: Equatable {
 /// divided by counted time exactly as a day's share of a record is (`workSeconds(in:)`), so the halves
 /// always add up to the record and no total, goal or streak can move.
 extension SessionRecord {
+    /// Whether `moment` is a place a cut may land: work, strictly inside the record and clear of every paused
+    /// span, edges included, since a cut at a pause would leave one half starting or ending on time that
+    /// does not count.
+    func canSplit(at moment: Date) -> Bool {
+        workType.countsAsFocus && breakOrigin == nil && start < moment && moment < end
+            && !(pausedSpans ?? []).contains(where: { $0.start <= moment && moment <= $0.end })
+    }
+
+    /// Ruling B11: an automatic session the person has neither renamed nor filed splits itself when it ends;
+    /// any other is split only if the person says so. A session that was never named counts as renamed, so
+    /// it is offered the cut rather than cut.
+    var splitsItself: Bool {
+        effectiveOrigin == .automatic && effectiveCategorySource != .user && nameByApp != false
+    }
+
     /// The head, which keeps this record's id, thread, name, category and source and now ends at `moment`,
     /// and the tail, a new record from `moment` to the end under `choice` with the head's origin. Nil unless
-    /// `moment` is strictly inside the record and clear of every paused span, edges included: a cut at a
-    /// pause would leave one half starting or ending on time that does not count.
+    /// `canSplit(at:)`.
     func split(at moment: Date, tail choice: SplitTail, tailID: UUID = UUID(),
                tailThread: UUID = UUID()) -> (head: SessionRecord, tail: SessionRecord)? {
-        guard workType.countsAsFocus, breakOrigin == nil, start < moment, moment < end,
-              !(pausedSpans ?? []).contains(where: { $0.start <= moment && moment <= $0.end }) else { return nil }
+        guard canSplit(at: moment) else { return nil }
         let headWork = max(0, min(workSeconds, workSeconds(in: (start: start, end: moment))))
         var head = self
         head.end = moment

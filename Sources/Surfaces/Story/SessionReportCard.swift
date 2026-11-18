@@ -37,6 +37,9 @@ struct SessionReportCard: View {
                         CorrectionSuggestionRow(store: store, session: session, offer: report.suggestion,
                                                 filed: Binding(get: { filing }, set: { filed = $0 }))
                     }
+                    if report.split != nil || report.mergeBack != nil {
+                        SplitOfferRow(store: store, offer: report.split, mergeBack: report.mergeBack, onChanged: onClose)
+                    }
                     SessionReportView(report: report, activityList: list)
                 }
                 .padding(Tokens.Space.xl)

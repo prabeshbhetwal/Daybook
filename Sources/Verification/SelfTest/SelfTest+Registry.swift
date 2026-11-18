@@ -215,6 +215,7 @@ extension SelfTest {
             + CorrectionUndoChecks.tests + CorrectionUndoRuleChecks.tests
             + ContradictionLineChecks.tests + OriginMarkChecks.tests
             + SplitRecordChecks.tests + SplitStoreChecks.tests + SplitStoreRelaunchChecks.tests
+            + SplitOfferChecks.tests + SplitAutomaticChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
