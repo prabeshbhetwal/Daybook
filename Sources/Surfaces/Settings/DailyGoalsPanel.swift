@@ -126,7 +126,7 @@ extension SettingsGroups {
         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
             return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
         }
-        return bundleID.split(separator: ".").last.map(String.init) ?? bundleID
+        return DailyGoalList.fallbackAppName(bundleID)
     }
 
     private static func openApps() -> [(id: String, name: String)] {

@@ -461,7 +461,7 @@ struct StoryRail: View {
     }
 
     private var appLimits: [(bundleID: String, name: String, limit: TimeInterval, used: TimeInterval)] {
-        store.appLimits(on: shownDay, ranked: apps)
+        store.appLimits(ranked: apps)
     }
 
     /// An app kept under a limit: icon, name, "45m of 2h limit", a neutral bar
